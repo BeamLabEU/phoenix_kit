@@ -29,7 +29,7 @@
             "/" -> ""
             prefix -> prefix
           end %>
-        <% files_hint = "priv/publishing/" <> blog_slug <> "/…" %>
+        <% files_hint = @group_files_root <> blog_slug <> "/…" %>
         <%!-- Use first enabled language (default) for public URL, not UI locale --%>
         <% default_language = List.first(@enabled_languages) %>
         <% public_url =
@@ -294,6 +294,65 @@
       </div>
     <% end %>
 
+    <%!-- Version Structure Migration Progress Banner --%>
+    <%= if @version_migration_in_progress do %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-sky-500/10 border border-info/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-sky-500 text-white shadow-sm">
+          <span class="loading loading-spinner loading-sm"></span>
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-info">
+            {gettext("Migrating to versioned structure...")}
+          </span>
+          <%= if @version_migration_progress do %>
+            <div class="flex items-center gap-2 mt-1">
+              <progress
+                class="progress progress-info w-48"
+                value={@version_migration_progress.current}
+                max={@version_migration_progress.total}
+              >
+              </progress>
+              <span class="text-xs text-base-content/60">
+                {@version_migration_progress.current} / {@version_migration_progress.total}
+              </span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Version Structure Migration Banner --%>
+    <%= if not @version_migration_in_progress and @legacy_structure_status && @legacy_structure_status.legacy > 0 do %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-sky-500/10 border border-info/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-sky-500 text-white shadow-sm">
+          <.icon name="hero-arrow-up-circle" class="w-5 h-5" />
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-info">
+            {ngettext(
+              "%{count} post needs version migration",
+              "%{count} posts need version migration",
+              @legacy_structure_status.legacy,
+              count: @legacy_structure_status.legacy
+            )}
+          </span>
+          <p class="text-xs text-base-content/60">
+            {gettext(
+              "Migrate to versioned structure to enable version history and safe editing of published content."
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn btn-info btn-sm"
+          phx-click="show_version_migration_modal"
+        >
+          <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
+          {gettext("Migrate All")}
+        </button>
+      </div>
+    <% end %>
+
     <%!-- Primary Language Migration Progress Banner --%>
     <%= if @migration_in_progress do %>
       <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-primary/10 border border-info/30 mb-6">
@@ -399,7 +458,7 @@
                     Path.dirname(post.path),
                     "#{primary_lang}.phk"
                   ]) %>
-                <% files_path = "priv/publishing/" <> post.path %>
+                <% files_path = @group_files_root <> post.path %>
                 <%!-- Use post's actual language, falling back to first available language for this post --%>
                 <% public_url =
                   PublishingHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
@@ -517,6 +576,72 @@
       </div>
     </div>
   </div>
+
+  <%!-- Version Structure Migration Confirmation Modal --%>
+  <%= if @show_version_migration_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box" phx-click-away="close_version_migration_modal">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-arrow-up-circle" class="w-5 h-5 text-info" />
+          {gettext("Migrate to Versioned Structure")}
+        </h3>
+
+        <div class="space-y-4">
+          <p class="text-base-content/80">
+            {gettext(
+              "This will migrate %{count} posts in this publishing group to the versioned structure.",
+              count: @legacy_structure_status.legacy
+            )}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Posts to Migrate")}</span>
+              <span class="font-medium">{@legacy_structure_status.legacy}</span>
+            </div>
+          </div>
+
+          <div class="text-sm text-base-content/70 space-y-2">
+            <p>
+              <strong>{gettext("What this does:")}</strong>
+            </p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+              <li>{gettext("Creates a v1/ directory for each post")}</li>
+              <li>{gettext("Moves post files into the v1/ directory")}</li>
+              <li>{gettext("Enables version history and safe editing of published content")}</li>
+              <li>{gettext("Does not modify post content")}</li>
+            </ul>
+          </div>
+
+          <%= if @legacy_structure_status.legacy > 20 do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
+              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p class="text-xs text-info">
+                {gettext(
+                  "This migration will run in the background. You can continue working while posts are migrated."
+                )}
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" phx-click="close_version_migration_modal">
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-info"
+            phx-click="confirm_migrate_to_versioned"
+            phx-disable-with={gettext("Migrating...")}
+          >
+            <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
+            {gettext("Migrate %{count} Posts", count: @legacy_structure_status.legacy)}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 
   <%!-- Primary Language Migration Confirmation Modal --%>
   <%= if @show_migration_modal do %>

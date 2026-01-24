@@ -183,6 +183,106 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
+  # ===========================================================================
+  # Legacy Structure Migration
+  # ===========================================================================
+
+  # Migration detection functions (via ListingCache)
+  defdelegate posts_needing_version_migration(group_slug), to: ListingCache
+  defdelegate count_legacy_structure_status(group_slug), to: ListingCache
+
+  @doc """
+  Checks if any posts in a group need version structure migration.
+  """
+  @spec posts_need_version_migration?(String.t()) :: boolean()
+  def posts_need_version_migration?(group_slug) do
+    ListingCache.posts_needing_version_migration(group_slug) != []
+  end
+
+  @doc """
+  Returns count of posts by version structure status.
+  """
+  @spec get_legacy_structure_status(String.t()) :: map()
+  def get_legacy_structure_status(group_slug) do
+    ListingCache.count_legacy_structure_status(group_slug)
+  end
+
+  @doc """
+  Migrates all legacy structure posts in a group to versioned structure (v1/).
+
+  This moves files from the post root into a v1/ subdirectory and updates
+  metadata. The migration is idempotent - already versioned posts are skipped.
+
+  Returns `{:ok, count}` where count is the number of posts migrated.
+  """
+  @spec migrate_posts_to_versioned_structure(String.t()) ::
+          {:ok, integer()} | {:error, any()}
+  def migrate_posts_to_versioned_structure(group_slug) do
+    require Logger
+    posts = ListingCache.posts_needing_version_migration(group_slug)
+
+    Logger.debug("[VersionMigration] Found #{length(posts)} posts needing migration")
+
+    if posts == [] do
+      {:ok, 0}
+    else
+      results =
+        posts
+        |> Enum.map(fn cached_post ->
+          migrate_single_post_to_versioned(group_slug, cached_post)
+        end)
+
+      success_count = Enum.count(results, &match?({:ok, _}, &1))
+      error_count = length(results) - success_count
+
+      Logger.debug("[VersionMigration] Success: #{success_count}, Errors: #{error_count}")
+
+      # Regenerate cache with updated structure
+      ListingCache.regenerate(group_slug)
+
+      if error_count > 0 and success_count == 0 do
+        {:error, :all_migrations_failed}
+      else
+        {:ok, success_count}
+      end
+    end
+  end
+
+  defp migrate_single_post_to_versioned(group_slug, cached_post) do
+    require Logger
+    post_identifier = get_post_slug(cached_post)
+    language = cached_post[:language] || List.first(cached_post[:available_languages] || ["en"])
+
+    Logger.debug(
+      "[VersionMigration] Migrating post identifier=#{inspect(post_identifier)} language=#{language}"
+    )
+
+    # Read full post from disk
+    full_post_result =
+      case cached_post[:mode] do
+        :timestamp ->
+          Storage.read_post(group_slug, cached_post[:path])
+
+        "timestamp" ->
+          Storage.read_post(group_slug, cached_post[:path])
+
+        _ ->
+          Storage.read_post_slug_mode(group_slug, post_identifier, language, nil)
+      end
+
+    case full_post_result do
+      {:ok, full_post} ->
+        Storage.migrate_post_to_versioned(full_post, language)
+
+      {:error, reason} ->
+        Logger.warning(
+          "[VersionMigration] Failed to read post #{post_identifier}: #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
   defdelegate language_enabled?(language_code, enabled_languages), to: Storage
   defdelegate get_display_code(language_code, enabled_languages), to: Storage
   defdelegate order_languages_for_display(available_languages, enabled_languages), to: Storage

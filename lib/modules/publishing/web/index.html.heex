@@ -179,6 +179,50 @@
                   <% end %>
                 </div>
 
+                <%!-- Version Structure Migration Progress/Warning --%>
+                <% version_migration_progress =
+                  Map.get(@version_migrations_in_progress, insight.slug) %>
+                <%= if version_migration_progress do %>
+                  <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20">
+                    <span class="loading loading-spinner loading-xs text-info"></span>
+                    <div class="flex-1">
+                      <span class="text-xs text-info">
+                        {gettext("Migrating to versioned structure...")}
+                      </span>
+                      <progress
+                        class="progress progress-info w-full h-1 mt-1"
+                        value={version_migration_progress.current}
+                        max={version_migration_progress.total}
+                      >
+                      </progress>
+                    </div>
+                  </div>
+                <% else %>
+                  <%= if insight.needs_version_migration do %>
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20">
+                      <.icon name="hero-arrow-up-circle" class="w-4 h-4 text-info shrink-0" />
+                      <span class="text-xs text-info flex-1">
+                        {ngettext(
+                          "%{count} post needs version migration",
+                          "%{count} posts need version migration",
+                          insight.legacy_count,
+                          count: insight.legacy_count
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        class="btn btn-info btn-xs"
+                        phx-click="show_version_migration_modal"
+                        phx-value-slug={insight.slug}
+                        phx-value-name={insight.name}
+                        phx-value-count={insight.legacy_count}
+                      >
+                        {gettext("Migrate")}
+                      </button>
+                    </div>
+                  <% end %>
+                <% end %>
+
                 <%!-- Primary Language Migration Progress/Warning --%>
                 <% migration_progress = Map.get(@migrations_in_progress, insight.slug) %>
                 <%= if migration_progress do %>
@@ -268,6 +312,77 @@
       <% end %>
     </div>
   </div>
+
+  <%!-- Version Structure Migration Confirmation Modal --%>
+  <%= if @show_version_migration_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box" phx-click-away="close_version_migration_modal">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-arrow-up-circle" class="w-5 h-5 text-info" />
+          {gettext("Migrate to Versioned Structure")}
+        </h3>
+
+        <div class="space-y-4">
+          <p class="text-base-content/80">
+            {gettext(
+              "This will migrate %{count} posts in \"%{name}\" to the versioned structure.",
+              count: @version_migration_modal_count,
+              name: @version_migration_modal_name
+            )}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Publishing Group")}</span>
+              <span class="font-medium">{@version_migration_modal_name}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Posts to Migrate")}</span>
+              <span class="font-medium">{@version_migration_modal_count}</span>
+            </div>
+          </div>
+
+          <div class="text-sm text-base-content/70 space-y-2">
+            <p>
+              <strong>{gettext("What this does:")}</strong>
+            </p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+              <li>{gettext("Creates a v1/ directory for each post")}</li>
+              <li>{gettext("Moves post files into the v1/ directory")}</li>
+              <li>{gettext("Enables version history and safe editing of published content")}</li>
+              <li>{gettext("Does not modify post content")}</li>
+            </ul>
+          </div>
+
+          <%= if @version_migration_modal_count > 20 do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
+              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p class="text-xs text-info">
+                {gettext(
+                  "This migration will run in the background. You can continue working while posts are migrated."
+                )}
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" phx-click="close_version_migration_modal">
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-info"
+            phx-click="confirm_migrate_to_versioned"
+            phx-disable-with={gettext("Migrating...")}
+          >
+            <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
+            {gettext("Migrate %{count} Posts", count: @version_migration_modal_count)}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 
   <%!-- Primary Language Migration Confirmation Modal --%>
   <%= if @show_migration_modal do %>

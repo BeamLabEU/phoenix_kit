@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
+  alias PhoenixKit.Modules.Publishing.Workers.MigrateLegacyStructureWorker
   alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -79,6 +80,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:loading, true)
       |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
+      |> assign(:group_files_root, get_group_files_root(blog_slug))
       |> assign(:cache_info, get_cache_info(blog_slug))
       |> assign(:primary_language_status, get_primary_language_status(blog_slug))
       |> assign(:active_editors, %{})
@@ -88,6 +90,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:show_migration_modal, false)
       |> assign(:migration_in_progress, false)
       |> assign(:migration_progress, nil)
+      # Version structure migration assigns
+      |> assign(:legacy_structure_status, get_legacy_structure_status(blog_slug))
+      |> assign(:show_version_migration_modal, false)
+      |> assign(:version_migration_in_progress, false)
+      |> assign(:version_migration_progress, nil)
 
     {:ok, redirect_if_missing(socket)}
   end
@@ -151,8 +158,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:posts, posts)
       |> assign(:loading, loading)
       |> assign(:endpoint_url, endpoint_url)
+      |> assign(:group_files_root, get_group_files_root(new_blog_slug))
       |> assign(:cache_info, get_cache_info(new_blog_slug))
       |> assign(:primary_language_status, get_primary_language_status(new_blog_slug))
+      |> assign(:legacy_structure_status, get_legacy_structure_status(new_blog_slug))
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -545,6 +554,71 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
+  # Version structure migration events
+  def handle_event("show_version_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_version_migration_modal, true)}
+  end
+
+  def handle_event("close_version_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_version_migration_modal, false)}
+  end
+
+  def handle_event("confirm_migrate_to_versioned", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    status = socket.assigns.legacy_structure_status
+    total_count = status.legacy
+
+    # Use background job for large migrations
+    if total_count > @migration_async_threshold do
+      case MigrateLegacyStructureWorker.enqueue(blog_slug) do
+        {:ok, _job} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> assign(:version_migration_in_progress, true)
+           |> assign(:version_migration_progress, %{current: 0, total: total_count})
+           |> put_flash(
+             :info,
+             gettext("Version migration started for %{count} posts. You can continue working.",
+               count: total_count
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
+           )}
+      end
+    else
+      # Synchronous migration for small counts
+      case Publishing.migrate_posts_to_versioned_structure(blog_slug) do
+        {:ok, count} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> assign(:legacy_structure_status, get_legacy_structure_status(blog_slug))
+           |> refresh_posts()
+           |> put_flash(
+             :info,
+             gettext("Migrated %{count} posts to versioned structure", count: count)
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to migrate: %{reason}", reason: inspect(reason))
+           )}
+      end
+    end
+  end
+
   # PubSub handlers for live updates
   @impl true
   def handle_info({:post_created, _post}, socket) do
@@ -731,6 +805,66 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
               count: success_count,
               lang: get_language_name(primary_language)
             )
+          )
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Legacy structure (version) migration progress handlers
+  def handle_info({:legacy_structure_migration_started, group_slug, total_count}, socket) do
+    # Only track if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply,
+       socket
+       |> assign(:version_migration_in_progress, true)
+       |> assign(:version_migration_progress, %{current: 0, total: total_count})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:legacy_structure_migration_progress, group_slug, current, total}, socket) do
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply, assign(socket, :version_migration_progress, %{current: current, total: total})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(
+        {:legacy_structure_migration_completed, group_slug, success_count, error_count},
+        socket
+      ) do
+    # Only handle if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      blog_slug = socket.assigns.blog_slug
+
+      socket =
+        socket
+        |> assign(:version_migration_in_progress, false)
+        |> assign(:version_migration_progress, nil)
+        |> assign(:legacy_structure_status, get_legacy_structure_status(blog_slug))
+        |> refresh_posts()
+
+      socket =
+        if error_count > 0 do
+          put_flash(
+            socket,
+            :warning,
+            gettext("Version migration completed: %{success} succeeded, %{errors} failed",
+              success: success_count,
+              errors: error_count
+            )
+          )
+        else
+          put_flash(
+            socket,
+            :info,
+            gettext("Migrated %{count} posts to versioned structure", count: success_count)
           )
         end
 
@@ -1165,10 +1299,29 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     Publishing.get_primary_language_migration_status(blog_slug)
   end
 
+  defp get_legacy_structure_status(nil), do: %{versioned: 0, legacy: 0}
+
+  defp get_legacy_structure_status(blog_slug) do
+    Publishing.get_legacy_structure_status(blog_slug)
+  end
+
   defp get_language_name(language_code) do
     case Publishing.get_language_info(language_code) do
       %{name: name} -> name
       _ -> String.upcase(language_code)
+    end
+  end
+
+  # Returns the relative path prefix for files (e.g., "priv/blogging/" or "priv/publishing/")
+  defp get_group_files_root(nil), do: "priv/publishing/"
+
+  defp get_group_files_root(blog_slug) do
+    group_path = Storage.group_path(blog_slug)
+
+    cond do
+      String.contains?(group_path, "/blogging/") -> "priv/blogging/"
+      String.contains?(group_path, "/publishing/") -> "priv/publishing/"
+      true -> "priv/publishing/"
     end
   end
 end

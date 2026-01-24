@@ -799,6 +799,78 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end)
   end
 
+  # ===========================================================================
+  # Legacy Structure Migration Status
+  # ===========================================================================
+
+  @doc """
+  Counts posts by version structure status for a group.
+
+  Returns `%{versioned: n, legacy: n}` where:
+  - `versioned` - posts with v1/, v2/, etc. structure
+  - `legacy` - posts with flat file structure (need migration)
+  """
+  @spec count_legacy_structure_status(String.t()) :: map()
+  def count_legacy_structure_status(blog_slug) do
+    case read(blog_slug) do
+      {:ok, posts} ->
+        Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
+          if post[:is_legacy_structure] do
+            %{acc | legacy: acc.legacy + 1}
+          else
+            %{acc | versioned: acc.versioned + 1}
+          end
+        end)
+
+      {:error, _} ->
+        # If cache doesn't exist, scan filesystem directly
+        scan_legacy_structure_status(blog_slug)
+    end
+  end
+
+  @doc """
+  Returns list of posts that need version structure migration.
+  """
+  @spec posts_needing_version_migration(String.t()) :: [map()]
+  def posts_needing_version_migration(blog_slug) do
+    case read(blog_slug) do
+      {:ok, posts} ->
+        Enum.filter(posts, & &1[:is_legacy_structure])
+
+      {:error, _} ->
+        # If cache doesn't exist, scan filesystem directly
+        scan_posts_needing_version_migration(blog_slug)
+    end
+  end
+
+  defp scan_legacy_structure_status(blog_slug) do
+    posts = get_posts_for_scan(blog_slug)
+
+    Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
+      if Map.get(post, :is_legacy_structure, false) do
+        %{acc | legacy: acc.legacy + 1}
+      else
+        %{acc | versioned: acc.versioned + 1}
+      end
+    end)
+  end
+
+  defp scan_posts_needing_version_migration(blog_slug) do
+    posts = get_posts_for_scan(blog_slug)
+    Enum.filter(posts, &Map.get(&1, :is_legacy_structure, false))
+  end
+
+  defp get_posts_for_scan(blog_slug) do
+    # Try slug mode first, then timestamp mode
+    posts = Storage.list_posts_slug_mode(blog_slug)
+
+    if posts == [] do
+      Storage.list_posts(blog_slug)
+    else
+      posts
+    end
+  end
+
   # Private functions
 
   defp write_cache_file(path, data) do
