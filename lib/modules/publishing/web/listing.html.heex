@@ -456,24 +456,52 @@
                     </div>
                     <%!-- Languages section --%>
                     <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
-                      <%!-- Primary language label (uses post's stored primary, not global) --%>
-                      <% post_primary = post[:primary_language] || @primary_language %>
-                      <div class="flex items-center gap-2 text-xs">
-                        <span class="text-base-content/60">{gettext("Primary")}:</span>
-                        <span class="font-bold text-base-content uppercase">
-                          {String.upcase(post_primary)}
-                        </span>
-                      </div>
-                      <%!-- All translations --%>
+                      <%!-- Build all languages and separate primary from others --%>
+                      <% all_languages =
+                        build_post_languages(
+                          post,
+                          @blog_slug,
+                          @enabled_languages,
+                          @current_locale
+                        ) %>
+                      <% primary_lang = Enum.find(all_languages, & &1.is_primary) %>
+                      <% other_languages = Enum.reject(all_languages, & &1.is_primary) %>
+
+                      <%!-- Primary language (clickable, prominent) --%>
+                      <%= if primary_lang do %>
+                        <button
+                          type="button"
+                          phx-click="language_action"
+                          phx-value-language={primary_lang.code}
+                          phx-value-path={primary_lang.path}
+                          phx-value-post_path={primary_lang.post_path}
+                          phx-value-status={primary_lang.status}
+                          class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors"
+                          title={primary_lang.name}
+                        >
+                          <span class="text-xs text-primary/70 font-medium">
+                            {gettext("Primary")}
+                          </span>
+                          <span class={[
+                            "rounded-full inline-block w-2.5 h-2.5",
+                            cond do
+                              not primary_lang.exists -> "bg-base-content/20"
+                              primary_lang.status == "published" -> "bg-success"
+                              primary_lang.status == "draft" -> "bg-warning"
+                              primary_lang.status == "archived" -> "bg-base-content/40"
+                              true -> "bg-base-content/20"
+                            end
+                          ]}>
+                          </span>
+                          <span class="text-sm font-bold text-primary uppercase">
+                            {String.upcase(primary_lang.display_code)}
+                          </span>
+                        </button>
+                      <% end %>
+
+                      <%!-- Other translations (excluding primary) --%>
                       <.publishing_language_switcher
-                        languages={
-                          build_post_languages(
-                            post,
-                            @blog_slug,
-                            @enabled_languages,
-                            @current_locale
-                          )
-                        }
+                        languages={other_languages}
                         show_status={true}
                         show_add={true}
                         on_click="language_action"
