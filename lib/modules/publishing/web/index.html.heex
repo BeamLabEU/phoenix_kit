@@ -17,6 +17,14 @@
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
       </.link>
 
+      <%!-- Create Group Button (Right aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/settings/publishing/new")}
+        class="btn btn-primary btn-sm absolute right-0 top-0 -mb-12"
+      >
+        <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
+      </.link>
+
       <%!-- Title Section --%>
       <div class="text-center">
         <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Publishing")}</h1>
