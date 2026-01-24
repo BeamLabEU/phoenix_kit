@@ -1,3 +1,27 @@
+## 1.7.28 - 2026-01-24
+- Major improvements to the Publishing module's multi-language workflow: renamed "master" to "primary" terminology, fixed URL routing with locales, added language migration tools, improved cache performance, and fixed several UI/UX issues in settings and admin pages.
+  - Multi-Language System Improvements
+    - Rename master to primary terminology - Updated all references from "master language" to "primary language" for consistency and clarity
+    - Fix language in URL breaking navigation - Resolved issues where locale prefixes in URLs caused routing problems
+    - Isolate posts from global primary_language changes - Posts now store their own primary language, preventing drift when global settings change
+    - Add "Translate to This Language" button - Quick translation action for non-primary languages in the editor
+    - Sort languages in dropdowns - Consistent alphabetical sorting across all language selectors
+  - Migration Tools
+    - Add version structure migration UI - Visual indicators and migration buttons throughout the publishing module
+    - Fix legacy post migration - Resolved "post not found" errors when migrating from legacy to versioned structure
+    - Handle dual directory structures - Fixed migration when both publishing/ and blogging/ directories exist
+    - Add primary language migration system - Tools to migrate posts to use isolated primary language settings
+  - Performance
+    - Improve listing performance - Read from cache when possible, reducing database/filesystem hits
+    - Language caching with WebSocket transport - Faster language resolution with proper cache invalidation
+    - Add Create Group shortcut - Quick access button on publishing overview page
+  - Settings & Admin UI Fixes
+    - Fix General settings content language glitch - Resolved weird UI behavior when changing content language
+    - Fix settings tab highlighting - General and Languages tabs now properly highlight on child pages
+    - Fix admin header dropdowns - Theme and language dropdowns in admin header now work correctly
+    - Update Entities module description - Clearer description on the Modules page
+- Updated the languages module added front and backend tabs for languages
+
 ## 1.7.27 - 2026-01-19
 - Changed / Added
   - Added prefix-aware navigation helpers and dynamic URL prefix support across dashboard, tabs, auth pages, and project home URLs, fixing issues when locale or prefix is nil.
