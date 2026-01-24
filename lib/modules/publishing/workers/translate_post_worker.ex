@@ -75,10 +75,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   def perform(%Oban.Job{args: args}) do
     group_slug = Map.fetch!(args, "group_slug")
     post_slug = Map.fetch!(args, "post_slug")
-    endpoint_id = Map.get(args, "endpoint_id") || get_default_endpoint_id()
-    source_language = Map.get(args, "source_language") || Storage.get_primary_language()
-    target_languages = Map.get(args, "target_languages") || get_target_languages(source_language)
     version = Map.get(args, "version")
+    endpoint_id = Map.get(args, "endpoint_id") || get_default_endpoint_id()
+    # Use post's stored primary language as default source, not global
+    source_language =
+      Map.get(args, "source_language") ||
+        Storage.get_post_primary_language(group_slug, post_slug, version)
+
+    target_languages = Map.get(args, "target_languages") || get_target_languages(source_language)
     user_id = Map.get(args, "user_id")
 
     Logger.info(

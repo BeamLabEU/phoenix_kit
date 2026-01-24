@@ -913,7 +913,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   defp find_published_slug_post(blog_slug, post_slug, versions, language) do
-    primary_language = Storage.get_primary_language()
+    # Use post's stored primary language for fallback, not global
+    primary_language = Storage.get_post_primary_language(blog_slug, post_slug)
     post_dir = Path.join([Storage.group_path(blog_slug), post_slug])
 
     published_result =
@@ -1020,7 +1021,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # Falls back to primary language or first available if requested language isn't found
   defp fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir) do
     versions = list_timestamp_versions(post_dir) |> Enum.sort(:desc)
-    primary_language = Storage.get_primary_language()
+    # Use post's stored primary language for fallback
+    post_identifier = Path.join(date, time)
+    primary_language = Storage.get_post_primary_language(blog_slug, post_identifier)
 
     # Find first published version, starting from highest
     published_result =
@@ -1056,7 +1059,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # Falls back to primary language or first available if requested language isn't found
   defp fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir) do
     available_languages = detect_available_languages_in_dir(post_dir)
-    primary_language = Storage.get_primary_language()
+    # Use post's stored primary language for fallback
+    post_identifier = Path.join(date, time)
+    primary_language = Storage.get_post_primary_language(blog_slug, post_identifier)
     resolved_language = resolve_language_for_post(language, available_languages)
 
     # Build priority list of languages to try
@@ -1570,8 +1575,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # Checks if a specific post allows public access to older versions
   # Always reads from the primary language's live version to ensure consistency
   defp post_allows_version_access?(blog_slug, post_slug, _language) do
-    # Always read from primary language to ensure per-post (not per-language) behavior
-    primary_language = Storage.get_primary_language()
+    # Always read from post's stored primary language to ensure per-post behavior
+    primary_language = Storage.get_post_primary_language(blog_slug, post_slug)
 
     # Read the live version (version: nil means get latest/live)
     case Publishing.read_post(blog_slug, post_slug, primary_language, nil) do
@@ -1641,7 +1646,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
 
       {:error, _} ->
         # Cache miss - fall back to file reads
-        primary_language = Storage.get_primary_language()
+        # Use post's stored primary language, not global
+        primary_language =
+          current_post[:primary_language] ||
+            Storage.get_post_primary_language(blog_slug, current_post.slug)
+
         allow_access = get_allow_access_from_file(blog_slug, current_post, primary_language)
         live_version = get_live_version_from_file(blog_slug, current_post.slug)
         {allow_access, live_version}

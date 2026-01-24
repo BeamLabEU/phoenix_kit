@@ -610,7 +610,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("translate_to_all_languages", _params, socket) do
-    target_languages = get_all_target_languages()
+    target_languages = get_all_target_languages(socket)
     # Use :warning because no other languages indicates a configuration issue
     empty_opts = {:warning, gettext("No other languages enabled to translate to")}
     enqueue_translation(socket, target_languages, empty_opts)
@@ -1034,7 +1034,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     blog_slug = socket.assigns.blog_slug
     post = socket.assigns.post
     language = socket.assigns.current_language
-    primary_language = Storage.get_primary_language()
+    # Use the post's stored primary language for fallback, not global
+    primary_language = post[:primary_language] || Storage.get_primary_language()
 
     read_fn =
       if socket.assigns.blog_mode == "slug" do
@@ -2054,7 +2055,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp assign_current_language(socket, language_code) do
     enabled_languages = socket.assigns[:all_enabled_languages] || []
     lang_info = Publishing.get_language_info(language_code)
-    primary_language = Storage.get_primary_language()
+    # Use the post's stored primary language if available, otherwise fall back to global
+    post_primary = socket.assigns[:post] && socket.assigns.post[:primary_language]
+    primary_language = post_primary || Storage.get_primary_language()
     is_primary = language_code == primary_language
 
     # Check if the post needs primary language migration (only for primary language view)
@@ -2287,8 +2290,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   """
   def build_editor_languages(post, _blog_slug, enabled_languages, current_language) do
     # Use shared ordering function for consistent display across all views
+    # Pass post's stored primary language for correct ordering
+    post_primary = post[:primary_language] || Storage.get_primary_language()
+
     all_languages =
-      Storage.order_languages_for_display(post.available_languages || [], enabled_languages)
+      Storage.order_languages_for_display(
+        post.available_languages || [],
+        enabled_languages,
+        post_primary
+      )
 
     # Get preloaded language statuses (falls back to empty map for backwards compatibility)
     language_statuses = Map.get(post, :language_statuses) || %{}
@@ -3470,15 +3480,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp get_target_languages_for_translation(socket) do
-    primary_language = Storage.get_primary_language()
-    available_languages = socket.assigns.post.available_languages || []
+    post = socket.assigns.post
+    # Use post's stored primary language for translation source
+    primary_language = post[:primary_language] || Storage.get_primary_language()
+    available_languages = post.available_languages || []
 
     Storage.enabled_language_codes()
     |> Enum.reject(&(&1 == primary_language or &1 in available_languages))
   end
 
-  defp get_all_target_languages do
-    primary_language = Storage.get_primary_language()
+  defp get_all_target_languages(socket) do
+    post = socket.assigns.post
+    # Use post's stored primary language to exclude from targets
+    primary_language = post[:primary_language] || Storage.get_primary_language()
 
     Storage.enabled_language_codes()
     |> Enum.reject(&(&1 == primary_language))

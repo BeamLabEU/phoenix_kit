@@ -1006,15 +1006,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         _current_locale,
         primary_language \\ nil
       ) do
+    # Get primary language - prefer passed param, then post's stored value, then global
+    primary_lang =
+      primary_language || post[:primary_language] || Storage.get_primary_language()
+
     # Use shared ordering function for consistent display across all views
     all_languages =
-      Storage.order_languages_for_display(post.available_languages, enabled_languages)
+      Storage.order_languages_for_display(
+        post.available_languages,
+        enabled_languages,
+        primary_lang
+      )
 
     # Get preloaded language statuses (falls back to empty map for backwards compatibility)
     language_statuses = Map.get(post, :language_statuses) || %{}
-
-    # Get primary language if not provided
-    primary_lang = primary_language || Storage.get_primary_language()
 
     Enum.map(all_languages, fn lang_code ->
       lang_path =
