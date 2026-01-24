@@ -907,7 +907,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     blog_slug = socket.assigns.blog_slug
     post = socket.assigns.post
 
-    if post && socket.assigns.is_primary_language do
+    if post do
       primary_language = Storage.get_primary_language()
       language_name = get_language_name(primary_language)
       post_dir = get_post_directory(post)
@@ -917,8 +917,24 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           # Regenerate cache so listing page banners/counts reflect the update
           ListingCache.regenerate(blog_slug)
 
+          # Update the post's primary_language in the socket so UI reflects the change
+          updated_post = Map.put(post, :primary_language, primary_language)
+
+          # Rebuild editor languages with the new primary language
+          enabled_languages = socket.assigns[:all_enabled_languages] || []
+
+          editor_languages =
+            build_editor_languages(
+              updated_post,
+              blog_slug,
+              enabled_languages,
+              socket.assigns.current_language
+            )
+
           socket =
             socket
+            |> assign(:post, updated_post)
+            |> assign(:editor_languages, editor_languages)
             |> assign(:post_primary_language_status, {:ok, :current})
             |> put_flash(
               :info,
@@ -2060,24 +2076,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     primary_language = post_primary || Storage.get_primary_language()
     is_primary = language_code == primary_language
 
-    # Check if the post needs primary language migration (only for primary language view)
+    # Check if the post needs primary language migration (shown on ALL language tabs)
     primary_lang_status =
-      if is_primary do
-        case {socket.assigns[:blog_slug], socket.assigns[:post]} do
-          {blog_slug, post} when is_binary(blog_slug) and is_map(post) ->
-            post_dir = get_post_directory(post)
+      case {socket.assigns[:blog_slug], socket.assigns[:post]} do
+        {blog_slug, post} when is_binary(blog_slug) and is_map(post) ->
+          post_dir = get_post_directory(post)
 
-            if post_dir do
-              Publishing.check_primary_language_status(blog_slug, post_dir)
-            else
-              {:ok, :current}
-            end
-
-          _ ->
+          if post_dir do
+            Publishing.check_primary_language_status(blog_slug, post_dir)
+          else
             {:ok, :current}
-        end
-      else
-        {:ok, :current}
+          end
+
+        _ ->
+          {:ok, :current}
       end
 
     socket
