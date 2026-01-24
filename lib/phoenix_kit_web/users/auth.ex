@@ -1270,7 +1270,8 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Get the list of admin language codes from settings
   defp get_admin_language_codes do
     case PhoenixKit.Settings.get_setting_cached("admin_languages") do
-      nil -> []
+      nil ->
+        []
 
       json when is_binary(json) ->
         case Jason.decode(json) do

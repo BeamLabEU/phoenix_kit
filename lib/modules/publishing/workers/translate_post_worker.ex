@@ -662,9 +662,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       Keyword.get(opts, :source_language) ||
         Storage.get_post_primary_language(group_slug, post_slug, version)
 
-    unless AI.enabled?() do
-      {:error, "AI module is not enabled"}
-    else
+    if AI.enabled?() do
       case AI.get_endpoint(endpoint_id) do
         nil ->
           {:error, "AI endpoint not found: #{endpoint_id}"}
@@ -681,6 +679,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
               {:error, "Failed to read source post: #{inspect(reason)}"}
           end
       end
+    else
+      {:error, "AI module is not enabled"}
     end
   end
 
@@ -749,9 +749,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       Keyword.get(opts, :source_language) ||
         Storage.get_post_primary_language(group_slug, post_slug, version)
 
-    unless AI.enabled?() do
-      {:error, "AI module is not enabled"}
-    else
+    if AI.enabled?() do
       case AI.get_endpoint(endpoint_id) do
         nil ->
           {:error, "AI endpoint not found: #{endpoint_id}"}
@@ -774,6 +772,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
               {:error, "Failed to read source post: #{inspect(reason)}"}
           end
       end
+    else
+      {:error, "AI module is not enabled"}
     end
   end
 end

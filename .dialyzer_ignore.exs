@@ -1,8 +1,4 @@
 [
-  # Test support files - ExUnit.CaseTemplate internals not available to Dialyzer
-  {"test/support/conn_case.ex", :unknown_function},
-  {"test/support/data_case.ex", :unknown_function},
-
   # Mix functions are only available during Mix compilation context
   {"lib/mix/tasks/phoenix_kit.install.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},
@@ -100,6 +96,12 @@
   # Publishing Controller - with-chain type inference false positives
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/,
+
+  # Publishing Workers - with-chain type inference false positives
+  # Dialyzer incorrectly infers read_post only returns errors in certain contexts
+  ~r/lib\/modules\/publishing\/workers\/migrate_legacy_structure_worker\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*unused_fun/,
 
   # Dashboard tab system - keyword list spec inference false positives
   # Functions accept keyword() but Dialyzer infers broader types from pattern matching
