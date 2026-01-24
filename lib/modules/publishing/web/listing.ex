@@ -11,9 +11,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
+  alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
+
+  # Threshold for using background job vs synchronous migration
+  @migration_async_threshold 20
 
   # Import publishing-specific components
   import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
@@ -70,15 +74,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:blog_slug, blog_slug)
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:primary_language, Storage.get_primary_language())
+      |> assign(:primary_language_name, get_language_name(Storage.get_primary_language()))
       |> assign(:posts, [])
       |> assign(:loading, true)
       |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
       |> assign(:cache_info, get_cache_info(blog_slug))
+      |> assign(:primary_language_status, get_primary_language_status(blog_slug))
       |> assign(:active_editors, %{})
       |> assign(:translating_posts, %{})
       # Debounce timers for post updates (prevents disk hammering on rapid saves)
       |> assign(:pending_post_updates, %{})
+      |> assign(:show_migration_modal, false)
+      |> assign(:migration_in_progress, false)
+      |> assign(:migration_progress, nil)
 
     {:ok, redirect_if_missing(socket)}
   end
@@ -143,6 +152,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:loading, loading)
       |> assign(:endpoint_url, endpoint_url)
       |> assign(:cache_info, get_cache_info(new_blog_slug))
+      |> assign(:primary_language_status, get_primary_language_status(new_blog_slug))
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -468,6 +478,73 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
+  def handle_event("show_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_migration_modal, true)}
+  end
+
+  def handle_event("close_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_migration_modal, false)}
+  end
+
+  def handle_event("confirm_migrate_primary_language", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    primary_language = Storage.get_primary_language()
+    status = socket.assigns.primary_language_status
+    total_count = status.needs_backfill + status.needs_migration
+
+    # Use background job for large migrations
+    if total_count > @migration_async_threshold do
+      case MigratePrimaryLanguageWorker.enqueue(blog_slug, primary_language) do
+        {:ok, _job} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> assign(:migration_in_progress, true)
+           |> assign(:migration_progress, %{current: 0, total: total_count})
+           |> put_flash(
+             :info,
+             gettext("Migration started for %{count} posts. You can continue working.",
+               count: total_count
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
+           )}
+      end
+    else
+      # Synchronous migration for small counts
+      case Publishing.migrate_posts_to_current_primary_language(blog_slug) do
+        {:ok, count} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> assign(:primary_language_status, get_primary_language_status(blog_slug))
+           |> put_flash(
+             :info,
+             gettext("Updated %{count} posts to primary language: %{lang}",
+               count: count,
+               lang: get_language_name(primary_language)
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to migrate: %{reason}", reason: inspect(reason))
+           )}
+      end
+    end
+  end
+
   # PubSub handlers for live updates
   @impl true
   def handle_info({:post_created, _post}, socket) do
@@ -598,6 +675,69 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   def handle_info({:clear_translation_status, post_slug}, socket) do
     translating = Map.delete(socket.assigns.translating_posts, post_slug)
     {:noreply, assign(socket, :translating_posts, translating)}
+  end
+
+  # Primary language migration progress handlers
+  def handle_info({:primary_language_migration_started, group_slug, total_count}, socket) do
+    # Only track if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply,
+       socket
+       |> assign(:migration_in_progress, true)
+       |> assign(:migration_progress, %{current: 0, total: total_count})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:primary_language_migration_progress, group_slug, current, total}, socket) do
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply, assign(socket, :migration_progress, %{current: current, total: total})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(
+        {:primary_language_migration_completed, group_slug, success_count, error_count,
+         primary_language},
+        socket
+      ) do
+    # Only handle if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      blog_slug = socket.assigns.blog_slug
+
+      socket =
+        socket
+        |> assign(:migration_in_progress, false)
+        |> assign(:migration_progress, nil)
+        |> assign(:primary_language_status, get_primary_language_status(blog_slug))
+
+      socket =
+        if error_count > 0 do
+          put_flash(
+            socket,
+            :warning,
+            gettext("Migration completed: %{success} succeeded, %{errors} failed",
+              success: success_count,
+              errors: error_count
+            )
+          )
+        else
+          put_flash(
+            socket,
+            :info,
+            gettext("Updated %{count} posts to primary language: %{lang}",
+              count: success_count,
+              lang: get_language_name(primary_language)
+            )
+          )
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Group change handlers - keep sidebar in sync
@@ -1011,6 +1151,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
           render_enabled: render_enabled,
           render_global_enabled: render_global_enabled
         }
+    end
+  end
+
+  defp get_primary_language_status(nil), do: nil
+
+  defp get_primary_language_status(blog_slug) do
+    Publishing.get_primary_language_migration_status(blog_slug)
+  end
+
+  defp get_language_name(language_code) do
+    case Publishing.get_language_info(language_code) do
+      %{name: name} -> name
+      _ -> String.upcase(language_code)
     end
   end
 end

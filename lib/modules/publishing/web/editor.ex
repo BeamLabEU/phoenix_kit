@@ -18,6 +18,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PresenceHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -84,6 +85,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:current_language_enabled, true)
       |> assign(:current_language_known, true)
       |> assign(:is_primary_language, true)
+      |> assign(:post_primary_language_status, {:ok, :current})
       |> assign(:available_languages, [])
       |> assign(:all_enabled_languages, [])
       |> assign(:has_pending_changes, false)
@@ -797,14 +799,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     source_version = socket.assigns.new_version_source
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    # For timestamp mode, construct the date/time path identifier
+    # For timestamp mode, extract date/time from the post path directly
+    # This is more reliable than reconstructing from post.date/post.time
     # For slug mode, use the slug directly
     post_identifier =
       case post.mode do
         :timestamp ->
-          date_str = Date.to_iso8601(post.date)
-          time_str = format_time_folder(post.time)
-          "#{date_str}/#{time_str}"
+          # Extract date/time from path: "blog/YYYY-MM-DD/HH:MM/vN/lang.phk"
+          # We need "YYYY-MM-DD/HH:MM" as the identifier
+          extract_timestamp_identifier(post.path)
 
         _ ->
           post.slug
@@ -899,6 +902,73 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:noreply, socket}
     end
   end
+
+  def handle_event("update_primary_language", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    post = socket.assigns.post
+
+    if post && socket.assigns.is_primary_language do
+      primary_language = Storage.get_primary_language()
+      language_name = get_language_name(primary_language)
+      post_dir = get_post_directory(post)
+
+      case Publishing.update_post_primary_language(blog_slug, post_dir, primary_language) do
+        :ok ->
+          # Regenerate cache so listing page banners/counts reflect the update
+          ListingCache.regenerate(blog_slug)
+
+          socket =
+            socket
+            |> assign(:post_primary_language_status, {:ok, :current})
+            |> put_flash(
+              :info,
+              gettext("Primary language updated: %{lang}", lang: language_name)
+            )
+
+          {:noreply, socket}
+
+        {:error, reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             gettext("Failed to update primary language: %{reason}", reason: inspect(reason))
+           )}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp get_language_name(language_code) do
+    case Publishing.get_language_info(language_code) do
+      %{name: name} -> name
+      _ -> String.upcase(language_code)
+    end
+  end
+
+  # Get post directory path for primary language status check
+  # For slug mode: returns the slug
+  # For timestamp mode: returns date/time path (e.g., "2025-12-31/03:42")
+  defp get_post_directory(%{mode: :timestamp, date: date, time: time})
+       when not is_nil(date) and not is_nil(time) do
+    date_str = Date.to_iso8601(date)
+    time_str = format_time_for_path(time)
+    Path.join(date_str, time_str)
+  end
+
+  defp get_post_directory(%{slug: slug}) when is_binary(slug) and slug != "", do: slug
+  defp get_post_directory(_), do: nil
+
+  defp format_time_for_path(%Time{} = time) do
+    time
+    |> Time.to_string()
+    |> String.slice(0, 5)
+    |> String.replace(":", ":")
+  end
+
+  defp format_time_for_path(time) when is_binary(time), do: String.slice(time, 0, 5)
+  defp format_time_for_path(_), do: nil
 
   # Helper functions for AI translation
   defp enqueue_translation(socket, target_languages, {empty_level, empty_message}) do
@@ -1030,19 +1100,35 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   # Helper to read a specific version for timestamp-mode posts
   defp read_timestamp_version(blog_slug, post, language, version) do
-    # Build the versioned path for timestamp mode
-    date_str = Date.to_iso8601(post.date)
-    time_str = format_time_folder(post.time)
-    versioned_path = Path.join([blog_slug, date_str, time_str, "v#{version}", "#{language}.phk"])
+    # Extract timestamp identifier from current post path (more reliable than post.date/post.time)
+    timestamp_id = extract_timestamp_identifier(post.path)
+    versioned_path = Path.join([blog_slug, timestamp_id, "v#{version}", "#{language}.phk"])
 
     Storage.read_post(blog_slug, versioned_path)
   end
 
-  defp format_time_folder(%Time{} = time) do
-    {hour, minute, _second} = Time.to_erl(time)
+  # Extract timestamp identifier (YYYY-MM-DD/HH:MM) from a post path
+  # Path format: "blog/YYYY-MM-DD/HH:MM/vN/lang.phk" (versioned)
+  # or: "blog/YYYY-MM-DD/HH:MM/lang.phk" (legacy)
+  defp extract_timestamp_identifier(path) when is_binary(path) do
+    parts = String.split(path, "/", trim: true)
 
-    "#{String.pad_leading(to_string(hour), 2, "0")}:#{String.pad_leading(to_string(minute), 2, "0")}"
+    case parts do
+      # Versioned: [blog, date, time, version, file]
+      [_blog, date, time, _version, _file] ->
+        "#{date}/#{time}"
+
+      # Legacy: [blog, date, time, file]
+      [_blog, date, time, _file] ->
+        "#{date}/#{time}"
+
+      _ ->
+        # Fallback - shouldn't happen but prevents crashes
+        nil
+    end
   end
+
+  defp extract_timestamp_identifier(_), do: nil
 
   @impl true
   def handle_info(:autosave, socket) do
@@ -1745,14 +1831,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:ok, updated_post} ->
         # If publishing, call publish_version to archive other versions
         if is_publishing do
-          # For timestamp mode, construct the date/time path identifier
+          # For timestamp mode, extract date/time from the post path directly
+          # This is more reliable than reconstructing from post.date/post.time
           # For slug mode, use the slug directly
           post_identifier =
             case post.mode do
               :timestamp ->
-                date_str = Date.to_iso8601(post.date)
-                time_str = format_time_folder(post.time)
-                "#{date_str}/#{time_str}"
+                extract_timestamp_identifier(post.path)
 
               _ ->
                 post.slug
@@ -1970,6 +2055,27 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     enabled_languages = socket.assigns[:all_enabled_languages] || []
     lang_info = Publishing.get_language_info(language_code)
     primary_language = Storage.get_primary_language()
+    is_primary = language_code == primary_language
+
+    # Check if the post needs primary language migration (only for primary language view)
+    primary_lang_status =
+      if is_primary do
+        case {socket.assigns[:blog_slug], socket.assigns[:post]} do
+          {blog_slug, post} when is_binary(blog_slug) and is_map(post) ->
+            post_dir = get_post_directory(post)
+
+            if post_dir do
+              Publishing.check_primary_language_status(blog_slug, post_dir)
+            else
+              {:ok, :current}
+            end
+
+          _ ->
+            {:ok, :current}
+        end
+      else
+        {:ok, :current}
+      end
 
     socket
     |> assign(:current_language, language_code)
@@ -1978,7 +2084,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       Storage.language_enabled?(language_code, enabled_languages)
     )
     |> assign(:current_language_known, lang_info != nil)
-    |> assign(:is_primary_language, language_code == primary_language)
+    |> assign(:is_primary_language, is_primary)
+    |> assign(:post_primary_language_status, primary_lang_status)
   end
 
   # Helper function to handle post creation errors

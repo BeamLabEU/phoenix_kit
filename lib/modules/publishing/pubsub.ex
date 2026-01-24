@@ -557,4 +557,44 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   def generate_form_key(blog_slug, _, _) do
     "#{blog_slug}:unknown"
   end
+
+  # ============================================================================
+  # Primary Language Migration Progress
+  # ============================================================================
+
+  @doc """
+  Broadcasts that primary language migration has started.
+  """
+  def broadcast_primary_language_migration_started(group_slug, total_count) do
+    Manager.broadcast(
+      posts_topic(group_slug),
+      {:primary_language_migration_started, group_slug, total_count}
+    )
+  end
+
+  @doc """
+  Broadcasts primary language migration progress.
+  """
+  def broadcast_primary_language_migration_progress(group_slug, current, total) do
+    Manager.broadcast(
+      posts_topic(group_slug),
+      {:primary_language_migration_progress, group_slug, current, total}
+    )
+  end
+
+  @doc """
+  Broadcasts that primary language migration has completed.
+  """
+  def broadcast_primary_language_migration_completed(
+        group_slug,
+        success_count,
+        error_count,
+        primary_language
+      ) do
+    Manager.broadcast(
+      posts_topic(group_slug),
+      {:primary_language_migration_completed, group_slug, success_count, error_count,
+       primary_language}
+    )
+  end
 end

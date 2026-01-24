@@ -294,6 +294,68 @@
       </div>
     <% end %>
 
+    <%!-- Primary Language Migration Progress Banner --%>
+    <%= if @migration_in_progress do %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-primary/10 border border-info/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-primary text-white shadow-sm">
+          <span class="loading loading-spinner loading-sm"></span>
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-info">
+            {gettext("Migration in progress...")}
+          </span>
+          <%= if @migration_progress do %>
+            <div class="flex items-center gap-2 mt-1">
+              <progress
+                class="progress progress-info w-48"
+                value={@migration_progress.current}
+                max={@migration_progress.total}
+              >
+              </progress>
+              <span class="text-xs text-base-content/60">
+                {@migration_progress.current} / {@migration_progress.total}
+              </span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Primary Language Migration Banner --%>
+    <%= if not @migration_in_progress and @primary_language_status && (@primary_language_status.needs_backfill > 0 or @primary_language_status.needs_migration > 0) do %>
+      <% total_needing =
+        @primary_language_status.needs_backfill + @primary_language_status.needs_migration %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-warning/10 to-amber-500/10 border border-warning/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-warning to-amber-500 text-white shadow-sm">
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-warning">
+            {ngettext(
+              "1 post needs primary language update",
+              "%{count} posts need primary language update",
+              total_needing,
+              count: total_needing
+            )}
+          </span>
+          <p class="text-xs text-base-content/60">
+            {gettext(
+              "Save the current language setting (%{lang}) to these posts to ensure they remain accessible if the global setting changes.",
+              lang: @primary_language_name
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn btn-warning btn-sm"
+          phx-click="show_migration_modal"
+        >
+          <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+          {gettext("Update All")}
+        </button>
+      </div>
+    <% end %>
+
     <div class="space-y-6">
       <div class="flex-1">
         <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
@@ -427,4 +489,77 @@
       </div>
     </div>
   </div>
+
+  <%!-- Primary Language Migration Confirmation Modal --%>
+  <%= if @show_migration_modal do %>
+    <% total_needing =
+      @primary_language_status.needs_backfill + @primary_language_status.needs_migration %>
+    <div class="modal modal-open">
+      <div class="modal-box" phx-click-away="close_migration_modal">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-language" class="w-5 h-5 text-warning" />
+          {gettext("Update Primary Language")}
+        </h3>
+
+        <div class="space-y-4">
+          <p class="text-base-content/80">
+            {gettext(
+              "This will update the primary language setting for %{count} posts in this publishing group.",
+              count: total_needing
+            )}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("New Primary Language")}</span>
+              <span class="font-medium">{@primary_language_name}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Posts to Update")}</span>
+              <span class="font-medium">{total_needing}</span>
+            </div>
+          </div>
+
+          <div class="text-sm text-base-content/70 space-y-2">
+            <p>
+              <strong>{gettext("What this does:")}</strong>
+            </p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+              <li>{gettext("Saves the current primary language to each post's metadata")}</li>
+              <li>
+                {gettext("Ensures posts remain accessible if the global language setting changes")}
+              </li>
+              <li>{gettext("Does not modify post content or translations")}</li>
+            </ul>
+          </div>
+
+          <%= if total_needing > 20 do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
+              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p class="text-xs text-info">
+                {gettext(
+                  "This migration will run in the background. You can continue working while posts are updated."
+                )}
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" phx-click="close_migration_modal">
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-warning"
+            phx-click="confirm_migrate_primary_language"
+            phx-disable-with={gettext("Updating...")}
+          >
+            <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+            {gettext("Update %{count} Posts", count: total_needing)}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

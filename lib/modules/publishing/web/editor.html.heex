@@ -296,6 +296,63 @@
       </div>
     <% end %>
 
+    <%!-- Primary Language Indicator --%>
+    <%= if @is_primary_language and not @is_new_post and length(@all_enabled_languages) > 1 do %>
+      <% needs_update = @post_primary_language_status != {:ok, :current} %>
+      <div class={[
+        "flex items-center gap-3 px-4 py-2.5 rounded-lg border",
+        if(needs_update,
+          do: "bg-gradient-to-r from-warning/10 to-amber-500/10 border-warning/30",
+          else: "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20"
+        )
+      ]}>
+        <div class={[
+          "flex items-center justify-center w-8 h-8 rounded-full text-white shadow-sm",
+          if(needs_update,
+            do: "bg-gradient-to-br from-warning to-amber-500",
+            else: "bg-gradient-to-br from-amber-400 to-orange-500"
+          )
+        ]}>
+          <.icon
+            name={if needs_update, do: "hero-exclamation-triangle", else: "hero-star-solid"}
+            class="w-4 h-4"
+          />
+        </div>
+        <div class="flex-1">
+          <%= if needs_update do %>
+            <span class="text-sm font-medium text-warning">
+              {gettext("Primary Language Needs Update")}
+            </span>
+            <p class="text-xs text-base-content/60">
+              {gettext(
+                "The global primary language setting has changed. Update this post or create a new version."
+              )}
+            </p>
+          <% else %>
+            <span class="text-sm font-medium text-amber-700 dark:text-amber-300">
+              {gettext("Primary Language")}
+            </span>
+            <p class="text-xs text-base-content/60">
+              {gettext(
+                "Other languages inherit publication status and defaults from this version."
+              )}
+            </p>
+          <% end %>
+        </div>
+        <%= if needs_update do %>
+          <button
+            type="button"
+            class="btn btn-warning btn-sm"
+            phx-click="update_primary_language"
+            phx-disable-with={gettext("Updating...")}
+          >
+            <.icon name="hero-arrow-path" class="w-4 h-4" />
+            {gettext("Update")}
+          </button>
+        <% end %>
+      </div>
+    <% end %>
+
     <%!-- AI Translation Section --%>
     <%= if @ai_enabled and @is_primary_language and not @is_new_post and length(@ai_endpoints) > 0 do %>
       <div class="collapse collapse-arrow bg-base-100 shadow-xl border border-base-200">

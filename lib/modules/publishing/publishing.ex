@@ -54,6 +54,135 @@ defmodule PhoenixKit.Modules.Publishing do
   @deprecated "Use get_primary_language/0 instead"
   defdelegate get_master_language(), to: Storage
 
+  # Post-specific primary language functions
+  defdelegate get_post_primary_language(group_slug, post_slug, version \\ nil), to: Storage
+  defdelegate check_primary_language_status(group_slug, post_slug), to: Storage
+
+  defdelegate update_post_primary_language(group_slug, post_slug, new_primary_language),
+    to: Storage
+
+  # Migration detection functions (via ListingCache)
+  defdelegate posts_needing_primary_language_migration(group_slug), to: ListingCache
+  defdelegate count_primary_language_status(group_slug), to: ListingCache
+
+  @doc """
+  Checks if any posts in a group need primary_language migration.
+  """
+  @spec posts_need_primary_language_migration?(String.t()) :: boolean()
+  def posts_need_primary_language_migration?(group_slug) do
+    ListingCache.posts_needing_primary_language_migration(group_slug) != []
+  end
+
+  @doc """
+  Returns count of posts by primary_language status.
+  Alias for `count_primary_language_status/1`.
+  """
+  @spec get_primary_language_migration_status(String.t()) :: map()
+  def get_primary_language_migration_status(group_slug) do
+    ListingCache.count_primary_language_status(group_slug)
+  end
+
+  @doc """
+  Migrates all posts in a group to use the current global primary_language.
+
+  This updates the `primary_language` field in all .phk files and regenerates
+  the listing cache. The migration is idempotent - running it multiple times
+  is safe and will skip posts that are already at the current primary language.
+
+  Returns `{:ok, count}` where count is the number of posts updated.
+  """
+  @spec migrate_posts_to_current_primary_language(String.t()) ::
+          {:ok, integer()} | {:error, any()}
+  def migrate_posts_to_current_primary_language(group_slug) do
+    require Logger
+    global_primary = Storage.get_primary_language()
+    posts = ListingCache.posts_needing_primary_language_migration(group_slug)
+
+    Logger.debug("[PrimaryLangMigration] Found #{length(posts)} posts needing migration")
+
+    if posts == [] do
+      {:ok, 0}
+    else
+      results =
+        posts
+        |> Enum.map(fn post ->
+          # Get slug from post (using atom keys since posts are normalized)
+          post_slug = get_post_slug(post)
+
+          Logger.debug(
+            "[PrimaryLangMigration] Post path=#{inspect(post[:path])} slug=#{inspect(post_slug)}"
+          )
+
+          if post_slug do
+            result = Storage.update_post_primary_language(group_slug, post_slug, global_primary)
+            Logger.debug("[PrimaryLangMigration] Result for #{post_slug}: #{inspect(result)}")
+            result
+          else
+            Logger.warning("[PrimaryLangMigration] No slug for post: #{inspect(post[:path])}")
+            {:error, :no_slug}
+          end
+        end)
+
+      success_count = Enum.count(results, &(&1 == :ok))
+      error_count = length(results) - success_count
+
+      Logger.debug("[PrimaryLangMigration] Success: #{success_count}, Errors: #{error_count}")
+
+      # Regenerate cache with updated primary_language values
+      ListingCache.regenerate(group_slug)
+
+      if error_count > 0 and success_count == 0 do
+        {:error, :all_migrations_failed}
+      else
+        {:ok, success_count}
+      end
+    end
+  end
+
+  # Get post directory path from cached post
+  # For slug mode: returns the slug (e.g., "hello")
+  # For timestamp mode: returns the date/time path (e.g., "2025-12-31/03:42")
+  # Uses atom keys since cached posts are normalized
+  defp get_post_slug(post) do
+    case post[:mode] do
+      :timestamp -> derive_timestamp_post_dir(post[:path])
+      "timestamp" -> derive_timestamp_post_dir(post[:path])
+      _ -> post[:slug] || derive_slug_from_path(post[:path])
+    end
+  end
+
+  # For timestamp mode, extract date/time from path like "group/date/time/version/file.phk"
+  defp derive_timestamp_post_dir(nil), do: nil
+  defp derive_timestamp_post_dir(""), do: nil
+
+  defp derive_timestamp_post_dir(path) do
+    parts = Path.split(path)
+
+    case parts do
+      # Versioned: group/date/time/v1/lang.phk
+      [_group, date, time, "v" <> _, _lang_file] -> Path.join(date, time)
+      # Legacy: group/date/time/lang.phk
+      [_group, date, time, _lang_file] -> Path.join(date, time)
+      _ -> nil
+    end
+  end
+
+  # For slug mode, extract slug from path
+  defp derive_slug_from_path(nil), do: nil
+  defp derive_slug_from_path(""), do: nil
+
+  defp derive_slug_from_path(path) do
+    parts = Path.split(path)
+
+    case parts do
+      # Versioned: group/slug/v1/lang.phk
+      [_group, slug, "v" <> _, _lang_file] -> slug
+      # Legacy: group/slug/lang.phk
+      [_group, slug, _lang_file] -> slug
+      _ -> nil
+    end
+  end
+
   defdelegate language_enabled?(language_code, enabled_languages), to: Storage
   defdelegate get_display_code(language_code, enabled_languages), to: Storage
   defdelegate order_languages_for_display(available_languages, enabled_languages), to: Storage

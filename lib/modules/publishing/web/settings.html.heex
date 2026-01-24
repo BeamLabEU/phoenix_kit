@@ -167,6 +167,35 @@
                         {gettext("Migrate")}
                       </button>
                     <% end %>
+                    <%= if blog["needs_primary_lang_migration"] do %>
+                      <% status = blog["primary_language_status"] %>
+                      <button
+                        type="button"
+                        aria-label={gettext("Update Primary Language")}
+                        phx-click="migrate_primary_language"
+                        phx-value-slug={blog["slug"]}
+                        class="btn btn-warning btn-sm"
+                        title={
+                          gettext(
+                            "Update posts to use current primary language: %{lang}",
+                            lang: @global_primary_language
+                          )
+                        }
+                        data-confirm={
+                          gettext(
+                            "Update all posts in this group to use '%{lang}' as their primary language? This ensures posts work correctly with the current language setting. %{count} post(s) will be updated.",
+                            lang: @global_primary_language,
+                            count: status.needs_backfill + status.needs_migration
+                          )
+                        }
+                      >
+                        <.icon name="hero-language" class="w-4 h-4 mr-1" />
+                        {gettext("Update Language")}
+                        <span class="badge badge-sm ml-1">
+                          {status.needs_backfill + status.needs_migration}
+                        </span>
+                      </button>
+                    <% end %>
                     <.link
                       aria-label={gettext("Open Admin")}
                       navigate={Routes.path("/admin/publishing/#{blog["slug"]}")}
