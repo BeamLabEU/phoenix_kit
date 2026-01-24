@@ -40,6 +40,47 @@
   if (window.PhoenixKitInitialized) return;
   window.PhoenixKitInitialized = true;
 
+  // ============================================================================
+  // WEBSOCKET TRANSPORT CACHE CLEARING
+  // ============================================================================
+  //
+  // Phoenix LiveView caches transport fallback preferences in browser storage.
+  // If WebSocket fails once, Phoenix remembers this and uses LongPoll for all
+  // subsequent page loads, even after the WebSocket issue is fixed.
+  //
+  // This clears the cached preference on every page load to ensure WebSocket
+  // is always tried first, providing much better performance when available.
+  //
+  // See: https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.Socket.html
+  //
+  // ============================================================================
+
+  (function clearPhoenixTransportCache() {
+    try {
+      // Clear localStorage keys containing 'phx' (transport fallback cache)
+      // IMPORTANT: Exclude 'phx:' prefixed keys - those are PhoenixKit features (e.g., phx:theme)
+      var lsKeys = Object.keys(localStorage).filter(function(k) {
+        return k.includes('phx') && !k.startsWith('phx:');
+      });
+      if (lsKeys.length > 0) {
+        console.debug("[PhoenixKit] Clearing cached transport preferences from localStorage:", lsKeys);
+        lsKeys.forEach(function(k) { localStorage.removeItem(k); });
+      }
+
+      // Clear sessionStorage keys containing 'phx' (excluding phx: prefixed keys)
+      var ssKeys = Object.keys(sessionStorage).filter(function(k) {
+        return k.includes('phx') && !k.startsWith('phx:');
+      });
+      if (ssKeys.length > 0) {
+        console.debug("[PhoenixKit] Clearing cached transport preferences from sessionStorage:", ssKeys);
+        ssKeys.forEach(function(k) { sessionStorage.removeItem(k); });
+      }
+    } catch (e) {
+      // Storage might be unavailable in some contexts (e.g., private browsing)
+      console.debug("[PhoenixKit] Could not clear transport cache:", e);
+    }
+  })();
+
   // Initialize hooks collection
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 

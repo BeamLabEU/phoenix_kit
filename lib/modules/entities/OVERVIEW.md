@@ -1,6 +1,6 @@
 # PhoenixKit Entities System
 
-PhoenixKit’s Entities layer is a WordPress ACF–style content engine. It lets administrators define custom content types at runtime, attach structured fields, and manage records without writing migrations or shipping new code. This README gives a full overview so a developer (or AI teammate) can understand what exists, how it fits together, and how to extend it safely.
+PhoenixKit's Entities layer is a dynamic content type engine. It lets administrators define custom content types at runtime, attach structured fields, and manage records without writing migrations or shipping new code. This README gives a full overview so a developer (or AI teammate) can understand what exists, how it fits together, and how to extend it safely.
 
 ---
 

@@ -412,7 +412,7 @@ lib/modules/db/
 - **Emails Module**: `lib/modules/emails/README.md` - Email logging, AWS SES integration, analytics, and rate limiting
 - **Publishing Module**: `lib/modules/publishing/README.md` - Filesystem-based CMS with multi-language support
 - **Sync Module**: `lib/modules/sync/README.md` - Peer-to-peer data sync between PhoenixKit instances with programmatic API
-- **Entities Module**: `lib/modules/entities/README.md` - Dynamic content types (WordPress ACF-like)
+- **Entities Module**: `lib/modules/entities/README.md` - Dynamic content types with flexible fields
 - **Billing Module**: `lib/modules/billing/README.md` - Payment providers, subscriptions, invoices
 - **Posts Module**: Available under `/admin/posts` - Content scheduling and groups
 

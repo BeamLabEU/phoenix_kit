@@ -57,27 +57,234 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   @doc """
-  Returns the master/canonical language for versioning.
-  This is the explicitly configured content language from Settings.
-  Falls back to first enabled language if not configured.
+  Returns the primary/canonical language for versioning.
+
+  Uses the default language from the Languages module (via Settings.get_content_language).
+  Falls back to "en" if Languages module is disabled or no default is set.
 
   This should be used instead of `hd(enabled_language_codes())` when
   determining which language controls versioning logic.
   """
+  @spec get_primary_language() :: String.t()
+  def get_primary_language do
+    Settings.get_content_language()
+  end
+
+  @doc false
+  @deprecated "Use get_primary_language/0 instead"
   @spec get_master_language() :: String.t()
-  def get_master_language do
-    # Use explicit content language setting for master language detection
-    # This is more reliable than list position which can change
-    case Settings.get_content_language() do
-      nil ->
-        # Fall back to first enabled language, or "en" if none configured
-        case enabled_language_codes() do
-          [] -> "en"
-          [first | _] -> first
+  def get_master_language, do: get_primary_language()
+
+  @doc """
+  Gets the primary language for a specific post.
+
+  Reads the post's metadata to get its stored `primary_language` field.
+  Falls back to the global setting if no `primary_language` is stored.
+
+  This ensures posts created before the `primary_language` field was added
+  continue to work by using the current global setting.
+  """
+  @spec get_post_primary_language(String.t(), String.t(), integer() | nil) :: String.t()
+  def get_post_primary_language(group_slug, post_slug, version \\ nil)
+
+  def get_post_primary_language(group_slug, post_slug, version) do
+    post_path = Path.join([group_path(group_slug), post_slug])
+
+    case detect_post_structure(post_path) do
+      :versioned ->
+        version_to_use = version || get_latest_version_number(post_path)
+        version_dir = Path.join(post_path, "v#{version_to_use}")
+        read_primary_language_from_dir(version_dir)
+
+      :legacy ->
+        read_primary_language_from_dir(post_path)
+
+      _ ->
+        get_primary_language()
+    end
+  end
+
+  defp get_latest_version_number(post_path) do
+    case File.ls(post_path) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.starts_with?(&1, "v"))
+        |> Enum.map(fn "v" <> n -> String.to_integer(n) end)
+        |> Enum.max(fn -> 1 end)
+
+      _ ->
+        1
+    end
+  end
+
+  defp read_primary_language_from_dir(dir) do
+    case File.ls(dir) do
+      {:ok, files} ->
+        files
+        |> Enum.find(&String.ends_with?(&1, ".phk"))
+        |> case do
+          nil ->
+            get_primary_language()
+
+          file ->
+            file_path = Path.join(dir, file)
+
+            case File.read(file_path) do
+              {:ok, content} ->
+                {:ok, metadata, _} = Metadata.parse_with_content(content)
+                Map.get(metadata, :primary_language) || get_primary_language()
+
+              _ ->
+                get_primary_language()
+            end
         end
 
-      content_lang ->
-        content_lang
+      _ ->
+        get_primary_language()
+    end
+  end
+
+  @doc """
+  Checks if a post needs primary_language migration.
+
+  A post needs migration if:
+  1. It has no `primary_language` stored in metadata (needs backfill), OR
+  2. Its stored `primary_language` doesn't match the current global setting (needs migration decision)
+
+  Returns:
+  - `{:ok, :current}` if post matches global setting
+  - `{:needs_migration, stored_lang}` if post has different primary_language
+  - `{:needs_backfill, nil}` if post has no primary_language stored
+  """
+  @spec check_primary_language_status(String.t(), String.t()) ::
+          {:ok, :current} | {:needs_migration, String.t()} | {:needs_backfill, nil}
+  def check_primary_language_status(group_slug, post_slug) do
+    global_primary = get_primary_language()
+    post_path = Path.join([group_path(group_slug), post_slug])
+
+    case has_stored_primary_language?(post_path) do
+      {:ok, stored_primary} when stored_primary == global_primary ->
+        {:ok, :current}
+
+      {:ok, stored_primary} ->
+        {:needs_migration, stored_primary}
+
+      :not_stored ->
+        {:needs_backfill, nil}
+    end
+  end
+
+  defp has_stored_primary_language?(post_path) do
+    case detect_post_structure(post_path) do
+      :versioned ->
+        case File.ls(post_path) do
+          {:ok, dirs} ->
+            version_dir = Enum.find(dirs, &String.starts_with?(&1, "v"))
+
+            if version_dir do
+              check_dir_for_stored_primary_language(Path.join(post_path, version_dir))
+            else
+              :not_stored
+            end
+
+          _ ->
+            :not_stored
+        end
+
+      :legacy ->
+        check_dir_for_stored_primary_language(post_path)
+
+      _ ->
+        :not_stored
+    end
+  end
+
+  defp check_dir_for_stored_primary_language(dir) do
+    with {:ok, files} <- File.ls(dir),
+         file when not is_nil(file) <- Enum.find(files, &String.ends_with?(&1, ".phk")),
+         file_path <- Path.join(dir, file),
+         {:ok, content} <- File.read(file_path),
+         {:ok, metadata, _} <- Metadata.parse_with_content(content) do
+      case Map.get(metadata, :primary_language) do
+        nil -> :not_stored
+        "" -> :not_stored
+        stored -> {:ok, stored}
+      end
+    else
+      _ -> :not_stored
+    end
+  end
+
+  @doc """
+  Updates the primary_language field for all language files in a post.
+
+  This is used during migration to set the primary_language to match
+  the current global setting. Updates all versions.
+  """
+  @spec update_post_primary_language(String.t(), String.t(), String.t()) :: :ok | {:error, any()}
+  def update_post_primary_language(_group_slug, nil, _new_primary_language),
+    do: {:error, :invalid_slug}
+
+  def update_post_primary_language(_group_slug, "", _new_primary_language),
+    do: {:error, :invalid_slug}
+
+  def update_post_primary_language(group_slug, post_slug, new_primary_language) do
+    post_path = Path.join([group_path(group_slug), post_slug])
+
+    case detect_post_structure(post_path) do
+      :versioned ->
+        case File.ls(post_path) do
+          {:ok, dirs} ->
+            dirs
+            |> Enum.filter(&String.starts_with?(&1, "v"))
+            |> Enum.each(fn version_dir ->
+              update_primary_language_in_dir(
+                Path.join(post_path, version_dir),
+                new_primary_language
+              )
+            end)
+
+            :ok
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      :legacy ->
+        update_primary_language_in_dir(post_path, new_primary_language)
+
+      _ ->
+        {:error, :post_not_found}
+    end
+  end
+
+  defp update_primary_language_in_dir(dir, new_primary_language) do
+    case File.ls(dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".phk"))
+        |> Enum.each(fn file ->
+          file_path = Path.join(dir, file)
+
+          case File.read(file_path) do
+            {:ok, content} ->
+              {:ok, metadata, body} = Metadata.parse_with_content(content)
+              updated_metadata = Map.put(metadata, :primary_language, new_primary_language)
+
+              new_content =
+                Metadata.serialize(updated_metadata) <> "\n\n" <> String.trim_leading(body)
+
+              File.write(file_path, new_content <> "\n")
+
+            _ ->
+              :ok
+          end
+        end)
+
+        :ok
+
+      _ ->
+        :ok
     end
   end
 
@@ -106,23 +313,34 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   # Search predefined languages (BeamLabCountries) with base code fallback
+  # Uses O(1) map lookup for exact matches (most common case)
   defp find_in_predefined_languages(language_code) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
-    all_languages = Languages.get_available_languages()
+    # First try exact match with O(1) lookup
+    case Languages.get_available_language_by_code(language_code) do
+      nil ->
+        # Try matching by base code (e.g., "en" matches "en-US")
+        base_code = DialectMapper.extract_base(language_code)
 
-    # First try exact match
-    exact_match = Enum.find(all_languages, fn lang -> lang.code == language_code end)
+        # First try the default dialect for this base code (e.g., "en" -> "en-US")
+        default_dialect = DialectMapper.base_to_dialect(base_code)
 
-    if exact_match do
-      exact_match
-    else
-      # Try matching by base code (e.g., "en" matches "en-US")
-      base_code = DialectMapper.extract_base(language_code)
+        case Languages.get_available_language_by_code(default_dialect) do
+          nil ->
+            # Fall back to linear search for base code match (rare case)
+            all_languages = Languages.get_available_languages()
 
-      Enum.find(all_languages, fn lang ->
-        DialectMapper.extract_base(lang.code) == base_code
-      end)
+            Enum.find(all_languages, fn lang ->
+              DialectMapper.extract_base(lang.code) == base_code
+            end)
+
+          default_match ->
+            default_match
+        end
+
+      exact_match ->
+        exact_match
     end
   end
 
@@ -143,9 +361,20 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         # Try matching by base code
         base_code = DialectMapper.extract_base(language_code)
 
-        Enum.find(configured_languages, fn lang ->
-          DialectMapper.extract_base(lang["code"]) == base_code
-        end)
+        # First try the default dialect for this base code
+        default_dialect = DialectMapper.base_to_dialect(base_code)
+
+        default_match =
+          Enum.find(configured_languages, fn lang -> lang["code"] == default_dialect end)
+
+        if default_match do
+          default_match
+        else
+          # Fall back to any language with matching base code
+          Enum.find(configured_languages, fn lang ->
+            DialectMapper.extract_base(lang["code"]) == base_code
+          end)
+        end
       end
 
     # Convert string-keyed map to atom-keyed map for consistency
@@ -238,28 +467,29 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   ## Parameters
     - `available_languages` - list of language codes that have translations
     - `enabled_languages` - list of all enabled language codes
+    - `primary_language` - (optional) the post's primary language; falls back to global setting
 
   ## Returns
     List of language codes in consistent display order.
   """
-  @spec order_languages_for_display([String.t()], [String.t()]) :: [String.t()]
-  def order_languages_for_display(available_languages, enabled_languages) do
-    primary_language = List.first(enabled_languages) || "en"
+  @spec order_languages_for_display([String.t()], [String.t()], String.t() | nil) :: [String.t()]
+  def order_languages_for_display(available_languages, enabled_languages, primary_language \\ nil) do
+    primary_lang = primary_language || get_primary_language()
 
     # Languages with content (excluding primary), sorted alphabetically
     langs_with_content =
       available_languages
-      |> Enum.reject(&(&1 == primary_language))
+      |> Enum.reject(&(&1 == primary_lang))
       |> Enum.sort()
 
     # Enabled languages without content (excluding primary), sorted alphabetically
     langs_without_content =
       enabled_languages
-      |> Enum.reject(&(&1 in available_languages or &1 == primary_language))
+      |> Enum.reject(&(&1 in available_languages or &1 == primary_lang))
       |> Enum.sort()
 
     # Final order: primary first, then with content, then without
-    [primary_language] ++ langs_with_content ++ langs_without_content
+    [primary_lang] ++ langs_with_content ++ langs_without_content
   end
 
   @slug_pattern ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -799,7 +1029,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           {:ok, integer()} | {:error, :not_found}
   def get_latest_published_version(group_slug, post_slug) do
     versions = list_versions(group_slug, post_slug)
-    primary_language = get_master_language()
+    # Use stored primary_language for this specific post, not global setting
+    primary_language = get_post_primary_language(group_slug, post_slug, nil)
 
     # Check versions in reverse order (newest first)
     published_version =
@@ -826,7 +1057,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   @spec get_published_version(String.t(), String.t()) :: {:ok, integer()} | {:error, :not_found}
   def get_published_version(group_slug, post_slug) do
     versions = list_versions(group_slug, post_slug)
-    primary_language = get_master_language()
+    # Use stored primary_language for this specific post, not global setting
+    primary_language = get_post_primary_language(group_slug, post_slug, nil)
 
     # Find version with status: "published"
     published_version =
@@ -918,13 +1150,20 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   @doc """
   Loads version statuses for all versions of a post.
   Returns a map of version number => status.
+
+  ## Parameters
+    - `group_slug` - the publishing group slug
+    - `post_slug` - the post identifier
+    - `versions` - list of version numbers to load
+    - `primary_language` - (optional) the post's primary language; falls back to global setting
   """
-  @spec load_version_statuses(String.t(), String.t(), [integer()]) :: %{integer() => String.t()}
-  def load_version_statuses(group_slug, post_slug, versions) do
-    primary_language = get_master_language()
+  @spec load_version_statuses(String.t(), String.t(), [integer()], String.t() | nil) ::
+          %{integer() => String.t()}
+  def load_version_statuses(group_slug, post_slug, versions, primary_language \\ nil) do
+    primary_lang = primary_language || get_primary_language()
 
     Enum.reduce(versions, %{}, fn version, acc ->
-      status = get_version_status(group_slug, post_slug, version, primary_language)
+      status = get_version_status(group_slug, post_slug, version, primary_lang)
       Map.put(acc, version, status)
     end)
   end
@@ -932,15 +1171,21 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   @doc """
   Loads version_created_at dates for all specified versions.
   Returns a map of version number => ISO 8601 date string.
+
+  ## Parameters
+    - `group_slug` - the publishing group slug
+    - `post_slug` - the post identifier
+    - `versions` - list of version numbers to load
+    - `primary_language` - (optional) the post's primary language; falls back to global setting
   """
-  @spec load_version_dates(String.t(), String.t(), [integer()]) :: %{
+  @spec load_version_dates(String.t(), String.t(), [integer()], String.t() | nil) :: %{
           integer() => String.t() | nil
         }
-  def load_version_dates(group_slug, post_slug, versions) do
-    primary_language = get_master_language()
+  def load_version_dates(group_slug, post_slug, versions, primary_language \\ nil) do
+    primary_lang = primary_language || get_primary_language()
 
     Enum.reduce(versions, %{}, fn version, acc ->
-      date = get_version_date(group_slug, post_slug, version, primary_language)
+      date = get_version_date(group_slug, post_slug, version, primary_lang)
       Map.put(acc, version, date)
     end)
   end
@@ -1006,11 +1251,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     new_version = if versions == [], do: 1, else: Enum.max(versions) + 1
 
     new_version_dir = Path.join(post_path, "v#{new_version}")
-    master_language = get_master_language()
+    # For new versions, use the post's stored primary_language if it exists,
+    # otherwise use current global setting
+    primary_language = get_post_primary_language(group_slug, post_slug, nil)
 
     case File.mkdir(new_version_dir) do
       :ok ->
-        # Create blank master language file
+        # Create blank primary language file
         metadata =
           %{
             status: "draft",
@@ -1021,18 +1268,20 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
             version_created_at: DateTime.to_iso8601(now),
             version_created_from: nil,
             status_manual: false,
-            allow_version_access: false
+            allow_version_access: false,
+            # Preserve the post's primary language
+            primary_language: primary_language
           }
           |> apply_creation_audit_metadata(audit_meta)
 
         content = Map.get(params, "content", "")
         serialized = Metadata.serialize(metadata) <> "\n\n" <> String.trim_leading(content)
 
-        master_file = Path.join(new_version_dir, language_filename(master_language))
-        File.write!(master_file, serialized <> "\n")
+        primary_file = Path.join(new_version_dir, language_filename(primary_language))
+        File.write!(primary_file, serialized <> "\n")
 
         # Return the new post - use appropriate read function based on mode
-        read_new_version(group_slug, post_slug, master_language, new_version)
+        read_new_version(group_slug, post_slug, primary_language, new_version)
 
       {:error, :eexist} ->
         # Race condition, retry
@@ -1086,7 +1335,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     new_version = Enum.max(versions) + 1
 
     new_version_dir = Path.join(post_path, "v#{new_version}")
-    master_language = get_master_language()
+    # Use the post's stored primary_language, not global setting
+    primary_language = get_post_primary_language(group_slug, post_slug, source_version)
 
     case File.mkdir(new_version_dir) do
       :ok ->
@@ -1098,7 +1348,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           source_file = Path.join(source_dir, file)
           target_file = Path.join(new_version_dir, file)
           language = Path.rootname(file)
-          is_master = language == master_language
+          is_primary = language == primary_language
 
           copy_file_for_branching(
             source_file,
@@ -1106,14 +1356,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
             new_version,
             source_version,
             now,
-            is_master,
+            is_primary,
             params,
             audit_meta
           )
         end)
 
         # Return the new post - use appropriate read function based on mode
-        read_new_version(group_slug, post_slug, master_language, new_version)
+        read_new_version(group_slug, post_slug, primary_language, new_version)
 
       {:error, :eexist} ->
         # Race condition, retry
@@ -1130,7 +1380,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
          new_ver,
          source_ver,
          now,
-         is_master,
+         is_primary,
          params,
          audit_meta
        ) do
@@ -1148,9 +1398,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       |> Map.delete(:legacy_is_live)
       |> apply_creation_audit_metadata(audit_meta)
 
-    # Only apply content/title changes to master language
+    # Only apply content/title changes to primary language
     new_metadata =
-      if is_master do
+      if is_primary do
         new_metadata
         |> Map.put(:title, Map.get(params, "title", Map.get(metadata, :title, "")))
         |> Map.put(:featured_image_id, resolve_featured_image_id(params, metadata))
@@ -1158,7 +1408,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         new_metadata
       end
 
-    new_content = if is_master, do: Map.get(params, "content", body), else: body
+    new_content = if is_primary, do: Map.get(params, "content", body), else: body
 
     serialized = Metadata.serialize(new_metadata) <> "\n\n" <> String.trim_leading(new_content)
     File.write!(target, serialized <> "\n")
@@ -1188,6 +1438,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     # Handle based on post mode
+    # Note: Each new version gets primary_language set during its creation (in the version-specific
+    # functions below). We intentionally do NOT update old versions - they keep their original
+    # primary_language so they remain accessible even if global language setting changes.
     case source_post.mode do
       :slug ->
         create_new_version_slug_mode(group_slug, source_post, params, audit_meta, now)
@@ -1243,9 +1496,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           now
         )
 
-        # Read back the new version for the master language
-        master_language = get_master_language()
-        read_post_slug_mode(group_slug, source_post.slug, master_language, new_version)
+        # Read back the new version for the primary language
+        primary_language = get_primary_language()
+        read_post_slug_mode(group_slug, source_post.slug, primary_language, new_version)
 
       {:error, :eexist} ->
         # Directory already exists (race condition) - retry with fresh version list
@@ -1331,8 +1584,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           now
         )
 
-        # Build new path and read back the new version (use master language)
-        master_language = get_master_language()
+        # Build new path and read back the new version (use primary language)
+        primary_language = get_primary_language()
 
         new_relative_path =
           relative_path_with_language_versioned(
@@ -1340,7 +1593,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
             source_post.date,
             source_post.time,
             new_version,
-            master_language
+            primary_language
           )
 
         read_post(group_slug, new_relative_path)
@@ -1386,12 +1639,12 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
        ) do
     source_version_dir = Path.dirname(source_post.full_path)
 
-    # Only copy the master language file to the new version
+    # Only copy the primary language file to the new version
     # Translations stay with their version - new versions start fresh
-    # Use explicit content language setting for master language detection
-    master_language = get_master_language()
-    source_file = Path.join(source_version_dir, language_filename(master_language))
-    target_file = Path.join(new_version_dir, language_filename(master_language))
+    # Use explicit content language setting for primary language detection
+    primary_language = get_primary_language()
+    source_file = Path.join(source_version_dir, language_filename(primary_language))
+    target_file = Path.join(new_version_dir, language_filename(primary_language))
 
     if File.exists?(source_file) do
       {:ok, source_metadata, source_content} =
@@ -1399,9 +1652,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         |> File.read!()
         |> Metadata.parse_with_content()
 
-      # Only apply content/title params when editing master language
-      # This prevents translation content from leaking to master file
-      editing_master? = source_post.language == master_language
+      # Only apply content/title params when editing primary language
+      # This prevents translation content from leaking to primary file
+      editing_primary? = source_post.language == primary_language
 
       # Apply params updates and version metadata
       new_metadata =
@@ -1414,7 +1667,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         |> Map.delete(:is_live)
         |> Map.delete(:legacy_is_live)
         |> then(fn meta ->
-          if editing_master? do
+          if editing_primary? do
             meta
             |> Map.put(:title, Map.get(params, "title", source_metadata.title))
             |> Map.put(:featured_image_id, resolve_featured_image_id(params, source_metadata))
@@ -1425,7 +1678,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         |> apply_creation_audit_metadata(audit_meta)
 
       new_content =
-        if editing_master?, do: Map.get(params, "content", source_content), else: source_content
+        if editing_primary?, do: Map.get(params, "content", source_content), else: source_content
 
       serialized =
         Metadata.serialize(new_metadata) <> "\n\n" <> String.trim_leading(new_content)
@@ -1438,13 +1691,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   Publishes a version, atomically archiving all other versions.
 
   Only ONE version can have status: "published" at a time. Publishing a version:
-  1. Sets this version's master language status to "published"
+  1. Sets this version's primary language status to "published"
   2. Archives any other version that was previously published (status: "archived")
   3. Updates translation statuses based on inheritance rules
 
   Translation status inheritance:
   - If translation has status_manual: true, keep its current status
-  - If translation has status_manual: false AND has content, inherit master status
+  - If translation has status_manual: false AND has content, inherit primary status
   - If translation has no content, remain at its current status
 
   Returns :ok on success, {:error, reason} on failure.
@@ -1455,14 +1708,15 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     versions = list_versions(group_slug, post_slug)
 
     if version_to_publish in versions do
-      do_publish_version(post_path, versions, version_to_publish)
+      do_publish_version(group_slug, post_slug, post_path, versions, version_to_publish)
     else
       {:error, :version_not_found}
     end
   end
 
-  defp do_publish_version(post_path, versions, version_to_publish) do
-    master_language = get_master_language()
+  defp do_publish_version(group_slug, post_slug, post_path, versions, version_to_publish) do
+    # Use stored primary_language for this specific post, not global setting
+    primary_language = get_post_primary_language(group_slug, post_slug, version_to_publish)
 
     results =
       Enum.flat_map(versions, fn version ->
@@ -1472,7 +1726,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           version_dir,
           version,
           version_to_publish,
-          master_language
+          primary_language
         )
       end)
 
@@ -1489,7 +1743,12 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp update_version_files_for_publish(version_dir, version, version_to_publish, master_language) do
+  defp update_version_files_for_publish(
+         version_dir,
+         version,
+         version_to_publish,
+         primary_language
+       ) do
     case File.ls(version_dir) do
       {:ok, files} ->
         files
@@ -1500,7 +1759,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
             version_dir,
             version,
             version_to_publish,
-            master_language
+            primary_language
           )
         )
 
@@ -1514,13 +1773,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
          version_dir,
          version,
          version_to_publish,
-         master_language
+         primary_language
        ) do
     file_path = Path.join(version_dir, file)
     language = Path.rootname(file)
 
     update_file_for_publish(file_path, %{
-      is_master: language == master_language,
+      is_primary: language == primary_language,
       is_target_version: version == version_to_publish
     })
   end
@@ -1553,12 +1812,12 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     current_status = Map.get(metadata, :status, "draft")
 
     cond do
-      # Target version's master file gets published
-      opts.is_master and opts.is_target_version ->
+      # Target version's primary file gets published
+      opts.is_primary and opts.is_target_version ->
         "published"
 
-      # Other versions' master files: only archive if currently published, leave drafts alone
-      opts.is_master ->
+      # Other versions' primary files: only archive if currently published, leave drafts alone
+      opts.is_primary ->
         if current_status == "published", do: "archived", else: current_status
 
       # Translation with manual override keeps its status
@@ -1623,7 +1882,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     with :ok <- File.mkdir_p(v1_dir),
          {:ok, phk_files} <- list_phk_files(post_dir),
          :ok <- migrate_files_to_v1(post_dir, v1_dir, phk_files, now, post.metadata) do
-      read_migrated_post(post, language)
+      # Pass post_dir to avoid group_path() resolving to wrong location
+      # when both publishing/ and blogging/ directories exist for the same group
+      read_migrated_post(post, post_dir, language)
     else
       {:error, :no_files} -> {:error, :no_files}
       {:error, reason} -> {:error, reason}
@@ -1651,19 +1912,59 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp read_migrated_post(post, language) do
-    case post.mode do
-      :slug ->
-        read_post_slug_mode(post.group, post.slug, language, 1)
+  # Reads the post after migration using the actual post_dir path.
+  # This avoids group_path() which may resolve to the wrong directory
+  # when both publishing/ and blogging/ folders exist for the same group.
+  defp read_migrated_post(post, post_dir, language) do
+    v1_dir = Path.join(post_dir, "v1")
+    file_path = Path.join(v1_dir, language_filename(language))
 
-      :timestamp ->
-        new_relative_path =
-          relative_path_with_language_versioned(post.group, post.date, post.time, 1, language)
+    with true <- File.exists?(file_path),
+         {:ok, content} <- File.read(file_path),
+         {:ok, metadata, body} <- Metadata.parse_with_content(content) do
+      available_languages = detect_available_languages(v1_dir)
+      language_statuses = load_language_statuses(v1_dir, available_languages)
 
-        read_post(post.group, new_relative_path)
+      # Build the relative path based on mode
+      relative_path =
+        case post.mode do
+          :slug ->
+            Path.join([post.group, post.slug, "v1", language_filename(language)])
 
-      _ ->
-        {:error, :unknown_mode}
+          :timestamp ->
+            date_part = Date.to_iso8601(post.date)
+            time_part = format_time_folder(post.time)
+            Path.join([post.group, date_part, time_part, "v1", language_filename(language)])
+
+          _ ->
+            Path.join([post.group, "v1", language_filename(language)])
+        end
+
+      {:ok,
+       %{
+         group: post.group,
+         slug: post.slug,
+         url_slug: Map.get(metadata, :url_slug) || post.slug,
+         date: post.date,
+         time: post.time,
+         path: relative_path,
+         full_path: file_path,
+         metadata: metadata,
+         content: body,
+         language: language,
+         available_languages: available_languages,
+         language_statuses: language_statuses,
+         mode: post.mode,
+         version: 1,
+         available_versions: [1],
+         version_statuses: %{1 => Map.get(metadata, :status, "draft")},
+         version_dates: %{1 => Map.get(metadata, :version_created_at)},
+         is_legacy_structure: false,
+         primary_language: Map.get(metadata, :primary_language) || get_primary_language()
+       }}
+    else
+      false -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -1784,7 +2085,10 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     if Enum.empty?(versions) do
       {:error, :no_versions}
     else
-      primary_lang = get_master_language()
+      # Use the post's stored primary language rather than global setting
+      latest_version = Enum.max(versions)
+      version_dir = Path.join(post_path, "v#{latest_version}")
+      primary_lang = read_primary_language_from_dir(version_dir)
       changes = collect_migration_changes(post_path, versions, primary_lang)
 
       # Check if any files actually have is_live
@@ -1877,19 +2181,19 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   defp build_file_change(filename, version_dir, version, is_target, primary_lang) do
     file_path = Path.join(version_dir, filename)
     lang = String.trim_trailing(filename, ".phk")
-    is_master = lang == primary_lang
+    is_primary = lang == primary_lang
 
     case File.read(file_path) do
       {:ok, content} ->
         {:ok, metadata, body} = Metadata.parse_with_content(content)
         old_status = Map.get(metadata, :status, "draft")
-        new_status = calculate_migration_status(metadata, body, is_master, is_target, old_status)
+        new_status = calculate_migration_status(metadata, body, is_primary, is_target, old_status)
 
         %{
           file_path: file_path,
           version: version,
           language: lang,
-          is_master: is_master,
+          is_primary: is_primary,
           had_is_live: Map.get(metadata, :legacy_is_live) == true,
           old_status: old_status,
           new_status: new_status,
@@ -1902,14 +2206,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp calculate_migration_status(metadata, body, is_master, is_target, old_status) do
+  defp calculate_migration_status(metadata, body, is_primary, is_target, old_status) do
     has_manual_status = Map.get(metadata, :status_manual, false)
     has_content = String.trim(body) != ""
 
     cond do
-      is_master and is_target -> "published"
-      is_master and old_status == "published" -> "archived"
-      is_master -> old_status
+      is_primary and is_target -> "published"
+      is_primary and old_status == "published" -> "archived"
+      is_primary -> old_status
       has_manual_status -> old_status
       not has_content -> old_status
       is_target -> "published"
@@ -2451,7 +2755,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   # List a versioned timestamp post (files in v1/, v2/, etc.)
   defp list_versioned_timestamp_post(group_slug, date, time, time_path, preferred_language) do
     versions = list_versions_for_timestamp(time_path)
-    master_language = get_master_language()
+    primary_language = get_primary_language()
 
     # Get the highest version to display in listing
     latest_version = Enum.max(versions, fn -> 1 end)
@@ -2471,12 +2775,12 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
             {:ok, metadata, content} ->
               # Load statuses and version info
               version_statuses =
-                load_version_statuses_timestamp(time_path, versions, master_language)
+                load_version_statuses_timestamp(time_path, versions, primary_language)
 
               [
                 %{
                   group: group_slug,
-                  slug: Map.get(metadata, :slug, format_time_folder(time)),
+                  slug: get_slug_with_fallback(metadata, format_time_folder(time)),
                   date: date,
                   time: time,
                   path:
@@ -2497,7 +2801,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
                   version_statuses: version_statuses,
                   version: latest_version,
                   is_legacy_structure: false,
-                  mode: :timestamp
+                  mode: :timestamp,
+                  primary_language: Map.get(metadata, :primary_language) || get_primary_language()
                 }
               ]
 
@@ -2530,7 +2835,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
               [
                 %{
                   group: group_slug,
-                  slug: Map.get(metadata, :slug, format_time_folder(time)),
+                  slug: get_slug_with_fallback(metadata, format_time_folder(time)),
                   date: date,
                   time: time,
                   path: relative_path_with_language(group_slug, date, time, display_language),
@@ -2541,7 +2846,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
                   available_languages: available_languages,
                   language_statuses: language_statuses,
                   is_legacy_structure: true,
-                  mode: :timestamp
+                  mode: :timestamp,
+                  primary_language: Map.get(metadata, :primary_language) || get_primary_language()
                 }
               ]
 
@@ -2713,13 +3019,23 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end)
   end
 
-  defp detect_available_languages(time_path) do
+  defp detect_available_languages(time_path, primary_language \\ nil) do
+    primary_lang = primary_language || get_primary_language()
+
     case File.ls(time_path) do
       {:ok, files} ->
-        files
-        |> Enum.filter(&String.ends_with?(&1, ".phk"))
-        |> Enum.map(&String.replace_suffix(&1, ".phk", ""))
-        |> Enum.sort()
+        languages =
+          files
+          |> Enum.filter(&String.ends_with?(&1, ".phk"))
+          |> Enum.map(&String.replace_suffix(&1, ".phk", ""))
+          |> Enum.sort()
+
+        # Put primary language first if it exists in the list
+        if primary_lang in languages do
+          [primary_lang | Enum.reject(languages, &(&1 == primary_lang))]
+        else
+          languages
+        end
 
       {:error, _} ->
         []
@@ -2753,7 +3069,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   defp create_post_with_slug(group_slug, post_slug, title, audit_meta, now) do
-    primary_language = get_master_language()
+    primary_language = get_primary_language()
     version = 1
 
     # Create versioned directory structure: blog/post-slug/v1/
@@ -2773,7 +3089,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         version_created_at: DateTime.to_iso8601(now),
         version_created_from: nil,
         status_manual: false,
-        allow_version_access: false
+        allow_version_access: false,
+        # Store the primary language used when creating this post
+        primary_language: primary_language
       }
       |> apply_creation_audit_metadata(audit_meta)
 
@@ -2884,8 +3202,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     # Load all versions info
     available_versions = list_versions(group_slug, post_slug)
-    version_statuses = load_version_statuses(group_slug, post_slug, available_versions)
-    version_dates = load_version_dates(group_slug, post_slug, available_versions)
+    # Use post's stored primary language for version status/date lookups
+    post_primary_language = Map.get(metadata, :primary_language) || get_primary_language()
+
+    version_statuses =
+      load_version_statuses(group_slug, post_slug, available_versions, post_primary_language)
+
+    version_dates =
+      load_version_dates(group_slug, post_slug, available_versions, post_primary_language)
 
     # Load language statuses - for versioned posts, check ALL versions
     language_statuses =
@@ -2922,7 +3246,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         available_versions: available_versions,
         version_statuses: version_statuses,
         version_dates: version_dates,
-        is_legacy_structure: is_legacy
+        is_legacy_structure: is_legacy,
+        # Post's stored primary language (for isolation from global changes)
+        primary_language: post_primary_language
       }
     ]
   end
@@ -2990,8 +3316,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
            |> Metadata.parse_with_content() do
       # Load all versions info
       available_versions = list_versions(group_slug, post_slug)
-      version_statuses = load_version_statuses(group_slug, post_slug, available_versions)
-      version_dates = load_version_dates(group_slug, post_slug, available_versions)
+      # Use post's stored primary language for version status/date lookups
+      post_primary_language = Map.get(metadata, :primary_language) || get_primary_language()
+
+      version_statuses =
+        load_version_statuses(group_slug, post_slug, available_versions, post_primary_language)
+
+      version_dates =
+        load_version_dates(group_slug, post_slug, available_versions, post_primary_language)
 
       # Load language statuses - for versioned posts, check ALL versions
       # so indicator shows green if ANY version has that language published
@@ -3046,7 +3378,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
          available_versions: available_versions,
          version_statuses: version_statuses,
          version_dates: version_dates,
-         is_legacy_structure: is_legacy
+         is_legacy_structure: is_legacy,
+         # Post's stored primary language (for isolation from global changes)
+         primary_language: Map.get(metadata, :primary_language) || get_primary_language()
        }}
     else
       _ -> {:error, :not_found}
@@ -3145,7 +3479,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     case File.write(post.full_path, serialized <> "\n") do
       :ok ->
         # NOTE: We no longer automatically call publish_version here.
-        # The LiveView is responsible for calling publish_version when the master
+        # The LiveView is responsible for calling publish_version when the primary
         # language is published, which properly archives other versions.
         # This allows translations to update their status independently.
         {:ok, %{post | metadata: metadata, content: content}}
@@ -3163,13 +3497,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     current_status = metadata_value(post.metadata, :status, "draft")
     new_status = Map.get(params, "status", current_status)
 
-    # Check if status is being changed by a non-master language editor
-    is_master_language = Map.get(audit_meta, :is_master_language, true)
+    # Check if status is being changed by a non-primary language editor
+    is_primary_language = Map.get(audit_meta, :is_primary_language, true)
     status_changing = new_status != current_status
 
     # Set status_manual: true when a translator manually changes status
     status_manual =
-      if status_changing and not is_master_language do
+      if status_changing and not is_primary_language do
         true
       else
         Map.get(post.metadata, :status_manual, false)
@@ -3470,12 +3804,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   @spec add_language_to_post_slug_mode(String.t(), String.t(), String.t(), integer() | nil) ::
           {:ok, post()} | {:error, any()}
   def add_language_to_post_slug_mode(group_slug, post_slug, language_code, version \\ nil) do
-    # Read the specific version (or latest if nil) of the MASTER language post
+    # Read the specific version (or latest if nil) of the PRIMARY language post
     # to get the correct metadata and directory path.
-    master_language = get_master_language()
+    # Use stored primary_language for this specific post, not global setting
+    primary_language = get_post_primary_language(group_slug, post_slug, version)
 
     with {:ok, original_post} <-
-           read_post_slug_mode(group_slug, post_slug, master_language, version),
+           read_post_slug_mode(group_slug, post_slug, primary_language, version),
          post_dir <- Path.dirname(original_post.full_path),
          target_path <- Path.join(post_dir, language_filename(language_code)),
          false <- File.exists?(target_path) do
@@ -3548,7 +3883,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     date = DateTime.to_date(now)
     time = DateTime.to_time(now)
-    primary_language = get_master_language()
+    primary_language = get_primary_language()
 
     # Create directory structure with v1/ for versioning
     slug = group_slug || "default"
@@ -3567,6 +3902,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       |> Map.put(:slug, format_time_folder(time))
       |> Map.put(:version, 1)
       |> Map.put(:version_created_at, DateTime.to_iso8601(now))
+      # Store the primary language used when creating this post
+      |> Map.put(:primary_language, primary_language)
       |> apply_creation_audit_metadata(audit_meta)
 
     content = Metadata.serialize(metadata) <> "\n\n"
@@ -3605,7 +3942,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
            version: 1,
            available_versions: [1],
            version_statuses: %{1 => "draft"},
-           is_legacy_structure: false
+           is_legacy_structure: false,
+           primary_language: primary_language
          }}
 
       {:error, reason} ->
@@ -3622,8 +3960,31 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     full_path = absolute_path(relative_path)
     language = extract_language_from_path(relative_path)
 
-    with true <- File.exists?(full_path),
-         {:ok, metadata, content} <- File.read!(full_path) |> Metadata.parse_with_content(),
+    # If the specific language file doesn't exist, try to fall back to an existing language
+    {actual_path, actual_language, is_new_translation} =
+      if File.exists?(full_path) do
+        {full_path, language, false}
+      else
+        # Check if directory exists (valid post, just missing this language)
+        lang_dir = Path.dirname(full_path)
+
+        if File.dir?(lang_dir) do
+          # Find first available language file
+          case detect_available_languages(lang_dir) do
+            [first_lang | _] ->
+              fallback_path = Path.join(lang_dir, "#{first_lang}.phk")
+              {fallback_path, first_lang, true}
+
+            [] ->
+              {full_path, language, false}
+          end
+        else
+          {full_path, language, false}
+        end
+      end
+
+    with true <- File.exists?(actual_path),
+         {:ok, metadata, content} <- File.read!(actual_path) |> Metadata.parse_with_content(),
          {:ok, {date, time}} <- date_time_from_path(relative_path) do
       # Determine the directory containing language files
       lang_dir = Path.dirname(full_path)
@@ -3652,24 +4013,34 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           load_language_statuses(lang_dir, available_languages)
         end
 
+      # If this is a new translation, return empty content and the requested language
+      {final_language, final_content, final_path} =
+        if is_new_translation do
+          {language, "", relative_path}
+        else
+          {actual_language, content, relative_path}
+        end
+
       {:ok,
        %{
          group: group_slug,
-         slug: Map.get(metadata, :slug, Path.basename(Path.dirname(relative_path))),
+         slug: get_slug_with_fallback(metadata, Path.basename(Path.dirname(relative_path))),
          date: date,
          time: time,
-         path: relative_path,
+         path: final_path,
          full_path: full_path,
          metadata: metadata,
-         content: content,
-         language: language,
+         content: final_content,
+         language: final_language,
          available_languages: available_languages,
          language_statuses: language_statuses,
          mode: :timestamp,
          version: version,
          available_versions: available_versions,
          version_statuses: version_statuses,
-         is_legacy_structure: not is_versioned
+         is_legacy_structure: not is_versioned,
+         is_new_translation: is_new_translation,
+         primary_language: Map.get(metadata, :primary_language) || get_primary_language()
        }}
     else
       false -> {:error, :not_found}
@@ -3822,15 +4193,15 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     featured_image_id = resolve_featured_image_id(params, post.metadata)
 
-    # Check if status is being changed by a non-master language editor
+    # Check if status is being changed by a non-primary language editor
     current_status = Map.get(post.metadata, :status, "draft")
     new_status = Map.get(params, "status", current_status)
-    is_master_language = Map.get(audit_meta, :is_master_language, true)
+    is_primary_language = Map.get(audit_meta, :is_primary_language, true)
     status_changing = new_status != current_status
 
     # Set status_manual: true when a translator manually changes status
     status_manual =
-      if status_changing and not is_master_language do
+      if status_changing and not is_primary_language do
         true
       else
         Map.get(post.metadata, :status_manual, false)
@@ -3920,65 +4291,11 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     Path.join([group_slug, date_part, time_part, "v#{version}", language_filename(language_code)])
   end
 
-  defp new_path_for(post, params) do
-    case Map.get(params, "published_at") do
-      nil ->
-        post.path
-
-      value ->
-        path_for_timestamp(
-          post.group,
-          value,
-          post.language,
-          post.version,
-          post.is_legacy_structure
-        )
-    end
-  end
-
-  defp path_for_timestamp(group_slug, timestamp, language_code, version, is_legacy) do
-    case DateTime.from_iso8601(timestamp) do
-      {:ok, dt, _} ->
-        floored = floor_to_minute(dt)
-
-        # Use versioned path for non-legacy posts, legacy path otherwise
-        if is_legacy do
-          relative_path_with_language(
-            group_slug,
-            DateTime.to_date(floored),
-            DateTime.to_time(floored),
-            language_code
-          )
-        else
-          relative_path_with_language_versioned(
-            group_slug,
-            DateTime.to_date(floored),
-            DateTime.to_time(floored),
-            version || 1,
-            language_code
-          )
-        end
-
-      _ ->
-        now = DateTime.utc_now() |> floor_to_minute()
-
-        if is_legacy do
-          relative_path_with_language(
-            group_slug,
-            DateTime.to_date(now),
-            DateTime.to_time(now),
-            language_code
-          )
-        else
-          relative_path_with_language_versioned(
-            group_slug,
-            DateTime.to_date(now),
-            DateTime.to_time(now),
-            version || 1,
-            language_code
-          )
-        end
-    end
+  defp new_path_for(post, _params) do
+    # For timestamp-mode posts, the path is immutable - the timestamp in the directory
+    # structure (e.g., "2026-01-24/04:10") is the canonical identifier for this post.
+    # Never recalculate the path from form data; always preserve the original.
+    post.path
   end
 
   defp date_time_from_path(path) do
@@ -4044,6 +4361,15 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
   defp pad(value) when value < 10, do: "0#{value}"
   defp pad(value), do: Integer.to_string(value)
+
+  # Get slug from metadata, falling back to provided default if nil or empty
+  defp get_slug_with_fallback(metadata, fallback) do
+    case Map.get(metadata, :slug) do
+      nil -> fallback
+      "" -> fallback
+      slug -> slug
+    end
+  end
 
   defp apply_creation_audit_metadata(metadata, audit_meta) do
     created_id = audit_value(audit_meta, :created_by_id)

@@ -1,8 +1,7 @@
 # Entities Module
 
-The Entities module delivers PhoenixKit’s dynamic content type system. It mirrors the behaviour of
-WordPress ACF by allowing administrators to design structured content (entities) without writing
-migrations or code. This README gives a quick orientation for contributors working on the LiveView
+The Entities module delivers PhoenixKit's dynamic content type system. It allows administrators
+to design structured content types with custom fields without writing migrations or code. This README gives a quick orientation for contributors working on the LiveView
 layer; the business logic lives in the `PhoenixKit.Entities` context.
 
 ## LiveViews & Components

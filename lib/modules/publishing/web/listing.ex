@@ -5,15 +5,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
+  alias PhoenixKit.Modules.Publishing.Workers.MigrateLegacyStructureWorker
+  alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
+
+  # Threshold for using background job vs synchronous migration
+  @migration_async_threshold 20
 
   # Import publishing-specific components
   import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
@@ -24,7 +31,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     # Subscribe to PubSub for live updates when connected
     if connected?(socket) do
-      # Global group updates (for sidebar)
       PublishingPubSub.subscribe_to_groups()
 
       if blog_slug do
@@ -48,16 +54,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     blogs = Publishing.list_groups()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == blog_slug end)
 
-    # Don't load posts here - handle_params will load them with proper endpoint_url
-    # This prevents double rendering where first render has nil endpoint_url
+    initial_posts =
+      case blog_slug do
+        nil ->
+          []
+
+        slug ->
+          case ListingCache.read(slug) do
+            {:ok, cached_posts} -> cached_posts
+            {:error, :cache_miss} -> Publishing.list_posts(slug)
+          end
+      end
 
     current_path =
       case blog_slug do
-        nil ->
-          Routes.path("/admin/publishing", locale: socket.assigns.current_locale_base)
-
-        slug ->
-          Routes.path("/admin/publishing/#{slug}", locale: socket.assigns.current_locale_base)
+        nil -> Routes.path("/admin/publishing")
+        slug -> Routes.path("/admin/publishing/#{slug}")
       end
 
     socket =
@@ -69,16 +81,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:current_blog, current_blog)
       |> assign(:blog_slug, blog_slug)
       |> assign(:enabled_languages, Storage.enabled_language_codes())
-      |> assign(:master_language, Storage.get_master_language())
-      |> assign(:posts, [])
-      |> assign(:loading, true)
+      |> assign(:primary_language, Storage.get_primary_language())
+      |> assign(:primary_language_name, get_language_name(Storage.get_primary_language()))
+      |> assign(:posts, initial_posts)
+      |> assign(:loading, false)
       |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
+      |> assign(:group_files_root, get_group_files_root(blog_slug))
       |> assign(:cache_info, get_cache_info(blog_slug))
+      |> assign(:primary_language_status, get_primary_language_status(blog_slug))
       |> assign(:active_editors, %{})
       |> assign(:translating_posts, %{})
-      # Debounce timers for post updates (prevents disk hammering on rapid saves)
       |> assign(:pending_post_updates, %{})
+      |> assign(:show_migration_modal, false)
+      |> assign(:migration_in_progress, false)
+      |> assign(:migration_progress, nil)
+      |> assign(:legacy_structure_status, get_legacy_structure_status(blog_slug))
+      |> assign(:show_version_migration_modal, false)
+      |> assign(:version_migration_in_progress, false)
+      |> assign(:version_migration_progress, nil)
 
     {:ok, redirect_if_missing(socket)}
   end
@@ -91,21 +112,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # Handle subscription changes when switching blogs
     socket =
       if connected?(socket) && new_blog_slug != old_blog_slug do
-        # Unsubscribe from old blog's topics
         if old_blog_slug do
           PublishingPubSub.unsubscribe_from_posts(old_blog_slug)
           PublishingPubSub.unsubscribe_from_cache(old_blog_slug)
           PublishingPubSub.unsubscribe_from_group_editors(old_blog_slug)
         end
 
-        # Subscribe to new blog's topics
         if new_blog_slug do
           PublishingPubSub.subscribe_to_posts(new_blog_slug)
           PublishingPubSub.subscribe_to_cache(new_blog_slug)
           PublishingPubSub.subscribe_to_group_editors(new_blog_slug)
         end
 
-        # Reset editor tracking state for new blog
         socket
         |> assign(:blog_slug, new_blog_slug)
         |> assign(:active_editors, %{})
@@ -115,34 +133,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         assign(socket, :blog_slug, new_blog_slug)
       end
 
-    # Update current blog
     blogs = socket.assigns[:blogs] || Publishing.list_groups()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == new_blog_slug end)
 
-    endpoint_url = extract_endpoint_url(uri)
+    posts =
+      case new_blog_slug do
+        nil ->
+          []
 
-    # Only load posts when connected to avoid double render flicker
-    # During disconnected render, show loading state
-    {posts, loading} =
-      if connected?(socket) do
-        posts =
-          case new_blog_slug do
-            nil -> []
-            slug -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
+        slug ->
+          case ListingCache.read(slug) do
+            {:ok, cached_posts} ->
+              cached_posts
+
+            {:error, :cache_miss} ->
+              Publishing.list_posts(slug, socket.assigns.current_locale_base)
           end
-
-        {posts, false}
-      else
-        {[], true}
       end
 
     socket =
       socket
       |> assign(:current_blog, current_blog)
       |> assign(:posts, posts)
-      |> assign(:loading, loading)
-      |> assign(:endpoint_url, endpoint_url)
+      |> assign(:endpoint_url, extract_endpoint_url(uri))
+      |> assign(:group_files_root, get_group_files_root(new_blog_slug))
       |> assign(:cache_info, get_cache_info(new_blog_slug))
+      |> assign(:primary_language_status, get_primary_language_status(new_blog_slug))
+      |> assign(:legacy_structure_status, get_legacy_structure_status(new_blog_slug))
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -152,21 +169,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # Use redirect for full page refresh to ensure editor JS initializes properly
     {:noreply,
      redirect(socket,
-       to:
-         Routes.path(
-           "/admin/publishing/#{blog_slug}/edit?new=true",
-           locale: socket.assigns.current_locale_base
-         )
+       to: Routes.path("/admin/publishing/#{blog_slug}/edit?new=true")
      )}
   end
 
   def handle_event("refresh", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+
+    # Force refresh: regenerate cache from filesystem, then read fresh data
+    ListingCache.regenerate(blog_slug)
+
     {:noreply,
-     assign(
-       socket,
-       :posts,
-       Publishing.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale_base)
-     )}
+     socket
+     |> assign(:posts, Publishing.list_posts(blog_slug, socket.assigns.current_locale_base))
+     |> assign(:cache_info, get_cache_info(blog_slug))}
   end
 
   def handle_event("add_language", %{"path" => post_path, "language" => lang_code}, socket) do
@@ -175,8 +191,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
      redirect(socket,
        to:
          Routes.path(
-           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
-           locale: socket.assigns.current_locale_base
+           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}"
          )
      )}
   end
@@ -188,8 +203,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
      redirect(socket,
        to:
          Routes.path(
-           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(path)}",
-           locale: socket.assigns.current_locale_base
+           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(path)}"
          )
      )}
   end
@@ -204,8 +218,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
        redirect(socket,
          to:
            Routes.path(
-             "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
-             locale: socket.assigns.current_locale_base
+             "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}"
            )
        )}
     else
@@ -475,6 +488,138 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
+  def handle_event("show_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_migration_modal, true)}
+  end
+
+  def handle_event("close_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_migration_modal, false)}
+  end
+
+  def handle_event("confirm_migrate_primary_language", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    primary_language = Storage.get_primary_language()
+    status = socket.assigns.primary_language_status
+    total_count = status.needs_backfill + status.needs_migration
+
+    # Use background job for large migrations
+    if total_count > @migration_async_threshold do
+      case MigratePrimaryLanguageWorker.enqueue(blog_slug, primary_language) do
+        {:ok, _job} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> assign(:migration_in_progress, true)
+           |> assign(:migration_progress, %{current: 0, total: total_count})
+           |> put_flash(
+             :info,
+             gettext("Migration started for %{count} posts. You can continue working.",
+               count: total_count
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
+           )}
+      end
+    else
+      # Synchronous migration for small counts
+      case Publishing.migrate_posts_to_current_primary_language(blog_slug) do
+        {:ok, count} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> assign(:primary_language_status, get_primary_language_status(blog_slug))
+           |> put_flash(
+             :info,
+             gettext("Updated %{count} posts to primary language: %{lang}",
+               count: count,
+               lang: get_language_name(primary_language)
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to migrate: %{reason}", reason: inspect(reason))
+           )}
+      end
+    end
+  end
+
+  # Version structure migration events
+  def handle_event("show_version_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_version_migration_modal, true)}
+  end
+
+  def handle_event("close_version_migration_modal", _params, socket) do
+    {:noreply, assign(socket, :show_version_migration_modal, false)}
+  end
+
+  def handle_event("confirm_migrate_to_versioned", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    status = socket.assigns.legacy_structure_status
+    total_count = status.legacy
+
+    # Use background job for large migrations
+    if total_count > @migration_async_threshold do
+      case MigrateLegacyStructureWorker.enqueue(blog_slug) do
+        {:ok, _job} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> assign(:version_migration_in_progress, true)
+           |> assign(:version_migration_progress, %{current: 0, total: total_count})
+           |> put_flash(
+             :info,
+             gettext("Version migration started for %{count} posts. You can continue working.",
+               count: total_count
+             )
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
+           )}
+      end
+    else
+      # Synchronous migration for small counts
+      case Publishing.migrate_posts_to_versioned_structure(blog_slug) do
+        {:ok, count} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> assign(:legacy_structure_status, get_legacy_structure_status(blog_slug))
+           |> refresh_posts()
+           |> put_flash(
+             :info,
+             gettext("Migrated %{count} posts to versioned structure", count: count)
+           )}
+
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> assign(:show_version_migration_modal, false)
+           |> put_flash(
+             :error,
+             gettext("Failed to migrate: %{reason}", reason: inspect(reason))
+           )}
+      end
+    end
+  end
+
   # PubSub handlers for live updates
   @impl true
   def handle_info({:post_created, _post}, socket) do
@@ -607,6 +752,129 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, assign(socket, :translating_posts, translating)}
   end
 
+  # Primary language migration progress handlers
+  def handle_info({:primary_language_migration_started, group_slug, total_count}, socket) do
+    # Only track if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply,
+       socket
+       |> assign(:migration_in_progress, true)
+       |> assign(:migration_progress, %{current: 0, total: total_count})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:primary_language_migration_progress, group_slug, current, total}, socket) do
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply, assign(socket, :migration_progress, %{current: current, total: total})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(
+        {:primary_language_migration_completed, group_slug, success_count, error_count,
+         primary_language},
+        socket
+      ) do
+    # Only handle if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      blog_slug = socket.assigns.blog_slug
+
+      socket =
+        socket
+        |> assign(:migration_in_progress, false)
+        |> assign(:migration_progress, nil)
+        |> assign(:primary_language_status, get_primary_language_status(blog_slug))
+
+      socket =
+        if error_count > 0 do
+          put_flash(
+            socket,
+            :warning,
+            gettext("Migration completed: %{success} succeeded, %{errors} failed",
+              success: success_count,
+              errors: error_count
+            )
+          )
+        else
+          put_flash(
+            socket,
+            :info,
+            gettext("Updated %{count} posts to primary language: %{lang}",
+              count: success_count,
+              lang: get_language_name(primary_language)
+            )
+          )
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Legacy structure (version) migration progress handlers
+  def handle_info({:legacy_structure_migration_started, group_slug, total_count}, socket) do
+    # Only track if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply,
+       socket
+       |> assign(:version_migration_in_progress, true)
+       |> assign(:version_migration_progress, %{current: 0, total: total_count})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:legacy_structure_migration_progress, group_slug, current, total}, socket) do
+    if group_slug == socket.assigns.blog_slug do
+      {:noreply, assign(socket, :version_migration_progress, %{current: current, total: total})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(
+        {:legacy_structure_migration_completed, group_slug, success_count, error_count},
+        socket
+      ) do
+    # Only handle if it's for our current blog
+    if group_slug == socket.assigns.blog_slug do
+      blog_slug = socket.assigns.blog_slug
+
+      socket =
+        socket
+        |> assign(:version_migration_in_progress, false)
+        |> assign(:version_migration_progress, nil)
+        |> assign(:legacy_structure_status, get_legacy_structure_status(blog_slug))
+        |> refresh_posts()
+
+      socket =
+        if error_count > 0 do
+          put_flash(
+            socket,
+            :warning,
+            gettext("Version migration completed: %{success} succeeded, %{errors} failed",
+              success: success_count,
+              errors: error_count
+            )
+          )
+        else
+          put_flash(
+            socket,
+            :info,
+            gettext("Migrated %{count} posts to versioned structure", count: success_count)
+          )
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
   # Group change handlers - keep sidebar in sync
   def handle_info({:group_created, _group}, socket) do
     {:noreply, assign(socket, :blogs, Publishing.list_groups())}
@@ -632,20 +900,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         # Current group was deleted - redirect to first available
         case blogs do
           [%{"slug" => slug} | _] ->
-            push_navigate(socket,
-              to:
-                Routes.path("/admin/publishing/#{slug}",
-                  locale: socket.assigns.current_locale_base
-                )
-            )
+            push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
 
           [] ->
-            push_navigate(socket,
-              to:
-                Routes.path("/admin/settings/publishing",
-                  locale: socket.assigns.current_locale_base
-                )
-            )
+            push_navigate(socket, to: Routes.path("/admin/settings/publishing"))
         end
       else
         assign(socket, :blogs, blogs)
@@ -786,15 +1044,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp redirect_if_missing(%{assigns: %{current_blog: nil}} = socket) do
     case socket.assigns.blogs do
       [%{"slug" => slug} | _] ->
-        push_navigate(socket,
-          to: Routes.path("/admin/publishing/#{slug}", locale: socket.assigns.current_locale_base)
-        )
+        push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
 
       [] ->
-        push_navigate(socket,
-          to:
-            Routes.path("/admin/settings/publishing", locale: socket.assigns.current_locale_base)
-        )
+        push_navigate(socket, to: Routes.path("/admin/settings/publishing"))
     end
   end
 
@@ -877,7 +1130,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   The `enabled` field indicates if the language is currently active in the Languages module.
   The `known` field indicates if the language code is recognized (vs unknown files like "test.phk").
-  The `is_master` field indicates if this is the master/primary language for versioning.
+  The `is_primary` field indicates if this is the primary language for versioning.
 
   Uses preloaded `language_statuses` from the post to avoid re-reading files on every render.
   """
@@ -886,17 +1139,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         _blog_slug,
         enabled_languages,
         _current_locale,
-        master_language \\ nil
+        primary_language \\ nil
       ) do
+    # Get primary language - prefer passed param, then post's stored value, then global
+    primary_lang =
+      primary_language || post[:primary_language] || Storage.get_primary_language()
+
     # Use shared ordering function for consistent display across all views
     all_languages =
-      Storage.order_languages_for_display(post.available_languages, enabled_languages)
+      Storage.order_languages_for_display(
+        post.available_languages,
+        enabled_languages,
+        primary_lang
+      )
 
     # Get preloaded language statuses (falls back to empty map for backwards compatibility)
     language_statuses = Map.get(post, :language_statuses) || %{}
-
-    # Get master language if not provided
-    master_lang = master_language || Storage.get_master_language()
 
     Enum.map(all_languages, fn lang_code ->
       lang_path =
@@ -909,7 +1167,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       file_exists = lang_code in post.available_languages
       is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
-      is_master = lang_code == master_lang
+      is_primary = lang_code == primary_lang
 
       # Use preloaded status instead of re-reading file
       status = Map.get(language_statuses, lang_code)
@@ -926,7 +1184,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         exists: file_exists,
         enabled: is_enabled,
         known: is_known,
-        is_master: is_master,
+        is_primary: is_primary,
         path: if(file_exists, do: lang_path, else: nil),
         post_path: post.path
       }
@@ -1033,6 +1291,38 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
           render_enabled: render_enabled,
           render_global_enabled: render_global_enabled
         }
+    end
+  end
+
+  defp get_primary_language_status(nil), do: nil
+
+  defp get_primary_language_status(blog_slug) do
+    Publishing.get_primary_language_migration_status(blog_slug)
+  end
+
+  defp get_legacy_structure_status(nil), do: %{versioned: 0, legacy: 0}
+
+  defp get_legacy_structure_status(blog_slug) do
+    Publishing.get_legacy_structure_status(blog_slug)
+  end
+
+  defp get_language_name(language_code) do
+    case Publishing.get_language_info(language_code) do
+      %{name: name} -> name
+      _ -> String.upcase(language_code)
+    end
+  end
+
+  # Returns the relative path prefix for files (e.g., "priv/blogging/" or "priv/publishing/")
+  defp get_group_files_root(nil), do: "priv/publishing/"
+
+  defp get_group_files_root(blog_slug) do
+    group_path = Storage.group_path(blog_slug)
+
+    cond do
+      String.contains?(group_path, "/blogging/") -> "priv/blogging/"
+      String.contains?(group_path, "/publishing/") -> "priv/publishing/"
+      true -> "priv/publishing/"
     end
   end
 end

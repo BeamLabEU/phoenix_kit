@@ -63,7 +63,7 @@ defmodule PhoenixKit.Dashboard.Badge do
       }
   """
 
-  @type badge_type :: :count | :dot | :status | :new | :text
+  @type badge_type :: :count | :dot | :status | :new | :text | :compound
 
   @type badge_color ::
           :primary | :secondary | :accent | :info | :success | :warning | :error | :neutral
@@ -71,6 +71,14 @@ defmodule PhoenixKit.Dashboard.Badge do
   @type subscribe_config :: {String.t(), (map() -> any())} | {String.t(), atom()} | String.t()
 
   @type loader_config :: {module(), atom()} | (any() -> any())
+
+  @type compound_segment :: %{
+          required(:value) => integer() | String.t(),
+          required(:color) => badge_color(),
+          optional(:label) => String.t()
+        }
+
+  @type compound_style :: :text | :blocks | :dots
 
   @type t :: %__MODULE__{
           type: badge_type(),
@@ -84,7 +92,12 @@ defmodule PhoenixKit.Dashboard.Badge do
           format: (any() -> String.t()) | nil,
           metadata: map(),
           context_key: atom() | nil,
-          loader: loader_config() | nil
+          loader: loader_config() | nil,
+          # Compound badge fields
+          segments: list(compound_segment()),
+          compound_style: compound_style(),
+          separator: String.t(),
+          hide_zero_segments: boolean()
         }
 
   defstruct [
@@ -99,10 +112,15 @@ defmodule PhoenixKit.Dashboard.Badge do
     pulse: false,
     animate: true,
     hidden_when_zero: true,
-    metadata: %{}
+    metadata: %{},
+    # Compound badge fields
+    segments: [],
+    compound_style: :text,
+    separator: "/",
+    hide_zero_segments: false
   ]
 
-  @valid_types [:count, :dot, :status, :new, :text]
+  @valid_types [:count, :dot, :status, :new, :text, :compound]
   @valid_colors [:primary, :secondary, :accent, :info, :success, :warning, :error, :neutral]
 
   @doc """
@@ -187,7 +205,12 @@ defmodule PhoenixKit.Dashboard.Badge do
       format: get_attr(attrs, :format),
       metadata: get_attr(attrs, :metadata) || %{},
       context_key: get_attr(attrs, :context_key),
-      loader: parse_loader(get_attr(attrs, :loader))
+      loader: parse_loader(get_attr(attrs, :loader)),
+      # Compound badge fields
+      segments: parse_segments(get_attr(attrs, :segments)),
+      compound_style: parse_compound_style(get_attr(attrs, :compound_style)),
+      separator: get_attr(attrs, :separator) || "/",
+      hide_zero_segments: get_attr(attrs, :hide_zero_segments) || false
     }
   end
 
@@ -278,6 +301,144 @@ defmodule PhoenixKit.Dashboard.Badge do
   end
 
   @doc """
+  Creates a compound badge with multiple colored segments.
+
+  A compound badge displays multiple values with different colors in a single badge.
+  Useful for showing status breakdowns like "10 success / 5 pending / 2 error".
+
+  ## Styles
+
+  - `:text` (default) - Colored text values with separator (e.g., "10 / 5 / 2")
+  - `:blocks` - Colored background pills side by side
+  - `:dots` - Colored dots with numbers beside them
+
+  ## Options
+
+  - `:style` - Display style: `:text`, `:blocks`, `:dots` (default: `:text`)
+  - `:separator` - Separator string for `:text` style (default: "/")
+  - `:hide_zero_segments` - Hide segments with value 0 (default: false)
+  - `:pulse` - Enable pulse animation (default: false)
+
+  ## Segment Format
+
+  Each segment is a map with:
+  - `:value` (required) - Integer or string value to display
+  - `:color` (required) - Badge color atom (:success, :warning, :error, etc.)
+  - `:label` (optional) - Text label shown after value (e.g., "done", "pending")
+
+  ## Examples
+
+      # Simple compound badge
+      Badge.compound([
+        %{value: 10, color: :success},
+        %{value: 5, color: :warning},
+        %{value: 2, color: :error}
+      ])
+
+      # With labels and blocks style
+      Badge.compound([
+        %{value: 10, color: :success, label: "done"},
+        %{value: 5, color: :warning, label: "pending"}
+      ], style: :blocks)
+
+      # Hide zero segments
+      Badge.compound([
+        %{value: 10, color: :success},
+        %{value: 0, color: :error}
+      ], hide_zero_segments: true)
+      # Only shows: "10"
+  """
+  @spec compound(list(compound_segment()), keyword()) :: t()
+  def compound(segments, opts \\ []) when is_list(segments) do
+    new!(
+      Keyword.merge(
+        [
+          type: :compound,
+          segments: segments,
+          compound_style: Keyword.get(opts, :style, :text),
+          separator: Keyword.get(opts, :separator, "/"),
+          hide_zero_segments: Keyword.get(opts, :hide_zero_segments, false)
+        ],
+        opts
+      )
+    )
+  end
+
+  @doc """
+  Creates a context-aware compound badge that loads segments per-context.
+
+  The loader function should return a list of segment maps.
+
+  ## Examples
+
+      # Loader returns list of segments for current organization
+      Badge.compound_context(:organization, {MyApp.Tasks, :get_status_counts},
+        style: :blocks
+      )
+
+      # In MyApp.Tasks
+      def get_status_counts(org) do
+        [
+          %{value: count_completed(org.id), color: :success},
+          %{value: count_pending(org.id), color: :warning},
+          %{value: count_overdue(org.id), color: :error}
+        ]
+      end
+  """
+  @spec compound_context(atom(), loader_config(), keyword()) :: t()
+  def compound_context(context_key, loader, opts \\ []) do
+    new!(
+      Keyword.merge(
+        [
+          type: :compound,
+          context_key: context_key,
+          loader: loader,
+          compound_style: Keyword.get(opts, :style, :text),
+          separator: Keyword.get(opts, :separator, "/"),
+          hide_zero_segments: Keyword.get(opts, :hide_zero_segments, false)
+        ],
+        opts
+      )
+    )
+  end
+
+  @doc """
+  Returns visible segments for a compound badge.
+
+  If `hide_zero_segments` is true, filters out segments with value 0 or nil.
+
+  ## Examples
+
+      badge = Badge.compound([
+        %{value: 10, color: :success},
+        %{value: 0, color: :error}
+      ], hide_zero_segments: true)
+
+      Badge.visible_segments(badge)
+      # => [%{value: 10, color: :success}]
+  """
+  @spec visible_segments(t()) :: list(compound_segment())
+  def visible_segments(%__MODULE__{type: :compound, segments: segments, hide_zero_segments: true}) do
+    Enum.reject(segments, fn seg ->
+      value = seg[:value] || seg["value"]
+      value == 0 or is_nil(value)
+    end)
+  end
+
+  def visible_segments(%__MODULE__{type: :compound, segments: segments}), do: segments
+  def visible_segments(_), do: []
+
+  @doc """
+  Updates segments for a compound badge.
+  """
+  @spec update_segments(t(), list(compound_segment())) :: t()
+  def update_segments(%__MODULE__{type: :compound} = badge, segments) when is_list(segments) do
+    %{badge | segments: segments}
+  end
+
+  def update_segments(badge, _segments), do: badge
+
+  @doc """
   Creates a live badge that subscribes to PubSub updates.
 
   ## Examples
@@ -346,10 +507,20 @@ defmodule PhoenixKit.Dashboard.Badge do
   Checks if the badge should be visible.
 
   Count badges with value 0 are hidden by default when hidden_when_zero is true.
+  Compound badges are hidden when all segments have zero value (and hide_zero_segments is true).
   """
   @spec visible?(t()) :: boolean()
   def visible?(%__MODULE__{type: :count, value: 0, hidden_when_zero: true}), do: false
   def visible?(%__MODULE__{type: :count, value: nil, hidden_when_zero: true}), do: false
+
+  def visible?(%__MODULE__{type: :compound, segments: segments, hide_zero_segments: true}) do
+    Enum.any?(segments, fn seg ->
+      value = seg[:value] || seg["value"]
+      value != nil and value != 0
+    end)
+  end
+
+  def visible?(%__MODULE__{type: :compound, segments: []}), do: false
   def visible?(%__MODULE__{}), do: true
 
   @doc """
@@ -425,11 +596,13 @@ defmodule PhoenixKit.Dashboard.Badge do
   defp parse_type(:status), do: :status
   defp parse_type(:new), do: :new
   defp parse_type(:text), do: :text
+  defp parse_type(:compound), do: :compound
   defp parse_type("count"), do: :count
   defp parse_type("dot"), do: :dot
   defp parse_type("status"), do: :status
   defp parse_type("new"), do: :new
   defp parse_type("text"), do: :text
+  defp parse_type("compound"), do: :compound
   defp parse_type(nil), do: :count
   defp parse_type(other), do: other
 
@@ -461,6 +634,19 @@ defmodule PhoenixKit.Dashboard.Badge do
   defp parse_loader({mod, fun}) when is_atom(mod) and is_atom(fun), do: {mod, fun}
   defp parse_loader(fun) when is_function(fun, 1), do: fun
   defp parse_loader(_), do: nil
+
+  defp parse_segments(nil), do: []
+  defp parse_segments(segments) when is_list(segments), do: segments
+  defp parse_segments(_), do: []
+
+  defp parse_compound_style(:text), do: :text
+  defp parse_compound_style(:blocks), do: :blocks
+  defp parse_compound_style(:dots), do: :dots
+  defp parse_compound_style("text"), do: :text
+  defp parse_compound_style("blocks"), do: :blocks
+  defp parse_compound_style("dots"), do: :dots
+  defp parse_compound_style(nil), do: :text
+  defp parse_compound_style(_), do: :text
 
   # Context-aware badge functions
 

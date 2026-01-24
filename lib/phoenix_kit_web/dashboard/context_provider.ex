@@ -21,7 +21,13 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
   - `@current_context` - The currently selected context (or nil)
   - `@show_context_selector` - Boolean, true only if user has 2+ contexts
   - `@context_selector_config` - The ContextSelector config struct
+  - `@current_contexts_map` - Map with single entry `%{key => current_context}` for badge compatibility
+  - `@dashboard_contexts_map` - Map with single entry `%{key => contexts}` for consistency
+  - `@show_context_selectors_map` - Map with single entry `%{key => show_selector}`
   - `@dashboard_tabs` - (Optional) List of Tab structs when `tab_loader` is configured
+
+  Note: The `key` used in maps is `config.key` if set, otherwise `:default`.
+  This ensures context-aware badges work correctly with legacy single-selector configs.
 
   ## Assigns Set (Multiple Selectors)
 
@@ -101,12 +107,21 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
       # Load context-specific tabs if tab_loader is configured
       context_tabs = load_context_tabs(current_context, config)
 
+      # Determine the context key for current_contexts_map
+      # Use config.key if available, otherwise :default
+      context_key = config.key || :default
+
       socket =
         socket
         |> assign(:dashboard_contexts, contexts)
         |> assign(:current_context, current_context)
         |> assign(:show_context_selector, show_selector)
         |> assign(:context_selector_config, config)
+        # Also set current_contexts_map for context-aware badge compatibility
+        # This makes legacy single-selector mode consistent with multi-selector mode
+        |> assign(:current_contexts_map, build_contexts_map(context_key, current_context))
+        |> assign(:dashboard_contexts_map, %{context_key => contexts})
+        |> assign(:show_context_selectors_map, %{context_key => show_selector})
         |> maybe_assign_tabs(context_tabs)
 
       handle_empty_contexts(socket, contexts, config)
@@ -114,6 +129,9 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
       {:cont, assign_disabled(socket)}
     end
   end
+
+  defp build_contexts_map(_key, nil), do: %{}
+  defp build_contexts_map(key, context), do: %{key => context}
 
   defp load_context_tabs(context, config) when config.tab_loader != nil do
     ContextSelector.load_tabs(context)

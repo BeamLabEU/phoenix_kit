@@ -359,12 +359,41 @@ Set global subtab styling defaults in your config:
 ```elixir
 config :phoenix_kit,
   dashboard_subtab_style: [
-    indent: "pl-9",           # Default indent
+    indent: "pl-9",           # Default indent (Tailwind class)
     icon_size: "w-4 h-4",     # Default icon size
     text_size: "text-sm",     # Default text size
     animation: :none          # Default animation
   ]
 ```
+
+#### Indent Value Formats
+
+The `indent` option (for `subtab_indent` or `dashboard_subtab_style.indent`) supports multiple formats:
+
+**Tailwind Classes (standard):**
+```elixir
+indent: "pl-9"      # Default: ~36px / 2.25rem
+indent: "pl-12"     # 3rem
+indent: "pl-6"      # 1.5rem
+```
+
+**Inline CSS Values (for precise control):**
+```elixir
+indent: "1.5rem"    # Converted to inline style
+indent: "24px"      # Pixels
+indent: "2em"       # Relative to font size
+```
+
+**Numeric Values:**
+```elixir
+indent: 24          # Integer treated as pixels → "padding-left: 24px"
+indent: 1.5         # Float treated as rem → "padding-left: 1.5rem"
+```
+
+> **Note:** Using inline CSS values avoids Tailwind's CSS purging issues. If you use a
+> non-standard Tailwind class like `"pl-7"` or `"pl-11"`, it may not be included in your
+> compiled CSS unless you add it to your Tailwind safelist. A warning will be logged
+> for potentially missing Tailwind classes.
 
 #### Style Cascade
 
@@ -553,6 +582,88 @@ If subtabs aren't behaving as expected:
 ```elixir
 %{type: :text, value: "Beta"}
 %{type: :text, value: "Pro", color: :accent}
+```
+
+### Compound Badge
+
+Display multiple values with different colors in a single badge. Useful for showing
+status breakdowns like "10 success / 5 pending / 2 error".
+
+```elixir
+%{
+  type: :compound,
+  segments: [
+    %{value: 10, color: :success},
+    %{value: 5, color: :warning},
+    %{value: 2, color: :error}
+  ],
+  compound_style: :text,  # :text, :blocks, or :dots
+  separator: "/"          # Separator for :text style
+}
+```
+
+#### Styles
+
+**Text Style (default):** Colored numbers with separator
+```
+10 / 5 / 2
+```
+
+**Blocks Style:** Colored background pills side by side
+```
+[10][5][2]
+```
+
+**Dots Style:** Colored dots with numbers
+```
+● 10  ● 5  ● 2
+```
+
+#### With Labels
+
+```elixir
+segments: [
+  %{value: 10, color: :success, label: "done"},
+  %{value: 5, color: :warning, label: "pending"}
+]
+# Displays: "10 done / 5 pending"
+```
+
+#### Hide Zero Segments
+
+```elixir
+%{
+  type: :compound,
+  segments: [
+    %{value: 10, color: :success},
+    %{value: 0, color: :error}
+  ],
+  hide_zero_segments: true
+}
+# Only shows: "10"
+```
+
+#### Context-Aware Compound Badge
+
+For compound badges that load segment data per-context:
+
+```elixir
+alias PhoenixKit.Dashboard.Badge
+
+# Loader returns list of segments for current organization
+Badge.compound_context(:organization, {MyApp.Tasks, :get_status_counts},
+  style: :blocks,
+  hide_zero_segments: true
+)
+
+# In MyApp.Tasks
+def get_status_counts(org) do
+  [
+    %{value: count_completed(org.id), color: :success},
+    %{value: count_pending(org.id), color: :warning},
+    %{value: count_overdue(org.id), color: :error}
+  ]
+end
 ```
 
 ## Live Badge Updates via PubSub
@@ -774,7 +885,44 @@ PhoenixKit.Dashboard.clear_attention(:alerts)
 
 ## LiveView Integration
 
-For real-time tab updates in your LiveViews:
+### Using TabsInitializer (Recommended)
+
+For automatic tab initialization with context-aware badge support, use the `TabsInitializer` hook:
+
+```elixir
+# In your router
+live_session :dashboard,
+  on_mount: [
+    {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+    {PhoenixKitWeb.Dashboard.ContextProvider, :default},
+    {PhoenixKitWeb.Dashboard.TabsInitializer, :default}  # Automatically initializes tabs
+  ] do
+  live "/dashboard", DashboardLive.Index
+  live "/dashboard/orders", DashboardLive.Orders
+end
+```
+
+The `TabsInitializer` hook:
+- Runs after `ContextProvider` to ensure context data is available
+- Normalizes `current_contexts_map` for legacy single-selector configurations
+- Loads all tabs from the Registry with active state
+- Initializes context-aware badge values via their loaders
+- Subscribes to PubSub topics for live badge updates
+- Sets up presence tracking
+
+**Mount Options:**
+- `:default` - Full initialization with presence tracking
+- `:minimal` - Skip presence tracking for lower overhead
+- `:badges_only` - Only initialize badge values
+
+```elixir
+# Example with minimal overhead
+{PhoenixKitWeb.Dashboard.TabsInitializer, :minimal}
+```
+
+### Using LiveTabs Module
+
+For more control, use the `LiveTabs` module directly in your LiveView:
 
 ```elixir
 defmodule MyAppWeb.DashboardLive do
@@ -792,7 +940,7 @@ defmodule MyAppWeb.DashboardLive do
 end
 ```
 
-Or manually:
+### Manual Integration
 
 ```elixir
 def mount(_params, _session, socket) do

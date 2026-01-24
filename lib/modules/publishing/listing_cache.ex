@@ -687,6 +687,190 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end
   end
 
+  @doc """
+  Returns a list of posts that need primary_language migration.
+
+  This checks all posts in a group and returns those that either:
+  1. Have no `primary_language` stored (need backfill)
+  2. Have `primary_language` different from global setting (need migration decision)
+  """
+  @spec posts_needing_primary_language_migration(String.t()) :: [map()]
+  def posts_needing_primary_language_migration(blog_slug) do
+    case read(blog_slug) do
+      {:ok, posts} ->
+        global_primary = Storage.get_primary_language()
+
+        Enum.filter(posts, fn post ->
+          # Use atom key since normalized posts use atoms
+          stored_primary = post[:primary_language]
+          stored_primary == nil or stored_primary != global_primary
+        end)
+
+      {:error, _} ->
+        # If cache doesn't exist, scan filesystem directly
+        scan_posts_needing_migration(blog_slug)
+    end
+  end
+
+  defp scan_posts_needing_migration(blog_slug) do
+    global_primary = Storage.get_primary_language()
+
+    # Try slug mode first, then timestamp mode (list_posts handles timestamp)
+    posts = Storage.list_posts_slug_mode(blog_slug)
+
+    posts =
+      if posts == [] do
+        Storage.list_posts(blog_slug)
+      else
+        posts
+      end
+
+    posts
+    |> Enum.filter(fn post ->
+      stored_primary = Map.get(post[:metadata] || %{}, :primary_language)
+      stored_primary == nil or stored_primary != global_primary
+    end)
+    |> Enum.map(&serialize_post/1)
+    |> Enum.map(&normalize_post/1)
+  end
+
+  @doc """
+  Counts posts by primary_language status in a group.
+
+  Returns `%{current: n, needs_migration: n, needs_backfill: n}` where:
+  - `current` - posts with primary_language matching global setting
+  - `needs_migration` - posts with different primary_language (were created under old setting)
+  - `needs_backfill` - posts with no primary_language stored (legacy posts)
+  """
+  @spec count_primary_language_status(String.t()) :: map()
+  def count_primary_language_status(blog_slug) do
+    case read(blog_slug) do
+      {:ok, posts} ->
+        global_primary = Storage.get_primary_language()
+
+        Enum.reduce(posts, %{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
+          # Use atom key since normalized posts use atoms
+          stored_primary = post[:primary_language]
+
+          cond do
+            stored_primary == nil ->
+              %{acc | needs_backfill: acc.needs_backfill + 1}
+
+            stored_primary == global_primary ->
+              %{acc | current: acc.current + 1}
+
+            true ->
+              %{acc | needs_migration: acc.needs_migration + 1}
+          end
+        end)
+
+      {:error, _} ->
+        # If cache doesn't exist, scan filesystem directly
+        scan_primary_language_status(blog_slug)
+    end
+  end
+
+  defp scan_primary_language_status(blog_slug) do
+    global_primary = Storage.get_primary_language()
+
+    # Try slug mode first, then timestamp mode (list_posts handles timestamp)
+    posts = Storage.list_posts_slug_mode(blog_slug)
+
+    posts =
+      if posts == [] do
+        Storage.list_posts(blog_slug)
+      else
+        posts
+      end
+
+    Enum.reduce(posts, %{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
+      stored_primary = Map.get(post[:metadata] || %{}, :primary_language)
+
+      cond do
+        stored_primary == nil ->
+          %{acc | needs_backfill: acc.needs_backfill + 1}
+
+        stored_primary == global_primary ->
+          %{acc | current: acc.current + 1}
+
+        true ->
+          %{acc | needs_migration: acc.needs_migration + 1}
+      end
+    end)
+  end
+
+  # ===========================================================================
+  # Legacy Structure Migration Status
+  # ===========================================================================
+
+  @doc """
+  Counts posts by version structure status for a group.
+
+  Returns `%{versioned: n, legacy: n}` where:
+  - `versioned` - posts with v1/, v2/, etc. structure
+  - `legacy` - posts with flat file structure (need migration)
+  """
+  @spec count_legacy_structure_status(String.t()) :: map()
+  def count_legacy_structure_status(blog_slug) do
+    case read(blog_slug) do
+      {:ok, posts} ->
+        Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
+          if post[:is_legacy_structure] do
+            %{acc | legacy: acc.legacy + 1}
+          else
+            %{acc | versioned: acc.versioned + 1}
+          end
+        end)
+
+      {:error, _} ->
+        # If cache doesn't exist, scan filesystem directly
+        scan_legacy_structure_status(blog_slug)
+    end
+  end
+
+  @doc """
+  Returns list of posts that need version structure migration.
+  """
+  @spec posts_needing_version_migration(String.t()) :: [map()]
+  def posts_needing_version_migration(blog_slug) do
+    case read(blog_slug) do
+      {:ok, posts} ->
+        Enum.filter(posts, & &1[:is_legacy_structure])
+
+      {:error, _} ->
+        # If cache doesn't exist, scan filesystem directly
+        scan_posts_needing_version_migration(blog_slug)
+    end
+  end
+
+  defp scan_legacy_structure_status(blog_slug) do
+    posts = get_posts_for_scan(blog_slug)
+
+    Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
+      if Map.get(post, :is_legacy_structure, false) do
+        %{acc | legacy: acc.legacy + 1}
+      else
+        %{acc | versioned: acc.versioned + 1}
+      end
+    end)
+  end
+
+  defp scan_posts_needing_version_migration(blog_slug) do
+    posts = get_posts_for_scan(blog_slug)
+    Enum.filter(posts, &Map.get(&1, :is_legacy_structure, false))
+  end
+
+  defp get_posts_for_scan(blog_slug) do
+    # Try slug mode first, then timestamp mode
+    posts = Storage.list_posts_slug_mode(blog_slug)
+
+    if posts == [] do
+      Storage.list_posts(blog_slug)
+    else
+      posts
+    end
+  end
+
   # Private functions
 
   defp write_cache_file(path, data) do
@@ -743,7 +927,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       "is_legacy_structure" => post[:is_legacy_structure] || false,
       "metadata" => serialize_metadata(post[:metadata]),
       # Pre-compute excerpt for listing page (avoids needing full content)
-      "excerpt" => extract_excerpt(post[:content], post[:metadata])
+      "excerpt" => extract_excerpt(post[:content], post[:metadata]),
+      # Primary language for this post (controls versioning/status inheritance)
+      # NOTE: Do NOT fall back to global setting - we need nil to detect posts needing backfill
+      "primary_language" => Map.get(post[:metadata] || %{}, :primary_language)
     }
   end
 
@@ -886,6 +1073,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       version_dates: post["version_dates"] || %{},
       is_legacy_structure: post["is_legacy_structure"] || false,
       metadata: normalize_metadata(post["metadata"]),
+      # Primary language for this post (controls versioning/status inheritance)
+      primary_language: post["primary_language"],
       # Use pre-computed excerpt as content for template compatibility
       # The template's extract_excerpt() will just return this text
       content: post["excerpt"]

@@ -14,12 +14,21 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
 
   use Phoenix.Component
 
+  require Logger
+
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Dashboard.Badge, as: BadgeComponent
 
   # Use the icon component from Core.Icon to avoid circular dependencies
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
+
+  # Valid Tailwind padding-left classes that are typically included in builds
+  @valid_tailwind_indents ~w(
+    pl-0 pl-0.5 pl-1 pl-1.5 pl-2 pl-2.5 pl-3 pl-3.5 pl-4 pl-5 pl-6 pl-7 pl-8
+    pl-9 pl-10 pl-11 pl-12 pl-14 pl-16 pl-20 pl-24 pl-28 pl-32 pl-36 pl-40
+    pl-44 pl-48 pl-52 pl-56 pl-60 pl-64 pl-72 pl-80 pl-96 pl-px
+  )
 
   @doc """
   Renders a dashboard tab item.
@@ -65,11 +74,17 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     # For subtabs, get style from parent_tab if provided, otherwise fall back to global defaults
     subtab_style = get_subtab_style(assigns.tab, assigns.parent_tab)
 
+    # Get both class and optional inline style for subtab indent
+    {tab_class, tab_style} =
+      tab_classes(assigns.active, assigns.tab.attention, is_subtab, subtab_style, assigns.class)
+
     assigns =
       assigns
       |> assign(:path, path)
       |> assign(:is_subtab, is_subtab)
       |> assign(:subtab_style, subtab_style)
+      |> assign(:tab_class, tab_class)
+      |> assign(:tab_style, tab_style)
 
     ~H"""
     <%= if @tab.external do %>
@@ -77,7 +92,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
         href={@path}
         target={if @tab.new_tab, do: "_blank", else: nil}
         rel={if @tab.new_tab, do: "noopener noreferrer", else: nil}
-        class={tab_classes(@active, @tab.attention, @is_subtab, @subtab_style, @class)}
+        class={@tab_class}
+        style={@tab_style}
         title={@tab.tooltip}
         data-tab-id={@tab.id}
         data-parent-id={@tab.parent}
@@ -97,7 +113,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     <% else %>
       <.link
         navigate={@path}
-        class={tab_classes(@active, @tab.attention, @is_subtab, @subtab_style, @class)}
+        class={@tab_class}
+        style={@tab_style}
         title={@tab.tooltip}
         data-tab-id={@tab.id}
         data-parent-id={@tab.parent}
@@ -251,17 +268,22 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     Routes.path(path, locale: locale)
   end
 
+  # Returns {class_string, inline_style} tuple
+  # Supports both Tailwind classes and inline CSS values for subtab indent
   defp tab_classes(active, attention, is_subtab, subtab_style, extra_class) do
     base =
       "flex items-center py-2 text-sm font-medium rounded-lg transition-all duration-200"
 
     # Subtabs use configurable indent, defaults to "pl-9 pr-3"
-    padding_class =
+    # Now supports inline CSS values (px, rem, em, %) in addition to Tailwind classes
+    {padding_class, inline_style} =
       if is_subtab do
-        indent = subtab_style[:indent] || "pl-9"
-        "#{indent} pr-3"
+        case resolve_indent(subtab_style[:indent]) do
+          {:class, class} -> {"#{class} pr-3", nil}
+          {:style, style} -> {"pr-3", style}
+        end
       else
-        "px-3"
+        {"px-3", nil}
       end
 
     active_class =
@@ -289,10 +311,45 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
         nil
       end
 
-    [base, padding_class, active_class, attention_class, animation_class, extra_class]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.join(" ")
+    class_string =
+      [base, padding_class, active_class, attention_class, animation_class, extra_class]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+
+    {class_string, inline_style}
   end
+
+  # Resolves indent value to either a Tailwind class or inline style
+  # Supports: Tailwind classes ("pl-9"), CSS values ("1.5rem", "24px"), integers (pixels), floats (rem)
+  defp resolve_indent(nil), do: {:class, "pl-9"}
+
+  defp resolve_indent(value) when is_integer(value) do
+    {:style, "padding-left: #{value}px"}
+  end
+
+  defp resolve_indent(value) when is_float(value) do
+    {:style, "padding-left: #{value}rem"}
+  end
+
+  defp resolve_indent(value) when is_binary(value) do
+    # Check if it contains CSS units (px, rem, em, %, vh, vw, ch, ex, etc.)
+    if Regex.match?(~r/^[\d.]+\s*(px|rem|em|%|vh|vw|ch|ex|vmin|vmax)$/i, value) do
+      {:style, "padding-left: #{value}"}
+    else
+      # Treat as Tailwind class
+      unless value in @valid_tailwind_indents do
+        Logger.warning(
+          "[PhoenixKit] Subtab indent '#{value}' may not be a valid Tailwind class. " <>
+            "Consider using inline CSS values (e.g., '1.5rem', '24px', or integer 24) " <>
+            "to avoid Tailwind purging issues."
+        )
+      end
+
+      {:class, value}
+    end
+  end
+
+  defp resolve_indent(_value), do: {:class, "pl-9"}
 
   defp icon_classes(_active, attention, is_subtab, subtab_style) do
     # Subtabs use configurable icon size, defaults to "w-4 h-4"

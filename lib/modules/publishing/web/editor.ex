@@ -18,6 +18,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PresenceHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -83,7 +84,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:current_language, nil)
       |> assign(:current_language_enabled, true)
       |> assign(:current_language_known, true)
-      |> assign(:is_master_language, true)
+      |> assign(:is_primary_language, true)
+      |> assign(:post_primary_language_status, {:ok, :current})
       |> assign(:available_languages, [])
       |> assign(:all_enabled_languages, [])
       |> assign(:has_pending_changes, false)
@@ -106,11 +108,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:ai_endpoints, list_ai_endpoints())
       |> assign(:ai_selected_endpoint_id, get_default_ai_endpoint_id())
       |> assign(:ai_translation_status, nil)
+      |> assign(:translation_task_ref, nil)
+      |> assign(:translation_target_language, nil)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/edit",
-          locale: socket.assigns.current_locale_base
-        )
+        Routes.path("/admin/publishing/#{blog_slug}/edit")
       )
 
     {:ok, socket}
@@ -185,9 +187,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign_current_language(primary_language)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/edit?new=true",
-          locale: socket.assigns.current_locale_base
-        )
+        Routes.path("/admin/publishing/#{blog_slug}/edit?new=true")
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, true)
@@ -246,7 +246,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             fk = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
 
             # Recalculate viewing_older_version for the new translation language
-            # Translations (non-master languages) should not be locked
+            # Translations (non-primary languages) should not be locked
             current_version = Map.get(post, :version, 1)
             available_versions = Map.get(post, :available_versions, [])
 
@@ -263,8 +263,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               |> assign(
                 :current_path,
                 Routes.path(
-                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}",
-                  locale: socket.assigns.current_locale_base
+                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}"
                 )
               )
               |> assign(:current_version, current_version)
@@ -303,8 +302,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               |> assign(
                 :current_path,
                 Routes.path(
-                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
-                  locale: socket.assigns.current_locale_base
+                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}"
                 )
               )
               |> assign(:has_pending_changes, false)
@@ -342,12 +340,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         {:noreply,
          socket
          |> put_flash(:error, gettext("Post not found"))
-         |> push_navigate(
-           to:
-             Routes.path("/admin/publishing/#{blog_slug}",
-               locale: socket.assigns.current_locale_base
-             )
-         )}
+         |> push_navigate(to: Routes.path("/admin/publishing/#{blog_slug}"))}
     end
   end
 
@@ -619,7 +612,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("translate_to_all_languages", _params, socket) do
-    target_languages = get_all_target_languages()
+    target_languages = get_all_target_languages(socket)
     # Use :warning because no other languages indicates a configuration issue
     empty_opts = {:warning, gettext("No other languages enabled to translate to")}
     enqueue_translation(socket, target_languages, empty_opts)
@@ -630,6 +623,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     # Use :info because all translated is an informational status
     empty_opts = {:info, gettext("All languages already have translations")}
     enqueue_translation(socket, target_languages, empty_opts)
+  end
+
+  def handle_event("translate_to_this_language", _params, socket) do
+    # Only owners can translate (spectators are readonly)
+    if socket.assigns[:readonly?] do
+      {:noreply, socket}
+    else
+      start_translation_to_current(socket)
+    end
   end
 
   def handle_event("preview", _params, socket) do
@@ -650,11 +652,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     {:noreply,
      push_navigate(socket,
-       to:
-         Routes.path(
-           "/admin/publishing/#{socket.assigns.blog_slug}/preview#{query_string}",
-           locale: socket.assigns.current_locale_base
-         )
+       to: Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/preview#{query_string}")
      )}
   end
 
@@ -670,12 +668,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     {:noreply,
      socket
      |> push_event("changes-status", %{has_changes: false})
-     |> push_navigate(
-       to:
-         Routes.path("/admin/publishing/#{socket.assigns.blog_slug}",
-           locale: socket.assigns.current_locale_base
-         )
-     )}
+     |> push_navigate(to: Routes.path("/admin/publishing/#{socket.assigns.blog_slug}"))}
   end
 
   def handle_event("back_to_list", _params, socket) do
@@ -703,11 +696,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
       {:noreply,
        push_patch(socket,
-         to:
-           Routes.path(
-             "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}",
-             locale: socket.assigns.current_locale_base
-           )
+         to: Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}")
        )}
     else
       virtual_post =
@@ -721,7 +710,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         |> Map.put(:slug, post.slug || Map.get(socket.assigns.form, "slug"))
 
       # Recalculate viewing_older_version for the new language
-      # Translations (non-master languages) should not be locked
+      # Translations (non-primary languages) should not be locked
       current_version = socket.assigns.current_version || 1
       available_versions = socket.assigns.available_versions || []
 
@@ -762,8 +751,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
        push_patch(socket,
          to:
            Routes.path(
-             "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}",
-             locale: socket.assigns.current_locale_base
+             "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}"
            ),
          replace: true
        )}
@@ -822,14 +810,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     source_version = socket.assigns.new_version_source
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    # For timestamp mode, construct the date/time path identifier
+    # For timestamp mode, extract date/time from the post path directly
+    # This is more reliable than reconstructing from post.date/post.time
     # For slug mode, use the slug directly
     post_identifier =
       case post.mode do
         :timestamp ->
-          date_str = Date.to_iso8601(post.date)
-          time_str = format_time_folder(post.time)
-          "#{date_str}/#{time_str}"
+          # Extract date/time from path: "blog/YYYY-MM-DD/HH:MM/vN/lang.phk"
+          # We need "YYYY-MM-DD/HH:MM" as the identifier
+          extract_timestamp_identifier(post.path)
 
         _ ->
           post.slug
@@ -858,11 +847,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
          |> assign(:new_version_source, nil)
          |> put_flash(:info, flash_msg)
          |> push_navigate(
-           to:
-             Routes.path(
-               "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}",
-               locale: socket.assigns.current_locale_base
-             )
+           to: Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}")
          )}
 
       {:error, reason} ->
@@ -910,8 +895,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             |> push_patch(
               to:
                 Routes.path(
-                  "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(migrated_post.path)}",
-                  locale: socket.assigns.current_locale_base
+                  "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(migrated_post.path)}"
                 )
             )
 
@@ -929,6 +913,89 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:noreply, socket}
     end
   end
+
+  def handle_event("update_primary_language", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    post = socket.assigns.post
+
+    if post do
+      primary_language = Storage.get_primary_language()
+      language_name = get_language_name(primary_language)
+      post_dir = get_post_directory(post)
+
+      case Publishing.update_post_primary_language(blog_slug, post_dir, primary_language) do
+        :ok ->
+          # Regenerate cache so listing page banners/counts reflect the update
+          ListingCache.regenerate(blog_slug)
+
+          # Update the post's primary_language in the socket so UI reflects the change
+          updated_post = Map.put(post, :primary_language, primary_language)
+
+          # Rebuild editor languages with the new primary language
+          enabled_languages = socket.assigns[:all_enabled_languages] || []
+
+          editor_languages =
+            build_editor_languages(
+              updated_post,
+              blog_slug,
+              enabled_languages,
+              socket.assigns.current_language
+            )
+
+          socket =
+            socket
+            |> assign(:post, updated_post)
+            |> assign(:editor_languages, editor_languages)
+            |> assign(:post_primary_language_status, {:ok, :current})
+            |> put_flash(
+              :info,
+              gettext("Primary language updated: %{lang}", lang: language_name)
+            )
+
+          {:noreply, socket}
+
+        {:error, reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             gettext("Failed to update primary language: %{reason}", reason: inspect(reason))
+           )}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp get_language_name(language_code) do
+    case Publishing.get_language_info(language_code) do
+      %{name: name} -> name
+      _ -> String.upcase(language_code)
+    end
+  end
+
+  # Get post directory path for primary language status check
+  # For slug mode: returns the slug
+  # For timestamp mode: returns date/time path (e.g., "2025-12-31/03:42")
+  defp get_post_directory(%{mode: :timestamp, date: date, time: time})
+       when not is_nil(date) and not is_nil(time) do
+    date_str = Date.to_iso8601(date)
+    time_str = format_time_for_path(time)
+    Path.join(date_str, time_str)
+  end
+
+  defp get_post_directory(%{slug: slug}) when is_binary(slug) and slug != "", do: slug
+  defp get_post_directory(_), do: nil
+
+  defp format_time_for_path(%Time{} = time) do
+    time
+    |> Time.to_string()
+    |> String.slice(0, 5)
+    |> String.replace(":", ":")
+  end
+
+  defp format_time_for_path(time) when is_binary(time), do: String.slice(time, 0, 5)
+  defp format_time_for_path(_), do: nil
 
   # Helper functions for AI translation
   defp enqueue_translation(socket, target_languages, {empty_level, empty_message}) do
@@ -989,12 +1056,57 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     |> put_flash(:error, gettext("Failed to enqueue translation job"))
   end
 
+  # Helper for translating TO the current (non-primary) language - runs immediately via Task
+  defp start_translation_to_current(socket) do
+    cond do
+      socket.assigns.is_new_post ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Please save the post first before translating"))}
+
+      is_nil(socket.assigns.ai_selected_endpoint_id) ->
+        {:noreply, put_flash(socket, :error, gettext("Please select an AI endpoint"))}
+
+      true ->
+        do_start_translation_to_current(socket)
+    end
+  end
+
+  defp do_start_translation_to_current(socket) do
+    post = socket.assigns.post
+    blog_slug = socket.assigns.blog_slug
+    target_language = socket.assigns.current_language
+    primary_language = post[:primary_language] || Storage.get_primary_language()
+    endpoint_id = socket.assigns.ai_selected_endpoint_id
+    version = socket.assigns.current_version
+
+    # Run translation in a monitored Task (non-blocking, but we catch crashes)
+    task =
+      Task.async(fn ->
+        TranslatePostWorker.translate_content(
+          blog_slug,
+          post.slug,
+          target_language,
+          endpoint_id: endpoint_id,
+          version: version,
+          source_language: primary_language
+        )
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:ai_translation_status, :translating)
+     |> assign(:translation_task_ref, task.ref)
+     |> assign(:translation_target_language, target_language)
+     |> put_flash(:info, gettext("Translating..."))}
+  end
+
   # Helper functions for version switching
   defp read_version_post(socket, version) do
     blog_slug = socket.assigns.blog_slug
     post = socket.assigns.post
     language = socket.assigns.current_language
-    master_language = Storage.get_master_language()
+    # Use the post's stored primary language for fallback, not global
+    primary_language = post[:primary_language] || Storage.get_primary_language()
 
     read_fn =
       if socket.assigns.blog_mode == "slug" do
@@ -1003,10 +1115,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         fn lang -> read_timestamp_version(blog_slug, post, lang, version) end
       end
 
-    # Try current language first, fall back to master if different
+    # Try current language first, fall back to primary if different
     case read_fn.(language) do
       {:ok, _} = result -> result
-      {:error, _} when language != master_language -> read_fn.(master_language)
+      {:error, _} when language != primary_language -> read_fn.(primary_language)
       error -> error
     end
   end
@@ -1053,29 +1165,42 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     # Update URL to reflect the new version's path
     push_patch(socket,
       to:
-        Routes.path(
-          "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(version_post.path)}",
-          locale: socket.assigns.current_locale_base
-        ),
+        Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(version_post.path)}"),
       replace: true
     )
   end
 
   # Helper to read a specific version for timestamp-mode posts
   defp read_timestamp_version(blog_slug, post, language, version) do
-    # Build the versioned path for timestamp mode
-    date_str = Date.to_iso8601(post.date)
-    time_str = format_time_folder(post.time)
-    versioned_path = Path.join([blog_slug, date_str, time_str, "v#{version}", "#{language}.phk"])
+    # Extract timestamp identifier from current post path (more reliable than post.date/post.time)
+    timestamp_id = extract_timestamp_identifier(post.path)
+    versioned_path = Path.join([blog_slug, timestamp_id, "v#{version}", "#{language}.phk"])
 
     Storage.read_post(blog_slug, versioned_path)
   end
 
-  defp format_time_folder(%Time{} = time) do
-    {hour, minute, _second} = Time.to_erl(time)
+  # Extract timestamp identifier (YYYY-MM-DD/HH:MM) from a post path
+  # Path format: "blog/YYYY-MM-DD/HH:MM/vN/lang.phk" (versioned)
+  # or: "blog/YYYY-MM-DD/HH:MM/lang.phk" (legacy)
+  defp extract_timestamp_identifier(path) when is_binary(path) do
+    parts = String.split(path, "/", trim: true)
 
-    "#{String.pad_leading(to_string(hour), 2, "0")}:#{String.pad_leading(to_string(minute), 2, "0")}"
+    case parts do
+      # Versioned: [blog, date, time, version, file]
+      [_blog, date, time, _version, _file] ->
+        "#{date}/#{time}"
+
+      # Legacy: [blog, date, time, file]
+      [_blog, date, time, _file] ->
+        "#{date}/#{time}"
+
+      _ ->
+        # Fallback - shouldn't happen but prevents crashes
+        nil
+    end
   end
+
+  defp extract_timestamp_identifier(_), do: nil
 
   @impl true
   def handle_info(:autosave, socket) do
@@ -1275,6 +1400,121 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       true ->
         socket = apply_remote_form_change(socket, payload)
         {:noreply, socket}
+    end
+  end
+
+  # Handle Task.async result for translation (ref, result tuple)
+  def handle_info({ref, {:ok, %{title: title, url_slug: url_slug, content: content}}}, socket)
+      when is_reference(ref) do
+    # Clean up the DOWN message that Task.async sends
+    Process.demonitor(ref, [:flush])
+
+    # Verify this is our translation task and the language hasn't changed
+    expected_ref = socket.assigns[:translation_task_ref]
+    target_language = socket.assigns[:translation_target_language]
+    current_language = socket.assigns.current_language
+
+    cond do
+      ref != expected_ref ->
+        # Not our task, ignore
+        {:noreply, socket}
+
+      target_language != current_language ->
+        # User switched languages while translation was in progress - discard result
+        lang_info = Storage.get_language_info(target_language)
+        lang_name = lang_info[:name] || target_language
+
+        {:noreply,
+         socket
+         |> assign(:ai_translation_status, nil)
+         |> assign(:translation_task_ref, nil)
+         |> assign(:translation_target_language, nil)
+         |> put_flash(
+           :warning,
+           gettext("Translation to %{language} completed but discarded (language was switched)",
+             language: lang_name
+           )
+         )}
+
+      true ->
+        # Success - apply the translation
+        lang_info = Storage.get_language_info(target_language)
+        lang_name = lang_info[:name] || target_language
+
+        form = socket.assigns.form
+        updated_form = form |> Map.put("title", title) |> Map.put("url_slug", url_slug)
+
+        socket =
+          socket
+          |> assign(:ai_translation_status, nil)
+          |> assign(:translation_task_ref, nil)
+          |> assign(:translation_target_language, nil)
+          |> assign(:form, updated_form)
+          |> assign(:content, content)
+          |> assign(:has_pending_changes, true)
+          |> push_event("changes-status", %{has_changes: true})
+          |> push_event("set-content", %{content: content})
+          |> schedule_autosave()
+          |> put_flash(
+            :info,
+            gettext("Translation to %{language} complete!", language: lang_name)
+          )
+
+        # Broadcast to spectators so they see the translated content
+        broadcast_form_change(socket, :content, %{content: content, form: updated_form})
+
+        {:noreply, socket}
+    end
+  end
+
+  # Handle Task.async error result
+  def handle_info({ref, {:error, reason}}, socket) when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+
+    expected_ref = socket.assigns[:translation_task_ref]
+    target_language = socket.assigns[:translation_target_language]
+
+    if ref == expected_ref do
+      lang_info = Storage.get_language_info(target_language)
+      lang_name = lang_info[:name] || target_language
+
+      {:noreply,
+       socket
+       |> assign(:ai_translation_status, nil)
+       |> assign(:translation_task_ref, nil)
+       |> assign(:translation_target_language, nil)
+       |> put_flash(
+         :error,
+         gettext("Translation to %{language} failed: %{reason}",
+           language: lang_name,
+           reason: inspect(reason)
+         )
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle Task.async crash (DOWN message)
+  def handle_info({:DOWN, ref, :process, _pid, reason}, socket) when is_reference(ref) do
+    expected_ref = socket.assigns[:translation_task_ref]
+    target_language = socket.assigns[:translation_target_language]
+
+    if ref == expected_ref and reason != :normal do
+      lang_info = Storage.get_language_info(target_language || "unknown")
+      lang_name = lang_info[:name] || target_language || "unknown"
+
+      {:noreply,
+       socket
+       |> assign(:ai_translation_status, nil)
+       |> assign(:translation_task_ref, nil)
+       |> assign(:translation_target_language, nil)
+       |> put_flash(
+         :error,
+         gettext("Translation to %{language} failed unexpectedly", language: lang_name)
+       )}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -1733,8 +1973,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           |> push_patch(
             to:
               Routes.path(
-                "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_version_post.path)}",
-                locale: socket.assigns.current_locale_base
+                "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_version_post.path)}"
               )
           )
 
@@ -1759,34 +1998,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     # Check if this is a status change TO published for a versioned post
     # If so, we need to use publish_version which archives other versions
-    # IMPORTANT: Only trigger for master language - translation status changes
+    # IMPORTANT: Only trigger for primary language - translation status changes
     # should not archive other versions
-    is_master_language = socket.assigns[:is_master_language] == true
+    is_primary_language = socket.assigns[:is_primary_language] == true
 
     is_publishing =
-      is_master_language and
+      is_primary_language and
         new_status == "published" and
         current_status != "published" and
         current_version != nil and
         not Map.get(post, :is_legacy_structure, false)
 
     # First update the post content/metadata
-    # Pass is_master_language so storage can set status_manual when translator changes status
+    # Pass is_primary_language so storage can set status_manual when translator changes status
     case Publishing.update_post(blog_slug, post, params, %{
            scope: scope,
-           is_master_language: is_master_language
+           is_primary_language: is_primary_language
          }) do
       {:ok, updated_post} ->
         # If publishing, call publish_version to archive other versions
         if is_publishing do
-          # For timestamp mode, construct the date/time path identifier
+          # For timestamp mode, extract date/time from the post path directly
+          # This is more reliable than reconstructing from post.date/post.time
           # For slug mode, use the slug directly
           post_identifier =
             case post.mode do
               :timestamp ->
-                date_str = Date.to_iso8601(post.date)
-                time_str = format_time_folder(post.time)
-                "#{date_str}/#{time_str}"
+                extract_timestamp_identifier(post.path)
 
               _ ->
                 post.slug
@@ -1944,8 +2182,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           |> push_patch(
             to:
               Routes.path(
-                "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}",
-                locale: socket.assigns.current_locale_base
+                "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}"
               )
           )
 
@@ -2004,7 +2241,26 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp assign_current_language(socket, language_code) do
     enabled_languages = socket.assigns[:all_enabled_languages] || []
     lang_info = Publishing.get_language_info(language_code)
-    master_language = Storage.get_master_language()
+    # Use the post's stored primary language if available, otherwise fall back to global
+    post_primary = socket.assigns[:post] && socket.assigns.post[:primary_language]
+    primary_language = post_primary || Storage.get_primary_language()
+    is_primary = language_code == primary_language
+
+    # Check if the post needs primary language migration (shown on ALL language tabs)
+    primary_lang_status =
+      case {socket.assigns[:blog_slug], socket.assigns[:post]} do
+        {blog_slug, post} when is_binary(blog_slug) and is_map(post) ->
+          post_dir = get_post_directory(post)
+
+          if post_dir do
+            Publishing.check_primary_language_status(blog_slug, post_dir)
+          else
+            {:ok, :current}
+          end
+
+        _ ->
+          {:ok, :current}
+      end
 
     socket
     |> assign(:current_language, language_code)
@@ -2013,7 +2269,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       Storage.language_enabled?(language_code, enabled_languages)
     )
     |> assign(:current_language_known, lang_info != nil)
-    |> assign(:is_master_language, language_code == master_language)
+    |> assign(:is_primary_language, is_primary)
+    |> assign(:post_primary_language_status, primary_lang_status)
   end
 
   # Helper function to handle post creation errors
@@ -2215,8 +2472,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   """
   def build_editor_languages(post, _blog_slug, enabled_languages, current_language) do
     # Use shared ordering function for consistent display across all views
+    # Pass post's stored primary language for correct ordering
+    post_primary = post[:primary_language] || Storage.get_primary_language()
+
     all_languages =
-      Storage.order_languages_for_display(post.available_languages || [], enabled_languages)
+      Storage.order_languages_for_display(
+        post.available_languages || [],
+        enabled_languages,
+        post_primary
+      )
 
     # Get preloaded language statuses (falls back to empty map for backwards compatibility)
     language_statuses = Map.get(post, :language_statuses) || %{}
@@ -2485,9 +2749,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         encoded -> "?" <> encoded
       end
 
-    Routes.path("/admin/publishing/#{blog_slug}/edit#{query}",
-      locale: socket.assigns.current_locale_base
-    )
+    Routes.path("/admin/publishing/#{blog_slug}/edit#{query}")
   end
 
   defp infer_mode(socket) do
@@ -2656,7 +2918,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     url_slug = Map.get(form, "url_slug", "")
     post_slug = Map.get(socket.assigns.post || %{}, :slug, "")
 
-    # Track slug (for master language)
+    # Track slug (for primary language)
     slug_manually_set =
       case Keyword.fetch(opts, :slug_manually_set) do
         {:ok, value} -> value
@@ -2709,8 +2971,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       not slug_update_applicable?(socket, content) ->
         no_slug_update(socket)
 
-      Map.get(socket.assigns, :is_master_language, true) ->
-        maybe_update_master_slug(socket, content, opts)
+      Map.get(socket.assigns, :is_primary_language, true) ->
+        maybe_update_primary_slug(socket, content, opts)
 
       true ->
         maybe_update_translation_url_slug(socket, content, opts)
@@ -2721,7 +2983,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     socket.assigns.blog_mode == "slug" and String.trim(content) != ""
   end
 
-  defp maybe_update_master_slug(socket, content, opts) do
+  defp maybe_update_primary_slug(socket, content, opts) do
     force? = Keyword.get(opts, :force, false)
     slug_manually_set? = Map.get(socket.assigns, :slug_manually_set, false)
 
@@ -2858,10 +3120,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     encoded = URI.encode(new_path)
 
     path =
-      Routes.path(
-        "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{encoded}",
-        locale: socket.assigns.current_locale_base
-      )
+      Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{encoded}")
 
     socket
     |> assign(:current_path, path)
@@ -3403,17 +3662,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp get_target_languages_for_translation(socket) do
-    master_language = Storage.get_master_language()
-    available_languages = socket.assigns.post.available_languages || []
+    post = socket.assigns.post
+    # Use post's stored primary language for translation source
+    primary_language = post[:primary_language] || Storage.get_primary_language()
+    available_languages = post.available_languages || []
 
     Storage.enabled_language_codes()
-    |> Enum.reject(&(&1 == master_language or &1 in available_languages))
+    |> Enum.reject(&(&1 == primary_language or &1 in available_languages))
   end
 
-  defp get_all_target_languages do
-    master_language = Storage.get_master_language()
+  defp get_all_target_languages(socket) do
+    post = socket.assigns.post
+    # Use post's stored primary language to exclude from targets
+    primary_language = post[:primary_language] || Storage.get_primary_language()
 
     Storage.enabled_language_codes()
-    |> Enum.reject(&(&1 == master_language))
+    |> Enum.reject(&(&1 == primary_language))
   end
 end

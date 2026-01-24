@@ -515,7 +515,48 @@ defmodule PhoenixKit.Modules.Languages do
       iex> PhoenixKit.Modules.Languages.get_available_languages()
       [%{code: "en-US", name: "English (United States)", native: "English (US)", flag: "🇺🇸"}, ...]
   """
+  # Cache key for memoized language data (static, never changes at runtime)
+  @available_languages_cache_key :phoenix_kit_available_languages_cache
+  @available_languages_map_cache_key :phoenix_kit_available_languages_map_cache
+
   def get_available_languages do
+    # Use cached version if available (static data, never changes at runtime)
+    case :persistent_term.get(@available_languages_cache_key, :not_cached) do
+      :not_cached ->
+        languages = build_available_languages()
+        :persistent_term.put(@available_languages_cache_key, languages)
+        languages
+
+      cached ->
+        cached
+    end
+  end
+
+  @doc """
+  Gets a language by code with O(1) lookup from cached map.
+  Returns nil if not found.
+  """
+  def get_available_language_by_code(code) do
+    map = get_available_languages_map()
+    Map.get(map, code)
+  end
+
+  # Returns a map of code => language for O(1) lookups
+  defp get_available_languages_map do
+    case :persistent_term.get(@available_languages_map_cache_key, :not_cached) do
+      :not_cached ->
+        languages = get_available_languages()
+        map = Map.new(languages, fn lang -> {lang.code, lang} end)
+        :persistent_term.put(@available_languages_map_cache_key, map)
+        map
+
+      cached ->
+        cached
+    end
+  end
+
+  # Builds the language list (called once, then cached)
+  defp build_available_languages do
     BeamLabCountries.Languages.all_locales()
     |> Enum.map(fn locale ->
       %{

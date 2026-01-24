@@ -74,7 +74,12 @@ defmodule PhoenixKit.Modules.Blogging do
 
   # Language utilities (delegated from Storage)
   defdelegate enabled_language_codes(), to: PhoenixKit.Modules.Publishing
-  defdelegate get_master_language(), to: PhoenixKit.Modules.Publishing
+  defdelegate get_primary_language(), to: PhoenixKit.Modules.Publishing
+
+  @doc false
+  @deprecated "Use get_primary_language/0 instead"
+  def get_master_language, do: get_primary_language()
+
   defdelegate get_language_info(language_code), to: PhoenixKit.Modules.Publishing
 
   defdelegate language_enabled?(language_code, enabled_languages),

@@ -630,25 +630,40 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  # No locale in params - this means we're on the default language URL (clean URL without prefix)
-  # Always update to default locale when navigating to a URL without locale prefix
+  # No locale in params - could be:
+  # 1. Default language URL (clean URL without prefix) - should use default locale
+  # 2. Reserved path (admin, api, etc.) - should preserve user's session preference
   defp maybe_update_locale_from_params(socket, _params) do
-    default_base = Routes.get_default_admin_locale()
-    current_base = socket.assigns[:current_locale_base]
+    url_path = socket.assigns[:url_path] || ""
 
-    # If we're already on the default locale, no need to update
-    if current_base == default_base do
+    # Check if we're on a reserved path (admin, api, etc.)
+    # These paths never have locale prefix, so we should preserve user's preference
+    reserved_prefixes = ~w(/admin /api /webhooks /assets /static /files /images)
+    is_reserved_path = Enum.any?(reserved_prefixes, &String.contains?(url_path, &1))
+
+    if is_reserved_path do
+      # Preserve existing locale from session - don't reset to default
+      # The locale was already set correctly in mount_phoenix_kit_current_scope
       socket
     else
-      # URL has no locale prefix, so we're navigating to default language
-      user = socket.assigns[:phoenix_kit_current_user]
-      default_dialect = DialectMapper.resolve_dialect(default_base, user)
+      # Normal frontend path without locale prefix = default language URL
+      default_base = Routes.get_default_admin_locale()
+      current_base = socket.assigns[:current_locale_base]
 
-      Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
+      # If we're already on the default locale, no need to update
+      if current_base == default_base do
+        socket
+      else
+        # URL has no locale prefix, so we're navigating to default language
+        user = socket.assigns[:phoenix_kit_current_user]
+        default_dialect = DialectMapper.resolve_dialect(default_base, user)
 
-      socket
-      |> Phoenix.Component.assign(:current_locale_base, default_base)
-      |> Phoenix.Component.assign(:current_locale, default_dialect)
+        Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
+
+        socket
+        |> Phoenix.Component.assign(:current_locale_base, default_base)
+        |> Phoenix.Component.assign(:current_locale, default_dialect)
+      end
     end
   end
 
@@ -685,6 +700,8 @@ defmodule PhoenixKitWeb.Users.Auth do
 
     # Get locale from params (URL path) first, then session, then defaults
     # This ensures locale from URL takes precedence during initial mount
+    session_locale = session["phoenix_kit_locale_base"]
+
     current_locale_base =
       case params do
         %{"locale" => locale} when is_binary(locale) and locale != "" ->
@@ -693,7 +710,7 @@ defmodule PhoenixKitWeb.Users.Auth do
         _ ->
           nil
       end ||
-        session["phoenix_kit_locale_base"] ||
+        session_locale ||
         Process.get(:phoenix_kit_current_locale_base) ||
         Routes.get_default_admin_locale()
 
@@ -1145,18 +1162,29 @@ defmodule PhoenixKitWeb.Users.Auth do
         end
 
       _ ->
-        # No locale in URL - use default language (first admin language or "en")
-        # This is the expected case for the default language which gets clean URLs
-        default_base = get_default_admin_language()
+        # No locale in URL - check user's preferred locale first, then fall back to default
+        # This supports admin paths where locale can't be in URL but user has a preference
         current_user = get_user_for_locale_resolution(conn)
-        default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
 
-        Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
+        {base, dialect} =
+          case get_user_preferred_locale(current_user) do
+            {preferred_base, preferred_dialect} when is_binary(preferred_base) ->
+              # User has a valid preferred locale - use it
+              {preferred_base, preferred_dialect}
+
+            _ ->
+              # No user preference - use default admin language
+              default_base = get_default_admin_language()
+              default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
+              {default_base, default_dialect}
+          end
+
+        Gettext.put_locale(PhoenixKitWeb.Gettext, dialect)
 
         conn
-        |> assign(:current_locale_base, default_base)
-        |> assign(:current_locale, default_dialect)
-        |> put_session(:phoenix_kit_locale_base, default_base)
+        |> assign(:current_locale_base, base)
+        |> assign(:current_locale, dialect)
+        |> put_session(:phoenix_kit_locale_base, base)
     end
   end
 
@@ -1203,6 +1231,53 @@ defmodule PhoenixKitWeb.Users.Auth do
 
       user ->
         user
+    end
+  end
+
+  # Get user's preferred locale if set and valid
+  # Returns {base_code, full_dialect} tuple or nil if not set/invalid
+  defp get_user_preferred_locale(nil), do: nil
+
+  defp get_user_preferred_locale(%{custom_fields: %{"preferred_locale" => preferred}})
+       when is_binary(preferred) and preferred != "" do
+    base = DialectMapper.extract_base(preferred)
+
+    # Verify the preferred locale is a valid admin language
+    # (admin languages are separate from frontend languages)
+    if DialectMapper.valid_base_code?(base) and admin_language_enabled?(base) do
+      {base, preferred}
+    else
+      nil
+    end
+  end
+
+  defp get_user_preferred_locale(_user), do: nil
+
+  # Check if a language (base code) is enabled as an admin language
+  defp admin_language_enabled?(base_code) do
+    admin_languages = get_admin_language_codes()
+
+    if Enum.empty?(admin_languages) do
+      # No admin languages configured, allow if it's a valid predefined language
+      true
+    else
+      Enum.any?(admin_languages, fn code ->
+        DialectMapper.extract_base(code) == base_code
+      end)
+    end
+  end
+
+  # Get the list of admin language codes from settings
+  defp get_admin_language_codes do
+    case PhoenixKit.Settings.get_setting_cached("admin_languages") do
+      nil ->
+        []
+
+      json when is_binary(json) ->
+        case Jason.decode(json) do
+          {:ok, codes} when is_list(codes) -> codes
+          _ -> []
+        end
     end
   end
 
