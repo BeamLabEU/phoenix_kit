@@ -97,11 +97,15 @@ defmodule PhoenixKitWeb.Plugs.Integration do
     # Try simple replacements first (faster than regex)
     cond do
       String.contains?(body, "<head>") ->
-        new_body = String.replace(body, "<head>", "<head>" <> @websocket_fix_script, global: false)
+        new_body =
+          String.replace(body, "<head>", "<head>" <> @websocket_fix_script, global: false)
+
         %{conn | resp_body: new_body}
 
       String.contains?(body, "<HEAD>") ->
-        new_body = String.replace(body, "<HEAD>", "<HEAD>" <> @websocket_fix_script, global: false)
+        new_body =
+          String.replace(body, "<HEAD>", "<HEAD>" <> @websocket_fix_script, global: false)
+
         %{conn | resp_body: new_body}
 
       true ->

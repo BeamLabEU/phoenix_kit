@@ -669,16 +669,25 @@ defmodule PhoenixKit.Modules.Publishing do
       case ListingCache.read(group_slug) do
         {:ok, cached_posts} ->
           elapsed = System.monotonic_time(:millisecond) - start_time
-          Logger.debug("[Publishing.list_posts] CACHE HIT for #{group_slug} (#{length(cached_posts)} posts) in #{elapsed}ms")
+
+          Logger.debug(
+            "[Publishing.list_posts] CACHE HIT for #{group_slug} (#{length(cached_posts)} posts) in #{elapsed}ms"
+          )
+
           cached_posts
 
         {:error, :cache_miss} ->
           # Cache miss - fall back to filesystem scan
-          Logger.debug("[Publishing.list_posts] CACHE MISS for #{group_slug}, scanning filesystem...")
+          Logger.debug(
+            "[Publishing.list_posts] CACHE MISS for #{group_slug}, scanning filesystem..."
+          )
+
           posts = list_posts_from_storage(group_slug, preferred_language)
           elapsed = System.monotonic_time(:millisecond) - start_time
 
-          Logger.debug("[Publishing.list_posts] Filesystem scan complete for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms")
+          Logger.debug(
+            "[Publishing.list_posts] Filesystem scan complete for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
+          )
 
           # Regenerate cache in background for next request
           Task.start(fn -> ListingCache.regenerate(group_slug) end)

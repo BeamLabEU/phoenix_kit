@@ -143,8 +143,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
         slug ->
           case ListingCache.read(slug) do
-            {:ok, cached_posts} -> cached_posts
-            {:error, :cache_miss} -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
+            {:ok, cached_posts} ->
+              cached_posts
+
+            {:error, :cache_miss} ->
+              Publishing.list_posts(slug, socket.assigns.current_locale_base)
           end
       end
 
