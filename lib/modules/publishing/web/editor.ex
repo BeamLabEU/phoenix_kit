@@ -162,7 +162,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     blog_slug = socket.assigns.blog_slug
     blog_mode = Publishing.get_group_mode(blog_slug)
     all_enabled_languages = Storage.enabled_language_codes()
-    primary_language = hd(all_enabled_languages)
+    primary_language = Storage.get_primary_language()
 
     now = DateTime.utc_now() |> DateTime.truncate(:second) |> floor_datetime_to_minute()
     virtual_post = build_virtual_post(blog_slug, blog_mode, primary_language, now)
@@ -677,11 +677,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("switch_language", %{"language" => new_language}, socket) do
-    post = socket.assigns.post
-    blog_slug = socket.assigns.blog_slug
+    # Prevent language switching on new unsaved posts - they need a slug/path first
+    if socket.assigns[:is_new_post] do
+      {:noreply,
+       put_flash(socket, :error, gettext("Please save the post first before switching languages"))}
+    else
+      post = socket.assigns.post
+      blog_slug = socket.assigns.blog_slug
 
-    base_dir = slug_base_dir(post, blog_slug)
-    new_path = Path.join(base_dir, "#{new_language}.phk")
+      base_dir = slug_base_dir(post, blog_slug)
+      new_path = Path.join(base_dir, "#{new_language}.phk")
 
     file_exists = new_language in post.available_languages
 
@@ -756,6 +761,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
            ),
          replace: true
        )}
+    end
     end
   end
 
