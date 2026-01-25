@@ -721,8 +721,11 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
          end)}
 
       {:ok, ""} ->
-        # Empty slug - return empty for auto-generation, will show placeholder
-        {:ok, ""}
+        # Empty slug - generate "untitled" with uniqueness suffix
+        {:ok,
+         Slug.ensure_unique("untitled", fn candidate ->
+           slug_exists_for_generation?(group_slug, candidate, current_slug)
+         end)}
 
       {:error, reason} ->
         {:error, reason}

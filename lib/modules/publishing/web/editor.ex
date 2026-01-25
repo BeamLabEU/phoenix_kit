@@ -544,8 +544,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_event("save", _params, %{assigns: %{has_pending_changes: false}} = socket) do
-    {:noreply, socket}
+  # Block saves only when there are no changes AND it's not a new post/translation
+  def handle_event("save", _params, socket) when socket.assigns.has_pending_changes == false do
+    is_new = socket.assigns[:is_new_post] || socket.assigns[:is_new_translation]
+
+    if is_new do
+      perform_save(socket)
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("save", _params, %{assigns: %{readonly?: true}} = socket) do
@@ -688,80 +695,80 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       base_dir = slug_base_dir(post, blog_slug)
       new_path = Path.join(base_dir, "#{new_language}.phk")
 
-    file_exists = new_language in post.available_languages
+      file_exists = new_language in post.available_languages
 
-    if file_exists do
-      # Clean up old presence before switching to existing language file
-      old_form_key = socket.assigns[:form_key]
+      if file_exists do
+        # Clean up old presence before switching to existing language file
+        old_form_key = socket.assigns[:form_key]
 
-      if old_form_key && connected?(socket) do
-        PresenceHelpers.untrack_editing_session(old_form_key, socket)
-        PresenceHelpers.unsubscribe_from_editing(old_form_key)
-        PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
+        if old_form_key && connected?(socket) do
+          PresenceHelpers.untrack_editing_session(old_form_key, socket)
+          PresenceHelpers.unsubscribe_from_editing(old_form_key)
+          PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
+        end
+
+        {:noreply,
+         push_patch(socket,
+           to: Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}")
+         )}
+      else
+        virtual_post =
+          post
+          |> Map.put(:path, new_path)
+          |> Map.put(:language, new_language)
+          |> Map.put(:blog, blog_slug || "blog")
+          |> Map.put(:content, "")
+          |> Map.put(:metadata, Map.put(post.metadata, :title, ""))
+          |> Map.put(:mode, post.mode)
+          |> Map.put(:slug, post.slug || Map.get(socket.assigns.form, "slug"))
+
+        # Recalculate viewing_older_version for the new language
+        # Translations (non-primary languages) should not be locked
+        current_version = socket.assigns.current_version || 1
+        available_versions = socket.assigns.available_versions || []
+
+        # Generate new form_key for the new language
+        new_form_key = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
+
+        # Save old form_key and post slug BEFORE assigning new one (for presence cleanup)
+        old_form_key = socket.assigns[:form_key]
+        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
+
+        socket =
+          socket
+          |> assign(:post, virtual_post)
+          |> assign_form_with_tracking(post_form(virtual_post), slug_manually_set: false)
+          |> assign(:content, "")
+          |> assign_current_language(new_language)
+          |> assign(
+            :viewing_older_version,
+            viewing_older_version?(current_version, available_versions, new_language)
+          )
+          |> assign(:has_pending_changes, false)
+          |> assign(:is_new_translation, true)
+          |> assign(:original_post_path, post.path || post.slug)
+          |> assign(:form_key, new_form_key)
+          |> push_event("changes-status", %{has_changes: false})
+
+        # Clean up old presence and set up new (pass old_form_key and old_post_slug explicitly)
+        socket =
+          cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key,
+            old_post_slug: old_post_slug
+          )
+
+        # Update the URL to reflect the new language using switch_to parameter
+        # (since the new translation file doesn't exist yet)
+        original_path = socket.assigns[:original_post_path] || post.path || post.slug
+
+        {:noreply,
+         push_patch(socket,
+           to:
+             Routes.path(
+               "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}"
+             ),
+           replace: true
+         )}
       end
-
-      {:noreply,
-       push_patch(socket,
-         to: Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}")
-       )}
-    else
-      virtual_post =
-        post
-        |> Map.put(:path, new_path)
-        |> Map.put(:language, new_language)
-        |> Map.put(:blog, blog_slug || "blog")
-        |> Map.put(:content, "")
-        |> Map.put(:metadata, Map.put(post.metadata, :title, ""))
-        |> Map.put(:mode, post.mode)
-        |> Map.put(:slug, post.slug || Map.get(socket.assigns.form, "slug"))
-
-      # Recalculate viewing_older_version for the new language
-      # Translations (non-primary languages) should not be locked
-      current_version = socket.assigns.current_version || 1
-      available_versions = socket.assigns.available_versions || []
-
-      # Generate new form_key for the new language
-      new_form_key = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
-
-      # Save old form_key and post slug BEFORE assigning new one (for presence cleanup)
-      old_form_key = socket.assigns[:form_key]
-      old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
-
-      socket =
-        socket
-        |> assign(:post, virtual_post)
-        |> assign_form_with_tracking(post_form(virtual_post), slug_manually_set: false)
-        |> assign(:content, "")
-        |> assign_current_language(new_language)
-        |> assign(
-          :viewing_older_version,
-          viewing_older_version?(current_version, available_versions, new_language)
-        )
-        |> assign(:has_pending_changes, false)
-        |> assign(:is_new_translation, true)
-        |> assign(:original_post_path, post.path || post.slug)
-        |> assign(:form_key, new_form_key)
-        |> push_event("changes-status", %{has_changes: false})
-
-      # Clean up old presence and set up new (pass old_form_key and old_post_slug explicitly)
-      socket =
-        cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key,
-          old_post_slug: old_post_slug
-        )
-
-      # Update the URL to reflect the new language using switch_to parameter
-      # (since the new translation file doesn't exist yet)
-      original_path = socket.assigns[:original_post_path] || post.path || post.slug
-
-      {:noreply,
-       push_patch(socket,
-         to:
-           Routes.path(
-             "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}"
-           ),
-         replace: true
-       )}
-    end
     end
   end
 
@@ -2239,12 +2246,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     # Get language names for display
     current_language_name = if lang_info, do: lang_info[:name], else: String.upcase(language_code)
+    # Post's stored primary language name (for display in primary language indicator)
     primary_language_name = get_language_name(primary_language)
+    # Global primary language name (for display in "needs update" banner)
+    global_primary = Storage.get_primary_language()
+    global_primary_language_name = get_language_name(global_primary)
 
     socket
     |> assign(:current_language, language_code)
     |> assign(:current_language_name, current_language_name)
     |> assign(:primary_language_name, primary_language_name)
+    |> assign(:global_primary_language_name, global_primary_language_name)
     |> assign(
       :current_language_enabled,
       Storage.language_enabled?(language_code, enabled_languages)

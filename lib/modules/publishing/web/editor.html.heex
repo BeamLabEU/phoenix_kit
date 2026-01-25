@@ -201,10 +201,10 @@
                 phx-click="switch_language"
                 phx-value-language={primary_lang.code}
                 class={[
-                  "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border cursor-pointer transition-colors",
+                  "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors",
                   if(primary_lang.is_current,
-                    do: "bg-primary/20 border-primary/40 ring-2 ring-primary/30",
-                    else: "bg-primary/10 hover:bg-primary/20 border-primary/20"
+                    do: "bg-primary/20 border border-primary/40 ring-2 ring-primary/30",
+                    else: "hover:bg-base-200"
                   )
                 ]}
                 title={primary_lang.name}
@@ -365,7 +365,7 @@
           <p class="text-xs text-base-content/60">
             {gettext(
               "The global primary language setting has changed to %{language}. Update this post or create a new version.",
-              language: @primary_language_name
+              language: @global_primary_language_name
             )}
           </p>
         </div>
@@ -985,21 +985,25 @@
                     </span>
                   <% @has_pending_changes -> %>
                     <span class="badge badge-warning badge-sm">{gettext("Unsaved changes")}</span>
+                  <% @is_new_post -> %>
+                    <span class="badge badge-ghost badge-sm">{gettext("New")}</span>
                   <% true -> %>
                     <span class="badge badge-success badge-sm gap-1">
                       <.icon name="hero-check" class="w-3 h-3" />
                       {gettext("Saved")}
                     </span>
                 <% end %>
+                <% save_disabled =
+                  @readonly? || @is_autosaving ||
+                    (!@has_pending_changes && !@is_new_post && !@is_new_translation) %>
                 <button
                   type="button"
                   phx-click="save"
                   class={[
                     "btn btn-primary btn-xs shadow-none gap-1",
-                    (@readonly? || @is_autosaving || !@has_pending_changes) &&
-                      "btn-disabled pointer-events-none opacity-60"
+                    save_disabled && "btn-disabled pointer-events-none opacity-60"
                   ]}
-                  disabled={@readonly? || @is_autosaving || !@has_pending_changes}
+                  disabled={save_disabled}
                 >
                   <span class="hidden phx-click-loading:inline-flex items-center gap-1">
                     <span class="loading loading-spinner loading-2xs"></span>
