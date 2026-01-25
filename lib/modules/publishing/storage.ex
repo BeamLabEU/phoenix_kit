@@ -320,10 +320,11 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     # First try exact match with O(1) lookup
     case Languages.get_available_language_by_code(language_code) do
       nil ->
-        # Try matching by base code (e.g., "en" matches "en-US")
+        # No exact match - check if this is a base code (e.g., "en" vs "en-US")
         base_code = DialectMapper.extract_base(language_code)
+        is_base_code = language_code == base_code and not String.contains?(language_code, "-")
 
-        # First try the default dialect for this base code (e.g., "en" -> "en-US")
+        # Try the default dialect for this base code (e.g., "en" -> "en-US")
         default_dialect = DialectMapper.base_to_dialect(base_code)
 
         case Languages.get_available_language_by_code(default_dialect) do
@@ -336,13 +337,32 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
             end)
 
           default_match ->
-            default_match
+            # If the input was a base code (e.g., "en"), return generic name
+            # instead of the dialect-specific name (e.g., "English" not "English (United States)")
+            if is_base_code do
+              %{default_match | name: extract_base_language_name(default_match.name)}
+            else
+              default_match
+            end
         end
 
       exact_match ->
         exact_match
     end
   end
+
+  # Extracts the base language name from a dialect-specific name
+  # "English (United States)" -> "English"
+  # "Spanish (Mexico)" -> "Spanish"
+  # "Portuguese (Brazil)" -> "Portuguese"
+  defp extract_base_language_name(name) when is_binary(name) do
+    case String.split(name, " (", parts: 2) do
+      [base_name, _region] -> base_name
+      [base_name] -> base_name
+    end
+  end
+
+  defp extract_base_language_name(name), do: name
 
   # Search user-configured languages with base code fallback
   defp find_in_configured_languages(language_code) do

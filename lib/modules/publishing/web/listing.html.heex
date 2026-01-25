@@ -451,12 +451,13 @@
                 <% blog_slug =
                   post.group || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                     "blog" %>
-                <% primary_lang = @primary_language %>
+                <%!-- Use post's stored primary language, falling back to global only if not stored --%>
+                <% post_primary_lang = post[:primary_language] || @primary_language %>
                 <% default_lang = List.first(post.available_languages) || @current_locale_base %>
                 <% default_lang_path =
                   Path.join([
                     Path.dirname(post.path),
-                    "#{primary_lang}.phk"
+                    "#{post_primary_lang}.phk"
                   ]) %>
                 <% files_path = @group_files_root <> post.path %>
                 <%!-- Use post's actual language, falling back to first available language for this post --%>
