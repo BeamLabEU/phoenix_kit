@@ -403,9 +403,10 @@
 
         <div class="space-y-4">
           <p class="text-base-content/80">
-            {gettext(
+            {ngettext(
+              "This will update the primary language setting for %{count} post in \"%{name}\".",
               "This will update the primary language setting for %{count} posts in \"%{name}\".",
-              count: @migration_modal_count,
+              @migration_modal_count,
               name: @migration_modal_name
             )}
           </p>
@@ -431,9 +432,7 @@
             </p>
             <ul class="list-disc list-inside space-y-1 pl-2">
               <li>{gettext("Saves the current primary language to each post's metadata")}</li>
-              <li>
-                {gettext("Ensures posts remain accessible if the global language setting changes")}
-              </li>
+              <li>{gettext("Keeps posts accessible if the global language changes")}</li>
               <li>{gettext("Does not modify post content or translations")}</li>
             </ul>
           </div>
@@ -460,8 +459,8 @@
             phx-click="confirm_migrate_primary_language"
             phx-disable-with={gettext("Updating...")}
           >
-            <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
-            {gettext("Update %{count} Posts", count: @migration_modal_count)}
+            <.icon name="hero-arrow-path" class="w-4 h-4" />
+            {ngettext("Update %{count} Post", "Update %{count} Posts", @migration_modal_count)}
           </button>
         </div>
       </div>
