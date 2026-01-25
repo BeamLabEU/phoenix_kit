@@ -108,8 +108,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:ai_endpoints, list_ai_endpoints())
       |> assign(:ai_selected_endpoint_id, get_default_ai_endpoint_id())
       |> assign(:ai_translation_status, nil)
-      |> assign(:translation_task_ref, nil)
-      |> assign(:translation_target_language, nil)
+      |> assign(:ai_translation_progress, nil)
+      |> assign(:ai_translation_total, nil)
+      |> assign(:ai_translation_languages, [])
       |> assign(
         :current_path,
         Routes.path("/admin/publishing/#{blog_slug}/edit")
@@ -974,6 +975,27 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
+  defp format_language_list(language_codes) when is_list(language_codes) do
+    count = length(language_codes)
+
+    cond do
+      count == 0 ->
+        ""
+
+      count <= 3 ->
+        # Show all names for small lists
+        language_codes
+        |> Enum.map(&get_language_name/1)
+        |> Enum.join(", ")
+
+      true ->
+        # Show count for large lists
+        ngettext("%{count} language", "%{count} languages", count, count: count)
+    end
+  end
+
+  defp format_language_list(_), do: ""
+
   # Get post directory path for primary language status check
   # For slug mode: returns the slug
   # For timestamp mode: returns date/time path (e.g., "2025-12-31/03:42")
@@ -1027,6 +1049,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
            user_id: user_id,
            target_languages: target_languages
          ) do
+      {:ok, %{conflict?: true}} ->
+        # Job already exists for this post - just show message, don't set status
+        # The progress bar will appear naturally from PubSub updates if job is running
+        {:noreply,
+         put_flash(socket, :info, gettext("A translation job is already running for this post"))}
+
       {:ok, _job} ->
         {:noreply, translation_success_socket(socket, target_languages)}
 
@@ -1056,7 +1084,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     |> put_flash(:error, gettext("Failed to enqueue translation job"))
   end
 
-  # Helper for translating TO the current (non-primary) language - runs immediately via Task
+  # Helper for translating TO the current (non-primary) language - queues Oban job
   defp start_translation_to_current(socket) do
     cond do
       socket.assigns.is_new_post ->
@@ -1072,32 +1100,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp do_start_translation_to_current(socket) do
-    post = socket.assigns.post
-    blog_slug = socket.assigns.blog_slug
     target_language = socket.assigns.current_language
-    primary_language = post[:primary_language] || Storage.get_primary_language()
-    endpoint_id = socket.assigns.ai_selected_endpoint_id
-    version = socket.assigns.current_version
-
-    # Run translation in a monitored Task (non-blocking, but we catch crashes)
-    task =
-      Task.async(fn ->
-        TranslatePostWorker.translate_content(
-          blog_slug,
-          post.slug,
-          target_language,
-          endpoint_id: endpoint_id,
-          version: version,
-          source_language: primary_language
-        )
-      end)
-
-    {:noreply,
-     socket
-     |> assign(:ai_translation_status, :translating)
-     |> assign(:translation_task_ref, task.ref)
-     |> assign(:translation_target_language, target_language)
-     |> put_flash(:info, gettext("Translating..."))}
+    # Enqueue as Oban job with single target language
+    enqueue_translation(socket, [target_language], {:info, nil})
   end
 
   # Helper functions for version switching
@@ -1403,122 +1408,86 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  # Handle Task.async result for translation (ref, result tuple)
-  def handle_info({ref, {:ok, %{title: title, url_slug: url_slug, content: content}}}, socket)
-      when is_reference(ref) do
-    # Clean up the DOWN message that Task.async sends
-    Process.demonitor(ref, [:flush])
-
-    # Verify this is our translation task and the language hasn't changed
-    expected_ref = socket.assigns[:translation_task_ref]
-    target_language = socket.assigns[:translation_target_language]
-    current_language = socket.assigns.current_language
-
-    cond do
-      ref != expected_ref ->
-        # Not our task, ignore
-        {:noreply, socket}
-
-      target_language != current_language ->
-        # User switched languages while translation was in progress - discard result
-        lang_info = Storage.get_language_info(target_language)
-        lang_name = lang_info[:name] || target_language
-
-        {:noreply,
-         socket
-         |> assign(:ai_translation_status, nil)
-         |> assign(:translation_task_ref, nil)
-         |> assign(:translation_target_language, nil)
-         |> put_flash(
-           :warning,
-           gettext("Translation to %{language} completed but discarded (language was switched)",
-             language: lang_name
-           )
-         )}
-
-      true ->
-        # Success - apply the translation
-        lang_info = Storage.get_language_info(target_language)
-        lang_name = lang_info[:name] || target_language
-
-        form = socket.assigns.form
-        updated_form = form |> Map.put("title", title) |> Map.put("url_slug", url_slug)
-
-        socket =
-          socket
-          |> assign(:ai_translation_status, nil)
-          |> assign(:translation_task_ref, nil)
-          |> assign(:translation_target_language, nil)
-          |> assign(:form, updated_form)
-          |> assign(:content, content)
-          |> assign(:has_pending_changes, true)
-          |> push_event("changes-status", %{has_changes: true})
-          |> push_event("set-content", %{content: content})
-          |> schedule_autosave()
-          |> put_flash(
-            :info,
-            gettext("Translation to %{language} complete!", language: lang_name)
-          )
-
-        # Broadcast to spectators so they see the translated content
-        broadcast_form_change(socket, :content, %{content: content, form: updated_form})
-
-        {:noreply, socket}
-    end
-  end
-
-  # Handle Task.async error result
-  def handle_info({ref, {:error, reason}}, socket) when is_reference(ref) do
-    Process.demonitor(ref, [:flush])
-
-    expected_ref = socket.assigns[:translation_task_ref]
-    target_language = socket.assigns[:translation_target_language]
-
-    if ref == expected_ref do
-      lang_info = Storage.get_language_info(target_language)
-      lang_name = lang_info[:name] || target_language
-
-      {:noreply,
-       socket
-       |> assign(:ai_translation_status, nil)
-       |> assign(:translation_task_ref, nil)
-       |> assign(:translation_target_language, nil)
-       |> put_flash(
-         :error,
-         gettext("Translation to %{language} failed: %{reason}",
-           language: lang_name,
-           reason: inspect(reason)
-         )
-       )}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  # Handle Task.async crash (DOWN message)
-  def handle_info({:DOWN, ref, :process, _pid, reason}, socket) when is_reference(ref) do
-    expected_ref = socket.assigns[:translation_task_ref]
-    target_language = socket.assigns[:translation_target_language]
-
-    if ref == expected_ref and reason != :normal do
-      lang_info = Storage.get_language_info(target_language || "unknown")
-      lang_name = lang_info[:name] || target_language || "unknown"
-
-      {:noreply,
-       socket
-       |> assign(:ai_translation_status, nil)
-       |> assign(:translation_task_ref, nil)
-       |> assign(:translation_target_language, nil)
-       |> put_flash(
-         :error,
-         gettext("Translation to %{language} failed unexpectedly", language: lang_name)
-       )}
-    else
-      {:noreply, socket}
-    end
-  end
-
   # Handle translation created events (update language selector in real-time)
+  # Handle translation started event (from Oban worker via PubSub)
+  def handle_info({:translation_started, blog_slug, post_slug, target_languages}, socket) do
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      {:noreply,
+       socket
+       |> assign(:ai_translation_status, :in_progress)
+       |> assign(:ai_translation_progress, 0)
+       |> assign(:ai_translation_total, length(target_languages))
+       |> assign(:ai_translation_languages, target_languages)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle translation progress event (after each language completes)
+  def handle_info(
+        {:translation_progress, blog_slug, post_slug, completed, total, _last_language},
+        socket
+      ) do
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      {:noreply,
+       socket
+       |> assign(:ai_translation_progress, completed)
+       |> assign(:ai_translation_total, total)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle translation completed event
+  def handle_info({:translation_completed, blog_slug, post_slug, results}, socket) do
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      flash_msg =
+        if results.failure_count > 0 do
+          gettext("Translation completed with %{success} succeeded, %{failed} failed",
+            success: results.success_count,
+            failed: results.failure_count
+          )
+        else
+          gettext("Translation completed successfully for %{count} languages",
+            count: results.success_count
+          )
+        end
+
+      flash_level = if results.failure_count > 0, do: :warning, else: :info
+
+      # Check if current language was translated - if so, reload content from disk
+      current_language = socket.assigns[:current_language]
+      succeeded_languages = results[:succeeded] || []
+
+      # Set status to :completed
+      socket =
+        socket
+        |> assign(:ai_translation_status, :completed)
+        |> assign(:ai_translation_languages, [])
+
+      socket =
+        if current_language in succeeded_languages do
+          # Full reload including content for current language
+          reload_translated_content(socket, flash_msg, flash_level)
+        else
+          # Just refresh available_languages so language switcher updates
+          socket
+          |> refresh_available_languages()
+          |> put_flash(flash_level, flash_msg)
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_info({:translation_created, blog_slug, post_slug, language}, socket) do
     # Only update if this is the same post
     if socket.assigns[:blog_slug] == blog_slug &&
@@ -2262,8 +2231,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           {:ok, :current}
       end
 
+    # Get language names for display
+    current_language_name = if lang_info, do: lang_info[:name], else: String.upcase(language_code)
+    primary_language_name = get_language_name(primary_language)
+
     socket
     |> assign(:current_language, language_code)
+    |> assign(:current_language_name, current_language_name)
+    |> assign(:primary_language_name, primary_language_name)
     |> assign(
       :current_language_enabled,
       Storage.language_enabled?(language_code, enabled_languages)
@@ -2271,6 +2246,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     |> assign(:current_language_known, lang_info != nil)
     |> assign(:is_primary_language, is_primary)
     |> assign(:post_primary_language_status, primary_lang_status)
+    # Clear completed translation status when switching languages - not relevant to new context
+    # But keep in-progress status visible so user knows a job is running
+    |> maybe_clear_completed_translation_status()
+  end
+
+  defp maybe_clear_completed_translation_status(socket) do
+    if socket.assigns[:ai_translation_status] == :completed do
+      socket
+      |> assign(:ai_translation_status, nil)
+      |> assign(:ai_translation_progress, nil)
+      |> assign(:ai_translation_total, nil)
+      |> assign(:ai_translation_languages, [])
+    else
+      socket
+    end
   end
 
   # Helper function to handle post creation errors
@@ -3405,6 +3395,44 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     |> assign(:form, form)
     |> assign(:content, content)
     |> assign(:has_pending_changes, true)
+  end
+
+  # Reload content after AI translation completes for the current language
+  defp reload_translated_content(socket, flash_msg, flash_level) do
+    blog_slug = socket.assigns.blog_slug
+    post_path = socket.assigns.post.path
+
+    case Publishing.read_post(blog_slug, post_path) do
+      {:ok, updated_post} ->
+        form = post_form(updated_post)
+
+        socket
+        |> assign(:post, %{updated_post | group: blog_slug})
+        |> assign_form_with_tracking(form)
+        |> assign(:content, updated_post.content)
+        |> assign(:available_languages, updated_post.available_languages)
+        |> assign(:has_pending_changes, false)
+        |> push_event("changes-status", %{has_changes: false})
+        |> push_event("set-content", %{content: updated_post.content})
+        |> put_flash(flash_level, flash_msg)
+
+      {:error, _reason} ->
+        put_flash(socket, flash_level, flash_msg)
+    end
+  end
+
+  # Refresh just the available_languages list (for language switcher updates)
+  defp refresh_available_languages(socket) do
+    blog_slug = socket.assigns.blog_slug
+    post_path = socket.assigns.post.path
+
+    case Publishing.read_post(blog_slug, post_path) do
+      {:ok, updated_post} ->
+        assign(socket, :available_languages, updated_post.available_languages)
+
+      {:error, _reason} ->
+        socket
+    end
   end
 
   # Reload post from disk when another tab/user saves (last-save-wins)

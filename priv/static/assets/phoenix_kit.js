@@ -1248,6 +1248,64 @@
   };
 
   // ---------------------------------------------------------------------------
+  // FadeOut Hook
+  // ---------------------------------------------------------------------------
+  //
+  // Handles smooth fade-out animations by listening for CSS animationend event
+  // before notifying the server to remove the element. This prevents the race
+  // condition where LiveView removes the element before the animation completes.
+  //
+  // Usage in LiveView template:
+  //   <div id="progress-bar"
+  //        phx-hook="FadeOut"
+  //        data-status={@status}
+  //        data-fade-event="animation_finished"
+  //        class={@status == :completed && "animate-fade-out"}>
+  //     ...content...
+  //   </div>
+  //
+  // Handle in LiveView:
+  //   def handle_event("animation_finished", %{"id" => id}, socket)
+  //
+  // ---------------------------------------------------------------------------
+
+  window.PhoenixKitHooks.FadeOut = {
+    mounted() {
+      this.handleStatusChange();
+    },
+    updated() {
+      this.handleStatusChange();
+    },
+    handleStatusChange() {
+      const status = this.el.dataset.status;
+      const eventName = this.el.dataset.fadeEvent || "animation_finished";
+
+      if (status === "completed" || status === "exiting") {
+        // Add the fade-out class if not already present
+        if (!this.el.classList.contains("animate-fade-out")) {
+          this.el.classList.add("animate-fade-out");
+        }
+
+        // Remove any existing listener to avoid duplicates
+        if (this._animationHandler) {
+          this.el.removeEventListener("animationend", this._animationHandler);
+        }
+
+        // Listen for animation to complete, then notify server
+        this._animationHandler = () => {
+          this.pushEvent(eventName, { id: this.el.id });
+        };
+        this.el.addEventListener("animationend", this._animationHandler, { once: true });
+      }
+    },
+    destroyed() {
+      if (this._animationHandler) {
+        this.el.removeEventListener("animationend", this._animationHandler);
+      }
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // PreserveScroll Hook
   // ---------------------------------------------------------------------------
   //

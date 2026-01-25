@@ -168,7 +168,7 @@
     <div class="flex flex-wrap items-center gap-4">
       <%!-- Language Switcher --%>
       <%= if length(@all_enabled_languages) > 1 or not @current_language_enabled or not @current_language_known do %>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
           <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
           <.publishing_language_switcher
             languages={
@@ -190,7 +190,7 @@
 
       <%!-- Version Switcher (for versioned posts in both slug and timestamp modes) --%>
       <%= if !@is_new_post && @post && !Map.get(@post, :is_legacy_structure, true) do %>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
           <%= if length(@available_versions) > 1 do %>
             <span class="text-xs font-medium text-base-content/60">{gettext("Version:")}</span>
             <.publishing_version_switcher
@@ -353,7 +353,7 @@
           phx-click="toggle_ai_translation"
         />
         <div class="collapse-title">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <.icon name="hero-language" class="w-5 h-5 text-primary" />
             <span class="font-semibold">{gettext("AI Translation")}</span>
           </div>
@@ -362,46 +362,72 @@
           <div class="pt-2 space-y-4">
             <p class="text-sm text-base-content/70">
               {gettext(
-                "Translate this post from the primary language using AI. The translation will be queued as a background job."
+                "Translate the %{source} post to %{target} using AI. The translation will be queued as a background job.",
+                source: @primary_language_name,
+                target: @current_language_name
               )}
             </p>
 
             <%!-- Endpoint Selection --%>
-            <form phx-change="select_ai_endpoint" class="form-control">
-              <label class="label">
-                <span class="label-text font-medium">{gettext("AI Endpoint")}</span>
-              </label>
-              <select
-                class="select select-bordered w-full max-w-xs"
-                name="endpoint_id"
-              >
-                <option value="">{gettext("Select an endpoint...")}</option>
-                <%= for {id, name} <- @ai_endpoints do %>
-                  <option value={id} selected={@ai_selected_endpoint_id == id}>
-                    {name}
-                  </option>
-                <% end %>
-              </select>
-              <label class="label">
-                <span class="label-text-alt text-base-content/60">
-                  {gettext("Configure endpoints in")}
-                  <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/ai")}
-                    class="link link-primary"
-                  >
-                    {gettext("AI Settings")}
-                  </.link>
-                </span>
-              </label>
+            <form phx-change="select_ai_endpoint">
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-medium">{gettext("Translate with")}</span>
+                <select
+                  class="select select-bordered select-sm"
+                  name="endpoint_id"
+                >
+                  <option value="">{gettext("Select an endpoint...")}</option>
+                  <%= for {id, name} <- @ai_endpoints do %>
+                    <option value={id} selected={@ai_selected_endpoint_id == id}>
+                      {name}
+                    </option>
+                  <% end %>
+                </select>
+              </div>
+              <p class="text-xs text-base-content/50 mt-1.5">
+                {gettext("Configure endpoints in")}
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/ai")}
+                  class="link link-primary"
+                >
+                  {gettext("AI Settings")}
+                </.link>
+              </p>
             </form>
 
             <%!-- Translation Status --%>
-            <%= if @ai_translation_status == :translating do %>
-              <div class="alert alert-info">
-                <span class="loading loading-spinner loading-sm"></span>
-                <span>
-                  {gettext("Translating... This may take a moment.")}
-                </span>
+            <%= if @ai_translation_status in [:enqueued, :in_progress, :completed] do %>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-base-content/70 flex items-center gap-2">
+                    <%= if @ai_translation_status == :completed do %>
+                      <.icon name="hero-check-circle" class="w-4 h-4 text-success" />
+                      {gettext("Complete")}
+                    <% else %>
+                      <span class="loading loading-spinner loading-xs"></span>
+                      <%= if @ai_translation_languages != [] do %>
+                        {gettext("Translating to %{languages}...",
+                          languages: format_language_list(@ai_translation_languages)
+                        )}
+                      <% else %>
+                        {gettext("Translating...")}
+                      <% end %>
+                    <% end %>
+                  </span>
+                  <span class="font-medium">
+                    {@ai_translation_progress || 0} / {@ai_translation_total || 0}
+                  </span>
+                </div>
+                <progress
+                  class={[
+                    "progress w-full",
+                    @ai_translation_status == :completed && "progress-success",
+                    @ai_translation_status != :completed && "progress-primary"
+                  ]}
+                  value={@ai_translation_progress || @ai_translation_total || 0}
+                  max={@ai_translation_total || 1}
+                >
+                </progress>
               </div>
             <% end %>
 
@@ -409,10 +435,11 @@
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"
-                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status == :translating, do: "btn-disabled"}"}
+                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
                 phx-click="translate_to_this_language"
                 disabled={
-                  @ai_selected_endpoint_id == nil or @ai_translation_status == :translating
+                  @ai_selected_endpoint_id == nil or
+                    @ai_translation_status in [:enqueued, :in_progress]
                 }
                 data-confirm={
                   gettext(
@@ -430,7 +457,9 @@
               <p>
                 <.icon name="hero-information-circle" class="w-3 h-3 inline" />
                 {gettext(
-                  "This will translate the primary language content to this language, overwriting any existing content."
+                  "This will translate the %{source} content to %{target}, overwriting any existing content.",
+                  source: @primary_language_name,
+                  target: @current_language_name
                 )}
               </p>
             </div>
@@ -448,7 +477,7 @@
           phx-click="toggle_ai_translation"
         />
         <div class="collapse-title">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <.icon name="hero-language" class="w-5 h-5 text-primary" />
             <span class="font-semibold">{gettext("AI Translation")}</span>
           </div>
@@ -462,43 +491,65 @@
             </p>
 
             <%!-- Endpoint Selection --%>
-            <form phx-change="select_ai_endpoint" class="form-control">
-              <label class="label">
-                <span class="label-text font-medium">{gettext("AI Endpoint")}</span>
-              </label>
-              <select
-                class="select select-bordered w-full max-w-xs"
-                name="endpoint_id"
-              >
-                <option value="">{gettext("Select an endpoint...")}</option>
-                <%= for {id, name} <- @ai_endpoints do %>
-                  <option value={id} selected={@ai_selected_endpoint_id == id}>
-                    {name}
-                  </option>
-                <% end %>
-              </select>
-              <label class="label">
-                <span class="label-text-alt text-base-content/60">
-                  {gettext("Configure endpoints in")}
-                  <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/ai")}
-                    class="link link-primary"
-                  >
-                    {gettext("AI Settings")}
-                  </.link>
-                </span>
-              </label>
+            <form phx-change="select_ai_endpoint">
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-medium">{gettext("Translate with")}</span>
+                <select
+                  class="select select-bordered select-sm"
+                  name="endpoint_id"
+                >
+                  <option value="">{gettext("Select an endpoint...")}</option>
+                  <%= for {id, name} <- @ai_endpoints do %>
+                    <option value={id} selected={@ai_selected_endpoint_id == id}>
+                      {name}
+                    </option>
+                  <% end %>
+                </select>
+              </div>
+              <p class="text-xs text-base-content/50 mt-1.5">
+                {gettext("Configure endpoints in")}
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/ai")}
+                  class="link link-primary"
+                >
+                  {gettext("AI Settings")}
+                </.link>
+              </p>
             </form>
 
             <%!-- Translation Status --%>
-            <%= if @ai_translation_status == :enqueued do %>
-              <div class="alert alert-success">
-                <.icon name="hero-check-circle" class="w-5 h-5" />
-                <span>
-                  {gettext(
-                    "Translation job has been queued. You can monitor progress in the Jobs module."
-                  )}
-                </span>
+            <%= if @ai_translation_status in [:enqueued, :in_progress, :completed] do %>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-base-content/70 flex items-center gap-2">
+                    <%= if @ai_translation_status == :completed do %>
+                      <.icon name="hero-check-circle" class="w-4 h-4 text-success" />
+                      {gettext("Complete")}
+                    <% else %>
+                      <span class="loading loading-spinner loading-xs"></span>
+                      <%= if @ai_translation_languages != [] do %>
+                        {gettext("Translating to %{languages}...",
+                          languages: format_language_list(@ai_translation_languages)
+                        )}
+                      <% else %>
+                        {gettext("Translating...")}
+                      <% end %>
+                    <% end %>
+                  </span>
+                  <span class="font-medium">
+                    {@ai_translation_progress || 0} / {@ai_translation_total || 0}
+                  </span>
+                </div>
+                <progress
+                  class={[
+                    "progress w-full",
+                    @ai_translation_status == :completed && "progress-success",
+                    @ai_translation_status != :completed && "progress-primary"
+                  ]}
+                  value={@ai_translation_progress || @ai_translation_total || 0}
+                  max={@ai_translation_total || 1}
+                >
+                </progress>
               </div>
             <% end %>
 
@@ -506,9 +557,12 @@
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"
-                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil, do: "btn-disabled"}"}
+                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
                 phx-click="translate_to_all_languages"
-                disabled={@ai_selected_endpoint_id == nil}
+                disabled={
+                  @ai_selected_endpoint_id == nil or
+                    @ai_translation_status in [:enqueued, :in_progress]
+                }
               >
                 <.icon name="hero-language" class="w-4 h-4" />
                 {gettext("Translate to All Languages")}
@@ -516,9 +570,12 @@
 
               <button
                 type="button"
-                class={"btn btn-outline btn-sm #{if @ai_selected_endpoint_id == nil, do: "btn-disabled"}"}
+                class={"btn btn-outline btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
                 phx-click="translate_missing_languages"
-                disabled={@ai_selected_endpoint_id == nil}
+                disabled={
+                  @ai_selected_endpoint_id == nil or
+                    @ai_translation_status in [:enqueued, :in_progress]
+                }
               >
                 <.icon name="hero-plus" class="w-4 h-4" />
                 {gettext("Translate Missing Only")}
@@ -721,7 +778,7 @@
                     open={false}
                   >
                     <summary class="cursor-pointer select-none px-3 py-2 rounded-lg hover:bg-base-300/50 transition-colors list-none [&::-webkit-details-marker]:hidden">
-                      <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-1.5">
                         <.icon
                           name="hero-chevron-right"
                           class="w-3 h-3 transition-transform [[open]>&]:rotate-90"
@@ -848,7 +905,7 @@
           <div class="flex-1 space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-xl font-semibold text-base-content">{gettext("Content")}</h2>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1.5">
                 <%!-- Other viewers indicator --%>
                 <%= if @other_viewers != [] do %>
                   <div
@@ -963,7 +1020,7 @@
                 phx-value-source={version}
               />
               <div class="flex-1">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5">
                   <span class="font-medium">
                     {gettext("Copy from v%{version}", version: version)}
                   </span>

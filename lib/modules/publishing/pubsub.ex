@@ -390,23 +390,54 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
 
   @doc """
   Broadcasts that AI translation has started.
-  Sent to posts_topic for blog listing UI indicator.
+  Sent to both posts_topic (for blog listing) and post_translations_topic (for editor).
   """
   def broadcast_translation_started(blog_slug, post_slug, target_languages) do
+    payload = {:translation_started, blog_slug, post_slug, target_languages}
+
+    # Broadcast to blog listing
     Manager.broadcast(
       posts_topic(blog_slug),
       {:translation_started, post_slug, length(target_languages)}
+    )
+
+    # Broadcast to editor (more detailed info)
+    Manager.broadcast(post_translations_topic(blog_slug, post_slug), payload)
+  end
+
+  @doc """
+  Broadcasts AI translation progress (after each language completes).
+  Sent to both posts_topic (for blog listing) and post_translations_topic (for editor).
+  """
+  def broadcast_translation_progress(blog_slug, post_slug, completed, total, last_language) do
+    # Broadcast to blog listing
+    Manager.broadcast(
+      posts_topic(blog_slug),
+      {:translation_progress, post_slug, completed, total}
+    )
+
+    # Broadcast to editor (more detailed info)
+    Manager.broadcast(
+      post_translations_topic(blog_slug, post_slug),
+      {:translation_progress, blog_slug, post_slug, completed, total, last_language}
     )
   end
 
   @doc """
   Broadcasts that AI translation has completed (success or partial failure).
-  Sent to posts_topic to clear blog listing UI indicator.
+  Sent to both posts_topic (for blog listing) and post_translations_topic (for editor).
   """
   def broadcast_translation_completed(blog_slug, post_slug, results) do
+    # Broadcast to blog listing
     Manager.broadcast(
       posts_topic(blog_slug),
       {:translation_completed, post_slug, results}
+    )
+
+    # Broadcast to editor
+    Manager.broadcast(
+      post_translations_topic(blog_slug, post_slug),
+      {:translation_completed, blog_slug, post_slug, results}
     )
   end
 

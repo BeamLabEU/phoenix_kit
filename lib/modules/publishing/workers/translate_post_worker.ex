@@ -42,7 +42,13 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   """
 
-  use Oban.Worker, queue: :default, max_attempts: 3
+  use Oban.Worker,
+    queue: :default,
+    max_attempts: 3,
+    unique: [
+      keys: [:group_slug, :post_slug],
+      states: [:available, :scheduled, :executing, :retryable]
+    ]
 
   # Suppress dialyzer warnings for pattern matches where dialyzer incorrectly infers
   # that {:ok, _} patterns can never match. The Publishing context functions do return
@@ -153,33 +159,45 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   defp translate_to_languages(source_post, target_languages, endpoint, source_language, user_id) do
     group_slug = source_post.group
     post_slug = source_post.slug
+    total = length(target_languages)
 
     # Broadcast that translation has started
     PublishingPubSub.broadcast_translation_started(group_slug, post_slug, target_languages)
 
     results =
       target_languages
-      |> Enum.map(fn target_language ->
-        # Note: Per-language progress broadcasts were removed as nothing subscribes to them.
-        # The blog listing uses translation_started/completed events on posts_topic instead.
-        case translate_single_language(
-               source_post,
-               target_language,
-               endpoint,
-               source_language,
-               user_id
-             ) do
-          :ok ->
-            Logger.info("[TranslatePostWorker] Successfully translated to #{target_language}")
-            {:ok, target_language}
+      |> Enum.with_index(1)
+      |> Enum.map(fn {target_language, index} ->
+        result =
+          case translate_single_language(
+                 source_post,
+                 target_language,
+                 endpoint,
+                 source_language,
+                 user_id
+               ) do
+            :ok ->
+              Logger.info("[TranslatePostWorker] Successfully translated to #{target_language}")
+              {:ok, target_language}
 
-          {:error, reason} ->
-            Logger.warning(
-              "[TranslatePostWorker] Failed to translate to #{target_language}: #{inspect(reason)}"
-            )
+            {:error, reason} ->
+              Logger.warning(
+                "[TranslatePostWorker] Failed to translate to #{target_language}: #{inspect(reason)}"
+              )
 
-            {:error, target_language, reason}
-        end
+              {:error, target_language, reason}
+          end
+
+        # Broadcast progress after each language completes
+        PublishingPubSub.broadcast_translation_progress(
+          group_slug,
+          post_slug,
+          index,
+          total,
+          target_language
+        )
+
+        result
       end)
 
     # Count successes and failures
