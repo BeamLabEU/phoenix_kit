@@ -168,23 +168,76 @@
     <div class="flex flex-wrap items-center gap-4">
       <%!-- Language Switcher --%>
       <%= if length(@all_enabled_languages) > 1 or not @current_language_enabled or not @current_language_known do %>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
-          <.publishing_language_switcher
-            languages={
-              build_editor_languages(
-                @post,
-                @blog_slug,
-                @all_enabled_languages,
-                @current_language
-              )
-            }
-            current_language={@current_language}
-            show_status={true}
-            show_add={true}
-            on_click="switch_language"
-            size={:sm}
-          />
+        <% all_languages =
+          build_editor_languages(
+            @post,
+            @blog_slug,
+            @all_enabled_languages,
+            @current_language
+          ) %>
+        <% primary_lang = Enum.find(all_languages, & &1.is_primary) %>
+        <% other_languages = Enum.reject(all_languages, & &1.is_primary) %>
+
+        <div class="flex flex-col gap-2">
+          <%!-- Other translations --%>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
+            <.publishing_language_switcher
+              languages={other_languages}
+              current_language={@current_language}
+              show_status={true}
+              show_add={true}
+              on_click="switch_language"
+              size={:sm}
+            />
+          </div>
+
+          <%!-- Primary language (on its own line, prominent) --%>
+          <%= if primary_lang do %>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-medium text-base-content/60">{gettext("Primary:")}</span>
+              <button
+                type="button"
+                phx-click="switch_language"
+                phx-value-language={primary_lang.code}
+                class={[
+                  "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border cursor-pointer transition-colors",
+                  if(primary_lang.is_current,
+                    do: "bg-primary/20 border-primary/40 ring-2 ring-primary/30",
+                    else: "bg-primary/10 hover:bg-primary/20 border-primary/20"
+                  )
+                ]}
+                title={primary_lang.name}
+              >
+                <span class={[
+                  "rounded-full inline-block w-2.5 h-2.5",
+                  cond do
+                    not primary_lang.exists -> "bg-base-content/20"
+                    primary_lang.status == "published" -> "bg-success"
+                    primary_lang.status == "draft" -> "bg-warning"
+                    primary_lang.status == "archived" -> "bg-base-content/40"
+                    true -> "bg-base-content/20"
+                  end
+                ]}>
+                </span>
+                <span class={[
+                  "text-sm font-bold uppercase",
+                  cond do
+                    not primary_lang.exists -> "text-base-content/20"
+                    primary_lang.status == "published" -> "text-success"
+                    primary_lang.status == "draft" -> "text-warning"
+                    primary_lang.status == "archived" -> "text-base-content/40"
+                    true -> "text-base-content/20"
+                  end
+                ]}>
+                  {String.upcase(primary_lang.display_code)}
+                </span>
+                <span class="text-sm text-base-content/70">
+                  {primary_lang.name}
+                </span>
+              </button>
+            </div>
+          <% end %>
         </div>
       <% end %>
 
@@ -311,7 +364,8 @@
           </span>
           <p class="text-xs text-base-content/60">
             {gettext(
-              "The global primary language setting has changed. Update this post or create a new version."
+              "The global primary language setting has changed to %{language}. Update this post or create a new version.",
+              language: @primary_language_name
             )}
           </p>
         </div>

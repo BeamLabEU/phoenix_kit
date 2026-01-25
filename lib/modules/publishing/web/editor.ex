@@ -2481,6 +2481,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       is_current = lang_code == current_language
       is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
+      is_primary = lang_code == post_primary
 
       # Use preloaded status instead of re-reading file
       status = Map.get(language_statuses, lang_code)
@@ -2497,7 +2498,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         exists: file_exists,
         is_current: is_current,
         enabled: is_enabled,
-        known: is_known
+        known: is_known,
+        is_primary: is_primary
       }
     end)
   end
