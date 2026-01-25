@@ -552,7 +552,16 @@
                             end
                           ]}>
                           </span>
-                          <span class="text-sm font-bold text-primary uppercase">
+                          <span class={[
+                            "text-sm font-bold uppercase",
+                            cond do
+                              not primary_lang.exists -> "text-base-content/20"
+                              primary_lang.status == "published" -> "text-success"
+                              primary_lang.status == "draft" -> "text-warning"
+                              primary_lang.status == "archived" -> "text-base-content/40"
+                              true -> "text-base-content/20"
+                            end
+                          ]}>
                             {String.upcase(primary_lang.display_code)}
                           </span>
                         </button>
