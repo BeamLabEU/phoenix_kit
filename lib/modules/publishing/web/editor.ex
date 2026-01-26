@@ -1852,6 +1852,39 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     is_new_post = Map.get(socket.assigns, :is_new_post, false)
     is_new_translation = Map.get(socket.assigns, :is_new_translation, false)
 
+    # Check if translation file was created in background (e.g., by AI worker)
+    # If is_new_translation is true but the file now exists, reload from disk
+    {socket, is_new_translation} =
+      if is_new_translation do
+        post = socket.assigns.post
+        # Use post.path to compute the actual file path for this translation
+        # (post.full_path for virtual posts still points to the original file)
+        expected_path = post[:path] && Storage.absolute_path(post.path)
+        file_exists = expected_path && File.exists?(expected_path)
+
+        if file_exists do
+          # File was created in background - reload it and update socket
+          case Publishing.read_post(socket.assigns.blog_slug, post.path) do
+            {:ok, real_post} ->
+              # Update socket with real post data, preserve form changes
+              socket =
+                socket
+                |> assign(:post, real_post)
+                |> assign(:is_new_translation, false)
+
+              {socket, false}
+
+            {:error, _} ->
+              # Failed to read, still treat as new
+              {socket, true}
+          end
+        else
+          {socket, true}
+        end
+      else
+        {socket, false}
+      end
+
     cond do
       is_new_post ->
         create_new_post(socket, params)
