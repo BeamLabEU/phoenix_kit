@@ -323,6 +323,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
                   post.language
                 )
               )
+              |> assign(:is_new_translation, false)
               |> push_event("changes-status", %{has_changes: false})
 
             {sock, fk}
@@ -1614,21 +1615,34 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_info({:post_version_published, blog_slug, post_slug, published_version}, socket) do
-    if socket.assigns[:blog_slug] == blog_slug &&
-         socket.assigns[:post] &&
-         socket.assigns.post[:slug] == post_slug do
-      socket =
-        socket
-        |> put_flash(
-          :info,
-          gettext("Version %{version} was published by another editor",
-            version: published_version
-          )
-        )
+    is_our_post =
+      socket.assigns[:blog_slug] == blog_slug &&
+        socket.assigns[:post] &&
+        socket.assigns.post[:slug] == post_slug
 
-      {:noreply, socket}
-    else
-      {:noreply, socket}
+    # Check if we just published this version ourselves (ignore our own broadcast)
+    we_just_published = socket.assigns[:just_published_version] == published_version
+
+    cond do
+      !is_our_post ->
+        {:noreply, socket}
+
+      we_just_published ->
+        # Clear the flag and don't show the flash (we know we published it)
+        {:noreply, assign(socket, :just_published_version, nil)}
+
+      true ->
+        # Another editor published - show the flash
+        socket =
+          socket
+          |> put_flash(
+            :info,
+            gettext("Version %{version} was published by another editor",
+              version: published_version
+            )
+          )
+
+        {:noreply, socket}
     end
   end
 
@@ -2039,6 +2053,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
           case Publishing.publish_version(blog_slug, post_identifier, current_version) do
             :ok ->
+              # Mark that we just published to ignore our own broadcast
+              socket = assign(socket, :just_published_version, current_version)
               handle_post_save_success(socket, updated_post, old_path)
 
             {:error, reason} ->

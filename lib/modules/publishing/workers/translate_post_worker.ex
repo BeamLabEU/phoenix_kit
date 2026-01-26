@@ -56,10 +56,10 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   @dialyzer {:nowarn_function, do_translate: 7}
   @dialyzer {:nowarn_function, translate_to_languages: 5}
   @dialyzer {:nowarn_function, translate_single_language: 5}
-  @dialyzer {:nowarn_function, save_translation: 8}
+  @dialyzer {:nowarn_function, save_translation: 1}
   @dialyzer {:nowarn_function, check_translation_exists: 4}
   @dialyzer {:nowarn_function, update_translation: 6}
-  @dialyzer {:nowarn_function, create_translation: 8}
+  @dialyzer {:nowarn_function, create_translation: 1}
   @dialyzer {:nowarn_function, extract_title: 1}
   @dialyzer {:nowarn_function, build_translation_prompt: 4}
   @dialyzer {:nowarn_function, parse_translated_response: 1}
@@ -292,17 +292,23 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
               )
             end
 
+            # Get source post status to inherit (unless status_manual is set on target)
+            source_status = Map.get(source_post.metadata, :status, "draft")
+
             # Create or update the translation
-            save_translation(
-              group_slug,
-              post_identifier,
-              target_language,
-              translated_title,
-              translated_slug,
-              translated_content,
-              version,
-              user_id
-            )
+            translation_opts = %{
+              group_slug: group_slug,
+              post_identifier: post_identifier,
+              language: target_language,
+              title: translated_title,
+              url_slug: translated_slug,
+              content: translated_content,
+              version: version,
+              user_id: user_id,
+              source_status: source_status
+            }
+
+            save_translation(translation_opts)
 
           {:error, reason} ->
             {:error, "Failed to extract AI response: #{inspect(reason)}"}
@@ -438,16 +444,20 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   # Save the translation (create or update)
-  defp save_translation(
-         group_slug,
-         post_slug,
-         language,
-         title,
-         url_slug,
-         content,
-         version,
-         user_id
-       ) do
+  # Accepts a map with: group_slug, post_identifier, language, title, url_slug, content,
+  # version, user_id, source_status
+  defp save_translation(opts) do
+    %{
+      group_slug: group_slug,
+      post_identifier: post_slug,
+      language: language,
+      title: title,
+      url_slug: url_slug,
+      content: content,
+      version: version,
+      user_id: user_id
+    } = opts
+
     Logger.info("[TranslatePostWorker] Saving translation for #{language}...")
 
     # Check if translation file already exists for this exact language
@@ -458,6 +468,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         # Update existing translation - verify it's actually the right language
         if existing_post.language == language do
           Logger.info("[TranslatePostWorker] Updating existing #{language} translation")
+          # Don't override status for existing translations (they may have status_manual set)
           update_translation(group_slug, existing_post, title, url_slug, content, user_id)
         else
           # Fallback returned wrong language, create new translation instead
@@ -465,32 +476,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
             "[TranslatePostWorker] Creating new #{language} translation (fallback detected)"
           )
 
-          create_translation(
-            group_slug,
-            post_slug,
-            language,
-            title,
-            url_slug,
-            content,
-            version,
-            user_id
-          )
+          create_translation(opts)
         end
 
       {:error, _} ->
         # Create new translation
         Logger.info("[TranslatePostWorker] Creating new #{language} translation")
 
-        create_translation(
-          group_slug,
-          post_slug,
-          language,
-          title,
-          url_slug,
-          content,
-          version,
-          user_id
-        )
+        create_translation(opts)
     end
   end
 
@@ -528,21 +521,27 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     end
   end
 
-  defp create_translation(
-         group_slug,
-         post_slug,
-         language,
-         title,
-         url_slug,
-         content,
-         version,
-         user_id
-       ) do
+  defp create_translation(opts) do
+    %{
+      group_slug: group_slug,
+      post_identifier: post_slug,
+      language: language,
+      title: title,
+      url_slug: url_slug,
+      content: content,
+      version: version,
+      user_id: user_id,
+      source_status: source_status
+    } = opts
+
     case Publishing.add_language_to_post(group_slug, post_slug, language, version) do
       {:ok, new_post} ->
         params = %{
           "title" => title,
-          "content" => content
+          "content" => content,
+          # Inherit status from source post (the new translation file starts as draft,
+          # but we want it to match the primary language's published status)
+          "status" => source_status
         }
 
         # Add url_slug if provided
@@ -553,7 +552,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         case Publishing.update_post(group_slug, new_post, params, scope: scope) do
           {:ok, _} ->
             Logger.info(
-              "[TranslatePostWorker] Successfully saved #{language} translation with slug: #{url_slug || "(default)"}"
+              "[TranslatePostWorker] Successfully saved #{language} translation with slug: #{url_slug || "(default)"}, status: #{source_status}"
             )
 
             :ok
