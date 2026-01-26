@@ -863,10 +863,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   # Image helpers - prefer Storage images over legacy URL-based images
 
   # Get mapped image URL for selected option value, or keep current image if no mapping
+  # Supports both Storage IDs and legacy URLs (from Shopify imports)
   defp get_mapped_image(product, option_key, option_value, current_image) do
     case get_in(product.metadata || %{}, ["_image_mappings", option_key, option_value]) do
       nil -> current_image
       "" -> current_image
+      # If it's a URL (starts with http), use directly
+      "http" <> _ = url -> url
+      # Otherwise it's a Storage ID
       image_id -> get_storage_image_url(image_id, "large") || current_image
     end
   end

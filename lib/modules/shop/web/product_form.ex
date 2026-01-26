@@ -1581,8 +1581,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
             </div>
           <% end %>
 
-          <%!-- Variant Images Section --%>
-          <%= if @gallery_image_ids != [] and has_mappable_options?(assigns) do %>
+          <%!-- Variant Images Section - supports both Storage and legacy URL-based images --%>
+          <% has_storage_images = @gallery_image_ids != [] or @featured_image_id != nil %>
+          <% legacy_images = get_legacy_images(@product) %>
+          <% has_legacy_images = legacy_images != [] %>
+          <%= if (has_storage_images or has_legacy_images) and has_mappable_options?(assigns) do %>
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">
@@ -1604,6 +1607,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                             class="select select-bordered select-sm"
                           >
                             <option value="">No image</option>
+                            <%!-- Storage images (preferred) --%>
                             <%= for {image_id, idx} <- Enum.with_index(@gallery_image_ids) do %>
                               <option
                                 value={image_id}
@@ -1623,11 +1627,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                                 Featured image
                               </option>
                             <% end %>
+                            <%!-- Legacy URL-based images (from Shopify imports) --%>
+                            <%= if not has_storage_images and has_legacy_images do %>
+                              <%= for {url, idx} <- Enum.with_index(legacy_images) do %>
+                                <option
+                                  value={url}
+                                  selected={get_image_mapping(@metadata, option_key, value) == url}
+                                >
+                                  Legacy image #{idx + 1}
+                                </option>
+                              <% end %>
+                            <% end %>
                           </select>
                           <%!-- Preview thumbnail --%>
                           <%= if mapping = get_image_mapping(@metadata, option_key, value) do %>
                             <img
-                              src={get_image_url(mapping, "thumbnail")}
+                              src={get_image_url_or_direct(mapping, "thumbnail")}
                               class="w-16 h-16 object-cover rounded"
                               alt={"Preview for #{value}"}
                             />
@@ -1797,6 +1812,29 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   rescue
     _ -> nil
   end
+
+  # Get image URL - supports both Storage IDs and direct URLs
+  # Used for preview thumbnails in variant image mapping
+  defp get_image_url_or_direct(nil, _variant), do: nil
+  defp get_image_url_or_direct("http" <> _ = url, _variant), do: url
+
+  defp get_image_url_or_direct(file_id, variant) do
+    URLSigner.signed_url(file_id, variant)
+  rescue
+    _ -> nil
+  end
+
+  # Get legacy image URLs from product.images (Shopify import format)
+  defp get_legacy_images(%{images: images}) when is_list(images) do
+    Enum.map(images, &extract_image_url/1) |> Enum.reject(&is_nil/1)
+  end
+
+  defp get_legacy_images(_), do: []
+
+  # Extract URL from legacy image (handles both map and string formats)
+  defp extract_image_url(%{"src" => src}) when is_binary(src), do: src
+  defp extract_image_url(url) when is_binary(url), do: url
+  defp extract_image_url(_), do: nil
 
   # Format price for display with currency
   defp format_price(nil, _currency), do: "—"
@@ -2253,6 +2291,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   # Clean up _image_mappings - remove empty values and invalid image IDs
+  # Preserves URL values (starting with "http") for legacy Shopify images
   defp clean_image_mappings(metadata, valid_image_ids) do
     case metadata["_image_mappings"] do
       nil ->
@@ -2264,9 +2303,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           |> Enum.map(fn {option_key, value_mappings} ->
             cleaned_values =
               value_mappings
-              |> Enum.reject(fn {_v, image_id} ->
-                image_id == "" or image_id == nil or image_id not in valid_image_ids
-              end)
+              |> Enum.reject(&invalid_image_mapping?(&1, valid_image_ids))
               |> Map.new()
 
             {option_key, cleaned_values}
@@ -2285,7 +2322,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     end
   end
 
+  # Check if mapping is invalid (should be rejected)
+  # Keep URLs (legacy images) and valid Storage IDs
+  defp invalid_image_mapping?({_v, image_id}, _valid_ids) when image_id in ["", nil], do: true
+  defp invalid_image_mapping?({_v, "http" <> _}, _valid_ids), do: false
+  defp invalid_image_mapping?({_v, image_id}, valid_ids), do: image_id not in valid_ids
+
   # Clean stale image mappings on product load, returns {cleaned_metadata, had_stale?}
+  # Preserves URL values (starting with "http") for legacy Shopify images
   defp clean_stale_image_mappings(metadata, valid_ids) do
     case metadata["_image_mappings"] do
       nil ->
@@ -2298,10 +2342,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
             acc + map_size(v)
           end)
 
-        # Clean mappings
+        # Clean mappings - keep URLs and valid Storage IDs
         cleaned =
           Enum.map(mappings, fn {key, value_map} ->
-            filtered = Enum.filter(value_map, fn {_v, id} -> id in valid_ids end) |> Map.new()
+            filtered =
+              value_map
+              |> Enum.reject(&invalid_image_mapping?(&1, valid_ids))
+              |> Map.new()
+
             {key, filtered}
           end)
           |> Enum.reject(fn {_k, v} -> v == %{} end)
