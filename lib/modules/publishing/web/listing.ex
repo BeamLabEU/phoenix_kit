@@ -727,8 +727,35 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, assign(socket, :translating_posts, translating)}
   end
 
+  def handle_info({:translation_progress, post_slug, completed, total}, socket) do
+    # Update progress for this post
+    case Map.get(socket.assigns.translating_posts, post_slug) do
+      nil ->
+        # Post not in our tracking, add it
+        translating =
+          Map.put(socket.assigns.translating_posts, post_slug, %{
+            total: total,
+            completed: completed,
+            status: :in_progress
+          })
+
+        {:noreply, assign(socket, :translating_posts, translating)}
+
+      existing ->
+        # Update existing entry
+        translating =
+          Map.put(socket.assigns.translating_posts, post_slug, %{
+            existing
+            | completed: completed,
+              total: total
+          })
+
+        {:noreply, assign(socket, :translating_posts, translating)}
+    end
+  end
+
   def handle_info({:translation_completed, post_slug, results}, socket) do
-    # Mark translation as complete, then remove after a delay
+    # Mark translation as complete - status stays visible
     translating =
       Map.put(socket.assigns.translating_posts, post_slug, %{
         status: :completed,
@@ -738,18 +765,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     socket = assign(socket, :translating_posts, translating)
 
-    # Also refresh posts to show new translations
+    # Refresh posts to show new translations
     socket = refresh_posts(socket)
 
-    # Clear the status after 5 seconds
-    Process.send_after(self(), {:clear_translation_status, post_slug}, 5000)
-
     {:noreply, socket}
-  end
-
-  def handle_info({:clear_translation_status, post_slug}, socket) do
-    translating = Map.delete(socket.assigns.translating_posts, post_slug)
-    {:noreply, assign(socket, :translating_posts, translating)}
   end
 
   # Primary language migration progress handlers

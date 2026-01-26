@@ -1,3 +1,11 @@
+## 1.7.29 - 2026-01-26
+- Add primary language improvements and AI translation progress tracking
+  - Real-time translation progress - Added progress bars to editor and listing pages showing AI translation status
+  - Primary language improvements - Posts now store their primary language for isolation from global setting changes
+  - Language handling fixes - Fixed base code to dialect mapping (e.g., en → en-US) across public URLs and editor
+  - UI polish - Updated language switcher colors, modal text, and added prominent primary language display in editor
+  - Documentation - Added comprehensive README for the Languages module
+
 ## 1.7.28 - 2026-01-24
 - Major improvements to the Publishing module's multi-language workflow: renamed "master" to "primary" terminology, fixed URL routing with locales, added language migration tools, improved cache performance, and fixed several UI/UX issues in settings and admin pages.
   - Multi-Language System Improvements

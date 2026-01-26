@@ -1,6 +1,44 @@
 /* PhoenixKit DaisyUI 5 Theme Definitions */
 /* Color-only themes to prevent layout jumping */
 
+/* ============================================================================
+   Fade In/Out Animations
+   Used for progress bars and dynamic content
+   ============================================================================ */
+
+@keyframes pk-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pk-fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pk-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.animate-fade-in {
+  animation: pk-fade-in 0.3s ease-out;
+}
+
+.animate-fade-in-down {
+  animation: pk-fade-in-down 0.3s ease-out;
+}
+
+.animate-fade-out {
+  animation: pk-fade-out 0.2s ease-in forwards;
+}
+
 /* Custom Phoenix Themes */
 [data-theme=phoenix-light] {
   color-scheme: light;

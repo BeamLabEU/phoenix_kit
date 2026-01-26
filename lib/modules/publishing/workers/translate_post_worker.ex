@@ -42,7 +42,13 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   """
 
-  use Oban.Worker, queue: :default, max_attempts: 3
+  use Oban.Worker,
+    queue: :default,
+    max_attempts: 3,
+    unique: [
+      keys: [:group_slug, :post_slug],
+      states: [:available, :scheduled, :executing, :retryable]
+    ]
 
   # Suppress dialyzer warnings for pattern matches where dialyzer incorrectly infers
   # that {:ok, _} patterns can never match. The Publishing context functions do return
@@ -50,10 +56,10 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   @dialyzer {:nowarn_function, do_translate: 7}
   @dialyzer {:nowarn_function, translate_to_languages: 5}
   @dialyzer {:nowarn_function, translate_single_language: 5}
-  @dialyzer {:nowarn_function, save_translation: 8}
+  @dialyzer {:nowarn_function, save_translation: 1}
   @dialyzer {:nowarn_function, check_translation_exists: 4}
   @dialyzer {:nowarn_function, update_translation: 6}
-  @dialyzer {:nowarn_function, create_translation: 8}
+  @dialyzer {:nowarn_function, create_translation: 1}
   @dialyzer {:nowarn_function, extract_title: 1}
   @dialyzer {:nowarn_function, build_translation_prompt: 4}
   @dialyzer {:nowarn_function, parse_translated_response: 1}
@@ -87,7 +93,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     Logger.info(
       "[TranslatePostWorker] Starting translation of #{group_slug}/#{post_slug} " <>
-        "from #{source_language} to #{length(target_languages)} languages"
+        "from #{source_language} to #{length(target_languages)} languages " <>
+        "(version: #{inspect(version)}, endpoint: #{inspect(endpoint_id)})"
     )
 
     # Validate AI module is enabled
@@ -139,9 +146,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
             )
 
           {:error, reason} ->
-            Logger.error("[TranslatePostWorker] Failed to read source post: #{inspect(reason)}")
+            Logger.error(
+              "[TranslatePostWorker] Failed to read source post: #{inspect(reason)}. " <>
+                "Details: group=#{group_slug}, slug=#{post_slug}, " <>
+                "language=#{source_language}, version=#{inspect(version)}"
+            )
 
-            {:error, "Failed to read source post: #{inspect(reason)}"}
+            {:error,
+             "Failed to read source post (#{group_slug}/#{post_slug}/#{source_language}): #{inspect(reason)}"}
         end
     end
   end
@@ -152,34 +164,47 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   # Translate to all target languages sequentially
   defp translate_to_languages(source_post, target_languages, endpoint, source_language, user_id) do
     group_slug = source_post.group
-    post_slug = source_post.slug
+    total = length(target_languages)
 
     # Broadcast that translation has started
-    PublishingPubSub.broadcast_translation_started(group_slug, post_slug, target_languages)
+    # Note: Use source_post.slug for PubSub since that's what the editor subscribes to
+    PublishingPubSub.broadcast_translation_started(group_slug, source_post.slug, target_languages)
 
     results =
       target_languages
-      |> Enum.map(fn target_language ->
-        # Note: Per-language progress broadcasts were removed as nothing subscribes to them.
-        # The blog listing uses translation_started/completed events on posts_topic instead.
-        case translate_single_language(
-               source_post,
-               target_language,
-               endpoint,
-               source_language,
-               user_id
-             ) do
-          :ok ->
-            Logger.info("[TranslatePostWorker] Successfully translated to #{target_language}")
-            {:ok, target_language}
+      |> Enum.with_index(1)
+      |> Enum.map(fn {target_language, index} ->
+        result =
+          case translate_single_language(
+                 source_post,
+                 target_language,
+                 endpoint,
+                 source_language,
+                 user_id
+               ) do
+            :ok ->
+              Logger.info("[TranslatePostWorker] Successfully translated to #{target_language}")
+              {:ok, target_language}
 
-          {:error, reason} ->
-            Logger.warning(
-              "[TranslatePostWorker] Failed to translate to #{target_language}: #{inspect(reason)}"
-            )
+            {:error, reason} ->
+              Logger.warning(
+                "[TranslatePostWorker] Failed to translate to #{target_language}: #{inspect(reason)}"
+              )
 
-            {:error, target_language, reason}
-        end
+              {:error, target_language, reason}
+          end
+
+        # Broadcast progress after each language completes
+        # Note: Use source_post.slug for PubSub since that's what the editor subscribes to
+        PublishingPubSub.broadcast_translation_progress(
+          group_slug,
+          source_post.slug,
+          index,
+          total,
+          target_language
+        )
+
+        result
       end)
 
     # Count successes and failures
@@ -193,7 +218,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     failure_count = length(failures)
 
     # Broadcast completion
-    PublishingPubSub.broadcast_translation_completed(group_slug, post_slug, %{
+    # Note: Use source_post.slug for PubSub since that's what the editor subscribes to
+    PublishingPubSub.broadcast_translation_completed(group_slug, source_post.slug, %{
       succeeded: Enum.map(successes, fn {:ok, lang} -> lang end),
       failed: Enum.map(failures, fn {:error, lang, _} -> lang end),
       success_count: success_count,
@@ -217,7 +243,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   # Translate a single language
   defp translate_single_language(source_post, target_language, endpoint, source_language, user_id) do
     group_slug = source_post.group
-    post_slug = source_post.slug
+    # For timestamp mode, use the date/time path; for slug mode, use the slug
+    post_identifier = get_post_identifier(source_post)
     version = source_post.version
 
     # Get language names for the prompt
@@ -265,17 +292,23 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
               )
             end
 
+            # Get source post status to inherit (unless status_manual is set on target)
+            source_status = Map.get(source_post.metadata, :status, "draft")
+
             # Create or update the translation
-            save_translation(
-              group_slug,
-              post_slug,
-              target_language,
-              translated_title,
-              translated_slug,
-              translated_content,
-              version,
-              user_id
-            )
+            translation_opts = %{
+              group_slug: group_slug,
+              post_identifier: post_identifier,
+              language: target_language,
+              title: translated_title,
+              url_slug: translated_slug,
+              content: translated_content,
+              version: version,
+              user_id: user_id,
+              source_status: source_status
+            }
+
+            save_translation(translation_opts)
 
           {:error, reason} ->
             {:error, "Failed to extract AI response: #{inspect(reason)}"}
@@ -411,16 +444,20 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   # Save the translation (create or update)
-  defp save_translation(
-         group_slug,
-         post_slug,
-         language,
-         title,
-         url_slug,
-         content,
-         version,
-         user_id
-       ) do
+  # Accepts a map with: group_slug, post_identifier, language, title, url_slug, content,
+  # version, user_id, source_status
+  defp save_translation(opts) do
+    %{
+      group_slug: group_slug,
+      post_identifier: post_slug,
+      language: language,
+      title: title,
+      url_slug: url_slug,
+      content: content,
+      version: version,
+      user_id: user_id
+    } = opts
+
     Logger.info("[TranslatePostWorker] Saving translation for #{language}...")
 
     # Check if translation file already exists for this exact language
@@ -431,6 +468,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         # Update existing translation - verify it's actually the right language
         if existing_post.language == language do
           Logger.info("[TranslatePostWorker] Updating existing #{language} translation")
+          # Don't override status for existing translations (they may have status_manual set)
           update_translation(group_slug, existing_post, title, url_slug, content, user_id)
         else
           # Fallback returned wrong language, create new translation instead
@@ -438,32 +476,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
             "[TranslatePostWorker] Creating new #{language} translation (fallback detected)"
           )
 
-          create_translation(
-            group_slug,
-            post_slug,
-            language,
-            title,
-            url_slug,
-            content,
-            version,
-            user_id
-          )
+          create_translation(opts)
         end
 
       {:error, _} ->
         # Create new translation
         Logger.info("[TranslatePostWorker] Creating new #{language} translation")
 
-        create_translation(
-          group_slug,
-          post_slug,
-          language,
-          title,
-          url_slug,
-          content,
-          version,
-          user_id
-        )
+        create_translation(opts)
     end
   end
 
@@ -493,40 +513,48 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     # Add url_slug if provided
     params = if url_slug, do: Map.put(params, "url_slug", url_slug), else: params
 
-    scope = build_scope(user_id)
+    # Mark as non-primary language for consistency (translations shouldn't trigger propagation)
+    opts = %{scope: build_scope(user_id), is_primary_language: false}
 
-    case Publishing.update_post(group_slug, existing_post, params, scope: scope) do
+    case Publishing.update_post(group_slug, existing_post, params, opts) do
       {:ok, _} -> :ok
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp create_translation(
-         group_slug,
-         post_slug,
-         language,
-         title,
-         url_slug,
-         content,
-         version,
-         user_id
-       ) do
+  defp create_translation(opts) do
+    %{
+      group_slug: group_slug,
+      post_identifier: post_slug,
+      language: language,
+      title: title,
+      url_slug: url_slug,
+      content: content,
+      version: version,
+      user_id: user_id,
+      source_status: source_status
+    } = opts
+
     case Publishing.add_language_to_post(group_slug, post_slug, language, version) do
       {:ok, new_post} ->
         params = %{
           "title" => title,
-          "content" => content
+          "content" => content,
+          # Inherit status from source post (the new translation file starts as draft,
+          # but we want it to match the primary language's published status)
+          "status" => source_status
         }
 
         # Add url_slug if provided
         params = if url_slug, do: Map.put(params, "url_slug", url_slug), else: params
 
-        scope = build_scope(user_id)
+        # Mark as non-primary language to prevent status propagation from translation
+        opts = %{scope: build_scope(user_id), is_primary_language: false}
 
-        case Publishing.update_post(group_slug, new_post, params, scope: scope) do
+        case Publishing.update_post(group_slug, new_post, params, opts) do
           {:ok, _} ->
             Logger.info(
-              "[TranslatePostWorker] Successfully saved #{language} translation with slug: #{url_slug || "(default)"}"
+              "[TranslatePostWorker] Successfully saved #{language} translation with slug: #{url_slug || "(default)"}, status: #{source_status}"
             )
 
             :ok
@@ -557,6 +585,31 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       user -> Scope.for_user(user)
     end
   end
+
+  # Get the correct post identifier based on mode
+  # For timestamp mode: extract date/time from path (e.g., "2025-12-31/03:42")
+  # For slug mode: use the post slug
+  defp get_post_identifier(post) do
+    case post.mode do
+      :timestamp ->
+        extract_timestamp_identifier(post.path)
+
+      _ ->
+        post.slug
+    end
+  end
+
+  # Extract timestamp identifier (date/time) from a timestamp mode path
+  # Path format: "group/YYYY-MM-DD/HH:MM/vN/lang.phk" or just "YYYY-MM-DD/HH:MM/..."
+  defp extract_timestamp_identifier(path) when is_binary(path) do
+    # Match date/time pattern: YYYY-MM-DD/HH:MM
+    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
+      [_, timestamp] -> timestamp
+      nil -> path
+    end
+  end
+
+  defp extract_timestamp_identifier(path), do: path
 
   # Get target languages (all enabled except source)
   defp get_target_languages(source_language) do

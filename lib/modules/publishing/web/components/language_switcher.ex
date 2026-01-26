@@ -233,12 +233,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
     ~H"""
     <span class="inline-flex items-center gap-1">
       <%= if @show_status do %>
-        <span class={status_dot_classes(@exists, @status, @size, @enabled, @known)}></span>
+        <span class={status_dot_classes(@exists, @status, @size, @enabled, @known, @is_primary)}>
+        </span>
       <% end %>
       <%= if @show_flags && @lang[:flag] do %>
         <span class={flag_size_class(@size)}>{@lang[:flag]}</span>
       <% end %>
-      <span class={code_classes(@is_current, @size, @enabled, @known, @is_primary)}>
+      <span class={code_classes(@exists, @status, @is_current, @size, @enabled, @known, @is_primary)}>
         {get_display_code(@lang)}
       </span>
     </span>
@@ -300,7 +301,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   # Status dot styling
   # Dot color follows status regardless of enabled/known state
   # (strikethrough on text indicates disabled/unknown, not the dot)
-  defp status_dot_classes(exists, status, size, _enabled, _known) do
+  defp status_dot_classes(exists, status, size, _enabled, _known, _is_primary) do
     base = ["rounded-full", "inline-block", dot_size_class(size)]
 
     color =
@@ -348,7 +349,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   end
 
   # Code text classes
-  defp code_classes(is_current, size, enabled, known, is_primary) do
+  # Text color matches the status dot color
+  defp code_classes(exists, status, is_current, size, enabled, known, is_primary) do
     base = [size_text_class(size)]
 
     # Primary language gets bold, current gets semibold, others get medium
@@ -362,7 +364,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
     # Add line-through for disabled or unknown languages
     decoration = if !enabled or !known, do: "line-through", else: nil
 
-    Enum.filter(base ++ [weight, decoration], & &1)
+    # Text color matches the dot color
+    color =
+      cond do
+        !exists -> "text-base-content/20"
+        status == "published" -> "text-success"
+        status == "draft" -> "text-warning"
+        status == "archived" -> "text-base-content/40"
+        true -> "text-base-content/20"
+      end
+
+    Enum.filter(base ++ [weight, decoration, color], & &1)
   end
 
   # Size-based classes
