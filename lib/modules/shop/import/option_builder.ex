@@ -2,12 +2,20 @@ defmodule PhoenixKit.Modules.Shop.Import.OptionBuilder do
   @moduledoc """
   Build option values and price modifiers from Shopify variant rows.
 
-  Extracts Option1/Option2 names and values from CSV rows,
+  Extracts Option1..Option10 names and values from CSV rows,
   calculates base price (minimum) and price modifiers (deltas from base).
+
+  ## Extended Support
+
+  - Supports Option1 through Option10 (Shopify standard)
+  - Accepts option_mappings for slot-based options
+  - Builds _option_slots structure for products using global options
   """
 
+  @max_options 10
+
   @doc """
-  Build options data from variant rows.
+  Build options data from variant rows (legacy format).
 
   Returns a map with:
   - base_price: minimum variant price (Decimal)
@@ -68,6 +76,145 @@ defmodule PhoenixKit.Modules.Shop.Import.OptionBuilder do
       option2_values: option2_values
     }
   end
+
+  @doc """
+  Build extended options data from variant rows.
+
+  Supports Option1 through Option10 and optional slot mappings.
+
+  ## Arguments
+
+  - `rows` - List of CSV row maps for a single product
+  - `opts` - Keyword options:
+    - `:option_mappings` - List of mapping configs from ImportConfig
+
+  ## Returns
+
+  Map with:
+  - `base_price` - Minimum variant price
+  - `options` - List of option data for each option found
+  - `option_slots` - Slot definitions if mappings provided
+
+  ## Examples
+
+      # Without mappings (standard import)
+      OptionBuilder.build_extended(rows)
+      # => %{
+      #   base_price: Decimal.new("22.80"),
+      #   options: [
+      #     %{position: 1, name: "Size", values: [...], modifiers: %{...}},
+      #     %{position: 2, name: "Cup Color", values: [...]},
+      #     %{position: 3, name: "Liquid Color", values: [...]}
+      #   ],
+      #   option_slots: []
+      # }
+
+      # With mappings (slot-based import)
+      mappings = [
+        %{"csv_name" => "Cup Color", "slot_key" => "cup_color", "source_key" => "color"},
+        %{"csv_name" => "Liquid Color", "slot_key" => "liquid_color", "source_key" => "color"}
+      ]
+      OptionBuilder.build_extended(rows, option_mappings: mappings)
+      # => %{
+      #   base_price: Decimal.new("22.80"),
+      #   options: [...],
+      #   option_slots: [
+      #     %{slot: "cup_color", source_key: "color", label: "Cup Color", values: [...]},
+      #     %{slot: "liquid_color", source_key: "color", label: "Liquid Color", values: [...]}
+      #   ]
+      # }
+  """
+  def build_extended(rows, opts \\ []) when is_list(rows) do
+    option_mappings = Keyword.get(opts, :option_mappings, [])
+    first_row = List.first(rows)
+
+    # Extract variants with prices and all option values
+    variants = extract_all_variants(rows)
+
+    # Calculate base price (minimum)
+    base_price =
+      variants
+      |> Enum.map(& &1.price)
+      |> Enum.filter(& &1)
+      |> Enum.min(fn -> Decimal.new("0") end)
+
+    # Build option data for each option position
+    options =
+      for i <- 1..@max_options,
+          name = get_option_name(first_row, i),
+          name != nil do
+        field = String.to_atom("option#{i}_value")
+        {values, modifiers} = build_option_data(variants, field, base_price)
+
+        # Only include modifiers if they have non-zero values
+        has_price_impact = Enum.any?(modifiers, fn {_k, v} -> v != "0" end)
+
+        %{
+          position: i,
+          name: name,
+          values: values,
+          modifiers: if(has_price_impact, do: modifiers, else: %{})
+        }
+      end
+
+    # Build option slots from mappings
+    option_slots = build_option_slots_from_mappings(options, option_mappings)
+
+    %{
+      base_price: base_price,
+      options: options,
+      option_slots: option_slots
+    }
+  end
+
+  # Extract all option values (Option1..Option10) from variant rows
+  defp extract_all_variants(rows) do
+    Enum.map(rows, fn row ->
+      base = %{price: parse_price(row["Variant Price"])}
+
+      # Add option values for each position
+      Enum.reduce(1..@max_options, base, fn i, acc ->
+        key = String.to_atom("option#{i}_value")
+        value = get_non_empty(row, "Option#{i} Value")
+        Map.put(acc, key, value)
+      end)
+    end)
+    |> Enum.filter(& &1.price)
+  end
+
+  # Get option name for a position
+  defp get_option_name(row, position) do
+    get_non_empty(row, "Option#{position} Name")
+  end
+
+  # Build option slots from mappings
+  defp build_option_slots_from_mappings(options, mappings) when is_list(mappings) do
+    mappings
+    |> Enum.map(fn mapping ->
+      csv_name = mapping["csv_name"]
+      slot_key = mapping["slot_key"]
+      source_key = mapping["source_key"]
+      label = mapping["label"] || csv_name
+
+      # Find the option with matching name
+      option = Enum.find(options, fn opt -> opt.name == csv_name end)
+
+      if option && slot_key do
+        %{
+          slot: slot_key,
+          source_key: source_key,
+          label: label,
+          values: option.values,
+          position: option.position
+        }
+      else
+        nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp build_option_slots_from_mappings(_, _), do: []
 
   # Private helpers
 

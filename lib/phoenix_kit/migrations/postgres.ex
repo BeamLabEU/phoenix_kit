@@ -355,7 +355,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - User association for audit trail (who initiated import)
   - Enables admin UI for Shopify CSV import management
 
-  ### V47 - Shop Localized Fields ⚡ LATEST
+  ### V47 - Shop Localized Fields
   - Converts Shop module from separate translations JSONB to localized fields approach
   - Product fields (title, slug, description, body_html, seo_title, seo_description) become JSONB maps
   - Category fields (name, slug, description) become JSONB maps
@@ -366,6 +366,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - GIN indexes on slug fields for efficient localized URL lookups
   - Enables explicit language tagging for CSV imports
   - Solves language ambiguity problem when changing default language
+
+  ### V48 - Import Option Mappings ⚡ LATEST
+  - Adds option_mappings JSONB column to import_configs for CSV option mapping
+  - Supports mapping CSV options to global options with slot configuration
+  - Enables multiple slots from same global option (e.g., cup_color and liquid_color from "color")
+  - Structure: [{csv_name, slot_key, source_key, auto_add, label}]
 
   ## Migration Paths
 
@@ -425,7 +431,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 47
+  @current_version 48
   @default_prefix "public"
 
   @doc false

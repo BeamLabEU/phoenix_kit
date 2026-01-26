@@ -129,6 +129,107 @@ defmodule PhoenixKit.Modules.Shop.Options do
     update_global_options(updated)
   end
 
+  @doc """
+  Gets a single global option by key.
+
+  Returns the option definition map or nil if not found.
+
+  ## Examples
+
+      Options.get_global_option_by_key("color")
+      # => %{"key" => "color", "label" => "Color", "type" => "select", ...}
+  """
+  def get_global_option_by_key(key) when is_binary(key) do
+    get_global_options()
+    |> Enum.find(&(&1["key"] == key))
+  end
+
+  def get_global_option_by_key(_), do: nil
+
+  @doc """
+  Adds a new value to an existing global option.
+
+  Works with both simple string options and enhanced map options.
+  For enhanced format, value_map should be a map with at least "value" key.
+
+  ## Examples
+
+      # Simple format - adds "yellow" to options list
+      Options.add_value_to_global_option("color", "yellow")
+
+      # Enhanced format - adds map to options list
+      Options.add_value_to_global_option("color", %{
+        "value" => "yellow",
+        "label" => %{"en" => "Yellow", "ru" => "Жёлтый"},
+        "hex" => "#FFFF00"
+      })
+  """
+  def add_value_to_global_option(key, value_or_map) when is_binary(key) do
+    case get_global_option_by_key(key) do
+      nil ->
+        {:error, "Global option '#{key}' not found"}
+
+      option ->
+        do_add_value_to_option(key, option, value_or_map)
+    end
+  end
+
+  defp do_add_value_to_option(key, option, value_or_map) do
+    current_options = option["options"] || []
+    new_value = normalize_option_value(value_or_map, current_options)
+
+    if value_exists?(current_options, new_value) do
+      {:ok, option}
+    else
+      updated_option = Map.put(option, "options", current_options ++ [new_value])
+      replace_global_option(key, updated_option)
+    end
+  end
+
+  defp replace_global_option(key, updated_option) do
+    all_options = get_global_options()
+
+    updated_all =
+      Enum.map(all_options, fn opt ->
+        if opt["key"] == key, do: updated_option, else: opt
+      end)
+
+    update_global_options(updated_all)
+  end
+
+  # Normalize value to match existing format (string or map)
+  defp normalize_option_value(value, current_options) when is_binary(value) do
+    # Check if current options are in enhanced format
+    if Enum.any?(current_options, &is_map/1) do
+      %{"value" => value, "label" => value}
+    else
+      value
+    end
+  end
+
+  defp normalize_option_value(value_map, _current_options) when is_map(value_map) do
+    value_map
+  end
+
+  defp normalize_option_value(value, _), do: to_string(value)
+
+  # Check if value already exists in options list
+  defp value_exists?(options, new_value) when is_binary(new_value) do
+    Enum.any?(options, fn opt ->
+      case opt do
+        ^new_value -> true
+        %{"value" => ^new_value} -> true
+        _ -> false
+      end
+    end)
+  end
+
+  defp value_exists?(options, %{"value" => value}) do
+    value_exists?(options, value)
+  end
+
+  defp value_exists?(_, _), do: false
+
   # ============================================
   # CATEGORY OPTIONS
   # ============================================
@@ -234,6 +335,156 @@ defmodule PhoenixKit.Modules.Shop.Options do
     # Sort by position
     (filtered_base ++ override)
     |> Enum.sort_by(& &1["position"], :asc)
+  end
+
+  # ============================================
+  # SLOT-BASED OPTIONS
+  # ============================================
+
+  @doc """
+  Gets slot-based options for a product.
+
+  Resolves `_option_slots` from product metadata to full option specs.
+  Each slot references a global option via `source_key` and creates a
+  customized option spec with the slot's key and label.
+
+  ## Examples
+
+      product.metadata = %{
+        "_option_slots" => [
+          %{"slot" => "cup_color", "label" => %{"en" => "Cup Color"}, "source_key" => "color"},
+          %{"slot" => "liquid_color", "label" => %{"en" => "Liquid"}, "source_key" => "color"}
+        ]
+      }
+
+      Options.get_slot_options_for_product(product)
+      # => [
+      #   %{"key" => "cup_color", "label" => %{"en" => "Cup Color"}, "type" => "select", ...},
+      #   %{"key" => "liquid_color", "label" => %{"en" => "Liquid"}, "type" => "select", ...}
+      # ]
+  """
+  def get_slot_options_for_product(product) do
+    metadata = product.metadata || %{}
+    slots = Map.get(metadata, "_option_slots", [])
+
+    Enum.flat_map(slots, fn slot ->
+      case resolve_slot_to_option(slot) do
+        nil -> []
+        option -> [option]
+      end
+    end)
+  end
+
+  @doc """
+  Resolves a single slot definition to a full option spec.
+
+  Takes a slot map with "slot", "label", and "source_key",
+  finds the referenced global option, and creates a new spec
+  with the slot's key and label but the source's type and values.
+  """
+  def resolve_slot_to_option(%{"slot" => slot_key, "source_key" => source_key} = slot) do
+    case get_global_option_by_key(source_key) do
+      nil ->
+        nil
+
+      source_option ->
+        # Create new option spec using slot key/label but source's type/options
+        %{
+          "key" => slot_key,
+          "label" => slot["label"] || slot_key,
+          "type" => source_option["type"],
+          "options" => source_option["options"],
+          "source_key" => source_key,
+          "required" => Map.get(slot, "required", false),
+          "position" => Map.get(slot, "position", 0)
+        }
+        |> maybe_add_price_modifiers(source_option)
+    end
+  end
+
+  def resolve_slot_to_option(_), do: nil
+
+  # Copy price modifier settings from source option if present
+  defp maybe_add_price_modifiers(slot_option, source_option) do
+    if source_option["affects_price"] do
+      slot_option
+      |> Map.put("affects_price", true)
+      |> Map.put("modifier_type", source_option["modifier_type"] || "fixed")
+      |> Map.put("price_modifiers", source_option["price_modifiers"] || %{})
+      |> Map.put("allow_override", source_option["allow_override"] || false)
+    else
+      slot_option
+    end
+  end
+
+  @doc """
+  Gets complete option schema for a product including slot-based options.
+
+  This combines:
+  1. Global options (excluding those used as slot sources)
+  2. Category options
+  3. Slot-based options from product metadata
+
+  ## Examples
+
+      Options.get_complete_option_schema_for_product(product)
+  """
+  def get_complete_option_schema_for_product(product) do
+    base_schema = get_option_schema_for_product(product)
+    slot_options = get_slot_options_for_product(product)
+
+    # Get source keys used by slots to exclude from base schema
+    source_keys =
+      slot_options
+      |> Enum.map(& &1["source_key"])
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    # Filter out global options that are used as slot sources
+    # (but keep if allow_multiple_slots is false)
+    filtered_base =
+      Enum.reject(base_schema, fn opt ->
+        key = opt["key"]
+        MapSet.member?(source_keys, key) and OptionTypes.allows_multiple_slots?(opt)
+      end)
+
+    # Merge and sort by position
+    (filtered_base ++ slot_options)
+    |> Enum.sort_by(& &1["position"], :asc)
+  end
+
+  @doc """
+  Builds option slots structure for product metadata.
+
+  Creates the `_option_slots` array from a list of slot definitions.
+
+  ## Examples
+
+      Options.build_option_slots([
+        %{slot: "cup_color", source_key: "color", label: %{"en" => "Cup Color"}},
+        %{slot: "liquid_color", source_key: "color", label: %{"en" => "Liquid"}}
+      ])
+      # => [
+      #   %{"slot" => "cup_color", "source_key" => "color", "label" => %{"en" => "Cup Color"}},
+      #   %{"slot" => "liquid_color", "source_key" => "color", "label" => %{"en" => "Liquid"}}
+      # ]
+  """
+  def build_option_slots(slots) when is_list(slots) do
+    Enum.map(slots, fn slot ->
+      %{
+        "slot" => to_string(slot[:slot] || slot["slot"]),
+        "source_key" => to_string(slot[:source_key] || slot["source_key"]),
+        "label" => slot[:label] || slot["label"] || slot[:slot] || slot["slot"]
+      }
+      |> maybe_add_position(slot)
+    end)
+  end
+
+  def build_option_slots(_), do: []
+
+  defp maybe_add_position(slot_map, source) do
+    position = source[:position] || source["position"]
+    if position, do: Map.put(slot_map, "position", position), else: slot_map
   end
 
   # ============================================
