@@ -513,9 +513,10 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     # Add url_slug if provided
     params = if url_slug, do: Map.put(params, "url_slug", url_slug), else: params
 
-    scope = build_scope(user_id)
+    # Mark as non-primary language for consistency (translations shouldn't trigger propagation)
+    opts = %{scope: build_scope(user_id), is_primary_language: false}
 
-    case Publishing.update_post(group_slug, existing_post, params, scope: scope) do
+    case Publishing.update_post(group_slug, existing_post, params, opts) do
       {:ok, _} -> :ok
       {:error, reason} -> {:error, reason}
     end
@@ -547,9 +548,10 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         # Add url_slug if provided
         params = if url_slug, do: Map.put(params, "url_slug", url_slug), else: params
 
-        scope = build_scope(user_id)
+        # Mark as non-primary language to prevent status propagation from translation
+        opts = %{scope: build_scope(user_id), is_primary_language: false}
 
-        case Publishing.update_post(group_slug, new_post, params, scope: scope) do
+        case Publishing.update_post(group_slug, new_post, params, opts) do
           {:ok, _} ->
             Logger.info(
               "[TranslatePostWorker] Successfully saved #{language} translation with slug: #{url_slug || "(default)"}, status: #{source_status}"
