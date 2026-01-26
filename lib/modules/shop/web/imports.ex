@@ -100,21 +100,29 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
            {:ok, {dest_path, entry.client_name}}
          end) do
       [{dest_path, filename}] ->
-        # Analyze the CSV for options
-        analysis = CSVAnalyzer.analyze_options(dest_path)
+        # Analyze the CSV for options (with error handling)
+        case safe_analyze_csv(dest_path) do
+          {:ok, analysis} ->
+            # Build initial mappings with comparison to global options
+            initial_mappings =
+              build_initial_mappings(analysis.options, socket.assigns.global_options)
 
-        # Build initial mappings with comparison to global options
-        initial_mappings = build_initial_mappings(analysis.options, socket.assigns.global_options)
+            socket =
+              socket
+              |> assign(:uploaded_file_path, dest_path)
+              |> assign(:uploaded_filename, filename)
+              |> assign(:csv_analysis, analysis)
+              |> assign(:option_mappings, initial_mappings)
+              |> assign(:import_step, :configure)
 
-        socket =
-          socket
-          |> assign(:uploaded_file_path, dest_path)
-          |> assign(:uploaded_filename, filename)
-          |> assign(:csv_analysis, analysis)
-          |> assign(:option_mappings, initial_mappings)
-          |> assign(:import_step, :configure)
+            {:noreply, socket}
 
-        {:noreply, socket}
+          {:error, message} ->
+            # Clean up uploaded file
+            File.rm(dest_path)
+
+            {:noreply, put_flash(socket, :error, message)}
+        end
 
       [] ->
         {:noreply, put_flash(socket, :error, "Please select a CSV file first")}
@@ -539,6 +547,35 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         "auto_add" => m.auto_add
       }
     end)
+  end
+
+  # Safe CSV analysis with error handling
+  defp safe_analyze_csv(path) do
+    CSVAnalyzer.analyze_options(path)
+    |> then(&{:ok, &1})
+  rescue
+    e in NimbleCSV.ParseError ->
+      message = parse_csv_error(e.message)
+      {:error, message}
+
+    e ->
+      Logger.error("CSV analysis failed: #{inspect(e)}")
+      {:error, "Failed to parse CSV file. Please check the file format."}
+  end
+
+  defp parse_csv_error(message) do
+    cond do
+      String.contains?(message, "unexpected escape character") ->
+        "CSV format error: The file contains incorrectly escaped quotes. " <>
+          "Please export directly from Shopify using 'Export > CSV for Excel'."
+
+      String.contains?(message, "reached the end of file") ->
+        "CSV format error: The file has unclosed quotes. " <>
+          "Please re-export from Shopify or check for corrupted data."
+
+      true ->
+        "CSV parse error: #{String.slice(message, 0, 100)}"
+    end
   end
 
   @impl true

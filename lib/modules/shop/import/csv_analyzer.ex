@@ -46,38 +46,30 @@ defmodule PhoenixKit.Modules.Shop.Import.CSVAnalyzer do
   def analyze_options(file_path) do
     grouped = CSVParser.parse_and_group(file_path)
 
-    # Initialize accumulators for each option position
-    option_accumulators =
-      for i <- 1..@max_options, into: %{} do
-        {i, %{name: nil, values: MapSet.new()}}
-      end
-
-    # Process all products
+    # Group options by NAME instead of position
+    # This handles cases where different products use Option1 for different purposes
     {option_data, total_variants} =
-      Enum.reduce(grouped, {option_accumulators, 0}, fn {_handle, rows}, {acc, variant_count} ->
-        # Get option names from first row
+      Enum.reduce(grouped, {%{}, 0}, fn {_handle, rows}, {acc, variant_count} ->
+        # Get option names and values from all rows
         first_row = List.first(rows)
-
-        # Update names if not set yet
-        acc = update_option_names(acc, first_row)
-
-        # Collect values from all variant rows
         variant_rows = Enum.filter(rows, &has_price?/1)
-        acc = collect_option_values(acc, variant_rows)
+
+        # Collect options by name
+        acc = collect_options_by_name(acc, first_row, variant_rows)
 
         {acc, variant_count + length(variant_rows)}
       end)
 
-    # Convert to output format
+    # Convert to output format, sorted by name
     options =
       option_data
-      |> Enum.filter(fn {_pos, data} -> data.name != nil end)
-      |> Enum.sort_by(fn {pos, _} -> pos end)
-      |> Enum.map(fn {pos, data} ->
+      |> Enum.sort_by(fn {name, _} -> String.downcase(name) end)
+      |> Enum.with_index(1)
+      |> Enum.map(fn {{name, values}, index} ->
         %{
-          name: data.name,
-          position: pos,
-          values: MapSet.to_list(data.values) |> Enum.sort()
+          name: name,
+          position: index,
+          values: MapSet.to_list(values) |> Enum.sort()
         }
       end)
 
@@ -155,32 +147,30 @@ defmodule PhoenixKit.Modules.Shop.Import.CSVAnalyzer do
 
   # Private helpers
 
-  defp update_option_names(acc, first_row) do
-    Enum.reduce(1..@max_options, acc, fn i, acc ->
-      case get_option_name(first_row, i) do
-        nil ->
-          acc
+  # Collect options grouped by name (not position)
+  defp collect_options_by_name(acc, first_row, variant_rows) do
+    # Get option names from first row
+    option_names =
+      for i <- 1..@max_options,
+          name = get_option_name(first_row, i),
+          name != nil,
+          do: {i, name}
 
-        name ->
-          # Only update if not already set
-          if acc[i].name == nil do
-            put_in(acc, [i, :name], name)
-          else
-            acc
+    # Collect values for each option name
+    Enum.reduce(option_names, acc, fn {position, name}, acc ->
+      # Get all values for this option from variant rows
+      values =
+        Enum.reduce(variant_rows, MapSet.new(), fn row, values_acc ->
+          case get_option_value(row, position) do
+            nil -> values_acc
+            "" -> values_acc
+            value -> MapSet.put(values_acc, value)
           end
-      end
-    end)
-  end
+        end)
 
-  defp collect_option_values(acc, variant_rows) do
-    Enum.reduce(variant_rows, acc, fn row, acc ->
-      Enum.reduce(1..@max_options, acc, fn i, acc ->
-        case get_option_value(row, i) do
-          nil -> acc
-          "" -> acc
-          value -> update_in(acc, [i, :values], &MapSet.put(&1, value))
-        end
-      end)
+      # Merge with existing values for this option name
+      existing = Map.get(acc, name, MapSet.new())
+      Map.put(acc, name, MapSet.union(existing, values))
     end)
   end
 

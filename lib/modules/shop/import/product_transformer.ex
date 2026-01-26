@@ -124,6 +124,19 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   def resolve_category_id(_, _, _), do: nil
 
   defp maybe_create_category(slug, language) when is_binary(slug) and slug != "" do
+    # First check if category already exists (using localized slug search)
+    case Shop.get_category_by_slug_localized(slug, language) do
+      {:ok, %{id: id}} ->
+        # Category exists, return its id
+        id
+
+      {:error, :not_found} ->
+        # Category doesn't exist - create it
+        create_new_category(slug, language)
+    end
+  end
+
+  defp create_new_category(slug, language) do
     # Generate name from slug: "vases-planters" -> "Vases Planters"
     name =
       slug
@@ -147,19 +160,10 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
         category.id
 
       {:error, changeset} ->
-        # Might already exist due to race condition - try to fetch
-        case Shop.get_category_by_slug(slug) do
-          nil ->
-            Logger.warning("Failed to create category #{slug}: #{inspect(changeset.errors)}")
-            nil
-
-          category ->
-            category.id
-        end
+        Logger.warning("Failed to create category #{slug}: #{inspect(changeset.errors)}")
+        nil
     end
   end
-
-  defp maybe_create_category(_, _), do: nil
 
   @doc """
   Build an updated categories_map including any auto-created categories.
