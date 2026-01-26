@@ -93,7 +93,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     Logger.info(
       "[TranslatePostWorker] Starting translation of #{group_slug}/#{post_slug} " <>
-        "from #{source_language} to #{length(target_languages)} languages"
+        "from #{source_language} to #{length(target_languages)} languages " <>
+        "(version: #{inspect(version)}, endpoint: #{inspect(endpoint_id)})"
     )
 
     # Validate AI module is enabled
@@ -145,9 +146,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
             )
 
           {:error, reason} ->
-            Logger.error("[TranslatePostWorker] Failed to read source post: #{inspect(reason)}")
+            Logger.error(
+              "[TranslatePostWorker] Failed to read source post: #{inspect(reason)}. " <>
+                "Details: group=#{group_slug}, slug=#{post_slug}, " <>
+                "language=#{source_language}, version=#{inspect(version)}"
+            )
 
-            {:error, "Failed to read source post: #{inspect(reason)}"}
+            {:error,
+             "Failed to read source post (#{group_slug}/#{post_slug}/#{source_language}): #{inspect(reason)}"}
         end
     end
   end
@@ -158,11 +164,11 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   # Translate to all target languages sequentially
   defp translate_to_languages(source_post, target_languages, endpoint, source_language, user_id) do
     group_slug = source_post.group
-    post_slug = source_post.slug
     total = length(target_languages)
 
     # Broadcast that translation has started
-    PublishingPubSub.broadcast_translation_started(group_slug, post_slug, target_languages)
+    # Note: Use source_post.slug for PubSub since that's what the editor subscribes to
+    PublishingPubSub.broadcast_translation_started(group_slug, source_post.slug, target_languages)
 
     results =
       target_languages
@@ -189,9 +195,10 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
           end
 
         # Broadcast progress after each language completes
+        # Note: Use source_post.slug for PubSub since that's what the editor subscribes to
         PublishingPubSub.broadcast_translation_progress(
           group_slug,
-          post_slug,
+          source_post.slug,
           index,
           total,
           target_language
@@ -211,7 +218,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     failure_count = length(failures)
 
     # Broadcast completion
-    PublishingPubSub.broadcast_translation_completed(group_slug, post_slug, %{
+    # Note: Use source_post.slug for PubSub since that's what the editor subscribes to
+    PublishingPubSub.broadcast_translation_completed(group_slug, source_post.slug, %{
       succeeded: Enum.map(successes, fn {:ok, lang} -> lang end),
       failed: Enum.map(failures, fn {:error, lang, _} -> lang end),
       success_count: success_count,
@@ -235,7 +243,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   # Translate a single language
   defp translate_single_language(source_post, target_language, endpoint, source_language, user_id) do
     group_slug = source_post.group
-    post_slug = source_post.slug
+    # For timestamp mode, use the date/time path; for slug mode, use the slug
+    post_identifier = get_post_identifier(source_post)
     version = source_post.version
 
     # Get language names for the prompt
@@ -286,7 +295,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
             # Create or update the translation
             save_translation(
               group_slug,
-              post_slug,
+              post_identifier,
               target_language,
               translated_title,
               translated_slug,
@@ -575,6 +584,31 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       user -> Scope.for_user(user)
     end
   end
+
+  # Get the correct post identifier based on mode
+  # For timestamp mode: extract date/time from path (e.g., "2025-12-31/03:42")
+  # For slug mode: use the post slug
+  defp get_post_identifier(post) do
+    case post.mode do
+      :timestamp ->
+        extract_timestamp_identifier(post.path)
+
+      _ ->
+        post.slug
+    end
+  end
+
+  # Extract timestamp identifier (date/time) from a timestamp mode path
+  # Path format: "group/YYYY-MM-DD/HH:MM/vN/lang.phk" or just "YYYY-MM-DD/HH:MM/..."
+  defp extract_timestamp_identifier(path) when is_binary(path) do
+    # Match date/time pattern: YYYY-MM-DD/HH:MM
+    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
+      [_, timestamp] -> timestamp
+      nil -> path
+    end
+  end
+
+  defp extract_timestamp_identifier(path), do: path
 
   # Get target languages (all enabled except source)
   defp get_target_languages(source_language) do

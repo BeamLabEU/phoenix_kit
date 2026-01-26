@@ -1053,14 +1053,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp do_enqueue_translation(socket, target_languages) do
     user = socket.assigns[:phoenix_kit_current_scope]
     user_id = if user, do: user.user.id, else: nil
+    post = socket.assigns.post
+
+    # Get the source language from the post's stored primary_language
+    # This ensures we translate FROM the correct language even if global settings change
+    source_language =
+      post[:primary_language] ||
+        socket.assigns[:current_language] ||
+        Storage.get_primary_language()
+
+    # For timestamp mode, use date/time identifier; for slug mode, use slug
+    # This matches the pattern used in create_version_from_source
+    post_identifier =
+      case post.mode do
+        :timestamp -> extract_timestamp_identifier(post.path)
+        _ -> post.slug
+      end
 
     case TranslatePostWorker.enqueue(
            socket.assigns.blog_slug,
-           socket.assigns.post.slug,
+           post_identifier,
            endpoint_id: socket.assigns.ai_selected_endpoint_id,
            version: socket.assigns.current_version,
            user_id: user_id,
-           target_languages: target_languages
+           target_languages: target_languages,
+           source_language: source_language
          ) do
       {:ok, %{conflict?: true}} ->
         # Job already exists for this post - just show message, don't set status
