@@ -3493,7 +3493,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     current_status = metadata_value(post.metadata, :status, "draft")
     new_status = Map.get(params, "status", current_status)
     becoming_published? = current_status != "published" and new_status == "published"
-    _version = Map.get(post.metadata, :version, 1)
+    status_changing = new_status != current_status
+    is_primary_language = Map.get(audit_meta, :is_primary_language, true)
 
     metadata = build_update_metadata(post, params, audit_meta, becoming_published?)
     content = Map.get(params, "content", post.content)
@@ -3505,6 +3506,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         # The LiveView is responsible for calling publish_version when the primary
         # language is published, which properly archives other versions.
         # This allows translations to update their status independently.
+
+        # Propagate status changes from primary language to all translations
+        if status_changing and is_primary_language do
+          version_dir = Path.dirname(post.full_path)
+          propagate_status_to_translations(version_dir, post.language, new_status)
+        end
+
         {:ok, %{post | metadata: metadata, content: content}}
 
       {:error, reason} ->
@@ -4263,6 +4271,11 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         time_dir = Path.dirname(full_new_path)
         available_languages = detect_available_languages(time_dir)
 
+        # Propagate status changes from primary language to all translations
+        if status_changing and is_primary_language do
+          propagate_status_to_translations(time_dir, post.language, new_status)
+        end
+
         {:ok,
          %{
            post
@@ -4280,6 +4293,33 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  @doc """
+  Propagates status changes from the primary language to all translations.
+
+  When the primary language post status changes, this updates all other
+  language files in the same directory to match the new status.
+  """
+  @spec propagate_status_to_translations(String.t(), String.t(), String.t()) :: :ok
+  def propagate_status_to_translations(post_dir, primary_language, new_status) do
+    available_languages = detect_available_languages(post_dir)
+
+    # Update all languages except the primary (which was just updated)
+    translation_languages = Enum.reject(available_languages, &(&1 == primary_language))
+
+    Enum.each(translation_languages, fn lang ->
+      lang_path = Path.join(post_dir, language_filename(lang))
+
+      with {:ok, content} <- File.read(lang_path),
+           {:ok, metadata, body} <- Metadata.parse_with_content(content) do
+        updated_metadata = Map.put(metadata, :status, new_status)
+        serialized = Metadata.serialize(updated_metadata) <> "\n\n" <> String.trim_leading(body)
+        File.write(lang_path, serialized <> "\n")
+      end
+    end)
+
+    :ok
   end
 
   @doc """
