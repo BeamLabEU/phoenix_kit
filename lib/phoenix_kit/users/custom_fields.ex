@@ -276,6 +276,50 @@ defmodule PhoenixKit.Users.CustomFields do
     }
   end
 
+  # Option Text Lookup (for select fields that save index)
+
+  @doc """
+  Gets the display text for a select field value (which is stored as index).
+
+  For select/radio/checkbox fields, the saved value is the index (0, 1, 2...)
+  and this function returns the actual option text.
+
+  ## Examples
+
+      iex> get_option_text("favorite_color", "1")
+      "Blue"  # if options are ["Red", "Blue", "Green"]
+
+      iex> get_option_text("nonexistent", "1")
+      "1"  # fallback to raw value
+  """
+  def get_option_text(field_key, index_value) when is_binary(field_key) do
+    case get_field_definition(field_key) do
+      %{"type" => type, "options" => options}
+      when type in ~w(select radio checkbox) and is_list(options) ->
+        case parse_option_index(index_value) do
+          nil -> index_value
+          index -> Enum.at(options, index) || index_value
+        end
+
+      _ ->
+        # Not a select field or field not found - return raw value
+        index_value
+    end
+  end
+
+  def get_option_text(_field_key, value), do: value
+
+  defp parse_option_index(value) when is_integer(value), do: value
+
+  defp parse_option_index(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, ""} -> int
+      _ -> nil
+    end
+  end
+
+  defp parse_option_index(_), do: nil
+
   # Validation
 
   @doc """
@@ -293,8 +337,9 @@ defmodule PhoenixKit.Users.CustomFields do
   """
   def validate_field_definition(field_def) when is_map(field_def) do
     with :ok <- validate_required_keys(field_def),
-         :ok <- validate_field_type(field_def["type"]) do
-      validate_field_key(field_def["key"])
+         :ok <- validate_field_type(field_def["type"]),
+         :ok <- validate_field_key(field_def["key"]) do
+      validate_options_for_type(field_def)
     end
   end
 
@@ -424,6 +469,22 @@ defmodule PhoenixKit.Users.CustomFields do
   end
 
   defp validate_field_key(_), do: {:error, "Field key must be a string"}
+
+  defp validate_options_for_type(%{"type" => type, "options" => options})
+       when type in ~w(select radio checkbox) do
+    if is_list(options) and length(options) >= 1 do
+      :ok
+    else
+      {:error, "#{String.capitalize(type)} fields require at least one option"}
+    end
+  end
+
+  defp validate_options_for_type(%{"type" => type})
+       when type in ~w(select radio checkbox) do
+    {:error, "#{String.capitalize(type)} fields require at least one option"}
+  end
+
+  defp validate_options_for_type(_), do: :ok
 
   defp validate_required(field_def, value) do
     if field_def["required"] && (is_nil(value) || value == "") do

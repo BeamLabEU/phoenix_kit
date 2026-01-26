@@ -574,11 +574,16 @@
                     <label class="label">
                       <span class="label-text">Type *</span>
                     </label>
-                    <select name="field[type]" class="select select-bordered" required>
+                    <select
+                      name="field[type]"
+                      class="select select-bordered"
+                      required
+                      phx-change="field_type_changed"
+                    >
                       <%= for type <- ~w(text textarea number boolean date email url select radio checkbox) do %>
                         <option
                           value={type}
-                          selected={@editing_field && @editing_field["type"] == type}
+                          selected={@field_form_type == type}
                         >
                           {String.capitalize(type)}
                         </option>
@@ -628,24 +633,69 @@
                     </div>
                   </div>
 
-                  <%!-- Position --%>
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">Position</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="field[position]"
-                      value={if @editing_field, do: @editing_field["position"], else: "0"}
-                      class="input input-bordered"
-                      min="0"
-                    />
-                    <div class="label">
-                      <span class="label-text-alt">
-                        Display order (lower numbers appear first)
-                      </span>
+                  <%!-- Options for Select/Radio/Checkbox types --%>
+                  <%= if @field_form_type in ~w(select radio checkbox) do %>
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text">Options *</span>
+                        <span class="label-text-alt">
+                          {length(@field_form_options)} option(s)
+                        </span>
+                      </label>
+
+                      <%!-- Current options list --%>
+                      <%= if @field_form_options != [] do %>
+                        <div class="space-y-2 mb-3">
+                          <%= for {option, index} <- Enum.with_index(@field_form_options) do %>
+                            <div class="flex items-center gap-2">
+                              <input type="hidden" name="field[options][]" value={option} />
+                              <span class="badge badge-lg flex-1 justify-start">{option}</span>
+                              <button
+                                type="button"
+                                class="btn btn-xs btn-ghost text-error"
+                                phx-click="remove_field_option"
+                                phx-value-index={index}
+                              >
+                                <.icon name="hero-x-mark" class="w-4 h-4" />
+                              </button>
+                            </div>
+                          <% end %>
+                        </div>
+                      <% end %>
+
+                      <%!-- Add option input --%>
+                      <div class="flex gap-2">
+                        <input
+                          type="text"
+                          value={@new_option_value}
+                          class="input input-bordered input-sm flex-1"
+                          placeholder="Enter option value"
+                          phx-keyup="update_new_option"
+                          id="new_option_input"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline"
+                          phx-click="add_field_option"
+                        >
+                          <.icon name="hero-plus" class="w-4 h-4" /> Add
+                        </button>
+                      </div>
+
+                      <div class="label">
+                        <span class="label-text-alt">
+                          Type an option and press Enter or click Add
+                        </span>
+                      </div>
+
+                      <%= if @field_form_options == [] do %>
+                        <div class="text-sm text-warning mt-1">
+                          <.icon name="hero-exclamation-triangle" class="w-4 h-4 inline" />
+                          At least one option is required for {String.capitalize(@field_form_type)} fields
+                        </div>
+                      <% end %>
                     </div>
-                  </div>
+                  <% end %>
 
                   <%!-- Modal Actions --%>
                   <div class="modal-action">
