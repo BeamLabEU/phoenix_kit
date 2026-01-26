@@ -390,56 +390,92 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
           all_posts_unfiltered = fetch_posts_with_cache(blog_slug)
           published_posts = filter_published(all_posts_unfiltered)
 
-          # Check if there's content for the EXACT requested language
-          exact_language_posts = filter_by_exact_language_strict(published_posts, language)
+          # Resolve posts for the requested language, with fallback handling
+          listing_context = %{
+            blog: blog,
+            blog_slug: blog_slug,
+            language: language,
+            canonical_language: canonical_language,
+            published_posts: published_posts,
+            all_posts_unfiltered: all_posts_unfiltered,
+            page: page,
+            per_page: per_page,
+            pagination_params: pagination_params
+          }
 
-          # If no exact match, check if fallback found content and redirect
-          if exact_language_posts == [] do
-            fallback_posts = filter_by_exact_language(published_posts, blog_slug, language)
-
-            if fallback_posts != [] do
-              # Fallback found content - redirect to the actual language URL
-              # Get the language that the fallback matched
-              fallback_language = get_fallback_language(language, fallback_posts)
-
-              fallback_url =
-                PublishingHTML.blog_listing_path(fallback_language, blog_slug, pagination_params)
-
-              redirect(conn, to: fallback_url)
-            else
-              handle_not_found(conn, :no_content_for_language)
-            end
-          else
-            # Exact match found - render normally
-            all_posts = exact_language_posts
-            total_count = length(all_posts)
-            posts = paginate(all_posts, page, per_page)
-
-            breadcrumbs = [
-              %{label: blog["name"], url: nil}
-            ]
-
-            # Build translation links for blog listing (reuse unfiltered posts)
-            translations = build_listing_translations(blog_slug, language, all_posts_unfiltered)
-
-            conn
-            |> assign(:page_title, blog["name"])
-            |> assign(:blog, blog)
-            |> assign(:posts, posts)
-            |> assign(:current_language, canonical_language)
-            |> assign(:translations, translations)
-            |> assign(:page, page)
-            |> assign(:per_page, per_page)
-            |> assign(:total_count, total_count)
-            |> assign(:total_pages, ceil(total_count / per_page))
-            |> assign(:breadcrumbs, breadcrumbs)
-            |> render(:index)
-          end
+          resolve_listing_posts_for_language(conn, listing_context)
         end
 
       {:error, reason} ->
         handle_not_found(conn, reason)
     end
+  end
+
+  # Resolves posts for the requested language, handling exact match vs fallback
+  defp resolve_listing_posts_for_language(conn, ctx) do
+    exact_language_posts = filter_by_exact_language_strict(ctx.published_posts, ctx.language)
+
+    case resolve_language_posts(
+           exact_language_posts,
+           ctx.published_posts,
+           ctx.blog_slug,
+           ctx.language
+         ) do
+      {:exact, posts} ->
+        render_blog_index(conn, ctx, posts)
+
+      {:fallback, fallback_language} ->
+        fallback_url =
+          PublishingHTML.blog_listing_path(
+            fallback_language,
+            ctx.blog_slug,
+            ctx.pagination_params
+          )
+
+        redirect(conn, to: fallback_url)
+
+      :not_found ->
+        handle_not_found(conn, :no_content_for_language)
+    end
+  end
+
+  # Returns {:exact, posts}, {:fallback, language}, or :not_found
+  defp resolve_language_posts(exact_posts, _published_posts, _blog_slug, _language)
+       when exact_posts != [] do
+    {:exact, exact_posts}
+  end
+
+  defp resolve_language_posts([], published_posts, blog_slug, language) do
+    fallback_posts = filter_by_exact_language(published_posts, blog_slug, language)
+
+    if fallback_posts != [] do
+      {:fallback, get_fallback_language(language, fallback_posts)}
+    else
+      :not_found
+    end
+  end
+
+  # Renders the blog index page with resolved posts
+  defp render_blog_index(conn, ctx, all_posts) do
+    total_count = length(all_posts)
+    posts = paginate(all_posts, ctx.page, ctx.per_page)
+    breadcrumbs = [%{label: ctx.blog["name"], url: nil}]
+
+    translations =
+      build_listing_translations(ctx.blog_slug, ctx.canonical_language, ctx.all_posts_unfiltered)
+
+    conn
+    |> assign(:page_title, ctx.blog["name"])
+    |> assign(:blog, ctx.blog)
+    |> assign(:posts, posts)
+    |> assign(:current_language, ctx.canonical_language)
+    |> assign(:translations, translations)
+    |> assign(:page, ctx.page)
+    |> assign(:per_page, ctx.per_page)
+    |> assign(:total_count, total_count)
+    |> assign(:total_pages, ceil(total_count / ctx.per_page))
+    |> assign(:breadcrumbs, breadcrumbs)
+    |> render(:index)
   end
 
   # Fetches posts using cache when available, falls back to filesystem scan
