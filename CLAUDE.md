@@ -426,6 +426,7 @@ lib/modules/db/
 - **Publishing module:** See `lib/modules/publishing/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
 - **Sync module:** See `lib/modules/sync/README.md` for peer-to-peer data sync, programmatic API, conflict strategies, and remote operations.
 - **Entities module:** See `lib/modules/entities/README.md` for dynamic content types.
+- **Languages module:** See `lib/modules/languages/README.md` for multi-language support, two-tier locale system, and frontend/backend language configuration.
 - **Billing module:** See `lib/modules/billing/README.md` for payment providers, subscriptions, invoices.
 
 ### ⚠️ CRITICAL: Enabling Modules Before Use

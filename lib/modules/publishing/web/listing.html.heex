@@ -30,13 +30,12 @@
             prefix -> prefix
           end %>
         <% files_hint = @group_files_root <> blog_slug <> "/…" %>
-        <%!-- Use first enabled language (default) for public URL, not UI locale --%>
-        <% default_language = List.first(@enabled_languages) %>
+        <%!-- Use primary language for public URL preview --%>
         <% public_url =
           if length(@enabled_languages) == 1 do
             @endpoint_url <> url_prefix <> "/" <> blog_slug
           else
-            @endpoint_url <> url_prefix <> "/#{default_language}/" <> blog_slug
+            @endpoint_url <> url_prefix <> "/#{@primary_language}/" <> blog_slug
           end %>
         <div class="text-sm text-base-content/60 space-y-1">
           <p>
@@ -451,12 +450,13 @@
                 <% blog_slug =
                   post.group || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                     "blog" %>
-                <% primary_lang = @primary_language %>
+                <%!-- Use post's stored primary language, falling back to global only if not stored --%>
+                <% post_primary_lang = post[:primary_language] || @primary_language %>
                 <% default_lang = List.first(post.available_languages) || @current_locale_base %>
                 <% default_lang_path =
                   Path.join([
                     Path.dirname(post.path),
-                    "#{primary_lang}.phk"
+                    "#{post_primary_lang}.phk"
                   ]) %>
                 <% files_path = @group_files_root <> post.path %>
                 <%!-- Use post's actual language, falling back to first available language for this post --%>
@@ -552,7 +552,16 @@
                             end
                           ]}>
                           </span>
-                          <span class="text-sm font-bold text-primary uppercase">
+                          <span class={[
+                            "text-sm font-bold uppercase",
+                            cond do
+                              not primary_lang.exists -> "text-base-content/20"
+                              primary_lang.status == "published" -> "text-success"
+                              primary_lang.status == "draft" -> "text-warning"
+                              primary_lang.status == "archived" -> "text-base-content/40"
+                              true -> "text-base-content/20"
+                            end
+                          ]}>
                             {String.upcase(primary_lang.display_code)}
                           </span>
                         </button>
@@ -567,6 +576,38 @@
                         size={:sm}
                       />
                     </div>
+                    <%!-- Translation Progress Bar --%>
+                    <%= if translation_status = Map.get(@translating_posts, post.slug) do %>
+                      <div class="border-t border-base-200 pt-3 mt-3">
+                        <%= if translation_status.status == :in_progress do %>
+                          <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="text-base-content/70 flex items-center gap-1">
+                              <span class="loading loading-spinner loading-xs"></span>
+                              {gettext("Translating...")}
+                            </span>
+                            <span class="font-medium">
+                              {translation_status.completed} / {translation_status.total}
+                            </span>
+                          </div>
+                          <progress
+                            class="progress progress-primary w-full h-2"
+                            value={translation_status.completed}
+                            max={translation_status.total}
+                          >
+                          </progress>
+                        <% else %>
+                          <div class="flex items-center gap-2 text-xs text-success">
+                            <.icon name="hero-check-circle" class="w-4 h-4" />
+                            {ngettext(
+                              "Translation complete - %{count} language",
+                              "Translation complete - %{count} languages",
+                              translation_status.success_count,
+                              count: translation_status.success_count
+                            )}
+                          </div>
+                        <% end %>
+                      </div>
+                    <% end %>
                   </div>
                 </div>
               <% end %>
@@ -656,9 +697,10 @@
 
         <div class="space-y-4">
           <p class="text-base-content/80">
-            {gettext(
+            {ngettext(
+              "This will update the primary language setting for %{count} post in this publishing group.",
               "This will update the primary language setting for %{count} posts in this publishing group.",
-              count: total_needing
+              total_needing
             )}
           </p>
 
@@ -679,9 +721,7 @@
             </p>
             <ul class="list-disc list-inside space-y-1 pl-2">
               <li>{gettext("Saves the current primary language to each post's metadata")}</li>
-              <li>
-                {gettext("Ensures posts remain accessible if the global language setting changes")}
-              </li>
+              <li>{gettext("Keeps posts accessible if the global language changes")}</li>
               <li>{gettext("Does not modify post content or translations")}</li>
             </ul>
           </div>
@@ -708,8 +748,8 @@
             phx-click="confirm_migrate_primary_language"
             phx-disable-with={gettext("Updating...")}
           >
-            <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
-            {gettext("Update %{count} Posts", count: total_needing)}
+            <.icon name="hero-arrow-path" class="w-4 h-4" />
+            {ngettext("Update %{count} Post", "Update %{count} Posts", total_needing)}
           </button>
         </div>
       </div>

@@ -755,7 +755,89 @@ defmodule PhoenixKit.Modules.Publishing do
         Storage.read_post_slug_mode(group_slug, post_slug, final_language, final_version)
 
       _ ->
-        Storage.read_post(group_slug, identifier)
+        # Timestamp mode - build full path if language/version provided
+        read_post_timestamp_mode(group_slug, identifier, language, version)
+    end
+  end
+
+  # Handle timestamp mode posts - identifier can be:
+  # - Full path like "blog/2025-12-31/03:42/v2/en.phk"
+  # - Timestamp identifier like "2025-12-31/03:42"
+  defp read_post_timestamp_mode(group_slug, identifier, language, version) do
+    # If identifier looks like a full path (contains .phk), use it directly
+    if String.contains?(identifier, ".phk") do
+      Storage.read_post(group_slug, identifier)
+    else
+      # Build full path from timestamp identifier + language + version
+      final_language = language || Storage.get_primary_language()
+      final_version = version || get_latest_timestamp_version(group_slug, identifier)
+
+      full_path =
+        Path.join([group_slug, identifier, "v#{final_version}", "#{final_language}.phk"])
+
+      Storage.read_post(group_slug, full_path)
+    end
+  end
+
+  # Get the latest version number for a timestamp mode post
+  defp get_latest_timestamp_version(group_slug, timestamp_id) do
+    post_dir = Path.join([Storage.group_path(group_slug), timestamp_id])
+
+    case File.ls(post_dir) do
+      {:ok, entries} ->
+        entries
+        |> Enum.filter(&String.match?(&1, ~r/^v\d+$/))
+        |> Enum.map(fn "v" <> n -> String.to_integer(n) end)
+        |> Enum.max(fn -> 1 end)
+
+      _ ->
+        1
+    end
+  end
+
+  # Handle add_language for timestamp mode posts
+  defp add_language_timestamp_mode(group_slug, identifier, language_code, version) do
+    require Logger
+
+    # If identifier looks like a full path (contains .phk), use it directly
+    if String.contains?(identifier, ".phk") do
+      Storage.add_language_to_post(group_slug, identifier, language_code)
+    else
+      # Build path to version directory and find first available language file
+      final_version = version || get_latest_timestamp_version(group_slug, identifier)
+      version_dir = Path.join([Storage.group_path(group_slug), identifier, "v#{final_version}"])
+
+      Logger.debug(
+        "[Publishing.add_language_timestamp_mode] Looking for files in: #{version_dir}"
+      )
+
+      # Find first available .phk file in the version directory
+      case File.ls(version_dir) do
+        {:ok, files} ->
+          Logger.debug("[Publishing.add_language_timestamp_mode] Found files: #{inspect(files)}")
+
+          case Enum.find(files, &String.ends_with?(&1, ".phk")) do
+            nil ->
+              Logger.error("[Publishing.add_language_timestamp_mode] No .phk files found")
+              {:error, :not_found}
+
+            first_file ->
+              full_path = Path.join([group_slug, identifier, "v#{final_version}", first_file])
+
+              Logger.debug(
+                "[Publishing.add_language_timestamp_mode] Using source file: #{full_path}"
+              )
+
+              Storage.add_language_to_post(group_slug, full_path, language_code)
+          end
+
+        {:error, reason} ->
+          Logger.error(
+            "[Publishing.add_language_timestamp_mode] File.ls failed: #{inspect(reason)} for path: #{version_dir}"
+          )
+
+          {:error, :not_found}
+      end
     end
   end
 
@@ -988,7 +1070,8 @@ defmodule PhoenixKit.Modules.Publishing do
           )
 
         _ ->
-          Storage.add_language_to_post(group_slug, identifier, language_code)
+          # Timestamp mode - build full path if identifier is just timestamp
+          add_language_timestamp_mode(group_slug, identifier, language_code, version)
       end
 
     # Regenerate listing cache on success, but only if the post is live
