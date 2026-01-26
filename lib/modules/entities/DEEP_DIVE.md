@@ -1,6 +1,6 @@
 # PhoenixKit Entities System – Deep Dive
 
-**WordPress ACF (Advanced Custom Fields) Equivalent for Elixir/Phoenix**
+**Dynamic Content Types for Elixir/Phoenix**
 
 > Looking for the summary? Start with `OVERVIEW.md` in this directory. This deep dive captures the architecture, rationale, and implementation details behind the feature.
 
@@ -23,7 +23,7 @@
 
 ## Overview
 
-The PhoenixKit Entities System is a dynamic content type management system inspired by WordPress Advanced Custom Fields (ACF). It allows administrators to create custom content types (entities) with flexible field schemas without writing code or running database migrations.
+The PhoenixKit Entities System is a dynamic content type management system. It allows administrators to create custom content types (entities) with flexible field schemas without writing code or running database migrations.
 
 ### Key Features
 
@@ -1748,7 +1748,6 @@ Note: `create/1` auto-fills `created_by` with the first admin user if not provid
 
 ## Credits
 
-**Inspired by**: WordPress Advanced Custom Fields (ACF)
 **Built with**: Elixir, Phoenix, Phoenix LiveView, PostgreSQL, Ecto, DaisyUI, Tailwind CSS
 **Part of**: PhoenixKit - Phoenix Starter Kit with Authentication & Admin
 

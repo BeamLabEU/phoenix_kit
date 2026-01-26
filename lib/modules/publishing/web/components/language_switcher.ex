@@ -133,7 +133,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
     status = lang[:status]
     enabled = lang_enabled?(lang)
     known = lang_known?(lang)
-    is_master = lang_is_master?(lang)
+    is_primary = lang_is_primary?(lang)
 
     assigns =
       assigns
@@ -142,7 +142,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
       |> assign(:status, status)
       |> assign(:enabled, enabled)
       |> assign(:known, known)
-      |> assign(:is_master, is_master)
+      |> assign(:is_primary, is_primary)
 
     ~H"""
     <%= if @on_click do %>
@@ -169,7 +169,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
           size={@size}
           enabled={@enabled}
           known={@known}
-          is_master={@is_master}
+          is_primary={@is_primary}
         />
       </button>
     <% else %>
@@ -190,7 +190,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
             size={@size}
             enabled={@enabled}
             known={@known}
-            is_master={@is_master}
+            is_primary={@is_primary}
           />
         </a>
       <% else %>
@@ -209,7 +209,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
             size={@size}
             enabled={@enabled}
             known={@known}
-            is_master={@is_master}
+            is_primary={@is_primary}
           />
         </span>
       <% end %>
@@ -227,7 +227,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   attr :size, :atom, default: :sm
   attr :enabled, :boolean, default: true
   attr :known, :boolean, default: true
-  attr :is_master, :boolean, default: false
+  attr :is_primary, :boolean, default: false
 
   defp language_content(assigns) do
     ~H"""
@@ -238,7 +238,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
       <%= if @show_flags && @lang[:flag] do %>
         <span class={flag_size_class(@size)}>{@lang[:flag]}</span>
       <% end %>
-      <span class={code_classes(@is_current, @size, @enabled, @known, @is_master)}>
+      <span class={code_classes(@is_current, @size, @enabled, @known, @is_primary)}>
         {get_display_code(@lang)}
       </span>
     </span>
@@ -262,10 +262,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   defp lang_known?(%{"known" => known}) when is_boolean(known), do: known
   defp lang_known?(_), do: true
 
-  # Check if language is the master/primary language (default: false for backwards compat)
-  defp lang_is_master?(%{is_master: is_master}) when is_boolean(is_master), do: is_master
-  defp lang_is_master?(%{"is_master" => is_master}) when is_boolean(is_master), do: is_master
-  defp lang_is_master?(_), do: false
+  # Check if language is the primary language (default: false for backwards compat)
+  defp lang_is_primary?(%{is_primary: is_primary}) when is_boolean(is_primary), do: is_primary
+  defp lang_is_primary?(%{"is_primary" => is_primary}) when is_boolean(is_primary), do: is_primary
+  defp lang_is_primary?(_), do: false
 
   # Get display code for a language
   # Uses display_code if provided (for dialect-aware display), otherwise formats code
@@ -348,13 +348,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   end
 
   # Code text classes
-  defp code_classes(is_current, size, enabled, known, is_master) do
+  defp code_classes(is_current, size, enabled, known, is_primary) do
     base = [size_text_class(size)]
 
-    # Master language gets bold, current gets semibold, others get medium
+    # Primary language gets bold, current gets semibold, others get medium
     weight =
       cond do
-        is_master -> "font-bold"
+        is_primary -> "font-bold"
         is_current -> "font-semibold"
         true -> "font-medium"
       end

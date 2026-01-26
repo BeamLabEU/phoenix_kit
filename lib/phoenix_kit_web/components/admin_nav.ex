@@ -237,13 +237,13 @@ defmodule PhoenixKitWeb.Components.AdminNav do
         >
           <%= for language <- @enabled_languages do %>
             <li class="w-full">
-              <a
-                href={build_locale_url(@current_path, language["code"])}
+              <button
+                type="button"
                 phx-click="phoenix_kit_set_locale"
                 phx-value-locale={language["dialect"]}
                 phx-value-url={build_locale_url(@current_path, language["code"])}
                 class={[
-                  "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
+                  "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200 cursor-pointer",
                   if(language["code"] == @current_base, do: "bg-base-200", else: "")
                 ]}
               >
@@ -254,7 +254,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
                 <%= if language["code"] == @current_base do %>
                   <PhoenixKitWeb.Components.Core.Icons.icon_check class="size-4 text-primary" />
                 <% end %>
-              </a>
+              </button>
             </li>
           <% end %>
         </ul>

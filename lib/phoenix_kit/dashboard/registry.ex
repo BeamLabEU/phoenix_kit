@@ -61,6 +61,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   use GenServer
 
   alias PhoenixKit.Dashboard.{Badge, Tab}
+  alias PhoenixKit.PubSubHelper
 
   # Suppress warnings about optional modules (loaded conditionally)
   @compile {:no_warn_undefined, PhoenixKit.Modules.Tickets}
@@ -321,7 +322,7 @@ defmodule PhoenixKit.Dashboard.Registry do
 
       def mount(_params, _session, socket) do
         if connected?(socket) do
-          Phoenix.PubSub.subscribe(PhoenixKit.PubSub, Registry.pubsub_topic())
+          Phoenix.PubSub.subscribe(PubSubHelper.pubsub(), Registry.pubsub_topic())
         end
         {:ok, socket}
       end
@@ -339,7 +340,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   """
   @spec broadcast_update(Tab.t()) :: :ok
   def broadcast_update(%Tab{} = tab) do
-    Phoenix.PubSub.broadcast(PhoenixKit.PubSub, @pubsub_topic, {:tab_updated, tab})
+    Phoenix.PubSub.broadcast(PubSubHelper.pubsub(), @pubsub_topic, {:tab_updated, tab})
     :ok
   rescue
     _ -> :ok
@@ -350,7 +351,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   """
   @spec broadcast_refresh() :: :ok
   def broadcast_refresh do
-    Phoenix.PubSub.broadcast(PhoenixKit.PubSub, @pubsub_topic, :tabs_refreshed)
+    Phoenix.PubSub.broadcast(PubSubHelper.pubsub(), @pubsub_topic, :tabs_refreshed)
     :ok
   rescue
     _ -> :ok

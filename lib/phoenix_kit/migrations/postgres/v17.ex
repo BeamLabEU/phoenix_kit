@@ -1,9 +1,9 @@
 defmodule PhoenixKit.Migrations.Postgres.V17 do
   @moduledoc """
-  PhoenixKit V17 Migration: Entities System (WordPress ACF-like)
+  PhoenixKit V17 Migration: Entities System (Dynamic Content Types)
 
   This migration adds the dynamic entities system for creating custom content types
-  with flexible field schemas, similar to WordPress Advanced Custom Fields (ACF).
+  with flexible field schemas.
   It also introduces `display_name_plural` to improve UI labelling for collections.
 
   ## Changes

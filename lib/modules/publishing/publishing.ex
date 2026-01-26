@@ -6,6 +6,8 @@ defmodule PhoenixKit.Modules.Publishing do
   for creating timestamped or slug-based markdown posts with multi-language support.
   """
 
+  require Logger
+
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -48,7 +50,241 @@ defmodule PhoenixKit.Modules.Publishing do
 
   # Delegate language utilities to Storage
   defdelegate enabled_language_codes(), to: Storage
-  defdelegate get_master_language(), to: Storage
+  defdelegate get_primary_language(), to: Storage
+
+  @doc false
+  @deprecated "Use get_primary_language/0 instead"
+  def get_master_language, do: get_primary_language()
+
+  # Post-specific primary language functions
+  defdelegate get_post_primary_language(group_slug, post_slug, version \\ nil), to: Storage
+  defdelegate check_primary_language_status(group_slug, post_slug), to: Storage
+
+  defdelegate update_post_primary_language(group_slug, post_slug, new_primary_language),
+    to: Storage
+
+  # Migration detection functions (via ListingCache)
+  defdelegate posts_needing_primary_language_migration(group_slug), to: ListingCache
+  defdelegate count_primary_language_status(group_slug), to: ListingCache
+
+  @doc """
+  Checks if any posts in a group need primary_language migration.
+  """
+  @spec posts_need_primary_language_migration?(String.t()) :: boolean()
+  def posts_need_primary_language_migration?(group_slug) do
+    ListingCache.posts_needing_primary_language_migration(group_slug) != []
+  end
+
+  @doc """
+  Returns count of posts by primary_language status.
+  Alias for `count_primary_language_status/1`.
+  """
+  @spec get_primary_language_migration_status(String.t()) :: map()
+  def get_primary_language_migration_status(group_slug) do
+    ListingCache.count_primary_language_status(group_slug)
+  end
+
+  @doc """
+  Migrates all posts in a group to use the current global primary_language.
+
+  This updates the `primary_language` field in all .phk files and regenerates
+  the listing cache. The migration is idempotent - running it multiple times
+  is safe and will skip posts that are already at the current primary language.
+
+  Returns `{:ok, count}` where count is the number of posts updated.
+  """
+  @spec migrate_posts_to_current_primary_language(String.t()) ::
+          {:ok, integer()} | {:error, any()}
+  def migrate_posts_to_current_primary_language(group_slug) do
+    require Logger
+    global_primary = Storage.get_primary_language()
+    posts = ListingCache.posts_needing_primary_language_migration(group_slug)
+
+    Logger.debug("[PrimaryLangMigration] Found #{length(posts)} posts needing migration")
+
+    if posts == [] do
+      {:ok, 0}
+    else
+      results =
+        posts
+        |> Enum.map(fn post ->
+          # Get slug from post (using atom keys since posts are normalized)
+          post_slug = get_post_slug(post)
+
+          Logger.debug(
+            "[PrimaryLangMigration] Post path=#{inspect(post[:path])} slug=#{inspect(post_slug)}"
+          )
+
+          if post_slug do
+            result = Storage.update_post_primary_language(group_slug, post_slug, global_primary)
+            Logger.debug("[PrimaryLangMigration] Result for #{post_slug}: #{inspect(result)}")
+            result
+          else
+            Logger.warning("[PrimaryLangMigration] No slug for post: #{inspect(post[:path])}")
+            {:error, :no_slug}
+          end
+        end)
+
+      success_count = Enum.count(results, &(&1 == :ok))
+      error_count = length(results) - success_count
+
+      Logger.debug("[PrimaryLangMigration] Success: #{success_count}, Errors: #{error_count}")
+
+      # Regenerate cache with updated primary_language values
+      ListingCache.regenerate(group_slug)
+
+      if error_count > 0 and success_count == 0 do
+        {:error, :all_migrations_failed}
+      else
+        {:ok, success_count}
+      end
+    end
+  end
+
+  # Get post directory path from cached post
+  # For slug mode: returns the slug (e.g., "hello")
+  # For timestamp mode: returns the date/time path (e.g., "2025-12-31/03:42")
+  # Uses atom keys since cached posts are normalized
+  defp get_post_slug(post) do
+    case post[:mode] do
+      :timestamp -> derive_timestamp_post_dir(post[:path])
+      "timestamp" -> derive_timestamp_post_dir(post[:path])
+      _ -> post[:slug] || derive_slug_from_path(post[:path])
+    end
+  end
+
+  # For timestamp mode, extract date/time from path like "group/date/time/version/file.phk"
+  defp derive_timestamp_post_dir(nil), do: nil
+  defp derive_timestamp_post_dir(""), do: nil
+
+  defp derive_timestamp_post_dir(path) do
+    parts = Path.split(path)
+
+    case parts do
+      # Versioned: group/date/time/v1/lang.phk
+      [_group, date, time, "v" <> _, _lang_file] -> Path.join(date, time)
+      # Legacy: group/date/time/lang.phk
+      [_group, date, time, _lang_file] -> Path.join(date, time)
+      _ -> nil
+    end
+  end
+
+  # For slug mode, extract slug from path
+  defp derive_slug_from_path(nil), do: nil
+  defp derive_slug_from_path(""), do: nil
+
+  defp derive_slug_from_path(path) do
+    parts = Path.split(path)
+
+    case parts do
+      # Versioned: group/slug/v1/lang.phk
+      [_group, slug, "v" <> _, _lang_file] -> slug
+      # Legacy: group/slug/lang.phk
+      [_group, slug, _lang_file] -> slug
+      _ -> nil
+    end
+  end
+
+  # ===========================================================================
+  # Legacy Structure Migration
+  # ===========================================================================
+
+  # Migration detection functions (via ListingCache)
+  defdelegate posts_needing_version_migration(group_slug), to: ListingCache
+  defdelegate count_legacy_structure_status(group_slug), to: ListingCache
+
+  @doc """
+  Checks if any posts in a group need version structure migration.
+  """
+  @spec posts_need_version_migration?(String.t()) :: boolean()
+  def posts_need_version_migration?(group_slug) do
+    ListingCache.posts_needing_version_migration(group_slug) != []
+  end
+
+  @doc """
+  Returns count of posts by version structure status.
+  """
+  @spec get_legacy_structure_status(String.t()) :: map()
+  def get_legacy_structure_status(group_slug) do
+    ListingCache.count_legacy_structure_status(group_slug)
+  end
+
+  @doc """
+  Migrates all legacy structure posts in a group to versioned structure (v1/).
+
+  This moves files from the post root into a v1/ subdirectory and updates
+  metadata. The migration is idempotent - already versioned posts are skipped.
+
+  Returns `{:ok, count}` where count is the number of posts migrated.
+  """
+  @spec migrate_posts_to_versioned_structure(String.t()) ::
+          {:ok, integer()} | {:error, any()}
+  def migrate_posts_to_versioned_structure(group_slug) do
+    require Logger
+    posts = ListingCache.posts_needing_version_migration(group_slug)
+
+    Logger.debug("[VersionMigration] Found #{length(posts)} posts needing migration")
+
+    if posts == [] do
+      {:ok, 0}
+    else
+      results =
+        posts
+        |> Enum.map(fn cached_post ->
+          migrate_single_post_to_versioned(group_slug, cached_post)
+        end)
+
+      success_count = Enum.count(results, &match?({:ok, _}, &1))
+      error_count = length(results) - success_count
+
+      Logger.debug("[VersionMigration] Success: #{success_count}, Errors: #{error_count}")
+
+      # Regenerate cache with updated structure
+      ListingCache.regenerate(group_slug)
+
+      if error_count > 0 and success_count == 0 do
+        {:error, :all_migrations_failed}
+      else
+        {:ok, success_count}
+      end
+    end
+  end
+
+  defp migrate_single_post_to_versioned(group_slug, cached_post) do
+    require Logger
+    post_identifier = get_post_slug(cached_post)
+    language = cached_post[:language] || List.first(cached_post[:available_languages] || ["en"])
+
+    Logger.debug(
+      "[VersionMigration] Migrating post identifier=#{inspect(post_identifier)} language=#{language}"
+    )
+
+    # Read full post from disk
+    full_post_result =
+      case cached_post[:mode] do
+        :timestamp ->
+          Storage.read_post(group_slug, cached_post[:path])
+
+        "timestamp" ->
+          Storage.read_post(group_slug, cached_post[:path])
+
+        _ ->
+          Storage.read_post_slug_mode(group_slug, post_identifier, language, nil)
+      end
+
+    case full_post_result do
+      {:ok, full_post} ->
+        Storage.migrate_post_to_versioned(full_post, language)
+
+      {:error, reason} ->
+        Logger.warning(
+          "[VersionMigration] Failed to read post #{post_identifier}: #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
   defdelegate language_enabled?(language_code, enabled_languages), to: Storage
   defdelegate get_display_code(language_code, enabled_languages), to: Storage
   defdelegate order_languages_for_display(available_languages, enabled_languages), to: Storage
@@ -420,9 +656,50 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Lists posts for a given publishing group slug.
   Accepts optional preferred_language to show titles in user's language.
+
+  Uses the ListingCache for fast lookups when available, falling back to
+  filesystem scan on cache miss.
   """
   @spec list_posts(String.t(), String.t() | nil) :: [Storage.post()]
   def list_posts(group_slug, preferred_language \\ nil) do
+    start_time = System.monotonic_time(:millisecond)
+
+    # Try cache first for fast response
+    result =
+      case ListingCache.read(group_slug) do
+        {:ok, cached_posts} ->
+          elapsed = System.monotonic_time(:millisecond) - start_time
+
+          Logger.debug(
+            "[Publishing.list_posts] CACHE HIT for #{group_slug} (#{length(cached_posts)} posts) in #{elapsed}ms"
+          )
+
+          cached_posts
+
+        {:error, :cache_miss} ->
+          # Cache miss - fall back to filesystem scan
+          Logger.debug(
+            "[Publishing.list_posts] CACHE MISS for #{group_slug}, scanning filesystem..."
+          )
+
+          posts = list_posts_from_storage(group_slug, preferred_language)
+          elapsed = System.monotonic_time(:millisecond) - start_time
+
+          Logger.debug(
+            "[Publishing.list_posts] Filesystem scan complete for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
+          )
+
+          # Regenerate cache in background for next request
+          Task.start(fn -> ListingCache.regenerate(group_slug) end)
+
+          posts
+      end
+
+    result
+  end
+
+  # Direct filesystem scan (used on cache miss)
+  defp list_posts_from_storage(group_slug, preferred_language) do
     case get_group_mode(group_slug) do
       "slug" -> Storage.list_posts_slug_mode(group_slug, preferred_language)
       _ -> Storage.list_posts(group_slug, preferred_language)
@@ -495,8 +772,8 @@ defmodule PhoenixKit.Modules.Publishing do
       opts_map
       |> fetch_option(:scope)
       |> audit_metadata(:update)
-      # Include is_master_language so storage can set status_manual correctly
-      |> Map.put(:is_master_language, Map.get(opts_map, :is_master_language, true))
+      # Include is_primary_language so storage can set status_manual correctly
+      |> Map.put(:is_primary_language, Map.get(opts_map, :is_primary_language, true))
 
     mode =
       Map.get(post, :mode) ||
@@ -565,12 +842,12 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Publishes a version, making it the only published version.
 
-  Sets the target version's master language to `status: "published"`.
+  Sets the target version's primary language to `status: "published"`.
   Archives ALL other versions (`status: "archived"`).
 
   Translation status logic:
   - If `status_manual: true` → keep translation's current status
-  - If `status_manual: false` AND has content → inherit master status
+  - If `status_manual: false` AND has content → inherit primary status
   - If no content → remain unchanged
 
   ## Examples
@@ -647,7 +924,7 @@ defmodule PhoenixKit.Modules.Publishing do
   Sets a translation's status and marks it as manually overridden.
 
   When a translation status is set manually, it will NOT inherit status
-  changes from the master language when publishing.
+  changes from the primary language when publishing.
 
   ## Examples
 
@@ -1225,14 +1502,14 @@ defmodule PhoenixKit.Modules.Publishing do
   Enqueues an Oban job to translate a post to all enabled languages using AI.
 
   This creates a background job that will:
-  1. Read the source post in the master language
+  1. Read the source post in the primary language
   2. Translate the content to each target language using the AI module
   3. Create or update translation files for each language
 
   ## Options
 
   - `:endpoint_id` - AI endpoint ID to use for translation (required if not set in settings)
-  - `:source_language` - Source language to translate from (defaults to master language)
+  - `:source_language` - Source language to translate from (defaults to primary language)
   - `:target_languages` - List of target language codes (defaults to all enabled except source)
   - `:version` - Version number to translate (defaults to latest/published)
   - `:user_id` - User ID for audit trail

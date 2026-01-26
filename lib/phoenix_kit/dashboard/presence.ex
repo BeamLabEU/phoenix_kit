@@ -41,6 +41,7 @@ defmodule PhoenixKit.Dashboard.Presence do
   """
 
   alias PhoenixKit.Dashboard.{Registry, Tab}
+  alias PhoenixKit.PubSubHelper
   alias PhoenixKit.Users.Auth.Scope
 
   # Suppress warnings about optional PhoenixKit.Presence module
@@ -118,7 +119,11 @@ defmodule PhoenixKit.Dashboard.Presence do
       case get_presence_module() do
         nil ->
           # Fallback: Broadcast leave
-          Phoenix.PubSub.broadcast(PhoenixKit.PubSub, topic, {:presence_leave, user_key(user)})
+          Phoenix.PubSub.broadcast(
+            PubSubHelper.pubsub(),
+            topic,
+            {:presence_leave, user_key(user)}
+          )
 
         presence_mod when is_atom(presence_mod) ->
           call_presence_untrack(
@@ -206,7 +211,7 @@ defmodule PhoenixKit.Dashboard.Presence do
   """
   @spec subscribe() :: :ok | {:error, term()}
   def subscribe do
-    Phoenix.PubSub.subscribe(PhoenixKit.PubSub, @presence_topic)
+    Phoenix.PubSub.subscribe(PubSubHelper.pubsub(), @presence_topic)
   end
 
   @doc """
@@ -214,7 +219,7 @@ defmodule PhoenixKit.Dashboard.Presence do
   """
   @spec subscribe_tab(atom()) :: :ok | {:error, term()}
   def subscribe_tab(tab_id) do
-    Phoenix.PubSub.subscribe(PhoenixKit.PubSub, tab_topic(tab_id))
+    Phoenix.PubSub.subscribe(PubSubHelper.pubsub(), tab_topic(tab_id))
   end
 
   @doc """
@@ -228,7 +233,7 @@ defmodule PhoenixKit.Dashboard.Presence do
     count = get_tab_viewers(tab_id, format: :count)
 
     Phoenix.PubSub.broadcast(
-      PhoenixKit.PubSub,
+      PubSubHelper.pubsub(),
       @presence_topic,
       {:tab_viewers_updated, tab_id, count}
     )
@@ -351,7 +356,7 @@ defmodule PhoenixKit.Dashboard.Presence do
     Process.put({:dashboard_presence, topic}, meta)
 
     # Broadcast join
-    Phoenix.PubSub.broadcast(PhoenixKit.PubSub, topic, {:presence_join, socket_id, meta})
+    Phoenix.PubSub.broadcast(PubSubHelper.pubsub(), topic, {:presence_join, socket_id, meta})
 
     {:ok, socket_id}
   rescue

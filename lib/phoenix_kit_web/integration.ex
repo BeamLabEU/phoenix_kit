@@ -1132,6 +1132,8 @@ defmodule PhoenixKitWeb.Integration do
         # Note: Referral codes routes moved to generate_referral_codes_routes/1 (separate scope)
         # Note: Email settings moved to generate_emails_routes/1 (separate scope)
         live "/admin/settings/languages", Live.Modules.Languages, :index
+        live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
+        live "/admin/settings/languages/backend", Live.Modules.Languages, :backend
         live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
 
         live "/admin/settings/maintenance",

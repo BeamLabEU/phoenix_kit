@@ -11,10 +11,18 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button (Left aligned) --%>
       <.link
-        navigate={Routes.path("/admin", locale: @current_locale)}
+        navigate={Routes.path("/admin")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
+      </.link>
+
+      <%!-- Create Group Button (Right aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/settings/publishing/new")}
+        class="btn btn-primary btn-sm absolute right-0 top-0 -mb-12"
+      >
+        <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
       </.link>
 
       <%!-- Title Section --%>
@@ -45,7 +53,7 @@
             </p>
             <div class="flex flex-wrap justify-center gap-3">
               <.link
-                href={Routes.path("/admin/settings/publishing/new", locale: @current_locale)}
+                href={Routes.path("/admin/settings/publishing/new")}
                 class="btn btn-primary btn-sm"
               >
                 <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext(
@@ -53,7 +61,7 @@
                 )}
               </.link>
               <.link
-                navigate={Routes.path("/admin/settings/publishing", locale: @current_locale)}
+                navigate={Routes.path("/admin/settings/publishing")}
                 class="btn btn-outline btn-sm"
               >
                 <.icon name="hero-information-circle" class="w-4 h-4 mr-1" /> {gettext(
@@ -107,11 +115,7 @@
                   <div class="space-y-2">
                     <h3 class="text-xl font-semibold text-base-content">
                       <.link
-                        navigate={
-                          Routes.path("/admin/publishing/#{insight.slug}",
-                            locale: @current_locale
-                          )
-                        }
+                        navigate={Routes.path("/admin/publishing/#{insight.slug}")}
                         class="hover:text-primary transition-colors"
                       >
                         {insight.name}
@@ -183,23 +187,101 @@
                   <% end %>
                 </div>
 
+                <%!-- Version Structure Migration Progress/Warning --%>
+                <% version_migration_progress =
+                  Map.get(@version_migrations_in_progress, insight.slug) %>
+                <%= if version_migration_progress do %>
+                  <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20">
+                    <span class="loading loading-spinner loading-xs text-info"></span>
+                    <div class="flex-1">
+                      <span class="text-xs text-info">
+                        {gettext("Migrating to versioned structure...")}
+                      </span>
+                      <progress
+                        class="progress progress-info w-full h-1 mt-1"
+                        value={version_migration_progress.current}
+                        max={version_migration_progress.total}
+                      >
+                      </progress>
+                    </div>
+                  </div>
+                <% else %>
+                  <%= if insight.needs_version_migration do %>
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20">
+                      <.icon name="hero-arrow-up-circle" class="w-4 h-4 text-info shrink-0" />
+                      <span class="text-xs text-info flex-1">
+                        {ngettext(
+                          "%{count} post needs version migration",
+                          "%{count} posts need version migration",
+                          insight.legacy_count,
+                          count: insight.legacy_count
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        class="btn btn-info btn-xs"
+                        phx-click="show_version_migration_modal"
+                        phx-value-slug={insight.slug}
+                        phx-value-name={insight.name}
+                        phx-value-count={insight.legacy_count}
+                      >
+                        {gettext("Migrate")}
+                      </button>
+                    </div>
+                  <% end %>
+                <% end %>
+
+                <%!-- Primary Language Migration Progress/Warning --%>
+                <% migration_progress = Map.get(@migrations_in_progress, insight.slug) %>
+                <%= if migration_progress do %>
+                  <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20">
+                    <span class="loading loading-spinner loading-xs text-info"></span>
+                    <div class="flex-1">
+                      <span class="text-xs text-info">{gettext("Updating...")}</span>
+                      <progress
+                        class="progress progress-info w-full h-1 mt-1"
+                        value={migration_progress.current}
+                        max={migration_progress.total}
+                      >
+                      </progress>
+                    </div>
+                  </div>
+                <% else %>
+                  <%= if insight.needs_primary_language_migration do %>
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20">
+                      <.icon name="hero-language" class="w-4 h-4 text-warning shrink-0" />
+                      <span class="text-xs text-warning flex-1">
+                        {ngettext(
+                          "%{count} post needs primary language update",
+                          "%{count} posts need primary language update",
+                          insight.needs_migration_count,
+                          count: insight.needs_migration_count
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        class="btn btn-warning btn-xs"
+                        phx-click="show_migration_modal"
+                        phx-value-slug={insight.slug}
+                        phx-value-name={insight.name}
+                        phx-value-count={insight.needs_migration_count}
+                      >
+                        {gettext("Update")}
+                      </button>
+                    </div>
+                  <% end %>
+                <% end %>
+
                 <div class="flex gap-2 mt-auto">
                   <.link
-                    navigate={
-                      Routes.path("/admin/publishing/#{insight.slug}", locale: @current_locale)
-                    }
+                    navigate={Routes.path("/admin/publishing/#{insight.slug}")}
                     class="btn btn-outline btn-sm"
                   >
                     <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" />
                     {gettext("Open")}
                   </.link>
                   <.link
-                    navigate={
-                      Routes.path(
-                        "/admin/settings/publishing/#{insight.slug}/edit",
-                        locale: @current_locale
-                      )
-                    }
+                    navigate={Routes.path("/admin/settings/publishing/#{insight.slug}/edit")}
                     class="btn btn-outline btn-sm"
                   >
                     <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
@@ -238,4 +320,151 @@
       <% end %>
     </div>
   </div>
+
+  <%!-- Version Structure Migration Confirmation Modal --%>
+  <%= if @show_version_migration_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box" phx-click-away="close_version_migration_modal">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-arrow-up-circle" class="w-5 h-5 text-info" />
+          {gettext("Migrate to Versioned Structure")}
+        </h3>
+
+        <div class="space-y-4">
+          <p class="text-base-content/80">
+            {gettext(
+              "This will migrate %{count} posts in \"%{name}\" to the versioned structure.",
+              count: @version_migration_modal_count,
+              name: @version_migration_modal_name
+            )}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Publishing Group")}</span>
+              <span class="font-medium">{@version_migration_modal_name}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Posts to Migrate")}</span>
+              <span class="font-medium">{@version_migration_modal_count}</span>
+            </div>
+          </div>
+
+          <div class="text-sm text-base-content/70 space-y-2">
+            <p>
+              <strong>{gettext("What this does:")}</strong>
+            </p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+              <li>{gettext("Creates a v1/ directory for each post")}</li>
+              <li>{gettext("Moves post files into the v1/ directory")}</li>
+              <li>{gettext("Enables version history and safe editing of published content")}</li>
+              <li>{gettext("Does not modify post content")}</li>
+            </ul>
+          </div>
+
+          <%= if @version_migration_modal_count > 20 do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
+              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p class="text-xs text-info">
+                {gettext(
+                  "This migration will run in the background. You can continue working while posts are migrated."
+                )}
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" phx-click="close_version_migration_modal">
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-info"
+            phx-click="confirm_migrate_to_versioned"
+            phx-disable-with={gettext("Migrating...")}
+          >
+            <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
+            {gettext("Migrate %{count} Posts", count: @version_migration_modal_count)}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Primary Language Migration Confirmation Modal --%>
+  <%= if @show_migration_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box" phx-click-away="close_migration_modal">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-language" class="w-5 h-5 text-warning" />
+          {gettext("Update Primary Language")}
+        </h3>
+
+        <div class="space-y-4">
+          <p class="text-base-content/80">
+            {gettext(
+              "This will update the primary language setting for %{count} posts in \"%{name}\".",
+              count: @migration_modal_count,
+              name: @migration_modal_name
+            )}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Publishing Group")}</span>
+              <span class="font-medium">{@migration_modal_name}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("New Primary Language")}</span>
+              <span class="font-medium">{@primary_language_name}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Posts to Update")}</span>
+              <span class="font-medium">{@migration_modal_count}</span>
+            </div>
+          </div>
+
+          <div class="text-sm text-base-content/70 space-y-2">
+            <p>
+              <strong>{gettext("What this does:")}</strong>
+            </p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+              <li>{gettext("Saves the current primary language to each post's metadata")}</li>
+              <li>
+                {gettext("Ensures posts remain accessible if the global language setting changes")}
+              </li>
+              <li>{gettext("Does not modify post content or translations")}</li>
+            </ul>
+          </div>
+
+          <%= if @migration_modal_count > 20 do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
+              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p class="text-xs text-info">
+                {gettext(
+                  "This migration will run in the background. You can continue working while posts are updated."
+                )}
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" phx-click="close_migration_modal">
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-warning"
+            phx-click="confirm_migrate_primary_language"
+            phx-disable-with={gettext("Updating...")}
+          >
+            <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+            {gettext("Update %{count} Posts", count: @migration_modal_count)}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

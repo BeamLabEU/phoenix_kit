@@ -31,14 +31,17 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
           version: integer() | nil,
           version_created_at: String.t() | nil,
           version_created_from: integer() | nil,
-          # Translation status override (true = manually set, won't inherit from master)
+          # Translation status override (true = manually set, won't inherit from primary)
           status_manual: boolean() | nil,
           # Per-post version access control (allows public access to older versions)
           allow_version_access: boolean() | nil,
           # Per-language URL slug (optional, defaults to directory slug)
           url_slug: String.t() | nil,
           # Previous URL slugs for 301 redirects (list of old slugs)
-          previous_url_slugs: [String.t()] | nil
+          previous_url_slugs: [String.t()] | nil,
+          # Primary language for this post (controls versioning/status inheritance)
+          # If nil, uses the global content language setting
+          primary_language: String.t() | nil
         }
 
   @doc """
@@ -84,7 +87,9 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
         :status_manual,
         :allow_version_access,
         # Per-language URL slug
-        :url_slug
+        :url_slug,
+        # Primary language for this post
+        :primary_language
       ]
       |> Enum.flat_map(fn key ->
         case metadata_value(metadata, key) do
@@ -148,14 +153,16 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: 1,
       version_created_at: DateTime.to_iso8601(now),
       version_created_from: nil,
-      # Translation status - false means inherit from master language
+      # Translation status - false means inherit from primary language
       status_manual: false,
       # Per-post version access - defaults to false (only published version accessible)
       allow_version_access: false,
       # Per-language URL slug - nil means use directory slug
       url_slug: nil,
       # Previous URL slugs for 301 redirects
-      previous_url_slugs: nil
+      previous_url_slugs: nil,
+      # Primary language - nil means use global content language setting
+      primary_language: nil
     }
   end
 
@@ -371,7 +378,9 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       # Per-language URL slug (optional)
       url_slug: parse_url_slug(Map.get(metadata, "url_slug")),
       # Previous URL slugs for 301 redirects (comma-separated list)
-      previous_url_slugs: parse_previous_url_slugs(Map.get(metadata, "previous_url_slugs"))
+      previous_url_slugs: parse_previous_url_slugs(Map.get(metadata, "previous_url_slugs")),
+      # Primary language for this post
+      primary_language: Map.get(metadata, "primary_language")
     }
 
     # For backward compatibility, also read legacy is_live field if present
@@ -457,7 +466,8 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       status_manual: false,
       allow_version_access: false,
       url_slug: nil,
-      previous_url_slugs: nil
+      previous_url_slugs: nil,
+      primary_language: nil
     }
   end
 

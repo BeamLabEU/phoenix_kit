@@ -862,6 +862,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           label={gettext("General")}
                           current_path={@current_path || ""}
                           nested={true}
+                          exact_match_only={true}
                         />
 
                         <.admin_nav_item
@@ -1179,8 +1180,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 },
 
                 setupListeners() {
-                  // Listen to Phoenix LiveView theme events
+                  // Listen to Phoenix LiveView theme events (both variants)
                   document.addEventListener('phx:set-admin-theme', (e) => {
+                    if (e?.detail?.theme) {
+                      this.setTheme(e.detail.theme);
+                    }
+                  });
+
+                  // Also listen for phx:set-theme from theme_controller component
+                  window.addEventListener('phx:set-theme', (e) => {
                     if (e?.detail?.theme) {
                       this.setTheme(e.detail.theme);
                     }

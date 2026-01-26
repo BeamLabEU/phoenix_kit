@@ -101,6 +101,12 @@
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/,
 
+  # Publishing Workers - with-chain type inference false positives
+  # Dialyzer incorrectly infers read_post only returns errors in certain contexts
+  ~r/lib\/modules\/publishing\/workers\/migrate_legacy_structure_worker\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*unused_fun/,
+
   # Dashboard tab system - keyword list spec inference false positives
   # Functions accept keyword() but Dialyzer infers broader types from pattern matching
   ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*invalid_contract/,

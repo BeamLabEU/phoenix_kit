@@ -104,7 +104,7 @@ This will automatically:
 ✅ Email Module
     ✅ AWS SES integration
 
-✅ Entities Module (WordPress ACF-like dynamic content types)
+✅ Entities Module (dynamic content types)
     ✅ Dynamic entity type creation
     ✅ Flexible field schemas (13 field types)
     ✅ JSONB storage for flexibility
@@ -500,7 +500,7 @@ PhoenixKit.Modules.AI.disable_system()
 **Content & Data:**
 - `{prefix}/admin/publishing` - Blog posts and articles management
 - `{prefix}/admin/posts` - User-generated content (social posts)
-- `{prefix}/admin/entities` - Dynamic content types (WordPress ACF-like)
+- `{prefix}/admin/entities` - Dynamic content types
 
 **Communication:**
 - `{prefix}/admin/emails` - Email logs and delivery tracking

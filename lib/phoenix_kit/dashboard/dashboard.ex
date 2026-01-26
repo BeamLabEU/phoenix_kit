@@ -125,6 +125,7 @@ defmodule PhoenixKit.Dashboard do
   """
 
   alias PhoenixKit.Dashboard.{Badge, ContextSelector, Presence, Registry, Tab}
+  alias PhoenixKit.PubSubHelper
 
   # ============================================================================
   # Tab Registration
@@ -438,7 +439,7 @@ defmodule PhoenixKit.Dashboard do
 
       def mount(_params, _session, socket) do
         if connected?(socket) do
-          Phoenix.PubSub.subscribe(PhoenixKit.PubSub, PhoenixKit.Dashboard.pubsub_topic())
+          Phoenix.PubSub.subscribe(PubSubHelper.pubsub(), PhoenixKit.Dashboard.pubsub_topic())
         end
         {:ok, socket}
       end
@@ -463,7 +464,7 @@ defmodule PhoenixKit.Dashboard do
   """
   @spec subscribe() :: :ok | {:error, term()}
   def subscribe do
-    Phoenix.PubSub.subscribe(PhoenixKit.PubSub, Registry.pubsub_topic())
+    Phoenix.PubSub.subscribe(PubSubHelper.pubsub(), Registry.pubsub_topic())
   end
 
   # ============================================================================

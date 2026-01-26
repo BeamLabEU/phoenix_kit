@@ -10,6 +10,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
+  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -27,8 +28,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     blogs = Publishing.list_groups()
     languages_enabled = Languages.enabled?()
 
-    # Add legacy status to each blog
-    blogs_with_legacy = add_legacy_status(blogs)
+    # Add legacy status and primary language migration status to each blog
+    blogs_with_status =
+      blogs
+      |> add_legacy_status()
+      |> add_primary_language_status()
 
     socket =
       socket
@@ -36,11 +40,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       |> assign(:page_title, gettext("Manage Publishing"))
       |> assign(
         :current_path,
-        Routes.path("/admin/settings/publishing", locale: socket.assigns.current_locale_base)
+        Routes.path("/admin/settings/publishing")
       )
       |> assign(:module_enabled, Publishing.enabled?())
-      |> assign(:blogs, blogs_with_legacy)
+      |> assign(:blogs, blogs_with_status)
       |> assign(:languages_enabled, languages_enabled)
+      |> assign(:global_primary_language, Storage.get_primary_language())
       |> assign(:file_cache_enabled, get_cache_setting(@file_cache_key, @legacy_file_cache_key))
       |> assign(
         :memory_cache_enabled,
@@ -120,7 +125,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     case Publishing.migrate_group(slug) do
       {:ok, _new_path} ->
         # Refresh blogs list with updated legacy status
-        blogs = Publishing.list_groups() |> add_legacy_status()
+        blogs =
+          Publishing.list_groups()
+          |> add_legacy_status()
+          |> add_primary_language_status()
 
         {:noreply,
          socket
@@ -141,6 +149,37 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
            socket,
            :error,
            gettext("Failed to migrate storage: %{reason}", reason: inspect(reason))
+         )}
+    end
+  end
+
+  def handle_event("migrate_primary_language", %{"slug" => slug}, socket) do
+    case Publishing.migrate_posts_to_current_primary_language(slug) do
+      {:ok, count} ->
+        # Refresh blogs list with updated status
+        blogs =
+          Publishing.list_groups()
+          |> add_legacy_status()
+          |> add_primary_language_status()
+
+        {:noreply,
+         socket
+         |> assign(:blogs, blogs)
+         |> assign(:cache_status, build_cache_status(blogs))
+         |> put_flash(
+           :info,
+           gettext("Updated %{count} posts to use primary language: %{lang}",
+             count: count,
+             lang: socket.assigns.global_primary_language
+           )
+         )}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Failed to migrate primary language: %{reason}", reason: inspect(reason))
          )}
     end
   end
@@ -319,6 +358,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     Enum.map(blogs, fn blog ->
       slug = blog["slug"]
       Map.put(blog, "is_legacy", Publishing.legacy_group?(slug))
+    end)
+  end
+
+  # Add primary language migration status to each blog
+  defp add_primary_language_status(blogs) do
+    Enum.map(blogs, fn blog ->
+      slug = blog["slug"]
+      status = Publishing.get_primary_language_migration_status(slug)
+      needs_migration = status.needs_backfill > 0 or status.needs_migration > 0
+
+      blog
+      |> Map.put("primary_language_status", status)
+      |> Map.put("needs_primary_lang_migration", needs_migration)
     end)
   end
 end

@@ -11,7 +11,7 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button (Left aligned) --%>
       <.link
-        navigate={Routes.path("/admin/publishing", locale: @current_locale_base)}
+        navigate={Routes.path("/admin/publishing")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Publishing
@@ -29,7 +29,7 @@
             "/" -> ""
             prefix -> prefix
           end %>
-        <% files_hint = "priv/publishing/" <> blog_slug <> "/…" %>
+        <% files_hint = @group_files_root <> blog_slug <> "/…" %>
         <%!-- Use first enabled language (default) for public URL, not UI locale --%>
         <% default_language = List.first(@enabled_languages) %>
         <% public_url =
@@ -294,6 +294,127 @@
       </div>
     <% end %>
 
+    <%!-- Version Structure Migration Progress Banner --%>
+    <%= if @version_migration_in_progress do %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-sky-500/10 border border-info/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-sky-500 text-white shadow-sm">
+          <span class="loading loading-spinner loading-sm"></span>
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-info">
+            {gettext("Migrating to versioned structure...")}
+          </span>
+          <%= if @version_migration_progress do %>
+            <div class="flex items-center gap-2 mt-1">
+              <progress
+                class="progress progress-info w-48"
+                value={@version_migration_progress.current}
+                max={@version_migration_progress.total}
+              >
+              </progress>
+              <span class="text-xs text-base-content/60">
+                {@version_migration_progress.current} / {@version_migration_progress.total}
+              </span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Version Structure Migration Banner --%>
+    <%= if not @version_migration_in_progress and @legacy_structure_status && @legacy_structure_status.legacy > 0 do %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-sky-500/10 border border-info/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-sky-500 text-white shadow-sm">
+          <.icon name="hero-arrow-up-circle" class="w-5 h-5" />
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-info">
+            {ngettext(
+              "%{count} post needs version migration",
+              "%{count} posts need version migration",
+              @legacy_structure_status.legacy,
+              count: @legacy_structure_status.legacy
+            )}
+          </span>
+          <p class="text-xs text-base-content/60">
+            {gettext(
+              "Migrate to versioned structure to enable version history and safe editing of published content."
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn btn-info btn-sm"
+          phx-click="show_version_migration_modal"
+        >
+          <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
+          {gettext("Migrate All")}
+        </button>
+      </div>
+    <% end %>
+
+    <%!-- Primary Language Migration Progress Banner --%>
+    <%= if @migration_in_progress do %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-primary/10 border border-info/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-primary text-white shadow-sm">
+          <span class="loading loading-spinner loading-sm"></span>
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-info">
+            {gettext("Migration in progress...")}
+          </span>
+          <%= if @migration_progress do %>
+            <div class="flex items-center gap-2 mt-1">
+              <progress
+                class="progress progress-info w-48"
+                value={@migration_progress.current}
+                max={@migration_progress.total}
+              >
+              </progress>
+              <span class="text-xs text-base-content/60">
+                {@migration_progress.current} / {@migration_progress.total}
+              </span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Primary Language Migration Banner --%>
+    <%= if not @migration_in_progress and @primary_language_status && (@primary_language_status.needs_backfill > 0 or @primary_language_status.needs_migration > 0) do %>
+      <% total_needing =
+        @primary_language_status.needs_backfill + @primary_language_status.needs_migration %>
+      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-warning/10 to-amber-500/10 border border-warning/30 mb-6">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-warning to-amber-500 text-white shadow-sm">
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-warning">
+            {ngettext(
+              "1 post needs primary language update",
+              "%{count} posts need primary language update",
+              total_needing,
+              count: total_needing
+            )}
+          </span>
+          <p class="text-xs text-base-content/60">
+            {gettext(
+              "Save the current language setting (%{lang}) to these posts to ensure they remain accessible if the global setting changes.",
+              lang: @primary_language_name
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn btn-warning btn-sm"
+          phx-click="show_migration_modal"
+        >
+          <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+          {gettext("Update All")}
+        </button>
+      </div>
+    <% end %>
+
     <div class="space-y-6">
       <div class="flex-1">
         <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
@@ -330,14 +451,14 @@
                 <% blog_slug =
                   post.group || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                     "blog" %>
-                <% master_lang = @master_language %>
+                <% primary_lang = @primary_language %>
                 <% default_lang = List.first(post.available_languages) || @current_locale_base %>
                 <% default_lang_path =
                   Path.join([
                     Path.dirname(post.path),
-                    "#{master_lang}.phk"
+                    "#{primary_lang}.phk"
                   ]) %>
-                <% files_path = "priv/publishing/" <> post.path %>
+                <% files_path = @group_files_root <> post.path %>
                 <%!-- Use post's actual language, falling back to first available language for this post --%>
                 <% public_url =
                   PublishingHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
@@ -367,8 +488,7 @@
                         <a
                           href={
                             PhoenixKit.Utils.Routes.path(
-                              "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}",
-                              locale: @current_locale_base
+                              "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}"
                             )
                           }
                           class="hover:text-primary transition-colors"
@@ -395,24 +515,52 @@
                     </div>
                     <%!-- Languages section --%>
                     <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
-                      <%!-- Master language label --%>
-                      <div class="flex items-center gap-2 text-xs">
-                        <span class="text-base-content/60">{gettext("Master")}:</span>
-                        <span class="font-bold text-base-content uppercase">
-                          {String.upcase(@master_language)}
-                        </span>
-                      </div>
-                      <%!-- All translations --%>
+                      <%!-- Build all languages and separate primary from others --%>
+                      <% all_languages =
+                        build_post_languages(
+                          post,
+                          @blog_slug,
+                          @enabled_languages,
+                          @current_locale
+                        ) %>
+                      <% primary_lang = Enum.find(all_languages, & &1.is_primary) %>
+                      <% other_languages = Enum.reject(all_languages, & &1.is_primary) %>
+
+                      <%!-- Primary language (clickable, prominent) --%>
+                      <%= if primary_lang do %>
+                        <button
+                          type="button"
+                          phx-click="language_action"
+                          phx-value-language={primary_lang.code}
+                          phx-value-path={primary_lang.path}
+                          phx-value-post_path={primary_lang.post_path}
+                          phx-value-status={primary_lang.status}
+                          class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors"
+                          title={primary_lang.name}
+                        >
+                          <span class="text-xs text-primary/70 font-medium">
+                            {gettext("Primary")}
+                          </span>
+                          <span class={[
+                            "rounded-full inline-block w-2.5 h-2.5",
+                            cond do
+                              not primary_lang.exists -> "bg-base-content/20"
+                              primary_lang.status == "published" -> "bg-success"
+                              primary_lang.status == "draft" -> "bg-warning"
+                              primary_lang.status == "archived" -> "bg-base-content/40"
+                              true -> "bg-base-content/20"
+                            end
+                          ]}>
+                          </span>
+                          <span class="text-sm font-bold text-primary uppercase">
+                            {String.upcase(primary_lang.display_code)}
+                          </span>
+                        </button>
+                      <% end %>
+
+                      <%!-- Other translations (excluding primary) --%>
                       <.publishing_language_switcher
-                        languages={
-                          build_post_languages(
-                            post,
-                            @blog_slug,
-                            @enabled_languages,
-                            @current_locale,
-                            @master_language
-                          )
-                        }
+                        languages={other_languages}
                         show_status={true}
                         show_add={true}
                         on_click="language_action"
@@ -428,4 +576,143 @@
       </div>
     </div>
   </div>
+
+  <%!-- Version Structure Migration Confirmation Modal --%>
+  <%= if @show_version_migration_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box" phx-click-away="close_version_migration_modal">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-arrow-up-circle" class="w-5 h-5 text-info" />
+          {gettext("Migrate to Versioned Structure")}
+        </h3>
+
+        <div class="space-y-4">
+          <p class="text-base-content/80">
+            {gettext(
+              "This will migrate %{count} posts in this publishing group to the versioned structure.",
+              count: @legacy_structure_status.legacy
+            )}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Posts to Migrate")}</span>
+              <span class="font-medium">{@legacy_structure_status.legacy}</span>
+            </div>
+          </div>
+
+          <div class="text-sm text-base-content/70 space-y-2">
+            <p>
+              <strong>{gettext("What this does:")}</strong>
+            </p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+              <li>{gettext("Creates a v1/ directory for each post")}</li>
+              <li>{gettext("Moves post files into the v1/ directory")}</li>
+              <li>{gettext("Enables version history and safe editing of published content")}</li>
+              <li>{gettext("Does not modify post content")}</li>
+            </ul>
+          </div>
+
+          <%= if @legacy_structure_status.legacy > 20 do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
+              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p class="text-xs text-info">
+                {gettext(
+                  "This migration will run in the background. You can continue working while posts are migrated."
+                )}
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" phx-click="close_version_migration_modal">
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-info"
+            phx-click="confirm_migrate_to_versioned"
+            phx-disable-with={gettext("Migrating...")}
+          >
+            <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
+            {gettext("Migrate %{count} Posts", count: @legacy_structure_status.legacy)}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Primary Language Migration Confirmation Modal --%>
+  <%= if @show_migration_modal do %>
+    <% total_needing =
+      @primary_language_status.needs_backfill + @primary_language_status.needs_migration %>
+    <div class="modal modal-open">
+      <div class="modal-box" phx-click-away="close_migration_modal">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-language" class="w-5 h-5 text-warning" />
+          {gettext("Update Primary Language")}
+        </h3>
+
+        <div class="space-y-4">
+          <p class="text-base-content/80">
+            {gettext(
+              "This will update the primary language setting for %{count} posts in this publishing group.",
+              count: total_needing
+            )}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("New Primary Language")}</span>
+              <span class="font-medium">{@primary_language_name}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-base-content/70">{gettext("Posts to Update")}</span>
+              <span class="font-medium">{total_needing}</span>
+            </div>
+          </div>
+
+          <div class="text-sm text-base-content/70 space-y-2">
+            <p>
+              <strong>{gettext("What this does:")}</strong>
+            </p>
+            <ul class="list-disc list-inside space-y-1 pl-2">
+              <li>{gettext("Saves the current primary language to each post's metadata")}</li>
+              <li>
+                {gettext("Ensures posts remain accessible if the global language setting changes")}
+              </li>
+              <li>{gettext("Does not modify post content or translations")}</li>
+            </ul>
+          </div>
+
+          <%= if total_needing > 20 do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
+              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p class="text-xs text-info">
+                {gettext(
+                  "This migration will run in the background. You can continue working while posts are updated."
+                )}
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="modal-action">
+          <button type="button" class="btn" phx-click="close_migration_modal">
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-warning"
+            phx-click="confirm_migrate_primary_language"
+            phx-disable-with={gettext("Updating...")}
+          >
+            <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+            {gettext("Update %{count} Posts", count: total_needing)}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

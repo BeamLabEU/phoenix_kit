@@ -253,7 +253,9 @@
       <%!-- Entities Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title={gettext("Entities")}
-        description={gettext("Dynamic content types with custom fields (WordPress ACF)")}
+        description={
+          gettext("Define custom content types with flexible fields — no migrations required")
+        }
         icon="📦"
         enabled={@entities_enabled}
         toggle_event="toggle_entities"

@@ -11,7 +11,7 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button (Left aligned) --%>
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin", locale: @current_locale)}
+        navigate={PhoenixKit.Utils.Routes.path("/admin")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
@@ -36,28 +36,22 @@
         <div class="flex gap-3">
           <.icon name="hero-information-circle" class="w-5 h-5 shrink-0 text-primary" />
           <div class="text-sm">
-            <p class="font-semibold mb-1">{gettext("Master Language")}</p>
+            <p class="font-semibold mb-1">{gettext("Primary Language")}</p>
             <p>
               {gettext("The")}
               <.link
-                navigate={
-                  PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)
-                }
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
                 class="link link-primary font-medium underline"
               >
                 {gettext("Content Language")}
               </.link>
               {gettext(
-                "setting determines the master language for all content. This is the primary language used for versioning—translations in other languages follow the master's version history."
+                "setting determines the primary language for all content. This is the base language used for versioning—translations in other languages follow the primary's version history."
               )}
               <%= if @languages_enabled do %>
                 {gettext("Additional languages are configured in the")}
                 <.link
-                  navigate={
-                    PhoenixKit.Utils.Routes.path("/admin/settings/languages",
-                      locale: @current_locale
-                    )
-                  }
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
                   class="link link-primary font-medium underline"
                 >
                   {gettext("Languages Module")}
@@ -65,9 +59,7 @@
               <% else %>
                 {gettext("To enable multi-language support, activate the")}
                 <.link
-                  navigate={
-                    PhoenixKit.Utils.Routes.path("/admin/modules", locale: @current_locale)
-                  }
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
                   class="link link-primary font-medium underline"
                 >
                   {gettext("Languages Module")}
@@ -93,7 +85,7 @@
               </p>
             </div>
             <.link
-              href={Routes.path("/admin/settings/publishing/new", locale: @current_locale)}
+              href={Routes.path("/admin/settings/publishing/new")}
               class="btn btn-primary btn-sm whitespace-nowrap"
             >
               <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Publishing Group")}
@@ -119,11 +111,7 @@
                   <div class="space-y-1">
                     <p class="flex items-center gap-2 text-base font-semibold text-base-content">
                       <.link
-                        navigate={
-                          Routes.path("/admin/publishing/#{blog["slug"]}",
-                            locale: @current_locale
-                          )
-                        }
+                        navigate={Routes.path("/admin/publishing/#{blog["slug"]}")}
                         class="hover:text-primary transition-colors"
                       >
                         {blog["name"]}
@@ -179,23 +167,45 @@
                         {gettext("Migrate")}
                       </button>
                     <% end %>
+                    <%= if blog["needs_primary_lang_migration"] do %>
+                      <% status = blog["primary_language_status"] %>
+                      <button
+                        type="button"
+                        aria-label={gettext("Update Primary Language")}
+                        phx-click="migrate_primary_language"
+                        phx-value-slug={blog["slug"]}
+                        class="btn btn-warning btn-sm"
+                        title={
+                          gettext(
+                            "Update posts to use current primary language: %{lang}",
+                            lang: @global_primary_language
+                          )
+                        }
+                        data-confirm={
+                          gettext(
+                            "Update all posts in this group to use '%{lang}' as their primary language? This ensures posts work correctly with the current language setting. %{count} post(s) will be updated.",
+                            lang: @global_primary_language,
+                            count: status.needs_backfill + status.needs_migration
+                          )
+                        }
+                      >
+                        <.icon name="hero-language" class="w-4 h-4 mr-1" />
+                        {gettext("Update Language")}
+                        <span class="badge badge-sm ml-1">
+                          {status.needs_backfill + status.needs_migration}
+                        </span>
+                      </button>
+                    <% end %>
                     <.link
                       aria-label={gettext("Open Admin")}
-                      navigate={
-                        Routes.path("/admin/publishing/#{blog["slug"]}", locale: @current_locale)
-                      }
+                      navigate={Routes.path("/admin/publishing/#{blog["slug"]}")}
                       class="btn btn-outline btn-sm btn-square"
                     >
                       <.icon name="hero-arrow-right" class="w-4 h-4" />
                     </.link>
                     <.link
                       aria-label={gettext("Edit")}
-                      navigate={
-                        Routes.path(
-                          "/admin/settings/publishing/#{blog["slug"]}/edit",
-                          locale: @current_locale
-                        )
-                      }
+                      navigate={Routes.path("/admin/settings/publishing/#{blog["slug"]}/edit")}
                       class="btn btn-outline btn-sm btn-square"
                     >
                       <.icon name="hero-pencil-square" class="w-4 h-4" />
