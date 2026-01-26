@@ -472,7 +472,7 @@ defmodule PhoenixKit.Users.CustomFields do
 
   defp validate_options_for_type(%{"type" => type, "options" => options})
        when type in ~w(select radio checkbox) do
-    if is_list(options) and length(options) >= 1 do
+    if is_list(options) and options != [] do
       :ok
     else
       {:error, "#{String.capitalize(type)} fields require at least one option"}
