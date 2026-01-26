@@ -30,13 +30,12 @@
             prefix -> prefix
           end %>
         <% files_hint = @group_files_root <> blog_slug <> "/…" %>
-        <%!-- Use first enabled language (default) for public URL, not UI locale --%>
-        <% default_language = List.first(@enabled_languages) %>
+        <%!-- Use primary language for public URL preview --%>
         <% public_url =
           if length(@enabled_languages) == 1 do
             @endpoint_url <> url_prefix <> "/" <> blog_slug
           else
-            @endpoint_url <> url_prefix <> "/#{default_language}/" <> blog_slug
+            @endpoint_url <> url_prefix <> "/#{@primary_language}/" <> blog_slug
           end %>
         <div class="text-sm text-base-content/60 space-y-1">
           <p>

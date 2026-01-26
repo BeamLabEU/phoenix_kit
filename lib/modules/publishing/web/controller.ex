@@ -370,12 +370,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   defp render_blog_listing(conn, blog_slug, language, params) do
     case fetch_blog(blog_slug) do
       {:ok, blog} ->
+        # Only preserve pagination params for redirects
+        pagination_params = Map.take(params, ["page"])
+
         # Check if we need to redirect to canonical URL
         canonical_language = get_canonical_url_language(language)
 
         if canonical_language != language do
           # Redirect to canonical URL
-          canonical_url = PublishingHTML.blog_listing_path(canonical_language, blog_slug, params)
+          canonical_url =
+            PublishingHTML.blog_listing_path(canonical_language, blog_slug, pagination_params)
+
           redirect(conn, to: canonical_url)
         else
           page = get_page_param(params)
@@ -383,18 +388,30 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
 
           # Try cache first, fall back to filesystem scan
           all_posts_unfiltered = fetch_posts_with_cache(blog_slug)
+          published_posts = filter_published(all_posts_unfiltered)
 
-          # Filter to posts that have this EXACT language file and are published
-          all_posts =
-            all_posts_unfiltered
-            |> filter_published()
-            |> filter_by_exact_language(blog_slug, language)
+          # Check if there's content for the EXACT requested language
+          exact_language_posts = filter_by_exact_language_strict(published_posts, language)
 
-          # If no posts exist for this language, return 404
-          # This prevents empty blog listing pages for languages without content
-          if all_posts == [] do
-            handle_not_found(conn, :no_content_for_language)
+          # If no exact match, check if fallback found content and redirect
+          if exact_language_posts == [] do
+            fallback_posts = filter_by_exact_language(published_posts, blog_slug, language)
+
+            if fallback_posts != [] do
+              # Fallback found content - redirect to the actual language URL
+              # Get the language that the fallback matched
+              fallback_language = get_fallback_language(language, fallback_posts)
+
+              fallback_url =
+                PublishingHTML.blog_listing_path(fallback_language, blog_slug, pagination_params)
+
+              redirect(conn, to: fallback_url)
+            else
+              handle_not_found(conn, :no_content_for_language)
+            end
           else
+            # Exact match found - render normally
+            all_posts = exact_language_posts
             total_count = length(all_posts)
             posts = paginate(all_posts, page, per_page)
 
@@ -1486,6 +1503,28 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
       matching_language != nil and
         Map.get(post.language_statuses, matching_language) == "published"
     end)
+  end
+
+  # Strict version - only matches exact language, no fallback to base code
+  defp filter_by_exact_language_strict(posts, language) do
+    Enum.filter(posts, fn post ->
+      language in post.available_languages and
+        Map.get(post.language_statuses, language) == "published"
+    end)
+  end
+
+  # Get the actual language that the fallback matched
+  # Used to redirect to the correct URL when requested language has no content
+  defp get_fallback_language(requested_language, posts) do
+    # Look at the first post to find what language actually matched
+    case posts do
+      [first_post | _] ->
+        find_matching_language(requested_language, first_post.available_languages) ||
+          requested_language
+
+      [] ->
+        requested_language
+    end
   end
 
   # Find a matching language in available languages
