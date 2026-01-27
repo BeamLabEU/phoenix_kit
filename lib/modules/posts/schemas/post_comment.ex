@@ -68,10 +68,14 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
           status: String.t(),
           depth: integer(),
           like_count: integer(),
+          dislike_count: integer(),
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           parent: t() | Ecto.Association.NotLoaded.t() | nil,
           children: [t()] | Ecto.Association.NotLoaded.t(),
+          likes: [PhoenixKit.Modules.Posts.CommentLike.t()] | Ecto.Association.NotLoaded.t(),
+          dislikes:
+            [PhoenixKit.Modules.Posts.CommentDislike.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -81,12 +85,15 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
     field :status, :string, default: "published"
     field :depth, :integer, default: 0
     field :like_count, :integer, default: 0
+    field :dislike_count, :integer, default: 0
 
     belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :parent, __MODULE__, type: UUIDv7
 
     has_many :children, __MODULE__, foreign_key: :parent_id
+    has_many :likes, PhoenixKit.Modules.Posts.CommentLike, foreign_key: :comment_id
+    has_many :dislikes, PhoenixKit.Modules.Posts.CommentDislike, foreign_key: :comment_id
 
     timestamps(type: :naive_datetime)
   end

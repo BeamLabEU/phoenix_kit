@@ -355,7 +355,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - User association for audit trail (who initiated import)
   - Enables admin UI for Shopify CSV import management
 
-  ### V47 - Shop Localized Fields ⚡ LATEST
+  ### V47 - Shop Localized Fields
   - Converts Shop module from separate translations JSONB to localized fields approach
   - Product fields (title, slug, description, body_html, seo_title, seo_description) become JSONB maps
   - Category fields (name, slug, description) become JSONB maps
@@ -366,6 +366,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - GIN indexes on slug fields for efficient localized URL lookups
   - Enables explicit language tagging for CSV imports
   - Solves language ambiguity problem when changing default language
+
+  ### V48 - Post and Comment Dislikes ⚡ LATEST
+  - Creates `phoenix_kit_post_dislikes` table for post dislikes
+  - Creates `phoenix_kit_comment_likes` table for comment likes
+  - Creates `phoenix_kit_comment_dislikes` table for comment dislikes
+  - Adds `dislike_count` column to `phoenix_kit_posts`
+  - Adds `dislike_count` column to `phoenix_kit_post_comments`
+  - Unique constraint ensures one like/dislike per user per post/comment
+  - Frontend can choose to display likes, dislikes, both, or net score
 
   ## Migration Paths
 
@@ -425,7 +434,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 47
+  @current_version 48
   @default_prefix "public"
 
   @doc false

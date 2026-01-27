@@ -92,12 +92,14 @@ defmodule PhoenixKit.Modules.Posts.Post do
           repost_url: String.t() | nil,
           slug: String.t(),
           like_count: integer(),
+          dislike_count: integer(),
           comment_count: integer(),
           view_count: integer(),
           metadata: map(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           media: [PhoenixKit.Modules.Posts.PostMedia.t()] | Ecto.Association.NotLoaded.t(),
           likes: [PhoenixKit.Modules.Posts.PostLike.t()] | Ecto.Association.NotLoaded.t(),
+          dislikes: [PhoenixKit.Modules.Posts.PostDislike.t()] | Ecto.Association.NotLoaded.t(),
           comments: [PhoenixKit.Modules.Posts.PostComment.t()] | Ecto.Association.NotLoaded.t(),
           mentions: [PhoenixKit.Modules.Posts.PostMention.t()] | Ecto.Association.NotLoaded.t(),
           tags: [PhoenixKit.Modules.Posts.PostTag.t()] | Ecto.Association.NotLoaded.t(),
@@ -117,6 +119,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
     field :repost_url, :string
     field :slug, :string
     field :like_count, :integer, default: 0
+    field :dislike_count, :integer, default: 0
     field :comment_count, :integer, default: 0
     field :view_count, :integer, default: 0
     field :metadata, :map, default: %{}
@@ -125,6 +128,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
 
     has_many :media, PhoenixKit.Modules.Posts.PostMedia
     has_many :likes, PhoenixKit.Modules.Posts.PostLike
+    has_many :dislikes, PhoenixKit.Modules.Posts.PostDislike
     has_many :comments, PhoenixKit.Modules.Posts.PostComment
     has_many :mentions, PhoenixKit.Modules.Posts.PostMention
 
