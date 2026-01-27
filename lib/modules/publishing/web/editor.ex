@@ -1465,6 +1465,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   # Handle translation progress event (after each language completes)
+  # This is broadcast AFTER the translation file is fully saved with content and status,
+  # so we refresh language info here to show real-time status updates in the language switcher
   def handle_info(
         {:translation_progress, blog_slug, post_slug, completed, total, _last_language},
         socket
@@ -1472,10 +1474,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns[:blog_slug] == blog_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
-      {:noreply,
-       socket
-       |> assign(:ai_translation_progress, completed)
-       |> assign(:ai_translation_total, total)}
+      # Update progress counters and refresh language statuses
+      socket =
+        socket
+        |> assign(:ai_translation_progress, completed)
+        |> assign(:ai_translation_total, total)
+        |> refresh_available_languages()
+
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
@@ -1532,7 +1538,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns[:blog_slug] == blog_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
-      # Refresh available languages by re-reading the post's languages from disk
+      # Refresh available languages and statuses by re-reading the post from disk
       case Publishing.read_post(blog_slug, socket.assigns.post.path) do
         {:ok, updated_post} ->
           socket =
@@ -1540,7 +1546,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             |> assign(:available_languages, updated_post.available_languages)
             |> assign(
               :post,
-              Map.put(socket.assigns.post, :available_languages, updated_post.available_languages)
+              socket.assigns.post
+              |> Map.put(:available_languages, updated_post.available_languages)
+              |> Map.put(:language_statuses, updated_post.language_statuses)
             )
 
           {:noreply, socket}
@@ -3515,14 +3523,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  # Refresh just the available_languages list (for language switcher updates)
+  # Refresh available_languages and language_statuses (for language switcher updates)
   defp refresh_available_languages(socket) do
     blog_slug = socket.assigns.blog_slug
     post_path = socket.assigns.post.path
 
     case Publishing.read_post(blog_slug, post_path) do
       {:ok, updated_post} ->
-        assign(socket, :available_languages, updated_post.available_languages)
+        socket
+        |> assign(:available_languages, updated_post.available_languages)
+        |> assign(
+          :post,
+          socket.assigns.post
+          |> Map.put(:available_languages, updated_post.available_languages)
+          |> Map.put(:language_statuses, updated_post.language_statuses)
+        )
 
       {:error, _reason} ->
         socket
