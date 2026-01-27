@@ -178,7 +178,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
       :slug,
       :metadata
     ])
-    |> validate_required([:user_id, :title, :content, :type, :status])
+    |> validate_required([:user_id, :title, :type, :status])
     |> validate_inclusion(:type, ["post", "snippet", "repost"])
     |> validate_inclusion(:status, ["draft", "public", "unlisted", "scheduled"])
     |> validate_length(:title, max: 255)
