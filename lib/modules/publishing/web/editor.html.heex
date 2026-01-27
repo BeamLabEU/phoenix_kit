@@ -857,12 +857,19 @@
                   <label class="label">
                     <span class="label-text text-sm font-semibold text-base-content">
                       {gettext("Status")}
+                      <%= if not @is_primary_language and @form["status"] != "published" do %>
+                        <span class="text-xs font-normal text-base-content/60 ml-2">
+                          {gettext("(follows primary language)")}
+                        </span>
+                      <% end %>
                     </span>
                   </label>
                   <select
-                    class={"select select-bordered w-full #{if @readonly?, do: "select-disabled bg-base-200"}"}
+                    class={"select select-bordered w-full #{if @readonly? or (not @is_primary_language and @form["status"] != "published"), do: "select-disabled bg-base-200"}"}
                     name="status"
-                    disabled={@readonly?}
+                    disabled={
+                      @readonly? or (not @is_primary_language and @form["status"] != "published")
+                    }
                   >
                     <%= if @viewing_older_version do %>
                       <%!-- Older versions can only be published or archived, not draft --%>

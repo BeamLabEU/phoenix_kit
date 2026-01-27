@@ -231,8 +231,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     case Publishing.read_post(socket.assigns.blog_slug, post_path) do
       {:ok, post} ->
+        # Determine if this is the primary language for status propagation
+        primary_language = post[:primary_language] || Storage.get_primary_language()
+        is_primary_language = post.language == primary_language
+
         case Publishing.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}, %{
-               scope: scope
+               scope: scope,
+               is_primary_language: is_primary_language
              }) do
           {:ok, updated_post} ->
             # Invalidate cache for this post
@@ -275,8 +280,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     case Publishing.read_post(socket.assigns.blog_slug, post_path) do
       {:ok, post} ->
+        # Determine if this is the primary language for status propagation
+        primary_language = post[:primary_language] || Storage.get_primary_language()
+        is_primary_language = post.language == primary_language
+
         case Publishing.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}, %{
-               scope: scope
+               scope: scope,
+               is_primary_language: is_primary_language
              }) do
           {:ok, updated_post} ->
             # Broadcast status change to other connected clients

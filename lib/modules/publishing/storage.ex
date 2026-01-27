@@ -1831,7 +1831,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp calculate_publish_status(metadata, body, opts) do
+  defp calculate_publish_status(metadata, _body, opts) do
     current_status = Map.get(metadata, :status, "draft")
 
     cond do
@@ -1839,23 +1839,15 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       opts.is_primary and opts.is_target_version ->
         "published"
 
-      # Other versions' primary files: only archive if currently published, leave drafts alone
+      # Other versions' primary files: archive if currently published, leave drafts alone
       opts.is_primary ->
         if current_status == "published", do: "archived", else: current_status
 
-      # Translation with manual override keeps its status
-      Map.get(metadata, :status_manual, false) ->
-        current_status
-
-      # Translation without content stays at current status
-      String.trim(body) == "" ->
-        current_status
-
-      # Translation with content on target version inherits "published"
+      # Target version translations: inherit "published" from primary
       opts.is_target_version ->
         "published"
 
-      # Translation with content on other versions: only archive if currently published
+      # Other versions: archive if currently published
       current_status == "published" ->
         "archived"
 
@@ -2904,90 +2896,6 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end)
   end
 
-  # Load language statuses across ALL versions for a slug-mode post
-  # Returns "published" for a language if ANY version has it published
-  defp load_language_statuses_across_versions(group_slug, post_slug, current_version_languages) do
-    post_dir = Path.join(group_path(group_slug), post_slug)
-    versions = list_versions(group_slug, post_slug)
-
-    # Collect all unique languages across all versions
-    all_languages =
-      versions
-      |> Enum.flat_map(fn v ->
-        version_dir = Path.join(post_dir, "v#{v}")
-        detect_available_languages(version_dir)
-      end)
-      |> Enum.uniq()
-      |> then(fn langs ->
-        # Ensure current version languages are included
-        Enum.uniq(langs ++ current_version_languages)
-      end)
-
-    # For each language, check if ANY version has it published
-    Enum.reduce(all_languages, %{}, fn lang, acc ->
-      has_published =
-        Enum.any?(versions, fn v ->
-          version_dir = Path.join(post_dir, "v#{v}")
-          lang_path = Path.join(version_dir, language_filename(lang))
-
-          case File.read(lang_path) do
-            {:ok, content} ->
-              {:ok, metadata, _content} = Metadata.parse_with_content(content)
-              Map.get(metadata, :status) == "published"
-
-            {:error, _} ->
-              false
-          end
-        end)
-
-      status = if has_published, do: "published", else: "draft"
-      Map.put(acc, lang, status)
-    end)
-  end
-
-  # Load language statuses across ALL versions for a timestamp-mode post
-  defp load_language_statuses_across_versions_timestamp(post_dir, current_version_languages) do
-    versions = list_versions_for_timestamp(post_dir)
-
-    if Enum.empty?(versions) do
-      # Legacy post - just use current directory
-      load_language_statuses(post_dir, current_version_languages)
-    else
-      # Collect all unique languages across all versions
-      all_languages =
-        versions
-        |> Enum.flat_map(fn v ->
-          version_dir = Path.join(post_dir, "v#{v}")
-          detect_available_languages(version_dir)
-        end)
-        |> Enum.uniq()
-        |> then(fn langs ->
-          Enum.uniq(langs ++ current_version_languages)
-        end)
-
-      # For each language, check if ANY version has it published
-      Enum.reduce(all_languages, %{}, fn lang, acc ->
-        has_published = Enum.any?(versions, &language_published_in_version?(post_dir, &1, lang))
-        status = if has_published, do: "published", else: "draft"
-        Map.put(acc, lang, status)
-      end)
-    end
-  end
-
-  defp language_published_in_version?(post_dir, version, lang) do
-    version_dir = Path.join(post_dir, "v#{version}")
-    lang_path = Path.join(version_dir, language_filename(lang))
-
-    case File.read(lang_path) do
-      {:ok, content} ->
-        {:ok, metadata, _content} = Metadata.parse_with_content(content)
-        Map.get(metadata, :status) == "published"
-
-      {:error, _} ->
-        false
-    end
-  end
-
   # Selects the best language to display based on:
   # 1. Preferred language (if available)
   # 2. Content language from settings (if available)
@@ -3234,13 +3142,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     version_dates =
       load_version_dates(group_slug, post_slug, available_versions, post_primary_language)
 
-    # Load language statuses - for versioned posts, check ALL versions
-    language_statuses =
-      if structure == :versioned do
-        load_language_statuses_across_versions(group_slug, post_slug, available_languages)
-      else
-        load_language_statuses(content_dir, available_languages)
-      end
+    # Load language statuses for the CURRENT version only
+    language_statuses = load_language_statuses(content_dir, available_languages)
 
     relative_path =
       build_slug_relative_path(group_slug, post_slug, version, display_language, structure)
@@ -3348,14 +3251,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       version_dates =
         load_version_dates(group_slug, post_slug, available_versions, post_primary_language)
 
-      # Load language statuses - for versioned posts, check ALL versions
-      # so indicator shows green if ANY version has that language published
-      language_statuses =
-        if structure == :versioned do
-          load_language_statuses_across_versions(group_slug, post_slug, available_languages)
-        else
-          load_language_statuses(content_dir, available_languages)
-        end
+      # Load language statuses for the CURRENT version only
+      language_statuses = load_language_statuses(content_dir, available_languages)
 
       # Build path based on structure
       relative_path =
@@ -4036,13 +3933,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           {[], %{}}
         end
 
-      # Load language statuses - for versioned posts, check ALL versions
-      language_statuses =
-        if is_versioned do
-          load_language_statuses_across_versions_timestamp(post_dir, available_languages)
-        else
-          load_language_statuses(lang_dir, available_languages)
-        end
+      # Load language statuses for the CURRENT version only
+      language_statuses = load_language_statuses(lang_dir, available_languages)
 
       # If this is a new translation, return empty content and the requested language
       {final_language, final_content, final_path} =
