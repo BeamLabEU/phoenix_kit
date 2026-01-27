@@ -131,6 +131,7 @@ defmodule PhoenixKit.Modules.Publishing do
       Logger.debug("[PrimaryLangMigration] Success: #{success_count}, Errors: #{error_count}")
 
       # Regenerate cache with updated primary_language values
+      # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
       ListingCache.regenerate(group_slug)
 
       if error_count > 0 and success_count == 0 do
@@ -240,6 +241,7 @@ defmodule PhoenixKit.Modules.Publishing do
       Logger.debug("[VersionMigration] Success: #{success_count}, Errors: #{error_count}")
 
       # Regenerate cache with updated structure
+      # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
       ListingCache.regenerate(group_slug)
 
       if error_count > 0 and success_count == 0 do
@@ -515,6 +517,7 @@ defmodule PhoenixKit.Modules.Publishing do
           # Always write to new key
           with {:ok, _} <- settings_call(:update_json_setting, [@publishing_groups_key, payload]),
                :ok <- Storage.ensure_group_root(slug) do
+            PublishingPubSub.broadcast_group_created(group)
             {:ok, group}
           end
         end
@@ -539,10 +542,18 @@ defmodule PhoenixKit.Modules.Publishing do
       list_groups()
       |> Enum.reject(&(&1["slug"] == slug))
 
-    settings_call(:update_json_setting, [
-      @publishing_groups_key,
-      %{"publishing_groups" => updated}
-    ])
+    result =
+      settings_call(:update_json_setting, [
+        @publishing_groups_key,
+        %{"publishing_groups" => updated}
+      ])
+
+    # Broadcast after successful deletion
+    if match?({:ok, _}, result) do
+      PublishingPubSub.broadcast_group_deleted(slug)
+    end
+
+    result
   end
 
   @doc """
@@ -617,6 +628,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
     with :ok <- Storage.rename_group_directory(group["slug"], sanitized_slug),
          {:ok, _} <- persist_group_update(groups, group["slug"], updated_group) do
+      PublishingPubSub.broadcast_group_updated(updated_group)
       {:ok, updated_group}
     end
   end
@@ -752,6 +764,7 @@ defmodule PhoenixKit.Modules.Publishing do
       end
 
     # Regenerate listing cache and broadcast on success
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     with {:ok, post} <- result do
       ListingCache.regenerate(group_slug)
       PublishingPubSub.broadcast_post_created(group_slug, post)
@@ -897,6 +910,7 @@ defmodule PhoenixKit.Modules.Publishing do
     # Regenerate listing cache on success, but only if the post is live
     # (For versioned posts, non-live versions don't affect public listings)
     # Always broadcast so all viewers of any version see updates
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     with {:ok, updated_post} <- result do
       if should_regenerate_cache?(updated_post) do
         ListingCache.regenerate(group_slug)
@@ -971,8 +985,10 @@ defmodule PhoenixKit.Modules.Publishing do
     result = Storage.publish_version(group_slug, post_slug, version)
 
     # Regenerate listing cache and broadcast on success
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     if result == :ok do
       ListingCache.regenerate(group_slug)
+      # Broadcast to blog listing (version_live_changed updates "live" indicator)
       PublishingPubSub.broadcast_version_live_changed(group_slug, post_slug, version)
       # Also broadcast to post-level topic for editors
       PublishingPubSub.broadcast_post_version_published(group_slug, post_slug, version)
@@ -1045,6 +1061,7 @@ defmodule PhoenixKit.Modules.Publishing do
     result = Storage.set_translation_status(group_slug, post_slug, version, language, status)
 
     # Regenerate cache if setting to published
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     if result == :ok and status == "published" do
       ListingCache.regenerate(group_slug)
     end
@@ -1059,6 +1076,7 @@ defmodule PhoenixKit.Modules.Publishing do
     result = Storage.publish_version(group_slug, post_slug, version)
 
     # Regenerate listing cache and broadcast on success
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     if result == :ok do
       ListingCache.regenerate(group_slug)
       PublishingPubSub.broadcast_version_live_changed(group_slug, post_slug, version)
@@ -1102,6 +1120,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
     # Regenerate listing cache on success, but only if the post is live
     # Always broadcast so all viewers see the new translation
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     with {:ok, new_post} <- result do
       if should_regenerate_cache?(new_post) do
         ListingCache.regenerate(group_slug)
@@ -1128,6 +1147,7 @@ defmodule PhoenixKit.Modules.Publishing do
   def trash_post(group_slug, post_identifier) do
     result = Storage.trash_post(group_slug, post_identifier)
 
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     with {:ok, _trash_path} <- result do
       ListingCache.regenerate(group_slug)
       PublishingPubSub.broadcast_post_deleted(group_slug, post_identifier)
@@ -1149,6 +1169,7 @@ defmodule PhoenixKit.Modules.Publishing do
   def delete_language(group_slug, post_identifier, language_code, version \\ nil) do
     result = Storage.delete_language(group_slug, post_identifier, language_code, version)
 
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     if result == :ok do
       ListingCache.regenerate(group_slug)
       PublishingPubSub.broadcast_translation_deleted(group_slug, post_identifier, language_code)
@@ -1169,6 +1190,7 @@ defmodule PhoenixKit.Modules.Publishing do
   def delete_version(group_slug, post_identifier, version) do
     result = Storage.delete_version(group_slug, post_identifier, version)
 
+    # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
     if result == :ok do
       # Only regenerate cache if deleting affected the live version
       # (but we already prevent deleting live version, so this is just for safety)
