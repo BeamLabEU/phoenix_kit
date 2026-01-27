@@ -261,7 +261,9 @@ defmodule PhoenixKitWeb.Components.Core.Modal do
       |> assign_new(:title_text, fn -> assigns[:title] || gettext("Confirm") end)
       |> assign_new(:confirm_button_text, fn -> assigns[:confirm_text] || gettext("Confirm") end)
       |> assign_new(:cancel_button_text, fn -> assigns[:cancel_text] || gettext("Cancel") end)
-      |> assign_new(:prompt_text, fn -> assigns[:prompt] || gettext("Do you want to continue?") end)
+      |> assign_new(:prompt_text, fn ->
+        assigns[:prompt] || gettext("Do you want to continue?")
+      end)
       |> assign_new(:computed_confirm_class, fn ->
         cond do
           assigns[:confirm_class] -> assigns.confirm_class
@@ -304,7 +306,10 @@ defmodule PhoenixKitWeb.Components.Core.Modal do
                 "flex items-start gap-2 p-3 rounded-lg border",
                 message_styles(type)
               ]}>
-                <.icon name={message_icon(type)} class={"w-5 h-5 flex-shrink-0 mt-0.5 #{message_icon_class(type)}"} />
+                <.icon
+                  name={message_icon(type)}
+                  class={"w-5 h-5 flex-shrink-0 mt-0.5 #{message_icon_class(type)}"}
+                />
                 <p class="text-sm text-base-content">{message}</p>
               </div>
             <% end %>

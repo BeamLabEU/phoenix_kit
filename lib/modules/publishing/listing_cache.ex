@@ -391,17 +391,15 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
   # Perform regeneration while holding the lock
   defp do_regenerate_with_lock(blog_slug) do
-    try do
-      result = regenerate(blog_slug)
+    result = regenerate(blog_slug)
 
-      case result do
-        :ok -> :ok
-        {:error, _} = error -> error
-      end
-    after
-      # Always release the lock when done (success or failure)
-      :ets.delete(@lock_table, blog_slug)
+    case result do
+      :ok -> :ok
+      {:error, _} = error -> error
     end
+  after
+    # Always release the lock when done (success or failure)
+    :ets.delete(@lock_table, blog_slug)
   end
 
   # Ensure the ETS table for locks exists (lazy initialization)

@@ -87,8 +87,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
           {:ok, _} ->
             # The `Publishing.remove_group` call handles the broadcast. This
             # LiveView will catch the event and update its state.
-            {:noreply,
-             put_flash(socket, :info, gettext("Blog removed from configuration"))}
+            {:noreply, put_flash(socket, :info, gettext("Blog removed from configuration"))}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to remove blog"))}
