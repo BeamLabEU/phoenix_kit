@@ -46,6 +46,10 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       |> assign(:field_definitions, field_definitions)
       |> assign(:editing_field, nil)
       |> assign(:show_field_form, false)
+      # Options management for select/radio/checkbox fields
+      |> assign(:field_form_type, "text")
+      |> assign(:field_form_options, [])
+      |> assign(:new_option_value, "")
 
     {:ok, socket}
   end
@@ -101,6 +105,9 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       socket
       |> assign(:show_field_form, true)
       |> assign(:editing_field, nil)
+      |> assign(:field_form_type, "text")
+      |> assign(:field_form_options, [])
+      |> assign(:new_option_value, "")
 
     {:noreply, socket}
   end
@@ -112,6 +119,9 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       socket
       |> assign(:show_field_form, true)
       |> assign(:editing_field, field)
+      |> assign(:field_form_type, (field && field["type"]) || "text")
+      |> assign(:field_form_options, (field && field["options"]) || [])
+      |> assign(:new_option_value, "")
 
     {:noreply, socket}
   end
@@ -121,11 +131,22 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       socket
       |> assign(:show_field_form, false)
       |> assign(:editing_field, nil)
+      |> assign(:field_form_type, "text")
+      |> assign(:field_form_options, [])
+      |> assign(:new_option_value, "")
 
     {:noreply, socket}
   end
 
   def handle_event("save_field", %{"field" => field_params}, socket) do
+    # Include options from socket assigns for select/radio/checkbox types
+    field_params =
+      if socket.assigns.field_form_type in ~w(select radio checkbox) do
+        Map.put(field_params, "options", socket.assigns.field_form_options)
+      else
+        field_params
+      end
+
     result =
       if socket.assigns.editing_field do
         # Update existing field
@@ -145,6 +166,9 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
           |> assign(:field_definitions, field_definitions)
           |> assign(:show_field_form, false)
           |> assign(:editing_field, nil)
+          |> assign(:field_form_type, "text")
+          |> assign(:field_form_options, [])
+          |> assign(:new_option_value, "")
           |> put_flash(:info, "Custom field saved successfully")
 
         {:noreply, socket}
@@ -164,6 +188,54 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
         socket = put_flash(socket, :error, error_msg)
         {:noreply, socket}
     end
+  end
+
+  # Options management for select/radio/checkbox fields
+
+  def handle_event("field_type_changed", %{"field" => %{"type" => type}}, socket) do
+    {:noreply, assign(socket, :field_form_type, type)}
+  end
+
+  def handle_event("update_new_option", %{"key" => "Enter", "value" => value}, socket) do
+    # Enter key pressed - add the option
+    trimmed = String.trim(value || "")
+
+    if trimmed != "" and trimmed not in socket.assigns.field_form_options do
+      socket =
+        socket
+        |> assign(:field_form_options, socket.assigns.field_form_options ++ [trimmed])
+        |> assign(:new_option_value, "")
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("update_new_option", %{"value" => value}, socket) do
+    {:noreply, assign(socket, :new_option_value, value)}
+  end
+
+  def handle_event("add_field_option", _params, socket) do
+    value = socket.assigns.new_option_value
+    trimmed = String.trim(value || "")
+
+    if trimmed != "" and trimmed not in socket.assigns.field_form_options do
+      socket =
+        socket
+        |> assign(:field_form_options, socket.assigns.field_form_options ++ [trimmed])
+        |> assign(:new_option_value, "")
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("remove_field_option", %{"index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+    options = List.delete_at(socket.assigns.field_form_options, index)
+    {:noreply, assign(socket, :field_form_options, options)}
   end
 
   def handle_event("delete_field", %{"key" => key}, socket) do

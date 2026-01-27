@@ -69,7 +69,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{RateLimiter, Role, Roles}
+  alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles}
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.SessionFingerprint
 
@@ -1696,6 +1696,26 @@ defmodule PhoenixKit.Users.Auth do
   """
   def get_user_custom_field(%User{custom_fields: custom_fields}, key) when is_binary(key) do
     Map.get(custom_fields || %{}, key)
+  end
+
+  @doc """
+  Gets the display value for a custom field, resolving select field indexes to text.
+
+  For select/radio/checkbox fields that store index values (0, 1, 2...),
+  this function returns the actual option text. For other fields, returns
+  the raw value.
+
+  ## Examples
+
+      iex> get_user_custom_field_display(user, "favorite_color")
+      "Blue"  # even though stored value is "1"
+
+      iex> get_user_custom_field_display(user, "phone")
+      "555-1234"  # non-select field returns raw value
+  """
+  def get_user_custom_field_display(%User{} = user, field_key) when is_binary(field_key) do
+    raw_value = get_user_field(user, field_key)
+    CustomFields.get_option_text(field_key, raw_value) || raw_value
   end
 
   @doc """

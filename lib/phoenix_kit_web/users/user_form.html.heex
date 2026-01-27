@@ -529,8 +529,11 @@
                       required={field_def["required"]}
                     >
                       <option value="">Select an option</option>
-                      <%= for option <- field_def["options"] || [] do %>
-                        <option value={option} selected={field_value == option}>
+                      <%= for {option, index} <- Enum.with_index(field_def["options"] || []) do %>
+                        <option
+                          value={index}
+                          selected={to_string(field_value) == to_string(index)}
+                        >
                           {option}
                         </option>
                       <% end %>
