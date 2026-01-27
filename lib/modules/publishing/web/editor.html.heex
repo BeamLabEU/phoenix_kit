@@ -495,11 +495,6 @@
                   @ai_selected_endpoint_id == nil or
                     @ai_translation_status in [:enqueued, :in_progress]
                 }
-                data-confirm={
-                  gettext(
-                    "This will overwrite any existing content in this language with an AI translation. Continue?"
-                  )
-                }
               >
                 <.icon name="hero-language" class="w-4 h-4" />
                 {gettext("Translate to This Language")}
@@ -1120,6 +1115,50 @@
         </div>
       </div>
       <div class="modal-backdrop bg-base-content/50" phx-click="close_new_version_modal"></div>
+    </div>
+  <% end %>
+
+  <%!-- Translation Confirmation Modal --%>
+  <%= if @show_translation_confirm do %>
+    <div class="modal modal-open">
+      <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+          <.icon name="hero-language" class="w-5 h-5 text-primary" />
+          {gettext("Confirm Translation")}
+        </h3>
+
+        <div class="space-y-3">
+          <%= for {_type, message} <- @translation_warnings do %>
+            <div class="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30">
+              <.icon name="hero-exclamation-triangle" class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+              <p class="text-sm text-base-content">{message}</p>
+            </div>
+          <% end %>
+
+          <p class="text-sm text-base-content/70 pt-2">
+            {gettext("Do you want to continue with the translation?")}
+          </p>
+        </div>
+
+        <div class="modal-action">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            phx-click="cancel_translation"
+          >
+            {gettext("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            phx-click="confirm_translation"
+          >
+            <.icon name="hero-language" class="w-4 h-4" />
+            {gettext("Translate")}
+          </button>
+        </div>
+      </div>
+      <div class="modal-backdrop bg-base-content/50" phx-click="cancel_translation"></div>
     </div>
   <% end %>
 

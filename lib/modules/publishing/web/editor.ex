@@ -111,6 +111,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:ai_translation_progress, nil)
       |> assign(:ai_translation_total, nil)
       |> assign(:ai_translation_languages, [])
+      # Translation confirmation modal
+      |> assign(:show_translation_confirm, false)
+      |> assign(:pending_translation_languages, [])
+      |> assign(:translation_warnings, [])
       |> assign(
         :current_path,
         Routes.path("/admin/publishing/#{blog_slug}/edit")
@@ -643,6 +647,36 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
+  def handle_event("confirm_translation", _params, socket) do
+    # User confirmed they want to proceed with translation
+    target_languages = socket.assigns.pending_translation_languages
+
+    # Re-validate warnings in case post changed while modal was open
+    current_warnings = build_translation_warnings(socket, target_languages)
+
+    if current_warnings != socket.assigns.translation_warnings do
+      # Warnings changed - refresh modal with updated warnings
+      {:noreply, assign(socket, :translation_warnings, current_warnings)}
+    else
+      # Warnings unchanged - proceed with translation
+      socket =
+        socket
+        |> assign(:show_translation_confirm, false)
+        |> assign(:pending_translation_languages, [])
+        |> assign(:translation_warnings, [])
+
+      do_enqueue_translation(socket, target_languages)
+    end
+  end
+
+  def handle_event("cancel_translation", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_translation_confirm, false)
+     |> assign(:pending_translation_languages, [])
+     |> assign(:translation_warnings, [])}
+  end
+
   def handle_event("preview", _params, socket) do
     preview_payload = build_preview_payload(socket)
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
@@ -1055,7 +1089,91 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         {:noreply, put_flash(socket, empty_level, empty_message)}
 
       true ->
-        do_enqueue_translation(socket, target_languages)
+        # Build list of warnings for the confirmation modal
+        warnings = build_translation_warnings(socket, target_languages)
+
+        if warnings == [] do
+          # No warnings - proceed directly (e.g., translate missing only with non-blank source)
+          do_enqueue_translation(socket, target_languages)
+        else
+          # Show confirmation modal with warnings
+          {:noreply,
+           socket
+           |> assign(:show_translation_confirm, true)
+           |> assign(:pending_translation_languages, target_languages)
+           |> assign(:translation_warnings, warnings)}
+        end
+    end
+  end
+
+  defp build_translation_warnings(socket, target_languages) do
+    warnings = []
+
+    # Check if source content is blank
+    warnings =
+      if source_content_blank?(socket) do
+        [{:source_blank, gettext("The source content is empty. This will create empty translation files.")} | warnings]
+      else
+        warnings
+      end
+
+    # Check if any target languages have existing content that will be overwritten
+    existing_languages = get_existing_translation_languages(socket, target_languages)
+
+    warnings =
+      if existing_languages != [] do
+        lang_names = format_language_names(existing_languages)
+        [{:will_overwrite, gettext("This will overwrite existing content in: %{languages}", languages: lang_names)} | warnings]
+      else
+        warnings
+      end
+
+    Enum.reverse(warnings)
+  end
+
+  defp get_existing_translation_languages(socket, target_languages) do
+    post = socket.assigns.post
+    available = post.available_languages || []
+
+    Enum.filter(target_languages, fn lang -> lang in available end)
+  end
+
+  defp format_language_names(language_codes) do
+    Enum.map_join(language_codes, ", ", fn code ->
+      info = Storage.get_language_info(code)
+      info[:name] || code
+    end)
+  end
+
+  defp source_content_blank?(socket) do
+    # Check the SOURCE language content, not the current displayed content
+    # When viewing a new translation, socket.assigns.content is empty by design
+    # The translation will read from the source/primary language
+    post = socket.assigns.post
+    blog_slug = socket.assigns.blog_slug
+
+    source_language =
+      post[:primary_language] ||
+        socket.assigns[:current_language] ||
+        Storage.get_primary_language()
+
+    current_version = socket.assigns[:current_version]
+
+    # If we're on the primary language, check current content
+    if socket.assigns[:current_language] == source_language do
+      content = socket.assigns.content || ""
+      String.trim(content) == ""
+    else
+      # Read the source language content from disk
+      case Publishing.read_post(blog_slug, post.slug, source_language, current_version) do
+        {:ok, source_post} ->
+          content = source_post.content || ""
+          String.trim(content) == ""
+
+        {:error, _} ->
+          # Can't read source - assume it's blank to be safe
+          true
+      end
     end
   end
 
