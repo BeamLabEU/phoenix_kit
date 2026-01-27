@@ -60,6 +60,9 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   @persistent_term_loaded_at_prefix :phoenix_kit_blog_listing_cache_loaded_at
   @persistent_term_file_generated_at_prefix :phoenix_kit_blog_listing_cache_file_generated_at
 
+  # ETS table for regeneration locks (provides atomic test-and-set via insert_new)
+  @lock_table :phoenix_kit_listing_cache_locks
+
   # New settings keys (write to these)
   @file_cache_key "publishing_file_cache_enabled"
   @memory_cache_key "publishing_memory_cache_enabled"
@@ -284,6 +287,141 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
         Logger.error("[ListingCache] Failed to write cache for #{blog_slug}: #{inspect(reason)}")
 
         error
+    end
+  end
+
+  # Lock timeout in milliseconds (30 seconds)
+  # If a lock is older than this, it's considered stale (process likely died)
+  @lock_timeout_ms 30_000
+
+  @doc """
+  Regenerates the cache if no other process is already regenerating it.
+
+  This prevents the "thundering herd" problem where multiple concurrent requests
+  all trigger cache regeneration simultaneously after a server restart.
+
+  Uses ETS with `insert_new/2` for atomic lock acquisition - only one process
+  can acquire the lock at a time. The lock includes a timestamp and will be
+  considered stale after #{@lock_timeout_ms}ms to prevent permanent lockout
+  if a process dies mid-regeneration.
+
+  Returns:
+  - `:ok` if regeneration was performed successfully
+  - `:already_in_progress` if another process is currently regenerating
+  - `{:error, reason}` if regeneration failed
+
+  ## Usage
+
+  On cache miss in read paths, use this instead of `regenerate/1`:
+
+      case ListingCache.regenerate_if_not_in_progress(blog_slug) do
+        :ok -> # Cache is ready, read from it
+        :already_in_progress -> # Fall back to filesystem scan
+        {:error, _} -> # Fall back to filesystem scan
+      end
+  """
+  @spec regenerate_if_not_in_progress(String.t()) :: :ok | :already_in_progress | {:error, any()}
+  def regenerate_if_not_in_progress(blog_slug) do
+    ensure_lock_table_exists()
+    now = System.monotonic_time(:millisecond)
+
+    # Try to atomically acquire the lock using ETS insert_new
+    # Returns true if inserted (lock acquired), false if key already exists
+    case :ets.insert_new(@lock_table, {blog_slug, now}) do
+      true ->
+        # We acquired the lock - perform regeneration
+        do_regenerate_with_lock(blog_slug)
+
+      false ->
+        # Lock exists - check if it's stale
+        handle_existing_lock(blog_slug, now)
+    end
+  end
+
+  # Handle case where lock already exists - check staleness
+  defp handle_existing_lock(blog_slug, now) do
+    case :ets.lookup(@lock_table, blog_slug) do
+      [{^blog_slug, lock_timestamp}] ->
+        lock_age = now - lock_timestamp
+
+        if lock_age < @lock_timeout_ms do
+          # Lock is valid and recent - another process is regenerating
+          Logger.debug(
+            "[ListingCache] Regeneration already in progress for #{blog_slug} (#{lock_age}ms ago), skipping"
+          )
+
+          :already_in_progress
+        else
+          # Lock is stale - previous process likely died
+          # Try to take over by deleting and re-acquiring atomically
+          take_over_stale_lock(blog_slug, lock_timestamp, lock_age, now)
+        end
+
+      [] ->
+        # Lock was released between insert_new and lookup - try again
+        regenerate_if_not_in_progress(blog_slug)
+    end
+  end
+
+  # Attempt to take over a stale lock using compare-and-delete
+  defp take_over_stale_lock(blog_slug, old_timestamp, lock_age, now) do
+    # Use match_delete for atomic compare-and-delete
+    # Only deletes if the timestamp matches (no one else took over)
+    case :ets.select_delete(@lock_table, [{{blog_slug, old_timestamp}, [], [true]}]) do
+      1 ->
+        # Successfully deleted stale lock - now try to acquire
+        Logger.warning(
+          "[ListingCache] Found stale lock for #{blog_slug} (#{lock_age}ms old), taking over regeneration"
+        )
+
+        case :ets.insert_new(@lock_table, {blog_slug, now}) do
+          true ->
+            do_regenerate_with_lock(blog_slug)
+
+          false ->
+            # Another process beat us to it
+            :already_in_progress
+        end
+
+      0 ->
+        # Lock was already taken over by another process or timestamp changed
+        :already_in_progress
+    end
+  end
+
+  # Perform regeneration while holding the lock
+  defp do_regenerate_with_lock(blog_slug) do
+    try do
+      result = regenerate(blog_slug)
+
+      case result do
+        :ok -> :ok
+        {:error, _} = error -> error
+      end
+    after
+      # Always release the lock when done (success or failure)
+      :ets.delete(@lock_table, blog_slug)
+    end
+  end
+
+  # Ensure the ETS table for locks exists (lazy initialization)
+  defp ensure_lock_table_exists do
+    case :ets.whereis(@lock_table) do
+      :undefined ->
+        # Table doesn't exist - create it
+        # Use :public so any process can read/write
+        # Use :named_table so we can reference by atom
+        # Use :set for key-value storage
+        try do
+          :ets.new(@lock_table, [:set, :public, :named_table])
+        rescue
+          ArgumentError ->
+            # Table was created by another process between whereis and new
+            :ok
+        end
+
+      _tid ->
+        :ok
     end
   end
 
