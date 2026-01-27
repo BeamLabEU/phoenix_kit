@@ -139,6 +139,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.CurrencyDisplay
       import PhoenixKitWeb.Components.Core.CookieConsent
       import PhoenixKitWeb.Components.Core.PkLink
+      import PhoenixKitWeb.Components.Core.Modal
     end
   end
 

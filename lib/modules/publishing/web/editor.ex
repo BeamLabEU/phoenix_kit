@@ -1112,7 +1112,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     # Check if source content is blank
     warnings =
       if source_content_blank?(socket) do
-        [{:source_blank, gettext("The source content is empty. This will create empty translation files.")} | warnings]
+        [{:warning, gettext("The source content is empty. This will create empty translation files.")} | warnings]
       else
         warnings
       end
@@ -1123,7 +1123,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     warnings =
       if existing_languages != [] do
         lang_names = format_language_names(existing_languages)
-        [{:will_overwrite, gettext("This will overwrite existing content in: %{languages}", languages: lang_names)} | warnings]
+        [{:warning, gettext("This will overwrite existing content in: %{languages}", languages: lang_names)} | warnings]
       else
         warnings
       end
