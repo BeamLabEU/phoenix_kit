@@ -25,6 +25,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   @legacy_render_cache_key "blogging_render_cache_enabled"
 
   def mount(_params, _session, socket) do
+    # Subscribe to group changes for live updates
+    if connected?(socket) do
+      PublishingPubSub.subscribe_to_groups()
+    end
+
     blogs = Publishing.list_groups()
     languages_enabled = Languages.enabled?()
 
@@ -67,13 +72,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   def handle_event("remove_group", %{"slug" => slug}, socket) do
     case Publishing.trash_group(slug) do
       {:ok, trashed_name} ->
-        # Broadcast blog deleted for live dashboard updates
-        PublishingPubSub.broadcast_group_deleted(slug)
-
+        # The `Publishing.trash_group` call triggers `remove_group`, which handles
+        # the broadcast. This LiveView will catch the event and update its state.
         {:noreply,
-         socket
-         |> assign(:blogs, Publishing.list_groups())
-         |> put_flash(
+         put_flash(
+           socket,
            :info,
            gettext("Blog moved to trash as: %{name}", name: trashed_name)
          )}
@@ -82,13 +85,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
         # Blog directory doesn't exist, just remove from config
         case Publishing.remove_group(slug) do
           {:ok, _} ->
-            # Broadcast blog deleted for live dashboard updates
-            PublishingPubSub.broadcast_group_deleted(slug)
-
-            {:noreply,
-             socket
-             |> assign(:blogs, Publishing.list_groups())
-             |> put_flash(:info, gettext("Blog removed from configuration"))}
+            # The `Publishing.remove_group` call handles the broadcast. This
+            # LiveView will catch the event and update its state.
+            {:noreply, put_flash(socket, :info, gettext("Blog removed from configuration"))}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to remove blog"))}
@@ -276,6 +275,34 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
      socket
      |> assign(:render_cache_per_blog, build_render_cache_per_blog(socket.assigns.blogs))
      |> put_flash(:info, cache_toggle_message("Render cache for #{slug}", new_value))}
+  end
+
+  # ============================================================================
+  # PubSub Handlers - Live updates when groups change elsewhere
+  # ============================================================================
+
+  def handle_info({:group_created, _group}, socket) do
+    {:noreply, refresh_blogs(socket)}
+  end
+
+  def handle_info({:group_deleted, _slug}, socket) do
+    {:noreply, refresh_blogs(socket)}
+  end
+
+  def handle_info({:group_updated, _group}, socket) do
+    {:noreply, refresh_blogs(socket)}
+  end
+
+  defp refresh_blogs(socket) do
+    blogs =
+      Publishing.list_groups()
+      |> add_legacy_status()
+      |> add_primary_language_status()
+
+    socket
+    |> assign(:blogs, blogs)
+    |> assign(:cache_status, build_cache_status(blogs))
+    |> assign(:render_cache_per_blog, build_render_cache_per_blog(blogs))
   end
 
   # Helper for dual-key cache setting reads

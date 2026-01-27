@@ -111,6 +111,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:ai_translation_progress, nil)
       |> assign(:ai_translation_total, nil)
       |> assign(:ai_translation_languages, [])
+      # Translation confirmation modal
+      |> assign(:show_translation_confirm, false)
+      |> assign(:pending_translation_languages, [])
+      |> assign(:translation_warnings, [])
       |> assign(
         :current_path,
         Routes.path("/admin/publishing/#{blog_slug}/edit")
@@ -233,8 +237,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               |> Path.dirname()
               |> Path.join("#{switch_to_lang}.phk")
 
+            # Get version before creating virtual post for status lookup
+            current_version = Map.get(post, :version, 1)
+
             virtual_post =
               post
+              |> Map.put(:original_language, post.language)
               |> Map.put(:path, new_path)
               |> Map.put(:language, switch_to_lang)
               |> Map.put(:blog, blog_slug)
@@ -243,12 +251,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               |> Map.put(:mode, post.mode)
               |> Map.put(:slug, post.slug)
 
-            form = post_form(virtual_post)
+            # Use primary language status for new translations
+            form = post_form_with_primary_status(blog_slug, virtual_post, current_version)
             fk = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
 
             # Recalculate viewing_older_version for the new translation language
             # Translations (non-primary languages) should not be locked
-            current_version = Map.get(post, :version, 1)
             available_versions = Map.get(post, :available_versions, [])
 
             sock =
@@ -284,11 +292,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
             {sock, fk}
           else
-            form = post_form(post)
+            version = Map.get(post, :version, 1)
+            form = post_form_with_primary_status(blog_slug, post, version)
             fk = PublishingPubSub.generate_form_key(blog_slug, post, :edit)
 
             # Check if we're editing a published version
-            is_published = Map.get(post.metadata, :status) == "published"
+            is_published = form["status"] == "published"
 
             sock =
               socket
@@ -643,6 +652,36 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
+  def handle_event("confirm_translation", _params, socket) do
+    # User confirmed they want to proceed with translation
+    target_languages = socket.assigns.pending_translation_languages
+
+    # Re-validate warnings in case post changed while modal was open
+    current_warnings = build_translation_warnings(socket, target_languages)
+
+    if current_warnings != socket.assigns.translation_warnings do
+      # Warnings changed - refresh modal with updated warnings
+      {:noreply, assign(socket, :translation_warnings, current_warnings)}
+    else
+      # Warnings unchanged - proceed with translation
+      socket =
+        socket
+        |> assign(:show_translation_confirm, false)
+        |> assign(:pending_translation_languages, [])
+        |> assign(:translation_warnings, [])
+
+      do_enqueue_translation(socket, target_languages)
+    end
+  end
+
+  def handle_event("cancel_translation", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_translation_confirm, false)
+     |> assign(:pending_translation_languages, [])
+     |> assign(:translation_warnings, [])}
+  end
+
   def handle_event("preview", _params, socket) do
     preview_payload = build_preview_payload(socket)
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
@@ -937,17 +976,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp switch_to_new_translation(socket, post, blog_slug, new_language, new_path) do
-    virtual_post = build_virtual_translation(post, blog_slug, new_language, new_path, socket)
     current_version = socket.assigns.current_version || 1
+    virtual_post = build_virtual_translation(post, blog_slug, new_language, new_path, socket)
     available_versions = socket.assigns.available_versions || []
     new_form_key = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
     old_form_key = socket.assigns[:form_key]
     old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
 
+    # Get status from primary language for new translations
+    form = post_form_with_primary_status(blog_slug, virtual_post, current_version)
+
     socket =
       socket
       |> assign(:post, virtual_post)
-      |> assign_form_with_tracking(post_form(virtual_post), slug_manually_set: false)
+      |> assign_form_with_tracking(form, slug_manually_set: false)
       |> assign(:content, "")
       |> assign_current_language(new_language)
       |> assign(
@@ -1055,7 +1097,100 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         {:noreply, put_flash(socket, empty_level, empty_message)}
 
       true ->
-        do_enqueue_translation(socket, target_languages)
+        # Build list of warnings for the confirmation modal
+        warnings = build_translation_warnings(socket, target_languages)
+
+        if warnings == [] do
+          # No warnings - proceed directly (e.g., translate missing only with non-blank source)
+          do_enqueue_translation(socket, target_languages)
+        else
+          # Show confirmation modal with warnings
+          {:noreply,
+           socket
+           |> assign(:show_translation_confirm, true)
+           |> assign(:pending_translation_languages, target_languages)
+           |> assign(:translation_warnings, warnings)}
+        end
+    end
+  end
+
+  defp build_translation_warnings(socket, target_languages) do
+    warnings = []
+
+    # Check if source content is blank
+    warnings =
+      if source_content_blank?(socket) do
+        [
+          {:warning,
+           gettext("The source content is empty. This will create empty translation files.")}
+          | warnings
+        ]
+      else
+        warnings
+      end
+
+    # Check if any target languages have existing content that will be overwritten
+    existing_languages = get_existing_translation_languages(socket, target_languages)
+
+    warnings =
+      if existing_languages != [] do
+        lang_names = format_language_names(existing_languages)
+
+        [
+          {:warning,
+           gettext("This will overwrite existing content in: %{languages}", languages: lang_names)}
+          | warnings
+        ]
+      else
+        warnings
+      end
+
+    Enum.reverse(warnings)
+  end
+
+  defp get_existing_translation_languages(socket, target_languages) do
+    post = socket.assigns.post
+    available = post.available_languages || []
+
+    Enum.filter(target_languages, fn lang -> lang in available end)
+  end
+
+  defp format_language_names(language_codes) do
+    Enum.map_join(language_codes, ", ", fn code ->
+      info = Storage.get_language_info(code)
+      info[:name] || code
+    end)
+  end
+
+  defp source_content_blank?(socket) do
+    # Check the SOURCE language content, not the current displayed content
+    # When viewing a new translation, socket.assigns.content is empty by design
+    # The translation will read from the source/primary language
+    post = socket.assigns.post
+    blog_slug = socket.assigns.blog_slug
+
+    source_language =
+      post[:primary_language] ||
+        socket.assigns[:current_language] ||
+        Storage.get_primary_language()
+
+    current_version = socket.assigns[:current_version]
+
+    # If we're on the primary language, check current content
+    if socket.assigns[:current_language] == source_language do
+      content = socket.assigns.content || ""
+      String.trim(content) == ""
+    else
+      # Read the source language content from disk
+      case Publishing.read_post(blog_slug, post.slug, source_language, current_version) do
+        {:ok, source_post} ->
+          content = source_post.content || ""
+          String.trim(content) == ""
+
+        {:error, _} ->
+          # Can't read source - assume it's blank to be safe
+          true
+      end
     end
   end
 
@@ -1169,8 +1304,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   defp apply_version_switch(socket, version, version_post) do
     blog_slug = socket.assigns.blog_slug
-    form = post_form(version_post)
-    is_published = Map.get(version_post.metadata, :status) == "published"
+    form = post_form_with_primary_status(blog_slug, version_post, version)
+    is_published = form["status"] == "published"
     actual_language = version_post.language
     new_form_key = PublishingPubSub.generate_form_key(blog_slug, version_post, :edit)
 
@@ -1465,6 +1600,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   # Handle translation progress event (after each language completes)
+  # This is broadcast AFTER the translation file is fully saved with content and status,
+  # so we refresh language info here to show real-time status updates in the language switcher
   def handle_info(
         {:translation_progress, blog_slug, post_slug, completed, total, _last_language},
         socket
@@ -1472,10 +1609,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns[:blog_slug] == blog_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
-      {:noreply,
-       socket
-       |> assign(:ai_translation_progress, completed)
-       |> assign(:ai_translation_total, total)}
+      # Update progress counters and refresh language statuses
+      socket =
+        socket
+        |> assign(:ai_translation_progress, completed)
+        |> assign(:ai_translation_total, total)
+        |> refresh_available_languages()
+
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
@@ -1532,7 +1673,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns[:blog_slug] == blog_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
-      # Refresh available languages by re-reading the post's languages from disk
+      # Refresh available languages and statuses by re-reading the post from disk
       case Publishing.read_post(blog_slug, socket.assigns.post.path) do
         {:ok, updated_post} ->
           socket =
@@ -1540,7 +1681,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             |> assign(:available_languages, updated_post.available_languages)
             |> assign(
               :post,
-              Map.put(socket.assigns.post, :available_languages, updated_post.available_languages)
+              socket.assigns.post
+              |> Map.put(:available_languages, updated_post.available_languages)
+              |> Map.put(:language_statuses, updated_post.language_statuses)
             )
 
           {:noreply, socket}
@@ -1955,7 +2098,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
          ) do
       {:ok, new_post} ->
         # Note: Publishing.add_language_to_post and update_post handle broadcasts internally
-        case Publishing.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
+        # Translations should never propagate their status to other languages
+        case Publishing.update_post(socket.assigns.blog_slug, new_post, params, %{
+               scope: scope,
+               is_primary_language: false
+             }) do
           {:ok, _updated_post} = result ->
             handle_post_update_result(socket, result, gettext("Translation created and saved"), %{
               is_new_translation: false,
@@ -2048,64 +2195,109 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     post = socket.assigns.post
     current_version = socket.assigns[:current_version]
     current_status = Map.get(post.metadata, :status)
+    is_primary_language = socket.assigns[:is_primary_language] == true
+
+    # For translations: if primary is not published, force status to match primary
+    params = enforce_translation_status(params, socket, is_primary_language)
     new_status = Map.get(params, "status")
 
     # Check if this is a status change TO published for a versioned post
-    # If so, we need to use publish_version which archives other versions
-    # IMPORTANT: Only trigger for primary language - translation status changes
-    # should not archive other versions
-    is_primary_language = socket.assigns[:is_primary_language] == true
-
     is_publishing =
-      is_primary_language and
-        new_status == "published" and
-        current_status != "published" and
-        current_version != nil and
-        not Map.get(post, :is_legacy_structure, false)
+      should_publish_version?(
+        is_primary_language,
+        new_status,
+        current_status,
+        current_version,
+        post
+      )
 
     # First update the post content/metadata
-    # Pass is_primary_language so storage can set status_manual when translator changes status
+    # Pass is_primary_language so storage can propagate status to translations correctly
     case Publishing.update_post(blog_slug, post, params, %{
            scope: scope,
            is_primary_language: is_primary_language
          }) do
       {:ok, updated_post} ->
-        # If publishing, call publish_version to archive other versions
-        if is_publishing do
-          # For timestamp mode, extract date/time from the post path directly
-          # This is more reliable than reconstructing from post.date/post.time
-          # For slug mode, use the slug directly
-          post_identifier =
-            case post.mode do
-              :timestamp ->
-                extract_timestamp_identifier(post.path)
-
-              _ ->
-                post.slug
-            end
-
-          case Publishing.publish_version(blog_slug, post_identifier, current_version) do
-            :ok ->
-              # Mark that we just published to ignore our own broadcast
-              socket = assign(socket, :just_published_version, current_version)
-              handle_post_save_success(socket, updated_post, old_path)
-
-            {:error, reason} ->
-              {:noreply,
-               put_flash(
-                 socket,
-                 :warning,
-                 gettext("Post saved but failed to archive other versions: %{reason}",
-                   reason: inspect(reason)
-                 )
-               )}
-          end
-        else
-          handle_post_save_success(socket, updated_post, old_path)
-        end
+        handle_successful_update(
+          socket,
+          updated_post,
+          old_path,
+          is_publishing,
+          post,
+          current_version
+        )
 
       {:error, error} ->
         handle_post_in_place_error(socket, error)
+    end
+  end
+
+  # Translations can only change status when primary is published
+  defp enforce_translation_status(params, _socket, true = _is_primary), do: params
+
+  defp enforce_translation_status(params, socket, false = _is_primary) do
+    primary_status = socket.assigns.form["status"]
+
+    if primary_status == "published" do
+      params
+    else
+      Map.put(params, "status", primary_status)
+    end
+  end
+
+  # Check if this is a status change TO published for a versioned post
+  # Only trigger for primary language - translations shouldn't archive other versions
+  defp should_publish_version?(is_primary, new_status, current_status, current_version, post) do
+    is_primary and
+      new_status == "published" and
+      current_status != "published" and
+      current_version != nil and
+      not Map.get(post, :is_legacy_structure, false)
+  end
+
+  defp handle_successful_update(
+         socket,
+         updated_post,
+         old_path,
+         false = _is_publishing,
+         _post,
+         _version
+       ) do
+    handle_post_save_success(socket, updated_post, old_path)
+  end
+
+  defp handle_successful_update(
+         socket,
+         updated_post,
+         old_path,
+         true = _is_publishing,
+         post,
+         current_version
+       ) do
+    blog_slug = socket.assigns.blog_slug
+
+    # For timestamp mode, extract date/time from the post path directly
+    # For slug mode, use the slug directly
+    post_identifier =
+      case post.mode do
+        :timestamp -> extract_timestamp_identifier(post.path)
+        _ -> post.slug
+      end
+
+    case Publishing.publish_version(blog_slug, post_identifier, current_version) do
+      :ok ->
+        socket = assign(socket, :just_published_version, current_version)
+        handle_post_save_success(socket, updated_post, old_path)
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :warning,
+           gettext("Post saved but failed to archive other versions: %{reason}",
+             reason: inspect(reason)
+           )
+         )}
     end
   end
 
@@ -2140,10 +2332,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         {:error, _} -> post
       end
 
-    form = post_form(refreshed_post)
+    form = post_form_with_primary_status(blog_slug, refreshed_post, current_version)
 
     # Check if post is now published (for versioning message updates)
-    is_published = Map.get(refreshed_post.metadata, :status) == "published"
+    is_published = form["status"] == "published"
 
     socket =
       socket
@@ -2379,6 +2571,30 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     base_form(post)
     |> add_slug_field_if_needed(post)
     |> normalize_form()
+  end
+
+  # Build form with status from primary language for translations
+  # For translations, always display the primary language's status
+  defp post_form_with_primary_status(blog_slug, post, version) do
+    form = post_form(post)
+    primary_language = post[:primary_language] || Storage.get_primary_language()
+    original_language = post[:original_language] || post.language
+
+    # If the post's *original* language is the primary, use its own status.
+    # Otherwise, it's a translation, so we need to fetch the primary status.
+    if original_language == primary_language do
+      form
+    else
+      # For translations, get status from primary language
+      case Publishing.read_post(blog_slug, post.slug, primary_language, version) do
+        {:ok, primary_post} ->
+          primary_status = Map.get(primary_post.metadata, :status, "draft")
+          Map.put(form, "status", primary_status)
+
+        {:error, _} ->
+          form
+      end
+    end
   end
 
   defp base_form(post) do
@@ -3498,7 +3714,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     case Publishing.read_post(blog_slug, post_path) do
       {:ok, updated_post} ->
-        form = post_form(updated_post)
+        current_version = socket.assigns[:current_version]
+        form = post_form_with_primary_status(blog_slug, updated_post, current_version)
 
         socket
         |> assign(:post, %{updated_post | group: blog_slug})
@@ -3515,14 +3732,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  # Refresh just the available_languages list (for language switcher updates)
+  # Refresh available_languages and language_statuses (for language switcher updates)
   defp refresh_available_languages(socket) do
     blog_slug = socket.assigns.blog_slug
     post_path = socket.assigns.post.path
 
     case Publishing.read_post(blog_slug, post_path) do
       {:ok, updated_post} ->
-        assign(socket, :available_languages, updated_post.available_languages)
+        socket
+        |> assign(:available_languages, updated_post.available_languages)
+        |> assign(
+          :post,
+          socket.assigns.post
+          |> Map.put(:available_languages, updated_post.available_languages)
+          |> Map.put(:language_statuses, updated_post.language_statuses)
+        )
 
       {:error, _reason} ->
         socket
@@ -3533,10 +3757,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp reload_post_from_disk(socket) do
     blog_slug = socket.assigns.blog_slug
     post_path = socket.assigns.post.path
+    current_version = socket.assigns[:current_version]
 
     case Publishing.read_post(blog_slug, post_path) do
       {:ok, updated_post} ->
-        form = post_form(updated_post)
+        form = post_form_with_primary_status(blog_slug, updated_post, current_version)
 
         socket
         |> assign(:post, %{updated_post | group: blog_slug})
