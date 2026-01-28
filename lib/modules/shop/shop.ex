@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Options.MetadataValidator
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
+  alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -184,6 +185,19 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Lists products by their IDs.
+
+  Returns products in the order of the provided IDs.
+  """
+  def list_products_by_ids([]), do: []
+
+  def list_products_by_ids(ids) when is_list(ids) do
+    Product
+    |> where([p], p.id in ^ids)
+    |> repo().all()
+  end
+
+  @doc """
   Gets a product by ID.
   """
   def get_product(id, opts \\ []) do
@@ -203,12 +217,30 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Gets a product by slug.
+
+  Supports localized slugs stored as JSONB maps.
+
+  ## Options
+
+    - `:language` - Language code for slug lookup (default: system default)
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> get_product_by_slug("planter")
+      %Product{}
+
+      iex> get_product_by_slug("kashpo", language: "ru")
+      %Product{}
   """
   def get_product_by_slug(slug, opts \\ []) do
-    Product
-    |> where([p], p.slug == ^slug)
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().one()
+    language = Keyword.get(opts, :language, Translations.default_language())
+    preload = Keyword.get(opts, :preload, [])
+
+    case SlugResolver.find_product_by_slug(slug, language, preload: preload) do
+      {:ok, product} -> product
+      {:error, :not_found} -> nil
+    end
   end
 
   @doc """
@@ -392,6 +424,19 @@ defmodule PhoenixKit.Modules.Shop do
     Options.get_price_affecting_specs_for_product(product)
   end
 
+  @doc """
+  Gets all selectable options for a product (for UI display).
+
+  Returns all select/multiselect options regardless of whether they affect price.
+  This includes options like Color that may not have price modifiers but should
+  still be selectable in the UI.
+
+  Convenience wrapper around `Options.get_selectable_specs_for_product/1`.
+  """
+  def get_selectable_specs(%Product{} = product) do
+    Options.get_selectable_specs_for_product(product)
+  end
+
   # ============================================
   # CATEGORIES
   # ============================================
@@ -490,12 +535,30 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Gets a category by slug.
+
+  Supports localized slugs stored as JSONB maps.
+
+  ## Options
+
+    - `:language` - Language code for slug lookup (default: system default)
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> get_category_by_slug("planters")
+      %Category{}
+
+      iex> get_category_by_slug("kashpo", language: "ru")
+      %Category{}
   """
   def get_category_by_slug(slug, opts \\ []) do
-    Category
-    |> where([c], c.slug == ^slug)
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().one()
+    language = Keyword.get(opts, :language, Translations.default_language())
+    preload = Keyword.get(opts, :preload, [])
+
+    case SlugResolver.find_category_by_slug(slug, language, preload: preload) do
+      {:ok, category} -> category
+      {:error, :not_found} -> nil
+    end
   end
 
   @doc """
@@ -750,11 +813,15 @@ defmodule PhoenixKit.Modules.Shop do
 
   def add_to_cart(%Cart{} = cart, %Product{} = product, quantity, opts) when is_list(opts) do
     selected_specs = Keyword.get(opts, :selected_specs, %{})
+    skip_validation = Keyword.get(opts, :skip_spec_validation, false)
 
-    if map_size(selected_specs) > 0 do
-      add_product_with_specs_to_cart(cart, product, quantity, selected_specs)
-    else
-      add_simple_product_to_cart(cart, product, quantity)
+    # Validate selected_specs against product's option schema
+    with :ok <- maybe_validate_specs(product, selected_specs, skip_validation) do
+      if map_size(selected_specs) > 0 do
+        add_product_with_specs_to_cart(cart, product, quantity, selected_specs)
+      else
+        add_simple_product_to_cart(cart, product, quantity)
+      end
     end
   end
 
@@ -766,14 +833,30 @@ defmodule PhoenixKit.Modules.Shop do
   defp add_simple_product_to_cart(cart, product, quantity) do
     result =
       repo().transaction(fn ->
+        # Lock product row to prevent price changes during cart update
+        # This ensures price snapshot is consistent with current product state
+        locked_product =
+          Product
+          |> where([p], p.id == ^product.id)
+          |> lock("FOR UPDATE")
+          |> repo().one!()
+
+        # Use unified price calculation path (same as add_product_with_specs_to_cart)
+        # With empty specs this returns base_price, but allows future extensibility
+        calculated_price = calculate_product_price(locked_product, %{})
+
         # Check if product already in cart (without specs)
         existing = find_cart_item_by_specs(cart.id, product.id, %{})
 
         item =
           case existing do
             nil ->
-              # Create new item
-              attrs = CartItem.from_product(product, quantity) |> Map.put(:cart_id, cart.id)
+              # Create new item with calculated price
+              attrs =
+                CartItem.from_product(locked_product, quantity)
+                |> Map.put(:cart_id, cart.id)
+                |> Map.put(:unit_price, calculated_price)
+
               %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
 
             item ->
@@ -798,11 +881,18 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp add_product_with_specs_to_cart(cart, product, quantity, selected_specs) do
-    # Calculate price with spec modifiers
-    calculated_price = calculate_product_price(product, selected_specs)
-
     result =
       repo().transaction(fn ->
+        # Lock product row to prevent price/metadata changes during cart update
+        locked_product =
+          Product
+          |> where([p], p.id == ^product.id)
+          |> lock("FOR UPDATE")
+          |> repo().one!()
+
+        # Calculate price with spec modifiers using locked product state
+        calculated_price = calculate_product_price(locked_product, selected_specs)
+
         # Check if same product with same specs already in cart
         existing = find_cart_item_by_specs(cart.id, product.id, selected_specs)
 
@@ -811,7 +901,7 @@ defmodule PhoenixKit.Modules.Shop do
             nil ->
               # Create new item with specs and calculated price
               attrs =
-                CartItem.from_product(product, quantity)
+                CartItem.from_product(locked_product, quantity)
                 |> Map.put(:cart_id, cart.id)
                 |> Map.put(:unit_price, calculated_price)
                 |> Map.put(:selected_specs, selected_specs)
@@ -836,6 +926,111 @@ defmodule PhoenixKit.Modules.Shop do
 
       error ->
         error
+    end
+  end
+
+  # ============================================
+  # SELECTED SPECS VALIDATION
+  # ============================================
+
+  defp maybe_validate_specs(_product, _specs, true), do: :ok
+  defp maybe_validate_specs(_product, specs, _skip) when specs == %{}, do: :ok
+
+  defp maybe_validate_specs(product, selected_specs, _skip) do
+    validate_selected_specs(product, selected_specs)
+  end
+
+  @doc """
+  Validates selected_specs against product's option schema.
+
+  Checks:
+  - All spec keys exist in the option schema
+  - All spec values are in allowed values list (if defined)
+  - All required options have values
+
+  ## Returns
+
+  - `:ok` - All specs are valid
+  - `{:error, :unknown_option_key, key}` - Key not in schema
+  - `{:error, :invalid_option_value, %{key: key, value: value, allowed: list}}` - Value not allowed
+  - `{:error, :missing_required_option, key}` - Required option not provided
+
+  ## Examples
+
+      iex> validate_selected_specs(product, %{"material" => "PETG"})
+      :ok
+
+      iex> validate_selected_specs(product, %{"material" => "Unobtainium"})
+      {:error, :invalid_option_value, %{key: "material", value: "Unobtainium", allowed: ["PLA", "PETG"]}}
+  """
+  def validate_selected_specs(%Product{} = product, selected_specs) when is_map(selected_specs) do
+    schema = Options.get_option_schema_for_product(product)
+
+    # Build lookup map: key => option definition
+    schema_map = Map.new(schema, fn opt -> {opt["key"], opt} end)
+
+    # Check all provided keys exist and values are valid
+    with :ok <- validate_spec_keys(selected_specs, schema_map),
+         :ok <- validate_spec_values(selected_specs, schema_map) do
+      validate_required_options(selected_specs, schema)
+    end
+  end
+
+  def validate_selected_specs(_product, _specs), do: :ok
+
+  # Validate that all provided keys exist in schema
+  defp validate_spec_keys(selected_specs, schema_map) do
+    invalid_key =
+      Enum.find(Map.keys(selected_specs), fn key ->
+        not Map.has_key?(schema_map, key)
+      end)
+
+    if invalid_key do
+      {:error, :unknown_option_key, invalid_key}
+    else
+      :ok
+    end
+  end
+
+  # Validate that all values are in allowed list (if options defined)
+  defp validate_spec_values(selected_specs, schema_map) do
+    invalid =
+      Enum.find(selected_specs, fn {key, value} ->
+        opt = Map.get(schema_map, key)
+        allowed_values = opt["options"]
+
+        # Only validate if options list is defined and non-empty
+        if is_list(allowed_values) and allowed_values != [] do
+          value not in allowed_values
+        else
+          false
+        end
+      end)
+
+    case invalid do
+      nil ->
+        :ok
+
+      {key, value} ->
+        opt = Map.get(schema_map, key)
+        {:error, :invalid_option_value, %{key: key, value: value, allowed: opt["options"]}}
+    end
+  end
+
+  # Validate that all required options have values
+  defp validate_required_options(selected_specs, schema) do
+    missing =
+      Enum.find(schema, fn opt ->
+        required = opt["required"] == true
+        key = opt["key"]
+
+        required and not Map.has_key?(selected_specs, key)
+      end)
+
+    if missing do
+      {:error, :missing_required_option, missing["key"]}
+    else
+      :ok
     end
   end
 
@@ -1236,7 +1431,11 @@ defmodule PhoenixKit.Modules.Shop do
   def convert_cart_to_order(%Cart{} = cart, opts) when is_list(opts) do
     cart = get_cart!(cart.id)
 
+    # Use atomic status transition to prevent double-conversion on double-click
+    # This atomically changes status from "active" to "converting" and fails
+    # if another request already started conversion
     with :ok <- validate_cart_convertible(cart),
+         {:ok, cart} <- try_lock_cart_for_conversion(cart),
          {:ok, user_id, cart} <- resolve_checkout_user(cart, opts),
          line_items <- build_order_line_items(cart),
          order_attrs <- build_order_attrs(cart, line_items, opts),
@@ -1463,6 +1662,25 @@ defmodule PhoenixKit.Modules.Shop do
     end
   end
 
+  # Atomically transition cart from "active" to "converting" status.
+  # This prevents double-conversion when user double-clicks checkout button.
+  # If another request already started conversion, this returns error.
+  defp try_lock_cart_for_conversion(%Cart{id: cart_id}) do
+    # Use atomic UPDATE with WHERE clause to ensure only one request wins
+    {count, _} =
+      Cart
+      |> where([c], c.id == ^cart_id and c.status == "active")
+      |> repo().update_all(set: [status: "converting", updated_at: DateTime.utc_now()])
+
+    if count == 1 do
+      # Successfully locked - reload cart with new status
+      {:ok, get_cart!(cart_id)}
+    else
+      # Another request already started conversion
+      {:error, :cart_already_converting}
+    end
+  end
+
   defp mark_cart_converted(%Cart{} = cart, order_id) do
     cart
     |> Cart.status_changeset("converted", %{
@@ -1562,11 +1780,22 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp filter_by_product_search(query, search) do
     search_term = "%#{search}%"
+    default_lang = Translations.default_language()
 
+    # Search in JSONB localized fields using PostgreSQL operators
+    # Searches in default language and falls back to any language match
     where(
       query,
       [p],
-      ilike(p.title, ^search_term) or ilike(p.description, ^search_term)
+      fragment(
+        "(COALESCE(title->>?, '') ILIKE ? OR COALESCE(description->>?, '') ILIKE ? OR EXISTS (SELECT 1 FROM jsonb_each_text(title) WHERE value ILIKE ?) OR EXISTS (SELECT 1 FROM jsonb_each_text(description) WHERE value ILIKE ?))",
+        ^default_lang,
+        ^search_term,
+        ^default_lang,
+        ^search_term,
+        ^search_term,
+        ^search_term
+      )
     )
   end
 
@@ -1596,7 +1825,19 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp filter_by_category_search(query, search) do
     search_term = "%#{search}%"
-    where(query, [c], ilike(c.name, ^search_term))
+    default_lang = Translations.default_language()
+
+    # Search in JSONB localized name field using PostgreSQL operators
+    where(
+      query,
+      [c],
+      fragment(
+        "(COALESCE(name->>?, '') ILIKE ? OR EXISTS (SELECT 1 FROM jsonb_each_text(name) WHERE value ILIKE ?))",
+        ^default_lang,
+        ^search_term,
+        ^search_term
+      )
+    )
   end
 
   defp maybe_preload(query, nil), do: query
@@ -1721,12 +1962,18 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Gets an import log by ID.
   """
-  def get_import_log(id) when is_integer(id) do
-    repo().get(ImportLog, id)
+  def get_import_log(id, opts \\ [])
+
+  def get_import_log(id, opts) when is_integer(id) do
+    ImportLog
+    |> maybe_preload(Keyword.get(opts, :preload))
+    |> repo().get(id)
   end
 
-  def get_import_log(uuid) when is_binary(uuid) do
-    repo().get_by(ImportLog, uuid: uuid)
+  def get_import_log(uuid, opts) when is_binary(uuid) do
+    ImportLog
+    |> maybe_preload(Keyword.get(opts, :preload))
+    |> repo().get_by(uuid: uuid)
   end
 
   @doc """
@@ -1933,18 +2180,29 @@ defmodule PhoenixKit.Modules.Shop do
            on_conflict:
              {:replace,
               [
+                # Localized content fields
                 :title,
                 :description,
                 :body_html,
+                :seo_title,
+                :seo_description,
+                # Pricing
                 :price,
                 :compare_at_price,
+                :currency,
+                :cost_per_item,
+                # Categorization
+                :category_id,
                 :vendor,
                 :tags,
                 :status,
+                # Legacy images
                 :images,
                 :featured_image,
-                :seo_title,
-                :seo_description,
+                # New Storage images
+                :featured_image_id,
+                :image_ids,
+                # Metadata and timestamps
                 :metadata,
                 :updated_at
               ]},

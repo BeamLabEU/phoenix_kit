@@ -10,7 +10,7 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
   - `select` - Single choice dropdown (requires options)
   - `multiselect` - Multiple choice selection (requires options)
 
-  ## Option Schema Format
+  ## Option Schema Format (Simple)
 
       %{
         "key" => "material",
@@ -29,6 +29,28 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
           "PETG" => "10.00"
         }
       }
+
+  ## Option Schema Format (Enhanced with Localization)
+
+      %{
+        "key" => "color",
+        "label" => %{"en" => "Color", "ru" => "Цвет"},
+        "type" => "select",
+        "allow_multiple_slots" => true,
+        "options" => [
+          %{"value" => "red", "label" => %{"en" => "Red", "ru" => "Красный"}, "hex" => "#FF0000"},
+          %{"value" => "blue", "label" => %{"en" => "Blue", "ru" => "Синий"}, "hex" => "#0000FF"}
+        ]
+      }
+
+  ## Multiple Slots
+
+  When `allow_multiple_slots: true`, the same global option can be used
+  multiple times in a product with different slot names. For example:
+
+  - Global option "color" can be used as "cup_color" and "liquid_color"
+  - Slots are stored in product metadata["_option_slots"]
+  - Each slot references the source global option key
 
   ## Price Modifiers
 
@@ -89,6 +111,63 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
   def valid_modifier_type?(_), do: false
 
   @doc """
+  Extracts option values from options list.
+
+  Works with both simple string format and enhanced map format:
+  - Simple: ["Red", "Blue"] -> ["Red", "Blue"]
+  - Enhanced: [%{"value" => "red", "label" => ...}] -> ["red"]
+  """
+  def get_option_values(options) when is_list(options) do
+    Enum.map(options, &extract_option_value/1)
+  end
+
+  def get_option_values(_), do: []
+
+  defp extract_option_value(opt) when is_binary(opt), do: opt
+  defp extract_option_value(%{"value" => value}) when is_binary(value), do: value
+  defp extract_option_value(_), do: nil
+
+  @doc """
+  Gets localized label for an option or option value.
+
+  Handles both string labels and localized map labels.
+  Falls back to default language or first available.
+  """
+  def get_label(label, language \\ "en")
+
+  def get_label(label, _language) when is_binary(label), do: label
+
+  def get_label(label, language) when is_map(label) do
+    # Try exact language match
+    case Map.get(label, language) do
+      nil ->
+        # Try "en" as fallback
+        case Map.get(label, "en") do
+          nil ->
+            # Use first available value
+            case Map.values(label) do
+              [first | _] -> first
+              [] -> ""
+            end
+
+          en_label ->
+            en_label
+        end
+
+      lang_label ->
+        lang_label
+    end
+  end
+
+  def get_label(_, _), do: ""
+
+  @doc """
+  Checks if option allows multiple slots.
+  """
+  def allows_multiple_slots?(%{"allow_multiple_slots" => true}), do: true
+  def allows_multiple_slots?(_), do: false
+
+  @doc """
   Checks if a type requires options array.
   """
   def requires_options?("select"), do: true
@@ -136,7 +215,9 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
   def validate_option(opt) when is_map(opt) do
     with :ok <- validate_required_keys(opt),
          :ok <- validate_key_format(opt),
+         :ok <- validate_label_format(opt),
          :ok <- validate_type(opt),
+         :ok <- validate_allow_multiple_slots(opt),
          :ok <- validate_select_options(opt),
          :ok <- validate_price_modifiers(opt) do
       {:ok, normalize_option(opt)}
@@ -183,6 +264,29 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
 
   defp validate_key_format(_), do: {:error, "Key must be a string"}
 
+  # Label can be a string or a localized map
+  defp validate_label_format(%{"label" => label}) when is_binary(label), do: :ok
+
+  defp validate_label_format(%{"label" => label}) when is_map(label) do
+    # Localized format: %{"en" => "Color", "ru" => "Цвет"}
+    if Enum.all?(label, fn {k, v} -> is_binary(k) and is_binary(v) end) do
+      :ok
+    else
+      {:error, "Localized label must be a map of language code => string"}
+    end
+  end
+
+  defp validate_label_format(_), do: {:error, "Label must be a string or localized map"}
+
+  # allow_multiple_slots is optional boolean
+  defp validate_allow_multiple_slots(%{"allow_multiple_slots" => value}) when is_boolean(value),
+    do: :ok
+
+  defp validate_allow_multiple_slots(%{"allow_multiple_slots" => _}),
+    do: {:error, "allow_multiple_slots must be a boolean"}
+
+  defp validate_allow_multiple_slots(_), do: :ok
+
   defp validate_type(%{"type" => type}) do
     if valid_type?(type) do
       :ok
@@ -200,11 +304,16 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
       Enum.empty?(options) ->
         {:error, "Options cannot be empty for #{type} type"}
 
-      not Enum.all?(options, &is_binary/1) ->
-        {:error, "All options must be strings"}
+      Enum.all?(options, &is_binary/1) ->
+        # Simple string format - valid
+        :ok
+
+      Enum.all?(options, &valid_option_map?/1) ->
+        # Enhanced map format - valid
+        :ok
 
       true ->
-        :ok
+        {:error, "Options must be strings or maps with 'value' key"}
     end
   end
 
@@ -213,6 +322,14 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
   end
 
   defp validate_select_options(_), do: :ok
+
+  # Validates an option map has required 'value' key
+  defp valid_option_map?(opt) when is_map(opt) do
+    value = opt["value"]
+    is_binary(value) and value != ""
+  end
+
+  defp valid_option_map?(_), do: false
 
   # Validate price modifiers for select/multiselect types
   defp validate_price_modifiers(%{"type" => type, "affects_price" => true} = opt)
@@ -236,10 +353,11 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
   defp validate_price_modifiers_map(opt) do
     case opt do
       %{"price_modifiers" => modifiers} when is_map(modifiers) ->
-        options = opt["options"] || []
+        # Extract option values using helper that handles both formats
+        option_values = get_option_values(opt["options"] || [])
 
         # Check that all options have modifiers
-        missing = Enum.filter(options, fn o -> !Map.has_key?(modifiers, o) end)
+        missing = Enum.filter(option_values, fn o -> !Map.has_key?(modifiers, o) end)
 
         cond do
           missing != [] ->
@@ -292,11 +410,12 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
 
   defp normalize_affects_price(%{"affects_price" => true} = opt) do
     # Ensure price_modifiers has "0" as default for missing options
-    options = opt["options"] || []
+    # Use helper that handles both simple and enhanced formats
+    option_values = get_option_values(opt["options"] || [])
     modifiers = opt["price_modifiers"] || %{}
 
     normalized_modifiers =
-      Enum.reduce(options, modifiers, fn o, acc ->
+      Enum.reduce(option_values, modifiers, fn o, acc ->
         Map.put_new(acc, o, "0")
       end)
 

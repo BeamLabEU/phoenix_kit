@@ -73,6 +73,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     metadata = product.metadata || %{}
     price_affecting_options = get_price_affecting_options(option_schema)
 
+    # Build list of valid image IDs for this product
+    gallery_ids = product.image_ids || []
+    featured_id = product.featured_image_id
+    valid_image_ids = if featured_id, do: [featured_id | gallery_ids], else: gallery_ids
+
+    # Clean stale image mappings (images that no longer exist)
+    {metadata, had_stale_mappings} = clean_stale_image_mappings(metadata, valid_image_ids)
+
     # Calculate price range for display (pass metadata for custom modifiers)
     base_price = product.price || Decimal.new("0")
 
@@ -103,12 +111,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:media_selection_mode, :single)
     |> assign(:media_selection_target, nil)
     |> assign(:featured_image_id, product.featured_image_id)
-    |> assign(:gallery_image_ids, product.image_ids || [])
+    |> assign(:gallery_image_ids, gallery_ids)
     |> assign(:new_value_inputs, %{})
     |> assign(:selected_option_values, selected_option_values)
     |> assign(:add_option_key, "")
     |> assign(:add_option_value, "")
     |> assign_translation_state(product)
+    |> maybe_warn_stale_mappings(had_stale_mappings)
   end
 
   # Assign translation-related state (localized fields model)
@@ -259,6 +268,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
         socket.assigns.option_schema,
         socket.assigns[:original_option_values] || %{}
       )
+
+    # Clean up _image_mappings - remove empty values and invalid image IDs
+    valid_image_ids = build_valid_image_ids(socket.assigns)
+    metadata = clean_image_mappings(metadata, valid_image_ids)
 
     # Clean up metadata - convert multiselect arrays if needed
     cleaned_metadata =
@@ -1568,6 +1581,81 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
             </div>
           <% end %>
 
+          <%!-- Variant Images Section - supports both Storage and legacy URL-based images --%>
+          <% has_storage_images = @gallery_image_ids != [] or @featured_image_id != nil %>
+          <% legacy_images = get_legacy_images(@product) %>
+          <% has_legacy_images = legacy_images != [] %>
+          <%= if (has_storage_images or has_legacy_images) and has_mappable_options?(assigns) do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">
+                  <.icon name="hero-photo" class="w-5 h-5" /> Variant Images
+                </h2>
+                <p class="text-sm text-base-content/60 mb-4">
+                  Link images to option values. When a customer selects an option, the corresponding image displays.
+                </p>
+
+                <%= for {option_key, option_values} <- get_mappable_options(assigns) do %>
+                  <div class="p-4 bg-base-200 rounded-lg mb-4">
+                    <h3 class="font-medium mb-3">{humanize_key(option_key)}</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <%= for value <- option_values do %>
+                        <div class="flex flex-col gap-2">
+                          <span class="text-sm font-medium">{value}</span>
+                          <select
+                            name={"product[metadata][_image_mappings][#{option_key}][#{value}]"}
+                            class="select select-bordered select-sm"
+                          >
+                            <option value="">No image</option>
+                            <%!-- Storage images (preferred) --%>
+                            <%= for {image_id, idx} <- Enum.with_index(@gallery_image_ids) do %>
+                              <option
+                                value={image_id}
+                                selected={get_image_mapping(@metadata, option_key, value) == image_id}
+                              >
+                                Gallery image #{idx + 1}
+                              </option>
+                            <% end %>
+                            <%= if @featured_image_id do %>
+                              <option
+                                value={@featured_image_id}
+                                selected={
+                                  get_image_mapping(@metadata, option_key, value) ==
+                                    @featured_image_id
+                                }
+                              >
+                                Featured image
+                              </option>
+                            <% end %>
+                            <%!-- Legacy URL-based images (from Shopify imports) --%>
+                            <%= if not has_storage_images and has_legacy_images do %>
+                              <%= for {url, idx} <- Enum.with_index(legacy_images) do %>
+                                <option
+                                  value={url}
+                                  selected={get_image_mapping(@metadata, option_key, value) == url}
+                                >
+                                  Legacy image #{idx + 1}
+                                </option>
+                              <% end %>
+                            <% end %>
+                          </select>
+                          <%!-- Preview thumbnail --%>
+                          <%= if mapping = get_image_mapping(@metadata, option_key, value) do %>
+                            <img
+                              src={get_image_url_or_direct(mapping, "thumbnail")}
+                              class="w-16 h-16 object-cover rounded"
+                              alt={"Preview for #{value}"}
+                            />
+                          <% end %>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
           <%!-- Product Images --%>
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
@@ -1724,6 +1812,29 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   rescue
     _ -> nil
   end
+
+  # Get image URL - supports both Storage IDs and direct URLs
+  # Used for preview thumbnails in variant image mapping
+  defp get_image_url_or_direct(nil, _variant), do: nil
+  defp get_image_url_or_direct("http" <> _ = url, _variant), do: url
+
+  defp get_image_url_or_direct(file_id, variant) do
+    URLSigner.signed_url(file_id, variant)
+  rescue
+    _ -> nil
+  end
+
+  # Get legacy image URLs from product.images (Shopify import format)
+  defp get_legacy_images(%{images: images}) when is_list(images) do
+    Enum.map(images, &extract_image_url/1) |> Enum.reject(&is_nil/1)
+  end
+
+  defp get_legacy_images(_), do: []
+
+  # Extract URL from legacy image (handles both map and string formats)
+  defp extract_image_url(%{"src" => src}) when is_binary(src), do: src
+  defp extract_image_url(url) when is_binary(url), do: url
+  defp extract_image_url(_), do: nil
 
   # Format price for display with currency
   defp format_price(nil, _currency), do: "—"
@@ -2161,5 +2272,158 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> Map.put("body_html", localized_attrs[:body_html])
     |> Map.put("seo_title", localized_attrs[:seo_title])
     |> Map.put("seo_description", localized_attrs[:seo_description])
+  end
+
+  # ===========================================
+  # IMAGE MAPPING HELPERS
+  # ===========================================
+
+  # Build list of valid image IDs from socket assigns
+  defp build_valid_image_ids(assigns) do
+    gallery_ids = assigns[:gallery_image_ids] || []
+    featured_id = assigns[:featured_image_id]
+
+    if featured_id do
+      [featured_id | gallery_ids]
+    else
+      gallery_ids
+    end
+  end
+
+  # Clean up _image_mappings - remove empty values and invalid image IDs
+  # Preserves URL values (starting with "http") for legacy Shopify images
+  defp clean_image_mappings(metadata, valid_image_ids) do
+    case metadata["_image_mappings"] do
+      nil ->
+        metadata
+
+      mappings when is_map(mappings) ->
+        cleaned =
+          mappings
+          |> Enum.map(fn {option_key, value_mappings} ->
+            cleaned_values =
+              value_mappings
+              |> Enum.reject(&invalid_image_mapping?(&1, valid_image_ids))
+              |> Map.new()
+
+            {option_key, cleaned_values}
+          end)
+          |> Enum.reject(fn {_k, v} -> v == %{} end)
+          |> Map.new()
+
+        if cleaned == %{} do
+          Map.delete(metadata, "_image_mappings")
+        else
+          Map.put(metadata, "_image_mappings", cleaned)
+        end
+
+      _ ->
+        metadata
+    end
+  end
+
+  # Check if mapping is invalid (should be rejected)
+  # Keep URLs (legacy images) and valid Storage IDs
+  defp invalid_image_mapping?({_v, image_id}, _valid_ids) when image_id in ["", nil], do: true
+  defp invalid_image_mapping?({_v, "http" <> _}, _valid_ids), do: false
+  defp invalid_image_mapping?({_v, image_id}, valid_ids), do: image_id not in valid_ids
+
+  # Clean stale image mappings on product load, returns {cleaned_metadata, had_stale?}
+  # Preserves URL values (starting with "http") for legacy Shopify images
+  defp clean_stale_image_mappings(metadata, valid_ids) do
+    case metadata["_image_mappings"] do
+      nil ->
+        {metadata, false}
+
+      mappings when is_map(mappings) ->
+        # Count original mappings
+        original_count =
+          Enum.reduce(mappings, 0, fn {_k, v}, acc ->
+            acc + map_size(v)
+          end)
+
+        # Clean mappings - keep URLs and valid Storage IDs
+        cleaned =
+          Enum.map(mappings, fn {key, value_map} ->
+            filtered =
+              value_map
+              |> Enum.reject(&invalid_image_mapping?(&1, valid_ids))
+              |> Map.new()
+
+            {key, filtered}
+          end)
+          |> Enum.reject(fn {_k, v} -> v == %{} end)
+          |> Map.new()
+
+        # Count cleaned mappings
+        cleaned_count =
+          Enum.reduce(cleaned, 0, fn {_k, v}, acc ->
+            acc + map_size(v)
+          end)
+
+        had_stale = cleaned_count < original_count
+
+        updated_metadata =
+          if cleaned == %{},
+            do: Map.delete(metadata, "_image_mappings"),
+            else: Map.put(metadata, "_image_mappings", cleaned)
+
+        {updated_metadata, had_stale}
+
+      _ ->
+        {metadata, false}
+    end
+  end
+
+  # Show warning if stale mappings were cleaned
+  defp maybe_warn_stale_mappings(socket, false), do: socket
+
+  defp maybe_warn_stale_mappings(socket, true) do
+    put_flash(
+      socket,
+      :warning,
+      "Some variant image mappings were removed because the linked images no longer exist."
+    )
+  end
+
+  # Check if product has mappable options (select/multiselect with values)
+  defp has_mappable_options?(assigns) do
+    assigns[:original_option_values] != %{} or
+      Enum.any?(assigns[:option_schema] || [], fn opt ->
+        opt["type"] in ["select", "multiselect"] and (opt["options"] || []) != []
+      end)
+  end
+
+  # Get all mappable options with their values
+  # Combines schema options with product-specific option values
+  defp get_mappable_options(assigns) do
+    # Get options from schema
+    schema_options =
+      (assigns[:option_schema] || [])
+      |> Enum.filter(&(&1["type"] in ["select", "multiselect"]))
+      |> Enum.map(&{&1["key"], &1["options"] || []})
+      |> Map.new()
+
+    # Get product-specific option values (from imports or manual additions)
+    product_options = assigns[:original_option_values] || %{}
+
+    # Merge: schema provides base, product overrides/extends
+    Map.merge(schema_options, product_options, fn _k, schema, product ->
+      Enum.uniq(schema ++ product)
+    end)
+    |> Enum.reject(fn {_k, v} -> v == [] end)
+    |> Enum.sort_by(fn {k, _v} -> k end)
+  end
+
+  # Get image mapping for option key + value from metadata
+  defp get_image_mapping(metadata, option_key, value) do
+    get_in(metadata, ["_image_mappings", option_key, value])
+  end
+
+  # Humanize option key for display (color -> Color, frame_material -> Frame material)
+  defp humanize_key(key) do
+    key
+    |> String.replace("_", " ")
+    |> String.capitalize()
   end
 end

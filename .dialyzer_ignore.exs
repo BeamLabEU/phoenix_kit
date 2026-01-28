@@ -118,5 +118,10 @@
 
   # Dashboard context selector - MapSet opaque type false positives
   # Dialyzer can't properly track MapSet opaque types through recursive functions
-  ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*call_without_opaque/
+  ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*call_without_opaque/,
+
+  # Shop catalog_product - false positive guard_fail warning
+  # Case statement already handles nil in earlier branch, Dialyzer incorrectly warns
+  # that remaining branch comparing binary() to nil can never succeed
+  {"lib/modules/shop/web/catalog_product.ex", :guard_fail}
 ]

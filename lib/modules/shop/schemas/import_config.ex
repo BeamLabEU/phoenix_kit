@@ -17,6 +17,7 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
   - `required_columns` - CSV columns that must be present
   - `is_default` - Use this config when none specified
   - `active` - Config is available for use
+  - `option_mappings` - Mappings from CSV option columns to global options
 
   ## Example Category Rules
 
@@ -24,6 +25,24 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
         %{"keywords" => ["shelf"], "slug" => "shelves"},
         %{"keywords" => ["mask"], "slug" => "masks"},
         %{"keywords" => ["vase", "planter"], "slug" => "vases-planters"}
+      ]
+
+  ## Example Option Mappings
+
+      [
+        %{
+          "csv_name" => "Cup Color",
+          "slot_key" => "cup_color",
+          "source_key" => "color",
+          "auto_add" => true,
+          "label" => %{"en" => "Cup Color", "ru" => "Цвет чашки"}
+        },
+        %{
+          "csv_name" => "Liquid Color",
+          "slot_key" => "liquid_color",
+          "source_key" => "color",
+          "auto_add" => true
+        }
       ]
   """
 
@@ -53,6 +72,12 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
     field :is_default, :boolean, default: false
     field :active, :boolean, default: true
 
+    # Image migration options
+    field :download_images, :boolean, default: false
+
+    # Option mappings for CSV import (JSONB)
+    field :option_mappings, {:array, :map}, default: []
+
     timestamps()
   end
 
@@ -71,12 +96,15 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
       :default_category_slug,
       :required_columns,
       :is_default,
-      :active
+      :active,
+      :download_images,
+      :option_mappings
     ])
     |> validate_required([:name])
     |> unique_constraint(:name)
     |> unique_constraint(:uuid)
     |> validate_category_rules()
+    |> validate_option_mappings()
     |> generate_uuid()
   end
 
@@ -109,6 +137,37 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
   end
 
   defp valid_category_rule?(_), do: false
+
+  defp validate_option_mappings(changeset) do
+    case get_field(changeset, :option_mappings) do
+      nil ->
+        changeset
+
+      mappings when is_list(mappings) ->
+        if Enum.all?(mappings, &valid_option_mapping?/1) do
+          changeset
+        else
+          add_error(
+            changeset,
+            :option_mappings,
+            "each mapping must have 'csv_name' (string) and 'slot_key' (string)"
+          )
+        end
+
+      _ ->
+        add_error(changeset, :option_mappings, "must be a list of mapping objects")
+    end
+  end
+
+  defp valid_option_mapping?(mapping) when is_map(mapping) do
+    csv_name = mapping["csv_name"] || mapping[:csv_name]
+    slot_key = mapping["slot_key"] || mapping[:slot_key]
+
+    is_binary(csv_name) and csv_name != "" and
+      is_binary(slot_key) and slot_key != ""
+  end
+
+  defp valid_option_mapping?(_), do: false
 
   defp generate_uuid(changeset) do
     if get_field(changeset, :uuid) do

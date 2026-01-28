@@ -28,6 +28,10 @@ defmodule PhoenixKit.Migrations.UUIDRepair do
   3. Are used by Ecto schemas in migrations before V40
 
   Primary tables:
+  - phoenix_kit_users (used by all auth operations)
+  - phoenix_kit_users_tokens (used by login/registration)
+  - phoenix_kit_user_roles (used by role system)
+  - phoenix_kit_user_role_assignments (used by role system)
   - phoenix_kit_settings (used by V35, V36)
   - phoenix_kit_email_templates (used by V31)
   """
@@ -35,6 +39,12 @@ defmodule PhoenixKit.Migrations.UUIDRepair do
   require Logger
 
   @tables_needing_repair [
+    # Auth tables (V01) - CRITICAL for login/registration
+    :phoenix_kit_users,
+    :phoenix_kit_users_tokens,
+    :phoenix_kit_user_roles,
+    :phoenix_kit_user_role_assignments,
+    # Original tables
     :phoenix_kit_settings,
     :phoenix_kit_email_templates
   ]

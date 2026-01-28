@@ -1531,9 +1531,15 @@ defmodule PhoenixKit.Modules.Storage do
          metadata,
          user_id
        ) do
+    # Extract file_path (directory) from destination_path
+    # destination_path is like "01/ab/0123456789abcdef_original.jpg"
+    # file_path should be "01/ab/0123456789abcdef" (without filename)
+    file_path = Path.dirname(storage_info.destination_path)
+
     %{
       original_file_name: filename,
       file_name: storage_info.destination_path,
+      file_path: file_path,
       mime_type: content_type,
       file_type: determine_file_type(content_type),
       ext: Path.extname(filename),
@@ -1617,17 +1623,24 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
-  Creates file location records for a file instance across specified buckets.
+  Creates file locations for a file instance across specified buckets.
+
+  Returns `{:ok, locations}` on success or `{:error, :file_locations_failed, errors}` if any insertions fail.
 
   ## Parameters
 
-  - `file_instance_id` - The file instance UUID
-  - `bucket_ids` - List of bucket UUIDs where the file is stored
-  - `file_path` - The storage path of the file
+    * `file_instance_id` - The ID of the file instance
+    * `bucket_ids` - List of bucket IDs to create locations for
+    * `file_path` - The storage path for the file
 
-  ## Returns
+  ## Examples
 
-  - `:ok` - Locations created successfully
+      iex> create_file_locations_for_instance(instance_id, [bucket_id], "path/to/file")
+      {:ok, [%FileLocation{}]}
+
+      iex> create_file_locations_for_instance(instance_id, [invalid_bucket], "path")
+      {:error, :file_locations_failed, [{bucket_id, changeset}]}
+
   """
   def create_file_locations_for_instance(file_instance_id, bucket_ids, file_path) do
     create_file_locations(file_instance_id, bucket_ids, file_path)
@@ -1640,18 +1653,32 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp create_file_locations(file_instance_id, bucket_ids, file_path) do
-    Enum.each(bucket_ids, fn bucket_id ->
-      location_attrs = %{
-        path: file_path,
-        status: "active",
-        priority: 0,
-        file_instance_id: file_instance_id,
-        bucket_id: bucket_id
-      }
+    results =
+      Enum.map(bucket_ids, fn bucket_id ->
+        location_attrs = %{
+          path: file_path,
+          status: "active",
+          priority: 0,
+          file_instance_id: file_instance_id,
+          bucket_id: bucket_id
+        }
 
-      repo().insert(%FileLocation{} |> FileLocation.changeset(location_attrs))
-    end)
+        case repo().insert(%FileLocation{} |> FileLocation.changeset(location_attrs)) do
+          {:ok, location} -> {:ok, location}
+          {:error, changeset} -> {:error, bucket_id, changeset}
+        end
+      end)
 
-    :ok
+    errors = Enum.filter(results, &match?({:error, _, _}, &1))
+
+    if errors == [] do
+      locations = Enum.map(results, fn {:ok, loc} -> loc end)
+      {:ok, locations}
+    else
+      error_details =
+        Enum.map(errors, fn {:error, bucket_id, changeset} -> {bucket_id, changeset} end)
+
+      {:error, :file_locations_failed, error_details}
+    end
   end
 end

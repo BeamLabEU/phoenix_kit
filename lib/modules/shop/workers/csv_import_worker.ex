@@ -37,6 +37,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Import.{CSVParser, CSVValidator, Filter, ProductTransformer}
   alias PhoenixKit.Modules.Shop.ImportConfig
+  alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker
   alias PhoenixKit.PubSub.Manager
 
   require Logger
@@ -49,6 +51,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     path = Map.fetch!(args, "path")
     config_id = Map.get(args, "config_id")
     language = Map.get(args, "language")
+    option_mappings = Map.get(args, "option_mappings", [])
+    download_images = Map.get(args, "download_images", false)
 
     Logger.info("CSVImportWorker: Starting import #{import_log_id} from #{path}")
 
@@ -57,7 +61,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
          :ok <- validate_file(path, config),
          {:ok, total_rows} <- count_products(path, config),
          {:ok, import_log} <- start_import(import_log, total_rows),
-         {:ok, stats} <- process_file(import_log, path, config, language),
+         {:ok, stats} <-
+           process_file(import_log, path, config, language, option_mappings, download_images),
          {:ok, _import_log} <- complete_import(import_log, stats) do
       cleanup_file(path)
       broadcast_complete(import_log_id, stats)
@@ -150,16 +155,22 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp process_file(import_log, path, config, language) do
+  defp process_file(import_log, path, config, language, option_mappings, download_images_arg) do
     categories_map = build_categories_map()
     grouped = CSVParser.parse_and_group(path)
+
+    # Check if we should download images to Storage (from arg or config)
+    download_images = download_images_arg || should_download_images?(config)
+    user_id = import_log.user_id
 
     stats = %{
       imported_count: 0,
       updated_count: 0,
       skipped_count: 0,
       error_count: 0,
-      error_details: []
+      error_details: [],
+      image_jobs_queued: 0,
+      product_ids: []
     }
 
     result =
@@ -167,8 +178,11 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows, config) end)
       |> Enum.with_index(1)
       |> Enum.reduce(stats, fn {{handle, rows}, index}, acc ->
-        result = process_product(handle, rows, categories_map, config, language)
+        result = process_product(handle, rows, categories_map, config, language, option_mappings)
         new_acc = update_stats(acc, result)
+
+        # Queue image migration if enabled and product was created/updated
+        new_acc = maybe_queue_image_migration(new_acc, result, download_images, user_id)
 
         # Broadcast progress at intervals
         if rem(index, @progress_interval) == 0 do
@@ -185,16 +199,30 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       {:error, {:process_error, e}}
   end
 
-  defp process_product(handle, rows, categories_map, config, language) do
+  defp process_product(handle, rows, categories_map, config, language, option_mappings) do
     transform_opts = if language, do: [language: language], else: []
-    attrs = ProductTransformer.transform(handle, rows, categories_map, config, transform_opts)
+    transform_opts = Keyword.put(transform_opts, :option_mappings, option_mappings)
+
+    # Use extended transform if we have option mappings
+    attrs =
+      if option_mappings != [] do
+        ProductTransformer.transform_extended(
+          handle,
+          rows,
+          categories_map,
+          config,
+          transform_opts
+        )
+      else
+        ProductTransformer.transform(handle, rows, categories_map, config, transform_opts)
+      end
 
     case Shop.upsert_product(attrs) do
-      {:ok, _product, :inserted} ->
-        {:imported, handle}
+      {:ok, product, :inserted} ->
+        {:imported, handle, product}
 
-      {:ok, _product, :updated} ->
-        {:updated, handle}
+      {:ok, product, :updated} ->
+        {:updated, handle, product}
 
       {:error, changeset} ->
         {:error, handle, changeset}
@@ -206,11 +234,19 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp update_stats(stats, result) do
     case result do
-      {:imported, _handle} ->
-        %{stats | imported_count: stats.imported_count + 1}
+      {:imported, _handle, product} ->
+        %{
+          stats
+          | imported_count: stats.imported_count + 1,
+            product_ids: [product.id | stats.product_ids]
+        }
 
-      {:updated, _handle} ->
-        %{stats | updated_count: stats.updated_count + 1}
+      {:updated, _handle, product} ->
+        %{
+          stats
+          | updated_count: stats.updated_count + 1,
+            product_ids: [product.id | stats.product_ids]
+        }
 
       {:error, handle, error} ->
         error_detail = %{
@@ -233,8 +269,56 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp format_error(error), do: inspect(error)
 
+  defp should_download_images?(%ImportConfig{download_images: true}), do: true
+  defp should_download_images?(_), do: false
+
+  defp maybe_queue_image_migration(stats, result, download_images, user_id) do
+    if download_images do
+      case result do
+        {:imported, _handle, product} ->
+          queue_image_job(product, user_id)
+          %{stats | image_jobs_queued: stats.image_jobs_queued + 1}
+
+        {:updated, _handle, product} ->
+          queue_image_job(product, user_id)
+          %{stats | image_jobs_queued: stats.image_jobs_queued + 1}
+
+        _ ->
+          stats
+      end
+    else
+      stats
+    end
+  end
+
+  defp queue_image_job(product, user_id) do
+    # Only queue if product has legacy images but no storage images
+    has_legacy = has_legacy_images?(product)
+    has_storage = has_storage_images?(product)
+
+    if has_legacy and not has_storage do
+      ImageMigrationWorker.new(%{
+        product_id: product.id,
+        user_id: user_id
+      })
+      |> Oban.insert()
+    end
+  end
+
+  defp has_legacy_images?(product) do
+    (is_list(product.images) and product.images != []) or
+      (is_binary(product.featured_image) and String.starts_with?(product.featured_image, "http"))
+  end
+
+  defp has_storage_images?(product) do
+    not is_nil(product.featured_image_id) or
+      (is_list(product.image_ids) and product.image_ids != [])
+  end
+
   defp complete_import(import_log, stats) do
-    Shop.complete_import(import_log, stats)
+    # Reverse product_ids to correct order (list was built by prepending)
+    corrected_stats = Map.update!(stats, :product_ids, &Enum.reverse/1)
+    Shop.complete_import(import_log, corrected_stats)
   end
 
   defp handle_failure(import_log_id, reason) do
@@ -255,9 +339,18 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp build_categories_map do
+    lang = Translations.default_language()
+
     Shop.list_categories()
     |> Enum.reduce(%{}, fn cat, acc ->
-      Map.put(acc, cat.slug, cat.id)
+      # Extract string slug from JSONB map for map key
+      slug = Translations.get(cat, :slug, lang)
+
+      if slug && slug != "" do
+        Map.put(acc, slug, cat.id)
+      else
+        acc
+      end
     end)
   end
 
@@ -286,15 +379,25 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp broadcast_complete(import_log_id, stats) do
     broadcast(import_log_id, {:import_complete, stats})
+    # Also broadcast to general topic so all subscribers get notified
+    broadcast_general({:import_complete, %{import_log_id: import_log_id, stats: stats}})
   end
 
   defp broadcast_failed(import_log_id, reason) do
     broadcast(import_log_id, {:import_failed, %{reason: inspect(reason)}})
+    # Also broadcast to general topic so all subscribers get notified
+    broadcast_general({:import_failed, %{import_log_id: import_log_id, reason: inspect(reason)}})
   end
 
   defp broadcast(import_log_id, message) do
     topic = "shop:import:#{import_log_id}"
     Manager.broadcast(topic, message)
+  rescue
+    _ -> :ok
+  end
+
+  defp broadcast_general(message) do
+    Manager.broadcast("shop:imports", message)
   rescue
     _ -> :ok
   end

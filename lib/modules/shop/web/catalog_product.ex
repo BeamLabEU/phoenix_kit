@@ -17,6 +17,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
 
+  # Data URI placeholder for broken images - works without external file serving
+  @placeholder_data_uri "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23e5e7eb'/%3E%3Cg fill='%239ca3af'%3E%3Crect x='160' y='140' width='80' height='60' rx='4'/%3E%3Ccircle cx='180' cy='160' r='8'/%3E%3Cpath d='M160 190 l25-20 l15 15 l20-25 l20 30 v10 h-80 z'/%3E%3C/g%3E%3C/svg%3E"
+
   @impl true
   def mount(%{"slug" => slug} = params, session, socket) do
     # Determine language: use URL locale param if present, otherwise default
@@ -53,8 +56,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         # Load price-affecting specs for dynamic pricing
         price_affecting_specs = Shop.get_price_affecting_specs(product)
 
+        # Load ALL selectable specs for UI display (includes non-price-affecting like Color)
+        selectable_specs = Shop.get_selectable_specs(product)
+
         # Initialize selected specs with defaults from product metadata
-        selected_specs = build_default_specs(price_affecting_specs, product.metadata || %{})
+        # Use selectable_specs to include all options, not just price-affecting
+        selected_specs = build_default_specs(selectable_specs, product.metadata || %{})
 
         # Calculate initial price
         calculated_price = Shop.calculate_product_price(product, selected_specs)
@@ -62,8 +69,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         # Check if product is already in cart
         cart_item = find_cart_item_with_specs(user_id, session_id, product.id, selected_specs)
 
-        # Calculate missing required specs for UI
-        missing_required_specs = get_missing_required_specs(selected_specs, price_affecting_specs)
+        # Calculate missing required specs for UI (check all selectable specs, not just price-affecting)
+        missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
 
         # Build dashboard tabs with shop categories for authenticated users
         dashboard_tabs =
@@ -107,6 +114,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           |> assign(:cart_item, cart_item)
           |> assign(:specifications, specifications)
           |> assign(:price_affecting_specs, price_affecting_specs)
+          |> assign(:selectable_specs, selectable_specs)
           |> assign(:selected_specs, selected_specs)
           |> assign(:calculated_price, calculated_price)
           |> assign(:missing_required_specs, missing_required_specs)
@@ -259,10 +267,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
     selected_specs = Map.put(socket.assigns.selected_specs, key, value)
     product = socket.assigns.product
-    price_affecting_specs = socket.assigns.price_affecting_specs
+    selectable_specs = socket.assigns.selectable_specs
 
     # Recalculate price with new spec selection
     calculated_price = Shop.calculate_product_price(product, selected_specs)
+
+    # Check for image mapping - update selected_image if mapping exists
+    selected_image = get_mapped_image(product, key, value, socket.assigns.selected_image)
 
     # Check if this combination is in cart
     cart_item =
@@ -273,13 +284,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         selected_specs
       )
 
-    # Update missing required specs for UI
-    missing_required_specs = get_missing_required_specs(selected_specs, price_affecting_specs)
+    # Update missing required specs for UI (check all selectable specs)
+    missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
 
     socket =
       socket
       |> assign(:selected_specs, selected_specs)
       |> assign(:calculated_price, calculated_price)
+      |> assign(:selected_image, selected_image)
       |> assign(:cart_item, cart_item)
       |> assign(:missing_required_specs, missing_required_specs)
 
@@ -300,11 +312,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   defp do_add_to_cart(socket) do
     %{
       selected_specs: selected_specs,
-      price_affecting_specs: price_affecting_specs
+      selectable_specs: selectable_specs
     } = socket.assigns
 
-    # Validate required options before proceeding
-    case validate_required_specs(selected_specs, price_affecting_specs) do
+    # Validate required options before proceeding (check all selectable specs)
+    case validate_required_specs(selected_specs, selectable_specs) do
       :ok ->
         do_add_to_cart_impl(socket)
 
@@ -439,6 +451,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                   src={@selected_image}
                   alt={@localized_title}
                   class="w-full h-full object-cover"
+                  onerror={"this.src='#{placeholder_image_url()}'"}
                 />
               <% else %>
                 <div class="w-full h-full flex items-center justify-center">
@@ -465,14 +478,19 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                       )
                     ]}
                   >
-                    <img src={thumb_url} alt="Thumbnail" class="w-full h-full object-cover" />
+                    <img
+                      src={thumb_url}
+                      alt="Thumbnail"
+                      class="w-full h-full object-cover"
+                      onerror={"this.src='#{placeholder_image_url()}'"}
+                    />
                   </button>
                 <% end %>
               </div>
             <% end %>
 
-            <%!-- Legacy URL-based thumbnails --%>
-            <%= if has_multiple_images?(@product) do %>
+            <%!-- Legacy URL-based thumbnails (only show if no Storage images) --%>
+            <%= if has_multiple_images?(@product) and get_display_images(@product) == [] do %>
               <div class="flex gap-2 overflow-x-auto py-2">
                 <%= for {image, _idx} <- Enum.with_index(@product.images || []) do %>
                   <% url = image_url(image) %>
@@ -492,6 +510,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                         src={url}
                         alt="Thumbnail"
                         class="w-full h-full object-cover"
+                        onerror={"this.src='#{placeholder_image_url()}'"}
                       />
                     </button>
                   <% end %>
@@ -602,16 +621,17 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
             <%!-- Add to Cart Section --%>
             <%= if @product.status == "active" do %>
               <div class="space-y-4">
-                <%!-- Option Selector (Price-Affecting Specs) --%>
-                <%= if @price_affecting_specs != [] do %>
+                <%!-- Option Selector (All Selectable Options) --%>
+                <%= if @selectable_specs != [] do %>
                   <div class="space-y-4">
                     <h3 class="font-semibold text-lg">
                       <.icon name="hero-adjustments-horizontal" class="w-5 h-5 inline" />
                       Choose Options
                     </h3>
 
-                    <%= for attr <- @price_affecting_specs do %>
+                    <%= for attr <- @selectable_specs do %>
                       <% is_missing = MapSet.member?(@missing_required_specs, attr["key"]) %>
+                      <% affects_price = attr["affects_price"] == true %>
                       <div class="form-control">
                         <label class="label">
                           <span class={[
@@ -629,22 +649,31 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                         <% end %>
                         <div class="flex flex-wrap gap-2">
                           <%= for opt_value <- get_option_values(@product, attr) do %>
-                            <.option_button
-                              option_key={attr["key"]}
-                              option_value={opt_value}
-                              price={
-                                calculate_option_total_price(
-                                  @product,
-                                  @price_affecting_specs,
-                                  @selected_specs,
-                                  attr["key"],
-                                  opt_value
-                                )
-                              }
-                              selected={@selected_specs[attr["key"]] == opt_value}
-                              is_missing={is_missing}
-                              currency={@currency}
-                            />
+                            <%= if affects_price do %>
+                              <.option_button
+                                option_key={attr["key"]}
+                                option_value={opt_value}
+                                price={
+                                  calculate_option_total_price(
+                                    @product,
+                                    @price_affecting_specs,
+                                    @selected_specs,
+                                    attr["key"],
+                                    opt_value
+                                  )
+                                }
+                                selected={@selected_specs[attr["key"]] == opt_value}
+                                is_missing={is_missing}
+                                currency={@currency}
+                              />
+                            <% else %>
+                              <.option_button_simple
+                                option_key={attr["key"]}
+                                option_value={opt_value}
+                                selected={@selected_specs[attr["key"]] == opt_value}
+                                is_missing={is_missing}
+                              />
+                            <% end %>
                           <% end %>
                         </div>
                       </div>
@@ -790,6 +819,31 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     """
   end
 
+  # Simple option button without price - for non-price-affecting options
+  attr :option_key, :any, required: true
+  attr :option_value, :any, required: true
+  attr :selected, :boolean, default: false
+  attr :is_missing, :boolean, default: false
+
+  defp option_button_simple(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click="select_spec"
+      phx-value-key={@option_key}
+      phx-value-opt={@option_value}
+      class={[
+        "btn btn-sm",
+        @selected && "btn-primary",
+        !@selected && "btn-outline",
+        !@selected && @is_missing && "btn-error btn-outline"
+      ]}
+    >
+      {@option_value}
+    </button>
+    """
+  end
+
   # Layout wrapper - uses dashboard for authenticated, wide layout for guests
   slot :inner_block, required: true
 
@@ -857,11 +911,25 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   # Image helpers - prefer Storage images over legacy URL-based images
-  defp first_image(%{featured_image_id: id}) when not is_nil(id) do
+
+  # Get mapped image URL for selected option value, or keep current image if no mapping
+  # Supports both Storage IDs and legacy URLs (from Shopify imports)
+  defp get_mapped_image(product, option_key, option_value, current_image) do
+    case get_in(product.metadata || %{}, ["_image_mappings", option_key, option_value]) do
+      nil -> current_image
+      "" -> current_image
+      # If it's a URL (starts with http), use directly
+      "http" <> _ = url -> url
+      # Otherwise it's a Storage ID
+      image_id -> get_storage_image_url(image_id, "large") || current_image
+    end
+  end
+
+  defp first_image(%{featured_image_id: id}) when is_binary(id) do
     get_storage_image_url(id, "large")
   end
 
-  defp first_image(%{image_ids: [id | _]}) when not is_nil(id) do
+  defp first_image(%{image_ids: [id | _]}) when is_binary(id) do
     get_storage_image_url(id, "large")
   end
 
@@ -874,7 +942,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   defp image_url(url) when is_binary(url), do: url
   defp image_url(_), do: nil
 
-  defp has_storage_images?(%{featured_image_id: id}) when not is_nil(id), do: true
+  defp has_storage_images?(%{featured_image_id: id}) when is_binary(id), do: true
   defp has_storage_images?(%{image_ids: [_ | _]}), do: true
   defp has_storage_images?(_), do: false
 
@@ -890,26 +958,48 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     end
   end
 
-  # Get all product Storage image IDs (featured + gallery)
+  # Get all product Storage image IDs (featured + gallery, no duplicates)
   defp product_image_ids(%{featured_image_id: nil, image_ids: ids}), do: ids || []
 
   defp product_image_ids(%{featured_image_id: featured, image_ids: ids}) do
-    [featured | ids || []]
+    # Ensure featured is first, but don't duplicate if already in ids
+    all_ids = ids || []
+
+    if featured in all_ids do
+      # Move featured to front if not already there
+      [featured | Enum.reject(all_ids, &(&1 == featured))]
+    else
+      [featured | all_ids]
+    end
   end
 
   defp product_image_ids(_), do: []
 
-  defp get_storage_image_url(nil, _variant), do: nil
+  defp get_storage_image_url(nil, _variant), do: placeholder_image_url()
 
   defp get_storage_image_url(file_id, variant) do
+    # Storage.get_file/1 returns %File{} struct or nil (not {:ok, file} tuple)
     case Storage.get_file(file_id) do
-      {:ok, _file} ->
-        URLSigner.signed_url(file_id, variant)
+      %{id: id} = _file ->
+        # Check if requested variant exists, fall back to original if not
+        case Storage.get_file_instance_by_name(id, variant) do
+          nil ->
+            # Variant doesn't exist - try original
+            case Storage.get_file_instance_by_name(id, "original") do
+              nil -> placeholder_image_url()
+              _instance -> URLSigner.signed_url(file_id, "original")
+            end
 
-      _ ->
-        nil
+          _instance ->
+            URLSigner.signed_url(file_id, variant)
+        end
+
+      nil ->
+        placeholder_image_url()
     end
   end
+
+  defp placeholder_image_url, do: @placeholder_data_uri
 
   defp format_price(nil, _currency), do: "-"
 

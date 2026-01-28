@@ -367,7 +367,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Enables explicit language tagging for CSV imports
   - Solves language ambiguity problem when changing default language
 
-  ### V48 - Post and Comment Dislikes ⚡ LATEST
+  ### V48 - Post and Comment Dislikes
   - Creates `phoenix_kit_post_dislikes` table for post dislikes
   - Creates `phoenix_kit_comment_likes` table for comment likes
   - Creates `phoenix_kit_comment_dislikes` table for comment dislikes
@@ -375,6 +375,13 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds `dislike_count` column to `phoenix_kit_post_comments`
   - Unique constraint ensures one like/dislike per user per post/comment
   - Frontend can choose to display likes, dislikes, both, or net score
+
+  ### V49 - Shop Import Enhancements ⚡ LATEST
+  - Adds option_mappings JSONB column to import_configs for CSV option mapping
+  - Supports mapping CSV options to global options with slot configuration
+  - Structure: [{csv_name, slot_key, source_key, auto_add, label}]
+  - Adds product_ids INTEGER[] column to import_logs for tracking imported products
+  - Enables import detail view showing all products created/updated during import
 
   ## Migration Paths
 
@@ -434,7 +441,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 48
+  @current_version 49
   @default_prefix "public"
 
   @doc false

@@ -351,9 +351,42 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
     """
   end
 
+  # Storage-based images (new format)
+  defp first_image(%{featured_image_id: id}) when is_binary(id) do
+    get_storage_image_url(id, "small")
+  end
+
+  defp first_image(%{image_ids: [id | _]}) when is_binary(id) do
+    get_storage_image_url(id, "small")
+  end
+
+  # Legacy URL-based images (Shopify imports)
   defp first_image(%{images: [%{"src" => src} | _]}), do: src
   defp first_image(%{images: [first | _]}) when is_binary(first), do: first
   defp first_image(_), do: nil
+
+  # Get signed URL for Storage image
+  defp get_storage_image_url(file_id, variant) do
+    alias PhoenixKit.Modules.Storage
+    alias PhoenixKit.Modules.Storage.URLSigner
+
+    case Storage.get_file(file_id) do
+      %{id: id} ->
+        case Storage.get_file_instance_by_name(id, variant) do
+          nil ->
+            case Storage.get_file_instance_by_name(id, "original") do
+              nil -> nil
+              _instance -> URLSigner.signed_url(file_id, "original")
+            end
+
+          _instance ->
+            URLSigner.signed_url(file_id, variant)
+        end
+
+      nil ->
+        nil
+    end
+  end
 
   defp format_price(nil, _currency), do: "-"
 
