@@ -64,10 +64,20 @@ defmodule PhoenixKit.Modules.Shop.Options.MetadataValidator do
     option_values = Map.get(metadata, "_option_values", %{})
     price_modifiers = Map.get(metadata, "_price_modifiers", %{})
 
-    Enum.flat_map(price_modifiers, fn {option_key, values} when is_map(values) ->
-      available_values = Map.get(option_values, option_key, [])
-      validate_option_modifiers(option_key, values, available_values)
-    end)
+    # Guard against non-map price_modifiers
+    if is_map(price_modifiers) do
+      Enum.flat_map(price_modifiers, fn
+        {option_key, values} when is_map(values) ->
+          available_values = Map.get(option_values, option_key, [])
+          validate_option_modifiers(option_key, values, available_values)
+
+        {option_key, _invalid} ->
+          # Skip non-map values but could log warning
+          [{option_key, "price_modifiers values must be a map"}]
+      end)
+    else
+      [{"_price_modifiers", "must be a map"}]
+    end
   end
 
   def validate_consistency(_), do: []
@@ -120,15 +130,22 @@ defmodule PhoenixKit.Modules.Shop.Options.MetadataValidator do
 
   def clean_orphaned_modifiers(metadata), do: metadata
 
-  defp clean_all_modifiers(price_modifiers, option_values) do
+  defp clean_all_modifiers(price_modifiers, option_values) when is_map(price_modifiers) do
     price_modifiers
-    |> Enum.map(fn {option_key, values} when is_map(values) ->
-      available_values = Map.get(option_values, option_key, [])
-      {option_key, clean_option_modifiers(values, available_values)}
+    |> Enum.flat_map(fn
+      {option_key, values} when is_map(values) ->
+        available_values = Map.get(option_values, option_key, [])
+        [{option_key, clean_option_modifiers(values, available_values)}]
+
+      {_option_key, _invalid} ->
+        # Skip non-map values
+        []
     end)
     |> Enum.reject(fn {_k, v} -> v == %{} end)
     |> Map.new()
   end
+
+  defp clean_all_modifiers(_invalid, _option_values), do: %{}
 
   # If no option_values for this key, keep all modifiers (schema-based)
   defp clean_option_modifiers(values, []), do: values

@@ -87,9 +87,16 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   end
 
   # Build a localized field map for a single value
+  # Idempotent: if value is already a map with string keys, return as-is
   defp localized_map(nil, _language), do: %{}
   defp localized_map("", _language), do: %{}
-  defp localized_map(value, language), do: %{language => value}
+
+  defp localized_map(value, _language) when is_map(value) do
+    # Already a localized map - return as-is to prevent double-wrapping
+    value
+  end
+
+  defp localized_map(value, language) when is_binary(value), do: %{language => value}
 
   @doc """
   Resolves category_id from slug, auto-creating if necessary.

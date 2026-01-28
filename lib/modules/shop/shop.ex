@@ -1625,11 +1625,22 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp filter_by_product_search(query, search) do
     search_term = "%#{search}%"
+    default_lang = Translations.default_language()
 
+    # Search in JSONB localized fields using PostgreSQL operators
+    # Searches in default language and falls back to any language match
     where(
       query,
       [p],
-      ilike(p.title, ^search_term) or ilike(p.description, ^search_term)
+      fragment(
+        "(COALESCE(title->>?, '') ILIKE ? OR COALESCE(description->>?, '') ILIKE ? OR EXISTS (SELECT 1 FROM jsonb_each_text(title) WHERE value ILIKE ?) OR EXISTS (SELECT 1 FROM jsonb_each_text(description) WHERE value ILIKE ?))",
+        ^default_lang,
+        ^search_term,
+        ^default_lang,
+        ^search_term,
+        ^search_term,
+        ^search_term
+      )
     )
   end
 
@@ -1659,7 +1670,19 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp filter_by_category_search(query, search) do
     search_term = "%#{search}%"
-    where(query, [c], ilike(c.name, ^search_term))
+    default_lang = Translations.default_language()
+
+    # Search in JSONB localized name field using PostgreSQL operators
+    where(
+      query,
+      [c],
+      fragment(
+        "(COALESCE(name->>?, '') ILIKE ? OR EXISTS (SELECT 1 FROM jsonb_each_text(name) WHERE value ILIKE ?))",
+        ^default_lang,
+        ^search_term,
+        ^search_term
+      )
+    )
   end
 
   defp maybe_preload(query, nil), do: query
