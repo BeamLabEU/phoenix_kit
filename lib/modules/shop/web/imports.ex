@@ -32,6 +32,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       Manager.subscribe("shop:imports")
       # Subscribe to image migration updates
       Manager.subscribe("shop:image_migration:batch")
+
+      # Subscribe to any active imports (processing status)
+      subscribe_to_active_imports()
     end
 
     # Language selection for import
@@ -192,60 +195,23 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_event("retry_import", %{"id" => id}, socket) do
-    case Shop.get_import_log(id) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "Import not found")}
+    case parse_id(id) do
+      {:ok, import_id} ->
+        do_retry_import(import_id, socket)
 
-      import_log ->
-        if import_log.status == "failed" && import_log.file_path &&
-             File.exists?(import_log.file_path) do
-          # Reset import log status
-          {:ok, updated_log} =
-            Shop.update_import_log(import_log, %{status: "pending", error_details: []})
-
-          # Re-enqueue job with language
-          language = socket.assigns.current_language
-
-          %{import_log_id: updated_log.id, path: import_log.file_path, language: language}
-          |> CSVImportWorker.new()
-          |> Oban.insert()
-
-          # Subscribe to updates
-          Manager.subscribe("shop:import:#{updated_log.id}")
-
-          socket =
-            socket
-            |> assign(:current_import, updated_log)
-            |> assign(:import_progress, %{percent: 0, current: 0, total: 0})
-            |> assign(:imports, list_imports())
-            |> put_flash(:info, "Retrying import: #{import_log.filename}")
-
-          {:noreply, socket}
-        else
-          {:noreply, put_flash(socket, :error, "Cannot retry: file no longer exists")}
-        end
+      :error ->
+        {:noreply, put_flash(socket, :error, "Invalid import ID")}
     end
   end
 
   @impl true
   def handle_event("delete_import", %{"id" => id}, socket) do
-    case Shop.get_import_log(id) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "Import not found")}
+    case parse_id(id) do
+      {:ok, import_id} ->
+        do_delete_import(import_id, socket)
 
-      import_log ->
-        case Shop.delete_import_log(import_log) do
-          {:ok, _} ->
-            socket =
-              socket
-              |> assign(:imports, list_imports())
-              |> put_flash(:info, "Import log deleted")
-
-            {:noreply, socket}
-
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Failed to delete import log")}
-        end
+      :error ->
+        {:noreply, put_flash(socket, :error, "Invalid import ID")}
     end
   end
 
@@ -317,10 +283,16 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_info({:import_complete, _stats}, socket) do
+    # Reset wizard to upload step when import completes
     socket =
       socket
       |> assign(:current_import, nil)
       |> assign(:import_progress, nil)
+      |> assign(:import_step, :upload)
+      |> assign(:csv_analysis, nil)
+      |> assign(:option_mappings, [])
+      |> assign(:uploaded_file_path, nil)
+      |> assign(:uploaded_filename, nil)
       |> assign(:imports, list_imports())
       |> put_flash(:info, "Import completed successfully!")
 
@@ -329,10 +301,16 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_info({:import_failed, %{reason: reason}}, socket) do
+    # Reset wizard to upload step when import fails
     socket =
       socket
       |> assign(:current_import, nil)
       |> assign(:import_progress, nil)
+      |> assign(:import_step, :upload)
+      |> assign(:csv_analysis, nil)
+      |> assign(:option_mappings, [])
+      |> assign(:uploaded_file_path, nil)
+      |> assign(:uploaded_filename, nil)
       |> assign(:imports, list_imports())
       |> put_flash(:error, "Import failed: #{reason}")
 
@@ -398,6 +376,84 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     Shop.list_import_logs(limit: 20, order_by: [desc: :inserted_at])
   end
 
+  # Subscribe to any imports currently in "processing" status
+  defp subscribe_to_active_imports do
+    Shop.list_import_logs(limit: 10, order_by: [desc: :inserted_at])
+    |> Enum.filter(&(&1.status == "processing"))
+    |> Enum.each(fn import_log ->
+      Manager.subscribe("shop:import:#{import_log.id}")
+    end)
+  end
+
+  # Parse ID from phx-value (comes as string from the template)
+  defp parse_id(id) when is_integer(id), do: {:ok, id}
+
+  defp parse_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int, ""} -> {:ok, int}
+      _ -> :error
+    end
+  end
+
+  defp parse_id(_), do: :error
+
+  defp do_retry_import(import_id, socket) do
+    case Shop.get_import_log(import_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Import not found")}
+
+      import_log ->
+        if import_log.status == "failed" && import_log.file_path &&
+             File.exists?(import_log.file_path) do
+          # Reset import log status
+          {:ok, updated_log} =
+            Shop.update_import_log(import_log, %{status: "pending", error_details: []})
+
+          # Re-enqueue job with language
+          language = socket.assigns.current_language
+
+          %{import_log_id: updated_log.id, path: import_log.file_path, language: language}
+          |> CSVImportWorker.new()
+          |> Oban.insert()
+
+          # Subscribe to updates
+          Manager.subscribe("shop:import:#{updated_log.id}")
+
+          socket =
+            socket
+            |> assign(:current_import, updated_log)
+            |> assign(:import_progress, %{percent: 0, current: 0, total: 0})
+            |> assign(:imports, list_imports())
+            |> put_flash(:info, "Retrying import: #{import_log.filename}")
+
+          {:noreply, socket}
+        else
+          {:noreply, put_flash(socket, :error, "Cannot retry: file no longer exists")}
+        end
+    end
+  end
+
+  defp do_delete_import(import_id, socket) do
+    case Shop.get_import_log(import_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Import not found")}
+
+      import_log ->
+        case Shop.delete_import_log(import_log) do
+          {:ok, _} ->
+            socket =
+              socket
+              |> assign(:imports, list_imports())
+              |> put_flash(:info, "Import log deleted")
+
+            {:noreply, socket}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to delete import log")}
+        end
+    end
+  end
+
   # Run import with given mappings
   defp run_import_with_mappings(socket, mappings) do
     user = socket.assigns.phoenix_kit_current_scope.user
@@ -418,14 +474,16 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
            options: %{"option_mappings" => worker_mappings}
          }) do
       {:ok, import_log} ->
-        # Enqueue Oban job with language and mappings
+        # Enqueue Oban job with language, mappings, and download_images option
         language = socket.assigns.current_language
+        download_images = socket.assigns.download_images
 
         %{
           import_log_id: import_log.id,
           path: dest_path,
           language: language,
-          option_mappings: worker_mappings
+          option_mappings: worker_mappings,
+          download_images: download_images
         }
         |> CSVImportWorker.new()
         |> Oban.insert()
@@ -525,11 +583,21 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   # Add new values to global options for mappings with auto_add enabled
   defp add_new_values_to_global_options(mappings, _global_options) do
-    mappings
-    |> Enum.filter(fn m -> m.auto_add and m.source_key and m.new_values != [] end)
-    |> Enum.each(fn mapping ->
+    # Log all mappings to see auto_add state
+    Logger.info("add_new_values_to_global_options: #{length(mappings)} mappings")
+
+    eligible =
+      mappings
+      |> Enum.filter(fn m -> m.auto_add && m.source_key && m.new_values != [] end)
+
+    Logger.info("Eligible mappings with auto_add=true: #{length(eligible)}")
+
+    Enum.each(eligible, fn mapping ->
+      Logger.info("Adding #{length(mapping.new_values)} values to #{mapping.source_key}")
+
       Enum.each(mapping.new_values, fn value ->
-        Options.add_value_to_global_option(mapping.source_key, value)
+        result = Options.add_value_to_global_option(mapping.source_key, value)
+        Logger.debug("Added #{value} to #{mapping.source_key}: #{inspect(result)}")
       end)
     end)
   end
@@ -782,7 +850,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                     <%= for import <- @imports do %>
                       <tr class="hover">
                         <td class="font-medium max-w-[200px] truncate" title={import.filename}>
-                          {import.filename}
+                          <.link
+                            navigate={Routes.path("/admin/shop/imports/#{import.uuid}")}
+                            class="link link-hover"
+                          >
+                            {import.filename}
+                          </.link>
                         </td>
                         <td>
                           <.status_badge status={import.status} />
@@ -810,6 +883,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                         </td>
                         <td>
                           <div class="flex gap-1">
+                            <.link
+                              navigate={Routes.path("/admin/shop/imports/#{import.uuid}")}
+                              class="btn btn-xs btn-ghost"
+                              title="View Details"
+                            >
+                              <.icon name="hero-eye" class="w-4 h-4" />
+                            </.link>
                             <%= if import.status == "failed" do %>
                               <button
                                 phx-click="retry_import"

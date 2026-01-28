@@ -60,9 +60,8 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
-            (is_nil(p.featured_image_id) and
-               (is_nil(p.image_ids) or
-                  fragment("array_length(?, 1) = 0 OR ? IS NULL", p.image_ids, p.image_ids))),
+            is_nil(p.featured_image_id) and
+            fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
         order_by: [asc: p.inserted_at]
       )
 
@@ -88,9 +87,8 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
-            (is_nil(p.featured_image_id) and
-               (is_nil(p.image_ids) or
-                  fragment("array_length(?, 1) = 0 OR ? IS NULL", p.image_ids, p.image_ids))),
+            is_nil(p.featured_image_id) and
+            fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
         select: count(p.id)
       )
 
@@ -288,14 +286,32 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     if has_storage_images?(product) do
       {:error, :already_migrated}
     else
-      # Collect image URLs
-      image_urls = collect_image_urls(product)
+      # Validate product has required fields
+      with :ok <- validate_product_for_migration(product) do
+        # Collect image URLs
+        image_urls = collect_image_urls(product)
 
-      if Enum.empty?(image_urls) do
-        {:error, :no_images}
-      else
-        migrate_images_for_product(product, image_urls, user_id)
+        if Enum.empty?(image_urls) do
+          {:error, :no_images}
+        else
+          migrate_images_for_product(product, image_urls, user_id)
+        end
       end
+    end
+  end
+
+  defp validate_product_for_migration(product) do
+    cond do
+      is_nil(product.title) or product.title == %{} ->
+        Logger.warning("Product #{product.id} missing title, skipping migration")
+        {:error, :missing_title}
+
+      is_nil(product.slug) or product.slug == %{} ->
+        Logger.warning("Product #{product.id} missing slug, skipping migration")
+        {:error, :missing_slug}
+
+      true ->
+        :ok
     end
   end
 
@@ -329,26 +345,41 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   end
 
   defp migrate_images_for_product(product, image_urls, user_id) do
-    Logger.info("Migrating #{length(image_urls)} images for product #{product.id}")
+    # Validate URLs first to skip unavailable images
+    {valid_urls, invalid_urls} = ImageDownloader.validate_urls(image_urls)
 
-    # Download all images
-    results = ImageDownloader.download_batch(image_urls, user_id, concurrency: 3, timeout: 60_000)
+    if invalid_urls != [] do
+      Logger.warning(
+        "Product #{product.id}: #{length(invalid_urls)} invalid URLs skipped: #{inspect(invalid_urls)}"
+      )
+    end
 
-    # Build URL -> file_id mapping
-    url_to_file_id =
-      Enum.reduce(results, %{}, fn
-        {url, {:ok, file_id}}, acc ->
-          Map.put(acc, url, file_id)
-
-        {url, {:error, reason}}, acc ->
-          Logger.warning("Failed to download #{url}: #{inspect(reason)}")
-          acc
-      end)
-
-    if map_size(url_to_file_id) == 0 do
-      {:error, :all_downloads_failed}
+    if valid_urls == [] do
+      Logger.warning("Product #{product.id}: All image URLs invalid")
+      {:error, :all_urls_invalid}
     else
-      update_product_images(product, url_to_file_id)
+      Logger.info("Migrating #{length(valid_urls)} valid images for product #{product.id}")
+
+      # Download all images
+      results =
+        ImageDownloader.download_batch(valid_urls, user_id, concurrency: 3, timeout: 60_000)
+
+      # Build URL -> file_id mapping
+      url_to_file_id =
+        Enum.reduce(results, %{}, fn
+          {url, {:ok, file_id}}, acc ->
+            Map.put(acc, url, file_id)
+
+          {url, {:error, reason}}, acc ->
+            Logger.warning("Failed to download #{url}: #{inspect(reason)}")
+            acc
+        end)
+
+      if map_size(url_to_file_id) == 0 do
+        {:error, :all_downloads_failed}
+      else
+        update_product_images(product, url_to_file_id)
+      end
     end
   end
 
@@ -356,7 +387,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     # Map featured_image to featured_image_id
     featured_image_id = Map.get(url_to_file_id, product.featured_image)
 
-    # Map legacy images to image_ids, preserving order
+    # Map legacy images to image_ids, preserving order from original images array
     image_ids =
       (product.images || [])
       |> Enum.flat_map(fn
@@ -370,13 +401,24 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     # Use first image_id as featured if not set
     featured_image_id = featured_image_id || List.first(image_ids)
 
+    # Ensure featured image is first in image_ids (no duplicates)
+    image_ids =
+      if featured_image_id && featured_image_id in image_ids do
+        [featured_image_id | Enum.reject(image_ids, &(&1 == featured_image_id))]
+      else
+        image_ids
+      end
+
     # Update image mappings in metadata
     metadata = update_image_mappings(product.metadata, url_to_file_id)
 
     attrs = %{
       featured_image_id: featured_image_id,
       image_ids: image_ids,
-      metadata: metadata
+      metadata: metadata,
+      # Clear legacy fields after successful migration
+      images: [],
+      featured_image: nil
     }
 
     Shop.update_product(product, attrs)
@@ -421,16 +463,14 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   # PubSub broadcasts
 
   defp broadcast_migration_started(count) do
-    Phoenix.PubSub.broadcast(
-      PhoenixKit.PubSub,
+    PhoenixKit.PubSubHelper.broadcast(
       "shop:image_migration:batch",
       {:migration_started, %{total: count}}
     )
   end
 
   defp broadcast_migration_cancelled(count) do
-    Phoenix.PubSub.broadcast(
-      PhoenixKit.PubSub,
+    PhoenixKit.PubSubHelper.broadcast(
       "shop:image_migration:batch",
       {:migration_cancelled, %{cancelled: count}}
     )

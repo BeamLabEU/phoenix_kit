@@ -90,22 +90,29 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   - `{:error, reason}` - Error if generation fails
   """
   def generate_variant(file, dimension) do
+    # Guard: file_path must exist to generate variants
+    if is_nil(file.file_path) do
+      Logger.warning("Cannot generate variant for file #{file.id}: file_path is nil")
+      {:error, :file_path_missing}
+    else
+      do_generate_variant(file, dimension)
+    end
+  end
+
+  defp do_generate_variant(file, dimension) do
     variant_name = dimension.name
     Logger.info("Generating variant: #{variant_name} for file: #{file.id}")
 
-    # Generate variant filename using MD5 hash + variant name
+    # Generate variant filename using file checksum + variant name for uniqueness
     variant_ext = determine_variant_extension(file.ext, dimension.format)
-    # Extract MD5 hash from file_path for naming
-    [_, _, md5_hash | _] = String.split(file.file_path, "/")
-    variant_filename = "#{md5_hash}_#{variant_name}.#{variant_ext}"
+    # Use file_checksum or file_name basename for naming (works with any path structure)
+    base_name = file.file_checksum || Path.basename(file.file_name, Path.extname(file.file_name))
+    variant_filename = "#{base_name}_#{variant_name}.#{variant_ext}"
     variant_mime_type = determine_variant_mime_type(file.mime_type, dimension.format)
 
-    # Build the variant storage path - SAME directory structure as original!
-    # file.file_path is like: "01/ab/0123456789abcdef" (user_prefix/hash_prefix/md5_hash)
-    # Full path structure: "{user_prefix}/{hash_prefix}/{md5_hash}/{variant_filename}"
-    # Example: "01/ab/0123456789abcdef/image-thumbnail.jpg"
-    [user_prefix, hash_prefix, md5_hash | _] = String.split(file.file_path, "/")
-    variant_storage_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}/#{variant_filename}"
+    # Build the variant storage path using file_path as base directory
+    # file_path can be any directory structure (timestamp-based or hierarchical)
+    variant_storage_path = "#{file.file_path}/#{variant_filename}"
 
     # Generate temp path for processing
     variant_path = generate_temp_path(variant_ext)
@@ -125,19 +132,18 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
              variant_mime_type,
              variant_ext,
              file_stats
-           ) do
-      # Create file location records for this variant instance
-      _ =
-        Storage.create_file_locations_for_instance(
-          instance.id,
-          storage_info.bucket_ids,
-          variant_storage_path
-        )
-
+           ),
+         # Create file location records for this variant instance
+         {:ok, _locations} <-
+           create_variant_file_locations(instance, storage_info.bucket_ids, variant_storage_path) do
       cleanup_temp_files([original_path, variant_path])
       Logger.info("Variant #{variant_name} created successfully in database with locations")
       {:ok, instance}
     else
+      {:error, :file_locations_failed} = error ->
+        Logger.error("Variant #{variant_name} failed: file locations could not be created")
+        error
+
       {:error, reason} = error ->
         Logger.error("Variant #{variant_name} failed: #{inspect(reason)}")
         error
@@ -218,6 +224,23 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         }
 
         Storage.create_file_instance(instance_attrs)
+    end
+  end
+
+  defp create_variant_file_locations(instance, bucket_ids, storage_path) do
+    case Storage.create_file_locations_for_instance(instance.id, bucket_ids, storage_path) do
+      {:ok, locations} ->
+        {:ok, locations}
+
+      {:error, :file_locations_failed, errors} ->
+        Logger.error(
+          "Failed to create file locations for instance #{instance.id}: #{inspect(errors)}"
+        )
+
+        # Rollback: delete the orphaned instance
+        repo = PhoenixKit.Config.get_repo()
+        repo.delete(instance)
+        {:error, :file_locations_failed}
     end
   end
 

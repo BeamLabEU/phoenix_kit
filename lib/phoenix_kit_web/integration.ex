@@ -574,6 +574,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/shop/imports", PhoenixKit.Modules.Shop.Web.Imports, :index,
             as: :shop_imports
 
+          live "/admin/shop/imports/:uuid", PhoenixKit.Modules.Shop.Web.ImportShow, :show,
+            as: :shop_import_show
+
           live "/admin/shop/test", PhoenixKit.Modules.Shop.Web.TestShop, :index, as: :shop_test
         end
       end

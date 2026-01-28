@@ -184,6 +184,19 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Lists products by their IDs.
+
+  Returns products in the order of the provided IDs.
+  """
+  def list_products_by_ids([]), do: []
+
+  def list_products_by_ids(ids) when is_list(ids) do
+    Product
+    |> where([p], p.id in ^ids)
+    |> repo().all()
+  end
+
+  @doc """
   Gets a product by ID.
   """
   def get_product(id, opts \\ []) do
@@ -390,6 +403,19 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def get_price_affecting_specs(%Product{} = product) do
     Options.get_price_affecting_specs_for_product(product)
+  end
+
+  @doc """
+  Gets all selectable options for a product (for UI display).
+
+  Returns all select/multiselect options regardless of whether they affect price.
+  This includes options like Color that may not have price modifiers but should
+  still be selectable in the UI.
+
+  Convenience wrapper around `Options.get_selectable_specs_for_product/1`.
+  """
+  def get_selectable_specs(%Product{} = product) do
+    Options.get_selectable_specs_for_product(product)
   end
 
   # ============================================
@@ -1721,12 +1747,18 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Gets an import log by ID.
   """
-  def get_import_log(id) when is_integer(id) do
-    repo().get(ImportLog, id)
+  def get_import_log(id, opts \\ [])
+
+  def get_import_log(id, opts) when is_integer(id) do
+    ImportLog
+    |> maybe_preload(Keyword.get(opts, :preload))
+    |> repo().get(id)
   end
 
-  def get_import_log(uuid) when is_binary(uuid) do
-    repo().get_by(ImportLog, uuid: uuid)
+  def get_import_log(uuid, opts) when is_binary(uuid) do
+    ImportLog
+    |> maybe_preload(Keyword.get(opts, :preload))
+    |> repo().get_by(uuid: uuid)
   end
 
   @doc """

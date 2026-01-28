@@ -624,6 +624,94 @@ defmodule PhoenixKit.Modules.Shop.Options do
   def get_price_affecting_specs(_), do: []
 
   @doc """
+  Gets all selectable options from a schema.
+
+  Returns options that are of type `select` or `multiselect` and not hidden.
+  Unlike `get_price_affecting_specs/1`, this includes options regardless of
+  whether they affect price. Use this for UI display of all selectable options.
+
+  ## Examples
+
+      schema = [
+        %{"key" => "color", "type" => "select", "options" => ["Red", "Blue"]},
+        %{"key" => "material", "type" => "select", "affects_price" => true, ...},
+        %{"key" => "notes", "type" => "text", ...}
+      ]
+
+      Options.get_selectable_specs(schema)
+      # => [%{"key" => "color", ...}, %{"key" => "material", ...}]
+  """
+  def get_selectable_specs(schema) when is_list(schema) do
+    Enum.filter(schema, fn opt ->
+      opt["type"] in ["select", "multiselect"] and
+        Map.get(opt, "hidden", false) != true
+    end)
+  end
+
+  def get_selectable_specs(_), do: []
+
+  @doc """
+  Gets all selectable options for a specific product.
+
+  Combines global and category options, then filters for select/multiselect types.
+  Also discovers options from product metadata that have values defined.
+  Unlike `get_price_affecting_specs_for_product/1`, this includes all selectable
+  options regardless of whether they affect price.
+
+  Use this for displaying option selectors in the product UI.
+  """
+  def get_selectable_specs_for_product(product) do
+    schema_specs =
+      product
+      |> get_option_schema_for_product()
+      |> get_selectable_specs()
+      |> filter_by_product_option_values(product)
+
+    # Discover additional options from product metadata (without price requirement)
+    discovered_specs = discover_selectable_options_from_metadata(product)
+
+    # Merge: schema specs take priority over discovered
+    merge_discovered_specs(schema_specs, discovered_specs)
+  end
+
+  # Discovers selectable options from product metadata.
+  # Creates "virtual" option specs for keys found in _option_values.
+  # Unlike discover_options_from_metadata/1, this doesn't require _price_modifiers.
+  defp discover_selectable_options_from_metadata(product) do
+    metadata = product.metadata || %{}
+    option_values = Map.get(metadata, "_option_values", %{})
+    price_modifiers = Map.get(metadata, "_price_modifiers", %{})
+
+    # For each key in _option_values that has values
+    option_values
+    |> Enum.filter(fn {_key, values} ->
+      is_list(values) and values != []
+    end)
+    |> Enum.map(fn {key, values} ->
+      # Check if this option has price modifiers
+      has_price = Map.has_key?(price_modifiers, key)
+
+      base_spec = %{
+        "key" => key,
+        "label" => humanize_key(key),
+        "type" => "select",
+        "options" => values,
+        "_discovered" => true
+      }
+
+      if has_price do
+        base_spec
+        |> Map.put("affects_price", true)
+        |> Map.put("modifier_type", "fixed")
+        |> Map.put("allow_override", true)
+        |> Map.put("price_modifiers", Map.get(price_modifiers, key, %{}))
+      else
+        base_spec
+      end
+    end)
+  end
+
+  @doc """
   Gets price-affecting options for a specific product.
 
   Combines global and category options, then filters for price-affecting ones.

@@ -8,6 +8,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
 
   @per_page 25
@@ -473,8 +475,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                           <% product_slug = Translations.get(product, :slug, @current_language) %>
                           <div class="avatar placeholder">
                             <div class="bg-base-300 text-base-content/50 w-12 h-12 rounded">
-                              <%= if product.featured_image do %>
-                                <img src={product.featured_image} alt={product_title} />
+                              <%= if thumb_url = get_product_thumbnail(product) do %>
+                                <img src={thumb_url} alt={product_title} />
                               <% else %>
                                 <.icon name="hero-cube" class="w-6 h-6" />
                               <% end %>
@@ -697,5 +699,41 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   defp format_price(price, nil) do
     # Fallback if no currency configured
     "$#{Decimal.round(price, 2)}"
+  end
+
+  # Get product thumbnail - prefers Storage images over legacy URLs
+  defp get_product_thumbnail(%{featured_image_id: id}) when is_binary(id) do
+    get_storage_image_url(id, "small")
+  end
+
+  defp get_product_thumbnail(%{image_ids: [id | _]}) when is_binary(id) do
+    get_storage_image_url(id, "small")
+  end
+
+  defp get_product_thumbnail(%{featured_image: url}) when is_binary(url) and url != "" do
+    url
+  end
+
+  defp get_product_thumbnail(%{images: [%{"src" => src} | _]}), do: src
+  defp get_product_thumbnail(%{images: [first | _]}) when is_binary(first), do: first
+  defp get_product_thumbnail(_), do: nil
+
+  defp get_storage_image_url(file_id, variant) do
+    case Storage.get_file(file_id) do
+      %{id: id} ->
+        case Storage.get_file_instance_by_name(id, variant) do
+          nil ->
+            case Storage.get_file_instance_by_name(id, "original") do
+              nil -> nil
+              _instance -> URLSigner.signed_url(file_id, "original")
+            end
+
+          _instance ->
+            URLSigner.signed_url(file_id, variant)
+        end
+
+      nil ->
+        nil
+    end
   end
 end

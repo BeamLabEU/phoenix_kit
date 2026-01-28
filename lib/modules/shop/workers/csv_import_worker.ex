@@ -51,6 +51,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     config_id = Map.get(args, "config_id")
     language = Map.get(args, "language")
     option_mappings = Map.get(args, "option_mappings", [])
+    download_images = Map.get(args, "download_images", false)
 
     Logger.info("CSVImportWorker: Starting import #{import_log_id} from #{path}")
 
@@ -59,7 +60,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
          :ok <- validate_file(path, config),
          {:ok, total_rows} <- count_products(path, config),
          {:ok, import_log} <- start_import(import_log, total_rows),
-         {:ok, stats} <- process_file(import_log, path, config, language, option_mappings),
+         {:ok, stats} <-
+           process_file(import_log, path, config, language, option_mappings, download_images),
          {:ok, _import_log} <- complete_import(import_log, stats) do
       cleanup_file(path)
       broadcast_complete(import_log_id, stats)
@@ -152,12 +154,12 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp process_file(import_log, path, config, language, option_mappings) do
+  defp process_file(import_log, path, config, language, option_mappings, download_images_arg) do
     categories_map = build_categories_map()
     grouped = CSVParser.parse_and_group(path)
 
-    # Check if we should download images to Storage
-    download_images = should_download_images?(config)
+    # Check if we should download images to Storage (from arg or config)
+    download_images = download_images_arg || should_download_images?(config)
     user_id = import_log.user_id
 
     stats = %{
@@ -166,7 +168,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       skipped_count: 0,
       error_count: 0,
       error_details: [],
-      image_jobs_queued: 0
+      image_jobs_queued: 0,
+      product_ids: []
     }
 
     result =
@@ -230,11 +233,19 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp update_stats(stats, result) do
     case result do
-      {:imported, _handle, _product} ->
-        %{stats | imported_count: stats.imported_count + 1}
+      {:imported, _handle, product} ->
+        %{
+          stats
+          | imported_count: stats.imported_count + 1,
+            product_ids: [product.id | stats.product_ids]
+        }
 
-      {:updated, _handle, _product} ->
-        %{stats | updated_count: stats.updated_count + 1}
+      {:updated, _handle, product} ->
+        %{
+          stats
+          | updated_count: stats.updated_count + 1,
+            product_ids: [product.id | stats.product_ids]
+        }
 
       {:error, handle, error} ->
         error_detail = %{
@@ -304,7 +315,9 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp complete_import(import_log, stats) do
-    Shop.complete_import(import_log, stats)
+    # Reverse product_ids to correct order (list was built by prepending)
+    corrected_stats = Map.update!(stats, :product_ids, &Enum.reverse/1)
+    Shop.complete_import(import_log, corrected_stats)
   end
 
   defp handle_failure(import_log_id, reason) do
@@ -356,15 +369,25 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp broadcast_complete(import_log_id, stats) do
     broadcast(import_log_id, {:import_complete, stats})
+    # Also broadcast to general topic so all subscribers get notified
+    broadcast_general({:import_complete, %{import_log_id: import_log_id, stats: stats}})
   end
 
   defp broadcast_failed(import_log_id, reason) do
     broadcast(import_log_id, {:import_failed, %{reason: inspect(reason)}})
+    # Also broadcast to general topic so all subscribers get notified
+    broadcast_general({:import_failed, %{import_log_id: import_log_id, reason: inspect(reason)}})
   end
 
   defp broadcast(import_log_id, message) do
     topic = "shop:import:#{import_log_id}"
     Manager.broadcast(topic, message)
+  rescue
+    _ -> :ok
+  end
+
+  defp broadcast_general(message) do
+    Manager.broadcast("shop:imports", message)
   rescue
     _ -> :ok
   end

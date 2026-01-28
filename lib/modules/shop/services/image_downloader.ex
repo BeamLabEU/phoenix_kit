@@ -87,25 +87,82 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
     metadata = Keyword.get(opts, :metadata, %{})
 
     with {:ok, temp_path, content_type, size} <- download_image(url, opts) do
+      # Check for global deduplication by file hash AND original filename
+      file_checksum = calculate_file_hash(temp_path)
       filename = extract_filename_from_url(url, content_type)
 
-      result =
-        Storage.store_file(temp_path,
-          filename: filename,
-          content_type: content_type,
-          size_bytes: size,
-          user_id: user_id,
-          metadata: Map.merge(metadata, %{"source_url" => url})
-        )
+      case find_existing_file(file_checksum, filename) do
+        %{id: existing_id} = _existing_file ->
+          # File with same content and name already exists - reuse it
+          Logger.info(
+            "[ImageDownloader] Reusing existing file #{existing_id} for URL #{url} (checksum: #{file_checksum}, filename: #{filename})"
+          )
 
-      # Clean up temp file
-      File.rm(temp_path)
+          cleanup_temp_file(temp_path)
+          {:ok, existing_id}
 
-      case result do
-        {:ok, file} -> {:ok, file.id}
-        {:error, reason} -> {:error, reason}
+        nil ->
+          # No existing file matches - store new file
+          Logger.info(
+            "[ImageDownloader] Storing new file from URL #{url}, temp_path=#{temp_path}, size=#{size}"
+          )
+
+          # Verify temp file still exists before storing
+          if File.exists?(temp_path) do
+            result =
+              Storage.store_file(temp_path,
+                filename: filename,
+                content_type: content_type,
+                size_bytes: size,
+                user_id: user_id,
+                metadata: Map.merge(metadata, %{"source_url" => url})
+              )
+
+            Logger.info("[ImageDownloader] Storage result: #{inspect(result)}")
+
+            # Clean up temp file
+            cleanup_temp_file(temp_path)
+
+            case result do
+              {:ok, file} ->
+                Logger.info("[ImageDownloader] Successfully stored file with ID: #{file.id}")
+                {:ok, file.id}
+
+              {:error, reason} ->
+                Logger.error("[ImageDownloader] Storage failed: #{inspect(reason)}")
+                {:error, reason}
+            end
+          else
+            Logger.error("[ImageDownloader] Temp file disappeared before storage: #{temp_path}")
+            {:error, :temp_file_missing}
+          end
       end
     end
+  end
+
+  # Find existing file by checksum AND original filename
+  defp find_existing_file(file_checksum, filename) do
+    import Ecto.Query
+
+    repo = PhoenixKit.Config.get_repo()
+
+    query =
+      from(f in PhoenixKit.Modules.Storage.File,
+        where: f.file_checksum == ^file_checksum and f.original_file_name == ^filename,
+        limit: 1
+      )
+
+    repo.one(query)
+  end
+
+  # Calculate SHA256 hash of file content
+  defp calculate_file_hash(file_path) do
+    Elixir.File.stream!(file_path, 2048)
+    |> Enum.reduce(:crypto.hash_init(:sha256), fn chunk, acc ->
+      :crypto.hash_update(acc, chunk)
+    end)
+    |> :crypto.hash_final()
+    |> Base.encode16(case: :lower)
   end
 
   @doc """
@@ -133,8 +190,10 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
     on_progress = Keyword.get(opts, :on_progress)
     total = length(urls)
 
-    urls
-    |> Enum.with_index(1)
+    # Create indexed list to preserve URL even on task crash
+    indexed_urls = Enum.with_index(urls, 1)
+
+    indexed_urls
     |> Task.async_stream(
       fn {url, index} ->
         result = download_and_store(url, user_id, opts)
@@ -143,16 +202,66 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
           on_progress.(url, result, index, total)
         end
 
-        {url, result}
+        {index, url, result}
       end,
       max_concurrency: concurrency,
-      timeout: Keyword.get(opts, :timeout, @default_timeout) + 5_000
+      timeout: Keyword.get(opts, :timeout, @default_timeout) + 5_000,
+      on_timeout: :kill_task,
+      ordered: true
     )
+    |> Enum.zip(indexed_urls)
     |> Enum.map(fn
-      {:ok, result} -> result
-      {:exit, reason} -> {nil, {:error, {:task_exit, reason}}}
+      {{:ok, {_index, url, result}}, _original} ->
+        {url, result}
+
+      {{:exit, reason}, {url, _index}} ->
+        # Recover URL from original indexed list when task exits
+        Logger.warning("Task exited for URL #{url}: #{inspect(reason)}")
+        {url, {:error, {:task_exit, reason}}}
     end)
-    |> Enum.reject(fn {url, _} -> is_nil(url) end)
+  end
+
+  @doc """
+  Validates URLs are accessible before batch download.
+
+  Performs HEAD requests to verify URLs are accessible and return valid
+  image content types. Returns a tuple of `{valid_urls, invalid_urls}`.
+
+  ## Options
+
+    * `:timeout` - HTTP request timeout in milliseconds (default: 5_000)
+    * `:concurrency` - Number of concurrent validations (default: 10)
+
+  ## Examples
+
+      iex> validate_urls(["https://example.com/image.jpg", "https://example.com/404.jpg"])
+      {["https://example.com/image.jpg"], ["https://example.com/404.jpg"]}
+
+  """
+  @spec validate_urls([String.t()], keyword()) :: {[String.t()], [String.t()]}
+  def validate_urls(urls, opts \\ []) when is_list(urls) do
+    timeout = Keyword.get(opts, :timeout, 5_000)
+    concurrency = Keyword.get(opts, :concurrency, 10)
+
+    results =
+      urls
+      |> Task.async_stream(
+        fn url -> {url, valid_image_url?(url, timeout)} end,
+        max_concurrency: concurrency,
+        timeout: timeout + 2_000,
+        on_timeout: :kill_task
+      )
+      |> Enum.map(fn
+        {:ok, {url, true}} -> {:valid, url}
+        {:ok, {url, false}} -> {:invalid, url}
+        {:exit, _reason} -> {:timeout, nil}
+      end)
+      |> Enum.reject(fn {_status, url} -> is_nil(url) end)
+
+    valid = for {:valid, url} <- results, do: url
+    invalid = for {:invalid, url} <- results, do: url
+
+    {valid, invalid}
   end
 
   @doc """
@@ -172,9 +281,14 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   """
   @spec valid_image_url?(String.t()) :: boolean()
   def valid_image_url?(url) when is_binary(url) do
+    valid_image_url?(url, 5_000)
+  end
+
+  @spec valid_image_url?(String.t(), non_neg_integer()) :: boolean()
+  defp valid_image_url?(url, timeout) when is_binary(url) do
     case validate_url(url) do
       {:ok, url} ->
-        case Req.head(url, receive_timeout: 5_000) do
+        case Req.head(url, receive_timeout: timeout) do
           {:ok, %{status: status, headers: headers}} when status in 200..299 ->
             content_type = get_header_value(headers, "content-type")
             validate_content_type(content_type) == :ok
@@ -351,6 +465,17 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
       "image/webp" -> "webp"
       "image/svg+xml" -> "svg"
       _ -> "jpg"
+    end
+  end
+
+  defp cleanup_temp_file(temp_path) do
+    case File.rm(temp_path) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to cleanup temp file #{temp_path}: #{inspect(reason)}")
+        :ok
     end
   end
 end

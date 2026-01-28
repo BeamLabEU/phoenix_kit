@@ -44,6 +44,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     # Metadata
     field :options, :map, default: %{}
     field :error_details, {:array, :map}, default: []
+    field :product_ids, {:array, :integer}, default: []
 
     # Timing
     field :started_at, :utc_datetime
@@ -116,7 +117,14 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   """
   def complete_changeset(import_log, stats) do
     import_log
-    |> cast(stats, [:imported_count, :updated_count, :skipped_count, :error_count, :error_details])
+    |> cast(stats, [
+      :imported_count,
+      :updated_count,
+      :skipped_count,
+      :error_count,
+      :error_details,
+      :product_ids
+    ])
     |> change(%{
       status: "completed",
       processed_rows: import_log.total_rows,

@@ -367,11 +367,16 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Enables explicit language tagging for CSV imports
   - Solves language ambiguity problem when changing default language
 
-  ### V48 - Import Option Mappings ⚡ LATEST
+  ### V48 - Import Option Mappings
   - Adds option_mappings JSONB column to import_configs for CSV option mapping
   - Supports mapping CSV options to global options with slot configuration
   - Enables multiple slots from same global option (e.g., cup_color and liquid_color from "color")
   - Structure: [{csv_name, slot_key, source_key, auto_add, label}]
+
+  ### V49 - Import Product Tracking ⚡ LATEST
+  - Adds product_ids INTEGER[] column to import_logs for tracking imported products
+  - Enables import detail view showing all products created/updated during import
+  - Supports linking to individual product edit pages from import history
 
   ## Migration Paths
 
@@ -431,7 +436,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 48
+  @current_version 49
   @default_prefix "public"
 
   @doc false
