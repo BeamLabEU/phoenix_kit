@@ -102,6 +102,12 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   @doc """
   Creates changeset attributes from a product.
 
+  ## Parameters
+
+    - `product` - The Product struct
+    - `quantity` - Number of items (default: 1)
+    - `language` - Language code for localized fields (default: system default)
+
   ## Examples
 
       iex> from_product(product, 2)
@@ -113,12 +119,17 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
         quantity: 2,
         ...
       }
+
+      iex> from_product(product, 1, "ru")
+      %{product_title: "Виджет", product_slug: "vidzhet", ...}
   """
-  def from_product(%Product{} = product, quantity \\ 1) do
+  def from_product(%Product{} = product, quantity \\ 1, language \\ nil) do
+    lang = language || default_language()
+
     %{
       product_id: product.id,
-      product_title: product.title,
-      product_slug: product.slug,
+      product_title: get_localized_string(product.title, lang),
+      product_slug: get_localized_string(product.slug, lang),
       product_image: product.featured_image,
       unit_price: product.price,
       compare_at_price: product.compare_at_price,
@@ -127,6 +138,24 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
       weight_grams: product.weight_grams || 0,
       taxable: product.taxable
     }
+  end
+
+  # Extract string from localized JSONB map field
+  defp get_localized_string(nil, _lang), do: nil
+  defp get_localized_string(value, _lang) when is_binary(value), do: value
+
+  defp get_localized_string(map, lang) when is_map(map) do
+    map[lang] || map[default_language()] || first_value(map)
+  end
+
+  defp get_localized_string(_value, _lang), do: nil
+
+  defp first_value(map) when map == %{}, do: nil
+  defp first_value(map), do: map |> Map.values() |> List.first()
+
+  defp default_language do
+    alias PhoenixKit.Modules.Shop.Translations
+    Translations.default_language()
   end
 
   @doc """

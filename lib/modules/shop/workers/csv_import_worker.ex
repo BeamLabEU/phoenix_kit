@@ -37,6 +37,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Import.{CSVParser, CSVValidator, Filter, ProductTransformer}
   alias PhoenixKit.Modules.Shop.ImportConfig
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker
   alias PhoenixKit.PubSub.Manager
 
@@ -338,9 +339,18 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp build_categories_map do
+    lang = Translations.default_language()
+
     Shop.list_categories()
     |> Enum.reduce(%{}, fn cat, acc ->
-      Map.put(acc, cat.slug, cat.id)
+      # Extract string slug from JSONB map for map key
+      slug = Translations.get(cat, :slug, lang)
+
+      if slug && slug != "" do
+        Map.put(acc, slug, cat.id)
+      else
+        acc
+      end
     end)
   end
 

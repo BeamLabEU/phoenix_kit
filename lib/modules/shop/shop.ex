@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Options.MetadataValidator
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
+  alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -216,12 +217,30 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Gets a product by slug.
+
+  Supports localized slugs stored as JSONB maps.
+
+  ## Options
+
+    - `:language` - Language code for slug lookup (default: system default)
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> get_product_by_slug("planter")
+      %Product{}
+
+      iex> get_product_by_slug("kashpo", language: "ru")
+      %Product{}
   """
   def get_product_by_slug(slug, opts \\ []) do
-    Product
-    |> where([p], p.slug == ^slug)
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().one()
+    language = Keyword.get(opts, :language, Translations.default_language())
+    preload = Keyword.get(opts, :preload, [])
+
+    case SlugResolver.find_product_by_slug(slug, language, preload: preload) do
+      {:ok, product} -> product
+      {:error, :not_found} -> nil
+    end
   end
 
   @doc """
@@ -516,12 +535,30 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Gets a category by slug.
+
+  Supports localized slugs stored as JSONB maps.
+
+  ## Options
+
+    - `:language` - Language code for slug lookup (default: system default)
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> get_category_by_slug("planters")
+      %Category{}
+
+      iex> get_category_by_slug("kashpo", language: "ru")
+      %Category{}
   """
   def get_category_by_slug(slug, opts \\ []) do
-    Category
-    |> where([c], c.slug == ^slug)
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().one()
+    language = Keyword.get(opts, :language, Translations.default_language())
+    preload = Keyword.get(opts, :preload, [])
+
+    case SlugResolver.find_category_by_slug(slug, language, preload: preload) do
+      {:ok, category} -> category
+      {:error, :not_found} -> nil
+    end
   end
 
   @doc """
