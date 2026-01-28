@@ -1,3 +1,20 @@
+## 1.7.30 - 2026-01-28
+- Posts Module
+  - Add likes and dislikes system for post comments (V48 migration)
+  - Post body field is no longer required
+- User Management
+  - Add dropdown field type support for user custom fields
+- Shop Module (E-commerce)
+  - Fix JSONB search queries and add defensive guards for robustness
+  - Fix JSONB localized fields consistency across product/category operations
+  - Add shop import enhancements with V49 migration
+  - Fix image migration robustness and catalog display issues
+  - Add language selection dropdown to CSV import for localized content
+  - Add variant image mapping support for Shop products
+  - Add legacy image support for backward-compatible variant mappings
+- Bug Fixes
+  - Fix UUID column error for auth tables during upgrade - Users upgrading from PhoenixKit < 1.7.0 no longer get "column uuid does not exist" error when logging in. Added auth tables (users, tokens, roles, role_assignments) to UUIDRepair module.
+
 ## 1.7.29 - 2026-01-26
 - Add primary language improvements and AI translation progress tracking
   - Real-time translation progress - Added progress bars to editor and listing pages showing AI translation status
