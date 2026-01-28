@@ -130,7 +130,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
       product_id: product.id,
       product_title: get_localized_string(product.title, lang),
       product_slug: get_localized_string(product.slug, lang),
-      product_image: product.featured_image,
+      product_image: get_product_image_url(product),
       unit_price: product.price,
       compare_at_price: product.compare_at_price,
       currency: product.currency,
@@ -139,6 +139,20 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
       taxable: product.taxable
     }
   end
+
+  # Get product image URL, preferring new Storage system over legacy
+  defp get_product_image_url(%Product{featured_image_id: id}) when is_binary(id) do
+    alias PhoenixKit.Modules.Storage.URLSigner
+
+    try do
+      URLSigner.signed_url(id, "medium")
+    rescue
+      _ -> nil
+    end
+  end
+
+  defp get_product_image_url(%Product{featured_image: url}) when is_binary(url), do: url
+  defp get_product_image_url(_), do: nil
 
   # Extract string from localized JSONB map field
   defp get_localized_string(nil, _lang), do: nil

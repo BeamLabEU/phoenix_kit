@@ -171,17 +171,49 @@ defmodule PhoenixKit.Modules.Shop.Category do
   @doc """
   Returns the full path of category names from root to this category.
   Requires parent to be preloaded.
+
+  ## Parameters
+
+    - `category` - Category struct with parent preloaded
+    - `language` - Language code for localized names (default: system default)
+
+  ## Examples
+
+      iex> breadcrumb_path(category, "en")
+      ["Home", "Electronics", "Phones"]
   """
-  def breadcrumb_path(%__MODULE__{parent: nil} = category) do
-    [category.name]
+  def breadcrumb_path(category, language \\ nil)
+
+  def breadcrumb_path(%__MODULE__{parent: nil} = category, language) do
+    [get_localized_name(category, language)]
   end
 
-  def breadcrumb_path(%__MODULE__{parent: %__MODULE__{} = parent} = category) do
-    breadcrumb_path(parent) ++ [category.name]
+  def breadcrumb_path(%__MODULE__{parent: %__MODULE__{} = parent} = category, language) do
+    breadcrumb_path(parent, language) ++ [get_localized_name(category, language)]
   end
 
-  def breadcrumb_path(%__MODULE__{} = category) do
-    [category.name]
+  def breadcrumb_path(%__MODULE__{} = category, language) do
+    [get_localized_name(category, language)]
+  end
+
+  # Extract localized name from JSONB map
+  defp get_localized_name(%__MODULE__{name: name}, language) do
+    lang = language || default_language()
+
+    case name do
+      nil -> nil
+      map when is_map(map) -> map[lang] || first_value(map)
+      value when is_binary(value) -> value
+      _ -> nil
+    end
+  end
+
+  defp first_value(map) when map == %{}, do: nil
+  defp first_value(map), do: map |> Map.values() |> List.first()
+
+  defp default_language do
+    alias PhoenixKit.Modules.Shop.Translations
+    Translations.default_language()
   end
 
   # Remove empty string values from map fields
@@ -262,18 +294,4 @@ defmodule PhoenixKit.Modules.Shop.Category do
   end
 
   defp slugify(_), do: ""
-
-  defp default_language do
-    alias PhoenixKit.Modules.Languages
-
-    if Code.ensure_loaded?(Languages) and function_exported?(Languages, :enabled?, 0) and
-         Languages.enabled?() do
-      case Languages.get_default_language() do
-        %{"code" => code} -> code
-        _ -> "en"
-      end
-    else
-      "en"
-    end
-  end
 end

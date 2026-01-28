@@ -9,6 +9,12 @@ defmodule PhoenixKit.Modules.Shop.Options do
   When retrieving options for a product, the system merges global and category options,
   with category options overriding global ones by key.
 
+  ## Localization Note
+
+  Option labels and values are currently stored as plain strings, not localized JSONB maps.
+  This means options display the same in all languages. Future enhancement: convert
+  option schema to support localized labels like `"label" => %{"en" => "Material", "ru" => "Материал"}`.
+
   ## Usage
 
       # Get/set global options
