@@ -48,8 +48,11 @@ defmodule PhoenixKit.Modules.Posts do
   require Logger
 
   alias PhoenixKit.Modules.Posts.{
+    CommentDislike,
+    CommentLike,
     Post,
     PostComment,
+    PostDislike,
     PostGroup,
     PostGroupAssignment,
     PostLike,
@@ -573,6 +576,32 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   @doc """
+  Increments the dislike counter for a post.
+
+  ## Examples
+
+      iex> increment_dislike_count(post)
+      {1, nil}
+  """
+  def increment_dislike_count(%Post{id: id}) do
+    from(p in Post, where: p.id == ^id)
+    |> repo().update_all(inc: [dislike_count: 1])
+  end
+
+  @doc """
+  Decrements the dislike counter for a post.
+
+  ## Examples
+
+      iex> decrement_dislike_count(post)
+      {1, nil}
+  """
+  def decrement_dislike_count(%Post{id: id}) do
+    from(p in Post, where: p.id == ^id and p.dislike_count > 0)
+    |> repo().update_all(inc: [dislike_count: -1])
+  end
+
+  @doc """
   Increments the comment counter for a post.
 
   ## Examples
@@ -723,6 +752,122 @@ defmodule PhoenixKit.Modules.Posts do
     preloads = Keyword.get(opts, :preload, [])
 
     from(l in PostLike, where: l.post_id == ^post_id, order_by: [desc: l.inserted_at])
+    |> repo().all()
+    |> repo().preload(preloads)
+  end
+
+  # ============================================================================
+  # Post Dislike Operations
+  # ============================================================================
+
+  @doc """
+  User dislikes a post.
+
+  Creates a dislike record and increments the post's dislike counter.
+  Returns error if user has already disliked the post.
+
+  ## Parameters
+
+  - `post_id` - Post ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> dislike_post("018e3c4a-...", 42)
+      {:ok, %PostDislike{}}
+
+      iex> dislike_post("018e3c4a-...", 42)  # Already disliked
+      {:error, %Ecto.Changeset{}}
+  """
+  def dislike_post(post_id, user_id) do
+    repo().transaction(fn ->
+      case %PostDislike{}
+           |> PostDislike.changeset(%{post_id: post_id, user_id: user_id})
+           |> repo().insert() do
+        {:ok, dislike} ->
+          increment_dislike_count(%Post{id: post_id})
+          dislike
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
+      end
+    end)
+  end
+
+  @doc """
+  User removes dislike from a post.
+
+  Deletes the dislike record and decrements the post's dislike counter.
+  Returns error if dislike doesn't exist.
+
+  ## Parameters
+
+  - `post_id` - Post ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> undislike_post("018e3c4a-...", 42)
+      {:ok, %PostDislike{}}
+
+      iex> undislike_post("018e3c4a-...", 42)  # Not disliked
+      {:error, :not_found}
+  """
+  def undislike_post(post_id, user_id) do
+    repo().transaction(fn ->
+      case repo().get_by(PostDislike, post_id: post_id, user_id: user_id) do
+        nil ->
+          repo().rollback(:not_found)
+
+        dislike ->
+          {:ok, _} = repo().delete(dislike)
+          decrement_dislike_count(%Post{id: post_id})
+          dislike
+      end
+    end)
+  end
+
+  @doc """
+  Checks if a user has disliked a post.
+
+  ## Parameters
+
+  - `post_id` - Post ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> post_disliked_by?("018e3c4a-...", 42)
+      true
+
+      iex> post_disliked_by?("018e3c4a-...", 99)
+      false
+  """
+  def post_disliked_by?(post_id, user_id) do
+    repo().exists?(from d in PostDislike, where: d.post_id == ^post_id and d.user_id == ^user_id)
+  end
+
+  @doc """
+  Lists all dislikes for a post.
+
+  ## Parameters
+
+  - `post_id` - Post ID
+  - `opts` - Options
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> list_post_dislikes("018e3c4a-...")
+      [%PostDislike{}, ...]
+
+      iex> list_post_dislikes("018e3c4a-...", preload: [:user])
+      [%PostDislike{user: %User{}}, ...]
+  """
+  def list_post_dislikes(post_id, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    from(d in PostDislike, where: d.post_id == ^post_id, order_by: [desc: d.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -926,6 +1071,293 @@ defmodule PhoenixKit.Modules.Posts do
     preloads = Keyword.get(opts, :preload, [])
 
     from(c in PostComment, where: c.post_id == ^post_id, order_by: [asc: c.inserted_at])
+    |> repo().all()
+    |> repo().preload(preloads)
+  end
+
+  # ============================================================================
+  # Comment Like/Dislike Operations
+  # ============================================================================
+
+  @doc """
+  Increments the like counter for a comment.
+
+  ## Examples
+
+      iex> increment_comment_like_count(comment)
+      {1, nil}
+  """
+  def increment_comment_like_count(%PostComment{id: id}) do
+    from(c in PostComment, where: c.id == ^id)
+    |> repo().update_all(inc: [like_count: 1])
+  end
+
+  @doc """
+  Decrements the like counter for a comment.
+
+  ## Examples
+
+      iex> decrement_comment_like_count(comment)
+      {1, nil}
+  """
+  def decrement_comment_like_count(%PostComment{id: id}) do
+    from(c in PostComment, where: c.id == ^id and c.like_count > 0)
+    |> repo().update_all(inc: [like_count: -1])
+  end
+
+  @doc """
+  Increments the dislike counter for a comment.
+
+  ## Examples
+
+      iex> increment_comment_dislike_count(comment)
+      {1, nil}
+  """
+  def increment_comment_dislike_count(%PostComment{id: id}) do
+    from(c in PostComment, where: c.id == ^id)
+    |> repo().update_all(inc: [dislike_count: 1])
+  end
+
+  @doc """
+  Decrements the dislike counter for a comment.
+
+  ## Examples
+
+      iex> decrement_comment_dislike_count(comment)
+      {1, nil}
+  """
+  def decrement_comment_dislike_count(%PostComment{id: id}) do
+    from(c in PostComment, where: c.id == ^id and c.dislike_count > 0)
+    |> repo().update_all(inc: [dislike_count: -1])
+  end
+
+  @doc """
+  User likes a comment.
+
+  Creates a like record and increments the comment's like counter.
+  Returns error if user has already liked the comment.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> like_comment("018e3c4a-...", 42)
+      {:ok, %CommentLike{}}
+
+      iex> like_comment("018e3c4a-...", 42)  # Already liked
+      {:error, %Ecto.Changeset{}}
+  """
+  def like_comment(comment_id, user_id) do
+    repo().transaction(fn ->
+      case %CommentLike{}
+           |> CommentLike.changeset(%{comment_id: comment_id, user_id: user_id})
+           |> repo().insert() do
+        {:ok, like} ->
+          increment_comment_like_count(%PostComment{id: comment_id})
+          like
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
+      end
+    end)
+  end
+
+  @doc """
+  User unlikes a comment.
+
+  Deletes the like record and decrements the comment's like counter.
+  Returns error if like doesn't exist.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> unlike_comment("018e3c4a-...", 42)
+      {:ok, %CommentLike{}}
+
+      iex> unlike_comment("018e3c4a-...", 42)  # Not liked
+      {:error, :not_found}
+  """
+  def unlike_comment(comment_id, user_id) do
+    repo().transaction(fn ->
+      case repo().get_by(CommentLike, comment_id: comment_id, user_id: user_id) do
+        nil ->
+          repo().rollback(:not_found)
+
+        like ->
+          {:ok, _} = repo().delete(like)
+          decrement_comment_like_count(%PostComment{id: comment_id})
+          like
+      end
+    end)
+  end
+
+  @doc """
+  Checks if a user has liked a comment.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> comment_liked_by?("018e3c4a-...", 42)
+      true
+
+      iex> comment_liked_by?("018e3c4a-...", 99)
+      false
+  """
+  def comment_liked_by?(comment_id, user_id) do
+    repo().exists?(
+      from l in CommentLike, where: l.comment_id == ^comment_id and l.user_id == ^user_id
+    )
+  end
+
+  @doc """
+  Lists all likes for a comment.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `opts` - Options
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> list_comment_likes("018e3c4a-...")
+      [%CommentLike{}, ...]
+
+      iex> list_comment_likes("018e3c4a-...", preload: [:user])
+      [%CommentLike{user: %User{}}, ...]
+  """
+  def list_comment_likes(comment_id, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    from(l in CommentLike, where: l.comment_id == ^comment_id, order_by: [desc: l.inserted_at])
+    |> repo().all()
+    |> repo().preload(preloads)
+  end
+
+  @doc """
+  User dislikes a comment.
+
+  Creates a dislike record and increments the comment's dislike counter.
+  Returns error if user has already disliked the comment.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> dislike_comment("018e3c4a-...", 42)
+      {:ok, %CommentDislike{}}
+
+      iex> dislike_comment("018e3c4a-...", 42)  # Already disliked
+      {:error, %Ecto.Changeset{}}
+  """
+  def dislike_comment(comment_id, user_id) do
+    repo().transaction(fn ->
+      case %CommentDislike{}
+           |> CommentDislike.changeset(%{comment_id: comment_id, user_id: user_id})
+           |> repo().insert() do
+        {:ok, dislike} ->
+          increment_comment_dislike_count(%PostComment{id: comment_id})
+          dislike
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
+      end
+    end)
+  end
+
+  @doc """
+  User removes dislike from a comment.
+
+  Deletes the dislike record and decrements the comment's dislike counter.
+  Returns error if dislike doesn't exist.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> undislike_comment("018e3c4a-...", 42)
+      {:ok, %CommentDislike{}}
+
+      iex> undislike_comment("018e3c4a-...", 42)  # Not disliked
+      {:error, :not_found}
+  """
+  def undislike_comment(comment_id, user_id) do
+    repo().transaction(fn ->
+      case repo().get_by(CommentDislike, comment_id: comment_id, user_id: user_id) do
+        nil ->
+          repo().rollback(:not_found)
+
+        dislike ->
+          {:ok, _} = repo().delete(dislike)
+          decrement_comment_dislike_count(%PostComment{id: comment_id})
+          dislike
+      end
+    end)
+  end
+
+  @doc """
+  Checks if a user has disliked a comment.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `user_id` - User ID
+
+  ## Examples
+
+      iex> comment_disliked_by?("018e3c4a-...", 42)
+      true
+
+      iex> comment_disliked_by?("018e3c4a-...", 99)
+      false
+  """
+  def comment_disliked_by?(comment_id, user_id) do
+    repo().exists?(
+      from d in CommentDislike, where: d.comment_id == ^comment_id and d.user_id == ^user_id
+    )
+  end
+
+  @doc """
+  Lists all dislikes for a comment.
+
+  ## Parameters
+
+  - `comment_id` - Comment ID
+  - `opts` - Options
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> list_comment_dislikes("018e3c4a-...")
+      [%CommentDislike{}, ...]
+
+      iex> list_comment_dislikes("018e3c4a-...", preload: [:user])
+      [%CommentDislike{user: %User{}}, ...]
+  """
+  def list_comment_dislikes(comment_id, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    from(d in CommentDislike,
+      where: d.comment_id == ^comment_id,
+      order_by: [desc: d.inserted_at]
+    )
     |> repo().all()
     |> repo().preload(preloads)
   end

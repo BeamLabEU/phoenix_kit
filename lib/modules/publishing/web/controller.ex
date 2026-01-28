@@ -495,23 +495,46 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
 
       {:error, :cache_miss} ->
         Logger.warning(
-          "[PublishingController] Cache MISS for #{blog_slug} - falling back to filesystem scan"
+          "[PublishingController] Cache MISS for #{blog_slug} - regenerating cache synchronously"
         )
 
-        # Cache miss - scan filesystem and regenerate cache for next request
-        all_posts = Publishing.list_posts(blog_slug, nil)
+        # Cache miss - regenerate cache synchronously to prevent race condition
+        # where subsequent requests (e.g., clicking a post) also hit cache miss.
+        # Uses lock to prevent thundering herd if multiple requests hit simultaneously.
+        case ListingCache.regenerate_if_not_in_progress(blog_slug) do
+          :ok ->
+            elapsed_us = System.monotonic_time(:microsecond) - start_time
+            elapsed_ms = Float.round(elapsed_us / 1000, 1)
 
-        elapsed_us = System.monotonic_time(:microsecond) - start_time
-        elapsed_ms = Float.round(elapsed_us / 1000, 1)
+            Logger.info(
+              "[PublishingController] Cache regenerated for #{blog_slug} (#{elapsed_ms}ms)"
+            )
 
-        Logger.warning(
-          "[PublishingController] Filesystem scan complete for #{blog_slug} (#{elapsed_ms}ms, #{length(all_posts)} posts)"
-        )
+            # Read from freshly populated cache
+            case ListingCache.read(blog_slug) do
+              {:ok, posts} -> posts
+              {:error, _} -> Publishing.list_posts(blog_slug, nil)
+            end
 
-        # Regenerate cache asynchronously (don't block the request)
-        Task.start(fn -> ListingCache.regenerate(blog_slug) end)
+          :already_in_progress ->
+            elapsed_us = System.monotonic_time(:microsecond) - start_time
+            elapsed_ms = Float.round(elapsed_us / 1000, 1)
 
-        all_posts
+            Logger.info(
+              "[PublishingController] Cache regeneration in progress for #{blog_slug}, using filesystem (#{elapsed_ms}ms)"
+            )
+
+            # Another request is regenerating, fall back to filesystem
+            Publishing.list_posts(blog_slug, nil)
+
+          {:error, reason} ->
+            Logger.error(
+              "[PublishingController] Cache regeneration failed for #{blog_slug}: #{inspect(reason)}"
+            )
+
+            # Regeneration failed, fall back to filesystem
+            Publishing.list_posts(blog_slug, nil)
+        end
     end
   end
 

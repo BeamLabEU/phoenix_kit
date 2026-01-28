@@ -245,10 +245,10 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
     end
   end
 
-  defp format_custom_field_value(nil, _type), do: "-"
-  defp format_custom_field_value("", _type), do: "-"
+  defp format_custom_field_value(nil, _type, _field_key), do: "-"
+  defp format_custom_field_value("", _type, _field_key), do: "-"
 
-  defp format_custom_field_value(value, "boolean") do
+  defp format_custom_field_value(value, "boolean", _field_key) do
     case value do
       true -> gettext("Yes")
       "true" -> gettext("Yes")
@@ -258,5 +258,10 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
     end
   end
 
-  defp format_custom_field_value(value, _type), do: to_string(value)
+  defp format_custom_field_value(value, type, field_key)
+       when type in ["select", "radio", "checkbox"] do
+    CustomFields.get_option_text(field_key, value) || to_string(value)
+  end
+
+  defp format_custom_field_value(value, _type, _field_key), do: to_string(value)
 end

@@ -268,7 +268,8 @@
                         <p class="text-base-content">
                           {format_custom_field_value(
                             get_custom_field_value(@user, field["key"]),
-                            field["type"]
+                            field["type"],
+                            field["key"]
                           )}
                         </p>
                       </div>

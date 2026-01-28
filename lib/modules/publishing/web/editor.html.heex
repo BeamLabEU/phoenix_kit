@@ -495,11 +495,6 @@
                   @ai_selected_endpoint_id == nil or
                     @ai_translation_status in [:enqueued, :in_progress]
                 }
-                data-confirm={
-                  gettext(
-                    "This will overwrite any existing content in this language with an AI translation. Continue?"
-                  )
-                }
               >
                 <.icon name="hero-language" class="w-4 h-4" />
                 {gettext("Translate to This Language")}
@@ -862,12 +857,19 @@
                   <label class="label">
                     <span class="label-text text-sm font-semibold text-base-content">
                       {gettext("Status")}
+                      <%= if not @is_primary_language and @form["status"] != "published" do %>
+                        <span class="text-xs font-normal text-base-content/60 ml-2">
+                          {gettext("(follows primary language)")}
+                        </span>
+                      <% end %>
                     </span>
                   </label>
                   <select
-                    class={"select select-bordered w-full #{if @readonly?, do: "select-disabled bg-base-200"}"}
+                    class={"select select-bordered w-full #{if @readonly? or (not @is_primary_language and @form["status"] != "published"), do: "select-disabled bg-base-200"}"}
                     name="status"
-                    disabled={@readonly?}
+                    disabled={
+                      @readonly? or (not @is_primary_language and @form["status"] != "published")
+                    }
                   >
                     <%= if @viewing_older_version do %>
                       <%!-- Older versions can only be published or archived, not draft --%>
@@ -1122,6 +1124,20 @@
       <div class="modal-backdrop bg-base-content/50" phx-click="close_new_version_modal"></div>
     </div>
   <% end %>
+
+  <%!-- Translation Confirmation Modal --%>
+  <.confirm_modal
+    show={@show_translation_confirm}
+    on_confirm="confirm_translation"
+    on_cancel="cancel_translation"
+    title={gettext("Confirm Translation")}
+    title_icon="hero-language"
+    messages={@translation_warnings}
+    prompt={gettext("Do you want to continue with the translation?")}
+    confirm_text={gettext("Translate")}
+    cancel_text={gettext("Cancel")}
+    confirm_icon="hero-language"
+  />
 
   <%!-- Media Selector Modal --%>
   <.live_component
