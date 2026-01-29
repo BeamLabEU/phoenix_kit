@@ -18,7 +18,8 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/settings/referral-codes",
                PhoenixKit.Modules.Referrals.Web.Settings,
-               :index, as: :referral_codes_settings_localized
+               :index,
+               as: :referral_codes_settings_localized
 
           live "/admin/users/referral-codes", PhoenixKit.Modules.Referrals.Web.List, :index,
             as: :referral_codes_list_localized
@@ -28,7 +29,8 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
 
           live "/admin/users/referral-codes/edit/:id",
                PhoenixKit.Modules.Referrals.Web.Form,
-               :edit, as: :referral_codes_edit_localized
+               :edit,
+               as: :referral_codes_edit_localized
         end
       end
 
@@ -40,7 +42,8 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/settings/referral-codes",
                PhoenixKit.Modules.Referrals.Web.Settings,
-               :index, as: :referral_codes_settings
+               :index,
+               as: :referral_codes_settings
 
           live "/admin/users/referral-codes", PhoenixKit.Modules.Referrals.Web.List, :index,
             as: :referral_codes_list
@@ -50,7 +53,8 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
 
           live "/admin/users/referral-codes/edit/:id",
                PhoenixKit.Modules.Referrals.Web.Form,
-               :edit, as: :referral_codes_edit
+               :edit, 
+               as: :referral_codes_edit
         end
       end
     end
