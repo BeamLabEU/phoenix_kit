@@ -23,20 +23,22 @@
 
     <%!-- Post Header --%>
     <header class="mb-8 border-b pb-6">
-      <div class="flex items-center gap-2 text-sm text-base-content/70">
-        <%!-- Publication Date (includes time when multiple posts on same date) --%>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-        <time datetime={@post.metadata.published_at}>
-          {format_post_date(@post, @blog_slug)}
-        </time>
-      </div>
+      <%= if has_publication_date?(@post) do %>
+        <div class="flex items-center gap-2 text-sm text-base-content/70">
+          <%!-- Publication Date (includes time when multiple posts on same date) --%>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          <time datetime={@post.metadata.published_at || ""}>
+            {format_post_date(@post, @blog_slug)}
+          </time>
+        </div>
+      <% end %>
       <div class="flex flex-wrap items-center gap-4 mt-4">
         <%!-- Language Switcher --%>
         <%= if length(@translations) > 1 do %>
