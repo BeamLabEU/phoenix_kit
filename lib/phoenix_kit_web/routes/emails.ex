@@ -65,11 +65,13 @@ defmodule PhoenixKitWeb.Routes.EmailsRoutes do
 
           live "/admin/modules/emails/templates/new",
                PhoenixKit.Modules.Emails.Web.TemplateEditor,
-               :new, as: :emails_template_new
+               :new,
+               as: :emails_template_new
 
           live "/admin/modules/emails/templates/:id/edit",
                PhoenixKit.Modules.Emails.Web.TemplateEditor,
-               :edit, as: :emails_template_edit
+               :edit,
+               as: :emails_template_edit
         end
       end
     end

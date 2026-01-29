@@ -28,7 +28,8 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
 
           live "/admin/publishing/:blog/preview",
                PhoenixKit.Modules.Publishing.Web.Preview,
-               :preview, as: :publishing_preview_localized
+               :preview,
+               as: :publishing_preview_localized
 
           live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
             as: :publishing_settings_localized
@@ -38,7 +39,8 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
 
           live "/admin/settings/publishing/:blog/edit",
                PhoenixKit.Modules.Publishing.Web.Edit,
-               :edit, as: :publishing_edit_localized
+               :edit,
+               as: :publishing_edit_localized
         end
       end
 
@@ -59,7 +61,8 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
 
           live "/admin/publishing/:blog/preview",
                PhoenixKit.Modules.Publishing.Web.Preview,
-               :preview, as: :publishing_preview
+               :preview,
+               as: :publishing_preview
 
           live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
             as: :publishing_settings
@@ -69,7 +72,8 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
 
           live "/admin/settings/publishing/:blog/edit",
                PhoenixKit.Modules.Publishing.Web.Edit,
-               :edit, as: :publishing_edit
+               :edit,
+               as: :publishing_edit
         end
       end
 

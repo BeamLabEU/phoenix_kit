@@ -53,7 +53,7 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
 
           live "/admin/users/referral-codes/edit/:id",
                PhoenixKit.Modules.Referrals.Web.Form,
-               :edit, 
+               :edit,
                as: :referral_codes_edit
         end
       end
