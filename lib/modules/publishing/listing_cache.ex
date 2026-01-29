@@ -650,11 +650,14 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   def find_post_by_path(blog_slug, date, time) do
     case read(blog_slug) do
       {:ok, posts} ->
-        # Match posts where the path contains this date/time combination
-        path_pattern = "#{date}/#{time}"
+        # Match posts using discrete date and time fields (more robust than path string matching)
+        # Parse the input date string to compare with the cached Date struct
+        target_date = parse_date_for_lookup(date)
+        # Normalize time format (handles both "HH:MM" and "HH:MM:SS")
+        target_time = normalize_time_for_lookup(time)
 
         case Enum.find(posts, fn p ->
-               p.path && String.contains?(p.path, path_pattern)
+               dates_match?(p.date, target_date) && times_match?(p.time, target_time)
              end) do
           nil -> {:error, :not_found}
           post -> {:ok, post}
@@ -664,6 +667,55 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
         error
     end
   end
+
+  # Parse date string for lookup comparison
+  defp parse_date_for_lookup(date_str) when is_binary(date_str) do
+    case Date.from_iso8601(date_str) do
+      {:ok, date} -> date
+      _ -> date_str
+    end
+  end
+
+  defp parse_date_for_lookup(date), do: date
+
+  # Normalize time to "HH:MM" format for comparison
+  defp normalize_time_for_lookup(time_str) when is_binary(time_str) do
+    # Take just HH:MM portion
+    String.slice(time_str, 0, 5)
+  end
+
+  defp normalize_time_for_lookup(time), do: time
+
+  # Compare dates - handles both Date structs and strings
+  defp dates_match?(nil, _), do: false
+  defp dates_match?(_, nil), do: false
+
+  defp dates_match?(%Date{} = cached, %Date{} = target) do
+    Date.compare(cached, target) == :eq
+  end
+
+  defp dates_match?(%Date{} = cached, target_str) when is_binary(target_str) do
+    Date.to_iso8601(cached) == target_str
+  end
+
+  defp dates_match?(_, _), do: false
+
+  # Compare times - handles Time structs and "HH:MM" strings
+  defp times_match?(nil, _), do: false
+  defp times_match?(_, nil), do: false
+
+  defp times_match?(%Time{} = cached, target_str) when is_binary(target_str) do
+    # Format cached time as HH:MM and compare
+    cached_str = cached |> Time.to_string() |> String.slice(0, 5)
+    cached_str == target_str
+  end
+
+  defp times_match?(cached_str, target_str)
+       when is_binary(cached_str) and is_binary(target_str) do
+    String.slice(cached_str, 0, 5) == String.slice(target_str, 0, 5)
+  end
+
+  defp times_match?(_, _), do: false
 
   @doc """
   Finds a post by URL slug for a specific language.
@@ -1060,6 +1112,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       "available_versions" => post[:available_versions] || [],
       "version_statuses" => serialize_version_statuses(post[:version_statuses]),
       "version_dates" => post[:version_dates] || %{},
+      "version_languages" => serialize_version_languages(post[:version_languages]),
       "is_legacy_structure" => post[:is_legacy_structure] || false,
       "metadata" => serialize_metadata(post[:metadata]),
       # Pre-compute excerpt for listing page (avoids needing full content)
@@ -1102,8 +1155,28 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   # Gets both url_slug and previous_url_slugs for a specific language
+  # Handles both slug mode and timestamp mode posts correctly
   defp get_slugs_for_language(group_slug, post_slug, lang, post) do
-    case Storage.read_post_slug_mode(group_slug, post_slug, lang, nil) do
+    # Use appropriate read function based on post mode
+    result =
+      case post[:mode] do
+        :timestamp ->
+          # For timestamp mode, use the path-based read
+          post_identifier = extract_timestamp_identifier_for_cache(post[:path])
+
+          if post_identifier do
+            path = Path.join([group_slug, post_identifier, Storage.language_filename(lang)])
+            Storage.read_post(group_slug, path)
+          else
+            {:error, :invalid_path}
+          end
+
+        _ ->
+          # For slug mode, use the slug-based read
+          Storage.read_post_slug_mode(group_slug, post_slug, lang, nil)
+      end
+
+    case result do
       {:ok, lang_post} ->
         url_slug = lang_post.url_slug
         previous = Map.get(lang_post.metadata, :previous_url_slugs) || []
@@ -1116,6 +1189,16 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   rescue
     _ -> {post[:slug] || post_slug, []}
   end
+
+  # Extract timestamp identifier (date/time) from a timestamp mode path
+  defp extract_timestamp_identifier_for_cache(path) when is_binary(path) do
+    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
+      [_, timestamp] -> timestamp
+      nil -> nil
+    end
+  end
+
+  defp extract_timestamp_identifier_for_cache(_), do: nil
 
   # Extract excerpt: use description if available, otherwise extract from content
   defp extract_excerpt(_content, %{description: desc}) when is_binary(desc) and desc != "",
@@ -1162,7 +1245,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       "featured_image_id" => Map.get(metadata, :featured_image_id),
       "version" => Map.get(metadata, :version),
       "allow_version_access" => Map.get(metadata, :allow_version_access),
-      "status_manual" => Map.get(metadata, :status_manual),
       "url_slug" => Map.get(metadata, :url_slug),
       "previous_url_slugs" => Map.get(metadata, :previous_url_slugs)
     }
@@ -1181,6 +1263,13 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   defp serialize_version_statuses(statuses) when is_map(statuses) do
     # Convert integer keys to strings for JSON
     Map.new(statuses, fn {k, v} -> {to_string(k), v} end)
+  end
+
+  defp serialize_version_languages(nil), do: %{}
+
+  defp serialize_version_languages(version_languages) when is_map(version_languages) do
+    # Convert integer keys to strings for JSON
+    Map.new(version_languages, fn {k, v} -> {to_string(k), v} end)
   end
 
   defp normalize_post(post) when is_map(post) do
@@ -1207,6 +1296,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       available_versions: post["available_versions"] || [],
       version_statuses: parse_version_statuses(post["version_statuses"]),
       version_dates: post["version_dates"] || %{},
+      version_languages: parse_version_languages(post["version_languages"]),
       is_legacy_structure: post["is_legacy_structure"] || false,
       metadata: normalize_metadata(post["metadata"]),
       # Primary language for this post (controls versioning/status inheritance)
@@ -1229,7 +1319,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       featured_image_id: metadata["featured_image_id"],
       version: metadata["version"],
       allow_version_access: metadata["allow_version_access"],
-      status_manual: metadata["status_manual"],
       url_slug: metadata["url_slug"],
       previous_url_slugs: metadata["previous_url_slugs"]
     }
@@ -1269,6 +1358,21 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   defp parse_version_statuses(statuses) when is_map(statuses) do
     # Convert string keys back to integers
     Map.new(statuses, fn {k, v} ->
+      key =
+        case Integer.parse(k) do
+          {int, ""} -> int
+          _ -> k
+        end
+
+      {key, v}
+    end)
+  end
+
+  defp parse_version_languages(nil), do: %{}
+
+  defp parse_version_languages(version_languages) when is_map(version_languages) do
+    # Convert string keys back to integers
+    Map.new(version_languages, fn {k, v} ->
       key =
         case Integer.parse(k) do
           {int, ""} -> int

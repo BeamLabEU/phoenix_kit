@@ -1128,6 +1128,121 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   def format_datetime(_post, _user, _settings), do: gettext("Unsaved draft")
 
+  @doc """
+  Gets the published version number from a post's version_statuses map.
+  Returns nil if no version is published.
+  """
+  def get_published_version(post) do
+    version_statuses = Map.get(post, :version_statuses, %{})
+
+    version_statuses
+    |> Enum.find(fn {_version, status} -> status == "published" end)
+    |> case do
+      {version, _status} -> version
+      nil -> nil
+    end
+  end
+
+  @doc """
+  Gets the display version info for a post based on priority:
+  1. Published version (if exists) - what visitors see
+  2. Newest draft version (if no published) - work in progress
+  3. Latest version (fallback)
+
+  Returns `{version_number, status, label}` where label is :live, :draft, or :latest
+  """
+  def get_display_version(post) do
+    version_statuses = Map.get(post, :version_statuses, %{})
+    available_versions = Map.get(post, :available_versions, [])
+
+    # 1. Check for published version
+    published =
+      version_statuses
+      |> Enum.find(fn {_version, status} -> status == "published" end)
+
+    case published do
+      {version, _status} ->
+        {version, "published", :live}
+
+      nil ->
+        # 2. Check for newest draft version
+        draft_versions =
+          version_statuses
+          |> Enum.filter(fn {_version, status} -> status == "draft" end)
+          |> Enum.map(fn {version, _} -> version end)
+          |> Enum.sort(:desc)
+
+        case draft_versions do
+          [newest_draft | _] ->
+            {newest_draft, "draft", :draft}
+
+          [] ->
+            # 3. Fall back to latest version
+            latest = Enum.max(available_versions, fn -> post[:version] || 1 end)
+            status = Map.get(version_statuses, latest, "draft")
+            {latest, status, :latest}
+        end
+    end
+  end
+
+  @doc """
+  Builds language data for the display version (live > draft > latest).
+  """
+  def build_display_version_languages(post, enabled_languages, primary_language \\ nil) do
+    {version, status, _label} = get_display_version(post)
+
+    # Get languages for this specific version
+    version_languages = Map.get(post, :version_languages, %{})
+    available_languages = Map.get(version_languages, version, post[:available_languages] || [])
+
+    # Get primary language - prefer passed param, then post's stored value, then global
+    primary_lang =
+      primary_language || post[:primary_language] || Storage.get_primary_language()
+
+    # Use shared ordering function for consistent display
+    all_languages =
+      Storage.order_languages_for_display(
+        available_languages,
+        enabled_languages,
+        primary_lang
+      )
+
+    Enum.map(all_languages, fn lang_code ->
+      lang_path =
+        Path.join([
+          Path.dirname(post.path),
+          "#{lang_code}.phk"
+        ])
+
+      lang_info = Publishing.get_language_info(lang_code)
+      file_exists = lang_code in available_languages
+      is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
+      is_known = lang_info != nil
+      is_primary = lang_code == primary_lang
+
+      # Status matches the version's status
+      lang_status = if file_exists, do: status, else: nil
+
+      # Get display code (base or full dialect depending on enabled languages)
+      display_code = Storage.get_display_code(lang_code, enabled_languages)
+
+      %{
+        code: lang_code,
+        display_code: display_code,
+        name: if(lang_info, do: lang_info.name, else: lang_code),
+        flag: if(lang_info, do: lang_info.flag, else: ""),
+        status: lang_status,
+        exists: file_exists,
+        enabled: is_enabled,
+        known: is_known,
+        is_primary: is_primary,
+        path: if(file_exists, do: lang_path, else: nil),
+        post_path: post.path
+      }
+    end)
+    |> Enum.filter(fn lang -> lang.exists end)
+  end
+
   defp extract_endpoint_url(uri) when is_binary(uri) do
     case URI.parse(uri) do
       %URI{scheme: scheme, host: host, port: port} when not is_nil(scheme) and not is_nil(host) ->
@@ -1161,7 +1276,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   The `known` field indicates if the language code is recognized (vs unknown files like "test.phk").
   The `is_primary` field indicates if this is the primary language for versioning.
 
-  Uses preloaded `language_statuses` from the post to avoid re-reading files on every render.
+  For versioned posts with a live version, shows the live version's languages and paths.
   """
   def build_post_languages(
         post,
@@ -1170,55 +1285,101 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         _current_locale,
         primary_language \\ nil
       ) do
-    # Get primary language - prefer passed param, then post's stored value, then global
     primary_lang =
       primary_language || post[:primary_language] || Storage.get_primary_language()
 
-    # Use shared ordering function for consistent display across all views
+    version_info = get_version_display_info(post, primary_lang)
+
     all_languages =
       Storage.order_languages_for_display(
-        post.available_languages,
+        version_info.available_languages,
         enabled_languages,
         primary_lang
       )
 
-    # Get preloaded language statuses (falls back to empty map for backwards compatibility)
-    language_statuses = Map.get(post, :language_statuses) || %{}
-
-    Enum.map(all_languages, fn lang_code ->
-      lang_path =
-        Path.join([
-          Path.dirname(post.path),
-          "#{lang_code}.phk"
-        ])
-
-      lang_info = Publishing.get_language_info(lang_code)
-      file_exists = lang_code in post.available_languages
-      is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
-      is_known = lang_info != nil
-      is_primary = lang_code == primary_lang
-
-      # Use preloaded status instead of re-reading file
-      status = Map.get(language_statuses, lang_code)
-
-      # Get display code (base or full dialect depending on enabled languages)
-      display_code = Storage.get_display_code(lang_code, enabled_languages)
-
-      %{
-        code: lang_code,
-        display_code: display_code,
-        name: if(lang_info, do: lang_info.name, else: lang_code),
-        flag: if(lang_info, do: lang_info.flag, else: ""),
-        status: status,
-        exists: file_exists,
-        enabled: is_enabled,
-        known: is_known,
-        is_primary: is_primary,
-        path: if(file_exists, do: lang_path, else: nil),
-        post_path: post.path
-      }
-    end)
+    all_languages
+    |> Enum.map(&build_language_entry(&1, post, version_info, enabled_languages, primary_lang))
     |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
+  end
+
+  defp get_version_display_info(post, primary_lang) do
+    if post[:mode] == :slug and not Map.get(post, :is_legacy_structure, true) do
+      get_versioned_post_display_info(post, primary_lang)
+    else
+      get_default_display_info(post)
+    end
+  end
+
+  defp get_versioned_post_display_info(post, primary_lang) do
+    case get_published_version(post) do
+      nil ->
+        get_default_display_info(post)
+
+      published_version ->
+        langs = get_live_version_languages(post, published_version)
+        path_base = Path.join([post.group, post.slug, "v#{published_version}"])
+        live_post_path = Path.join([path_base, "#{primary_lang}.phk"])
+
+        %{
+          available_languages: langs,
+          version_status: "published",
+          path_base: path_base,
+          display_post_path: live_post_path
+        }
+    end
+  end
+
+  defp get_default_display_info(post) do
+    %{
+      available_languages: post.available_languages || [],
+      version_status: nil,
+      path_base: Path.dirname(post.path),
+      display_post_path: post.path
+    }
+  end
+
+  defp get_live_version_languages(post, published_version) do
+    version_languages = Map.get(post, :version_languages, %{})
+    langs = Map.get(version_languages, published_version, [])
+
+    if langs == [] do
+      alias PhoenixKit.Modules.Publishing.Storage.Versions
+      version_langs = Versions.load_version_languages(post.group, post.slug, [published_version])
+      Map.get(version_langs, published_version, [])
+    else
+      langs
+    end
+  end
+
+  defp build_language_entry(lang_code, post, version_info, enabled_languages, primary_lang) do
+    lang_path = Path.join([version_info.path_base, "#{lang_code}.phk"])
+    lang_info = Publishing.get_language_info(lang_code)
+    file_exists = lang_code in version_info.available_languages
+
+    status = get_language_status(lang_code, file_exists, version_info, post)
+
+    %{
+      code: lang_code,
+      display_code: Storage.get_display_code(lang_code, enabled_languages),
+      name: if(lang_info, do: lang_info.name, else: lang_code),
+      flag: if(lang_info, do: lang_info.flag, else: ""),
+      status: status,
+      exists: file_exists,
+      enabled: Storage.language_enabled?(lang_code, enabled_languages),
+      known: lang_info != nil,
+      is_primary: lang_code == primary_lang,
+      path: if(file_exists, do: lang_path, else: nil),
+      post_path: if(file_exists, do: lang_path, else: version_info.display_post_path)
+    }
+  end
+
+  defp get_language_status(lang_code, file_exists, version_info, post) do
+    if version_info.version_status && file_exists do
+      version_info.version_status
+    else
+      language_statuses = Map.get(post, :language_statuses) || %{}
+      Map.get(language_statuses, lang_code)
+    end
   end
 
   # Cache info helper

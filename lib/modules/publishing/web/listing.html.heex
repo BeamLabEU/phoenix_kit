@@ -452,16 +452,15 @@
                     "blog" %>
                 <%!-- Use post's stored primary language, falling back to global only if not stored --%>
                 <% post_primary_lang = post[:primary_language] || @primary_language %>
-                <% default_lang = List.first(post.available_languages) || @current_locale_base %>
                 <% default_lang_path =
                   Path.join([
                     Path.dirname(post.path),
                     "#{post_primary_lang}.phk"
                   ]) %>
                 <% files_path = @group_files_root <> post.path %>
-                <%!-- Use post's actual language, falling back to first available language for this post --%>
+                <%!-- Use post's primary language for the public URL --%>
                 <% public_url =
-                  PublishingHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
+                  PublishingHTML.build_post_url(blog_slug, post, post_primary_lang) %>
                 <% full_public_url = @endpoint_url <> public_url %>
                 <%!-- Version info (only for slug-mode posts) --%>
                 <% version_count = length(Map.get(post, :available_versions) || []) %>
@@ -475,12 +474,21 @@
                         <span>
                           {format_datetime(post, @phoenix_kit_current_user, @date_time_settings)}
                         </span>
-                        <%!-- Version badge (only show when multiple versions exist) --%>
-                        <%= if is_versioned and version_count > 1 do %>
-                          <span class="badge badge-ghost badge-xs">
-                            {ngettext("%{count} version", "%{count} versions", version_count,
-                              count: version_count
-                            )}
+                        <%!-- Version info (show published version and count) --%>
+                        <%= if is_versioned do %>
+                          <% {display_version, display_status, _label} = get_display_version(post) %>
+                          <span class={[
+                            "badge badge-xs gap-1",
+                            display_status == "published" && "badge-success",
+                            display_status != "published" && "badge-ghost"
+                          ]}>
+                            <%= if version_count > 1 do %>
+                              {ngettext("%{count} version", "%{count} versions", version_count,
+                                count: version_count
+                              )}
+                              <span class="opacity-50">|</span>
+                            <% end %>
+                            {gettext("showing")} v{display_version}
                           </span>
                         <% end %>
                       </div>

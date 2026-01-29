@@ -292,7 +292,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
               )
             end
 
-            # Get source post status to inherit (unless status_manual is set on target)
+            # Get source post status to inherit for new translation
             source_status = Map.get(source_post.metadata, :status, "draft")
 
             # Create or update the translation
@@ -468,7 +468,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         # Update existing translation - verify it's actually the right language
         if existing_post.language == language do
           Logger.info("[TranslatePostWorker] Updating existing #{language} translation")
-          # Don't override status for existing translations (they may have status_manual set)
+          # Don't override status - translations inherit status from primary via propagation
           update_translation(group_slug, existing_post, title, url_slug, content, user_id)
         else
           # Fallback returned wrong language, create new translation instead
@@ -493,10 +493,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     case Publishing.read_post(group_slug, post_slug, language, version) do
       {:ok, post} ->
         # Verify the returned post is actually for the requested language
-        if post.language == language do
+        # AND that it's not a "new translation" stub (is_new_translation means the file
+        # doesn't exist and read_post returned a fallback with empty content)
+        is_new_translation = Map.get(post, :is_new_translation, false)
+
+        if post.language == language && !is_new_translation do
           {:ok, post}
         else
-          {:error, :wrong_language}
+          {:error, :not_found}
         end
 
       error ->
@@ -523,49 +527,37 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   defp create_translation(opts) do
+    language = opts.language
+
+    Logger.debug("[TranslatePostWorker] Calling add_language_to_post for #{language}...")
+
+    try do
+      do_create_translation(opts)
+    rescue
+      e ->
+        Logger.error(
+          "[TranslatePostWorker] Exception in create_translation for #{language}: #{inspect(e)}\n#{Exception.format_stacktrace(__STACKTRACE__)}"
+        )
+
+        {:error, {:exception, e}}
+    end
+  end
+
+  defp do_create_translation(opts) do
     %{
       group_slug: group_slug,
       post_identifier: post_slug,
       language: language,
-      title: title,
-      url_slug: url_slug,
-      content: content,
-      version: version,
-      user_id: user_id,
-      source_status: source_status
+      version: version
     } = opts
 
     case Publishing.add_language_to_post(group_slug, post_slug, language, version) do
       {:ok, new_post} ->
-        params = %{
-          "title" => title,
-          "content" => content,
-          # Inherit status from source post (the new translation file starts as draft,
-          # but we want it to match the primary language's published status)
-          "status" => source_status
-        }
+        Logger.debug("[TranslatePostWorker] add_language_to_post succeeded for #{language}")
+        update_translation_post(new_post, opts)
 
-        # Add url_slug if provided
-        params = if url_slug, do: Map.put(params, "url_slug", url_slug), else: params
-
-        # Mark as non-primary language to prevent status propagation from translation
-        opts = %{scope: build_scope(user_id), is_primary_language: false}
-
-        case Publishing.update_post(group_slug, new_post, params, opts) do
-          {:ok, _} ->
-            Logger.info(
-              "[TranslatePostWorker] Successfully saved #{language} translation with slug: #{url_slug || "(default)"}, status: #{source_status}"
-            )
-
-            :ok
-
-          {:error, reason} ->
-            Logger.error(
-              "[TranslatePostWorker] Failed to update new #{language} translation: #{inspect(reason)}"
-            )
-
-            {:error, reason}
-        end
+      {:error, :already_exists} ->
+        handle_existing_translation(opts)
 
       {:error, reason} ->
         Logger.error(
@@ -574,6 +566,74 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
         {:error, reason}
     end
+  end
+
+  defp update_translation_post(post, opts) do
+    %{
+      group_slug: group_slug,
+      language: language,
+      title: title,
+      url_slug: url_slug,
+      content: content,
+      user_id: user_id,
+      source_status: source_status
+    } = opts
+
+    params = build_translation_params(title, content, url_slug, source_status)
+    update_opts = %{scope: build_scope(user_id), is_primary_language: false}
+
+    Logger.debug("[TranslatePostWorker] Calling update_post for #{language}...")
+
+    case Publishing.update_post(group_slug, post, params, update_opts) do
+      {:ok, _} ->
+        Logger.info(
+          "[TranslatePostWorker] Successfully saved #{language} translation with slug: #{url_slug || "(default)"}, status: #{source_status}"
+        )
+
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "[TranslatePostWorker] Failed to update #{language} translation: #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
+  defp handle_existing_translation(opts) do
+    %{
+      group_slug: group_slug,
+      post_identifier: post_slug,
+      language: language,
+      version: version
+    } = opts
+
+    Logger.info(
+      "[TranslatePostWorker] Translation file already exists for #{language}, updating..."
+    )
+
+    case Publishing.read_post(group_slug, post_slug, language, version) do
+      {:ok, existing_post} ->
+        update_translation_post(existing_post, opts)
+
+      {:error, reason} ->
+        Logger.error(
+          "[TranslatePostWorker] Failed to read existing #{language} translation: #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
+  defp build_translation_params(title, content, url_slug, source_status) do
+    params = %{
+      "title" => title,
+      "content" => content,
+      "status" => source_status
+    }
+
+    if url_slug, do: Map.put(params, "url_slug", url_slug), else: params
   end
 
   # Build scope for audit trail

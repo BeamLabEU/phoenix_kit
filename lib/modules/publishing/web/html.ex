@@ -57,7 +57,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
         build_public_path(segments)
 
       :timestamp ->
-        date = format_date_for_url(post.metadata.published_at)
+        # For timestamp mode, use the date/time from the directory structure
+        # (stored in post.date and post.time), not from metadata.published_at
+        date = get_timestamp_date(post)
 
         # Check if we need time in URL (only if multiple posts on same date)
         post_count = count_posts_on_date(blog_slug, date)
@@ -65,7 +67,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
         segments =
           if post_count > 1 do
             # Multiple posts - include time
-            time = format_time_for_url(post.metadata.published_at)
+            time = get_timestamp_time(post)
 
             if single_language_mode?(),
               do: [blog_slug, date, time],
@@ -175,18 +177,37 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   def format_date_with_time(_), do: ""
 
   @doc """
+  Checks if a post has a publication date to display.
+  For timestamp mode, the date comes from the directory structure.
+  For slug mode, it comes from metadata.published_at.
+  """
+  def has_publication_date?(post) do
+    case post.mode do
+      :timestamp ->
+        # Timestamp mode always has a date (from directory structure)
+        post[:date] != nil
+
+      _ ->
+        # Slug mode uses metadata.published_at
+        published_at = get_in(post, [:metadata, :published_at])
+        published_at != nil and published_at != ""
+    end
+  end
+
+  @doc """
   Formats a post's publication date, including time only when multiple posts exist on the same date.
   """
   def format_post_date(post, blog_slug) do
     case post.mode do
       :timestamp ->
-        date = format_date_for_url(post.metadata.published_at)
+        # For timestamp mode, use date/time from directory structure
+        date = get_timestamp_date(post)
         post_count = count_posts_on_date(blog_slug, date)
 
         if post_count > 1 do
-          format_date_with_time(post.metadata.published_at)
+          format_timestamp_date_with_time(post)
         else
-          format_date(post.metadata.published_at)
+          format_timestamp_date(post)
         end
 
       _ ->
@@ -289,6 +310,65 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
     |> String.replace(~r/<[^>]*>/, " ")
     |> String.replace(~r/\s+/, " ")
     |> String.trim()
+  end
+
+  # Formats a timestamp post's date for display (e.g., "December 31, 2025")
+  defp format_timestamp_date(post) do
+    cond do
+      is_struct(post[:date], Date) ->
+        Calendar.strftime(post.date, "%B %d, %Y")
+
+      is_binary(post[:date]) ->
+        case Date.from_iso8601(post.date) do
+          {:ok, date} -> Calendar.strftime(date, "%B %d, %Y")
+          _ -> post.date
+        end
+
+      true ->
+        format_date(post.metadata.published_at)
+    end
+  end
+
+  # Formats a timestamp post's date with time for display (e.g., "December 31, 2025 at 03:42")
+  defp format_timestamp_date_with_time(post) do
+    date_str = format_timestamp_date(post)
+    time_str = get_timestamp_time(post)
+    "#{date_str} at #{time_str}"
+  end
+
+  # Gets the date for a timestamp-mode post from post.date field (directory structure)
+  # Falls back to metadata.published_at if post.date not available
+  defp get_timestamp_date(post) do
+    cond do
+      # Use post.date from directory structure (e.g., Date struct or "2025-12-31")
+      is_struct(post[:date], Date) ->
+        Date.to_iso8601(post.date)
+
+      is_binary(post[:date]) ->
+        post.date
+
+      # Fallback to metadata.published_at if no post.date
+      true ->
+        format_date_for_url(post.metadata.published_at)
+    end
+  end
+
+  # Gets the time for a timestamp-mode post from post.time field (directory structure)
+  # Falls back to metadata.published_at if post.time not available
+  defp get_timestamp_time(post) do
+    cond do
+      # Use post.time from directory structure (e.g., "03:42" or ~T[03:42:00])
+      is_struct(post[:time], Time) ->
+        post.time |> Time.to_string() |> String.slice(0..4)
+
+      is_binary(post[:time]) ->
+        # Ensure format is HH:MM (5 chars)
+        String.slice(post.time, 0..4)
+
+      # Fallback to metadata.published_at if no post.time
+      true ->
+        format_time_for_url(post.metadata.published_at)
+    end
   end
 
   defp build_public_path(segments) do

@@ -74,9 +74,16 @@
               <% end %>
 
               <div class="card-actions justify-between items-center mt-4">
-                <time class="text-xs text-base-content/60" datetime={post.metadata.published_at}>
-                  {format_date(post.metadata.published_at)}
-                </time>
+                <%= if has_publication_date?(post) do %>
+                  <time
+                    class="text-xs text-base-content/60"
+                    datetime={post.metadata.published_at || ""}
+                  >
+                    {format_post_date(post, @blog["slug"])}
+                  </time>
+                <% else %>
+                  <span class="text-xs text-base-content/60"></span>
+                <% end %>
 
                 <a
                   href={build_post_url(@blog["slug"], post, @current_language)}

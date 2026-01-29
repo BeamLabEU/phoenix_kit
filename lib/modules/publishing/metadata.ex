@@ -31,8 +31,6 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
           version: integer() | nil,
           version_created_at: String.t() | nil,
           version_created_from: integer() | nil,
-          # Translation status override (true = manually set, won't inherit from primary)
-          status_manual: boolean() | nil,
           # Per-post version access control (allows public access to older versions)
           allow_version_access: boolean() | nil,
           # Per-language URL slug (optional, defaults to directory slug)
@@ -84,7 +82,6 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
         :version,
         :version_created_at,
         :version_created_from,
-        :status_manual,
         :allow_version_access,
         # Per-language URL slug
         :url_slug,
@@ -95,7 +92,7 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
         case metadata_value(metadata, key) do
           nil -> []
           "" -> []
-          # Handle boolean values for status_manual and allow_version_access
+          # Handle boolean values for allow_version_access
           true -> ["#{Atom.to_string(key)}: true"]
           false -> ["#{Atom.to_string(key)}: false"]
           value -> ["#{Atom.to_string(key)}: #{value}"]
@@ -153,8 +150,6 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: 1,
       version_created_at: DateTime.to_iso8601(now),
       version_created_from: nil,
-      # Translation status - false means inherit from primary language
-      status_manual: false,
       # Per-post version access - defaults to false (only published version accessible)
       allow_version_access: false,
       # Per-language URL slug - nil means use directory slug
@@ -370,8 +365,6 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: parse_integer(Map.get(metadata, "version"), default.version),
       version_created_at: Map.get(metadata, "version_created_at", default.version_created_at),
       version_created_from: parse_integer(Map.get(metadata, "version_created_from"), nil),
-      # Translation status manual override
-      status_manual: parse_boolean(Map.get(metadata, "status_manual"), default.status_manual),
       # Per-post version access control
       allow_version_access:
         parse_boolean(Map.get(metadata, "allow_version_access"), default.allow_version_access),
@@ -463,7 +456,6 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: 1,
       version_created_at: nil,
       version_created_from: nil,
-      status_manual: false,
       allow_version_access: false,
       url_slug: nil,
       previous_url_slugs: nil,
