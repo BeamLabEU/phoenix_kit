@@ -35,12 +35,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Routing do
   Parses path segments to determine the request type.
 
   Returns one of:
-  - {:listing, blog_slug}
-  - {:slug_post, blog_slug, post_slug}
-  - {:timestamp_post, blog_slug, date, time}
-  - {:date_only_post, blog_slug, date}
-  - {:versioned_post, blog_slug, post_slug, version}
-  - {:error, reason}
+  - `{:listing, blog_slug}`
+  - `{:slug_post, blog_slug, post_slug}`
+  - `{:timestamp_post, blog_slug, date, time}`
+  - `{:date_only_post, blog_slug, date}`
+  - `{:versioned_post, blog_slug, post_slug, version}`
+  - `{:error, reason}`
   """
   def parse_path([]), do: {:error, :invalid_path}
   def parse_path([blog_slug]), do: {:listing, blog_slug}

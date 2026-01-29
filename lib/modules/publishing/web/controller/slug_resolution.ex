@@ -21,9 +21,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   Resolves URL slug to internal slug using cache.
 
   Returns:
-  - {:redirect, url} for 301 redirect to new URL
-  - {:ok, identifier} for resolved internal slug
-  - :passthrough for direct use
+  - `{:redirect, url}` for 301 redirect to new URL
+  - `{:ok, identifier}` for resolved internal slug
+  - `:passthrough` for direct use
   """
   def resolve_url_slug(blog_slug, {:slug, url_slug}, language) do
     case ListingCache.find_by_url_slug(blog_slug, language, url_slug) do
@@ -118,9 +118,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   Scans filesystem to find a post with matching url_slug or previous_url_slugs.
 
   Returns:
-  - {:current, internal_slug} - found as current url_slug
-  - {:previous, internal_slug, current_url_slug} - found in previous_url_slugs (for redirect)
-  - {:error, reason} - not found
+  - `{:current, internal_slug}` - found as current url_slug
+  - `{:previous, internal_slug, current_url_slug}` - found in previous_url_slugs (for redirect)
+  - `{:error, reason}` - not found
   """
   def find_slug_in_filesystem(blog_slug, url_slug, language) do
     group_path = Storage.group_path(blog_slug)
