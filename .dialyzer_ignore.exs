@@ -90,6 +90,8 @@
   # Dialyzer incorrectly infers read_post/update_post only return errors in certain contexts
   # The actual functions return both {:ok, post} and {:error, reason} at runtime
   ~r/lib\/modules\/publishing\/storage\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/storage\/.*\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/storage\/.*\.ex:.*call/,
   ~r/lib\/modules\/publishing\/listing_cache\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*unused_fun/,
@@ -97,9 +99,16 @@
   ~r/lib\/modules\/publishing\/web\/editor\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/preview\.ex:.*pattern_match/,
 
-  # Publishing Controller - with-chain type inference false positives
+  # Publishing Controller submodules - with-chain type inference false positives
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/,
+  ~r/lib\/modules\/publishing\/web\/controller\/.*\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/controller\/.*\.ex:.*unused_fun/,
+
+  # Publishing Editor submodules - with-chain type inference false positives
+  ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*pattern_match_cov/,
+  ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*unused_fun/,
 
   # Publishing Workers - with-chain type inference false positives
   # Dialyzer incorrectly infers read_post only returns errors in certain contexts

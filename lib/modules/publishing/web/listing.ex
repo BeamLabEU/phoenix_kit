@@ -1285,93 +1285,101 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         _current_locale,
         primary_language \\ nil
       ) do
-    # Get primary language - prefer passed param, then post's stored value, then global
     primary_lang =
       primary_language || post[:primary_language] || Storage.get_primary_language()
 
-    # For versioned posts with a live version, show the live version's languages
-    {available_languages, version_status, version_path_base, display_post_path} =
-      if post[:mode] == :slug and not Map.get(post, :is_legacy_structure, true) do
-        published_version = get_published_version(post)
+    version_info = get_version_display_info(post, primary_lang)
 
-        if published_version do
-          # Get languages for the live version
-          # First try cached version_languages, then fetch from filesystem if empty
-          version_languages = Map.get(post, :version_languages, %{})
-          langs = Map.get(version_languages, published_version, [])
-
-          # If cache doesn't have languages for this version, fetch from filesystem
-          langs =
-            if langs == [] do
-              alias PhoenixKit.Modules.Publishing.Storage.Versions
-
-              version_langs =
-                Versions.load_version_languages(post.group, post.slug, [published_version])
-
-              Map.get(version_langs, published_version, [])
-            else
-              langs
-            end
-
-          # Build path base for the live version: group/post-slug/v{N}
-          path_base = Path.join([post.group, post.slug, "v#{published_version}"])
-          # Post path for clicking should point to the live version's primary file
-          live_post_path = Path.join([path_base, "#{primary_lang}.phk"])
-          {langs, "published", path_base, live_post_path}
-        else
-          # No live version - show latest version's data
-          {post.available_languages || [], nil, Path.dirname(post.path), post.path}
-        end
-      else
-        {post.available_languages || [], nil, Path.dirname(post.path), post.path}
-      end
-
-    # Use shared ordering function for consistent display across all views
     all_languages =
       Storage.order_languages_for_display(
-        available_languages,
+        version_info.available_languages,
         enabled_languages,
         primary_lang
       )
 
-    Enum.map(all_languages, fn lang_code ->
-      # Build path for this language in the correct version
-      lang_path = Path.join([version_path_base, "#{lang_code}.phk"])
-
-      lang_info = Publishing.get_language_info(lang_code)
-      file_exists = lang_code in available_languages
-      is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
-      is_known = lang_info != nil
-      is_primary = lang_code == primary_lang
-
-      # For versioned posts showing live version, all existing languages have "published" status
-      # For non-versioned posts, fall back to language_statuses
-      status =
-        if version_status && file_exists do
-          version_status
-        else
-          language_statuses = Map.get(post, :language_statuses) || %{}
-          Map.get(language_statuses, lang_code)
-        end
-
-      # Get display code (base or full dialect depending on enabled languages)
-      display_code = Storage.get_display_code(lang_code, enabled_languages)
-
-      %{
-        code: lang_code,
-        display_code: display_code,
-        name: if(lang_info, do: lang_info.name, else: lang_code),
-        flag: if(lang_info, do: lang_info.flag, else: ""),
-        status: status,
-        exists: file_exists,
-        enabled: is_enabled,
-        known: is_known,
-        is_primary: is_primary,
-        path: if(file_exists, do: lang_path, else: nil),
-        post_path: if(file_exists, do: lang_path, else: display_post_path)
-      }
-    end)
+    all_languages
+    |> Enum.map(&build_language_entry(&1, post, version_info, enabled_languages, primary_lang))
     |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
+  end
+
+  defp get_version_display_info(post, primary_lang) do
+    if post[:mode] == :slug and not Map.get(post, :is_legacy_structure, true) do
+      get_versioned_post_display_info(post, primary_lang)
+    else
+      get_default_display_info(post)
+    end
+  end
+
+  defp get_versioned_post_display_info(post, primary_lang) do
+    case get_published_version(post) do
+      nil ->
+        get_default_display_info(post)
+
+      published_version ->
+        langs = get_live_version_languages(post, published_version)
+        path_base = Path.join([post.group, post.slug, "v#{published_version}"])
+        live_post_path = Path.join([path_base, "#{primary_lang}.phk"])
+
+        %{
+          available_languages: langs,
+          version_status: "published",
+          path_base: path_base,
+          display_post_path: live_post_path
+        }
+    end
+  end
+
+  defp get_default_display_info(post) do
+    %{
+      available_languages: post.available_languages || [],
+      version_status: nil,
+      path_base: Path.dirname(post.path),
+      display_post_path: post.path
+    }
+  end
+
+  defp get_live_version_languages(post, published_version) do
+    version_languages = Map.get(post, :version_languages, %{})
+    langs = Map.get(version_languages, published_version, [])
+
+    if langs == [] do
+      alias PhoenixKit.Modules.Publishing.Storage.Versions
+      version_langs = Versions.load_version_languages(post.group, post.slug, [published_version])
+      Map.get(version_langs, published_version, [])
+    else
+      langs
+    end
+  end
+
+  defp build_language_entry(lang_code, post, version_info, enabled_languages, primary_lang) do
+    lang_path = Path.join([version_info.path_base, "#{lang_code}.phk"])
+    lang_info = Publishing.get_language_info(lang_code)
+    file_exists = lang_code in version_info.available_languages
+
+    status = get_language_status(lang_code, file_exists, version_info, post)
+
+    %{
+      code: lang_code,
+      display_code: Storage.get_display_code(lang_code, enabled_languages),
+      name: if(lang_info, do: lang_info.name, else: lang_code),
+      flag: if(lang_info, do: lang_info.flag, else: ""),
+      status: status,
+      exists: file_exists,
+      enabled: Storage.language_enabled?(lang_code, enabled_languages),
+      known: lang_info != nil,
+      is_primary: lang_code == primary_lang,
+      path: if(file_exists, do: lang_path, else: nil),
+      post_path: if(file_exists, do: lang_path, else: version_info.display_post_path)
+    }
+  end
+
+  defp get_language_status(lang_code, file_exists, version_info, post) do
+    if version_info.version_status && file_exists do
+      version_info.version_status
+    else
+      language_statuses = Map.get(post, :language_statuses) || %{}
+      Map.get(language_statuses, lang_code)
+    end
   end
 
   # Cache info helper

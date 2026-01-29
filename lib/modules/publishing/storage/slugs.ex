@@ -185,31 +185,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
   def clear_conflicting_url_slugs(group_slug, directory_slug) do
     case ListingCache.read(group_slug) do
       {:ok, posts} ->
-        # Find posts with custom url_slugs matching the directory slug
-        conflicts =
-          Enum.flat_map(posts, fn post ->
-            # Skip the post with this directory slug itself
-            if post.slug == directory_slug do
-              []
-            else
-              # Find languages where url_slug matches the directory slug
-              (post.language_slugs || %{})
-              |> Enum.filter(fn {_lang, url_slug} -> url_slug == directory_slug end)
-              |> Enum.map(fn {lang, _} -> {post.slug, lang} end)
-            end
-          end)
-
-        # Clear each conflicting url_slug
-        Enum.each(conflicts, fn {post_slug, language} ->
-          clear_url_slug_for_language(group_slug, post_slug, language)
-        end)
-
-        if conflicts != [] do
-          Logger.warning(
-            "[Slugs] Cleared conflicting url_slugs for directory slug '#{directory_slug}': #{inspect(conflicts)}"
-          )
-        end
-
+        conflicts = find_conflicting_url_slugs(posts, directory_slug)
+        clear_url_slugs_for_conflicts(group_slug, conflicts)
+        log_cleared_conflicts(conflicts, directory_slug)
         conflicts
 
       {:error, _} ->
@@ -217,45 +195,70 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
     end
   end
 
+  defp find_conflicting_url_slugs(posts, directory_slug) do
+    Enum.flat_map(posts, fn post ->
+      if post.slug == directory_slug do
+        []
+      else
+        find_post_language_conflicts(post, directory_slug)
+      end
+    end)
+  end
+
+  defp find_post_language_conflicts(post, directory_slug) do
+    (post.language_slugs || %{})
+    |> Enum.filter(fn {_lang, url_slug} -> url_slug == directory_slug end)
+    |> Enum.map(fn {lang, _} -> {post.slug, lang} end)
+  end
+
+  defp clear_url_slugs_for_conflicts(group_slug, conflicts) do
+    Enum.each(conflicts, fn {post_slug, language} ->
+      clear_url_slug_for_language(group_slug, post_slug, language)
+    end)
+  end
+
+  defp log_cleared_conflicts([], _directory_slug), do: :ok
+
+  defp log_cleared_conflicts(conflicts, directory_slug) do
+    Logger.warning(
+      "[Slugs] Cleared conflicting url_slugs for directory slug '#{directory_slug}': #{inspect(conflicts)}"
+    )
+  end
+
   # Clears the url_slug for a specific post/language by removing it from metadata
   defp clear_url_slug_for_language(group_slug, post_slug, language) do
     post_path = Path.join([Paths.group_path(group_slug), post_slug])
     structure = Versions.detect_post_structure(post_path)
-
-    # Get all versions and clear url_slug in each
     versions = Versions.list_versions(group_slug, post_slug)
 
     Enum.each(versions, fn version ->
-      version_dir =
-        case structure do
-          :versioned -> Path.join(post_path, "v#{version}")
-          :legacy -> post_path
-          _ -> nil
-        end
-
-      if version_dir do
-        file_path = Path.join(version_dir, Languages.language_filename(language))
-
-        if File.exists?(file_path) do
-          case File.read(file_path) do
-            {:ok, content} ->
-              case Metadata.parse_with_content(content) do
-                {:ok, metadata, body} ->
-                  # Remove url_slug from metadata
-                  new_metadata = Map.delete(metadata, :url_slug)
-                  new_content = Metadata.serialize(new_metadata) <> body
-                  File.write(file_path, new_content)
-
-                _ ->
-                  :ok
-              end
-
-            _ ->
-              :ok
-          end
-        end
-      end
+      clear_url_slug_in_version(post_path, structure, version, language)
     end)
+  end
+
+  defp clear_url_slug_in_version(post_path, structure, version, language) do
+    version_dir = get_version_dir(post_path, structure, version)
+
+    if version_dir do
+      file_path = Path.join(version_dir, Languages.language_filename(language))
+      clear_url_slug_in_file(file_path)
+    end
+  end
+
+  defp get_version_dir(post_path, :versioned, version), do: Path.join(post_path, "v#{version}")
+  defp get_version_dir(post_path, :legacy, _version), do: post_path
+  defp get_version_dir(_post_path, _structure, _version), do: nil
+
+  defp clear_url_slug_in_file(file_path) do
+    with true <- File.exists?(file_path),
+         {:ok, content} <- File.read(file_path),
+         {:ok, metadata, body} <- Metadata.parse_with_content(content) do
+      new_metadata = Map.delete(metadata, :url_slug)
+      new_content = Metadata.serialize(new_metadata) <> body
+      File.write(file_path, new_content)
+    else
+      _ -> :ok
+    end
   end
 
   @doc """
@@ -272,53 +275,48 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
     structure = Versions.detect_post_structure(post_path)
     versions = Versions.list_versions(group_slug, post_slug)
 
-    # Collect all languages that have this url_slug across all versions
     languages_to_clear =
-      Enum.flat_map(versions, fn version ->
-        version_dir =
-          case structure do
-            :versioned -> Path.join(post_path, "v#{version}")
-            :legacy -> post_path
-            _ -> nil
-          end
-
-        if version_dir && File.dir?(version_dir) do
-          Languages.detect_available_languages(version_dir)
-          |> Enum.filter(fn lang ->
-            file_path = Path.join(version_dir, Languages.language_filename(lang))
-
-            case File.read(file_path) do
-              {:ok, content} ->
-                case Metadata.parse_with_content(content) do
-                  {:ok, metadata, _body} ->
-                    Map.get(metadata, :url_slug) == url_slug_to_clear
-
-                  _ ->
-                    false
-                end
-
-              _ ->
-                false
-            end
-          end)
-        else
-          []
-        end
-      end)
+      versions
+      |> Enum.flat_map(&find_languages_with_url_slug(post_path, structure, &1, url_slug_to_clear))
       |> Enum.uniq()
 
-    # Clear url_slug from each language
     Enum.each(languages_to_clear, fn language ->
       clear_url_slug_for_language(group_slug, post_slug, language)
     end)
 
-    if languages_to_clear != [] do
-      Logger.info(
-        "[Slugs] Cleared url_slug '#{url_slug_to_clear}' from post '#{post_slug}' languages: #{inspect(languages_to_clear)}"
-      )
-    end
-
+    log_cleared_languages(languages_to_clear, url_slug_to_clear, post_slug)
     languages_to_clear
+  end
+
+  defp find_languages_with_url_slug(post_path, structure, version, url_slug_to_clear) do
+    version_dir = get_version_dir(post_path, structure, version)
+
+    if version_dir && File.dir?(version_dir) do
+      version_dir
+      |> Languages.detect_available_languages()
+      |> Enum.filter(&language_has_url_slug?(version_dir, &1, url_slug_to_clear))
+    else
+      []
+    end
+  end
+
+  defp language_has_url_slug?(version_dir, lang, url_slug_to_clear) do
+    file_path = Path.join(version_dir, Languages.language_filename(lang))
+
+    with {:ok, content} <- File.read(file_path),
+         {:ok, metadata, _body} <- Metadata.parse_with_content(content) do
+      Map.get(metadata, :url_slug) == url_slug_to_clear
+    else
+      _ -> false
+    end
+  end
+
+  defp log_cleared_languages([], _url_slug, _post_slug), do: :ok
+
+  defp log_cleared_languages(languages, url_slug, post_slug) do
+    Logger.info(
+      "[Slugs] Cleared url_slug '#{url_slug}' from post '#{post_slug}' languages: #{inspect(languages)}"
+    )
   end
 
   @doc """
