@@ -66,18 +66,7 @@ defmodule PhoenixKit.Modules.Sync.Workers.ImportWorker do
 
           # Log any errors for debugging
           for {record, error} <- result.errors do
-            Logger.warning(
-              "Sync.ImportWorker: Error importing record in #{table}: #{inspect(error)}"
-            )
-
-            # Log the record primary key if available
-            pk_info =
-              case Map.get(record, "id") || Map.get(record, :id) do
-                nil -> ""
-                id -> " (id: #{id})"
-              end
-
-            Logger.debug("Sync.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
+            log_import_record_error(table, record, error)
           end
 
           # Return success even if some records had errors
@@ -215,4 +204,18 @@ defmodule PhoenixKit.Modules.Sync.Workers.ImportWorker do
 
   defp normalize_table_info({records, strategy}), do: {records, strategy, nil}
   defp normalize_table_info({records, strategy, schema}), do: {records, strategy, schema}
+
+  defp log_import_record_error(table, record, error) do
+    Logger.warning("Sync.ImportWorker: Error importing record in #{table}: #{inspect(error)}")
+
+    pk_info = format_record_pk_info(record)
+    Logger.debug("Sync.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
+  end
+
+  defp format_record_pk_info(record) do
+    case Map.get(record, "id") || Map.get(record, :id) do
+      nil -> ""
+      id -> " (id: #{id})"
+    end
+  end
 end

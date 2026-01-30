@@ -86,8 +86,7 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
           IO.puts("✅ Successfully seeded #{length(templates)} system email templates:")
 
           for template <- templates do
-            status_icon = if template.status == "active", do: "🟢", else: "🟡"
-            IO.puts("   #{status_icon} #{template.name} (#{template.display_name})")
+            print_template_summary(template)
           end
 
           IO.puts("")
@@ -232,5 +231,10 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
 
       {:error, :seed_failed}
     end
+  end
+
+  defp print_template_summary(template) do
+    status_icon = if template.status == "active", do: "🟢", else: "🟡"
+    IO.puts("   #{status_icon} #{template.name} (#{template.display_name})")
   end
 end

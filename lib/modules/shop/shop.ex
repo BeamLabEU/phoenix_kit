@@ -1275,25 +1275,7 @@ defmodule PhoenixKit.Modules.Shop do
         repo().transaction(fn ->
           # Move items from guest to user cart
           for item <- guest.items do
-            # Find existing cart item with same product and specs
-            existing =
-              find_cart_item_by_specs(user.id, item.product_id, item.selected_specs || %{})
-
-            case existing do
-              nil ->
-                attrs =
-                  Map.from_struct(item)
-                  |> Map.drop([:__meta__, :id, :uuid, :cart, :product, :inserted_at, :updated_at])
-                  |> Map.put(:cart_id, user.id)
-
-                %CartItem{}
-                |> CartItem.changeset(attrs)
-                |> repo().insert!()
-
-              existing_item ->
-                new_qty = existing_item.quantity + item.quantity
-                existing_item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
-            end
+            merge_guest_cart_item(user, item)
           end
 
           # Mark guest cart as merged
@@ -2617,5 +2599,27 @@ defmodule PhoenixKit.Modules.Shop do
       slug: Translations.get_field(category, :slug, language) || category.slug,
       description: Translations.get_field(category, :description, language)
     }
+  end
+
+  # Merge a single guest cart item into user cart
+  defp merge_guest_cart_item(user_cart, item) do
+    existing =
+      find_cart_item_by_specs(user_cart.id, item.product_id, item.selected_specs || %{})
+
+    case existing do
+      nil ->
+        attrs =
+          Map.from_struct(item)
+          |> Map.drop([:__meta__, :id, :uuid, :cart, :product, :inserted_at, :updated_at])
+          |> Map.put(:cart_id, user_cart.id)
+
+        %CartItem{}
+        |> CartItem.changeset(attrs)
+        |> repo().insert!()
+
+      existing_item ->
+        new_qty = existing_item.quantity + item.quantity
+        existing_item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
+    end
   end
 end
