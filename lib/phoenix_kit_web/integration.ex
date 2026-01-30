@@ -97,6 +97,14 @@ defmodule PhoenixKitWeb.Integration do
 
   """
 
+  alias PhoenixKitWeb
+  alias PhoenixKitWeb.Routes.BlogRoutes
+  alias PhoenixKitWeb.Routes.EmailsRoutes
+  alias PhoenixKitWeb.Routes.PublishingRoutes
+  alias PhoenixKitWeb.Routes.ReferralsRoutes
+  alias PhoenixKitWeb.Routes.ShopRoutes
+  alias PhoenixKitWeb.Routes.TicketsRoutes
+
   @doc """
   Creates locale-aware routing scopes based on enabled languages.
 
@@ -644,394 +652,6 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
-  # Helper function to generate Shop public routes with locale support
-  # Uses separate scope because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
-  defp generate_shop_public_routes(url_prefix) do
-    quote do
-      # Localized shop routes (with :locale prefix)
-      # Pattern: /:locale/shop/... where locale is 2-letter code
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [
-          :browser,
-          :phoenix_kit_auto_setup,
-          :phoenix_kit_shop_session,
-          :phoenix_kit_locale_validation
-        ]
-
-        live_session :phoenix_kit_shop_public_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
-          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index,
-            as: :shop_catalog_localized
-
-          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
-            as: :shop_category_localized
-
-          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
-            as: :shop_product_localized
-
-          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart_localized
-
-          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index,
-            as: :shop_checkout_localized
-
-          live "/checkout/complete/:uuid",
-               PhoenixKit.Modules.Shop.Web.CheckoutComplete,
-               :show,
-               as: :shop_checkout_complete_localized
-        end
-      end
-
-      # Non-localized shop routes (default language - no prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_shop_session]
-
-        live_session :phoenix_kit_shop_public,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
-          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog
-
-          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
-            as: :shop_category
-
-          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
-            as: :shop_product
-
-          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
-
-          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index, as: :shop_checkout
-
-          live "/checkout/complete/:uuid",
-               PhoenixKit.Modules.Shop.Web.CheckoutComplete,
-               :show,
-               as: :shop_checkout_complete
-        end
-      end
-    end
-  end
-
-  # Helper function to generate email routes
-  # Uses separate scope because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
-  defp generate_emails_routes(url_prefix) do
-    quote do
-      # Email webhook endpoint (public - no authentication required)
-      scope unquote(url_prefix) do
-        pipe_through [:browser]
-
-        post "/webhooks/email", PhoenixKit.Modules.Emails.Web.WebhookController, :handle
-      end
-
-      # Email export routes (require admin or owner role)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        get "/admin/emails/export", PhoenixKit.Modules.Emails.Web.ExportController, :export_logs
-
-        get "/admin/emails/metrics/export",
-            PhoenixKit.Modules.Emails.Web.ExportController,
-            :export_metrics
-
-        get "/admin/emails/blocklist/export",
-            PhoenixKit.Modules.Emails.Web.ExportController,
-            :export_blocklist
-
-        get "/admin/emails/:id/export",
-            PhoenixKit.Modules.Emails.Web.ExportController,
-            :export_email_details
-      end
-
-      # Email admin LiveView routes
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_emails,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          # Email Settings
-          live "/admin/settings/emails", PhoenixKit.Modules.Emails.Web.Settings, :index,
-            as: :emails_settings
-
-          # Email Dashboard and Management
-          live "/admin/emails/dashboard", PhoenixKit.Modules.Emails.Web.Metrics, :index,
-            as: :emails_metrics
-
-          live "/admin/emails", PhoenixKit.Modules.Emails.Web.Emails, :index, as: :emails_index
-
-          live "/admin/emails/email/:id", PhoenixKit.Modules.Emails.Web.Details, :show,
-            as: :emails_details
-
-          live "/admin/emails/queue", PhoenixKit.Modules.Emails.Web.Queue, :index,
-            as: :emails_queue
-
-          live "/admin/emails/blocklist", PhoenixKit.Modules.Emails.Web.Blocklist, :index,
-            as: :emails_blocklist
-
-          # Email Templates Management
-          live "/admin/modules/emails/templates", PhoenixKit.Modules.Emails.Web.Templates, :index,
-            as: :emails_templates
-
-          live "/admin/modules/emails/templates/new",
-               PhoenixKit.Modules.Emails.Web.TemplateEditor,
-               :new,
-               as: :emails_template_new
-
-          live "/admin/modules/emails/templates/:id/edit",
-               PhoenixKit.Modules.Emails.Web.TemplateEditor,
-               :edit,
-               as: :emails_template_edit
-        end
-      end
-    end
-  end
-
-  # Helper function to generate referral codes routes
-  # Uses separate scope because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
-  defp generate_referral_codes_routes(url_prefix) do
-    quote do
-      # Referral codes admin LiveView routes (localized)
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_referral_codes_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/settings/referral-codes",
-               PhoenixKit.Modules.Referrals.Web.Settings,
-               :index,
-               as: :referral_codes_settings_localized
-
-          live "/admin/users/referral-codes",
-               PhoenixKit.Modules.Referrals.Web.List,
-               :index,
-               as: :referral_codes_list_localized
-
-          live "/admin/users/referral-codes/new",
-               PhoenixKit.Modules.Referrals.Web.Form,
-               :new,
-               as: :referral_codes_new_localized
-
-          live "/admin/users/referral-codes/edit/:id",
-               PhoenixKit.Modules.Referrals.Web.Form,
-               :edit,
-               as: :referral_codes_edit_localized
-        end
-      end
-
-      # Referral codes admin LiveView routes (non-localized)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_referral_codes,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/settings/referral-codes",
-               PhoenixKit.Modules.Referrals.Web.Settings,
-               :index,
-               as: :referral_codes_settings
-
-          live "/admin/users/referral-codes",
-               PhoenixKit.Modules.Referrals.Web.List,
-               :index,
-               as: :referral_codes_list
-
-          live "/admin/users/referral-codes/new",
-               PhoenixKit.Modules.Referrals.Web.Form,
-               :new,
-               as: :referral_codes_new
-
-          live "/admin/users/referral-codes/edit/:id",
-               PhoenixKit.Modules.Referrals.Web.Form,
-               :edit,
-               as: :referral_codes_edit
-        end
-      end
-    end
-  end
-
-  # Helper function to generate publishing routes with locale support
-  # Uses separate scopes because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
-  # Includes both new /admin/publishing/* routes and legacy /admin/blogging/* redirects
-  defp generate_publishing_routes(url_prefix) do
-    quote do
-      # =======================================================================
-      # NEW Publishing Routes (Primary)
-      # =======================================================================
-
-      # Localized publishing routes (with :locale prefix)
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_publishing_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
-            as: :publishing_index_localized
-
-          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
-            as: :publishing_blog_localized
-
-          live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
-            as: :publishing_editor_localized
-
-          live "/admin/publishing/:blog/preview",
-               PhoenixKit.Modules.Publishing.Web.Preview,
-               :preview,
-               as: :publishing_preview_localized
-
-          live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
-            as: :publishing_settings_localized
-
-          live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
-            as: :publishing_new_localized
-
-          live "/admin/settings/publishing/:blog/edit",
-               PhoenixKit.Modules.Publishing.Web.Edit,
-               :edit,
-               as: :publishing_edit_localized
-        end
-      end
-
-      # Non-localized publishing routes (without :locale prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_publishing,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
-            as: :publishing_index
-
-          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
-            as: :publishing_blog
-
-          live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
-            as: :publishing_editor
-
-          live "/admin/publishing/:blog/preview",
-               PhoenixKit.Modules.Publishing.Web.Preview,
-               :preview,
-               as: :publishing_preview
-
-          live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
-            as: :publishing_settings
-
-          live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
-            as: :publishing_new
-
-          live "/admin/settings/publishing/:blog/edit",
-               PhoenixKit.Modules.Publishing.Web.Edit,
-               :edit,
-               as: :publishing_edit
-        end
-      end
-
-      # =======================================================================
-      # LEGACY Blogging Routes (Redirects to new publishing routes)
-      # These provide backward compatibility for bookmarked URLs
-      # =======================================================================
-
-      alias PhoenixKitWeb.Controllers.Redirects.PublishingRedirectController
-
-      # Localized legacy redirects
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser]
-
-        get "/admin/blogging", PublishingRedirectController, :index
-        get "/admin/blogging/:blog", PublishingRedirectController, :blog
-        get "/admin/blogging/:blog/edit", PublishingRedirectController, :edit
-        get "/admin/blogging/:blog/preview", PublishingRedirectController, :preview
-        get "/admin/settings/blogging", PublishingRedirectController, :settings
-        get "/admin/settings/blogging/new", PublishingRedirectController, :new
-        get "/admin/settings/blogging/:blog/edit", PublishingRedirectController, :settings_edit
-      end
-
-      # Non-localized legacy redirects
-      scope unquote(url_prefix) do
-        pipe_through [:browser]
-
-        get "/admin/blogging", PublishingRedirectController, :index
-        get "/admin/blogging/:blog", PublishingRedirectController, :blog
-        get "/admin/blogging/:blog/edit", PublishingRedirectController, :edit
-        get "/admin/blogging/:blog/preview", PublishingRedirectController, :preview
-        get "/admin/settings/blogging", PublishingRedirectController, :settings
-        get "/admin/settings/blogging/new", PublishingRedirectController, :new
-        get "/admin/settings/blogging/:blog/edit", PublishingRedirectController, :settings_edit
-      end
-    end
-  end
-
-  # Helper function to generate tickets routes with locale support
-  # Uses separate scopes because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
-  defp generate_tickets_routes(url_prefix) do
-    quote do
-      # Localized tickets admin routes (with :locale prefix)
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_tickets_admin_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/tickets", PhoenixKit.Modules.Tickets.Web.List, :index,
-            as: :tickets_list_localized
-
-          live "/admin/tickets/:id", PhoenixKit.Modules.Tickets.Web.Details, :show,
-            as: :tickets_details_localized
-
-          live "/admin/tickets/:id/edit", PhoenixKit.Modules.Tickets.Web.Edit, :edit,
-            as: :tickets_edit_localized
-
-          live "/admin/settings/tickets", PhoenixKit.Modules.Tickets.Web.Settings, :index,
-            as: :tickets_settings_localized
-        end
-      end
-
-      # Non-localized tickets admin routes
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_tickets_admin,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/tickets", PhoenixKit.Modules.Tickets.Web.List, :index, as: :tickets_list
-
-          live "/admin/tickets/:id", PhoenixKit.Modules.Tickets.Web.Details, :show,
-            as: :tickets_details
-
-          live "/admin/tickets/:id/edit", PhoenixKit.Modules.Tickets.Web.Edit, :edit,
-            as: :tickets_edit
-
-          live "/admin/settings/tickets", PhoenixKit.Modules.Tickets.Web.Settings, :index,
-            as: :tickets_settings
-        end
-      end
-
-      # Localized tickets user dashboard routes (with :locale prefix)
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
-
-        live_session :phoenix_kit_tickets_user_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
-            as: :tickets_user_list_localized
-
-          live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
-            as: :tickets_user_new_localized
-
-          live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
-            as: :tickets_user_details_localized
-        end
-      end
-
-      # Non-localized tickets user dashboard routes
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
-
-        live_session :phoenix_kit_tickets_user,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
-            as: :tickets_user_list
-
-          live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
-            as: :tickets_user_new
-
-          live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
-            as: :tickets_user_details
-        end
-      end
-    end
-  end
-
   # Helper function to generate catch-all root route for pages
   # This allows accessing pages from the root level (e.g., /test, /blog/post)
   # Must be placed at the end of the router to not interfere with other routes
@@ -1119,9 +739,6 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/organization", Live.Settings.Organization, :index
         live "/admin/modules", Live.Modules, :index
 
-        # Note: Publishing routes are in generate_publishing_routes/1 with separate scopes
-        # because PhoenixKit.Modules.* namespace can't be used inside PhoenixKitWeb scope
-
         # Posts module routes
         live "/admin/posts", Live.Modules.Posts.Posts, :index
         live "/admin/posts/new", Live.Modules.Posts.Edit, :new
@@ -1132,19 +749,12 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
         live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
 
-        # Note: Referral codes routes moved to generate_referral_codes_routes/1 (separate scope)
-        # Note: Email settings moved to generate_emails_routes/1 (separate scope)
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
         live "/admin/settings/languages/backend", Live.Modules.Languages, :backend
         live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
-
-        live "/admin/settings/maintenance",
-             Live.Modules.Maintenance.Settings,
-             :index
-
+        live "/admin/settings/maintenance", Live.Modules.Maintenance.Settings, :index
         live "/admin/settings/seo", Live.Settings.SEO, :index
-
         live "/admin/settings/media", Live.Modules.Storage.Settings, :index
         live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new
         live "/admin/settings/media/buckets/:id/edit", Live.Modules.Storage.BucketForm, :edit
@@ -1162,15 +772,8 @@ defmodule PhoenixKitWeb.Integration do
              Live.Modules.Storage.DimensionForm,
              :edit
 
-        # Note: Referral codes routes moved to generate_referral_codes_routes/1 (separate scope)
-        # Note: Email routes moved to generate_emails_routes/1 (separate scope)
-        # because PhoenixKit.Modules.* namespace can't be used inside PhoenixKitWeb scope
-
         # Jobs
         live "/admin/jobs", Live.Modules.Jobs.Index, :index
-
-        # Note: AI, Billing, Blogging, and Entities routes are defined in generate_basic_scope/1
-        # using separate scopes without PhoenixKitWeb module prefix
       end
     end
   end
@@ -1245,54 +848,6 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
-  defp generate_blog_routes(url_prefix) do
-    quote do
-      # Multi-language blog routes with language prefix
-      blog_scope_multi =
-        case unquote(url_prefix) do
-          "/" -> "/:language"
-          prefix -> "#{prefix}/:language"
-        end
-
-      scope blog_scope_multi do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-        # Exclude admin and static paths from blogging catch-all routes
-        # Language must be 2-letter ISO code (excludes "assets", "sitemap", etc.)
-        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{
-            "blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
-            "language" => ~r/^[a-z]{2}$/
-          }
-
-        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{
-            "blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
-            "language" => ~r/^[a-z]{2}$/
-          }
-      end
-
-      # Non-localized blog routes (for when url_prefix is "/")
-      blog_scope_non_localized =
-        case unquote(url_prefix) do
-          "/" -> "/"
-          prefix -> prefix
-        end
-
-      scope blog_scope_non_localized do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-        # Exclude admin and static asset paths from blogging catch-all routes
-        # Language detection is handled in the controller by checking if content exists
-        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
-
-        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
-      end
-    end
-  end
-
   defmacro phoenix_kit_routes do
     # OAuth configuration is handled by PhoenixKit.Workers.OAuthConfigLoader
     # which runs synchronously during supervisor startup
@@ -1318,6 +873,14 @@ defmodule PhoenixKitWeb.Integration do
     # Actual validation of whether the locale is supported happens in the validation plug
     pattern = "[a-z]{2}(?:-[A-Za-z0-9]{2,})?"
 
+    # Call route generators BEFORE quote block (aliases work in this context)
+    emails_routes = EmailsRoutes.generate(url_prefix)
+    referrals_routes = ReferralsRoutes.generate(url_prefix)
+    publishing_routes = PublishingRoutes.generate(url_prefix)
+    tickets_routes = TicketsRoutes.generate(url_prefix)
+    shop_public_routes = ShopRoutes.generate_public_routes(url_prefix)
+    blog_routes = BlogRoutes.generate(url_prefix)
+
     quote do
       # Generate pipeline definitions
       unquote(generate_pipelines())
@@ -1325,17 +888,11 @@ defmodule PhoenixKitWeb.Integration do
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
 
-      # Generate email routes (separate scope for PhoenixKit.Modules.* namespace)
-      unquote(generate_emails_routes(url_prefix))
-
-      # Generate referral codes routes (separate scope for PhoenixKit.Modules.* namespace)
-      unquote(generate_referral_codes_routes(url_prefix))
-
-      # Generate publishing routes (with locale support)
-      unquote(generate_publishing_routes(url_prefix))
-
-      # Generate tickets routes (with locale support)
-      unquote(generate_tickets_routes(url_prefix))
+      # Generate module routes from separate files (improves compilation time)
+      unquote(emails_routes)
+      unquote(referrals_routes)
+      unquote(publishing_routes)
+      unquote(tickets_routes)
 
       # Generate localized routes
       unquote(generate_localized_routes(url_prefix, pattern))
@@ -1344,11 +901,10 @@ defmodule PhoenixKitWeb.Integration do
       unquote(generate_non_localized_routes(url_prefix))
 
       # Generate shop public routes (with locale support)
-      # Must be BEFORE blog routes to avoid conflicts with Publishing catch-all
-      unquote(generate_shop_public_routes(url_prefix))
+      unquote(shop_public_routes)
 
       # Generate blog routes (after other routes to prevent conflicts)
-      unquote(generate_blog_routes(url_prefix))
+      unquote(blog_routes)
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())
