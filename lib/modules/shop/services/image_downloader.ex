@@ -107,37 +107,40 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
             "[ImageDownloader] Storing new file from URL #{url}, temp_path=#{temp_path}, size=#{size}"
           )
 
-          # Verify temp file still exists before storing
-          if File.exists?(temp_path) do
-            result =
-              Storage.store_file(temp_path,
-                filename: filename,
-                content_type: content_type,
-                size_bytes: size,
-                user_id: user_id,
-                metadata: Map.merge(metadata, %{"source_url" => url})
-              )
-
-            Logger.info("[ImageDownloader] Storage result: #{inspect(result)}")
-
-            # Clean up temp file
-            cleanup_temp_file(temp_path)
-
-            case result do
-              {:ok, file} ->
-                Logger.info("[ImageDownloader] Successfully stored file with ID: #{file.id}")
-                {:ok, file.id}
-
-              {:error, reason} ->
-                Logger.error("[ImageDownloader] Storage failed: #{inspect(reason)}")
-                {:error, reason}
-            end
-          else
-            Logger.error("[ImageDownloader] Temp file disappeared before storage: #{temp_path}")
-            {:error, :temp_file_missing}
-          end
+          store_new_file(temp_path, filename, content_type, size, user_id, url, metadata)
       end
     end
+  end
+
+  # Store a new file after verifying it exists
+  defp store_new_file(temp_path, filename, content_type, size, user_id, url, metadata) do
+    if File.exists?(temp_path) do
+      result =
+        Storage.store_file(temp_path,
+          filename: filename,
+          content_type: content_type,
+          size_bytes: size,
+          user_id: user_id,
+          metadata: Map.merge(metadata, %{"source_url" => url})
+        )
+
+      Logger.info("[ImageDownloader] Storage result: #{inspect(result)}")
+      cleanup_temp_file(temp_path)
+      handle_storage_result(result)
+    else
+      Logger.error("[ImageDownloader] Temp file disappeared before storage: #{temp_path}")
+      {:error, :temp_file_missing}
+    end
+  end
+
+  defp handle_storage_result({:ok, file}) do
+    Logger.info("[ImageDownloader] Successfully stored file with ID: #{file.id}")
+    {:ok, file.id}
+  end
+
+  defp handle_storage_result({:error, reason}) do
+    Logger.error("[ImageDownloader] Storage failed: #{inspect(reason)}")
+    {:error, reason}
   end
 
   # Find existing file by checksum AND original filename

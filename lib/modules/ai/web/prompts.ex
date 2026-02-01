@@ -114,7 +114,7 @@ defmodule PhoenixKit.Modules.AI.Web.Prompts do
 
   @impl true
   def handle_event("toggle_prompt", %{"id" => id}, socket) do
-    prompt = AI.get_prompt!(String.to_integer(id))
+    prompt = AI.get_prompt!(id)
 
     case AI.update_prompt(prompt, %{enabled: !prompt.enabled}) do
       {:ok, _updated} ->
@@ -130,7 +130,7 @@ defmodule PhoenixKit.Modules.AI.Web.Prompts do
 
   @impl true
   def handle_event("delete_prompt", %{"id" => id}, socket) do
-    prompt = AI.get_prompt!(String.to_integer(id))
+    prompt = AI.get_prompt!(id)
 
     case AI.delete_prompt(prompt) do
       {:ok, _} ->

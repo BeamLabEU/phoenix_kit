@@ -82,25 +82,28 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
 
     case seed_templates(force, quiet) do
       {:ok, templates} ->
-        unless quiet do
-          IO.puts("✅ Successfully seeded #{length(templates)} system email templates:")
-
-          for template <- templates do
-            status_icon = if template.status == "active", do: "🟢", else: "🟡"
-            IO.puts("   #{status_icon} #{template.name} (#{template.display_name})")
-          end
-
-          IO.puts("")
-          IO.puts("Templates are now available in the admin panel at:")
-          IO.puts("  {your_app_url}/phoenix_kit/admin/emails/templates")
-        end
-
+        print_success_message(templates, quiet)
         :ok
 
       {:error, :seed_failed} ->
         IO.puts("❌ Failed to seed some system templates. Check the logs for details.")
         System.halt(1)
     end
+  end
+
+  defp print_success_message(_templates, true), do: :ok
+
+  defp print_success_message(templates, false) do
+    IO.puts("✅ Successfully seeded #{length(templates)} system email templates:")
+
+    Enum.each(templates, fn template ->
+      status_icon = if template.status == "active", do: "🟢", else: "🟡"
+      IO.puts("   #{status_icon} #{template.name} (#{template.display_name})")
+    end)
+
+    IO.puts("")
+    IO.puts("Templates are now available in the admin panel at:")
+    IO.puts("  {your_app_url}/phoenix_kit/admin/emails/templates")
   end
 
   defp seed_templates(force, quiet) do

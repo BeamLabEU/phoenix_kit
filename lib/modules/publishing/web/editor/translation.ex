@@ -44,10 +44,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   Gets the default AI endpoint ID from settings.
   """
   def get_default_ai_endpoint_id do
+    # endpoint_id is now a UUID string, no need to convert to integer
     case Settings.get_setting("publishing_translation_endpoint_id") do
       nil -> nil
       "" -> nil
-      id -> String.to_integer(id)
+      id -> id
     end
   end
 

@@ -43,13 +43,28 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 - **phoenix_kit_ai_prompts** – Reusable prompt templates with variables
 - **phoenix_kit_ai_requests** – Request logging with usage statistics
 
+## ID System
+
+The AI module uses a **hybrid UUID/integer ID system** for backwards compatibility:
+
+| Context | ID Type | Field | Example |
+|---------|---------|-------|---------|
+| Public API (`ask`, `get_endpoint`, etc.) | UUID, legacy integer, or slug (for prompts) | `.id` | Use `endpoint.id`, `1`, or `"my-prompt"` |
+| URLs and routing | UUID | `.id` | `/endpoints/{uuid}/edit` |
+| Foreign keys (requests → endpoints) | Legacy integer | `.legacy_id` | `endpoint.legacy_id` |
+| Usage stats keys | Legacy integer | `.legacy_id` | `stats[endpoint.legacy_id]` |
+
+**Rule of thumb:**
+- Use `endpoint.id` (UUID) for API calls and URLs
+- Use `endpoint.legacy_id` (integer) for request logging and stats lookups
+
 ## API Usage
 
 ### Simple Chat Completion
 
 ```elixir
-# Using endpoint ID
-{:ok, response} = PhoenixKit.Modules.AI.ask(1, "What is 2+2?")
+# Using endpoint ID (UUID or legacy integer)
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "What is 2+2?")
 {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
 # => "4"
 ```
@@ -57,7 +72,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 ### With System Message
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello",
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello",
   system: "You are a pirate. Always respond like a pirate."
 )
 ```
@@ -65,7 +80,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 ### Multi-Turn Conversation
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.complete(1, [
+{:ok, response} = PhoenixKit.Modules.AI.complete(endpoint.id, [
   %{role: "system", content: "You are a helpful assistant."},
   %{role: "user", content: "What's the weather like?"},
   %{role: "assistant", content: "I don't have real-time weather data..."},
@@ -77,7 +92,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ```elixir
 # Override temperature and max_tokens for this request only
-{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Write a creative poem",
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Write a creative poem",
   temperature: 1.5,
   max_tokens: 500
 )
@@ -87,19 +102,19 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ```elixir
 # Single text
-{:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello, world!")
+{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.id, "Hello, world!")
 
 # Multiple texts (batch)
-{:ok, response} = PhoenixKit.Modules.AI.embed(1, ["Text 1", "Text 2", "Text 3"])
+{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.id, ["Text 1", "Text 2", "Text 3"])
 
 # With dimension override
-{:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello", dimensions: 512)
+{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.id, "Hello", dimensions: 512)
 ```
 
 ### Extracting Response Data
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
 
 # Get just the text content
 {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
@@ -130,7 +145,7 @@ Every request automatically stores:
 
 ```elixir
 # Automatic detection - no code changes needed
-{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
 # Source automatically detected from caller: "MyApp.ContentGenerator.summarize"
 ```
 
@@ -139,7 +154,7 @@ Every request automatically stores:
 Override the auto-detected source when needed:
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!",
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!",
   source: "CustomLabel"
 )
 # Manual source used, but stacktrace and caller context still captured
@@ -185,7 +200,7 @@ endpoints = PhoenixKit.Modules.AI.list_endpoints(provider: "openrouter", enabled
 ### Updating Endpoints
 
 ```elixir
-endpoint = PhoenixKit.Modules.AI.get_endpoint!(1)
+endpoint = PhoenixKit.Modules.AI.get_endpoint!("550e8400-e29b-41d4-a716-446655440000")
 {:ok, updated} = PhoenixKit.Modules.AI.update_endpoint(endpoint, %{temperature: 0.5})
 ```
 
@@ -193,11 +208,11 @@ endpoint = PhoenixKit.Modules.AI.get_endpoint!(1)
 
 ```elixir
 # Disabled endpoints return an error when called
-endpoint = PhoenixKit.Modules.AI.get_endpoint!(1)
+endpoint = PhoenixKit.Modules.AI.get_endpoint!("550e8400-e29b-41d4-a716-446655440000")
 {:ok, _} = PhoenixKit.Modules.AI.update_endpoint(endpoint, %{enabled: false})
 
 # Calling a disabled endpoint
-{:error, "Endpoint is disabled"} = PhoenixKit.Modules.AI.ask(1, "Hello")
+{:error, "Endpoint is disabled"} = PhoenixKit.Modules.AI.ask("550e8400-e29b-41d4-a716-446655440000", "Hello")
 ```
 
 ## Prompt Templates
@@ -252,8 +267,8 @@ Prompts are reusable templates with variable substitution using `{{VariableName}
 
 # Validate variables before use
 case PhoenixKit.Modules.AI.validate_prompt_variables("email-writer", %{"Topic" => "test"}) do
-  {:ok, _} -> # All required variables provided
-  {:error, {:missing_variables, missing}} -> # Handle missing: ["Recipient"]
+  :ok -> # All required variables provided
+  {:error, missing} -> # Handle missing: ["Recipient"]
 end
 ```
 
@@ -267,8 +282,7 @@ prompts = PhoenixKit.Modules.AI.search_prompts("email", enabled_only: true)
 prompts = PhoenixKit.Modules.AI.get_prompts_with_variable("Recipient")
 
 # Validate prompt content syntax
-{:ok, variables} = PhoenixKit.Modules.AI.validate_prompt_content("Hello {{Name}}")
-# => ["Name"]
+:ok = PhoenixKit.Modules.AI.validate_prompt_content("Hello {{Name}}")
 ```
 
 ### Prompt Management
@@ -281,7 +295,7 @@ prompts = PhoenixKit.Modules.AI.list_prompts()
 prompts = PhoenixKit.Modules.AI.list_enabled_prompts()
 
 # Get by ID or slug
-prompt = PhoenixKit.Modules.AI.get_prompt!(1)
+prompt = PhoenixKit.Modules.AI.get_prompt!("660e8400-e29b-41d4-a716-446655440001")
 prompt = PhoenixKit.Modules.AI.get_prompt_by_slug("email-writer")
 
 # Enable/disable
@@ -300,7 +314,7 @@ prompt = PhoenixKit.Modules.AI.get_prompt_by_slug("email-writer")
 ```elixir
 # Get usage stats for all prompts
 stats = PhoenixKit.Modules.AI.get_prompt_usage_stats()
-# => [%{id: 1, name: "Email Writer", usage_count: 150, ...}, ...]
+# => [%{prompt: %{id: "660e8400-...", name: "Email Writer", ...}, usage_count: 150, ...}, ...]
 
 # Reset usage counter
 {:ok, prompt} = PhoenixKit.Modules.AI.reset_prompt_usage(prompt_id)
@@ -395,12 +409,15 @@ stats = PhoenixKit.Modules.AI.get_dashboard_stats()
 ### Endpoint Usage Statistics
 
 ```elixir
-# Get usage stats per endpoint
+# Get usage stats per endpoint (keyed by legacy_id integer)
 stats = PhoenixKit.Modules.AI.get_endpoint_usage_stats()
 # => %{
 #   1 => %{request_count: 100, total_tokens: 50000, total_cost: 150000, last_used_at: ~U[...]},
 #   2 => %{...}
 # }
+
+# Access stats for an endpoint
+endpoint_stats = Map.get(stats, endpoint.legacy_id, %{request_count: 0})
 ```
 
 ### Request History
@@ -409,9 +426,9 @@ stats = PhoenixKit.Modules.AI.get_endpoint_usage_stats()
 # List requests with pagination
 {requests, total} = PhoenixKit.Modules.AI.list_requests(page: 1, page_size: 20)
 
-# With filters
+# With filters (endpoint_id uses legacy integer ID)
 {requests, total} = PhoenixKit.Modules.AI.list_requests(
-  endpoint_id: 1,
+  endpoint_id: endpoint.legacy_id,
   model: "anthropic/claude-3-haiku",
   status: "success",
   source: "MyApp.ContentGenerator"
@@ -423,9 +440,9 @@ stats = PhoenixKit.Modules.AI.get_endpoint_usage_stats()
   sort_dir: :desc
 )
 
-# Get filter options (for UI dropdowns)
+# Get filter options (for UI dropdowns, endpoint IDs are legacy integers)
 options = PhoenixKit.Modules.AI.get_request_filter_options()
-# => %{endpoints: [{1, "Claude Fast"}, ...], models: [...], statuses: [...], sources: [...]}
+# => %{endpoints: [{1, "Claude Fast"}, {2, "GPT-4"}], models: [...], statuses: [...], sources: [...]}
 ```
 
 ## Response Structure
@@ -478,7 +495,7 @@ options = PhoenixKit.Modules.AI.get_request_filter_options()
 All functions return `{:ok, result}` or `{:error, reason}`:
 
 ```elixir
-case PhoenixKit.Modules.AI.ask(1, "Hello") do
+case PhoenixKit.Modules.AI.ask(endpoint.id, "Hello") do
   {:ok, response} ->
     {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
     IO.puts(text)

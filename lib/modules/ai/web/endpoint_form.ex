@@ -176,7 +176,7 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   end
 
   defp load_endpoint(socket, id) do
-    case AI.get_endpoint(String.to_integer(id)) do
+    case AI.get_endpoint(id) do
       nil ->
         socket
         |> put_flash(:error, "Endpoint not found")

@@ -65,20 +65,7 @@ defmodule PhoenixKit.Modules.Sync.Workers.ImportWorker do
           )
 
           # Log any errors for debugging
-          for {record, error} <- result.errors do
-            Logger.warning(
-              "Sync.ImportWorker: Error importing record in #{table}: #{inspect(error)}"
-            )
-
-            # Log the record primary key if available
-            pk_info =
-              case Map.get(record, "id") || Map.get(record, :id) do
-                nil -> ""
-                id -> " (id: #{id})"
-              end
-
-            Logger.debug("Sync.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
-          end
+          log_import_errors(result.errors, table)
 
           # Return success even if some records had errors
           # (we've logged them and don't want to retry the whole batch)
@@ -93,6 +80,22 @@ defmodule PhoenixKit.Modules.Sync.Workers.ImportWorker do
           # Return error to trigger Oban retry
           {:error, reason}
       end
+    end
+  end
+
+  defp log_import_errors(errors, table) do
+    for {record, error} <- errors do
+      Logger.warning("Sync.ImportWorker: Error importing record in #{table}: #{inspect(error)}")
+
+      pk_info = extract_record_pk(record)
+      Logger.debug("Sync.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
+    end
+  end
+
+  defp extract_record_pk(record) do
+    case Map.get(record, "id") || Map.get(record, :id) do
+      nil -> ""
+      id -> " (id: #{id})"
     end
   end
 
