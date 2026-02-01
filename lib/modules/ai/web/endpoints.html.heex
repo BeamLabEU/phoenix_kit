@@ -121,7 +121,7 @@
         <div class="grid gap-4">
           <%= for endpoint <- @endpoints do %>
             <% stats =
-              Map.get(@endpoint_stats, endpoint.legacy_id, %{
+              Map.get(@endpoint_stats, endpoint.id, %{
                 request_count: 0,
                 total_tokens: 0,
                 total_cost: 0
@@ -132,13 +132,7 @@
                   <div class="flex-1">
                     <div class="flex items-center gap-3">
                       <.link
-                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
-                        class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
-                      >
-                        #{endpoint.legacy_id}
-                      </.link>
-                      <.link
-                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
+                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.uuid}/edit"}
                         class="font-semibold text-lg hover:text-primary hover:underline"
                       >
                         {endpoint.name}
@@ -217,7 +211,7 @@
                       class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-48"
                     >
                       <li>
-                        <.link navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}>
+                        <.link navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.uuid}/edit"}>
                           <.icon name="hero-pencil" class="w-4 h-4" /> Edit
                         </.link>
                       </li>
@@ -621,7 +615,7 @@
                         <td class="hidden lg:table-cell text-sm">
                           <%= if request.prompt do %>
                             <.link
-                              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{request.prompt.id}/edit"}
+                              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{request.prompt.uuid}/edit"}
                               class="link link-hover link-primary"
                             >
                               {request.prompt_name}
@@ -749,7 +743,7 @@
             <div class="text-sm">
               <%= if @selected_request.prompt && @selected_request.prompt_name do %>
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{@selected_request.prompt.id}/edit"}
+                  navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{@selected_request.prompt.uuid}/edit"}
                   class="link link-hover link-primary"
                 >
                   {@selected_request.prompt_name}

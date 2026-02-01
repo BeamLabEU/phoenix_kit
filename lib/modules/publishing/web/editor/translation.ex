@@ -31,8 +31,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   def list_ai_endpoints do
     if AI.enabled?() do
       case AI.list_endpoints(enabled: true) do
-        {endpoints, _total} -> Enum.map(endpoints, &{&1.id, &1.name})
-        endpoints when is_list(endpoints) -> Enum.map(endpoints, &{&1.id, &1.name})
+        # Use UUID for dropdown values (stable across systems, matches settings storage)
+        {endpoints, _total} -> Enum.map(endpoints, &{&1.uuid, &1.name})
+        endpoints when is_list(endpoints) -> Enum.map(endpoints, &{&1.uuid, &1.name})
         _ -> []
       end
     else
@@ -44,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   Gets the default AI endpoint ID from settings.
   """
   def get_default_ai_endpoint_id do
-    # endpoint_id is now a UUID string, no need to convert to integer
+    # endpoint_id can be UUID or integer - AI module handles both
     case Settings.get_setting("publishing_translation_endpoint_id") do
       nil -> nil
       "" -> nil

@@ -480,104 +480,79 @@ PhoenixKit.Entities.create_entity(%{name: "products", ...})
 - **Mix.Tasks.PhoenixKit.Gen.Migration** - Custom migration generator
 - **Mix.Tasks.PhoenixKit.MigrateToDaisyui5** - Migration tool for daisyUI 5 upgrade
 
-### Integer ID to UUID Migration Checklist
+### Adding UUID Fields to Existing Schemas
 
-When migrating a schema from integer IDs to UUIDs, follow this checklist to avoid subtle bugs:
+When adding UUID fields to schemas that use integer primary keys, follow this pattern:
 
-**Schema Changes:**
+**Schema Definition:**
 ```elixir
-# Change primary key to UUID mapped to 'uuid' column
-@primary_key {:id, Ecto.UUID, autogenerate: true, source: :uuid}
+schema "my_table" do
+  # Add UUID field for external references (URLs, APIs)
+  # DB generates UUIDv7, Ecto reads it back after insert
+  field :uuid, Ecto.UUID, read_after_writes: true
 
-# Keep legacy integer ID for FK compatibility
-field :legacy_id, :integer, source: :id, read_after_writes: true
-
-# Update associations to reference legacy_id
-has_many :children, Child, references: :legacy_id
-belongs_to :parent, Parent, type: :integer, references: :legacy_id
+  # ... other fields
+end
 ```
 
-**Code Patterns to Search & Fix:**
+**ID System Rules:**
+| Use Case | Field | Example |
+|----------|-------|---------|
+| URLs and external APIs | `.uuid` | `/items/#{item.uuid}/edit` |
+| Foreign keys | `.id` | `parent_id: item.id` |
+| Database queries | `.id` | `repo.get(Item, id)` |
+| Stats map keys | `.id` | `Map.get(stats, item.id)` |
+| Event handlers (phx-value) | `.id` | `phx-value-id={item.id}` |
 
-| Pattern | Search For | Problem | Fix |
-|---------|------------|---------|-----|
-| GROUP BY | `group_by: e.id` | `e.id` is now UUID, not PK - breaks PostgreSQL GROUP BY semantics | Use subquery or `group_by: e.legacy_id` |
-| Aggregates | `count(`, `sum(`, `max(` with `assoc` | Joins use legacy_id but GROUP BY uses UUID | Use subquery approach |
-| Integer parsing | `String.to_integer` on IDs | Will crash on UUID strings | Use `Integer.parse` or remove |
-| FK assignments | `parent_id: entity.id` | `.id` is now UUID, FK expects integer | Use `entity.legacy_id` |
+**Lookup Functions Pattern:**
+```elixir
+# Support both integer ID and UUID lookups
+def get_item(id) when is_integer(id) do
+  repo().get(Item, id)
+end
 
-**Grep Commands to Run Before Migration:**
-```bash
-# Find GROUP BY with .id (CRITICAL - will break)
-rg "group_by.*\.id" lib/
+def get_item(id) when is_binary(id) do
+  if uuid_string?(id) do
+    repo().get_by(Item, uuid: id)
+  else
+    case Integer.parse(id) do
+      {int_id, ""} -> repo().get(Item, int_id)
+      _ -> nil
+    end
+  end
+end
 
-# Find aggregate functions with associations
-rg "count\(|sum\(|max\(|min\(" lib/ | grep -i "assoc\|join"
-
-# Find String.to_integer on potential IDs
-rg "String\.to_integer" lib/
-
-# Find direct .id usage in queries
-rg "where:.*\.id ==" lib/
+# Use Ecto.UUID.cast for robust UUID validation
+defp uuid_string?(string) when is_binary(string) do
+  match?({:ok, _}, Ecto.UUID.cast(string))
+end
 ```
 
-**Must Test After Migration:**
-- [ ] All CRUD operations (create, read, update, delete)
-- [ ] **All sorting options** (especially aggregate-based: usage, tokens, cost, last_used)
-- [ ] All filtering options
-- [ ] Lookup by UUID string
-- [ ] Lookup by legacy integer ID
-- [ ] Foreign key relationships still work
-- [ ] Stats/aggregation queries work
-
-**Key Insight:**
-> After migration, `entity.id` is NO LONGER the database primary key.
-> Any code relying on `e.id` being the integer PK (especially GROUP BY) will fail.
-> Use `entity.legacy_id` for FK relationships and aggregation queries.
-
-**UI Display Consideration:**
-UUIDs are long and ugly in the UI (e.g., `019b572b-e3d6-7cc6-869d-bb5137ef28d3`).
-Use `legacy_id` for display, keep UUID for URLs:
-
+**Template Usage:**
 ```heex
-<%!-- URLs use UUID (stable, secure) --%>
-<.link navigate={~p"/items/#{item.id}/edit"}>
-
-<%!-- Display shows friendly integer --%>
-##{item.legacy_id}
+<%!-- URLs use UUID (stable, non-enumerable) --%>
+<.link navigate={~p"/items/#{item.uuid}/edit"}>
+  {item.name}
+</.link>
 ```
 
-This gives users familiar short IDs (`#1`, `#2`) while URLs use UUIDs internally.
+**Important:** Avoid displaying IDs in the UI. Use meaningful attributes like names, titles, or slugs instead.
 
-**External Integration Check (CRITICAL):**
-Other modules that consume the migrated module may have `String.to_integer()` calls or expect integer IDs. Search the entire codebase:
+**External Integration Check:**
+Other modules consuming your schema may have `String.to_integer()` calls expecting integer IDs. Search and fix:
 
 ```bash
-# Find all references to the migrated module's ID fields
-rg "endpoint_id|prompt_id" lib/modules/  # Adjust field names for your module
-
 # Find String.to_integer that might be parsing these IDs
-rg "String\.to_integer.*endpoint\|String\.to_integer.*prompt" lib/
+rg "String\.to_integer.*item_id" lib/
 ```
 
-Common patterns to fix in consuming modules:
-- `String.to_integer(params["endpoint_id"])` → just use `params["endpoint_id"]` directly
-- Settings lookups that convert to integer → return the string/UUID as-is
-- Event handlers that parse IDs → pass through unchanged
-
-**Example fix in consuming module:**
+**Fix pattern:**
 ```elixir
 # BEFORE (breaks with UUIDs)
-def handle_event("select_endpoint", %{"endpoint_id" => id}, socket) do
-  endpoint_id = if id == "", do: nil, else: String.to_integer(id)
-  {:noreply, assign(socket, :endpoint_id, endpoint_id)}
-end
+item_id = String.to_integer(params["item_id"])
 
-# AFTER (works with UUIDs)
-def handle_event("select_endpoint", %{"endpoint_id" => id}, socket) do
-  endpoint_id = if id == "", do: nil, else: id
-  {:noreply, assign(socket, :endpoint_id, endpoint_id)}
-end
+# AFTER (works with both)
+item_id = params["item_id"]  # Let the lookup function handle it
 ```
 
 ### Key Design Principles

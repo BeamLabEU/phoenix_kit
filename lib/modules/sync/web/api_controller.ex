@@ -1183,35 +1183,4 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
         {"", [], 1}
     end
   end
-
-  defp maybe_activate_pending_connection(connection) do
-    if connection.status == "pending" do
-      activate_connection(connection)
-    else
-      {connection, connection.status}
-    end
-  end
-
-  defp activate_connection(connection) do
-    case Connections.update_connection(connection, %{status: "active"}) do
-      {:ok, updated} ->
-        broadcast_status_change(connection.id, "active")
-        {updated, "active"}
-
-      {:error, _} ->
-        {connection, connection.status}
-    end
-  end
-
-  defp broadcast_status_change(connection_id, status) do
-    pubsub = PhoenixKit.Config.pubsub_server()
-
-    if pubsub do
-      Phoenix.PubSub.broadcast(
-        pubsub,
-        "sync:connections",
-        {:connection_status_changed, connection_id, status}
-      )
-    end
-  end
 end

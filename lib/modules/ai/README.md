@@ -45,18 +45,20 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ## ID System
 
-The AI module uses a **hybrid UUID/integer ID system** for backwards compatibility:
+The AI module uses both **integer IDs** and **UUIDs**:
 
 | Context | ID Type | Field | Example |
 |---------|---------|-------|---------|
-| Public API (`ask`, `get_endpoint`, etc.) | UUID, legacy integer, or slug (for prompts) | `.id` | Use `endpoint.id`, `1`, or `"my-prompt"` |
-| URLs and routing | UUID | `.id` | `/endpoints/{uuid}/edit` |
-| Foreign keys (requests → endpoints) | Legacy integer | `.legacy_id` | `endpoint.legacy_id` |
-| Usage stats keys | Legacy integer | `.legacy_id` | `stats[endpoint.legacy_id]` |
+| Primary key (internal) | Integer | `.id` | `endpoint.id` → `1`, `2`, etc. |
+| External references (URLs, APIs) | UUID | `.uuid` | `/endpoints/{uuid}/edit` |
+| Foreign keys (requests → endpoints) | Integer | `.id` | `endpoint.id` |
+| Usage stats keys | Integer | `.id` | `stats[endpoint.id]` |
+| Lookups | Both | - | `get_endpoint(1)` or `get_endpoint("uuid-string")` |
 
 **Rule of thumb:**
-- Use `endpoint.id` (UUID) for API calls and URLs
-- Use `endpoint.legacy_id` (integer) for request logging and stats lookups
+- Use `endpoint.id` (integer) for database operations, FKs, and stats
+- Use `endpoint.uuid` for URLs and external API references
+- The `get_endpoint/1` function accepts both formats
 
 ## API Usage
 
@@ -314,7 +316,7 @@ prompt = PhoenixKit.Modules.AI.get_prompt_by_slug("email-writer")
 ```elixir
 # Get usage stats for all prompts
 stats = PhoenixKit.Modules.AI.get_prompt_usage_stats()
-# => [%{prompt: %{id: "660e8400-...", name: "Email Writer", ...}, usage_count: 150, ...}, ...]
+# => [%{prompt: %{id: 1, uuid: "660e8400-...", name: "Email Writer", ...}, usage_count: 150, ...}, ...]
 
 # Reset usage counter
 {:ok, prompt} = PhoenixKit.Modules.AI.reset_prompt_usage(prompt_id)
@@ -409,7 +411,7 @@ stats = PhoenixKit.Modules.AI.get_dashboard_stats()
 ### Endpoint Usage Statistics
 
 ```elixir
-# Get usage stats per endpoint (keyed by legacy_id integer)
+# Get usage stats per endpoint (keyed by integer ID)
 stats = PhoenixKit.Modules.AI.get_endpoint_usage_stats()
 # => %{
 #   1 => %{request_count: 100, total_tokens: 50000, total_cost: 150000, last_used_at: ~U[...]},
@@ -417,7 +419,7 @@ stats = PhoenixKit.Modules.AI.get_endpoint_usage_stats()
 # }
 
 # Access stats for an endpoint
-endpoint_stats = Map.get(stats, endpoint.legacy_id, %{request_count: 0})
+endpoint_stats = Map.get(stats, endpoint.id, %{request_count: 0})
 ```
 
 ### Request History
@@ -426,9 +428,9 @@ endpoint_stats = Map.get(stats, endpoint.legacy_id, %{request_count: 0})
 # List requests with pagination
 {requests, total} = PhoenixKit.Modules.AI.list_requests(page: 1, page_size: 20)
 
-# With filters (endpoint_id uses legacy integer ID)
+# With filters
 {requests, total} = PhoenixKit.Modules.AI.list_requests(
-  endpoint_id: endpoint.legacy_id,
+  endpoint_id: endpoint.id,
   model: "anthropic/claude-3-haiku",
   status: "success",
   source: "MyApp.ContentGenerator"

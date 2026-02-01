@@ -70,6 +70,7 @@ defmodule PhoenixKit.Modules.AI do
   alias PhoenixKit.Modules.AI.Request
   alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
   # PUBSUB TOPICS
@@ -122,11 +123,6 @@ defmodule PhoenixKit.Modules.AI do
 
   defp repo do
     PhoenixKit.RepoHelper.repo()
-  end
-
-  # UUID format: 8-4-4-4-12 hex characters
-  defp uuid_string?(string) when is_binary(string) do
-    String.match?(string, ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
   end
 
   defp broadcast_endpoint_change(result, event) do
@@ -273,7 +269,7 @@ defmodule PhoenixKit.Modules.AI do
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.legacy_id,
+      on: s.endpoint_id == e.id,
       order_by: [{^dir, coalesce(s.count, 0)}]
     )
   end
@@ -289,7 +285,7 @@ defmodule PhoenixKit.Modules.AI do
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.legacy_id,
+      on: s.endpoint_id == e.id,
       order_by: [{^dir, coalesce(s.total, 0)}]
     )
   end
@@ -305,7 +301,7 @@ defmodule PhoenixKit.Modules.AI do
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.legacy_id,
+      on: s.endpoint_id == e.id,
       order_by: [{^dir, coalesce(s.total, 0)}]
     )
   end
@@ -321,7 +317,7 @@ defmodule PhoenixKit.Modules.AI do
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.legacy_id,
+      on: s.endpoint_id == e.id,
       order_by: [{^dir, s.last_used}]
     )
   end
@@ -363,7 +359,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single endpoint by ID (UUID) or legacy integer ID.
+  Gets a single endpoint by integer ID or UUID.
 
   Raises `Ecto.NoResultsError` if the endpoint does not exist.
   """
@@ -375,26 +371,27 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single endpoint by ID (UUID) or legacy integer ID.
+  Gets a single endpoint by integer ID or UUID.
 
   Accepts:
+  - Integer ID (e.g., 123)
   - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
-  - Integer legacy ID (e.g., 123)
   - Integer string (e.g., "123")
 
   Returns `nil` if the endpoint does not exist.
   """
   def get_endpoint(id) when is_integer(id) do
-    repo().get_by(Endpoint, legacy_id: id)
+    repo().get(Endpoint, id)
   end
 
   def get_endpoint(id) when is_binary(id) do
-    if uuid_string?(id) do
-      repo().get(Endpoint, id)
+    if UUIDUtils.valid?(id) do
+      # UUID lookup
+      repo().get_by(Endpoint, uuid: id)
     else
-      # Try parsing as integer for legacy ID lookup
+      # Try parsing as integer
       case Integer.parse(id) do
-        {int_id, ""} -> repo().get_by(Endpoint, legacy_id: int_id)
+        {int_id, ""} -> repo().get(Endpoint, int_id)
         _ -> nil
       end
     end
@@ -563,7 +560,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single prompt by ID (UUID) or legacy integer ID.
+  Gets a single prompt by integer ID or UUID.
 
   Raises `Ecto.NoResultsError` if the prompt does not exist.
   """
@@ -575,26 +572,27 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single prompt by ID (UUID) or legacy integer ID.
+  Gets a single prompt by integer ID or UUID.
 
   Accepts:
+  - Integer ID (e.g., 123)
   - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
-  - Integer legacy ID (e.g., 123)
   - Integer string (e.g., "123")
 
   Returns `nil` if the prompt does not exist.
   """
   def get_prompt(id) when is_integer(id) do
-    repo().get_by(Prompt, legacy_id: id)
+    repo().get(Prompt, id)
   end
 
   def get_prompt(id) when is_binary(id) do
-    if uuid_string?(id) do
-      repo().get(Prompt, id)
+    if UUIDUtils.valid?(id) do
+      # UUID lookup
+      repo().get_by(Prompt, uuid: id)
     else
-      # Try parsing as integer for legacy ID lookup
+      # Try parsing as integer
       case Integer.parse(id) do
-        {int_id, ""} -> repo().get_by(Prompt, legacy_id: int_id)
+        {int_id, ""} -> repo().get(Prompt, int_id)
         _ -> nil
       end
     end
@@ -698,7 +696,7 @@ defmodule PhoenixKit.Modules.AI do
 
   def resolve_prompt(id_or_slug) when is_binary(id_or_slug) do
     # Check if it looks like a UUID (contains dashes in UUID pattern)
-    if uuid_string?(id_or_slug) do
+    if UUIDUtils.valid?(id_or_slug) do
       # It's a UUID, look up by ID
       case get_prompt(id_or_slug) do
         nil -> {:error, "Prompt not found"}
@@ -758,7 +756,7 @@ defmodule PhoenixKit.Modules.AI do
       # Pass prompt info to ask for request logging
       opts_with_prompt =
         opts
-        |> Keyword.put(:prompt_id, prompt.legacy_id)
+        |> Keyword.put(:prompt_id, prompt.id)
         |> Keyword.put(:prompt_name, prompt.name)
 
       case ask(endpoint_id, rendered, opts_with_prompt) do
@@ -792,7 +790,7 @@ defmodule PhoenixKit.Modules.AI do
       # Pass prompt info to complete for request logging
       opts_with_prompt =
         opts
-        |> Keyword.put(:prompt_id, prompt.legacy_id)
+        |> Keyword.put(:prompt_id, prompt.id)
         |> Keyword.put(:prompt_name, prompt.name)
 
       case complete(endpoint_id, messages, opts_with_prompt) do
@@ -986,7 +984,7 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Updates the sort order for multiple prompts.
 
-  Accepts prompt IDs as UUIDs or legacy integer IDs.
+  Accepts prompt IDs as integers or UUIDs.
   """
   def reorder_prompts(order_list) when is_list(order_list) do
     repo().transaction(fn ->
@@ -1000,15 +998,15 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   defp build_prompt_id_query(id) when is_integer(id) do
-    from(p in Prompt, where: p.legacy_id == ^id)
+    from(p in Prompt, where: p.id == ^id)
   end
 
   defp build_prompt_id_query(id) when is_binary(id) do
-    if uuid_string?(id) do
-      from(p in Prompt, where: p.id == ^id)
+    if UUIDUtils.valid?(id) do
+      from(p in Prompt, where: p.uuid == ^id)
     else
       case Integer.parse(id) do
-        {int_id, ""} -> from(p in Prompt, where: p.legacy_id == ^int_id)
+        {int_id, ""} -> from(p in Prompt, where: p.id == ^int_id)
         _ -> from(p in Prompt, where: false)
       end
     end
@@ -1084,7 +1082,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single request by ID (UUID) or legacy integer ID.
+  Gets a single request by integer ID or UUID.
   """
   def get_request!(id) do
     case get_request(id) do
@@ -1094,26 +1092,27 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single request by ID (UUID) or legacy integer ID.
+  Gets a single request by integer ID or UUID.
 
   Accepts:
+  - Integer ID (e.g., 123)
   - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
-  - Integer legacy ID (e.g., 123)
   - Integer string (e.g., "123")
 
   Returns `nil` if the request does not exist.
   """
   def get_request(id) when is_integer(id) do
-    repo().get_by(Request, legacy_id: id)
+    repo().get(Request, id)
   end
 
   def get_request(id) when is_binary(id) do
-    if uuid_string?(id) do
-      repo().get(Request, id)
+    if UUIDUtils.valid?(id) do
+      # UUID lookup
+      repo().get_by(Request, uuid: id)
     else
-      # Try parsing as integer for legacy ID lookup
+      # Try parsing as integer
       case Integer.parse(id) do
-        {int_id, ""} -> repo().get_by(Request, legacy_id: int_id)
+        {int_id, ""} -> repo().get(Request, int_id)
         _ -> nil
       end
     end
@@ -1690,7 +1689,7 @@ defmodule PhoenixKit.Modules.AI do
     }
 
     create_request(%{
-      endpoint_id: endpoint.legacy_id,
+      endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
       prompt_id: prompt_info[:prompt_id],
       prompt_name: prompt_info[:prompt_name],
@@ -1727,7 +1726,7 @@ defmodule PhoenixKit.Modules.AI do
          prompt_info
        ) do
     create_request(%{
-      endpoint_id: endpoint.legacy_id,
+      endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
       prompt_id: prompt_info[:prompt_id],
       prompt_name: prompt_info[:prompt_name],
@@ -1760,7 +1759,7 @@ defmodule PhoenixKit.Modules.AI do
     input_count = if is_list(input), do: length(input), else: 1
 
     create_request(%{
-      endpoint_id: endpoint.legacy_id,
+      endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
       model: endpoint.model,
       request_type: "embedding",
@@ -1782,7 +1781,7 @@ defmodule PhoenixKit.Modules.AI do
 
   defp log_failed_embedding_request(endpoint, reason, source, stacktrace, caller_context) do
     create_request(%{
-      endpoint_id: endpoint.legacy_id,
+      endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
       model: endpoint.model,
       request_type: "embedding",
