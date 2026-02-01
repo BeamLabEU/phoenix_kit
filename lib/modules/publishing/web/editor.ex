@@ -599,7 +599,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("select_ai_endpoint", %{"endpoint_id" => endpoint_id}, socket) do
-    # endpoint_id is now a UUID string, no need to convert to integer
+    # endpoint_id can be UUID or integer - AI module handles both
     endpoint_id = if endpoint_id == "", do: nil, else: endpoint_id
 
     {:noreply, assign(socket, :ai_selected_endpoint_id, endpoint_id)}

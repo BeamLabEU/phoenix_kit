@@ -42,9 +42,9 @@ defmodule PhoenixKit.Modules.AI.Request do
 
   ## Usage Examples
 
-      # Log a successful request (endpoint_id is the legacy integer ID)
+      # Log a successful request
       {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
-        endpoint_id: endpoint.legacy_id,
+        endpoint_id: endpoint.id,
         endpoint_name: "Claude Fast",
         user_id: 123,
         model: "anthropic/claude-3-haiku",
@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.AI.Request do
 
       # Log a failed request
       {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
-        endpoint_id: endpoint.legacy_id,
+        endpoint_id: endpoint.id,
         endpoint_name: "Claude Fast",
         model: "anthropic/claude-3-haiku",
         status: "error",
@@ -74,15 +74,15 @@ defmodule PhoenixKit.Modules.AI.Request do
   alias PhoenixKit.Modules.AI.Prompt
   alias PhoenixKit.Users.Auth.User
 
-  # Use UUID as the primary key in Ecto, mapped to the 'uuid' column in DB
-  # The DB still has integer 'id' as the actual PK, kept as legacy_id for FK compatibility
-  @primary_key {:id, Ecto.UUID, autogenerate: true, source: :uuid}
+  # Standard integer primary key
+  @primary_key {:id, :id, autogenerate: true}
   @valid_statuses ~w(success error timeout)
   @valid_request_types ~w(text_completion chat embedding)
 
   @derive {Jason.Encoder,
            only: [
              :id,
+             :uuid,
              :endpoint_id,
              :endpoint_name,
              :prompt_id,
@@ -104,8 +104,8 @@ defmodule PhoenixKit.Modules.AI.Request do
            ]}
 
   schema "phoenix_kit_ai_requests" do
-    # Old integer ID kept for foreign key compatibility
-    field :legacy_id, :integer, source: :id, read_after_writes: true
+    # UUID for external references (URLs, APIs) - DB generates UUIDv7
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     # New endpoint system fields
     field :endpoint_name, :string
@@ -129,9 +129,8 @@ defmodule PhoenixKit.Modules.AI.Request do
     field :metadata, :map, default: %{}
 
     # Associations
-    # Use legacy_id (integer) for FK since database still uses integer foreign keys
-    belongs_to :endpoint, Endpoint, type: :integer, references: :legacy_id
-    belongs_to :prompt, Prompt, type: :integer, references: :legacy_id
+    belongs_to :endpoint, Endpoint
+    belongs_to :prompt, Prompt
     # Legacy account_id field (backward compatibility, no association since Account was removed)
     field :account_id, :integer
     belongs_to :user, User

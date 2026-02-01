@@ -211,7 +211,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   defp parse_date_filter(value) when value in @valid_date_filters, do: value
   defp parse_date_filter(_), do: "7d"
 
-  # Endpoint filter can be legacy integer ID or kept as-is for future UUID support
+  # Endpoint filter can be integer ID or UUID
   defp parse_endpoint_filter(nil), do: nil
   defp parse_endpoint_filter(""), do: nil
 
@@ -416,6 +416,8 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
 
   @impl true
   def handle_event("show_request_details", %{"id" => id}, socket) do
+    # Convert string ID from phx-value-id to integer for comparison
+    id = if is_binary(id), do: String.to_integer(id), else: id
     request = Enum.find(socket.assigns.usage_requests, fn r -> r.id == id end)
 
     {:noreply, assign(socket, :selected_request, request)}

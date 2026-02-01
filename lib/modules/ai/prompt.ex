@@ -65,9 +65,8 @@ defmodule PhoenixKit.Modules.AI.Prompt do
 
   alias PhoenixKit.Utils.Slug
 
-  # Use UUID as the primary key in Ecto, mapped to the 'uuid' column in DB
-  # The DB still has integer 'id' as the actual PK, kept as legacy_id for FK compatibility
-  @primary_key {:id, Ecto.UUID, autogenerate: true, source: :uuid}
+  # Standard integer primary key
+  @primary_key {:id, :id, autogenerate: true}
 
   # Regex for extracting variable names from content
   @variable_regex ~r/\{\{(\w+)\}\}/
@@ -75,6 +74,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
   @derive {Jason.Encoder,
            only: [
              :id,
+             :uuid,
              :name,
              :slug,
              :description,
@@ -90,8 +90,8 @@ defmodule PhoenixKit.Modules.AI.Prompt do
            ]}
 
   schema "phoenix_kit_ai_prompts" do
-    # Old integer ID kept for foreign key compatibility
-    field :legacy_id, :integer, source: :id, read_after_writes: true
+    # UUID for external references (URLs, APIs) - DB generates UUIDv7
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     # Identity
     field :name, :string
