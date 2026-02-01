@@ -133,12 +133,6 @@
                     <div class="flex items-center gap-3">
                       <.link
                         navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.uuid}/edit"}
-                        class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
-                      >
-                        {"##{endpoint.id}"}
-                      </.link>
-                      <.link
-                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.uuid}/edit"}
                         class="font-semibold text-lg hover:text-primary hover:underline"
                       >
                         {endpoint.name}

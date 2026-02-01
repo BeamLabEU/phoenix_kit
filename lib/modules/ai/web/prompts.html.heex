@@ -112,12 +112,6 @@
                   <div class="flex items-center gap-3 flex-wrap">
                     <.link
                       navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.uuid}/edit"}
-                      class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
-                    >
-                      {"##{prompt.id}"}
-                    </.link>
-                    <.link
-                      navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.uuid}/edit"}
                       class="font-semibold text-lg hover:text-primary hover:underline"
                     >
                       {prompt.name}
