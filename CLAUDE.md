@@ -480,6 +480,106 @@ PhoenixKit.Entities.create_entity(%{name: "products", ...})
 - **Mix.Tasks.PhoenixKit.Gen.Migration** - Custom migration generator
 - **Mix.Tasks.PhoenixKit.MigrateToDaisyui5** - Migration tool for daisyUI 5 upgrade
 
+### Integer ID to UUID Migration Checklist
+
+When migrating a schema from integer IDs to UUIDs, follow this checklist to avoid subtle bugs:
+
+**Schema Changes:**
+```elixir
+# Change primary key to UUID mapped to 'uuid' column
+@primary_key {:id, Ecto.UUID, autogenerate: true, source: :uuid}
+
+# Keep legacy integer ID for FK compatibility
+field :legacy_id, :integer, source: :id, read_after_writes: true
+
+# Update associations to reference legacy_id
+has_many :children, Child, references: :legacy_id
+belongs_to :parent, Parent, type: :integer, references: :legacy_id
+```
+
+**Code Patterns to Search & Fix:**
+
+| Pattern | Search For | Problem | Fix |
+|---------|------------|---------|-----|
+| GROUP BY | `group_by: e.id` | `e.id` is now UUID, not PK - breaks PostgreSQL GROUP BY semantics | Use subquery or `group_by: e.legacy_id` |
+| Aggregates | `count(`, `sum(`, `max(` with `assoc` | Joins use legacy_id but GROUP BY uses UUID | Use subquery approach |
+| Integer parsing | `String.to_integer` on IDs | Will crash on UUID strings | Use `Integer.parse` or remove |
+| FK assignments | `parent_id: entity.id` | `.id` is now UUID, FK expects integer | Use `entity.legacy_id` |
+
+**Grep Commands to Run Before Migration:**
+```bash
+# Find GROUP BY with .id (CRITICAL - will break)
+rg "group_by.*\.id" lib/
+
+# Find aggregate functions with associations
+rg "count\(|sum\(|max\(|min\(" lib/ | grep -i "assoc\|join"
+
+# Find String.to_integer on potential IDs
+rg "String\.to_integer" lib/
+
+# Find direct .id usage in queries
+rg "where:.*\.id ==" lib/
+```
+
+**Must Test After Migration:**
+- [ ] All CRUD operations (create, read, update, delete)
+- [ ] **All sorting options** (especially aggregate-based: usage, tokens, cost, last_used)
+- [ ] All filtering options
+- [ ] Lookup by UUID string
+- [ ] Lookup by legacy integer ID
+- [ ] Foreign key relationships still work
+- [ ] Stats/aggregation queries work
+
+**Key Insight:**
+> After migration, `entity.id` is NO LONGER the database primary key.
+> Any code relying on `e.id` being the integer PK (especially GROUP BY) will fail.
+> Use `entity.legacy_id` for FK relationships and aggregation queries.
+
+**UI Display Consideration:**
+UUIDs are long and ugly in the UI (e.g., `019b572b-e3d6-7cc6-869d-bb5137ef28d3`).
+Use `legacy_id` for display, keep UUID for URLs:
+
+```heex
+<%!-- URLs use UUID (stable, secure) --%>
+<.link navigate={~p"/items/#{item.id}/edit"}>
+
+<%!-- Display shows friendly integer --%>
+##{item.legacy_id}
+```
+
+This gives users familiar short IDs (`#1`, `#2`) while URLs use UUIDs internally.
+
+**External Integration Check (CRITICAL):**
+Other modules that consume the migrated module may have `String.to_integer()` calls or expect integer IDs. Search the entire codebase:
+
+```bash
+# Find all references to the migrated module's ID fields
+rg "endpoint_id|prompt_id" lib/modules/  # Adjust field names for your module
+
+# Find String.to_integer that might be parsing these IDs
+rg "String\.to_integer.*endpoint\|String\.to_integer.*prompt" lib/
+```
+
+Common patterns to fix in consuming modules:
+- `String.to_integer(params["endpoint_id"])` → just use `params["endpoint_id"]` directly
+- Settings lookups that convert to integer → return the string/UUID as-is
+- Event handlers that parse IDs → pass through unchanged
+
+**Example fix in consuming module:**
+```elixir
+# BEFORE (breaks with UUIDs)
+def handle_event("select_endpoint", %{"endpoint_id" => id}, socket) do
+  endpoint_id = if id == "", do: nil, else: String.to_integer(id)
+  {:noreply, assign(socket, :endpoint_id, endpoint_id)}
+end
+
+# AFTER (works with UUIDs)
+def handle_event("select_endpoint", %{"endpoint_id" => id}, socket) do
+  endpoint_id = if id == "", do: nil, else: id
+  {:noreply, assign(socket, :endpoint_id, endpoint_id)}
+end
+```
+
 ### Key Design Principles
 
 - **No Circular Dependencies** - Optional Phoenix deps prevent import cycles

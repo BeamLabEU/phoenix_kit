@@ -121,7 +121,7 @@
         <div class="grid gap-4">
           <%= for endpoint <- @endpoints do %>
             <% stats =
-              Map.get(@endpoint_stats, endpoint.id, %{
+              Map.get(@endpoint_stats, endpoint.legacy_id, %{
                 request_count: 0,
                 total_tokens: 0,
                 total_cost: 0
@@ -135,7 +135,7 @@
                         navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
                         class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
                       >
-                        #{endpoint.id}
+                        #{endpoint.legacy_id}
                       </.link>
                       <.link
                         navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
@@ -619,15 +619,15 @@
                         </td>
                         <%!-- Hidden until lg - Prompt column --%>
                         <td class="hidden lg:table-cell text-sm">
-                          <%= if request.prompt_name do %>
+                          <%= if request.prompt do %>
                             <.link
-                              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{request.prompt_id}/edit"}
+                              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{request.prompt.id}/edit"}
                               class="link link-hover link-primary"
                             >
                               {request.prompt_name}
                             </.link>
                           <% else %>
-                            <span class="text-base-content/50">-</span>
+                            <span class="text-base-content/50">{request.prompt_name || "-"}</span>
                           <% end %>
                         </td>
                         <%!-- Always visible --%>
@@ -747,15 +747,15 @@
           <div>
             <div class="text-xs text-base-content/70">Prompt</div>
             <div class="text-sm">
-              <%= if @selected_request.prompt_name do %>
+              <%= if @selected_request.prompt && @selected_request.prompt_name do %>
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{@selected_request.prompt_id}/edit"}
+                  navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{@selected_request.prompt.id}/edit"}
                   class="link link-hover link-primary"
                 >
                   {@selected_request.prompt_name}
                 </.link>
               <% else %>
-                <span class="text-base-content/50">-</span>
+                <span class="text-base-content/50">{@selected_request.prompt_name || "-"}</span>
               <% end %>
             </div>
           </div>

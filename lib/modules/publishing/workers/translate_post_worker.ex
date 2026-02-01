@@ -678,11 +678,12 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   # Get default endpoint ID from settings
+  # endpoint_id is now a UUID string, no need to convert to integer
   defp get_default_endpoint_id do
     case Settings.get_setting("publishing_translation_endpoint_id") do
       nil -> nil
       "" -> nil
-      id -> String.to_integer(id)
+      id -> id
     end
   end
 

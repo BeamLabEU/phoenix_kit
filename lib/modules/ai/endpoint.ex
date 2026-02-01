@@ -63,7 +63,9 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, :id, autogenerate: true}
+  # Use UUID as the primary key in Ecto, mapped to the 'uuid' column in DB
+  # The DB still has integer 'id' as the actual PK, kept as legacy_id for FK compatibility
+  @primary_key {:id, Ecto.UUID, autogenerate: true, source: :uuid}
   @valid_providers ~w(openrouter)
 
   @derive {Jason.Encoder,
@@ -99,7 +101,9 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
            ]}
 
   schema "phoenix_kit_ai_endpoints" do
-    field :uuid, Ecto.UUID
+    # Old integer ID kept for foreign key compatibility
+    field :legacy_id, :integer, source: :id, read_after_writes: true
+
     # Identity
     field :name, :string
     field :description, :string
@@ -142,7 +146,10 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
     field :sort_order, :integer, default: 0
     field :last_validated_at, :utc_datetime_usec
 
-    has_many :requests, PhoenixKit.Modules.AI.Request, foreign_key: :endpoint_id
+    # Reference legacy_id since Request's endpoint_id is integer (DB FK unchanged)
+    has_many :requests, PhoenixKit.Modules.AI.Request,
+      foreign_key: :endpoint_id,
+      references: :legacy_id
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -189,14 +196,6 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
     |> validate_penalties()
     |> validate_reasoning()
     |> maybe_set_default_base_url()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

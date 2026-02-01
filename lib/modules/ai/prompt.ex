@@ -65,7 +65,9 @@ defmodule PhoenixKit.Modules.AI.Prompt do
 
   alias PhoenixKit.Utils.Slug
 
-  @primary_key {:id, :id, autogenerate: true}
+  # Use UUID as the primary key in Ecto, mapped to the 'uuid' column in DB
+  # The DB still has integer 'id' as the actual PK, kept as legacy_id for FK compatibility
+  @primary_key {:id, Ecto.UUID, autogenerate: true, source: :uuid}
 
   # Regex for extracting variable names from content
   @variable_regex ~r/\{\{(\w+)\}\}/
@@ -88,7 +90,9 @@ defmodule PhoenixKit.Modules.AI.Prompt do
            ]}
 
   schema "phoenix_kit_ai_prompts" do
-    field :uuid, Ecto.UUID
+    # Old integer ID kept for foreign key compatibility
+    field :legacy_id, :integer, source: :id, read_after_writes: true
+
     # Identity
     field :name, :string
     field :slug, :string
@@ -136,14 +140,6 @@ defmodule PhoenixKit.Modules.AI.Prompt do
     |> unique_constraint(:slug, name: :phoenix_kit_ai_prompts_slug_uidx)
     |> maybe_generate_slug()
     |> auto_extract_variables()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

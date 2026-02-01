@@ -194,7 +194,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
       end
 
     filters = %{
-      endpoint: parse_integer_param(params["endpoint"]),
+      endpoint: parse_endpoint_filter(params["endpoint"]),
       model: parse_string_param(params["model"]),
       status: parse_string_param(params["status"]),
       source: parse_string_param(params["source"]),
@@ -211,13 +211,14 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   defp parse_date_filter(value) when value in @valid_date_filters, do: value
   defp parse_date_filter(_), do: "7d"
 
-  defp parse_integer_param(nil), do: nil
-  defp parse_integer_param(""), do: nil
+  # Endpoint filter can be legacy integer ID or kept as-is for future UUID support
+  defp parse_endpoint_filter(nil), do: nil
+  defp parse_endpoint_filter(""), do: nil
 
-  defp parse_integer_param(value) when is_binary(value) do
+  defp parse_endpoint_filter(value) when is_binary(value) do
     case Integer.parse(value) do
       {int, ""} -> int
-      _ -> nil
+      _ -> value
     end
   end
 
@@ -260,7 +261,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
 
   @impl true
   def handle_event("toggle_endpoint", %{"id" => id}, socket) do
-    endpoint = AI.get_endpoint!(String.to_integer(id))
+    endpoint = AI.get_endpoint!(id)
 
     case AI.update_endpoint(endpoint, %{enabled: !endpoint.enabled}) do
       {:ok, _updated} ->
@@ -276,7 +277,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
 
   @impl true
   def handle_event("delete_endpoint", %{"id" => id}, socket) do
-    endpoint = AI.get_endpoint!(String.to_integer(id))
+    endpoint = AI.get_endpoint!(id)
 
     case AI.delete_endpoint(endpoint) do
       {:ok, _} ->
@@ -339,7 +340,8 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
         page: page,
         page_size: 20,
         sort_by: socket.assigns.usage_sort_by,
-        sort_dir: socket.assigns.usage_sort_dir
+        sort_dir: socket.assigns.usage_sort_dir,
+        preload: [:prompt]
       ]
       |> maybe_add_filter(:endpoint_id, socket.assigns.usage_filter_endpoint)
       |> maybe_add_filter(:model, socket.assigns.usage_filter_model)
@@ -387,7 +389,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
     new_assigns = %{
       usage_sort_by: socket.assigns.usage_sort_by,
       usage_sort_dir: socket.assigns.usage_sort_dir,
-      usage_filter_endpoint: if(endpoint == "", do: nil, else: String.to_integer(endpoint)),
+      usage_filter_endpoint: if(endpoint == "", do: nil, else: parse_endpoint_filter(endpoint)),
       usage_filter_model: if(model == "", do: nil, else: model),
       usage_filter_status: if(status == "", do: nil, else: status),
       usage_filter_source: if(source == "", do: nil, else: source),
@@ -414,8 +416,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
 
   @impl true
   def handle_event("show_request_details", %{"id" => id}, socket) do
-    request_id = String.to_integer(id)
-    request = Enum.find(socket.assigns.usage_requests, fn r -> r.id == request_id end)
+    request = Enum.find(socket.assigns.usage_requests, fn r -> r.id == id end)
 
     {:noreply, assign(socket, :selected_request, request)}
   end
@@ -517,7 +518,8 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
         page: 1,
         page_size: 20,
         sort_by: socket.assigns.usage_sort_by,
-        sort_dir: socket.assigns.usage_sort_dir
+        sort_dir: socket.assigns.usage_sort_dir,
+        preload: [:prompt]
       ]
       |> maybe_add_filter(:endpoint_id, socket.assigns.usage_filter_endpoint)
       |> maybe_add_filter(:model, socket.assigns.usage_filter_model)

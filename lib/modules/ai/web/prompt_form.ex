@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.AI.Web.PromptForm do
   end
 
   defp load_prompt(socket, id) do
-    case AI.get_prompt(String.to_integer(id)) do
+    case AI.get_prompt(id) do
       nil ->
         socket
         |> put_flash(:error, "Prompt not found")

@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.AI.Request do
   - `total_tokens`: Total tokens used (input + output)
 
   ### Performance & Cost
-  - `cost_cents`: Estimated cost in cents (when available)
+  - `cost_cents`: Estimated cost in nanodollars (when available)
   - `latency_ms`: Response time in milliseconds
   - `status`: Request status - "success", "error", or "timeout"
   - `error_message`: Error details if status is not "success"
@@ -42,9 +42,9 @@ defmodule PhoenixKit.Modules.AI.Request do
 
   ## Usage Examples
 
-      # Log a successful request (new endpoint system)
+      # Log a successful request (endpoint_id is the legacy integer ID)
       {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
-        endpoint_id: 1,
+        endpoint_id: endpoint.legacy_id,
         endpoint_name: "Claude Fast",
         user_id: 123,
         model: "anthropic/claude-3-haiku",
@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.AI.Request do
 
       # Log a failed request
       {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
-        endpoint_id: 1,
+        endpoint_id: endpoint.legacy_id,
         endpoint_name: "Claude Fast",
         model: "anthropic/claude-3-haiku",
         status: "error",
@@ -74,7 +74,9 @@ defmodule PhoenixKit.Modules.AI.Request do
   alias PhoenixKit.Modules.AI.Prompt
   alias PhoenixKit.Users.Auth.User
 
-  @primary_key {:id, :id, autogenerate: true}
+  # Use UUID as the primary key in Ecto, mapped to the 'uuid' column in DB
+  # The DB still has integer 'id' as the actual PK, kept as legacy_id for FK compatibility
+  @primary_key {:id, Ecto.UUID, autogenerate: true, source: :uuid}
   @valid_statuses ~w(success error timeout)
   @valid_request_types ~w(text_completion chat embedding)
 
@@ -102,7 +104,9 @@ defmodule PhoenixKit.Modules.AI.Request do
            ]}
 
   schema "phoenix_kit_ai_requests" do
-    field :uuid, Ecto.UUID
+    # Old integer ID kept for foreign key compatibility
+    field :legacy_id, :integer, source: :id, read_after_writes: true
+
     # New endpoint system fields
     field :endpoint_name, :string
 
@@ -125,8 +129,9 @@ defmodule PhoenixKit.Modules.AI.Request do
     field :metadata, :map, default: %{}
 
     # Associations
-    belongs_to :endpoint, Endpoint
-    belongs_to :prompt, Prompt
+    # Use legacy_id (integer) for FK since database still uses integer foreign keys
+    belongs_to :endpoint, Endpoint, type: :integer, references: :legacy_id
+    belongs_to :prompt, Prompt, type: :integer, references: :legacy_id
     # Legacy account_id field (backward compatibility, no association since Account was removed)
     field :account_id, :integer
     belongs_to :user, User
@@ -168,14 +173,6 @@ defmodule PhoenixKit.Modules.AI.Request do
     |> calculate_total_tokens()
     |> foreign_key_constraint(:endpoint_id)
     |> foreign_key_constraint(:user_id)
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """
