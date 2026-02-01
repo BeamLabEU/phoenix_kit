@@ -70,6 +70,7 @@ defmodule PhoenixKit.Modules.AI do
   alias PhoenixKit.Modules.AI.Request
   alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
   # PUBSUB TOPICS
@@ -122,11 +123,6 @@ defmodule PhoenixKit.Modules.AI do
 
   defp repo do
     PhoenixKit.RepoHelper.repo()
-  end
-
-  # Check if string is a valid UUID using Ecto.UUID.cast/1 for robust validation
-  defp uuid_string?(string) when is_binary(string) do
-    match?({:ok, _}, Ecto.UUID.cast(string))
   end
 
   defp broadcast_endpoint_change(result, event) do
@@ -389,7 +385,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   def get_endpoint(id) when is_binary(id) do
-    if uuid_string?(id) do
+    if UUIDUtils.valid?(id) do
       # UUID lookup
       repo().get_by(Endpoint, uuid: id)
     else
@@ -590,7 +586,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   def get_prompt(id) when is_binary(id) do
-    if uuid_string?(id) do
+    if UUIDUtils.valid?(id) do
       # UUID lookup
       repo().get_by(Prompt, uuid: id)
     else
@@ -700,7 +696,7 @@ defmodule PhoenixKit.Modules.AI do
 
   def resolve_prompt(id_or_slug) when is_binary(id_or_slug) do
     # Check if it looks like a UUID (contains dashes in UUID pattern)
-    if uuid_string?(id_or_slug) do
+    if UUIDUtils.valid?(id_or_slug) do
       # It's a UUID, look up by ID
       case get_prompt(id_or_slug) do
         nil -> {:error, "Prompt not found"}
@@ -1006,7 +1002,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   defp build_prompt_id_query(id) when is_binary(id) do
-    if uuid_string?(id) do
+    if UUIDUtils.valid?(id) do
       from(p in Prompt, where: p.uuid == ^id)
     else
       case Integer.parse(id) do
@@ -1110,7 +1106,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   def get_request(id) when is_binary(id) do
-    if uuid_string?(id) do
+    if UUIDUtils.valid?(id) do
       # UUID lookup
       repo().get_by(Request, uuid: id)
     else
