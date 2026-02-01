@@ -236,4 +236,9 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
       {:error, :seed_failed}
     end
   end
+
+  defp print_template_summary(template) do
+    status_icon = if template.status == "active", do: "🟢", else: "🟡"
+    IO.puts("   #{status_icon} #{template.name} (#{template.display_name})")
+  end
 end
