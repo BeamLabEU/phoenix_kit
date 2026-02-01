@@ -1272,41 +1272,47 @@ defmodule PhoenixKit.Modules.Shop do
 
       {guest, user} ->
         # Merge items into user cart
-        repo().transaction(fn ->
-          # Move items from guest to user cart
-          for item <- guest.items do
-            # Find existing cart item with same product and specs
-            existing =
-              find_cart_item_by_specs(user.id, item.product_id, item.selected_specs || %{})
+        do_merge_guest_cart_items(guest, user)
+    end
+  end
 
-            case existing do
-              nil ->
-                attrs =
-                  Map.from_struct(item)
-                  |> Map.drop([:__meta__, :id, :uuid, :cart, :product, :inserted_at, :updated_at])
-                  |> Map.put(:cart_id, user.id)
+  defp do_merge_guest_cart_items(guest, user) do
+    repo().transaction(fn ->
+      # Move items from guest to user cart
+      Enum.each(guest.items, fn item ->
+        merge_cart_item(user, item)
+      end)
 
-                %CartItem{}
-                |> CartItem.changeset(attrs)
-                |> repo().insert!()
+      # Mark guest cart as merged
+      guest
+      |> Cart.status_changeset("merged", %{merged_into_cart_id: user.id})
+      |> repo().update!()
 
-              existing_item ->
-                new_qty = existing_item.quantity + item.quantity
-                existing_item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
-            end
-          end
+      # Recalculate user cart
+      recalculate_cart_totals!(user)
 
-          # Mark guest cart as merged
-          guest
-          |> Cart.status_changeset("merged", %{merged_into_cart_id: user.id})
-          |> repo().update!()
+      repo().get!(Cart, user.id)
+      |> repo().preload([:items, :shipping_method, :payment_option])
+    end)
+  end
 
-          # Recalculate user cart
-          recalculate_cart_totals!(user)
+  defp merge_cart_item(user_cart, item) do
+    existing = find_cart_item_by_specs(user_cart.id, item.product_id, item.selected_specs || %{})
 
-          repo().get!(Cart, user.id)
-          |> repo().preload([:items, :shipping_method, :payment_option])
-        end)
+    case existing do
+      nil ->
+        attrs =
+          Map.from_struct(item)
+          |> Map.drop([:__meta__, :id, :uuid, :cart, :product, :inserted_at, :updated_at])
+          |> Map.put(:cart_id, user_cart.id)
+
+        %CartItem{}
+        |> CartItem.changeset(attrs)
+        |> repo().insert!()
+
+      existing_item ->
+        new_qty = existing_item.quantity + item.quantity
+        existing_item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
     end
   end
 
