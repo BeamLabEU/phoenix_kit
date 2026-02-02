@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
     # Edit mode with slug
     entity = Entities.get_entity_by_name(entity_slug)
-    data_record = EntityData.get_data!(String.to_integer(id))
+    data_record = EntityData.get!(id)
     changeset = EntityData.change(data_record)
 
     mount_data_form(socket, entity, data_record, changeset, gettext("Edit Data"), locale)
@@ -37,8 +37,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       params["locale"] || socket.assigns[:current_locale]
 
     # Edit mode with ID (backwards compat)
-    entity = Entities.get_entity!(String.to_integer(entity_id))
-    data_record = EntityData.get_data!(String.to_integer(id))
+    entity = Entities.get_entity!(entity_id)
+    data_record = EntityData.get!(id)
     changeset = EntityData.change(data_record)
 
     mount_data_form(socket, entity, data_record, changeset, gettext("Edit Data"), locale)
@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       params["locale"] || socket.assigns[:current_locale]
 
     # Create mode with ID (backwards compat)
-    entity = Entities.get_entity!(String.to_integer(entity_id))
+    entity = Entities.get_entity!(entity_id)
     data_record = %EntityData{entity_id: entity.id}
     changeset = EntityData.change(data_record)
 
