@@ -77,11 +77,14 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   alias PhoenixKit.Modules.Entities.Mirror.Exporter
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @primary_key {:id, :id, autogenerate: true}
 
   @derive {Jason.Encoder,
            only: [
+             :id,
+             :uuid,
              :title,
              :slug,
              :status,
@@ -92,7 +95,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
            ]}
 
   schema "phoenix_kit_entity_data" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :title, :string
     field :slug, :string
     field :status, :string, default: "published"
@@ -136,14 +139,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     |> validate_data_against_entity()
     |> foreign_key_constraint(:entity_id)
     |> maybe_set_timestamps()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   defp validate_slug_format(changeset) do
@@ -425,7 +420,12 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   @doc """
-  Gets a single entity data record by ID.
+  Gets a single entity data record by ID or UUID.
+
+  Accepts:
+  - Integer ID (primary key)
+  - UUID string
+  - String that parses to integer
 
   Returns the record if found, nil otherwise.
 
@@ -434,18 +434,42 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.get(123)
       %PhoenixKit.Modules.Entities.EntityData{}
 
+      iex> PhoenixKit.Modules.Entities.EntityData.get("550e8400-e29b-41d4-a716-446655440000")
+      %PhoenixKit.Modules.Entities.EntityData{}
+
       iex> PhoenixKit.Modules.Entities.EntityData.get(456)
       nil
   """
-  def get(id) do
+  def get(id) when is_integer(id) do
     case repo().get(__MODULE__, id) do
       nil -> nil
       record -> repo().preload(record, [:entity, :creator])
     end
   end
 
+  def get(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      case repo().get_by(__MODULE__, uuid: id) do
+        nil -> nil
+        record -> repo().preload(record, [:entity, :creator])
+      end
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get(_), do: nil
+
   @doc """
-  Gets a single entity data record by ID.
+  Gets a single entity data record by ID or UUID.
+
+  Accepts:
+  - Integer ID (primary key)
+  - UUID string
+  - String that parses to integer
 
   Raises `Ecto.NoResultsError` if the record does not exist.
 
@@ -454,11 +478,17 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.get!(123)
       %PhoenixKit.Modules.Entities.EntityData{}
 
+      iex> PhoenixKit.Modules.Entities.EntityData.get!("550e8400-e29b-41d4-a716-446655440000")
+      %PhoenixKit.Modules.Entities.EntityData{}
+
       iex> PhoenixKit.Modules.Entities.EntityData.get!(456)
       ** (Ecto.NoResultsError)
   """
   def get!(id) do
-    repo().get!(__MODULE__, id) |> repo().preload([:entity, :creator])
+    case get(id) do
+      nil -> raise Ecto.NoResultsError, queryable: __MODULE__
+      record -> record
+    end
   end
 
   @doc """
