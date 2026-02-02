@@ -893,7 +893,6 @@ defmodule PhoenixKit.Modules.Publishing do
       opts_map
       |> fetch_option(:scope)
       |> audit_metadata(:update)
-      # Include is_primary_language so storage can set status_manual correctly
       |> Map.put(:is_primary_language, Map.get(opts_map, :is_primary_language, true))
 
     mode =
@@ -964,25 +963,30 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Publishes a version, making it the only published version.
 
-  Sets the target version's primary language to `status: "published"`.
-  Archives ALL other versions (`status: "archived"`).
+  - All files in the target version (primary and translations) → `status: "published"`
+  - All files in other versions that were "published" → `status: "archived"`
+  - Draft/archived files in other versions keep their current status
 
-  Translation status logic:
-  - If `status_manual: true` → keep translation's current status
-  - If `status_manual: false` AND has content → inherit primary status
-  - If no content → remain unchanged
+  ## Options
+
+  - `:source_id` - ID of the source (e.g., socket.id) to include in broadcasts,
+    allowing receivers to ignore their own messages
 
   ## Examples
 
       iex> Publishing.publish_version("blog", "my-post", 2)
       :ok
 
+      iex> Publishing.publish_version("blog", "my-post", 2, source_id: "phx-abc123")
+      :ok
+
       iex> Publishing.publish_version("blog", "nonexistent", 1)
       {:error, :not_found}
   """
-  @spec publish_version(String.t(), String.t(), integer()) :: :ok | {:error, any()}
-  def publish_version(group_slug, post_slug, version) do
+  @spec publish_version(String.t(), String.t(), integer(), keyword()) :: :ok | {:error, any()}
+  def publish_version(group_slug, post_slug, version, opts \\ []) do
     result = Storage.publish_version(group_slug, post_slug, version)
+    source_id = Keyword.get(opts, :source_id)
 
     # Regenerate listing cache and broadcast on success
     # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
@@ -991,7 +995,7 @@ defmodule PhoenixKit.Modules.Publishing do
       # Broadcast to blog listing (version_live_changed updates "live" indicator)
       PublishingPubSub.broadcast_version_live_changed(group_slug, post_slug, version)
       # Also broadcast to post-level topic for editors
-      PublishingPubSub.broadcast_post_version_published(group_slug, post_slug, version)
+      PublishingPubSub.broadcast_post_version_published(group_slug, post_slug, version, source_id)
     end
 
     result

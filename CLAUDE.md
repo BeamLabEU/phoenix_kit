@@ -480,6 +480,81 @@ PhoenixKit.Entities.create_entity(%{name: "products", ...})
 - **Mix.Tasks.PhoenixKit.Gen.Migration** - Custom migration generator
 - **Mix.Tasks.PhoenixKit.MigrateToDaisyui5** - Migration tool for daisyUI 5 upgrade
 
+### Adding UUID Fields to Existing Schemas
+
+When adding UUID fields to schemas that use integer primary keys, follow this pattern:
+
+**Schema Definition:**
+```elixir
+schema "my_table" do
+  # Add UUID field for external references (URLs, APIs)
+  # DB generates UUIDv7, Ecto reads it back after insert
+  field :uuid, Ecto.UUID, read_after_writes: true
+
+  # ... other fields
+end
+```
+
+**ID System Rules:**
+| Use Case | Field | Example |
+|----------|-------|---------|
+| URLs and external APIs | `.uuid` | `/items/#{item.uuid}/edit` |
+| Foreign keys | `.id` | `parent_id: item.id` |
+| Database queries | `.id` | `repo.get(Item, id)` |
+| Stats map keys | `.id` | `Map.get(stats, item.id)` |
+| Event handlers (phx-value) | `.id` | `phx-value-id={item.id}` |
+
+**Lookup Functions Pattern:**
+```elixir
+# Support both integer ID and UUID lookups
+def get_item(id) when is_integer(id) do
+  repo().get(Item, id)
+end
+
+def get_item(id) when is_binary(id) do
+  if uuid_string?(id) do
+    repo().get_by(Item, uuid: id)
+  else
+    case Integer.parse(id) do
+      {int_id, ""} -> repo().get(Item, int_id)
+      _ -> nil
+    end
+  end
+end
+
+# Use Ecto.UUID.cast for robust UUID validation
+defp uuid_string?(string) when is_binary(string) do
+  match?({:ok, _}, Ecto.UUID.cast(string))
+end
+```
+
+**Template Usage:**
+```heex
+<%!-- URLs use UUID (stable, non-enumerable) --%>
+<.link navigate={~p"/items/#{item.uuid}/edit"}>
+  {item.name}
+</.link>
+```
+
+**Important:** Avoid displaying IDs in the UI. Use meaningful attributes like names, titles, or slugs instead.
+
+**External Integration Check:**
+Other modules consuming your schema may have `String.to_integer()` calls expecting integer IDs. Search and fix:
+
+```bash
+# Find String.to_integer that might be parsing these IDs
+rg "String\.to_integer.*item_id" lib/
+```
+
+**Fix pattern:**
+```elixir
+# BEFORE (breaks with UUIDs)
+item_id = String.to_integer(params["item_id"])
+
+# AFTER (works with both)
+item_id = params["item_id"]  # Let the lookup function handle it
+```
+
 ### Key Design Principles
 
 - **No Circular Dependencies** - Optional Phoenix deps prevent import cycles

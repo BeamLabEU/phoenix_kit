@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.AI.Completion do
   Extracts usage information from a response.
 
   Returns a map with token counts and cost (if available from OpenRouter).
-  Cost is stored in microdollars (1/10000 of a dollar) to preserve precision
+  Cost is stored in nanodollars (1/1,000,000 of a dollar) to preserve precision
   for cheap API calls. Stored in the cost_cents field for backward compatibility.
   """
   def extract_usage(response) do

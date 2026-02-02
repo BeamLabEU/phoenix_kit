@@ -209,11 +209,12 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
 
   @doc """
   Broadcasts that the live/published version changed (to post-level topic).
+  Includes source_id so receivers can ignore their own broadcasts.
   """
-  def broadcast_post_version_published(blog_slug, post_slug, version) do
+  def broadcast_post_version_published(blog_slug, post_slug, version, source_id \\ nil) do
     Manager.broadcast(
       post_versions_topic(blog_slug, post_slug),
-      {:post_version_published, blog_slug, post_slug, version}
+      {:post_version_published, blog_slug, post_slug, version, source_id}
     )
   end
 

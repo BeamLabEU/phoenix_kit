@@ -290,7 +290,6 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `featured_image_id` – Optional reference to a featured image asset
 - `description` – Optional post description/excerpt for SEO
 - `version`, `version_created_at`, `version_created_from` – Managed automatically for versioned posts
-- `status_manual` – When `true`, translation status won't inherit from primary language on publish
 - `allow_version_access` – Enables public viewing of historical versions when set to `true`
 
 **Audit Fields (optional):**
@@ -586,8 +585,7 @@ attempts or drafts rather than sequential history. Only ONE version can be publi
 - **Versions are editable**: Unlike historical versioning, all versions remain editable regardless
   of status. You can modify drafts, archived versions, or even the published version.
 - **Branching**: Create new versions by copying from an existing version or starting blank.
-- **Translation inheritance**: When publishing, translations inherit the primary language's status
-  unless `status_manual: true` is set.
+- **Translation inheritance**: When publishing, all translations inherit the primary language's status.
 
 **Creating New Versions:**
 
@@ -618,20 +616,19 @@ The editor provides a complete version management interface:
 - **New Version Modal** - Choose to start blank or copy from any existing version
 - **Status Dropdown** - Change status directly in the metadata panel
 
-**Translation Status Overrides:**
+**Translation Status Inheritance:**
 
-Translations can maintain their own status independently of the primary language:
+Translations always follow the primary language's status:
 
-- By default, translations inherit the primary language's status when published
-- When a translator manually changes a translation's status, `status_manual: true` is set
-- Translations with `status_manual: true` keep their status even when the primary is republished
-- This allows keeping a translation as "draft" while the primary is published (e.g., awaiting review)
+- When the primary language status changes, all translations are updated to match
+- Users can temporarily change a translation's status (e.g., set to "draft" while reviewing)
+- However, the next primary status change will reset all translations to match
+- Translations can only be changed to "draft" or "archived" if the primary is already published
 
 Example workflow:
-1. Primary (English) is published with v2
-2. French translation is still being reviewed, translator sets it to "draft"
-3. `status_manual: true` is automatically set on the French file
-4. Later, when English v3 is published, French keeps its "draft" status
+1. Primary (English) is published with v2 → all translations become "published"
+2. French translation has an issue, translator sets it to "draft" temporarily
+3. When English v3 is published, French becomes "published" again (along with all translations)
 
 **Public URLs:**
 
@@ -901,8 +898,7 @@ docs/
     created_at: "2025-01-15T09:30:00Z",
     version: 1,
     version_created_at: "2025-01-15T09:30:00Z",
-    version_created_from: nil,      # Source version when branching
-    status_manual: false            # True if translation status was manually set
+    version_created_from: nil       # Source version when branching
   },
   content: "# Markdown content...",
   language: "en",

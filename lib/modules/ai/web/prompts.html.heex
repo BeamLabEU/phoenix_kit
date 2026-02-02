@@ -111,13 +111,7 @@
                 <div class="flex-1">
                   <div class="flex items-center gap-3 flex-wrap">
                     <.link
-                      navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.id}/edit"}
-                      class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
-                    >
-                      #{prompt.id}
-                    </.link>
-                    <.link
-                      navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.id}/edit"}
+                      navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.uuid}/edit"}
                       class="font-semibold text-lg hover:text-primary hover:underline"
                     >
                       {prompt.name}
@@ -182,7 +176,7 @@
                     class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-48"
                   >
                     <li>
-                      <.link navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.id}/edit"}>
+                      <.link navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.uuid}/edit"}>
                         <.icon name="hero-pencil" class="w-4 h-4" /> Edit
                       </.link>
                     </li>

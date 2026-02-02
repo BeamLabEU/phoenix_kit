@@ -70,6 +70,7 @@ defmodule PhoenixKit.Modules.AI do
   alias PhoenixKit.Modules.AI.Request
   alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
   # PUBSUB TOPICS
@@ -218,22 +219,26 @@ defmodule PhoenixKit.Modules.AI do
     page = Keyword.get(opts, :page, 1) |> max(1)
     page_size = Keyword.get(opts, :page_size, 20)
 
-    query = from(e in Endpoint)
+    # Build base query with filters (no sorting yet)
+    base_query = from(e in Endpoint)
 
-    # Apply sorting
-    query = apply_endpoint_sorting(query, sort_by, sort_dir)
-
-    query =
+    base_query =
       case Keyword.get(opts, :provider) do
-        nil -> query
-        provider -> where(query, [e], e.provider == ^provider)
+        nil -> base_query
+        provider -> where(base_query, [e], e.provider == ^provider)
       end
 
-    query =
+    base_query =
       case Keyword.get(opts, :enabled) do
-        nil -> query
-        enabled -> where(query, [e], e.enabled == ^enabled)
+        nil -> base_query
+        enabled -> where(base_query, [e], e.enabled == ^enabled)
       end
+
+    # Count on base query BEFORE applying sorting (which may add group_by)
+    total = repo().aggregate(base_query, :count, :id)
+
+    # Now apply sorting (may add group_by for usage/tokens/cost/last_used)
+    query = apply_endpoint_sorting(base_query, sort_by, sort_dir)
 
     query =
       case Keyword.get(opts, :preload) do
@@ -241,8 +246,6 @@ defmodule PhoenixKit.Modules.AI do
         preloads -> preload(query, ^preloads)
       end
 
-    # Perform a single count query for the total
-    total = repo().aggregate(query, :count, :id)
     offset = (page - 1) * page_size
 
     endpoints =
@@ -256,38 +259,66 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   defp apply_endpoint_sorting(query, :usage, dir) do
-    # Sort by total request count using a subquery
+    # Sort by total request count using a subquery to avoid GROUP BY issues
+    stats_subquery =
+      from(r in Request,
+        where: not is_nil(r.endpoint_id),
+        group_by: r.endpoint_id,
+        select: %{endpoint_id: r.endpoint_id, count: count(r.id)}
+      )
+
     from(e in query,
-      left_join: r in assoc(e, :requests),
-      group_by: e.id,
-      order_by: [{^dir, count(r.id)}]
+      left_join: s in subquery(stats_subquery),
+      on: s.endpoint_id == e.id,
+      order_by: [{^dir, coalesce(s.count, 0)}]
     )
   end
 
   defp apply_endpoint_sorting(query, :tokens, dir) do
     # Sort by total tokens used
+    stats_subquery =
+      from(r in Request,
+        where: not is_nil(r.endpoint_id),
+        group_by: r.endpoint_id,
+        select: %{endpoint_id: r.endpoint_id, total: coalesce(sum(r.total_tokens), 0)}
+      )
+
     from(e in query,
-      left_join: r in assoc(e, :requests),
-      group_by: e.id,
-      order_by: [{^dir, coalesce(sum(r.total_tokens), 0)}]
+      left_join: s in subquery(stats_subquery),
+      on: s.endpoint_id == e.id,
+      order_by: [{^dir, coalesce(s.total, 0)}]
     )
   end
 
   defp apply_endpoint_sorting(query, :cost, dir) do
     # Sort by total cost
+    stats_subquery =
+      from(r in Request,
+        where: not is_nil(r.endpoint_id),
+        group_by: r.endpoint_id,
+        select: %{endpoint_id: r.endpoint_id, total: coalesce(sum(r.cost_cents), 0)}
+      )
+
     from(e in query,
-      left_join: r in assoc(e, :requests),
-      group_by: e.id,
-      order_by: [{^dir, coalesce(sum(r.cost_cents), 0)}]
+      left_join: s in subquery(stats_subquery),
+      on: s.endpoint_id == e.id,
+      order_by: [{^dir, coalesce(s.total, 0)}]
     )
   end
 
   defp apply_endpoint_sorting(query, :last_used, dir) do
     # Sort by most recent request time
+    stats_subquery =
+      from(r in Request,
+        where: not is_nil(r.endpoint_id),
+        group_by: r.endpoint_id,
+        select: %{endpoint_id: r.endpoint_id, last_used: max(r.inserted_at)}
+      )
+
     from(e in query,
-      left_join: r in assoc(e, :requests),
-      group_by: e.id,
-      order_by: [{^dir, max(r.inserted_at)}]
+      left_join: s in subquery(stats_subquery),
+      on: s.endpoint_id == e.id,
+      order_by: [{^dir, s.last_used}]
     )
   end
 
@@ -328,27 +359,61 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single endpoint by ID.
+  Gets a single endpoint by integer ID or UUID.
 
   Raises `Ecto.NoResultsError` if the endpoint does not exist.
   """
-  def get_endpoint!(id), do: repo().get!(Endpoint, id)
+  def get_endpoint!(id) do
+    case get_endpoint(id) do
+      nil -> raise Ecto.NoResultsError, queryable: Endpoint
+      endpoint -> endpoint
+    end
+  end
 
   @doc """
-  Gets a single endpoint by ID.
+  Gets a single endpoint by integer ID or UUID.
+
+  Accepts:
+  - Integer ID (e.g., 123)
+  - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
+  - Integer string (e.g., "123")
 
   Returns `nil` if the endpoint does not exist.
   """
-  def get_endpoint(id), do: repo().get(Endpoint, id)
+  def get_endpoint(id) when is_integer(id) do
+    repo().get(Endpoint, id)
+  end
+
+  def get_endpoint(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      # UUID lookup
+      repo().get_by(Endpoint, uuid: id)
+    else
+      # Try parsing as integer
+      case Integer.parse(id) do
+        {int_id, ""} -> repo().get(Endpoint, int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_endpoint(_), do: nil
 
   @doc """
-  Resolves an endpoint from an ID or Endpoint struct.
+  Resolves an endpoint from an ID (UUID string) or Endpoint struct.
 
   ## Examples
 
-      {:ok, endpoint} = PhoenixKit.Modules.AI.resolve_endpoint(1)
+      {:ok, endpoint} = PhoenixKit.Modules.AI.resolve_endpoint("019abc12-3456-7def-8901-234567890abc")
       {:ok, endpoint} = PhoenixKit.Modules.AI.resolve_endpoint(endpoint)
   """
+  def resolve_endpoint(id) when is_binary(id) do
+    case get_endpoint(id) do
+      nil -> {:error, "Endpoint not found"}
+      endpoint -> {:ok, endpoint}
+    end
+  end
+
   def resolve_endpoint(id) when is_integer(id) do
     case get_endpoint(id) do
       nil -> {:error, "Endpoint not found"}
@@ -357,6 +422,8 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   def resolve_endpoint(%Endpoint{} = endpoint), do: {:ok, endpoint}
+
+  def resolve_endpoint(_), do: {:error, "Invalid endpoint identifier"}
 
   @doc """
   Creates a new AI endpoint.
@@ -493,18 +560,45 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single prompt by ID.
+  Gets a single prompt by integer ID or UUID.
 
   Raises `Ecto.NoResultsError` if the prompt does not exist.
   """
-  def get_prompt!(id), do: repo().get!(Prompt, id)
+  def get_prompt!(id) do
+    case get_prompt(id) do
+      nil -> raise Ecto.NoResultsError, queryable: Prompt
+      prompt -> prompt
+    end
+  end
 
   @doc """
-  Gets a single prompt by ID.
+  Gets a single prompt by integer ID or UUID.
+
+  Accepts:
+  - Integer ID (e.g., 123)
+  - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
+  - Integer string (e.g., "123")
 
   Returns `nil` if the prompt does not exist.
   """
-  def get_prompt(id), do: repo().get(Prompt, id)
+  def get_prompt(id) when is_integer(id) do
+    repo().get(Prompt, id)
+  end
+
+  def get_prompt(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      # UUID lookup
+      repo().get_by(Prompt, uuid: id)
+    else
+      # Try parsing as integer
+      case Integer.parse(id) do
+        {int_id, ""} -> repo().get(Prompt, int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_prompt(_), do: nil
 
   @doc """
   Gets a prompt by slug.
@@ -585,8 +679,8 @@ defmodule PhoenixKit.Modules.AI do
   Resolves a prompt from various input types.
 
   Accepts:
-  - Integer ID
-  - String slug
+  - UUID string (e.g., "019abc12-3456-7def-8901-234567890abc")
+  - String slug (e.g., "my-prompt")
   - Prompt struct (returned as-is)
 
   Returns `{:ok, prompt}` or `{:error, reason}`.
@@ -600,16 +694,30 @@ defmodule PhoenixKit.Modules.AI do
     end
   end
 
-  def resolve_prompt(slug) when is_binary(slug) do
-    case Integer.parse(slug) do
-      {id, ""} ->
-        resolve_prompt(id)
+  def resolve_prompt(id_or_slug) when is_binary(id_or_slug) do
+    # Check if it looks like a UUID (contains dashes in UUID pattern)
+    if UUIDUtils.valid?(id_or_slug) do
+      # It's a UUID, look up by ID
+      case get_prompt(id_or_slug) do
+        nil -> {:error, "Prompt not found"}
+        prompt -> {:ok, prompt}
+      end
+    else
+      # Try as integer string first, then slug
+      case Integer.parse(id_or_slug) do
+        {int_id, ""} ->
+          case get_prompt(int_id) do
+            nil -> {:error, "Prompt not found"}
+            prompt -> {:ok, prompt}
+          end
 
-      _ ->
-        case get_prompt_by_slug(slug) do
-          nil -> {:error, "Prompt not found"}
-          prompt -> {:ok, prompt}
-        end
+        _ ->
+          # It's a slug
+          case get_prompt_by_slug(id_or_slug) do
+            nil -> {:error, "Prompt not found"}
+            prompt -> {:ok, prompt}
+          end
+      end
     end
   end
 
@@ -875,17 +983,36 @@ defmodule PhoenixKit.Modules.AI do
 
   @doc """
   Updates the sort order for multiple prompts.
+
+  Accepts prompt IDs as integers or UUIDs.
   """
   def reorder_prompts(order_list) when is_list(order_list) do
     repo().transaction(fn ->
       Enum.each(order_list, fn {id, sort_order} ->
-        from(p in Prompt, where: p.id == ^id)
+        build_prompt_id_query(id)
         |> repo().update_all(set: [sort_order: sort_order])
       end)
     end)
 
     :ok
   end
+
+  defp build_prompt_id_query(id) when is_integer(id) do
+    from(p in Prompt, where: p.id == ^id)
+  end
+
+  defp build_prompt_id_query(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      from(p in Prompt, where: p.uuid == ^id)
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> from(p in Prompt, where: p.id == ^int_id)
+        _ -> from(p in Prompt, where: false)
+      end
+    end
+  end
+
+  defp build_prompt_id_query(_), do: from(p in Prompt, where: false)
 
   # ===========================================
   # USAGE TRACKING (REQUESTS)
@@ -955,14 +1082,43 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single request by ID.
+  Gets a single request by integer ID or UUID.
   """
-  def get_request!(id), do: repo().get!(Request, id)
+  def get_request!(id) do
+    case get_request(id) do
+      nil -> raise Ecto.NoResultsError, queryable: Request
+      request -> request
+    end
+  end
 
   @doc """
-  Gets a single request by ID.
+  Gets a single request by integer ID or UUID.
+
+  Accepts:
+  - Integer ID (e.g., 123)
+  - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
+  - Integer string (e.g., "123")
+
+  Returns `nil` if the request does not exist.
   """
-  def get_request(id), do: repo().get(Request, id)
+  def get_request(id) when is_integer(id) do
+    repo().get(Request, id)
+  end
+
+  def get_request(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      # UUID lookup
+      repo().get_by(Request, uuid: id)
+    else
+      # Try parsing as integer
+      case Integer.parse(id) do
+        {int_id, ""} -> repo().get(Request, int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_request(_), do: nil
 
   @doc """
   Creates a new AI request record.
@@ -1177,7 +1333,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint ID (integer) or Endpoint struct
+  - `endpoint_id` - Endpoint ID (UUID string or legacy integer) or Endpoint struct
   - `messages` - List of message maps with `:role` and `:content`
   - `opts` - Optional parameter overrides
 
@@ -1265,7 +1421,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint ID (integer) or Endpoint struct
+  - `endpoint_id` - Endpoint ID (UUID string or legacy integer) or Endpoint struct
   - `prompt` - User prompt string
   - `opts` - Optional parameter overrides and system message
 
@@ -1315,7 +1471,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint ID (integer) or Endpoint struct
+  - `endpoint_id` - Endpoint ID (UUID string or legacy integer) or Endpoint struct
   - `input` - Text or list of texts to embed
   - `opts` - Optional parameter overrides
 

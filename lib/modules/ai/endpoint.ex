@@ -63,12 +63,14 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
   use Ecto.Schema
   import Ecto.Changeset
 
+  # Standard integer primary key
   @primary_key {:id, :id, autogenerate: true}
   @valid_providers ~w(openrouter)
 
   @derive {Jason.Encoder,
            only: [
              :id,
+             :uuid,
              :name,
              :description,
              :provider,
@@ -99,7 +101,9 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
            ]}
 
   schema "phoenix_kit_ai_endpoints" do
-    field :uuid, Ecto.UUID
+    # UUID for external references (URLs, APIs) - DB generates UUIDv7
+    field :uuid, Ecto.UUID, read_after_writes: true
+
     # Identity
     field :name, :string
     field :description, :string
@@ -189,14 +193,6 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
     |> validate_penalties()
     |> validate_reasoning()
     |> maybe_set_default_base_url()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

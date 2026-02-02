@@ -315,29 +315,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
            find_sender_connection(validated.receiver_url, validated.auth_token_hash) do
       # If connection is pending, activate it since receiver is now querying
       # This confirms the connection is working
-      {updated_connection, status} =
-        if connection.status == "pending" do
-          case Connections.update_connection(connection, %{status: "active"}) do
-            {:ok, updated} ->
-              # Broadcast to refresh sender's LiveView
-              pubsub = PhoenixKit.Config.pubsub_server()
-
-              if pubsub do
-                Phoenix.PubSub.broadcast(
-                  pubsub,
-                  "sync:connections",
-                  {:connection_status_changed, connection.id, "active"}
-                )
-              end
-
-              {updated, "active"}
-
-            {:error, _} ->
-              {connection, connection.status}
-          end
-        else
-          {connection, connection.status}
-        end
+      {updated_connection, status} = maybe_activate_pending_connection(connection)
 
       Logger.info(
         "Sync API: Found sender connection #{updated_connection.id} with status '#{status}'"
@@ -642,6 +620,33 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   defp maybe_add_filter(opts, key, value), do: [{key, value} | opts]
 
   # --- Private Functions ---
+
+  defp maybe_activate_pending_connection(%{status: "pending"} = connection) do
+    case Connections.update_connection(connection, %{status: "active"}) do
+      {:ok, updated} ->
+        broadcast_connection_status_change(connection.id, "active")
+        {updated, "active"}
+
+      {:error, _} ->
+        {connection, connection.status}
+    end
+  end
+
+  defp maybe_activate_pending_connection(connection) do
+    {connection, connection.status}
+  end
+
+  defp broadcast_connection_status_change(connection_id, status) do
+    pubsub = PhoenixKit.Config.pubsub_server()
+
+    if pubsub do
+      Phoenix.PubSub.broadcast(
+        pubsub,
+        "sync:connections",
+        {:connection_status_changed, connection_id, status}
+      )
+    end
+  end
 
   defp check_module_enabled do
     if Sync.enabled?() do

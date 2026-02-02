@@ -1,3 +1,23 @@
+## 1.7.31 - 2026-01-29
+- Refactor publishing module into submodules and improve URL slug handling
+  - Storage module refactoring:
+    - Split storage.ex into specialized submodules: Paths, Languages, Slugs, Versions, Deletion, and Helpers for better organization and maintainability
+    - Move controller logic into submodules: Fallback, Language, Listing, PostFetching, PostRendering, Routing, SlugResolution, Translations
+    - Move editor logic into submodules: Collaborative, Forms, Helpers, Persistence, Preview, Translation, Versions
+  - Listing page improvements:
+    - Show live version's translations and statuses instead of latest version
+    - Fetch languages from filesystem when version_languages cache is empty
+    - Fix paths to point to live version files when clicking language buttons
+    - Add "showing vN" badge that combines with version count display
+    - Fix public URL to always use post's primary language
+  - URL slug priority system:
+    - Directory slugs now have priority over custom url_slugs
+    - Prevent setting url_slug that conflicts with another post's directory name
+    - Auto-clear conflicting url_slugs instead of blocking saves
+    - Show info notice when url_slugs are auto-cleared due to conflicts
+    - Clear conflicting url_slugs from ALL translations, not just current one
+    - Clear conflicting custom url_slugs when new post is created
+
 ## 1.7.30 - 2026-01-28
 - Posts Module
   - Add likes and dislikes system for post comments (V48 migration)
