@@ -1,6 +1,6 @@
 # PhoenixKit Modules - UUID Status
 
-**Last Updated**: 2026-02-02
+**Last Updated**: 2026-02-03
 **Reference PRs**: #311, #312, #313
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
@@ -17,10 +17,10 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | **Sync** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Referrals** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Legal** | 1 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
-| **Posts** | 13 | ❌ No UUID | Integer ID only |
-| **Connections** | 6 | ❌ No UUID | Integer ID only |
-| **Storage** | 5 | ❌ No UUID | Integer ID only |
-| **Tickets** | 4 | ❌ No UUID | Integer ID only |
+| **Posts** | 13 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
+| **Connections** | 6 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
+| **Storage** | 5 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
+| **Tickets** | 4 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
 | **DB** | 0 | — | Utility module (no schemas) |
 | **Languages** | 0 | — | Utility module (no schemas) |
 | **Maintenance** | 0 | — | Uses Settings table |
@@ -34,8 +34,8 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | Status | Meaning |
 |--------|---------|
 | ✅ New Standard | DB-generated UUID, `read_after_writes: true`, flexible `get/1` lookups |
+| ✅ Native UUID PK | UUID as primary key (`@primary_key {:id, UUIDv7, autogenerate: true}`) |
 | ⚠️ Old Pattern | Has UUID field but uses app-side `maybe_generate_uuid` |
-| ❌ No UUID | No UUID field, uses integer ID only |
 | — | No database schemas |
 
 ## Summary
@@ -43,8 +43,9 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | Category | Modules | Schemas |
 |----------|---------|---------|
 | ✅ New Standard | 2 | 5 |
+| ✅ Native UUID PK | 4 | 28 |
 | ⚠️ Old Pattern | 6 | 27 |
-| ❌ No UUID | 4 | 28 |
+| ❌ No UUID | 0 | 0 |
 | — No schemas | 7 | 0 |
 | **Total** | **19** | **60** |
 
@@ -116,6 +117,46 @@ def get(_), do: nil
 - `lib/modules/entities/entities.ex` - `phoenix_kit_entities`
 - `lib/modules/entities/entity_data.ex` - `phoenix_kit_entity_data`
 
+### ✅ Native UUID PK (28 schemas)
+
+Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is a UUID.
+
+#### Posts Module (13 schemas)
+- `post.ex` - `phoenix_kit_posts`
+- `post_comment.ex` - `phoenix_kit_post_comments`
+- `post_like.ex` - `phoenix_kit_post_likes`
+- `post_dislike.ex` - `phoenix_kit_post_dislikes`
+- `post_media.ex` - `phoenix_kit_post_media`
+- `post_tag.ex` - `phoenix_kit_post_tags`
+- `post_view.ex` - `phoenix_kit_post_views`
+- `post_group.ex` - `phoenix_kit_post_groups`
+- `post_mention.ex` - `phoenix_kit_post_mentions`
+- `comment_like.ex` - `phoenix_kit_comment_likes`
+- `comment_dislike.ex` - `phoenix_kit_comment_dislikes`
+- `post_tag_assignment.ex` - `phoenix_kit_post_tag_assignments` (composite key, no PK)
+- `post_group_assignment.ex` - `phoenix_kit_post_group_assignments` (composite key, no PK)
+
+#### Storage Module (5 schemas)
+- `bucket.ex` - `phoenix_kit_buckets`
+- `dimension.ex` - `phoenix_kit_storage_dimensions`
+- `file.ex` - `phoenix_kit_files`
+- `file_instance.ex` - `phoenix_kit_file_instances`
+- `file_location.ex` - `phoenix_kit_file_locations`
+
+#### Connections Module (6 schemas)
+- `block.ex` - `phoenix_kit_user_blocks`
+- `block_history.ex` - `phoenix_kit_user_blocks_history`
+- `connection.ex` - `phoenix_kit_user_connections`
+- `connection_history.ex` - `phoenix_kit_user_connections_history`
+- `follow.ex` - `phoenix_kit_user_follows`
+- `follow_history.ex` - `phoenix_kit_user_follows_history`
+
+#### Tickets Module (4 schemas)
+- `ticket.ex` - `phoenix_kit_tickets`
+- `ticket_attachment.ex` - `phoenix_kit_ticket_attachments`
+- `ticket_comment.ex` - `phoenix_kit_ticket_comments`
+- `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
+
 ### ⚠️ Old Pattern (27 schemas)
 
 #### Billing Module (10 schemas)
@@ -156,62 +197,29 @@ def get(_), do: nil
 #### Legal Module (1 schema)
 - `consent_log.ex` - `phoenix_kit_consent_logs`
 
-### ❌ No UUID (28 schemas)
-
-#### Posts Module (13 schemas)
-- `post.ex` - `phoenix_kit_posts`
-- `post_comment.ex` - `phoenix_kit_post_comments`
-- `post_like.ex` - `phoenix_kit_post_likes`
-- `post_dislike.ex` - `phoenix_kit_post_dislikes`
-- `post_media.ex` - `phoenix_kit_post_media`
-- `post_tag.ex` - `phoenix_kit_post_tags`
-- `post_tag_assignment.ex` - `phoenix_kit_post_tag_assignments`
-- `post_view.ex` - `phoenix_kit_post_views`
-- `post_group.ex` - `phoenix_kit_post_groups`
-- `post_mention.ex` - `phoenix_kit_post_mentions`
-- `post_group_assignment.ex` - `phoenix_kit_post_group_assignments`
-- `comment_like.ex` - `phoenix_kit_comment_likes`
-- `comment_dislike.ex` - `phoenix_kit_comment_dislikes`
-
-#### Connections Module (6 schemas)
-- `block.ex` - `phoenix_kit_user_blocks`
-- `block_history.ex` - `phoenix_kit_user_blocks_history`
-- `connection.ex` - `phoenix_kit_user_connections`
-- `connection_history.ex` - `phoenix_kit_user_connections_history`
-- `follow.ex` - `phoenix_kit_user_follows`
-- `follow_history.ex` - `phoenix_kit_user_follows_history`
-
-#### Storage Module (5 schemas)
-- `bucket.ex` - `phoenix_kit_buckets`
-- `dimension.ex` - `phoenix_kit_storage_dimensions`
-- `file.ex` - `phoenix_kit_files`
-- `file_instance.ex` - `phoenix_kit_file_instances`
-- `file_location.ex` - `phoenix_kit_file_locations`
-
-#### Tickets Module (4 schemas)
-- `ticket.ex` - `phoenix_kit_tickets`
-- `ticket_attachment.ex` - `phoenix_kit_ticket_attachments`
-- `ticket_comment.ex` - `phoenix_kit_ticket_comments`
-- `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
+### Other
 
 #### Shop Module (1 schema without UUID)
-- `shop_config.ex` - `phoenix_kit_shop_config` (config table, no UUID needed)
+- `shop_config.ex` - `phoenix_kit_shop_config` (config table, uses string key as PK)
 
 ---
 
 ## Migration Priority
 
+These modules have UUID fields but use the old `maybe_generate_uuid` pattern.
+Update them to use `read_after_writes: true` for DB-generated UUIDs.
+
 ### High Priority
-1. **Billing** (10 schemas) - Financial data benefits from non-enumerable UUIDs in URLs
-2. **Posts** (13 schemas) - User content often exposed in public URLs
+1. **Billing** (10 schemas) - Financial data, frequently accessed
 
 ### Medium Priority
-3. **Tickets** (4 schemas) - Support tickets may have shareable URLs
-4. **Storage** (5 schemas) - File references often used in external APIs
+2. **Shop** (7 schemas) - E-commerce data
+3. **Emails** (4 schemas) - Email tracking
 
 ### Low Priority
-5. **Connections** (6 schemas) - Mostly internal relationship tracking
-6. **Old Pattern modules** (27 schemas) - Already have UUIDs, just need pattern update
+4. **Sync** (2 schemas) - Internal sync tracking
+5. **Referrals** (2 schemas) - Referral tracking
+6. **Legal** (1 schema) - Consent logging
 
 ---
 
