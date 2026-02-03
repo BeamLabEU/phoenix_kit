@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
   @statuses ~w(active unlisted hidden)
 
   schema "phoenix_kit_shop_categories" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
     field :name, :map, default: %{}
