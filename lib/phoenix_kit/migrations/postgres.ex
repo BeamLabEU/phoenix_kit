@@ -376,12 +376,19 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Unique constraint ensures one like/dislike per user per post/comment
   - Frontend can choose to display likes, dislikes, both, or net score
 
-  ### V49 - Shop Import Enhancements ⚡ LATEST
+  ### V49 - Shop Import Enhancements
   - Adds option_mappings JSONB column to import_configs for CSV option mapping
   - Supports mapping CSV options to global options with slot configuration
   - Structure: [{csv_name, slot_key, source_key, auto_add, label}]
   - Adds product_ids INTEGER[] column to import_logs for tracking imported products
   - Enables import detail view showing all products created/updated during import
+
+  ### V50 - Bucket Access Type ⚡ LATEST
+  - Adds access_type VARCHAR column to phoenix_kit_buckets
+  - Three access modes: "public" (redirect), "private" (proxy), "signed" (future)
+  - Public: redirect to bucket URL (default, fastest, uses CDN)
+  - Private: proxy through server (for ACL-protected S3 buckets)
+  - Enables FileController to handle both public and private S3 buckets
 
   ## Migration Paths
 
@@ -441,7 +448,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 49
+  @current_version 50
   @default_prefix "public"
 
   @doc false

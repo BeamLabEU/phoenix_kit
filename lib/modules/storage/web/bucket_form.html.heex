@@ -243,6 +243,35 @@
                   placeholder="https://cdn.example.com"
                 />
               </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Access Type</span>
+                  <span class="label-text-alt">How files are served</span>
+                </label>
+                <select
+                  name="bucket[access_type]"
+                  class="select select-bordered w-full"
+                >
+                  <option
+                    value="public"
+                    selected={Ecto.Changeset.get_field(@changeset, :access_type) == "public"}
+                  >
+                    Public (redirect to bucket URL)
+                  </option>
+                  <option
+                    value="private"
+                    selected={Ecto.Changeset.get_field(@changeset, :access_type) == "private"}
+                  >
+                    Private (proxy through server)
+                  </option>
+                </select>
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    Public: faster, uses CDN. Private: slower, works with ACL-protected buckets.
+                  </span>
+                </label>
+              </div>
             <% end %>
           </div>
 

@@ -6,6 +6,8 @@ defmodule PhoenixKitWeb.FileController do
   """
   use PhoenixKitWeb, :controller
 
+  require Logger
+
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.{Manager, ProcessFileJob, URLSigner}
   alias PhoenixKit.Utils.Routes
@@ -42,25 +44,27 @@ defmodule PhoenixKitWeb.FileController do
     with {:ok, file} <- get_file(file_id),
          :ok <- verify_token(file_id, variant, token),
          {:ok, instance} <- get_file_instance(file_id, variant),
-         {:ok, temp_path} <- retrieve_file_variant(instance) do
-      # Set cache headers
-      conn =
-        conn
-        |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
-        |> put_resp_header("etag", ~s("#{instance.checksum}"))
-        |> put_resp_header(
-          "content-disposition",
-          ~s(inline; filename="#{file.original_file_name}")
-        )
+         result <- get_file_access(instance) do
+      case result do
+        {:local, file_path} ->
+          serve_file(conn, file, instance, file_path)
 
-      # Set content type
-      conn = put_resp_content_type(conn, instance.mime_type)
+        {:redirect, url} ->
+          redirect(conn, external: url)
 
-      # Stream file to client, then clean up temp file
-      conn = send_file(conn, 200, temp_path)
-      # Clean up temp file after send (send_file is synchronous in Plug)
-      File.rm(temp_path)
-      conn
+        {:proxy, file_name} ->
+          proxy_remote_file(conn, file, instance, file_name)
+
+        {:error, :not_found} ->
+          conn
+          |> put_status(:not_found)
+          |> text("File or variant not found")
+
+        {:error, reason} ->
+          conn
+          |> put_status(:internal_server_error)
+          |> text("Error retrieving file: #{inspect(reason)}")
+      end
     else
       {:error, :invalid_token} ->
         conn
@@ -71,11 +75,6 @@ defmodule PhoenixKitWeb.FileController do
         conn
         |> put_status(:not_found)
         |> text("File or variant not found")
-
-      {:error, reason} ->
-        conn
-        |> put_status(:internal_server_error)
-        |> text("Error retrieving file: #{inspect(reason)}")
     end
   end
 
@@ -196,23 +195,65 @@ defmodule PhoenixKitWeb.FileController do
     end
   end
 
-  defp retrieve_file_variant(instance) do
-    # Create temp path with unique suffix to prevent race conditions
-    # when multiple requests for the same file arrive simultaneously
-    temp_dir = System.tmp_dir!()
-    ext = Path.extname(instance.file_name)
-    random_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
-    temp_path = Path.join(temp_dir, "phoenix_kit_#{instance.id}_#{random_suffix}#{ext}")
+  # Get file access info with retry logic for bucket cache race conditions
+  # Returns {:local, path} | {:redirect, url} | {:proxy, file_name} | {:error, reason}
+  defp get_file_access(instance) do
+    get_file_access_with_retry(instance, 5)
+  end
 
-    # Retrieve from storage
-    case Manager.retrieve_file(instance.file_name,
-           destination_path: temp_path
-         ) do
+  defp get_file_access_with_retry(instance, retries) do
+    case Manager.get_file_access(instance.file_name) do
+      {:local, _} = result ->
+        result
+
+      {:redirect, _} = result ->
+        result
+
+      {:proxy, _} = result ->
+        result
+
+      {:error, :not_found} when retries > 1 ->
+        # Race condition during bucket cache init - retry with delay
+        Logger.debug(
+          "[FileController] File not found, retrying (#{retries - 1} left): #{instance.file_name}"
+        )
+
+        Process.sleep(100)
+        get_file_access_with_retry(instance, retries - 1)
+
+      error ->
+        error
+    end
+  end
+
+  # Serve a local file with proper headers
+  defp serve_file(conn, file, instance, file_path) do
+    conn
+    |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
+    |> put_resp_header("etag", ~s("#{instance.checksum}"))
+    |> put_resp_header(
+      "content-disposition",
+      ~s(inline; filename="#{file.original_file_name}")
+    )
+    |> put_resp_content_type(instance.mime_type)
+    |> send_file(200, file_path)
+  end
+
+  # Proxy a remote file through the server (for private buckets)
+  defp proxy_remote_file(conn, file, instance, file_name) do
+    temp_path =
+      Path.join(System.tmp_dir!(), "phoenix_kit_#{instance.id}_#{:rand.uniform(1_000_000)}")
+
+    case Manager.retrieve_file(file_name, destination_path: temp_path) do
       {:ok, _} ->
-        {:ok, temp_path}
+        conn = serve_file(conn, file, instance, temp_path)
+        File.rm(temp_path)
+        conn
 
-      {:error, reason} ->
-        {:error, reason}
+      {:error, _reason} ->
+        conn
+        |> put_status(:not_found)
+        |> text("File or variant not found")
     end
   end
 end

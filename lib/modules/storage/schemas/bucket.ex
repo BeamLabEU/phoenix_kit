@@ -23,9 +23,16 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   - `access_key_id` - Encrypted credentials (nullable)
   - `secret_access_key` - Encrypted credentials (nullable)
   - `cdn_url` - CDN endpoint for file serving (nullable)
+  - `access_type` - How files are served: "public", "private", "signed" (default: "public")
   - `enabled` - Whether bucket is active
   - `priority` - Selection priority (0 = random/emptiest)
   - `max_size_mb` - Maximum storage capacity in MB (nullable = unlimited)
+
+  ## Access Types
+
+  - `public` - Redirect to public URL (default, fastest, uses CDN)
+  - `private` - Proxy files through server (for ACL-protected buckets)
+  - `signed` - Use presigned URLs (future implementation)
 
   ## Examples
 
@@ -79,6 +86,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
           access_key_id: String.t() | nil,
           secret_access_key: String.t() | nil,
           cdn_url: String.t() | nil,
+          access_type: String.t(),
           enabled: boolean(),
           priority: integer(),
           max_size_mb: integer() | nil,
@@ -97,6 +105,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
     field :access_key_id, :string
     field :secret_access_key, :string
     field :cdn_url, :string
+    field :access_type, :string, default: "public"
     field :enabled, :boolean, default: true
     field :priority, :integer, default: 0
     field :max_size_mb, :integer
@@ -132,12 +141,14 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
       :access_key_id,
       :secret_access_key,
       :cdn_url,
+      :access_type,
       :enabled,
       :priority,
       :max_size_mb
     ])
     |> validate_required([:name, :provider])
     |> validate_inclusion(:provider, ["local", "s3", "b2", "r2"])
+    |> validate_inclusion(:access_type, ["public", "private", "signed"])
     |> validate_number(:priority, greater_than_or_equal_to: 0)
     |> validate_number(:max_size_mb, greater_than: 0)
     |> validate_cloud_credentials()
