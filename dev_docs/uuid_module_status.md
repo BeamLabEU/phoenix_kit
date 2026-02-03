@@ -11,7 +11,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 |--------|------------|-------------|-------|
 | **AI** | 3 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Entities** | 2 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
-| **Billing** | 10 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
+| **Billing** | 10 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Shop** | 8 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Emails** | 4 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Sync** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
@@ -42,9 +42,9 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 
 | Category | Modules | Schemas |
 |----------|---------|---------|
-| ✅ New Standard | 2 | 5 |
+| ✅ New Standard | 3 | 15 |
 | ✅ Native UUID PK | 4 | 28 |
-| ⚠️ Old Pattern | 6 | 27 |
+| ⚠️ Old Pattern | 5 | 16 |
 | ❌ No UUID | 0 | 0 |
 | — No schemas | 7 | 0 |
 | **Total** | **19** | **60** |
@@ -106,16 +106,28 @@ def get(_), do: nil
 
 ## Detailed Schema Listing
 
-### ✅ New Standard (5 schemas)
+### ✅ New Standard (15 schemas)
 
-#### AI Module
+#### AI Module (3 schemas)
 - `lib/modules/ai/endpoint.ex` - `phoenix_kit_ai_endpoints`
 - `lib/modules/ai/prompt.ex` - `phoenix_kit_ai_prompts`
 - `lib/modules/ai/request.ex` - `phoenix_kit_ai_requests`
 
-#### Entities Module
+#### Entities Module (2 schemas)
 - `lib/modules/entities/entities.ex` - `phoenix_kit_entities`
 - `lib/modules/entities/entity_data.ex` - `phoenix_kit_entity_data`
+
+#### Billing Module (10 schemas)
+- `billing_profile.ex` - `phoenix_kit_billing_profiles`
+- `currency.ex` - `phoenix_kit_currencies`
+- `invoice.ex` - `phoenix_kit_invoices`
+- `order.ex` - `phoenix_kit_orders`
+- `payment_method.ex` - `phoenix_kit_payment_methods`
+- `payment_option.ex` - `phoenix_kit_payment_options`
+- `subscription.ex` - `phoenix_kit_subscriptions`
+- `subscription_plan.ex` - `phoenix_kit_subscription_plans`
+- `transaction.ex` - `phoenix_kit_transactions`
+- `webhook_event.ex` - `phoenix_kit_webhook_events`
 
 ### ✅ Native UUID PK (28 schemas)
 
@@ -157,19 +169,7 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 - `ticket_comment.ex` - `phoenix_kit_ticket_comments`
 - `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
 
-### ⚠️ Old Pattern (27 schemas)
-
-#### Billing Module (10 schemas)
-- `billing_profile.ex` - `phoenix_kit_billing_profiles`
-- `currency.ex` - `phoenix_kit_currencies`
-- `invoice.ex` - `phoenix_kit_invoices`
-- `order.ex` - `phoenix_kit_orders`
-- `payment_method.ex` - `phoenix_kit_payment_methods`
-- `payment_option.ex` - `phoenix_kit_payment_options`
-- `subscription.ex` - `phoenix_kit_subscriptions`
-- `subscription_plan.ex` - `phoenix_kit_subscription_plans`
-- `transaction.ex` - `phoenix_kit_transactions`
-- `webhook_event.ex` - `phoenix_kit_webhook_events`
+### ⚠️ Old Pattern (16 schemas)
 
 #### Shop Module (7 schemas with UUID)
 - `cart.ex` - `phoenix_kit_shop_carts`
@@ -209,17 +209,14 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 These modules have UUID fields but use the old `maybe_generate_uuid` pattern.
 Update them to use `read_after_writes: true` for DB-generated UUIDs.
 
-### High Priority
-1. **Billing** (10 schemas) - Financial data, frequently accessed
-
 ### Medium Priority
-2. **Shop** (7 schemas) - E-commerce data
-3. **Emails** (4 schemas) - Email tracking
+1. **Shop** (7 schemas) - E-commerce data
+2. **Emails** (4 schemas) - Email tracking
 
 ### Low Priority
-4. **Sync** (2 schemas) - Internal sync tracking
-5. **Referrals** (2 schemas) - Referral tracking
-6. **Legal** (1 schema) - Consent logging
+3. **Sync** (2 schemas) - Internal sync tracking
+4. **Referrals** (2 schemas) - Referral tracking
+5. **Legal** (1 schema) - Consent logging
 
 ---
 
