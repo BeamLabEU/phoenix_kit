@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   @statuses ~w(trialing active past_due paused cancelled)
 
   schema "phoenix_kit_subscriptions" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :status, :string, default: "active"
 
     # Billing period
@@ -106,14 +106,6 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
     |> foreign_key_constraint(:billing_profile_id)
     |> foreign_key_constraint(:plan_id)
     |> foreign_key_constraint(:payment_method_id)
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

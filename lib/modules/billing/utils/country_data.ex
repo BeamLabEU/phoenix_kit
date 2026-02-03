@@ -270,7 +270,7 @@ defmodule PhoenixKit.Modules.Billing.CountryData do
   def get_subdivision_label(alpha2) when is_binary(alpha2) do
     case BeamLabCountries.get(alpha2) do
       nil -> "State/Province"
-      country -> country.subdivision_type || "State/Province"
+      country -> Map.get(country, :subdivision_type) || "State/Province"
     end
   end
 
