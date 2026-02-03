@@ -1,7 +1,7 @@
 # PhoenixKit Modules - UUID Status
 
 **Last Updated**: 2026-02-04
-**Reference PRs**: #311, #312, #313
+**Reference PRs**: #311, #312, #313, #314
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
 
@@ -47,7 +47,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | ⚠️ Old Pattern | 2 | 3 |
 | ❌ No UUID | 0 | 0 |
 | — No schemas | 7 | 0 |
-| **Total** | **19** | **60** |
+| **Total** | **19** | **59** |
 
 ---
 
@@ -117,7 +117,7 @@ def get(_), do: nil
 - `lib/modules/entities/entities.ex` - `phoenix_kit_entities`
 - `lib/modules/entities/entity_data.ex` - `phoenix_kit_entity_data`
 
-#### Billing Module (10 schemas)
+#### Billing Module (10 schemas) - PR #314
 - `billing_profile.ex` - `phoenix_kit_billing_profiles`
 - `currency.ex` - `phoenix_kit_currencies`
 - `invoice.ex` - `phoenix_kit_invoices`
@@ -236,5 +236,6 @@ When updating a module to the new UUID standard:
 - PR #311: Initial AI module UUID implementation
 - PR #312: AI module UUID fixes and `UUIDUtils` creation
 - PR #313: Entities module UUID update
+- PR #314: Billing module UUID update (10 schemas)
 - UUID Utility: `lib/phoenix_kit/utils/uuid.ex`
 - CLAUDE.md: "Adding UUID Fields to Existing Schemas" section
