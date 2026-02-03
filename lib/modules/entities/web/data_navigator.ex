@@ -171,8 +171,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   def handle_event("filter_by_entity", %{"entity_id" => entity_id}, socket) do
-    entity_id = String.to_integer(entity_id)
-
     params =
       build_url_params(
         entity_id,
@@ -240,7 +238,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   def handle_event("archive_data", %{"id" => id}, socket) do
-    data_record = EntityData.get_data!(String.to_integer(id))
+    data_record = EntityData.get!(id)
 
     case EntityData.update_data(data_record, %{status: "archived"}) do
       {:ok, _data} ->
@@ -258,7 +256,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   def handle_event("restore_data", %{"id" => id}, socket) do
-    data_record = EntityData.get_data!(String.to_integer(id))
+    data_record = EntityData.get!(id)
 
     case EntityData.update_data(data_record, %{status: "published"}) do
       {:ok, _data} ->
@@ -276,7 +274,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   def handle_event("toggle_status", %{"id" => id}, socket) do
-    data_record = EntityData.get_data!(String.to_integer(id))
+    data_record = EntityData.get!(id)
 
     new_status =
       case data_record.status do

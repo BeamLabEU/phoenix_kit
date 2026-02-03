@@ -100,7 +100,7 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
   end
 
   def handle_event("archive_entity", %{"id" => id}, socket) do
-    entity = Entities.get_entity!(String.to_integer(id))
+    entity = Entities.get_entity!(id)
 
     # Update entity status to archived
     case Entities.update_entity(entity, %{status: "archived"}) do
@@ -128,7 +128,7 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
   end
 
   def handle_event("restore_entity", %{"id" => id}, socket) do
-    entity = Entities.get_entity!(String.to_integer(id))
+    entity = Entities.get_entity!(id)
 
     # Restore entity status to published
     case Entities.update_entity(entity, %{status: "published"}) do

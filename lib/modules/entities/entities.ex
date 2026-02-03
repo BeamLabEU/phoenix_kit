@@ -95,12 +95,15 @@ defmodule PhoenixKit.Modules.Entities do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @primary_key {:id, :id, autogenerate: true}
   @valid_statuses ~w(draft published archived)
 
   @derive {Jason.Encoder,
            only: [
+             :id,
+             :uuid,
              :name,
              :display_name,
              :display_name_plural,
@@ -114,7 +117,8 @@ defmodule PhoenixKit.Modules.Entities do
            ]}
 
   schema "phoenix_kit_entities" do
-    field :uuid, Ecto.UUID
+    # UUID for external references (URLs, APIs) - DB generates UUIDv7
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :name, :string
     field :display_name, :string
     field :display_name_plural, :string
@@ -166,14 +170,6 @@ defmodule PhoenixKit.Modules.Entities do
     |> validate_fields_definition()
     |> unique_constraint(:name)
     |> maybe_set_timestamps()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   defp validate_name_uniqueness(changeset) do
@@ -338,27 +334,51 @@ defmodule PhoenixKit.Modules.Entities do
   end
 
   @doc """
-  Gets a single entity by ID.
+  Gets a single entity by integer ID or UUID.
 
   Returns the entity if found, nil otherwise.
+
+  Accepts:
+  - Integer ID (e.g., 123)
+  - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
+  - Integer string (e.g., "123")
 
   ## Examples
 
       iex> PhoenixKit.Modules.Entities.get_entity(123)
       %PhoenixKit.Entities{}
 
+      iex> PhoenixKit.Modules.Entities.get_entity("550e8400-e29b-41d4-a716-446655440000")
+      %PhoenixKit.Entities{}
+
       iex> PhoenixKit.Modules.Entities.get_entity(456)
       nil
   """
-  def get_entity(id) do
+  def get_entity(id) when is_integer(id) do
     case repo().get(__MODULE__, id) do
       nil -> nil
       entity -> repo().preload(entity, :creator)
     end
   end
 
+  def get_entity(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      case repo().get_by(__MODULE__, uuid: id) do
+        nil -> nil
+        entity -> repo().preload(entity, :creator)
+      end
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_entity(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_entity(_), do: nil
+
   @doc """
-  Gets a single entity by ID.
+  Gets a single entity by integer ID or UUID.
 
   Raises `Ecto.NoResultsError` if the entity does not exist.
 
@@ -370,7 +390,12 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.get_entity!(456)
       ** (Ecto.NoResultsError)
   """
-  def get_entity!(id), do: repo().get!(__MODULE__, id) |> repo().preload(:creator)
+  def get_entity!(id) do
+    case get_entity(id) do
+      nil -> raise Ecto.NoResultsError, queryable: __MODULE__
+      entity -> entity
+    end
+  end
 
   @doc """
   Gets a single entity by its unique name.

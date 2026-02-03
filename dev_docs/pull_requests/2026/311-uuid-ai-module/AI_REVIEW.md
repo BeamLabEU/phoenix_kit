@@ -1,8 +1,8 @@
-# AI Review: PR #311
+# AI Review: PR #311 + PR #312
 
-**Review Date**: 2026-02-01  
-**AI Reviewer**: Claude  
-**Status**: ✅ Approved with documentation notes
+**Review Date**: 2026-02-01
+**AI Reviewer**: Claude
+**Status**: ✅ All issues resolved in follow-up PR #312
 
 ## Summary
 
@@ -91,3 +91,77 @@ This ensures:
 - UUID Helper: `lib/phoenix_kit/uuid.ex`
 - Pattern Example: `lib/phoenix_kit/users/auth/user.ex` (lines 54, 170-175)
 - Migration Guide: `dev_docs/guides/uuid_migration.md`
+
+---
+
+# Follow-up: PR #312
+
+**PR**: [#312 - Clarify AI module ID naming convention](https://github.com/BeamLabEU/phoenix_kit/pull/312)
+**Status**: ✅ Merged to `dev` branch
+**Date**: 2026-02-01
+**Changes**: +172 / -217 across 14 files
+
+## Summary
+
+PR #312 addressed the misleading terminology issues identified in this review and fixed 7 bugs discovered during a quorum audit.
+
+## Key Changes
+
+### Schema Renaming (Clarity Fix)
+
+The confusing `id`/`legacy_id` naming was replaced with clear `id`/`uuid`:
+
+| Before | After | Purpose |
+|--------|-------|---------|
+| `@primary_key {:id, Ecto.UUID, ...}` | `@primary_key {:id, :id, ...}` | Standard integer PK |
+| `field :legacy_id, :integer` | `field :uuid, Ecto.UUID` | UUID for URLs/APIs |
+
+### Bug Fixes
+
+| Bug | Location | Fix |
+|-----|----------|-----|
+| UUID query used `p.id` instead of `p.uuid` | `ai.ex:1000-1006` | Changed to `p.uuid` |
+| URLs used `.prompt.id` instead of `.prompt.uuid` | `endpoints.html.heex` | Changed to `.uuid` |
+| HEEx interpolation rendered literally | `endpoints.html.heex`, `prompts.html.heex` | Fixed syntax |
+| String/int comparison bug | `endpoints.ex:416` | Added `String.to_integer` conversion |
+| Fragile UUID regex validation | `ai.ex` | Replaced with `Ecto.UUID.cast/1` |
+
+### New Shared Utility
+
+Created `lib/phoenix_kit/utils/uuid.ex` with `valid?/1` function for reuse across modules.
+
+### UI Cleanup
+
+Removed ID badge displays (`#1`, `#2`) from endpoints/prompts lists - IDs should not be shown in UI.
+
+## Verification (2026-02-01)
+
+Verified on `dev` branch after PR #312 merge:
+
+| Check | Result |
+|-------|--------|
+| `legacy_id` references | ✅ None found in `lib/` |
+| URLs use `.uuid` | ✅ All 6 template links correct |
+| `.id` used correctly | ✅ Only for FKs, stats, event handlers |
+| `mix compile --warnings-as-errors` | ✅ Pass |
+| `mix credo --strict lib/modules/ai/` | ✅ No issues |
+| `mix test` | ✅ 35 tests, 0 failures |
+
+### Correct ID Usage Pattern (Post-PR #312)
+
+| Context | Field | Verified |
+|---------|-------|----------|
+| URLs in templates | `.uuid` | ✅ |
+| Foreign key assignments | `.id` | ✅ |
+| Stats map lookups | `.id` | ✅ |
+| `phx-value-id` handlers | `.id` | ✅ |
+| `get_endpoint/1` lookups | Both UUID and integer | ✅ |
+
+## Pending Action
+
+PR #312 was merged to `dev` branch only. A merge to `main` is required to deploy:
+
+```
+dev:  2fdd04ee (has PR #312 fixes)
+main: f0b6ec44 (missing PR #312 fixes)
+```

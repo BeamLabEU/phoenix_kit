@@ -182,8 +182,6 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
   ## Per-Entity Mirror Events
 
   def handle_event("toggle_entity_definitions", %{"id" => entity_id}, socket) do
-    entity_id = String.to_integer(entity_id)
-
     with {:ok, entity} <- fetch_entity(entity_id),
          {:ok, updated_entity} <- toggle_definitions_setting(entity) do
       maybe_export_entity(updated_entity, Entities.mirror_definitions_enabled?(updated_entity))
@@ -198,8 +196,6 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
   end
 
   def handle_event("toggle_entity_data", %{"id" => entity_id}, socket) do
-    entity_id = String.to_integer(entity_id)
-
     with {:ok, entity} <- fetch_entity(entity_id),
          {:ok, updated_entity} <- toggle_data_setting(entity) do
       maybe_export_entity(updated_entity, Entities.mirror_data_enabled?(updated_entity))
@@ -214,8 +210,6 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
   end
 
   def handle_event("export_entity_now", %{"id" => entity_id}, socket) do
-    entity_id = String.to_integer(entity_id)
-
     case Entities.get_entity(entity_id) do
       nil ->
         {:noreply, put_flash(socket, :error, gettext("Entity not found"))}

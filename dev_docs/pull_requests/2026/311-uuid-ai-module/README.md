@@ -1,10 +1,12 @@
 # PR #311: Add UUID columns to AI module tables
 
-**Author**: @mdon  
-**Reviewer**: @claude  
-**Status**: ✅ Merged  
-**Commit**: `d246aef..083d9a4`  
+**Author**: @mdon
+**Reviewer**: @claude
+**Status**: ✅ Merged
+**Commit**: `d246aef..083d9a4`
 **Date**: 2026-01-XX
+
+**Follow-up PR**: [#312](https://github.com/BeamLabEU/phoenix_kit/pull/312) - Clarify AI module ID naming convention
 
 ## Goal
 
@@ -73,3 +75,36 @@ endpoint = PhoenixKit.UUID.get(PhoenixKit.Modules.AI.Endpoint, "019b5704-...")
 - UUID Helper: `lib/phoenix_kit/uuid.ex`
 - Migration Guide: `dev_docs/guides/uuid_migration.md`
 - Tables affected: `phoenix_kit_ai_endpoints`, `phoenix_kit_ai_prompts`, `phoenix_kit_ai_requests`
+
+---
+
+## Follow-up: PR #312
+
+PR #311's initial implementation used confusing terminology (`id`/`legacy_id`) that was corrected in [PR #312](https://github.com/BeamLabEU/phoenix_kit/pull/312).
+
+### What PR #312 Fixed
+
+- **Naming clarity**: Changed from `id`/`legacy_id` to `id`/`uuid`
+- **7 bugs fixed**: UUID queries, HEEx interpolation, string/int comparison, validation
+- **UI cleanup**: Removed ID badge displays from lists
+- **New utility**: `PhoenixKit.Utils.UUID.valid?/1` for shared UUID validation
+
+### Current ID System (Post-PR #312)
+
+```elixir
+schema "phoenix_kit_ai_endpoints" do
+  # id = standard integer primary key (auto-increment)
+  # uuid = UUID field for external references (URLs, APIs)
+  field :uuid, Ecto.UUID, read_after_writes: true
+  # ...
+end
+```
+
+| Use Case | Field |
+|----------|-------|
+| URLs and external APIs | `.uuid` |
+| Foreign keys | `.id` |
+| Database queries | `.id` |
+| Stats map keys | `.id` |
+
+See [AI_REVIEW.md](AI_REVIEW.md) for detailed verification results.

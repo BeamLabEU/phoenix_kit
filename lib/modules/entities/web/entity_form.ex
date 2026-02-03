@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   @impl true
   def mount(%{"id" => id} = _params, _session, socket) do
     # Edit mode
-    entity = Entities.get_entity!(String.to_integer(id))
+    entity = Entities.get_entity!(id)
     changeset = Entities.change_entity(entity)
 
     mount_entity_form(socket, entity, changeset, gettext("Edit Entity"))
