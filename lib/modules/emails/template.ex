@@ -114,7 +114,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
   ]
 
   schema "phoenix_kit_email_templates" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :name, :string
     field :slug, :string
     field :display_name, :string
@@ -269,14 +269,6 @@ defmodule PhoenixKit.Modules.Emails.Template do
     |> unique_constraint(:name)
     |> unique_constraint(:slug)
     |> validate_template_variables()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

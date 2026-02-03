@@ -64,11 +64,12 @@ defmodule PhoenixKit.Modules.Emails.Event do
   @derive {Jason.Encoder, except: [:__meta__, :email_log]}
 
   alias PhoenixKit.Modules.Emails.Log
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_email_events" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :event_type, :string
     field :event_data, :map, default: %{}
     field :occurred_at, :utc_datetime_usec
@@ -136,14 +137,6 @@ defmodule PhoenixKit.Modules.Emails.Event do
     |> foreign_key_constraint(:email_log_id)
     |> maybe_set_occurred_at()
     |> validate_ip_address_format()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   ## --- Business Logic Functions ---
@@ -183,7 +176,45 @@ defmodule PhoenixKit.Modules.Emails.Event do
   end
 
   @doc """
-  Gets a single email event by ID.
+  Gets a single email event by ID or UUID.
+
+  Accepts integer ID, UUID string, or string-formatted integer.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Emails.Event.get_event(123)
+      %PhoenixKit.Modules.Emails.Event{}
+
+      iex> PhoenixKit.Modules.Emails.Event.get_event("550e8400-e29b-41d4-a716-446655440000")
+      %PhoenixKit.Modules.Emails.Event{}
+
+      iex> PhoenixKit.Modules.Emails.Event.get_event(999)
+      nil
+  """
+  def get_event(id) when is_integer(id) do
+    __MODULE__
+    |> preload([:email_log])
+    |> repo().get(id)
+  end
+
+  def get_event(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      __MODULE__
+      |> where([e], e.uuid == ^id)
+      |> preload([:email_log])
+      |> repo().one()
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_event(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_event(_), do: nil
+
+  @doc """
+  Gets a single email event by ID or UUID.
 
   Raises `Ecto.NoResultsError` if the event does not exist.
 
@@ -193,9 +224,10 @@ defmodule PhoenixKit.Modules.Emails.Event do
       %PhoenixKit.Modules.Emails.Event{}
   """
   def get_event!(id) do
-    __MODULE__
-    |> preload([:email_log])
-    |> repo().get!(id)
+    case get_event(id) do
+      nil -> raise Ecto.NoResultsError, queryable: __MODULE__
+      event -> event
+    end
   end
 
   @doc """

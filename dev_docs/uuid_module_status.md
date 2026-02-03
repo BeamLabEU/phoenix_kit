@@ -13,7 +13,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | **Entities** | 2 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Billing** | 10 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Shop** | 7 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
-| **Emails** | 4 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
+| **Emails** | 4 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Sync** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Referrals** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Legal** | 1 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
@@ -42,9 +42,9 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 
 | Category | Modules | Schemas |
 |----------|---------|---------|
-| ✅ New Standard | 4 | 22 |
+| ✅ New Standard | 5 | 26 |
 | ✅ Native UUID PK | 4 | 28 |
-| ⚠️ Old Pattern | 4 | 9 |
+| ⚠️ Old Pattern | 3 | 5 |
 | ❌ No UUID | 0 | 0 |
 | — No schemas | 7 | 0 |
 | **Total** | **19** | **60** |
@@ -106,7 +106,7 @@ def get(_), do: nil
 
 ## Detailed Schema Listing
 
-### ✅ New Standard (22 schemas)
+### ✅ New Standard (26 schemas)
 
 #### AI Module (3 schemas)
 - `lib/modules/ai/endpoint.ex` - `phoenix_kit_ai_endpoints`
@@ -137,6 +137,12 @@ def get(_), do: nil
 - `shipping_method.ex` - `phoenix_kit_shop_shipping_methods`
 - `import_config.ex` - `phoenix_kit_shop_import_configs`
 - `import_log.ex` - `phoenix_kit_shop_import_logs`
+
+#### Emails Module (4 schemas)
+- `event.ex` - `phoenix_kit_email_events`
+- `log.ex` - `phoenix_kit_email_logs`
+- `rate_limiter.ex` - `phoenix_kit_email_blocklist`
+- `template.ex` - `phoenix_kit_email_templates`
 
 ### ✅ Native UUID PK (28 schemas)
 
@@ -178,13 +184,7 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 - `ticket_comment.ex` - `phoenix_kit_ticket_comments`
 - `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
 
-### ⚠️ Old Pattern (9 schemas)
-
-#### Emails Module (4 schemas)
-- `event.ex` - `phoenix_kit_email_events`
-- `log.ex` - `phoenix_kit_email_logs`
-- `rate_limiter.ex` - `phoenix_kit_email_blocklist`
-- `template.ex` - `phoenix_kit_email_templates`
+### ⚠️ Old Pattern (5 schemas)
 
 #### Sync Module (2 schemas)
 - `connection.ex` - `phoenix_kit_sync_connections`
@@ -209,13 +209,10 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 These modules have UUID fields but use the old `maybe_generate_uuid` pattern.
 Update them to use `read_after_writes: true` for DB-generated UUIDs.
 
-### Medium Priority
-1. **Emails** (4 schemas) - Email tracking
-
 ### Low Priority
-2. **Sync** (2 schemas) - Internal sync tracking
-3. **Referrals** (2 schemas) - Referral tracking
-4. **Legal** (1 schema) - Consent logging
+1. **Sync** (2 schemas) - Internal sync tracking
+2. **Referrals** (2 schemas) - Referral tracking
+3. **Legal** (1 schema) - Consent logging
 
 ---
 

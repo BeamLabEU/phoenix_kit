@@ -170,11 +170,12 @@ defmodule PhoenixKit.Modules.Emails.Log do
   @derive {Jason.Encoder, except: [:__meta__, :user, :events]}
 
   alias PhoenixKit.Modules.Emails.Event
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_email_logs" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :message_id, :string
     field :aws_message_id, :string
     field :to, :string
@@ -280,14 +281,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
     |> unique_constraint(:aws_message_id)
     |> maybe_set_queued_at()
     |> validate_body_size()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """
@@ -365,7 +358,45 @@ defmodule PhoenixKit.Modules.Emails.Log do
   end
 
   @doc """
-  Gets a single email log by ID.
+  Gets a single email log by ID or UUID.
+
+  Accepts integer ID, UUID string, or string-formatted integer.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Emails.Log.get_log(123)
+      %PhoenixKit.Modules.Emails.Log{}
+
+      iex> PhoenixKit.Modules.Emails.Log.get_log("550e8400-e29b-41d4-a716-446655440000")
+      %PhoenixKit.Modules.Emails.Log{}
+
+      iex> PhoenixKit.Modules.Emails.Log.get_log(999)
+      nil
+  """
+  def get_log(id) when is_integer(id) do
+    __MODULE__
+    |> preload([:user, :events])
+    |> repo().get(id)
+  end
+
+  def get_log(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      __MODULE__
+      |> where([l], l.uuid == ^id)
+      |> preload([:user, :events])
+      |> repo().one()
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_log(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_log(_), do: nil
+
+  @doc """
+  Gets a single email log by ID or UUID.
 
   Raises `Ecto.NoResultsError` if the log does not exist.
 
@@ -378,9 +409,10 @@ defmodule PhoenixKit.Modules.Emails.Log do
       ** (Ecto.NoResultsError)
   """
   def get_log!(id) do
-    __MODULE__
-    |> preload([:user, :events])
-    |> repo().get!(id)
+    case get_log(id) do
+      nil -> raise Ecto.NoResultsError, queryable: __MODULE__
+      log -> log
+    end
   end
 
   @doc """
