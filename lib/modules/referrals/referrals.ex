@@ -71,11 +71,12 @@ defmodule PhoenixKit.Modules.Referrals do
 
   alias PhoenixKit.Modules.Referrals.ReferralCodeUsage
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_referral_codes" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :code, :string
     field :description, :string
     field :status, :boolean, default: true
@@ -220,7 +221,40 @@ defmodule PhoenixKit.Modules.Referrals do
   end
 
   @doc """
-  Gets a single referral code by ID.
+  Gets a single referral code by integer ID or UUID.
+
+  Returns the referral code if found, nil otherwise.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Referrals.get_code(123)
+      %PhoenixKit.Modules.Referrals{}
+
+      iex> PhoenixKit.Modules.Referrals.get_code("550e8400-e29b-41d4-a716-446655440000")
+      %PhoenixKit.Modules.Referrals{}
+
+      iex> PhoenixKit.Modules.Referrals.get_code(456)
+      nil
+  """
+  def get_code(id) when is_integer(id) do
+    repo().get(__MODULE__, id)
+  end
+
+  def get_code(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      repo().get_by(__MODULE__, uuid: id)
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_code(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_code(_), do: nil
+
+  @doc """
+  Gets a single referral code by integer ID or UUID.
 
   Raises `Ecto.NoResultsError` if the code does not exist.
 
@@ -232,7 +266,12 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.get_code!(456)
       ** (Ecto.NoResultsError)
   """
-  def get_code!(id), do: repo().get!(__MODULE__, id)
+  def get_code!(id) do
+    case get_code(id) do
+      nil -> raise Ecto.NoResultsError, queryable: __MODULE__
+      code -> code
+    end
+  end
 
   @doc """
   Gets a single referral code by its string value.

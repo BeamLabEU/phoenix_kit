@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_referral_code_usage" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :used_by, :integer
     field :date_used, :utc_datetime_usec
 
