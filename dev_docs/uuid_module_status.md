@@ -1,6 +1,6 @@
 # PhoenixKit Modules - UUID Status
 
-**Last Updated**: 2026-02-03
+**Last Updated**: 2026-02-04
 **Reference PRs**: #311, #312, #313
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
@@ -14,7 +14,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | **Billing** | 10 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Shop** | 7 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Emails** | 4 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
-| **Sync** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
+| **Sync** | 2 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Referrals** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Legal** | 1 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
 | **Posts** | 13 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
@@ -42,9 +42,9 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 
 | Category | Modules | Schemas |
 |----------|---------|---------|
-| ✅ New Standard | 5 | 26 |
+| ✅ New Standard | 6 | 28 |
 | ✅ Native UUID PK | 4 | 28 |
-| ⚠️ Old Pattern | 3 | 5 |
+| ⚠️ Old Pattern | 2 | 3 |
 | ❌ No UUID | 0 | 0 |
 | — No schemas | 7 | 0 |
 | **Total** | **19** | **60** |
@@ -106,7 +106,7 @@ def get(_), do: nil
 
 ## Detailed Schema Listing
 
-### ✅ New Standard (26 schemas)
+### ✅ New Standard (28 schemas)
 
 #### AI Module (3 schemas)
 - `lib/modules/ai/endpoint.ex` - `phoenix_kit_ai_endpoints`
@@ -143,6 +143,10 @@ def get(_), do: nil
 - `log.ex` - `phoenix_kit_email_logs`
 - `rate_limiter.ex` - `phoenix_kit_email_blocklist`
 - `template.ex` - `phoenix_kit_email_templates`
+
+#### Sync Module (2 schemas)
+- `connection.ex` - `phoenix_kit_sync_connections`
+- `transfer.ex` - `phoenix_kit_sync_transfers`
 
 ### ✅ Native UUID PK (28 schemas)
 
@@ -184,11 +188,7 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 - `ticket_comment.ex` - `phoenix_kit_ticket_comments`
 - `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
 
-### ⚠️ Old Pattern (5 schemas)
-
-#### Sync Module (2 schemas)
-- `connection.ex` - `phoenix_kit_sync_connections`
-- `transfer.ex` - `phoenix_kit_sync_transfers`
+### ⚠️ Old Pattern (3 schemas)
 
 #### Referrals Module (2 schemas)
 - `referrals.ex` - `phoenix_kit_referral_codes`
@@ -210,9 +210,8 @@ These modules have UUID fields but use the old `maybe_generate_uuid` pattern.
 Update them to use `read_after_writes: true` for DB-generated UUIDs.
 
 ### Low Priority
-1. **Sync** (2 schemas) - Internal sync tracking
-2. **Referrals** (2 schemas) - Referral tracking
-3. **Legal** (1 schema) - Consent logging
+1. **Referrals** (2 schemas) - Referral tracking
+2. **Legal** (1 schema) - Consent logging
 
 ---
 
