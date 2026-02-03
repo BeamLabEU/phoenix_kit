@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Billing.PaymentOption do
   @codes ~w(cod bank_transfer stripe paypal razorpay)
 
   schema "phoenix_kit_payment_options" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     # Identity
     field :name, :string
@@ -73,7 +73,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentOption do
     |> validate_inclusion(:type, @types)
     |> validate_inclusion(:code, @codes)
     |> unique_constraint(:code)
-    |> maybe_generate_uuid()
     |> validate_provider()
   end
 
@@ -115,15 +114,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentOption do
   def icon_name(%__MODULE__{code: "paypal"}), do: "hero-credit-card"
   def icon_name(%__MODULE__{code: "razorpay"}), do: "hero-credit-card"
   def icon_name(_), do: "hero-credit-card"
-
-  # Private helpers
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, Ecto.UUID.generate())
-      _ -> changeset
-    end
-  end
 
   defp validate_provider(changeset) do
     type = get_field(changeset, :type)
