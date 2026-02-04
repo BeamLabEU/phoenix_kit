@@ -1,7 +1,7 @@
 # PhoenixKit Modules - UUID Status
 
 **Last Updated**: 2026-02-04
-**Reference PRs**: #311, #312, #313, #314
+**Reference PRs**: #311, #312, #313, #314, #315
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
 
@@ -237,5 +237,6 @@ When updating a module to the new UUID standard:
 - PR #312: AI module UUID fixes and `UUIDUtils` creation
 - PR #313: Entities module UUID update
 - PR #314: Billing module UUID update (10 schemas)
+- PR #315: Shop, Emails, Sync modules UUID update (13 schemas)
 - UUID Utility: `lib/phoenix_kit/utils/uuid.ex`
 - CLAUDE.md: "Adding UUID Fields to Existing Schemas" section
