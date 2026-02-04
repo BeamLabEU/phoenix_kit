@@ -396,9 +396,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
   def get_log(_), do: nil
 
   @doc """
-  Gets a single email log by ID or UUID.
-
-  Raises `Ecto.NoResultsError` if the log does not exist.
+  Same as `get_log/1`, but raises `Ecto.NoResultsError` if not found.
 
   ## Examples
 

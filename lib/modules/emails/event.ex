@@ -214,14 +214,15 @@ defmodule PhoenixKit.Modules.Emails.Event do
   def get_event(_), do: nil
 
   @doc """
-  Gets a single email event by ID or UUID.
-
-  Raises `Ecto.NoResultsError` if the event does not exist.
+  Same as `get_event/1`, but raises `Ecto.NoResultsError` if not found.
 
   ## Examples
 
       iex> PhoenixKit.Modules.Emails.Event.get_event!(123)
       %PhoenixKit.Modules.Emails.Event{}
+
+      iex> PhoenixKit.Modules.Emails.Event.get_event!(999)
+      ** (Ecto.NoResultsError)
   """
   def get_event!(id) do
     case get_event(id) do
