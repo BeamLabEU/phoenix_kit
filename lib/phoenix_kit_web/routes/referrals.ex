@@ -27,7 +27,7 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
           live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
             as: :referral_codes_new_localized
 
-          live "/admin/users/referral-codes/edit/:id",
+          live "/admin/users/referral-codes/edit/:code_id",
                PhoenixKit.Modules.Referrals.Web.Form,
                :edit,
                as: :referral_codes_edit_localized
@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
           live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
             as: :referral_codes_new
 
-          live "/admin/users/referral-codes/edit/:id",
+          live "/admin/users/referral-codes/edit/:code_id",
                PhoenixKit.Modules.Referrals.Web.Form,
                :edit,
                as: :referral_codes_edit

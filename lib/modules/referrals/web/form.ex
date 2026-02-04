@@ -14,7 +14,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    code_id = params["id"]
+    code_id = params["code_id"]
     mode = if code_id, do: :edit, else: :new
 
     # Get project title from settings

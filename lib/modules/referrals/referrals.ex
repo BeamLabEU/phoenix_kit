@@ -223,7 +223,13 @@ defmodule PhoenixKit.Modules.Referrals do
   @doc """
   Gets a single referral code by integer ID or UUID.
 
-  Returns the referral code if found, nil otherwise.
+  Accepts:
+  - Integer ID (e.g., `123`)
+  - UUID string (e.g., `"550e8400-e29b-41d4-a716-446655440000"`)
+  - Integer string (e.g., `"123"`)
+  - Any other input returns `nil`
+
+  Returns the referral code if found, `nil` otherwise.
 
   ## Examples
 
@@ -233,7 +239,13 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.get_code("550e8400-e29b-41d4-a716-446655440000")
       %PhoenixKit.Modules.Referrals{}
 
+      iex> PhoenixKit.Modules.Referrals.get_code("123")
+      %PhoenixKit.Modules.Referrals{}
+
       iex> PhoenixKit.Modules.Referrals.get_code(456)
+      nil
+
+      iex> PhoenixKit.Modules.Referrals.get_code(:invalid)
       nil
   """
   def get_code(id) when is_integer(id) do
@@ -254,13 +266,14 @@ defmodule PhoenixKit.Modules.Referrals do
   def get_code(_), do: nil
 
   @doc """
-  Gets a single referral code by integer ID or UUID.
-
-  Raises `Ecto.NoResultsError` if the code does not exist.
+  Same as `get_code/1`, but raises `Ecto.NoResultsError` if the code does not exist.
 
   ## Examples
 
       iex> PhoenixKit.Modules.Referrals.get_code!(123)
+      %PhoenixKit.Modules.Referrals{}
+
+      iex> PhoenixKit.Modules.Referrals.get_code!("550e8400-e29b-41d4-a716-446655440000")
       %PhoenixKit.Modules.Referrals{}
 
       iex> PhoenixKit.Modules.Referrals.get_code!(456)
