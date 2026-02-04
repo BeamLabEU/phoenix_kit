@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
   @default_required_columns ["Handle", "Title", "Variant Price"]
 
   schema "phoenix_kit_shop_import_configs" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :name, :string
 
     # Filtering keywords (PostgreSQL TEXT[] arrays)
@@ -105,7 +105,6 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
     |> unique_constraint(:uuid)
     |> validate_category_rules()
     |> validate_option_mappings()
-    |> generate_uuid()
   end
 
   defp validate_category_rules(changeset) do
@@ -168,14 +167,6 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
   end
 
   defp valid_option_mapping?(_), do: false
-
-  defp generate_uuid(changeset) do
-    if get_field(changeset, :uuid) do
-      changeset
-    else
-      put_change(changeset, :uuid, Ecto.UUID.generate())
-    end
-  end
 
   @doc """
   Returns default required columns for CSV validation.

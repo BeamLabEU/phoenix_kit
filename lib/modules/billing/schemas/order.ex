@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Billing.Order do
   @valid_payment_methods ~w(bank stripe paypal razorpay)
 
   schema "phoenix_kit_orders" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :order_number, :string
     field :status, :string, default: "draft"
     field :payment_method, :string
@@ -169,14 +169,6 @@ defmodule PhoenixKit.Modules.Billing.Order do
     |> unique_constraint(:order_number)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:billing_profile_id)
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   # Guest orders must have billing_snapshot with email when no billing_profile_id

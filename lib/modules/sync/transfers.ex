@@ -55,6 +55,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   alias PhoenixKit.Modules.Sync.Transfer
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
   # CRUD OPERATIONS
@@ -100,21 +101,45 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   end
 
   @doc """
-  Gets a transfer by ID.
+  Gets a transfer by ID or UUID.
+
+  Accepts:
+  - Integer ID: `get_transfer(123)`
+  - UUID string: `get_transfer("01234567-89ab-cdef-0123-456789abcdef")`
+  - String integer: `get_transfer("123")`
   """
-  @spec get_transfer(integer()) :: Transfer.t() | nil
-  def get_transfer(id) do
+  @spec get_transfer(integer() | String.t()) :: Transfer.t() | nil
+  def get_transfer(id) when is_integer(id) do
     repo = RepoHelper.repo()
     repo.get(Transfer, id)
   end
 
-  @doc """
-  Gets a transfer by ID, raising if not found.
-  """
-  @spec get_transfer!(integer()) :: Transfer.t()
-  def get_transfer!(id) do
+  def get_transfer(id) when is_binary(id) do
     repo = RepoHelper.repo()
-    repo.get!(Transfer, id)
+
+    if UUIDUtils.valid?(id) do
+      repo.get_by(Transfer, uuid: id)
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_transfer(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_transfer(_), do: nil
+
+  @doc """
+  Gets a transfer by ID or UUID, raising if not found.
+
+  Accepts same inputs as `get_transfer/1`.
+  """
+  @spec get_transfer!(integer() | String.t()) :: Transfer.t()
+  def get_transfer!(id) do
+    case get_transfer(id) do
+      nil -> raise Ecto.NoResultsError, queryable: Transfer
+      transfer -> transfer
+    end
   end
 
   @doc """

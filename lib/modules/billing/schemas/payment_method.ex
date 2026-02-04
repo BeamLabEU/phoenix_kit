@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
   @statuses ~w(active expired removed failed)
 
   schema "phoenix_kit_payment_methods" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :provider, :string
     field :provider_payment_method_id, :string
     field :provider_customer_id, :string
@@ -89,14 +89,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
     |> unique_constraint([:provider, :provider_payment_method_id],
       name: :phoenix_kit_payment_methods_provider_pm_id_index
     )
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

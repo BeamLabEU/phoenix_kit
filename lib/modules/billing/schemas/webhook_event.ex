@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Billing.WebhookEvent do
   import Ecto.Changeset
 
   schema "phoenix_kit_webhook_events" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :provider, :string
     field :event_id, :string
     field :event_type, :string
@@ -58,14 +58,6 @@ defmodule PhoenixKit.Modules.Billing.WebhookEvent do
     |> unique_constraint([:provider, :event_id],
       name: :phoenix_kit_webhook_events_provider_event_id_index
     )
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """
