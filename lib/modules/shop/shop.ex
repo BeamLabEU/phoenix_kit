@@ -1511,18 +1511,31 @@ defmodule PhoenixKit.Modules.Shop do
   def convert_cart_to_order(%Cart{} = cart, opts) when is_list(opts) do
     cart = get_cart!(cart.id)
 
-    # Use atomic status transition to prevent double-conversion on double-click
-    # This atomically changes status from "active" to "converting" and fails
-    # if another request already started conversion
-    with :ok <- validate_cart_convertible(cart),
-         {:ok, cart} <- try_lock_cart_for_conversion(cart),
-         {:ok, user_id, cart} <- resolve_checkout_user(cart, opts),
-         line_items <- build_order_line_items(cart),
-         order_attrs <- build_order_attrs(cart, line_items, opts),
-         {:ok, order} <- do_create_order(user_id, order_attrs),
-         {:ok, _cart} <- mark_cart_converted(cart, order.id),
-         :ok <- maybe_send_guest_confirmation(user_id) do
-      {:ok, order}
+    # Wrap entire conversion in a transaction to ensure atomicity
+    # If any step fails after order creation, the order is rolled back
+    repo().transaction(fn ->
+      # Use atomic status transition to prevent double-conversion on double-click
+      # This atomically changes status from "active" to "converting" and fails
+      # if another request already started conversion
+      with :ok <- validate_cart_convertible(cart),
+           {:ok, cart} <- try_lock_cart_for_conversion(cart),
+           {:ok, user_id, cart} <- resolve_checkout_user(cart, opts),
+           line_items <- build_order_line_items(cart),
+           order_attrs <- build_order_attrs(cart, line_items, opts),
+           {:ok, order} <- do_create_order(user_id, order_attrs),
+           {:ok, _cart} <- mark_cart_converted(cart, order.id),
+           :ok <- maybe_send_guest_confirmation(user_id) do
+        {:ok, order}
+      else
+        error ->
+          # Rollback transaction on any error
+          repo().rollback(error)
+      end
+    end)
+    # unwrap the transaction result
+    |> case do
+      {:ok, {:ok, order}} -> {:ok, order}
+      {:error, reason} -> {:error, reason}
     end
   end
 
