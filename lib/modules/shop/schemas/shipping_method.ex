@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
   import Ecto.Changeset
 
   schema "phoenix_kit_shop_shipping_methods" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     field :name, :string
     field :slug, :string

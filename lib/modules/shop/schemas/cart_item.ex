@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   alias PhoenixKit.Modules.Shop.Product
 
   schema "phoenix_kit_shop_cart_items" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     belongs_to :cart, Cart
     belongs_to :product, Product
@@ -94,7 +94,6 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
     |> validate_number(:unit_price, greater_than_or_equal_to: 0)
     |> validate_length(:currency, is: 3)
     |> calculate_line_total()
-    |> maybe_generate_uuid()
     |> foreign_key_constraint(:cart_id)
     |> foreign_key_constraint(:product_id)
   end
@@ -229,12 +228,5 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
     unit_price = get_field(changeset, :unit_price) || Decimal.new("0")
     line_total = Decimal.mult(unit_price, quantity)
     put_change(changeset, :line_total, line_total)
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, Ecto.UUID.generate())
-      _ -> changeset
-    end
   end
 end

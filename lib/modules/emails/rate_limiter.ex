@@ -12,7 +12,7 @@ defmodule PhoenixKit.Modules.Emails.EmailBlocklist do
 
   @primary_key {:id, :id, autogenerate: true}
   schema "phoenix_kit_email_blocklist" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :email, :string
     field :reason, :string
     field :expires_at, :utc_datetime_usec
@@ -27,14 +27,6 @@ defmodule PhoenixKit.Modules.Emails.EmailBlocklist do
     |> validate_required([:email, :reason])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
     |> unique_constraint(:email)
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 end
 

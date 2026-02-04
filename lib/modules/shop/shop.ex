@@ -48,6 +48,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ============================================
   # SYSTEM ENABLE/DISABLE
@@ -198,21 +199,40 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
-  Gets a product by ID.
+  Gets a product by ID or UUID.
   """
-  def get_product(id, opts \\ []) do
+  def get_product(id, opts \\ [])
+
+  def get_product(id, opts) when is_integer(id) do
     Product
     |> maybe_preload(Keyword.get(opts, :preload))
     |> repo().get(id)
   end
 
+  def get_product(id, opts) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      Product
+      |> where([p], p.uuid == ^id)
+      |> maybe_preload(Keyword.get(opts, :preload))
+      |> repo().one()
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_product(int_id, opts)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_product(_, _opts), do: nil
+
   @doc """
-  Gets a product by ID, raises if not found.
+  Gets a product by ID or UUID, raises if not found.
   """
   def get_product!(id, opts \\ []) do
-    Product
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().get!(id)
+    case get_product(id, opts) do
+      nil -> raise Ecto.NoResultsError, queryable: Product
+      product -> product
+    end
   end
 
   @doc """
@@ -516,21 +536,40 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
-  Gets a category by ID.
+  Gets a category by ID or UUID.
   """
-  def get_category(id, opts \\ []) do
+  def get_category(id, opts \\ [])
+
+  def get_category(id, opts) when is_integer(id) do
     Category
     |> maybe_preload(Keyword.get(opts, :preload))
     |> repo().get(id)
   end
 
+  def get_category(id, opts) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      Category
+      |> where([c], c.uuid == ^id)
+      |> maybe_preload(Keyword.get(opts, :preload))
+      |> repo().one()
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_category(int_id, opts)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_category(_, _opts), do: nil
+
   @doc """
-  Gets a category by ID, raises if not found.
+  Gets a category by ID or UUID, raises if not found.
   """
   def get_category!(id, opts \\ []) do
-    Category
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().get!(id)
+    case get_category(id, opts) do
+      nil -> raise Ecto.NoResultsError, queryable: Category
+      category -> category
+    end
   end
 
   @doc """
@@ -645,17 +684,33 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
-  Gets a shipping method by ID.
+  Gets a shipping method by ID or UUID.
   """
-  def get_shipping_method(id) do
+  def get_shipping_method(id) when is_integer(id) do
     repo().get(ShippingMethod, id)
   end
 
+  def get_shipping_method(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      repo().get_by(ShippingMethod, uuid: id)
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_shipping_method(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_shipping_method(_), do: nil
+
   @doc """
-  Gets a shipping method by ID, raises if not found.
+  Gets a shipping method by ID or UUID, raises if not found.
   """
   def get_shipping_method!(id) do
-    repo().get!(ShippingMethod, id)
+    case get_shipping_method(id) do
+      nil -> raise Ecto.NoResultsError, queryable: ShippingMethod
+      method -> method
+    end
   end
 
   @doc """
@@ -778,21 +833,38 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
-  Gets a cart by ID with items preloaded.
+  Gets a cart by ID or UUID with items preloaded.
   """
-  def get_cart(id) do
+  def get_cart(id) when is_integer(id) do
     Cart
     |> preload([:items, :shipping_method, :payment_option])
     |> repo().get(id)
   end
 
+  def get_cart(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      Cart
+      |> where([c], c.uuid == ^id)
+      |> preload([:items, :shipping_method, :payment_option])
+      |> repo().one()
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_cart(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_cart(_), do: nil
+
   @doc """
-  Gets a cart by ID, raises if not found.
+  Gets a cart by ID or UUID, raises if not found.
   """
   def get_cart!(id) do
-    Cart
-    |> preload([:items, :shipping_method, :payment_option])
-    |> repo().get!(id)
+    case get_cart(id) do
+      nil -> raise Ecto.NoResultsError, queryable: Cart
+      cart -> cart
+    end
   end
 
   @doc """

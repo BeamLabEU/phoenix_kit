@@ -29,7 +29,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   @statuses ~w(active merged converted abandoned expired)
 
   schema "phoenix_kit_shop_carts" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     # Identity
     belongs_to :user, User
@@ -103,7 +103,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
     |> validate_length(:currency, is: 3)
     |> validate_length(:shipping_country, max: 2)
     |> validate_identity()
-    |> maybe_generate_uuid()
     |> maybe_set_expires_at()
   end
 
@@ -217,13 +216,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
       changeset
     else
       add_error(changeset, :status, "cannot transition from #{from} to #{to}")
-    end
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, Ecto.UUID.generate())
-      _ -> changeset
     end
   end
 

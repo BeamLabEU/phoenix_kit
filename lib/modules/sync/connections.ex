@@ -49,6 +49,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   alias PhoenixKit.Modules.Sync.Connection
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
   # CRUD OPERATIONS
@@ -102,21 +103,45 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   end
 
   @doc """
-  Gets a connection by ID.
+  Gets a connection by ID or UUID.
+
+  Accepts:
+  - Integer ID: `get_connection(123)`
+  - UUID string: `get_connection("01234567-89ab-cdef-0123-456789abcdef")`
+  - String integer: `get_connection("123")`
   """
-  @spec get_connection(integer()) :: Connection.t() | nil
-  def get_connection(id) do
+  @spec get_connection(integer() | String.t()) :: Connection.t() | nil
+  def get_connection(id) when is_integer(id) do
     repo = RepoHelper.repo()
     repo.get(Connection, id)
   end
 
-  @doc """
-  Gets a connection by ID, raising if not found.
-  """
-  @spec get_connection!(integer()) :: Connection.t()
-  def get_connection!(id) do
+  def get_connection(id) when is_binary(id) do
     repo = RepoHelper.repo()
-    repo.get!(Connection, id)
+
+    if UUIDUtils.valid?(id) do
+      repo.get_by(Connection, uuid: id)
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_connection(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_connection(_), do: nil
+
+  @doc """
+  Gets a connection by ID or UUID, raising if not found.
+
+  Accepts same inputs as `get_connection/1`.
+  """
+  @spec get_connection!(integer() | String.t()) :: Connection.t()
+  def get_connection!(id) do
+    case get_connection(id) do
+      nil -> raise Ecto.NoResultsError, queryable: Connection
+      connection -> connection
+    end
   end
 
   @doc """

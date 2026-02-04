@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
   @product_types ["physical", "digital"]
 
   schema "phoenix_kit_shop_products" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
 
     # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
     field :title, :map, default: %{}

@@ -28,7 +28,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   @statuses ["pending", "processing", "completed", "failed"]
 
   schema "phoenix_kit_shop_import_logs" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :filename, :string
     field :file_path, :string
     field :status, :string, default: "pending"
@@ -63,7 +63,6 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     import_log
     |> cast(attrs, [:filename, :file_path, :options, :user_id])
     |> validate_required([:filename])
-    |> generate_uuid()
   end
 
   @doc """
@@ -144,14 +143,6 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
       error_details: error_details,
       completed_at: DateTime.utc_now() |> DateTime.truncate(:second)
     })
-  end
-
-  defp generate_uuid(changeset) do
-    if get_field(changeset, :uuid) do
-      changeset
-    else
-      put_change(changeset, :uuid, Ecto.UUID.generate())
-    end
   end
 
   @doc """
