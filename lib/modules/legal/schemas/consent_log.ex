@@ -48,6 +48,8 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
+
   @type t :: %__MODULE__{
           id: integer() | nil,
           uuid: Ecto.UUID.t() | nil,
@@ -66,7 +68,7 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   @consent_types ["necessary", "analytics", "marketing", "preferences"]
 
   schema "phoenix_kit_consent_logs" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :user_id, :integer
     field :session_id, :string
     field :consent_type, :string
@@ -116,7 +118,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
     |> validate_required([:consent_type])
     |> validate_inclusion(:consent_type, @consent_types)
     |> validate_user_or_session()
-    |> maybe_generate_uuid()
   end
 
   # Validate that either user_id or session_id is present
@@ -128,15 +129,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
       add_error(changeset, :base, "Either user_id or session_id must be present")
     else
       changeset
-    end
-  end
-
-  # Generate UUIDv7 if not present
-  defp maybe_generate_uuid(changeset) do
-    if get_field(changeset, :uuid) do
-      changeset
-    else
-      put_change(changeset, :uuid, PhoenixKit.UUID.generate())
     end
   end
 
@@ -152,6 +144,59 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
     %__MODULE__{}
     |> changeset(attrs)
     |> repo().insert()
+  end
+
+  @doc """
+  Gets a single consent log by ID or UUID.
+
+  Accepts integer ID, UUID string, or string-formatted integer.
+
+  ## Examples
+
+      iex> ConsentLog.get_consent_log(123)
+      %ConsentLog{}
+
+      iex> ConsentLog.get_consent_log("550e8400-e29b-41d4-a716-446655440000")
+      %ConsentLog{}
+
+      iex> ConsentLog.get_consent_log(999)
+      nil
+  """
+  @spec get_consent_log(integer() | String.t()) :: t() | nil
+  def get_consent_log(id) when is_integer(id) do
+    repo().get(__MODULE__, id)
+  end
+
+  def get_consent_log(id) when is_binary(id) do
+    if UUIDUtils.valid?(id) do
+      repo().get_by(__MODULE__, uuid: id)
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_consent_log(int_id)
+        _ -> nil
+      end
+    end
+  end
+
+  def get_consent_log(_), do: nil
+
+  @doc """
+  Same as `get_consent_log/1`, but raises `Ecto.NoResultsError` if not found.
+
+  ## Examples
+
+      iex> ConsentLog.get_consent_log!(123)
+      %ConsentLog{}
+
+      iex> ConsentLog.get_consent_log!(999)
+      ** (Ecto.NoResultsError)
+  """
+  @spec get_consent_log!(integer() | String.t()) :: t()
+  def get_consent_log!(id) do
+    case get_consent_log(id) do
+      nil -> raise Ecto.NoResultsError, queryable: __MODULE__
+      log -> log
+    end
   end
 
   @doc """
