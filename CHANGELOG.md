@@ -1,3 +1,17 @@
+## 1.7.33 - 2026-02-04
+- Add PubSub events for real-time updates in Tickets and Shop modules
+  - Tickets.Events module with broadcast for ticket lifecycle (created, updated, status changed, assigned, priority changed)
+  - Comment and internal note events for ticket discussions
+  - Shop.Events extension with product, category, inventory events
+  - LiveViews subscribe to events for real-time UI updates
+- Add User Deletion API with GDPR-compliant data handling
+  - delete_user/2 with cascade delete for related data (tokens, OAuth, billing profiles, carts)
+  - Anonymization strategy for orders, posts, comments, tickets, email logs, files
+  - Protection: cannot delete self, cannot delete last Owner
+  - Admin UI with delete button, confirmation modal, and real-time list updates
+  - Broadcast :user_deleted event for multi-admin synchronization
+- Fix compilation errors in auth.ex (pin operator with dynamic Ecto queries)
+
 ## 1.7.32 - 2026-02-03
 - Storage Module: Smart file serving with bucket access types (V50 migration)
   - Add `access_type` field to buckets: "public", "private", "signed"
