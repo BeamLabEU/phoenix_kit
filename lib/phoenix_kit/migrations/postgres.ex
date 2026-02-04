@@ -383,12 +383,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds product_ids INTEGER[] column to import_logs for tracking imported products
   - Enables import detail view showing all products created/updated during import
 
-  ### V50 - Bucket Access Type ⚡ LATEST
+  ### V50 - Bucket Access Type
   - Adds access_type VARCHAR column to phoenix_kit_buckets
   - Three access modes: "public" (redirect), "private" (proxy), "signed" (future)
   - Public: redirect to bucket URL (default, fastest, uses CDN)
   - Private: proxy through server (for ACL-protected S3 buckets)
   - Enables FileController to handle both public and private S3 buckets
+
+  ### V51 - Cart Items Unique Constraint Fix ⚡ LATEST
+  - Fix unique constraint to allow same product with different options
+  - Include selected_specs in uniqueness check via MD5 hash
+  - Enables proper cart behavior for products with variants/options
+  - Users can now add same product with different sizes/colors to cart
 
   ## Migration Paths
 
@@ -448,7 +454,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 50
+  @current_version 51
   @default_prefix "public"
 
   @doc false
