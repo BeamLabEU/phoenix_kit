@@ -1036,7 +1036,9 @@ defmodule PhoenixKit.Modules.Shop do
       {:error, :invalid_option_value, %{key: "material", value: "Unobtainium", allowed: ["PLA", "PETG"]}}
   """
   def validate_selected_specs(%Product{} = product, selected_specs) when is_map(selected_specs) do
-    schema = Options.get_option_schema_for_product(product)
+    # Use full selectable specs (includes discovered options from metadata)
+    # to match what the UI actually shows to users
+    schema = Options.get_selectable_specs_for_product(product)
 
     # Build lookup map: key => option definition
     schema_map = Map.new(schema, fn opt -> {opt["key"], opt} end)

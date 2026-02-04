@@ -1,3 +1,51 @@
+## 1.7.32 - 2026-02-03
+- Storage Module: Smart file serving with bucket access types (V50 migration)
+  - Add `access_type` field to buckets: "public", "private", "signed"
+  - Local files are now served directly without temp file copying (performance improvement)
+  - Public cloud buckets redirect to CDN URL (faster, reduces server load)
+  - Private cloud buckets proxy files through server (for ACL-protected storage)
+  - Add retry logic for bucket cache race conditions during file access
+
+  **⚠️ BREAKING CHANGE: Cloud Bucket Access Type**
+
+  Cloud buckets (S3, B2, R2) now default to `access_type = "public"`, which redirects
+  users directly to the bucket's public URL instead of proxying through the server.
+
+  **If you have private/ACL-protected buckets:**
+  - Go to Storage → Buckets → Edit your bucket
+  - Set "Access Type" to "Private"
+  - Files will be proxied through the server using credentials (previous behavior)
+
+  **If you have public buckets (redirect mode):**
+
+  For redirect to work, your bucket must be publicly accessible:
+
+  1. **Enable Public Access** in your cloud provider settings:
+     - AWS S3: Disable "Block all public access" and set bucket policy
+     - Backblaze B2: Set bucket to "Public"
+     - Cloudflare R2: Configure public access or use Custom Domain
+
+  2. **Configure CORS** if serving files cross-origin (required when your site
+     domain differs from bucket domain):
+
+     AWS S3 / R2 CORS configuration example:
+     ```json
+     [
+       {
+         "AllowedHeaders": ["*"],
+         "AllowedMethods": ["GET", "HEAD"],
+         "AllowedOrigins": ["https://yourdomain.com"],
+         "ExposeHeaders": ["ETag", "Content-Length"],
+         "MaxAgeSeconds": 3600
+       }
+     ]
+     ```
+
+     Replace `https://yourdomain.com` with your actual domain, or use `"*"` for
+     any origin (less secure but simpler for testing).
+
+  See AWS documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/enabling-cors-examples.html
+
 ## 1.7.31 - 2026-01-29
 - Refactor publishing module into submodules and improve URL slug handling
   - Storage module refactoring:

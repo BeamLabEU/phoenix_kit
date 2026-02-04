@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.31"
+  @version "1.7.32"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -56,7 +56,8 @@ defmodule PhoenixKit.MixProject do
   # The parent Phoenix application will handle supervision
   def application do
     [
-      extra_applications: [:logger, :ecto, :postgrex, :crypto, :gettext]
+      extra_applications: [:logger, :ecto, :postgrex, :crypto, :gettext],
+      mod: {PhoenixKit.Application, []}
     ]
   end
 

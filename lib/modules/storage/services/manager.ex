@@ -256,4 +256,88 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   defp get_auto_generate_variants do
     Settings.get_setting_cached("storage_auto_generate_variants", "true") == "true"
   end
+
+  @doc """
+  Returns the local filesystem path for a file if stored locally.
+
+  This function checks enabled buckets with "local" provider and returns the
+  direct path to the file if it exists. This allows serving files directly
+  without copying to a temp file first.
+
+  ## Returns
+
+  - `{:ok, path}` - File exists at the local path
+  - `{:error, :not_local}` - No local bucket contains the file
+  """
+  def get_local_file_path(file_path) do
+    buckets = get_enabled_buckets() |> Enum.sort_by(& &1.priority)
+
+    Enum.find_value(buckets, {:error, :not_local}, fn bucket ->
+      if bucket.provider == "local" do
+        full_path = Path.join(bucket.endpoint || "priv/media", file_path)
+
+        if File.exists?(full_path) do
+          {:ok, full_path}
+        else
+          nil
+        end
+      else
+        nil
+      end
+    end)
+  end
+
+  @doc """
+  Returns file access info based on bucket access_type.
+
+  Determines how a file should be served based on its storage location:
+  - Local files are always served directly
+  - Remote files depend on bucket's access_type setting
+
+  ## Returns
+
+  - `{:local, path}` - File is local, serve directly from filesystem
+  - `{:redirect, url}` - Redirect to public URL (for public buckets)
+  - `{:proxy, file_name}` - Download and proxy through server (for private buckets)
+  - `{:error, :not_found}` - File not found in any bucket
+  """
+  def get_file_access(file_name) do
+    case get_local_file_path(file_name) do
+      {:ok, path} ->
+        {:local, path}
+
+      {:error, :not_local} ->
+        get_remote_file_access(file_name)
+    end
+  end
+
+  defp get_remote_file_access(file_name) do
+    buckets = get_enabled_buckets() |> Enum.sort_by(& &1.priority)
+
+    Enum.find_value(buckets, {:error, :not_found}, fn bucket ->
+      check_bucket_for_file(bucket, file_name)
+    end)
+  end
+
+  defp check_bucket_for_file(%{provider: "local"}, _file_name), do: nil
+
+  defp check_bucket_for_file(bucket, file_name) do
+    provider = get_provider_for_bucket(bucket)
+
+    if provider.file_exists?(bucket, file_name) do
+      get_bucket_access_type(bucket, file_name, provider)
+    end
+  end
+
+  defp get_bucket_access_type(%{access_type: "private"}, file_name, _provider) do
+    {:proxy, file_name}
+  end
+
+  defp get_bucket_access_type(bucket, file_name, provider) do
+    # "public" or nil (default)
+    case provider.public_url(bucket, file_name) do
+      nil -> nil
+      url -> {:redirect, url}
+    end
+  end
 end

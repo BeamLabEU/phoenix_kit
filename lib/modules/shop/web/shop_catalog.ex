@@ -22,12 +22,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
     categories = Shop.list_active_categories(preload: [:parent])
 
-    {products, _total} =
+    per_page = 24
+    page = parse_page(params["page"])
+
+    {products, total} =
       Shop.list_products_with_count(
         status: "active",
-        per_page: 12,
+        page: 1,
+        per_page: page * per_page,
         exclude_hidden_categories: true
       )
+
+    total_pages = max(1, ceil(total / per_page))
+    page = min(page, total_pages)
 
     currency = Shop.get_default_currency()
 
@@ -55,6 +62,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
       |> assign(:page_title, "Shop")
       |> assign(:categories, categories)
       |> assign(:products, products)
+      |> assign(:total_products, total)
+      |> assign(:page, page)
+      |> assign(:per_page, per_page)
+      |> assign(:total_pages, total_pages)
       |> assign(:currency, currency)
       |> assign(:current_language, current_language)
       |> assign(:authenticated, authenticated)
@@ -62,6 +73,37 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
       |> assign(:current_path, current_path)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_params(params, _uri, socket) do
+    page = parse_page(params["page"])
+    page = min(page, socket.assigns.total_pages)
+
+    if page != socket.assigns.page do
+      {products, total} =
+        Shop.list_products_with_count(
+          status: "active",
+          page: 1,
+          per_page: page * socket.assigns.per_page,
+          exclude_hidden_categories: true
+        )
+
+      {:noreply,
+       socket
+       |> assign(:page, page)
+       |> assign(:products, products)
+       |> assign(:total_products, total)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("load_more", _params, socket) do
+    next_page = socket.assigns.page + 1
+    path = build_catalog_path_with_page(socket.assigns, next_page)
+    {:noreply, push_patch(socket, to: path)}
   end
 
   # Build dashboard tabs including shop categories as subtabs
@@ -224,6 +266,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
                 <.product_card product={product} currency={@currency} language={@current_language} />
               <% end %>
             </div>
+
+            <.shop_pagination
+              page={@page}
+              total_pages={@total_pages}
+              total_products={@total_products}
+              per_page={@per_page}
+              current_language={@current_language}
+            />
           <% end %>
         </div>
       </div>
@@ -407,5 +457,80 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
   defp get_language_from_params_or_default(_params) do
     Translations.default_language()
+  end
+
+  # Pagination UI component
+  attr :page, :integer, required: true
+  attr :total_pages, :integer, required: true
+  attr :total_products, :integer, required: true
+  attr :per_page, :integer, required: true
+  attr :current_language, :string, required: true
+
+  defp shop_pagination(assigns) do
+    remaining = assigns.total_products - assigns.page * assigns.per_page
+
+    assigns =
+      assigns
+      |> assign(:remaining, max(0, remaining))
+      |> assign(:has_more, assigns.page < assigns.total_pages)
+
+    ~H"""
+    <%= if @total_pages > 1 do %>
+      <div class="mt-8 space-y-4">
+        <%!-- Load More Button --%>
+        <%= if @has_more do %>
+          <div class="flex justify-center">
+            <button phx-click="load_more" class="btn btn-primary btn-lg gap-2">
+              <.icon name="hero-arrow-down" class="w-5 h-5" /> Show More
+              <span class="badge badge-ghost">{@remaining}</span>
+            </button>
+          </div>
+        <% end %>
+
+        <%!-- Page Links for SEO and direct access --%>
+        <nav class="flex flex-wrap justify-center gap-2 text-sm">
+          <%= for p <- 1..@total_pages do %>
+            <.link
+              patch={Shop.catalog_url(@current_language) <> if(p > 1, do: "?page=#{p}", else: "")}
+              class={[
+                "px-3 py-1 rounded transition-colors",
+                if(p <= @page,
+                  do: "bg-primary text-primary-content",
+                  else: "bg-base-200 hover:bg-base-300 text-base-content/70"
+                )
+              ]}
+            >
+              {p}
+            </.link>
+          <% end %>
+        </nav>
+
+        <%!-- Status text --%>
+        <p class="text-center text-sm text-base-content/50">
+          Showing {min(@page * @per_page, @total_products)} of {@total_products} products
+        </p>
+      </div>
+    <% end %>
+    """
+  end
+
+  # Parse page param with validation
+  defp parse_page(nil), do: 1
+  defp parse_page(""), do: 1
+
+  defp parse_page(page) when is_binary(page) do
+    case Integer.parse(page) do
+      {p, ""} when p > 0 -> p
+      _ -> 1
+    end
+  end
+
+  defp parse_page(page) when is_integer(page) and page > 0, do: page
+  defp parse_page(_), do: 1
+
+  # Build catalog path with page parameter
+  defp build_catalog_path_with_page(assigns, page) do
+    base_path = Shop.catalog_url(assigns.current_language)
+    if page > 1, do: "#{base_path}?page=#{page}", else: base_path
   end
 end

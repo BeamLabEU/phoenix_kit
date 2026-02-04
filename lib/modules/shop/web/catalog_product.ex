@@ -260,11 +260,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     key = params["key"] || ""
     value = params["opt"] || ""
 
-    # Debug logging
-    require Logger
-    Logger.debug("select_spec params: #{inspect(params)}")
-    Logger.debug("select_spec key=#{inspect(key)} value=#{inspect(value)}")
-
     selected_specs = Map.put(socket.assigns.selected_specs, key, value)
     product = socket.assigns.product
     selectable_specs = socket.assigns.selectable_specs
@@ -388,6 +383,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
          socket
          |> assign(:adding_to_cart, false)
          |> put_flash(:error, "Failed to add to cart")}
+
+      {:error, _code, detail} ->
+        {:noreply,
+         socket
+         |> assign(:adding_to_cart, false)
+         |> put_flash(:error, "Failed to add to cart: #{inspect(detail)}")}
     end
   end
 
@@ -559,9 +560,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
             <%!-- Description --%>
             <%= if @localized_description do %>
-              <div class="prose prose-sm max-w-none">
-                <p>{@localized_description}</p>
-              </div>
+              <.markdown content={@localized_description} sanitize={false} compact />
             <% end %>
 
             <%!-- Product Details --%>
