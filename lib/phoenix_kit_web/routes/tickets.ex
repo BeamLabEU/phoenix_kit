@@ -19,6 +19,9 @@ defmodule PhoenixKitWeb.Routes.TicketsRoutes do
           live "/admin/tickets", PhoenixKit.Modules.Tickets.Web.List, :index,
             as: :tickets_list_localized
 
+          live "/admin/tickets/new", PhoenixKit.Modules.Tickets.Web.New, :new,
+            as: :tickets_new_localized
+
           live "/admin/tickets/:id", PhoenixKit.Modules.Tickets.Web.Details, :show,
             as: :tickets_details_localized
 
@@ -37,6 +40,8 @@ defmodule PhoenixKitWeb.Routes.TicketsRoutes do
         live_session :phoenix_kit_tickets_admin,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/tickets", PhoenixKit.Modules.Tickets.Web.List, :index, as: :tickets_list
+
+          live "/admin/tickets/new", PhoenixKit.Modules.Tickets.Web.New, :new, as: :tickets_new
 
           live "/admin/tickets/:id", PhoenixKit.Modules.Tickets.Web.Details, :show,
             as: :tickets_details

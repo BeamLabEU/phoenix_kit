@@ -11,8 +11,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Users.Roles
-  alias PhoenixKit.Users.TableColumns
+  alias PhoenixKit.Users.{Roles, TableColumns}
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @per_page 10
@@ -266,6 +265,76 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
       _ ->
         {:noreply, socket}
+    end
+  end
+
+  # User deletion events
+  def handle_event(
+        "request_delete_user",
+        %{"user_id" => user_id},
+        socket
+      ) do
+    user = Auth.get_user!(user_id)
+    current_user = socket.assigns.phoenix_kit_current_user
+
+    # Check if user can be deleted
+    case Auth.can_delete_user?(user, current_user) do
+      true ->
+        confirmation_modal = %{
+          show: true,
+          title: "Delete User",
+          message:
+            "Are you sure you want to permanently delete #{user.email}? This action cannot be undone.",
+          button_text: "Delete",
+          action: "delete_user",
+          user_id: user_id
+        }
+
+        {:noreply, assign(socket, :confirmation_modal, confirmation_modal)}
+
+      false ->
+        error_msg =
+          cond do
+            user.id == current_user.id ->
+              "Cannot delete your own account"
+
+            Roles.user_has_role_owner?(user) ->
+              "Cannot delete the last system owner"
+
+            true ->
+              "Cannot delete this user"
+          end
+
+        {:noreply, put_flash(socket, :error, error_msg)}
+    end
+  end
+
+  def handle_event("delete_user", %{"user_id" => user_id}, socket) do
+    current_user = socket.assigns.phoenix_kit_current_user
+    user = Auth.get_user!(user_id)
+
+    # Close modal first
+    socket = assign(socket, :confirmation_modal, %{show: false})
+
+    opts = %{
+      current_user: current_user,
+      ip_address: socket.assigns[:ip_address],
+      user_agent: socket.assigns[:user_agent]
+    }
+
+    case Auth.delete_user(user, opts) do
+      {:ok, _result} ->
+        # User list will be updated via PubSub broadcast
+        {:noreply, put_flash(socket, :info, "User deleted successfully")}
+
+      {:error, :cannot_delete_self} ->
+        {:noreply, put_flash(socket, :error, "Cannot delete your own account")}
+
+      {:error, :cannot_delete_last_owner} ->
+        {:noreply, put_flash(socket, :error, "Cannot delete the last system owner")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete user")}
     end
   end
 
@@ -947,6 +1016,20 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       socket
       |> load_users()
       |> load_stats()
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:user_deleted, deleted_user}, socket) do
+    # Remove the deleted user from the list
+    users = Enum.reject(socket.assigns.users, fn u -> u.id == deleted_user.id end)
+
+    socket =
+      socket
+      |> assign(:users, users)
+      |> assign(:total_count, socket.assigns.total_count - 1)
+      |> load_stats()
+      |> put_flash(:info, "User deleted successfully")
 
     {:noreply, socket}
   end

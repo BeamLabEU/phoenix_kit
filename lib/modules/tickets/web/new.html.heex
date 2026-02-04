@@ -1,0 +1,186 @@
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+  <%!-- Header --%>
+  <header class="mb-6">
+    <div class="flex items-center gap-4">
+      <.link
+        navigate={Routes.path("/admin/tickets")}
+        class="btn btn-outline btn-primary btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Tickets")}
+      </.link>
+      <h1 class="text-3xl font-bold text-base-content">{gettext("Create New Ticket")}</h1>
+    </div>
+    <p class="text-base-content/70 mt-2 ml-[calc(2.5rem+100px)]">
+      {gettext("Create a support ticket on behalf of a user")}
+    </p>
+  </header>
+
+  <%!-- Form --%>
+  <div class="bg-base-100 rounded-lg shadow-sm border border-base-300 p-6">
+    <.form
+      for={@form}
+      id="ticket-form"
+      phx-change="validate"
+      phx-submit="save"
+      class="space-y-6"
+    >
+      <%!-- Title --%>
+      <div class="form-control">
+        <label class="label" for="ticket_title">
+          <span class="label-text font-medium">
+            {gettext("Title")} <span class="text-error">*</span>
+          </span>
+        </label>
+        <input
+          type="text"
+          id="ticket_title"
+          name="ticket[title]"
+          value={@form[:title].value}
+          placeholder={gettext("Enter ticket title")}
+          class="input input-bordered w-full"
+          required
+        />
+        <%= if @form[:title].errors != [] do %>
+          <div class="text-error text-sm mt-1">
+            <%= for error <- @form[:title].errors do %>
+              <p>{translate_error(error)}</p>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Priority --%>
+      <div class="form-control">
+        <label class="label" for="ticket_priority">
+          <span class="label-text font-medium">{gettext("Priority")}</span>
+        </label>
+        <select
+          id="ticket_priority"
+          name="ticket[priority]"
+          class="select select-bordered w-full max-w-xs"
+        >
+          <option
+            value="low"
+            selected={@form[:priority].value == "low" || @form[:priority].value == nil}
+          >
+            {gettext("Low")}
+          </option>
+          <option value="medium" selected={@form[:priority].value == "medium"}>
+            {gettext("Medium")}
+          </option>
+          <option value="high" selected={@form[:priority].value == "high"}>
+            {gettext("High")}
+          </option>
+          <option value="urgent" selected={@form[:priority].value == "urgent"}>
+            {gettext("Urgent")}
+          </option>
+        </select>
+      </div>
+
+      <%!-- Description --%>
+      <div class="form-control">
+        <label class="label" for="ticket_description">
+          <span class="label-text font-medium">
+            {gettext("Description")} <span class="text-error">*</span>
+          </span>
+        </label>
+        <textarea
+          id="ticket_description"
+          name="ticket[description]"
+          value={@form[:description].value}
+          placeholder={gettext("Describe the issue in detail...")}
+          class="textarea textarea-bordered w-full h-40"
+          required
+        ><%= @form[:description].value %></textarea>
+        <%= if @form[:description].errors != [] do %>
+          <div class="text-error text-sm mt-1">
+            <%= for error <- @form[:description].errors do %>
+              <p>{translate_error(error)}</p>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Attachments --%>
+      <%= if @attachments_enabled do %>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">{gettext("Attachments")}</span>
+          </label>
+
+          <div
+            class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center hover:bg-base-200/50 transition-colors"
+            phx-drop-target={@uploads.attachments.ref}
+          >
+            <.icon name="hero-cloud-arrow-up" class="w-12 h-12 mx-auto text-base-content/40 mb-3" />
+            <p class="text-base-content/70 mb-2">
+              {gettext("Drag and drop files here, or click to browse")}
+            </p>
+            <p class="text-sm text-base-content/50">
+              {gettext("Max 5 files, 10MB each. Supported: images, PDF, DOC, TXT")}
+            </p>
+            <.live_file_input upload={@uploads.attachments} class="hidden" />
+          </div>
+
+          <%!-- Upload errors --%>
+          <%= for error <- @upload_errors do %>
+            <p class="text-error text-sm mt-2">{error}</p>
+          <% end %>
+
+          <%!-- Pending uploads preview --%>
+          <%= if @uploads.attachments.entries != [] do %>
+            <div class="mt-4 space-y-2">
+              <h4 class="font-medium text-sm">{gettext("Uploading:")}</h4>
+              <%= for entry <- @uploads.attachments.entries do %>
+                <div class="flex items-center gap-3 bg-base-200 p-2 rounded">
+                  <.icon name="hero-document" class="w-5 h-5 text-base-content/60" />
+                  <span class="flex-1 text-sm truncate">{entry.client_name}</span>
+                  <button
+                    type="button"
+                    phx-click="cancel_upload"
+                    phx-value-ref={entry.ref}
+                    class="btn btn-ghost btn-xs btn-circle text-error"
+                  >
+                    <.icon name="hero-x-mark" class="w-4 h-4" />
+                  </button>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <%!-- Already uploaded pending files --%>
+          <%= if @pending_files != [] do %>
+            <div class="mt-4 space-y-2">
+              <h4 class="font-medium text-sm">{gettext("Attached files:")}</h4>
+              <%= for file <- @pending_files do %>
+                <div class="flex items-center gap-3 bg-base-200 p-2 rounded">
+                  <.icon name="hero-document-check" class="w-5 h-5 text-success" />
+                  <span class="flex-1 text-sm truncate">{file.original_name}</span>
+                  <button
+                    type="button"
+                    phx-click="remove_pending_file"
+                    phx-value-id={file.id}
+                    class="btn btn-ghost btn-xs btn-circle text-error"
+                  >
+                    <.icon name="hero-x-mark" class="w-4 h-4" />
+                  </button>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%!-- Actions --%>
+      <div class="flex gap-3 pt-4 border-t border-base-200">
+        <button type="submit" class="btn btn-primary">
+          <.icon name="hero-plus" class="w-4 h-4 mr-2" />
+          {gettext("Create Ticket")}
+        </button>
+        <.link navigate={Routes.path("/admin/tickets")} class="btn btn-outline">
+          {gettext("Cancel")}
+        </.link>
+      </div>
+    </.form>
+  </div>
+</div>

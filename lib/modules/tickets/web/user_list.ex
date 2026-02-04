@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Tickets
+  alias PhoenixKit.Modules.Tickets.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -15,6 +16,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   def mount(_params, _session, socket) do
     if Tickets.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
+
+      # Subscribe to user's ticket events for real-time updates
+      Events.subscribe_to_user_tickets(current_user.id)
 
       socket =
         socket
@@ -146,5 +150,71 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
 
   defp map_to_keyword(map) when is_map(map) do
     Enum.map(map, fn {k, v} -> {String.to_existing_atom(k), v} end)
+  end
+
+  @impl true
+  def handle_info({:ticket_created, ticket}, socket) do
+    # Only add if it belongs to current user and matches filters
+    current_user_id = socket.assigns.current_user.id
+
+    if ticket.user_id == current_user_id && ticket_matches_filters?(ticket, socket) do
+      tickets = [ticket | socket.assigns.tickets]
+      total_count = socket.assigns.total_count + 1
+
+      {:noreply,
+       socket
+       |> assign(:tickets, tickets)
+       |> assign(:total_count, total_count)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:ticket_updated, ticket}, socket) do
+    # Update ticket in list if present
+    tickets =
+      Enum.map(socket.assigns.tickets, fn t ->
+        if t.id == ticket.id, do: ticket, else: t
+      end)
+
+    {:noreply, assign(socket, :tickets, tickets)}
+  end
+
+  @impl true
+  def handle_info({:ticket_status_changed, ticket, _old_status, _new_status}, socket) do
+    # Update ticket status in list
+    tickets =
+      Enum.map(socket.assigns.tickets, fn t ->
+        if t.id == ticket.id, do: ticket, else: t
+      end)
+
+    {:noreply, assign(socket, :tickets, tickets)}
+  end
+
+  @impl true
+  def handle_info({:ticket_assigned, ticket, _old_assignee, _new_assignee}, socket) do
+    # Update ticket in list
+    tickets =
+      Enum.map(socket.assigns.tickets, fn t ->
+        if t.id == ticket.id, do: ticket, else: t
+      end)
+
+    {:noreply, assign(socket, :tickets, tickets)}
+  end
+
+  @impl true
+  def handle_info({:tickets_bulk_updated, _tickets, _changes}, socket) do
+    # Reload tickets on bulk update
+    {:noreply, load_user_tickets(socket)}
+  end
+
+  defp ticket_matches_filters?(ticket, socket) do
+    status_filter = socket.assigns.status_filter
+
+    case status_filter do
+      nil -> true
+      status -> ticket.status == status
+    end
   end
 end

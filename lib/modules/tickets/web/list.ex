@@ -28,6 +28,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Tickets
+  alias PhoenixKit.Modules.Tickets.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
@@ -38,6 +39,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
       if can_access_tickets?(current_user) do
+        # Subscribe to ticket events for real-time updates
+        Events.subscribe_to_all()
+
         project_title = Settings.get_project_title()
 
         socket =
@@ -122,6 +126,75 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
     params = Map.put(current_params, "page", page)
 
     {:noreply, push_patch(socket, to: Routes.path("/admin/tickets", map_to_keyword(params)))}
+  end
+
+  @impl true
+  def handle_info({:ticket_created, ticket}, socket) do
+    # Prepend new ticket to list if it matches current filters
+    socket =
+      if ticket_matches_filters?(ticket, socket) do
+        tickets = [ticket | socket.assigns.tickets]
+        total_count = socket.assigns.total_count + 1
+
+        socket
+        |> assign(:tickets, tickets)
+        |> assign(:total_count, total_count)
+        |> assign(:stats, Tickets.get_stats())
+      else
+        # Just update stats if ticket doesn't match current filters
+        assign(socket, :stats, Tickets.get_stats())
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:ticket_updated, ticket}, socket) do
+    # Update ticket in list if present
+    tickets =
+      Enum.map(socket.assigns.tickets, fn t ->
+        if t.id == ticket.id, do: ticket, else: t
+      end)
+
+    {:noreply, assign(socket, :tickets, tickets)}
+  end
+
+  @impl true
+  def handle_info({:ticket_status_changed, ticket, _old_status, _new_status}, socket) do
+    # Update ticket and stats
+    tickets =
+      Enum.map(socket.assigns.tickets, fn t ->
+        if t.id == ticket.id, do: ticket, else: t
+      end)
+
+    socket =
+      socket
+      |> assign(:tickets, tickets)
+      |> assign(:stats, Tickets.get_stats())
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:ticket_assigned, ticket, _old_assignee, _new_assignee}, socket) do
+    # Update ticket in list
+    tickets =
+      Enum.map(socket.assigns.tickets, fn t ->
+        if t.id == ticket.id, do: ticket, else: t
+      end)
+
+    {:noreply, assign(socket, :tickets, tickets)}
+  end
+
+  @impl true
+  def handle_info({:tickets_bulk_updated, _tickets, _changes}, socket) do
+    # Reload tickets and stats on bulk update
+    socket =
+      socket
+      |> load_tickets()
+      |> assign(:stats, Tickets.get_stats())
+
+    {:noreply, socket}
   end
 
   # Private functions
@@ -240,5 +313,34 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
 
   defp map_to_keyword(map) when is_map(map) do
     Enum.map(map, fn {k, v} -> {String.to_existing_atom(k), v} end)
+  end
+
+  defp ticket_matches_filters?(ticket, socket) do
+    status_filter = socket.assigns.status_filter
+    assigned_to_filter = socket.assigns.assigned_to_filter
+    search_query = socket.assigns.search_query
+
+    matches_status?(ticket, status_filter) and
+      matches_assigned?(ticket, assigned_to_filter) and
+      matches_search?(ticket, search_query)
+  end
+
+  defp matches_status?(_ticket, nil), do: true
+  defp matches_status?(ticket, status), do: ticket.status == status
+
+  defp matches_assigned?(_ticket, nil), do: true
+  defp matches_assigned?(ticket, "unassigned"), do: is_nil(ticket.assigned_to_id)
+
+  defp matches_assigned?(ticket, handler_id),
+    do: ticket.assigned_to_id == String.to_integer(handler_id)
+
+  defp matches_search?(_ticket, nil), do: true
+  defp matches_search?(_ticket, ""), do: true
+
+  defp matches_search?(ticket, query) do
+    query = String.downcase(query)
+
+    String.contains?(String.downcase(ticket.title || ""), query) or
+      String.contains?(String.downcase(ticket.description || ""), query)
   end
 end

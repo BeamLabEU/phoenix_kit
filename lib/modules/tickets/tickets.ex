@@ -55,6 +55,7 @@ defmodule PhoenixKit.Modules.Tickets do
   alias PhoenixKit.Settings
 
   alias PhoenixKit.Modules.Tickets.{
+    Events,
     Ticket,
     TicketAttachment,
     TicketComment,
@@ -182,6 +183,10 @@ defmodule PhoenixKit.Modules.Tickets do
         {:ok, ticket} ->
           # Record initial status in history
           create_status_history(ticket.id, user_id, nil, "open", nil)
+
+          # Broadcast event for real-time updates
+          Events.broadcast_ticket_created(ticket)
+
           ticket
 
         {:error, changeset} ->
@@ -207,6 +212,14 @@ defmodule PhoenixKit.Modules.Tickets do
     ticket
     |> Ticket.changeset(attrs)
     |> repo().update()
+    |> case do
+      {:ok, updated_ticket} ->
+        Events.broadcast_ticket_updated(updated_ticket)
+        {:ok, updated_ticket}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -378,6 +391,7 @@ defmodule PhoenixKit.Modules.Tickets do
   """
   def assign_ticket(%Ticket{} = ticket, handler_id, changed_by) when is_integer(handler_id) do
     changed_by_id = get_user_id(changed_by)
+    old_assignee_id = ticket.assigned_to_id
 
     repo().transaction(fn ->
       attrs = %{assigned_to_id: handler_id}
@@ -401,6 +415,9 @@ defmodule PhoenixKit.Modules.Tickets do
               "Assigned to handler"
             )
           end
+
+          # Broadcast assignment event
+          Events.broadcast_ticket_assigned(updated_ticket, old_assignee_id, handler_id)
 
           updated_ticket
 
@@ -487,8 +504,9 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp transition_status(%Ticket{} = ticket, new_status, changed_by, reason \\ nil) do
     changed_by_id = get_user_id(changed_by)
+    old_status = ticket.status
 
-    if Ticket.valid_transition?(ticket.status, new_status) do
+    if Ticket.valid_transition?(old_status, new_status) do
       repo().transaction(fn ->
         attrs = %{status: new_status}
 
@@ -501,9 +519,16 @@ defmodule PhoenixKit.Modules.Tickets do
             _ -> attrs
           end
 
-        case update_ticket(ticket, attrs) do
+        # Use raw update to avoid double broadcast from update_ticket
+        case ticket
+             |> Ticket.changeset(attrs)
+             |> repo().update() do
           {:ok, updated_ticket} ->
-            create_status_history(ticket.id, changed_by_id, ticket.status, new_status, reason)
+            create_status_history(ticket.id, changed_by_id, old_status, new_status, reason)
+
+            # Broadcast status change event
+            Events.broadcast_ticket_status_changed(updated_ticket, old_status, new_status)
+
             updated_ticket
 
           {:error, changeset} ->
@@ -561,6 +586,13 @@ defmodule PhoenixKit.Modules.Tickets do
            |> repo().insert() do
         {:ok, comment} ->
           increment_comment_count(ticket_id)
+
+          # Load ticket for broadcast
+          ticket = repo().get(Ticket, ticket_id)
+
+          # Broadcast comment created event
+          Events.broadcast_comment_created(comment, ticket)
+
           comment
 
         {:error, changeset} ->
@@ -596,6 +628,19 @@ defmodule PhoenixKit.Modules.Tickets do
     %TicketComment{}
     |> TicketComment.changeset(attrs)
     |> repo().insert()
+    |> case do
+      {:ok, comment} ->
+        # Load ticket for broadcast
+        ticket = repo().get(Ticket, ticket_id)
+
+        # Broadcast internal note created event
+        Events.broadcast_internal_note_created(comment, ticket)
+
+        {:ok, comment}
+
+      error ->
+        error
+    end
   end
 
   @doc """

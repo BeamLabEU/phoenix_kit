@@ -461,16 +461,51 @@
   <%!-- Delete Confirmation Modal --%>
   <%= if @show_delete_modal do %>
     <div class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg text-error">{gettext("Delete User")}</h3>
-        <p class="py-4">
-          {gettext("Are you sure you want to delete")} <strong>{@user.email}</strong>? {gettext(
-            "This action cannot be undone."
-          )}
-        </p>
+      <div class="modal-box max-w-2xl">
+        <h3 class="font-bold text-lg text-error flex items-center gap-2">
+          <.icon name="hero-exclamation-triangle" class="w-6 h-6" />
+          {gettext("Delete User")}
+        </h3>
+
+        <div class="py-4 space-y-4">
+          <p class="text-base-content">
+            {gettext("Are you sure you want to permanently delete")}
+            <strong>{@user.email}</strong>? {gettext("This action cannot be undone.")}
+          </p>
+
+          <div class="bg-warning/10 border border-warning/30 rounded-lg p-4">
+            <h4 class="font-semibold text-warning mb-2">
+              {gettext("Data that will be permanently deleted:")}
+            </h4>
+            <ul class="list-disc list-inside text-sm text-base-content/80 space-y-1">
+              <li>{gettext("User account and profile information")}</li>
+              <li>{gettext("All session tokens and authentication data")}</li>
+              <li>{gettext("OAuth provider connections")}</li>
+              <li>{gettext("Billing profiles and payment methods")}</li>
+              <li>{gettext("Shopping carts and pending orders")}</li>
+              <li>{gettext("Admin notes about this user")}</li>
+            </ul>
+          </div>
+
+          <div class="bg-info/10 border border-info/30 rounded-lg p-4">
+            <h4 class="font-semibold text-info mb-2">
+              {gettext("Data that will be anonymized (preserved without PII):")}
+            </h4>
+            <ul class="list-disc list-inside text-sm text-base-content/80 space-y-1">
+              <li>{gettext("Orders - Financial records preserved, anonymized")}</li>
+              <li>{gettext("Posts - Content preserved, marked as deleted author")}</li>
+              <li>{gettext("Comments - Content preserved, marked as deleted author")}</li>
+              <li>{gettext("Support tickets - History preserved, anonymized")}</li>
+              <li>{gettext("Email logs - Compliance records retained, anonymized")}</li>
+              <li>{gettext("Files - Content preserved, ownership removed")}</li>
+            </ul>
+          </div>
+        </div>
+
         <div class="modal-action">
           <button type="button" class="btn btn-error" phx-click="delete_user">
-            {gettext("Delete")}
+            <.icon name="hero-trash" class="w-4 h-4 mr-2" />
+            {gettext("Delete User")}
           </button>
           <button type="button" class="btn btn-outline" phx-click="hide_delete_modal">
             {gettext("Cancel")}

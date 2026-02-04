@@ -243,7 +243,7 @@ Add the following to your root layout (`root.html.heex`):
 <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
 
 <%!-- Cookie Consent Script (auto-initializes on DOMContentLoaded) --%>
-<script defer src={"#{PhoenixKit.Utils.Routes.url_prefix()}/assets/phoenix_kit_consent.js"}>
+<script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
 </script>
 ```
 

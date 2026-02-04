@@ -1,14 +1,19 @@
 defmodule PhoenixKit.Modules.Shop.Events do
   @moduledoc """
-  PubSub event broadcasting for Shop cart synchronization.
+  PubSub event broadcasting for Shop module.
 
   This module provides functions to broadcast cart changes across
-  multiple browser tabs and devices for the same user/session.
+  multiple browser tabs and devices for the same user/session, as well
+  as product, category, and inventory updates for real-time admin dashboards.
 
   ## Topics
 
   - `shop:cart:user:{user_id}` - Cart events for authenticated users
   - `shop:cart:session:{session_id}` - Cart events for guest sessions
+  - `shop:products` - Product events (created, updated, deleted)
+  - `shop:categories` - Category events (created, updated, deleted)
+  - `shop:inventory` - Inventory events (stock changes)
+  - `shop:products:{product_id}` - Individual product events
 
   ## Events
 
@@ -21,6 +26,20 @@ defmodule PhoenixKit.Modules.Shop.Events do
   - `{:payment_selected, cart}` - Payment option selected/changed
   - `{:cart_cleared, cart}` - All items removed from cart
 
+  ### Product Events
+  - `{:product_created, product}` - New product created
+  - `{:product_updated, product}` - Product updated
+  - `{:product_deleted, product_id}` - Product deleted
+  - `{:products_bulk_status_changed, product_ids, status}` - Bulk status update
+
+  ### Category Events
+  - `{:category_created, category}` - New category created
+  - `{:category_updated, category}` - Category updated
+  - `{:category_deleted, category_id}` - Category deleted
+
+  ### Inventory Events
+  - `{:inventory_updated, product_id, stock_change}` - Stock level changed
+
   ## Examples
 
       # Subscribe to cart updates for authenticated user
@@ -29,8 +48,14 @@ defmodule PhoenixKit.Modules.Shop.Events do
       # Subscribe to cart updates for guest session
       Events.subscribe_to_session_cart(session_id)
 
+      # Subscribe to product updates (admin dashboard)
+      Events.subscribe_products()
+
       # Broadcast item added
       Events.broadcast_item_added(cart, item)
+
+      # Broadcast product created
+      Events.broadcast_product_created(product)
 
       # Handle in LiveView
       def handle_info({:item_added, cart, _item}, socket) do
@@ -40,6 +65,33 @@ defmodule PhoenixKit.Modules.Shop.Events do
 
   alias PhoenixKit.Modules.Shop.Cart
   alias PhoenixKit.PubSub.Manager
+
+  # ============================================
+  # TOPIC CONSTANTS
+  # ============================================
+
+  @products_topic "shop:products"
+  @categories_topic "shop:categories"
+  @inventory_topic "shop:inventory"
+
+  # ============================================
+  # TOPIC GETTERS
+  # ============================================
+
+  @doc """
+  Returns the PubSub topic for all products.
+  """
+  def products_topic, do: @products_topic
+
+  @doc """
+  Returns the PubSub topic for all categories.
+  """
+  def categories_topic, do: @categories_topic
+
+  @doc """
+  Returns the PubSub topic for inventory events.
+  """
+  def inventory_topic, do: @inventory_topic
 
   # ============================================
   # TOPIC BUILDERS
@@ -69,9 +121,56 @@ defmodule PhoenixKit.Modules.Shop.Events do
     topics
   end
 
+  @doc """
+  Returns the PubSub topic for a specific product.
+  """
+  def product_topic(product_id) when not is_nil(product_id) do
+    "#{@products_topic}:#{product_id}"
+  end
+
   # ============================================
   # SUBSCRIPTION FUNCTIONS
   # ============================================
+
+  # --------------------------------------------
+  # Product Subscriptions
+  # --------------------------------------------
+
+  @doc """
+  Subscribes to product events.
+  """
+  def subscribe_products do
+    Manager.subscribe(@products_topic)
+  end
+
+  @doc """
+  Subscribes to events for a specific product.
+  """
+  def subscribe_product(product_id) when not is_nil(product_id) do
+    Manager.subscribe(product_topic(product_id))
+  end
+
+  # --------------------------------------------
+  # Category Subscriptions
+  # --------------------------------------------
+
+  @doc """
+  Subscribes to category events.
+  """
+  def subscribe_categories do
+    Manager.subscribe(@categories_topic)
+  end
+
+  # --------------------------------------------
+  # Inventory Subscriptions
+  # --------------------------------------------
+
+  @doc """
+  Subscribes to inventory events.
+  """
+  def subscribe_inventory do
+    Manager.subscribe(@inventory_topic)
+  end
 
   @doc """
   Subscribes to cart events for a specific cart.
@@ -121,7 +220,77 @@ defmodule PhoenixKit.Modules.Shop.Events do
   end
 
   # ============================================
-  # BROADCAST FUNCTIONS
+  # PRODUCT BROADCAST FUNCTIONS
+  # ============================================
+
+  @doc """
+  Broadcasts product created event.
+  """
+  def broadcast_product_created(product) do
+    broadcast(@products_topic, {:product_created, product})
+  end
+
+  @doc """
+  Broadcasts product updated event.
+  """
+  def broadcast_product_updated(product) do
+    broadcast(@products_topic, {:product_updated, product})
+    broadcast(product_topic(product.id), {:product_updated, product})
+  end
+
+  @doc """
+  Broadcasts product deleted event.
+  """
+  def broadcast_product_deleted(product_id) do
+    broadcast(@products_topic, {:product_deleted, product_id})
+  end
+
+  @doc """
+  Broadcasts bulk product status changed event.
+  """
+  def broadcast_products_bulk_status_changed(product_ids, status) do
+    broadcast(@products_topic, {:products_bulk_status_changed, product_ids, status})
+  end
+
+  # ============================================
+  # CATEGORY BROADCAST FUNCTIONS
+  # ============================================
+
+  @doc """
+  Broadcasts category created event.
+  """
+  def broadcast_category_created(category) do
+    broadcast(@categories_topic, {:category_created, category})
+  end
+
+  @doc """
+  Broadcasts category updated event.
+  """
+  def broadcast_category_updated(category) do
+    broadcast(@categories_topic, {:category_updated, category})
+  end
+
+  @doc """
+  Broadcasts category deleted event.
+  """
+  def broadcast_category_deleted(category_id) do
+    broadcast(@categories_topic, {:category_deleted, category_id})
+  end
+
+  # ============================================
+  # INVENTORY BROADCAST FUNCTIONS
+  # ============================================
+
+  @doc """
+  Broadcasts inventory updated event.
+  """
+  def broadcast_inventory_updated(product_id, stock_change) do
+    broadcast(@inventory_topic, {:inventory_updated, product_id, stock_change})
+    broadcast(product_topic(product_id), {:inventory_updated, product_id, stock_change})
+  end
+
+  # ============================================
+  # CART BROADCAST FUNCTIONS
   # ============================================
 
   @doc """
@@ -183,5 +352,9 @@ defmodule PhoenixKit.Modules.Shop.Events do
     |> Enum.each(fn topic ->
       Manager.broadcast(topic, message)
     end)
+  end
+
+  defp broadcast(topic, message) do
+    Manager.broadcast(topic, message)
   end
 end

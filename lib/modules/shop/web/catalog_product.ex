@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Storage
@@ -95,6 +96,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
         # Get current path for language switcher
         current_path = socket.assigns[:url_path] || Shop.product_url(product, current_language)
+
+        # Subscribe to product updates if connected
+        if connected?(socket) do
+          Events.subscribe_product(product.id)
+          Events.subscribe_inventory()
+        end
 
         socket =
           socket
@@ -1200,5 +1207,27 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   defp get_language_from_params_or_default(_params) do
     # Non-localized route - always use default language
     Translations.default_language()
+  end
+
+  # PubSub event handlers
+  @impl true
+  def handle_info({:product_updated, updated_product}, socket) do
+    # Only update if it's the same product
+    if updated_product.id == socket.assigns.product.id do
+      {:noreply, assign(socket, :product, updated_product)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:inventory_updated, product_id, _change}, socket) do
+    if product_id == socket.assigns.product.id do
+      # Reload product to get updated stock
+      product = Shop.get_product!(product_id)
+      {:noreply, assign(socket, :product, product)}
+    else
+      {:noreply, socket}
+    end
   end
 end

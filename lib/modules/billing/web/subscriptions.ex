@@ -8,12 +8,17 @@ defmodule PhoenixKit.Modules.Billing.Web.Subscriptions do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Billing.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
     if Billing.enabled?() do
+      if connected?(socket) do
+        Events.subscribe_subscriptions()
+      end
+
       project_title = Settings.get_project_title()
 
       socket =
@@ -116,6 +121,32 @@ defmodule PhoenixKit.Modules.Billing.Web.Subscriptions do
     else
       {:noreply, put_flash(socket, :error, "Subscription not found")}
     end
+  end
+
+  # PubSub event handlers
+  @impl true
+  def handle_info({:subscription_created, _subscription}, socket) do
+    {:noreply, load_subscriptions(socket)}
+  end
+
+  @impl true
+  def handle_info({:subscription_cancelled, _subscription}, socket) do
+    {:noreply, load_subscriptions(socket)}
+  end
+
+  @impl true
+  def handle_info({:subscription_renewed, _subscription}, socket) do
+    {:noreply, load_subscriptions(socket)}
+  end
+
+  @impl true
+  def handle_info({:subscription_plan_changed, _subscription, _old_plan, _new_plan}, socket) do
+    {:noreply, load_subscriptions(socket)}
+  end
+
+  @impl true
+  def handle_info({:subscription_status_changed, _subscription, _old_status, _new_status}, socket) do
+    {:noreply, load_subscriptions(socket)}
   end
 
   defp build_query_string(status, search) do
