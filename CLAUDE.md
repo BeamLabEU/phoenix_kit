@@ -484,6 +484,19 @@ PhoenixKit.Entities.create_entity(%{name: "products", ...})
 
 When adding UUID fields to schemas that use integer primary keys, follow this pattern:
 
+**Why UUIDv7?**
+
+PhoenixKit uses **UUIDv7** (RFC 9562, finalized 2024) exclusively for all UUID generation:
+
+| Feature | UUIDv4 | UUIDv7 |
+|---------|--------|--------|
+| Format | Random 128-bit | Time-ordered (48-bit timestamp + random) |
+| Index Performance | Poor (random inserts) | Excellent (sequential inserts) |
+| Sortable | No | Yes (chronologically) |
+| Example | `a1b2c3d4-e5f6-4210-a1b2-c3d4e5f6a1b2` | `019b5704-3680-7b95-9d82-ef16127f1fd2` |
+
+UUIDv7 provides better database index locality than random UUIDv4 because the first 48 bits are a Unix timestamp, making inserts sequential and indexes more efficient.
+
 **Schema Definition:**
 ```elixir
 schema "my_table" do
@@ -491,6 +504,17 @@ schema "my_table" do
   # DB generates UUIDv7, Ecto reads it back after insert
   field :uuid, Ecto.UUID, read_after_writes: true
 
+  # ... other fields
+end
+```
+
+**For Native UUID Primary Keys:**
+```elixir
+@primary_key {:id, UUIDv7, autogenerate: true}
+@foreign_key_type UUIDv7
+
+schema "my_table" do
+  # id is now a UUIDv7, not an integer
   # ... other fields
 end
 ```
