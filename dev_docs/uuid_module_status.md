@@ -1,6 +1,6 @@
 # PhoenixKit Modules - UUID Status
 
-**Last Updated**: 2026-02-04
+**Last Updated**: 2026-02-04 (Reviewed with findings)
 **Reference PRs**: #311, #312, #313, #314, #315, #316, #317
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
@@ -16,7 +16,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | **Emails** | 4 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Sync** | 2 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Legal** | 1 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
-| **Referrals** | 2 | ✅ New Standard | `read_after_writes: true`, flexible lookups (PR #317) |
+| **Referrals** | 2 | 🔧 Redundant | Has `read_after_writes: true` but still uses `maybe_generate_uuid` |
 | **Posts** | 13 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
 | **Connections** | 6 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
 | **Storage** | 5 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
@@ -29,6 +29,14 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | **Sitemap** | 0 | — | File-based generation |
 | **Blogging** | 0 | — | Wrapper module |
 
+### Core PhoenixKit (Non-Modules)
+
+| Component | Schemas | UUID Status | Notes |
+|-----------|---------|-------------|-------|
+| **AuditLog** | 1 | ⚠️ Old Pattern | Missing `read_after_writes`, uses `maybe_generate_uuid` |
+| **Settings** | 1 | ⚠️ Old Pattern | Missing `read_after_writes`, uses `maybe_generate_uuid` |
+| **Users** | 6 | ⚠️ Old Pattern | Missing `read_after_writes`, uses `maybe_generate_uuid` |
+
 ## Legend
 
 | Status | Meaning |
@@ -36,6 +44,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | ✅ New Standard | DB-generated UUID, `read_after_writes: true`, flexible `get/1` lookups |
 | ✅ Native UUID PK | UUID as primary key (`@primary_key {:id, UUIDv7, autogenerate: true}`) |
 | ⚠️ Old Pattern | Has UUID field but uses app-side `maybe_generate_uuid` |
+| 🔧 Redundant Pattern | Has `read_after_writes: true` but still has `maybe_generate_uuid` (should be removed) |
 | — | No database schemas |
 
 ## Summary
@@ -44,10 +53,13 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 |----------|---------|---------|
 | ✅ New Standard | 8 | 31 |
 | ✅ Native UUID PK | 4 | 28 |
-| ⚠️ Old Pattern | 0 | 0 |
+| ⚠️ Old Pattern | 1 | 8 |
+| 🔧 Redundant Pattern* | 1 | 2 |
 | ❌ No UUID | 0 | 0 |
-| — No schemas | 7 | 0 |
-| **Total** | **19** | **59** |
+| — No schemas | 6 | 0 |
+| **Total** | **19** | **69** |
+
+> \* Has `read_after_writes: true` but still uses `maybe_generate_uuid` (should be removed)
 
 ---
 
@@ -195,6 +207,32 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 - `ticket_comment.ex` - `phoenix_kit_ticket_comments`
 - `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
 
+### ⚠️ Old Pattern (8 schemas)
+
+These core PhoenixKit schemas still use the old pattern (app-side UUID generation with `maybe_generate_uuid`):
+
+#### Core - AuditLog (1 schema)
+- `lib/phoenix_kit/audit_log/entry.ex` - `phoenix_kit_audit_log`
+
+#### Core - Settings (1 schema)
+- `lib/phoenix_kit/settings/setting.ex` - `phoenix_kit_settings`
+
+#### Core - Users (6 schemas)
+- `lib/phoenix_kit/users/auth/user.ex` - `users`
+- `lib/phoenix_kit/users/auth/user_token.ex` - `user_tokens`
+- `lib/phoenix_kit/users/role.ex` - `roles`
+- `lib/phoenix_kit/users/role_assignment.ex` - `role_assignments`
+- `lib/phoenix_kit/users/admin_note.ex` - `admin_notes`
+- `lib/phoenix_kit/users/oauth_provider.ex` - `oauth_providers`
+
+### 🔧 Redundant Pattern (2 schemas)
+
+These schemas have `read_after_writes: true` but still include `maybe_generate_uuid` (redundant):
+
+#### Referrals Module
+- `lib/modules/referrals/referrals.ex` - `phoenix_kit_referral_codes`
+- `lib/modules/referrals/schemas/referral_code_usage.ex` - `phoenix_kit_referral_code_usage`
+
 ### Other
 
 #### Shop Module (1 schema without UUID)
@@ -204,7 +242,38 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 
 ## Migration Priority
 
-All modules with UUID fields have been updated to the new standard. ✅
+## Migration Status: **INCOMPLETE** ⚠️
+
+### ✅ Completed
+- All PhoenixKit modules under `lib/modules/` (except Referrals - see below)
+- 31 schemas using New Standard pattern
+- 28 schemas using Native UUID PK pattern
+
+### ⚠️ Still Pending
+
+#### 1. Core PhoenixKit Schemas (8 schemas - OLD PATTERN)
+Located in `lib/phoenix_kit/` - these were **not included** in the migration:
+
+| Schema | File | Issue |
+|--------|------|-------|
+| AuditLog Entry | `lib/phoenix_kit/audit_log/entry.ex` | Missing `read_after_writes: true`, uses `maybe_generate_uuid` |
+| Setting | `lib/phoenix_kit/settings/setting.ex` | Missing `read_after_writes: true`, uses `maybe_generate_uuid` |
+| User | `lib/phoenix_kit/users/auth/user.ex` | Missing `read_after_writes: true`, uses `maybe_generate_uuid` |
+| UserToken | `lib/phoenix_kit/users/auth/user_token.ex` | Missing `read_after_writes: true` |
+| Role | `lib/phoenix_kit/users/role.ex` | Missing `read_after_writes: true`, uses `maybe_generate_uuid` |
+| RoleAssignment | `lib/phoenix_kit/users/role_assignment.ex` | Missing `read_after_writes: true`, uses `maybe_generate_uuid` |
+| AdminNote | `lib/phoenix_kit/users/admin_note.ex` | Missing `read_after_writes: true`, uses `maybe_generate_uuid` |
+| OAuthProvider | `lib/phoenix_kit/users/oauth_provider.ex` | Missing `read_after_writes: true`, uses `maybe_generate_uuid` |
+
+#### 2. Referrals Module (2 schemas - REDUNDANT PATTERN)
+Located in `lib/modules/referrals/` - documented as complete but has **redundant** implementation:
+
+| Schema | File | Issue |
+|--------|------|-------|
+| ReferralCode | `lib/modules/referrals/referrals.ex` | Has `read_after_writes: true` but **still has `maybe_generate_uuid`** (should be removed) |
+| ReferralCodeUsage | `lib/modules/referrals/schemas/referral_code_usage.ex` | Has `read_after_writes: true` but **still has `maybe_generate_uuid`** (should be removed) |
+
+> **Note**: The Referrals module works correctly because `read_after_writes: true` ensures the DB-generated UUID is read back. However, the `maybe_generate_uuid` function is redundant since the database already generates the UUID via DEFAULT. It should be removed for consistency with the New Standard pattern.
 
 ---
 
@@ -221,6 +290,34 @@ When updating a module to the new UUID standard:
 - [ ] Use `UUIDUtils.valid?/1` for UUID validation
 - [ ] Update docstrings to document UUID support
 - [ ] Test backward compatibility with integer IDs
+
+## Remaining Work
+
+### Phase 1: Core PhoenixKit Schemas (Priority: High)
+The following schemas in `lib/phoenix_kit/` need to be updated to the New Standard:
+
+1. **AuditLog**
+   - [ ] Add `read_after_writes: true` to UUID field
+   - [ ] Remove `maybe_generate_uuid` function
+   - [ ] Ensure DB migration has UUID DEFAULT
+
+2. **Settings**
+   - [ ] Add `read_after_writes: true` to UUID field
+   - [ ] Remove `maybe_generate_uuid` function
+   - [ ] Ensure DB migration has UUID DEFAULT
+
+3. **Users System**
+   - [ ] Update User schema
+   - [ ] Update UserToken schema
+   - [ ] Update Role schema
+   - [ ] Update RoleAssignment schema
+   - [ ] Update AdminNote schema
+   - [ ] Update OAuthProvider schema
+
+### Phase 2: Cleanup (Priority: Medium)
+1. **Referrals Module**
+   - [ ] Remove redundant `maybe_generate_uuid` from `referrals.ex`
+   - [ ] Remove redundant `maybe_generate_uuid` from `referral_code_usage.ex`
 
 ---
 
