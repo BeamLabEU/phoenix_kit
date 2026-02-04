@@ -560,9 +560,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
             <%!-- Description --%>
             <%= if @localized_description do %>
-              <div class="prose prose-sm max-w-none">
-                <p>{@localized_description}</p>
-              </div>
+              <.markdown content={@localized_description} sanitize={false} compact />
             <% end %>
 
             <%!-- Product Details --%>

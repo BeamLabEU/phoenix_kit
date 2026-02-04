@@ -208,7 +208,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 <h2 class="card-title">Product Details</h2>
 
                 <%= if @product_description do %>
-                  <p class="text-base-content/80">{@product_description}</p>
+                  <.markdown
+                    content={@product_description}
+                    sanitize={false}
+                    compact
+                    class="text-base-content/80"
+                  />
                 <% end %>
 
                 <div class="divider"></div>

@@ -132,6 +132,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.FileUpload
       import PhoenixKitWeb.Components.Core.LanguageSwitcher
       import PhoenixKitWeb.Components.Core.MarkdownContent
+      import PhoenixKitWeb.Components.Core.Markdown
       import PhoenixKitWeb.Components.Core.DraggableList
       import PhoenixKitWeb.Components.Core.OrderStatusBadge
       import PhoenixKitWeb.Components.Core.InvoiceStatusBadge
