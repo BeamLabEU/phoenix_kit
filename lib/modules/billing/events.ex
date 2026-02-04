@@ -10,6 +10,8 @@ defmodule PhoenixKit.Modules.Billing.Events do
   - `phoenix_kit:billing:orders` - Order events (created, updated, confirmed, paid, cancelled)
   - `phoenix_kit:billing:invoices` - Invoice events (created, sent, paid, voided)
   - `phoenix_kit:billing:profiles` - Billing profile events (created, updated, deleted)
+  - `phoenix_kit:billing:transactions` - Transaction events (created, refunded)
+  - `phoenix_kit:billing:credit_notes` - Credit note events (sent, applied)
 
   ## Usage Examples
 
@@ -31,6 +33,9 @@ defmodule PhoenixKit.Modules.Billing.Events do
   @orders_topic "phoenix_kit:billing:orders"
   @invoices_topic "phoenix_kit:billing:invoices"
   @profiles_topic "phoenix_kit:billing:profiles"
+  @transactions_topic "phoenix_kit:billing:transactions"
+  @credit_notes_topic "phoenix_kit:billing:credit_notes"
+  @subscriptions_topic "phoenix_kit:billing:subscriptions"
 
   # ============================================
   # SUBSCRIPTIONS
@@ -58,6 +63,34 @@ defmodule PhoenixKit.Modules.Billing.Events do
   end
 
   @doc """
+  Subscribes to transaction events.
+  """
+  def subscribe_transactions do
+    Manager.subscribe(@transactions_topic)
+  end
+
+  @doc """
+  Subscribes to credit note events.
+  """
+  def subscribe_credit_notes do
+    Manager.subscribe(@credit_notes_topic)
+  end
+
+  @doc """
+  Subscribes to subscription events.
+  """
+  def subscribe_subscriptions do
+    Manager.subscribe(@subscriptions_topic)
+  end
+
+  @doc """
+  Subscribes to subscription events for a specific user.
+  """
+  def subscribe_user_subscriptions(user_id) do
+    Manager.subscribe("#{@subscriptions_topic}:user:#{user_id}")
+  end
+
+  @doc """
   Subscribes to order events for a specific user.
   """
   def subscribe_user_orders(user_id) do
@@ -69,6 +102,13 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def subscribe_user_invoices(user_id) do
     Manager.subscribe("#{@invoices_topic}:user:#{user_id}")
+  end
+
+  @doc """
+  Subscribes to transaction events for a specific user.
+  """
+  def subscribe_user_transactions(user_id) do
+    Manager.subscribe("#{@transactions_topic}:user:#{user_id}")
   end
 
   # ============================================
@@ -174,6 +214,122 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_profile_deleted(profile) do
     broadcast(@profiles_topic, {:profile_deleted, profile})
+  end
+
+  # ============================================
+  # TRANSACTION BROADCASTS
+  # ============================================
+
+  @doc """
+  Broadcasts transaction created event.
+  """
+  def broadcast_transaction_created(transaction) do
+    broadcast(@transactions_topic, {:transaction_created, transaction})
+
+    broadcast(
+      "#{@transactions_topic}:user:#{transaction.user_id}",
+      {:transaction_created, transaction}
+    )
+  end
+
+  @doc """
+  Broadcasts transaction refunded event.
+  """
+  def broadcast_transaction_refunded(transaction) do
+    broadcast(@transactions_topic, {:transaction_refunded, transaction})
+
+    broadcast(
+      "#{@transactions_topic}:user:#{transaction.user_id}",
+      {:transaction_refunded, transaction}
+    )
+  end
+
+  # ============================================
+  # CREDIT NOTE BROADCASTS
+  # ============================================
+
+  @doc """
+  Broadcasts credit note sent event.
+  """
+  def broadcast_credit_note_sent(invoice, transaction) do
+    broadcast(@credit_notes_topic, {:credit_note_sent, invoice, transaction})
+  end
+
+  @doc """
+  Broadcasts credit note applied event.
+  """
+  def broadcast_credit_note_applied(invoice, transaction, amount) do
+    broadcast(@credit_notes_topic, {:credit_note_applied, invoice, transaction, amount})
+  end
+
+  # ============================================
+  # SUBSCRIPTION BROADCASTS
+  # ============================================
+
+  @doc """
+  Broadcasts subscription created event.
+  """
+  def broadcast_subscription_created(subscription) do
+    broadcast(@subscriptions_topic, {:subscription_created, subscription})
+
+    broadcast(
+      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      {:subscription_created, subscription}
+    )
+  end
+
+  @doc """
+  Broadcasts subscription cancelled event.
+  """
+  def broadcast_subscription_cancelled(subscription) do
+    broadcast(@subscriptions_topic, {:subscription_cancelled, subscription})
+
+    broadcast(
+      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      {:subscription_cancelled, subscription}
+    )
+  end
+
+  @doc """
+  Broadcasts subscription renewed event.
+  """
+  def broadcast_subscription_renewed(subscription) do
+    broadcast(@subscriptions_topic, {:subscription_renewed, subscription})
+
+    broadcast(
+      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      {:subscription_renewed, subscription}
+    )
+  end
+
+  @doc """
+  Broadcasts subscription plan changed event.
+  """
+  def broadcast_subscription_plan_changed(subscription, old_plan_id, new_plan_id) do
+    broadcast(
+      @subscriptions_topic,
+      {:subscription_plan_changed, subscription, old_plan_id, new_plan_id}
+    )
+
+    broadcast(
+      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      {:subscription_plan_changed, subscription, old_plan_id, new_plan_id}
+    )
+  end
+
+  @doc """
+  Broadcasts subscription status changed event.
+  """
+  def broadcast_subscription_status_changed(subscription, old_status, new_status) do
+    broadcast(
+      @subscriptions_topic,
+      {:subscription_status_changed, subscription, old_status, new_status}
+    )
+
+    broadcast(
+      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      {:subscription_status_changed, subscription, old_status, new_status}
+    )
   end
 
   # ============================================

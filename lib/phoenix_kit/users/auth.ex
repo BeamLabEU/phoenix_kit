@@ -2098,4 +2098,415 @@ defmodule PhoenixKit.Users.Auth do
   def change_admin_note(%AdminNote{} = note, attrs \\ %{}) do
     AdminNote.changeset(note, attrs)
   end
+
+  ## User Deletion
+
+  @doc """
+  Deletes a user account with proper cascade handling and data anonymization.
+
+  ## Protection Rules
+
+  1. Cannot delete self - Prevents accidental self-deletion
+  2. Cannot delete last Owner - System must always have at least one Owner
+  3. Admin/Owner only - Only privileged users can delete accounts
+
+  ## Data Handling Strategy
+
+  ### Cascade Delete (automatic or manual)
+  - User tokens (ON DELETE CASCADE in DB)
+  - Role assignments (ON DELETE CASCADE in DB)
+  - OAuth providers
+  - Billing profiles
+  - Shop carts
+  - Admin notes
+
+  ### Anonymize (preserve data, remove PII)
+  - Orders - SET NULL on user_id, preserve financial records
+  - Posts - Keep content, set user_id to NULL, mark as deleted author
+  - Comments - Keep content, set user_id to NULL, mark as deleted author
+  - Tickets - Preserve for support history, anonymize
+  - Email logs - Retain for compliance, anonymize
+  - Files - Anonymize ownership
+
+  ## Parameters
+
+  - `user` - The user to delete
+  - `opts` - Options map containing:
+    - `:current_user` - The user performing the deletion (required)
+    - `:ip_address` - IP address for audit logging
+    - `:user_agent` - User agent for audit logging
+
+  ## Returns
+
+  - `{:ok, %{deleted_user_id: id, anonymized_records: count}}` - Success
+  - `{:error, :cannot_delete_self}` - Cannot delete your own account
+  - `{:error, :cannot_delete_last_owner}` - Cannot delete the last Owner
+  - `{:error, :insufficient_permissions}` - Current user lacks permission
+  - `{:error, reason}` - Other errors
+
+  ## Examples
+
+      iex> delete_user(user, %{current_user: admin_user})
+      {:ok, %{deleted_user_id: 123, anonymized_records: 15}}
+
+      iex> delete_user(user, %{current_user: user})
+      {:error, :cannot_delete_self}
+
+      iex> delete_user(last_owner, %{current_user: admin_user})
+      {:error, :cannot_delete_last_owner}
+
+      iex> delete_user(admin_user, %{current_user: non_owner_admin})
+      {:error, :insufficient_permissions}
+  """
+  def delete_user(%User{} = user, opts \\ %{}) do
+    current_user = Map.get(opts, :current_user)
+
+    with :ok <- validate_can_delete_user(user, current_user),
+         {:ok, result} <- execute_user_deletion(user, opts) do
+      {:ok, result}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Checks if a user can be deleted by the current user.
+
+  Returns `:ok` if deletion is allowed, or `{:error, reason}` if not.
+
+  ## Examples
+
+      iex> can_delete_user?(user_to_delete, current_user)
+      :ok
+
+      iex> can_delete_user?(current_user, current_user)
+      {:error, :cannot_delete_self}
+  """
+  def can_delete_user?(%User{} = user, %User{} = current_user) do
+    case validate_can_delete_user(user, current_user) do
+      :ok -> true
+      {:error, _reason} -> false
+    end
+  end
+
+  def can_delete_user?(_user, _current_user), do: false
+
+  # Validates deletion permissions and constraints
+  defp validate_can_delete_user(%User{} = user, %User{} = current_user) do
+    cond do
+      # Rule 1: Cannot delete self
+      user.id == current_user.id ->
+        {:error, :cannot_delete_self}
+
+      # Rule 2: Cannot delete last Owner
+      Roles.user_has_role_owner?(user) and count_remaining_owners(user.id) < 1 ->
+        {:error, :cannot_delete_last_owner}
+
+      # Rule 3: Only Owner can delete Admin users
+      Roles.user_has_role_admin?(user) and not Roles.user_has_role_owner?(current_user) ->
+        {:error, :insufficient_permissions}
+
+      # Rule 4: Only Admin/Owner can delete (checked via scope in controller/LiveView)
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_can_delete_user(_user, _current_user) do
+    {:error, :invalid_current_user}
+  end
+
+  # Count remaining active owners excluding the given user
+  defp count_remaining_owners(excluding_user_id) do
+    roles = Role.system_roles()
+
+    from(u in User,
+      join: assignment in assoc(u, :role_assignments),
+      join: role in assoc(assignment, :role),
+      where: role.name == ^roles.owner,
+      where: u.is_active == true,
+      where: u.id != ^excluding_user_id,
+      select: count(u.id)
+    )
+    |> Repo.one() || 0
+  end
+
+  # Execute the deletion within a transaction
+  defp execute_user_deletion(%User{} = user, opts) do
+    Repo.transaction(fn ->
+      # 1. Delete cascade data (related records that should be fully removed)
+      delete_cascade_data(user)
+
+      # 2. Anonymize preserved data (records that should remain but without PII)
+      anonymized_count = anonymize_user_data(user)
+
+      # 3. Delete the user
+      case Repo.delete(user) do
+        {:ok, _deleted_user} ->
+          # 4. Log the deletion
+          log_user_deletion(user, opts, anonymized_count)
+
+          # 5. Broadcast the deletion event
+          Events.broadcast_user_deleted(user)
+
+          %{deleted_user_id: user.id, anonymized_records: anonymized_count}
+
+        {:error, changeset} ->
+          Repo.rollback({:error, changeset})
+      end
+    end)
+    |> case do
+      {:ok, result} -> {:ok, result}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Delete related data that should be fully removed
+  defp delete_cascade_data(%User{} = user) do
+    # Delete OAuth providers
+    delete_user_oauth_providers(user.id)
+
+    # Delete billing profiles
+    delete_user_billing_profiles(user.id)
+
+    # Delete shop carts
+    delete_user_shop_carts(user.id)
+
+    # Delete admin notes about this user
+    delete_user_admin_notes(user.id)
+
+    :ok
+  end
+
+  # Delete OAuth providers for a user
+  defp delete_user_oauth_providers(user_id) do
+    from(op in PhoenixKit.Users.OAuthProvider, where: op.user_id == ^user_id)
+    |> Repo.repo().delete_all()
+  end
+
+  # Delete billing profiles for a user
+  defp delete_user_billing_profiles(user_id) do
+    from(bp in PhoenixKit.Modules.Billing.BillingProfile, where: bp.user_id == ^user_id)
+    |> Repo.repo().delete_all()
+  end
+
+  # Delete shop carts for a user
+  defp delete_user_shop_carts(user_id) do
+    from(c in PhoenixKit.Modules.Shop.Cart, where: c.user_id == ^user_id)
+    |> Repo.repo().delete_all()
+  end
+
+  # Delete admin notes for a user
+  defp delete_user_admin_notes(user_id) do
+    from(an in AdminNote, where: an.user_id == ^user_id)
+    |> Repo.repo().delete_all()
+  end
+
+  # Anonymize data that should be preserved but without PII
+  defp anonymize_user_data(%User{} = user) do
+    anonymized_count = 0
+
+    # Anonymize orders - set user_id to NULL
+    orders_count = anonymize_user_orders(user.id)
+
+    # Anonymize posts - set user_id to NULL, mark as deleted author
+    posts_count = anonymize_user_posts(user.id)
+
+    # Anonymize comments - set user_id to NULL, mark as deleted author
+    comments_count = anonymize_user_comments(user.id)
+
+    # Anonymize tickets - preserve for support history
+    tickets_count = anonymize_user_tickets(user.id)
+
+    # Anonymize email logs - retain for compliance
+    email_logs_count = anonymize_user_email_logs(user.id)
+
+    # Anonymize files - remove ownership
+    files_count = anonymize_user_files(user.id)
+
+    anonymized_count +
+      orders_count +
+      posts_count +
+      comments_count +
+      tickets_count +
+      email_logs_count +
+      files_count
+  end
+
+  # Anonymize orders by setting user_id to NULL
+  defp anonymize_user_orders(user_id) do
+    # Check if Orders module exists and has the schema
+    # Note: Order schema doesn't exist in Shop module yet - this is for future compatibility
+    module = Module.concat([PhoenixKit, Modules, Shop, Order])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
+      dynamic_query = dynamic([o], o.user_id == ^user_id)
+
+      from(o in module, where: ^dynamic_query)
+      |> Repo.repo().update_all(set: [user_id: nil, anonymized_at: DateTime.utc_now()])
+      |> elem(0)
+    else
+      0
+    end
+  rescue
+    _ -> 0
+  end
+
+  # Anonymize posts by setting user_id to NULL and marking deleted author
+  defp anonymize_user_posts(user_id) do
+    module = Module.concat([PhoenixKit, Modules, Posts, Post])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
+      dynamic_query = dynamic([p], p.user_id == ^user_id)
+
+      from(p in module, where: ^dynamic_query)
+      |> Repo.repo().update_all(
+        set: [
+          user_id: nil,
+          author_deleted: true,
+          anonymized_at: DateTime.utc_now()
+        ]
+      )
+      |> elem(0)
+    else
+      0
+    end
+  rescue
+    _ -> 0
+  end
+
+  # Anonymize comments by setting user_id to NULL and marking deleted author
+  defp anonymize_user_comments(user_id) do
+    # PostComment is the actual schema name in Posts module
+    module = Module.concat([PhoenixKit, Modules, Posts, PostComment])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
+      dynamic_query = dynamic([c], c.user_id == ^user_id)
+
+      from(c in module, where: ^dynamic_query)
+      |> Repo.repo().update_all(
+        set: [
+          user_id: nil,
+          author_deleted: true,
+          anonymized_at: DateTime.utc_now()
+        ]
+      )
+      |> elem(0)
+    else
+      0
+    end
+  rescue
+    _ -> 0
+  end
+
+  # Anonymize tickets for support history
+  defp anonymize_user_tickets(user_id) do
+    module = Module.concat([PhoenixKit, Modules, Tickets, Ticket])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
+      dynamic_query = dynamic([t], t.user_id == ^user_id)
+
+      from(t in module, where: ^dynamic_query)
+      |> Repo.repo().update_all(
+        set: [
+          user_id: nil,
+          anonymized_at: DateTime.utc_now(),
+          original_user_email: nil
+        ]
+      )
+      |> elem(0)
+    else
+      0
+    end
+  rescue
+    _ -> 0
+  end
+
+  # Anonymize email logs - retain for compliance but remove PII
+  defp anonymize_user_email_logs(user_id) do
+    # Emails.Log is in PhoenixKit.Modules.Emails namespace
+    module = Module.concat([PhoenixKit, Modules, Emails, Log])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
+      dynamic_query = dynamic([el], el.user_id == ^user_id)
+
+      from(el in module, where: ^dynamic_query)
+      |> Repo.repo().update_all(
+        set: [
+          user_id: nil,
+          anonymized_at: DateTime.utc_now()
+        ]
+      )
+      |> elem(0)
+    else
+      0
+    end
+  rescue
+    _ -> 0
+  end
+
+  # Anonymize files - remove ownership
+  defp anonymize_user_files(user_id) do
+    module = Module.concat([PhoenixKit, Modules, Storage, File])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
+      dynamic_query = dynamic([f], f.user_id == ^user_id)
+
+      from(f in module, where: ^dynamic_query)
+      |> Repo.repo().update_all(
+        set: [
+          user_id: nil,
+          anonymized_at: DateTime.utc_now()
+        ]
+      )
+      |> elem(0)
+    else
+      0
+    end
+  rescue
+    _ -> 0
+  end
+
+  # Log user deletion for audit purposes
+  defp log_user_deletion(%User{} = user, opts, anonymized_count) do
+    current_user = Map.get(opts, :current_user)
+    ip_address = Map.get(opts, :ip_address)
+    user_agent = Map.get(opts, :user_agent)
+
+    Logger.info(
+      "PhoenixKit: User #{user.id} (#{user.email}) deleted by " <>
+        "#{if current_user, do: "admin #{current_user.id} (#{current_user.email})", else: "system"}. " <>
+        "Anonymized #{anonymized_count} records."
+    )
+
+    # If audit log module is available, log there too
+    audit_module = Module.concat([PhoenixKit, AuditLog])
+
+    if Code.ensure_loaded?(audit_module) and
+         function_exported?(audit_module, :create_log_entry, 1) do
+      log_attrs = %{
+        target_user_id: user.id,
+        admin_user_id: current_user && current_user.id,
+        action: :user_deleted,
+        ip_address: ip_address,
+        user_agent: user_agent,
+        metadata: %{
+          target_email: user.email,
+          admin_email: current_user && current_user.email,
+          anonymized_records: anonymized_count
+        }
+      }
+
+      # Don't fail if audit logging fails
+      # Using apply/3 intentionally to avoid compile-time module resolution
+      try do
+        # credo:disable-for-next-line Credo.Check.Refactor.Apply
+        apply(audit_module, :create_log_entry, [log_attrs])
+      rescue
+        _ -> :ok
+      end
+    end
+
+    :ok
+  end
 end

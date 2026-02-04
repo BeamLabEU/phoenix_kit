@@ -390,11 +390,13 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Private: proxy through server (for ACL-protected S3 buckets)
   - Enables FileController to handle both public and private S3 buckets
 
-  ### V51 - Cart Items Unique Constraint Fix ⚡ LATEST
+  ### V51 - Cart Items Unique Constraint + User Deletion FK Fixes ⚡ LATEST
   - Fix unique constraint to allow same product with different options
   - Include selected_specs in uniqueness check via MD5 hash
-  - Enables proper cart behavior for products with variants/options
-  - Users can now add same product with different sizes/colors to cart
+  - orders.user_id: RESTRICT → SET NULL (preserve orders, anonymize user)
+  - billing_profiles.user_id: CASCADE → SET NULL (preserve for history)
+  - tickets.user_id: DELETE_ALL → SET NULL (preserve support history)
+  - Enables GDPR-compliant user deletion while preserving financial records
 
   ## Migration Paths
 

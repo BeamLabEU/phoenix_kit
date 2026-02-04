@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
@@ -16,6 +17,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Events.subscribe_products()
+      Events.subscribe_inventory()
+    end
+
     {products, total} = Shop.list_products_with_count(per_page: @per_page, preload: [:category])
     currency = Shop.get_default_currency()
     categories = Shop.list_categories()
@@ -278,6 +284,32 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
     socket
     |> assign(:products, products)
     |> assign(:total, total)
+  end
+
+  # PubSub event handlers
+  @impl true
+  def handle_info({:product_created, _product}, socket) do
+    {:noreply, load_products(socket)}
+  end
+
+  @impl true
+  def handle_info({:product_updated, _product}, socket) do
+    {:noreply, load_products(socket)}
+  end
+
+  @impl true
+  def handle_info({:product_deleted, _product_id}, socket) do
+    {:noreply, load_products(socket)}
+  end
+
+  @impl true
+  def handle_info({:products_bulk_status_changed, _ids, _status}, socket) do
+    {:noreply, load_products(socket)}
+  end
+
+  @impl true
+  def handle_info({:inventory_updated, _product_id, _change}, socket) do
+    {:noreply, load_products(socket)}
   end
 
   @impl true

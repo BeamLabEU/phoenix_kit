@@ -94,11 +94,41 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
   @impl true
   def handle_event("delete_user", _params, socket) do
-    # User deletion not yet implemented in Auth API
-    {:noreply,
-     socket
-     |> assign(:show_delete_modal, false)
-     |> put_flash(:error, gettext("User deletion is not yet implemented"))}
+    user = socket.assigns.user
+    current_user = socket.assigns.phoenix_kit_current_scope.user
+
+    opts = %{
+      current_user: current_user,
+      ip_address: socket.assigns[:ip_address],
+      user_agent: socket.assigns[:user_agent]
+    }
+
+    case Auth.delete_user(user, opts) do
+      {:ok, _result} ->
+        {:noreply,
+         socket
+         |> assign(:show_delete_modal, false)
+         |> put_flash(:info, gettext("User deleted successfully"))
+         |> push_navigate(to: Routes.path("/admin/users"))}
+
+      {:error, :cannot_delete_self} ->
+        {:noreply,
+         socket
+         |> assign(:show_delete_modal, false)
+         |> put_flash(:error, gettext("Cannot delete your own account"))}
+
+      {:error, :cannot_delete_last_owner} ->
+        {:noreply,
+         socket
+         |> assign(:show_delete_modal, false)
+         |> put_flash(:error, gettext("Cannot delete the last system owner"))}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> assign(:show_delete_modal, false)
+         |> put_flash(:error, gettext("Failed to delete user"))}
+    end
   end
 
   # Admin Notes Events

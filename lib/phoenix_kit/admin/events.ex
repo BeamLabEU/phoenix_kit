@@ -126,6 +126,14 @@ defmodule PhoenixKit.Admin.Events do
     maybe_broadcast_stats_updated()
   end
 
+  @doc """
+  Broadcasts user deletion event to admin panels.
+  """
+  def broadcast_user_deleted(user) do
+    broadcast(@topic_users, {:user_deleted, user})
+    maybe_broadcast_stats_updated()
+  end
+
   ## Role Events
 
   @doc """

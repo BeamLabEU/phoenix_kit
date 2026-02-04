@@ -329,6 +329,19 @@
                               </button>
                             <% end %>
 
+                            <%!-- Delete User --%>
+                            <%= if user.id != @phoenix_kit_current_user.id && get_primary_role_name_unsafe(user) != "Owner" && Auth.can_delete_user?(user, @phoenix_kit_current_user) do %>
+                              <button
+                                class="btn btn-xs btn-outline btn-error"
+                                phx-click="request_delete_user"
+                                phx-value-user_id={user.id}
+                                data-confirm="Are you sure you want to delete this user? This action cannot be undone."
+                                title="Delete user"
+                              >
+                                <.icon name="hero-trash" class="h-4 w-4" />
+                              </button>
+                            <% end %>
+
                             <%!-- Email Confirmation Toggle --%>
                             <%= if user.id != @phoenix_kit_current_user.id && get_primary_role_name_unsafe(user) != "Owner" do %>
                               <button

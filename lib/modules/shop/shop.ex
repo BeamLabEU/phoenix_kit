@@ -272,9 +272,19 @@ defmodule PhoenixKit.Modules.Shop do
   def create_product(attrs) do
     attrs = MetadataValidator.normalize_product_attrs(attrs)
 
-    %Product{}
-    |> Product.changeset(attrs)
-    |> repo().insert()
+    result =
+      %Product{}
+      |> Product.changeset(attrs)
+      |> repo().insert()
+
+    case result do
+      {:ok, product} ->
+        Events.broadcast_product_created(product)
+        {:ok, product}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -286,16 +296,35 @@ defmodule PhoenixKit.Modules.Shop do
   def update_product(%Product{} = product, attrs) do
     attrs = MetadataValidator.normalize_product_attrs(attrs)
 
-    product
-    |> Product.changeset(attrs)
-    |> repo().update()
+    result =
+      product
+      |> Product.changeset(attrs)
+      |> repo().update()
+
+    case result do
+      {:ok, updated_product} ->
+        Events.broadcast_product_updated(updated_product)
+        {:ok, updated_product}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Deletes a product.
   """
   def delete_product(%Product{} = product) do
-    repo().delete(product)
+    product_id = product.id
+
+    case repo().delete(product) do
+      {:ok, _} = result ->
+        Events.broadcast_product_deleted(product_id)
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -314,6 +343,10 @@ defmodule PhoenixKit.Modules.Shop do
       Product
       |> where([p], p.id in ^ids)
       |> repo().update_all(set: [status: status, updated_at: DateTime.utc_now()])
+
+    if count > 0 do
+      Events.broadcast_products_bulk_status_changed(ids, status)
+    end
 
     count
   end
@@ -604,25 +637,54 @@ defmodule PhoenixKit.Modules.Shop do
   Creates a new category.
   """
   def create_category(attrs) do
-    %Category{}
-    |> Category.changeset(attrs)
-    |> repo().insert()
+    result =
+      %Category{}
+      |> Category.changeset(attrs)
+      |> repo().insert()
+
+    case result do
+      {:ok, category} ->
+        Events.broadcast_category_created(category)
+        {:ok, category}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Updates a category.
   """
   def update_category(%Category{} = category, attrs) do
-    category
-    |> Category.changeset(attrs)
-    |> repo().update()
+    result =
+      category
+      |> Category.changeset(attrs)
+      |> repo().update()
+
+    case result do
+      {:ok, updated_category} ->
+        Events.broadcast_category_updated(updated_category)
+        {:ok, updated_category}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Deletes a category.
   """
   def delete_category(%Category{} = category) do
-    repo().delete(category)
+    category_id = category.id
+
+    case repo().delete(category) do
+      {:ok, _} = result ->
+        Events.broadcast_category_deleted(category_id)
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """

@@ -7,11 +7,16 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
 
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Category
+  alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Events.subscribe_categories()
+    end
+
     categories = Shop.list_categories(preload: [:parent])
     current_language = Translations.default_language()
 
@@ -40,6 +45,22 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete category")}
     end
+  end
+
+  # PubSub event handlers
+  @impl true
+  def handle_info({:category_created, _category}, socket) do
+    {:noreply, assign(socket, :categories, Shop.list_categories(preload: [:parent]))}
+  end
+
+  @impl true
+  def handle_info({:category_updated, _category}, socket) do
+    {:noreply, assign(socket, :categories, Shop.list_categories(preload: [:parent]))}
+  end
+
+  @impl true
+  def handle_info({:category_deleted, _category_id}, socket) do
+    {:noreply, assign(socket, :categories, Shop.list_categories(preload: [:parent]))}
   end
 
   @impl true

@@ -1449,6 +1449,9 @@ defmodule PhoenixKit.Modules.Billing do
 
       case repo().update(changeset) do
         {:ok, updated_transaction} ->
+          # Broadcast credit note sent event
+          Events.broadcast_credit_note_sent(invoice, updated_transaction)
+
           # Send email if requested
           if send_email? do
             send_credit_note_email(
@@ -2325,7 +2328,12 @@ defmodule PhoenixKit.Modules.Billing do
           end
 
           # Handle refund: update receipt status and check for full refund
-          if Decimal.negative?(amount), do: handle_refund_transaction(invoice.id)
+          if Decimal.negative?(amount) do
+            handle_refund_transaction(invoice.id)
+            Events.broadcast_transaction_refunded(transaction)
+          else
+            Events.broadcast_transaction_created(transaction)
+          end
 
           transaction
 
@@ -2586,9 +2594,19 @@ defmodule PhoenixKit.Modules.Billing do
         trial_end: trial_end
       }
 
-      %Subscription{}
-      |> Subscription.changeset(subscription_attrs)
-      |> repo().insert()
+      result =
+        %Subscription{}
+        |> Subscription.changeset(subscription_attrs)
+        |> repo().insert()
+
+      case result do
+        {:ok, subscription} ->
+          Events.broadcast_subscription_created(subscription)
+          {:ok, subscription}
+
+        error ->
+          error
+      end
     end
   end
 
@@ -2607,9 +2625,19 @@ defmodule PhoenixKit.Modules.Billing do
   def cancel_subscription(%Subscription{} = subscription, opts \\ []) do
     immediately = Keyword.get(opts, :immediately, false)
 
-    subscription
-    |> Subscription.cancel_changeset(immediately)
-    |> repo().update()
+    result =
+      subscription
+      |> Subscription.cancel_changeset(immediately)
+      |> repo().update()
+
+    case result do
+      {:ok, cancelled_subscription} ->
+        Events.broadcast_subscription_cancelled(cancelled_subscription)
+        {:ok, cancelled_subscription}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -2638,9 +2666,21 @@ defmodule PhoenixKit.Modules.Billing do
   By default, the new plan takes effect at the next billing cycle.
   """
   def change_subscription_plan(%Subscription{} = subscription, new_plan_id, _opts \\ []) do
-    subscription
-    |> Ecto.Changeset.change(%{plan_id: new_plan_id})
-    |> repo().update()
+    old_plan_id = subscription.plan_id
+
+    result =
+      subscription
+      |> Ecto.Changeset.change(%{plan_id: new_plan_id})
+      |> repo().update()
+
+    case result do
+      {:ok, updated_subscription} ->
+        Events.broadcast_subscription_plan_changed(updated_subscription, old_plan_id, new_plan_id)
+        {:ok, updated_subscription}
+
+      error ->
+        error
+    end
   end
 
   # ============================================

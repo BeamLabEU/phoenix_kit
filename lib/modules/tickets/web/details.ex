@@ -16,6 +16,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   require Logger
 
   alias PhoenixKit.Modules.Tickets
+  alias PhoenixKit.Modules.Tickets.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
@@ -34,6 +35,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
              |> push_navigate(to: Routes.path("/admin/tickets"))}
 
           ticket ->
+            # Subscribe to events for this specific ticket
+            Events.subscribe_to_ticket(ticket.id)
+
             project_title = Settings.get_project_title()
 
             socket =
@@ -231,6 +235,63 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
      |> assign(:show_media_selector, false)
      |> put_flash(:info, "#{length(file_ids)} file(s) attached")
      |> load_attachments()}
+  end
+
+  @impl true
+  def handle_info({:ticket_updated, ticket}, socket) do
+    # Only update if it's the same ticket
+    if ticket.id == socket.assigns.ticket.id do
+      {:noreply, assign(socket, :ticket, ticket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:ticket_status_changed, ticket, _old_status, _new_status}, socket) do
+    if ticket.id == socket.assigns.ticket.id do
+      socket =
+        socket
+        |> assign(:ticket, ticket)
+        |> load_status_history()
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:ticket_assigned, ticket, _old_assignee, _new_assignee}, socket) do
+    if ticket.id == socket.assigns.ticket.id do
+      socket =
+        socket
+        |> assign(:ticket, ticket)
+        |> load_status_history()
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:comment_created, _comment, ticket}, socket) do
+    if ticket.id == socket.assigns.ticket.id do
+      {:noreply, load_comments(socket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:internal_note_created, _comment, ticket}, socket) do
+    # Only update if user can view internal notes
+    if ticket.id == socket.assigns.ticket.id and socket.assigns.can_view_internal do
+      {:noreply, load_comments(socket)}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Private functions
