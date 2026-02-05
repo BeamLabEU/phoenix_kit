@@ -33,7 +33,7 @@ defmodule PhoenixKit.Users.RoleAssignment do
         }
 
   schema "phoenix_kit_user_role_assignments" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     belongs_to :user, PhoenixKit.Users.Auth.User
     belongs_to :role, PhoenixKit.Users.Role
     belongs_to :assigned_by_user, PhoenixKit.Users.Auth.User, foreign_key: :assigned_by
@@ -64,7 +64,6 @@ defmodule PhoenixKit.Users.RoleAssignment do
     |> cast(attrs, [:user_id, :role_id, :assigned_by, :assigned_at])
     |> validate_required([:user_id, :role_id])
     |> put_assigned_at()
-    |> maybe_generate_uuid()
     |> unique_constraint([:user_id, :role_id],
       name: :phoenix_kit_user_role_assignments_user_id_role_id_index,
       message: "user already has this role"
@@ -72,13 +71,6 @@ defmodule PhoenixKit.Users.RoleAssignment do
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:role_id)
     |> foreign_key_constraint(:assigned_by)
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   # Set assigned_at to current time if not provided

@@ -52,7 +52,7 @@ defmodule PhoenixKit.Users.Auth.User do
         }
 
   schema "phoenix_kit_users" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :email, :string
     field :username, :string
     field :password, :string, virtual: true, redact: true
@@ -118,7 +118,6 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_registration_fields()
     |> maybe_generate_username_from_email()
     |> set_default_active_status()
-    |> maybe_generate_uuid()
   end
 
   @doc """
@@ -147,7 +146,6 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_email(validate_email: true)
     |> put_random_password()
     |> put_guest_checkout_source()
-    |> maybe_generate_uuid()
     |> maybe_generate_username_from_email()
     |> set_default_active_status()
   end
@@ -164,14 +162,6 @@ defmodule PhoenixKit.Users.Auth.User do
     current_fields = get_field(changeset, :custom_fields) || %{}
     updated_fields = Map.put(current_fields, "source", "guest_checkout")
     put_change(changeset, :custom_fields, updated_fields)
-  end
-
-  # Generate UUIDv7 for new records if not already set
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   defp validate_email(changeset, opts) do

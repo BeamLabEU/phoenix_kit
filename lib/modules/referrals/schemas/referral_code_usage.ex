@@ -59,14 +59,6 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
     |> foreign_key_constraint(:code_id)
     |> validate_number(:used_by, greater_than: 0)
     |> maybe_set_date_used()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

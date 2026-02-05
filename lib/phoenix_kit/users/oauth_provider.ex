@@ -14,7 +14,7 @@ defmodule PhoenixKit.Users.OAuthProvider do
   @supported_providers ~w(google apple github facebook twitter microsoft)
 
   schema "phoenix_kit_user_oauth_providers" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     belongs_to :user, User, foreign_key: :user_id
 
     field :provider, :string
@@ -46,7 +46,6 @@ defmodule PhoenixKit.Users.OAuthProvider do
     |> validate_required([:user_id, :provider, :provider_uid])
     |> validate_provider()
     |> validate_length(:provider_uid, min: 1, max: 255)
-    |> maybe_generate_uuid()
     |> foreign_key_constraint(:user_id)
     |> unique_constraint([:user_id, :provider],
       name: :phoenix_kit_oauth_providers_user_provider_idx
@@ -54,13 +53,6 @@ defmodule PhoenixKit.Users.OAuthProvider do
     |> unique_constraint([:provider, :provider_uid],
       name: :phoenix_kit_oauth_providers_provider_uid_idx
     )
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case Ecto.Changeset.get_field(changeset, :uuid) do
-      nil -> Ecto.Changeset.put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   def supported_providers, do: @supported_providers
