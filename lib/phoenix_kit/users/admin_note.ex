@@ -33,7 +33,7 @@ defmodule PhoenixKit.Users.AdminNote do
         }
 
   schema "phoenix_kit_admin_notes" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     belongs_to :user, PhoenixKit.Users.Auth.User
     belongs_to :author, PhoenixKit.Users.Auth.User
 
@@ -52,14 +52,6 @@ defmodule PhoenixKit.Users.AdminNote do
     |> validate_length(:content, min: 1, max: 10_000)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:author_id)
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

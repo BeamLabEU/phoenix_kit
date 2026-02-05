@@ -45,7 +45,7 @@ defmodule PhoenixKit.Users.Role do
   }
 
   schema "phoenix_kit_user_roles" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :name, :string
     field :description, :string
     field :is_system_role, :boolean, default: false
@@ -80,14 +80,6 @@ defmodule PhoenixKit.Users.Role do
     |> validate_length(:description, max: 500)
     |> unique_constraint(:name)
     |> validate_system_role_protection()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """
