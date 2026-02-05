@@ -35,6 +35,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     # Get enabled languages for preview switcher
     available_languages = get_available_languages()
 
+    # Get all images for the gallery
+    all_images = get_all_product_images(product)
+    first_image_id = get_first_image_id(product)
+
     socket =
       socket
       |> assign(:page_title, product_title)
@@ -51,6 +55,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       |> assign(:price_affecting_specs, price_affecting_specs)
       |> assign(:min_price, min_price)
       |> assign(:max_price, max_price)
+      |> assign(:all_images, all_images)
+      |> assign(:selected_image_id, first_image_id)
 
     {:ok, socket}
   end
@@ -67,6 +73,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete product")}
     end
+  end
+
+  @impl true
+  def handle_event("select_image", %{"id" => image_id}, socket) do
+    {:noreply, assign(socket, :selected_image_id, image_id)}
   end
 
   @impl true
@@ -173,10 +184,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Image</h2>
+                <% selected_url = get_image_url_by_id(@product, @selected_image_id) %>
                 <div class="aspect-video bg-base-200 rounded-lg overflow-hidden">
-                  <%= if first_image(@product) do %>
+                  <%= if selected_url do %>
                     <img
-                      src={first_image(@product)}
+                      src={selected_url}
                       alt={@product_title}
                       class="w-full h-full object-contain"
                     />
@@ -189,12 +201,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 </div>
                 <%= if has_multiple_images?(@product) do %>
                   <div class="flex gap-2 mt-4 overflow-x-auto">
-                    <%= for image <- @product.images || [] do %>
-                      <% url = image_url(image) %>
+                    <%= for {image_id, url} <- @all_images do %>
                       <%= if url do %>
-                        <div class="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-base-200">
+                        <button
+                          type="button"
+                          phx-click="select_image"
+                          phx-value-id={image_id}
+                          class={[
+                            "w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-base-200 transition-all",
+                            image_id == @selected_image_id && "ring-2 ring-primary ring-offset-2"
+                          ]}
+                        >
                           <img src={url} alt="Thumbnail" class="w-full h-full object-cover" />
-                        </div>
+                        </button>
                       <% end %>
                     <% end %>
                   </div>
@@ -520,21 +539,6 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     "$#{Decimal.round(price, 2)}"
   end
 
-  # Image helpers
-  # Storage-based images (new format)
-  defp first_image(%{featured_image_id: id}) when is_binary(id) do
-    get_storage_image_url(id, "small")
-  end
-
-  defp first_image(%{image_ids: [id | _]}) when is_binary(id) do
-    get_storage_image_url(id, "small")
-  end
-
-  # Legacy URL-based images (Shopify imports)
-  defp first_image(%{images: [%{"src" => src} | _]}), do: src
-  defp first_image(%{images: [first | _]}) when is_binary(first), do: first
-  defp first_image(_), do: nil
-
   # Get signed URL for Storage image
   defp get_storage_image_url(file_id, variant) do
     alias PhoenixKit.Modules.Storage
@@ -562,8 +566,83 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   defp image_url(url) when is_binary(url), do: url
   defp image_url(_), do: nil
 
+  # Check if product has multiple images (Storage format or legacy)
+  defp has_multiple_images?(%{featured_image_id: id, image_ids: [_ | _]})
+       when is_binary(id),
+       do: true
+
+  defp has_multiple_images?(%{image_ids: [_, _ | _]}), do: true
   defp has_multiple_images?(%{images: [_, _ | _]}), do: true
   defp has_multiple_images?(_), do: false
+
+  # Get ID of the first image (for initial selection)
+  defp get_first_image_id(%{featured_image_id: id}) when is_binary(id), do: id
+  defp get_first_image_id(%{image_ids: [id | _]}) when is_binary(id), do: id
+  defp get_first_image_id(%{images: [%{"src" => src} | _]}), do: src
+  defp get_first_image_id(%{images: [url | _]}) when is_binary(url), do: url
+  defp get_first_image_id(_), do: nil
+
+  # Get image URL by ID (for selected image display)
+  defp get_image_url_by_id(%{featured_image_id: id} = product, image_id)
+       when is_binary(image_id) do
+    cond do
+      id == image_id -> get_storage_image_url(image_id, "small")
+      image_id in (product.image_ids || []) -> get_storage_image_url(image_id, "small")
+      true -> get_storage_image_url(image_id, "small")
+    end
+  end
+
+  defp get_image_url_by_id(%{image_ids: ids}, image_id)
+       when is_binary(image_id) and is_list(ids) do
+    if image_id in ids do
+      get_storage_image_url(image_id, "small")
+    else
+      nil
+    end
+  end
+
+  defp get_image_url_by_id(%{images: images}, image_id) when is_binary(image_id) do
+    # For legacy images, image_id is the URL itself
+    if Enum.any?(images, fn img -> image_url(img) == image_id end) do
+      image_id
+    else
+      nil
+    end
+  end
+
+  defp get_image_url_by_id(_, _), do: nil
+
+  # Get all product images as list of {id, url} tuples (featured first, then gallery)
+  defp get_all_product_images(%{featured_image_id: featured_id, image_ids: gallery_ids})
+       when is_binary(featured_id) do
+    # Combine featured + gallery, avoiding duplicates
+    all_ids = [featured_id | Enum.reject(gallery_ids || [], &(&1 == featured_id))]
+
+    Enum.map(all_ids, fn id ->
+      url = get_storage_image_url(id, "thumbnail")
+      {id, url}
+    end)
+    |> Enum.reject(fn {_, url} -> is_nil(url) end)
+  end
+
+  defp get_all_product_images(%{image_ids: ids}) when is_list(ids) do
+    Enum.map(ids, fn id ->
+      url = get_storage_image_url(id, "thumbnail")
+      {id, url}
+    end)
+    |> Enum.reject(fn {_, url} -> is_nil(url) end)
+  end
+
+  defp get_all_product_images(%{images: images}) when is_list(images) do
+    # For legacy images, use URL as ID
+    Enum.map(images, fn img ->
+      url = image_url(img)
+      {url, url}
+    end)
+    |> Enum.reject(fn {_, url} -> is_nil(url) end)
+  end
+
+  defp get_all_product_images(_), do: []
 
   # Price modifier helpers
   defp parse_modifier(value) when is_binary(value) do

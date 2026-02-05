@@ -390,13 +390,20 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Private: proxy through server (for ACL-protected S3 buckets)
   - Enables FileController to handle both public and private S3 buckets
 
-  ### V51 - Cart Items Unique Constraint + User Deletion FK Fixes ⚡ LATEST
+  ### V51 - Cart Items Unique Constraint + User Deletion FK Fixes
   - Fix unique constraint to allow same product with different options
   - Include selected_specs in uniqueness check via MD5 hash
   - orders.user_id: RESTRICT → SET NULL (preserve orders, anonymize user)
   - billing_profiles.user_id: CASCADE → SET NULL (preserve for history)
   - tickets.user_id: DELETE_ALL → SET NULL (preserve support history)
   - Enables GDPR-compliant user deletion while preserving financial records
+
+  ### V52 - Shop Localized Slug Functional Unique Index ⚡ LATEST
+  - Creates extract_primary_slug() SQL function for JSONB slug extraction
+  - Creates functional unique index on products (primary slug only)
+  - Creates functional unique index on categories (primary slug only)
+  - Fixes upsert behavior after V47 JSONB migration
+  - Language-agnostic: uses alphabetically first key for deterministic extraction
 
   ## Migration Paths
 
@@ -456,7 +463,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 51
+  @current_version 52
   @default_prefix "public"
 
   @doc false
