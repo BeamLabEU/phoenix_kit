@@ -2325,52 +2325,120 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Creates or updates a product by slug.
 
-  Uses upsert (INSERT ... ON CONFLICT) to handle existing products.
-  Returns {:ok, product} with :inserted or :updated action.
+  Uses explicit find-or-create pattern with proper localized field merging.
+  After V47 migration, slug is a JSONB map (e.g., %{"en-US" => "my-slug"}),
+  so ON CONFLICT doesn't work correctly - this function handles the lookup manually.
+
+  Returns {:ok, product, action} where action is :inserted or :updated.
+
+  ## Parameters
+
+    - `attrs` - Product attributes including localized fields as maps
+
+  ## Examples
+
+      # Create new product
+      iex> upsert_product(%{title: %{"en-US" => "Planter"}, slug: %{"en-US" => "planter"}, price: 10})
+      {:ok, %Product{}, :inserted}
+
+      # Update existing product (found by slug)
+      iex> upsert_product(%{title: %{"en-US" => "Planter V2"}, slug: %{"en-US" => "planter"}, price: 15})
+      {:ok, %Product{}, :updated}
+
+      # Add translation to existing product
+      iex> upsert_product(%{title: %{"es-ES" => "Maceta"}, slug: %{"es-ES" => "maceta", "en-US" => "planter"}, price: 10})
+      {:ok, %Product{title: %{"en-US" => "Planter", "es-ES" => "Maceta"}}, :updated}
+
   """
   def upsert_product(attrs) do
-    changeset = Product.changeset(%Product{}, attrs)
+    slug_map = get_attr(attrs, :slug) || %{}
 
-    case repo().insert(changeset,
-           on_conflict:
-             {:replace,
-              [
-                # Localized content fields
-                :title,
-                :description,
-                :body_html,
-                :seo_title,
-                :seo_description,
-                # Pricing
-                :price,
-                :compare_at_price,
-                :currency,
-                :cost_per_item,
-                # Categorization
-                :category_id,
-                :vendor,
-                :tags,
-                :status,
-                # Legacy images
-                :images,
-                :featured_image,
-                # New Storage images
-                :featured_image_id,
-                :image_ids,
-                # Metadata and timestamps
-                :metadata,
-                :updated_at
-              ]},
-           conflict_target: :slug,
-           returning: true
-         ) do
-      {:ok, product} ->
-        # Check if this was an insert or update by checking timestamps
-        action = if product.inserted_at == product.updated_at, do: :inserted, else: :updated
-        {:ok, product, action}
+    case find_product_by_slug_map(slug_map) do
+      nil ->
+        # New product - create it
+        case create_product(attrs) do
+          {:ok, product} -> {:ok, product, :inserted}
+          error -> error
+        end
 
-      {:error, changeset} ->
-        {:error, changeset}
+      existing ->
+        # Existing product - merge localized fields and update
+        merged_attrs = merge_localized_attrs(existing, attrs)
+
+        case update_product(existing, merged_attrs) do
+          {:ok, product} -> {:ok, product, :updated}
+          error -> error
+        end
+    end
+  end
+
+  @doc """
+  Finds an existing product by any slug in the provided slug map.
+
+  Searches through each slug value in the map to find a matching product.
+  Returns the first product found, or nil if no match.
+
+  ## Examples
+
+      iex> find_product_by_slug_map(%{"en-US" => "planter"})
+      %Product{} | nil
+
+      iex> find_product_by_slug_map(%{"en-US" => "planter", "es-ES" => "maceta"})
+      %Product{} | nil  # Finds by first matching slug
+  """
+  def find_product_by_slug_map(slug_map) when map_size(slug_map) == 0, do: nil
+
+  def find_product_by_slug_map(slug_map) when is_map(slug_map) do
+    # Try to find by any slug in the map
+    Enum.find_value(slug_map, fn {lang, slug} ->
+      case get_product_by_slug_localized(slug, lang) do
+        {:ok, product} -> product
+        _ -> nil
+      end
+    end)
+  end
+
+  @doc """
+  Merges localized fields from new attributes into existing product.
+
+  Preserves existing translations while adding new ones from attrs.
+  Non-localized fields are replaced entirely.
+
+  ## Examples
+
+      iex> merge_localized_attrs(%Product{title: %{"en-US" => "Old"}}, %{title: %{"es-ES" => "Nuevo"}})
+      %{title: %{"en-US" => "Old", "es-ES" => "Nuevo"}}
+  """
+  def merge_localized_attrs(existing, new_attrs) do
+    localized_fields = [:title, :slug, :description, :body_html, :seo_title, :seo_description]
+
+    # Start with all new attrs
+    Enum.reduce(localized_fields, new_attrs, fn field, acc ->
+      existing_map = Map.get(existing, field) || %{}
+      new_map = get_attr(acc, field) || %{}
+
+      # Only merge if there's something to merge
+      if map_size(new_map) > 0 do
+        # Merge: new values take precedence for same language
+        merged = Map.merge(existing_map, new_map)
+        put_attr(acc, field, merged)
+      else
+        acc
+      end
+    end)
+  end
+
+  # Helper to get attribute from either atom or string keyed map
+  defp get_attr(attrs, key) when is_atom(key) do
+    Map.get(attrs, key) || Map.get(attrs, to_string(key))
+  end
+
+  # Helper to put attribute preserving the map's key type
+  defp put_attr(attrs, key, value) when is_atom(key) do
+    cond do
+      Map.has_key?(attrs, key) -> Map.put(attrs, key, value)
+      Map.has_key?(attrs, to_string(key)) -> Map.put(attrs, to_string(key), value)
+      true -> Map.put(attrs, key, value)
     end
   end
 

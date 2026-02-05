@@ -52,8 +52,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:show_media_selector, false)
     |> assign(:media_selection_mode, :single)
     |> assign(:media_selection_target, nil)
-    |> assign(:featured_image_id, nil)
-    |> assign(:gallery_image_ids, [])
+    |> assign(:all_image_ids, [])
     |> assign(:new_value_inputs, %{})
     |> assign(:selected_option_values, %{})
     |> assign(:original_option_values, %{})
@@ -73,10 +72,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     metadata = product.metadata || %{}
     price_affecting_options = get_price_affecting_options(option_schema)
 
-    # Build list of valid image IDs for this product
+    # Build unified image list: featured first, then gallery (for unified drag-and-drop UI)
     gallery_ids = product.image_ids || []
     featured_id = product.featured_image_id
-    valid_image_ids = if featured_id, do: [featured_id | gallery_ids], else: gallery_ids
+    all_image_ids = build_all_image_ids(featured_id, gallery_ids)
+    valid_image_ids = all_image_ids
 
     # Clean stale image mappings (images that no longer exist)
     {metadata, had_stale_mappings} = clean_stale_image_mappings(metadata, valid_image_ids)
@@ -110,8 +110,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:show_media_selector, false)
     |> assign(:media_selection_mode, :single)
     |> assign(:media_selection_target, nil)
-    |> assign(:featured_image_id, product.featured_image_id)
-    |> assign(:gallery_image_ids, gallery_ids)
+    |> assign(:all_image_ids, all_image_ids)
     |> assign(:new_value_inputs, %{})
     |> assign(:selected_option_values, selected_option_values)
     |> assign(:add_option_key, "")
@@ -284,11 +283,15 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
     product_params = Map.put(product_params, "metadata", cleaned_metadata)
 
-    # Add Storage image IDs from socket assigns
+    # Extract featured and gallery from unified image list
+    all_images = socket.assigns.all_image_ids
+    featured_id = List.first(all_images)
+    gallery_ids = Enum.drop(all_images, 1)
+
     product_params =
       product_params
-      |> Map.put("featured_image_id", socket.assigns.featured_image_id)
-      |> Map.put("image_ids", socket.assigns.gallery_image_ids)
+      |> Map.put("featured_image_id", featured_id)
+      |> Map.put("image_ids", gallery_ids)
 
     # Build localized field attrs from main form values and translations
     product_params =
@@ -313,15 +316,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   # IMAGE MANAGEMENT
   # ===========================================
 
-  def handle_event("open_media_picker", %{"target" => "featured"}, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_media_selector, true)
-     |> assign(:media_selection_mode, :single)
-     |> assign(:media_selection_target, :featured)}
-  end
-
-  def handle_event("open_media_picker", %{"target" => "gallery"}, socket) do
+  def handle_event("open_media_picker", _params, socket) do
     {:noreply,
      socket
      |> assign(:show_media_selector, true)
@@ -329,13 +324,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
      |> assign(:media_selection_target, :gallery)}
   end
 
-  def handle_event("remove_featured_image", _params, socket) do
-    {:noreply, assign(socket, :featured_image_id, nil)}
+  def handle_event("remove_image", %{"id" => id}, socket) do
+    updated = Enum.reject(socket.assigns.all_image_ids, &(&1 == id))
+    {:noreply, assign(socket, :all_image_ids, updated)}
   end
 
-  def handle_event("remove_gallery_image", %{"id" => id}, socket) do
-    updated = Enum.reject(socket.assigns.gallery_image_ids, &(&1 == id))
-    {:noreply, assign(socket, :gallery_image_ids, updated)}
+  def handle_event("reorder_images", %{"ordered_ids" => ordered_ids}, socket) do
+    {:noreply, assign(socket, :all_image_ids, ordered_ids)}
   end
 
   # ===========================================
@@ -529,14 +524,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     {:noreply, assign(socket, :show_media_selector, false)}
   end
 
-  defp apply_media_selection(socket, :featured, file_ids) do
-    assign(socket, :featured_image_id, List.first(file_ids))
-  end
-
   defp apply_media_selection(socket, :gallery, file_ids) do
-    current = socket.assigns.gallery_image_ids
+    current = socket.assigns.all_image_ids
     new_ids = Enum.reject(file_ids, &(&1 in current))
-    assign(socket, :gallery_image_ids, current ++ new_ids)
+    assign(socket, :all_image_ids, current ++ new_ids)
   end
 
   defp apply_media_selection(socket, _, _), do: socket
@@ -1582,7 +1573,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           <% end %>
 
           <%!-- Variant Images Section - supports both Storage and legacy URL-based images --%>
-          <% has_storage_images = @gallery_image_ids != [] or @featured_image_id != nil %>
+          <% has_storage_images = @all_image_ids != [] %>
           <% legacy_images = get_legacy_images(@product) %>
           <% has_legacy_images = legacy_images != [] %>
           <%= if (has_storage_images or has_legacy_images) and has_mappable_options?(assigns) do %>
@@ -1607,24 +1598,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                             class="select select-bordered select-sm"
                           >
                             <option value="">No image</option>
-                            <%!-- Storage images (preferred) --%>
-                            <%= for {image_id, idx} <- Enum.with_index(@gallery_image_ids) do %>
+                            <%!-- Storage images (unified list - first is featured) --%>
+                            <%= for {image_id, idx} <- Enum.with_index(@all_image_ids) do %>
                               <option
                                 value={image_id}
                                 selected={get_image_mapping(@metadata, option_key, value) == image_id}
                               >
-                                Gallery image #{idx + 1}
-                              </option>
-                            <% end %>
-                            <%= if @featured_image_id do %>
-                              <option
-                                value={@featured_image_id}
-                                selected={
-                                  get_image_mapping(@metadata, option_key, value) ==
-                                    @featured_image_id
-                                }
-                              >
-                                Featured image
+                                Image {idx + 1}{if idx == 0, do: " (Featured)"}
                               </option>
                             <% end %>
                             <%!-- Legacy URL-based images (from Shopify imports) --%>
@@ -1656,89 +1636,61 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
             </div>
           <% end %>
 
-          <%!-- Product Images --%>
+          <%!-- Product Images - Unified drag-and-drop gallery with featured image --%>
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title text-xl mb-6">
+              <h2 class="card-title text-xl mb-2">
                 <.icon name="hero-photo" class="w-5 h-5" /> Product Images
               </h2>
+              <p class="text-sm text-base-content/60 mb-4">
+                Drag images to reorder. First image is the featured (main) image.
+              </p>
 
-              <%!-- Featured Image --%>
-              <div class="form-control mb-6">
-                <label class="label">
-                  <span class="label-text font-medium">Featured Image</span>
-                </label>
-                <div class="flex items-center gap-4">
-                  <%= if @featured_image_id do %>
-                    <div class="relative group">
-                      <img
-                        src={get_image_url(@featured_image_id, "thumbnail")}
-                        class="w-24 h-24 object-cover rounded-lg shadow"
-                        alt="Featured image"
-                      />
-                      <button
-                        type="button"
-                        phx-click="remove_featured_image"
-                        class="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  <% else %>
-                    <div class="w-24 h-24 bg-base-200 rounded-lg flex items-center justify-center border-2 border-dashed border-base-300">
-                      <.icon name="hero-photo" class="w-8 h-8 text-base-content/40" />
-                    </div>
-                  <% end %>
+              <.draggable_list
+                id="product-images"
+                items={@all_image_ids}
+                on_reorder="reorder_images"
+                cols={6}
+                gap="gap-3"
+                item_class="relative group"
+              >
+                <:item :let={image_id}>
+                  <div class="relative">
+                    <img
+                      src={get_image_url(image_id, "thumbnail")}
+                      class={[
+                        "w-full aspect-square object-cover rounded-lg shadow",
+                        image_id == List.first(@all_image_ids) &&
+                          "ring-2 ring-primary ring-offset-2"
+                      ]}
+                    />
+                    <%!-- Featured badge on first image --%>
+                    <%= if image_id == List.first(@all_image_ids) do %>
+                      <span class="absolute top-1 left-1 badge badge-primary badge-sm">
+                        <.icon name="hero-star" class="w-3 h-3 mr-1" /> Featured
+                      </span>
+                    <% end %>
+                    <%!-- Remove button --%>
+                    <button
+                      type="button"
+                      phx-click="remove_image"
+                      phx-value-id={image_id}
+                      class="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <.icon name="hero-x-mark" class="w-3 h-3" />
+                    </button>
+                  </div>
+                </:item>
+                <:add_button>
                   <button
                     type="button"
                     phx-click="open_media_picker"
-                    phx-value-target="featured"
-                    class="btn btn-sm btn-primary"
-                  >
-                    <.icon name="hero-photo" class="w-4 h-4 mr-1" />
-                    {if @featured_image_id, do: "Change", else: "Select Image"}
-                  </button>
-                </div>
-              </div>
-
-              <%!-- Gallery Images --%>
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Gallery Images</span>
-                </label>
-                <div class="flex flex-wrap gap-3">
-                  <%= for image_id <- @gallery_image_ids do %>
-                    <div class="relative group">
-                      <img
-                        src={get_image_url(image_id, "thumbnail")}
-                        class="w-20 h-20 object-cover rounded-lg shadow"
-                        alt="Gallery image"
-                      />
-                      <button
-                        type="button"
-                        phx-click="remove_gallery_image"
-                        phx-value-id={image_id}
-                        class="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  <% end %>
-                  <button
-                    type="button"
-                    phx-click="open_media_picker"
-                    phx-value-target="gallery"
-                    class="w-20 h-20 border-2 border-dashed border-base-300 rounded-lg flex items-center justify-center hover:border-primary hover:bg-base-200 transition-colors"
+                    class="w-full aspect-square border-2 border-dashed border-base-300 rounded-lg flex items-center justify-center hover:border-primary hover:bg-base-200 transition-colors"
                   >
                     <.icon name="hero-plus" class="w-6 h-6 text-base-content/60" />
                   </button>
-                </div>
-                <label class="label">
-                  <span class="label-text-alt text-base-content/60">
-                    Click images to remove, or click + to add more
-                  </span>
-                </label>
-              </div>
+                </:add_button>
+              </.draggable_list>
             </div>
           </div>
 
@@ -1781,13 +1733,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           id="media-selector-modal"
           show={@show_media_selector}
           mode={@media_selection_mode}
-          selected_ids={
-            get_current_selection(
-              @media_selection_target,
-              @featured_image_id,
-              @gallery_image_ids
-            )
-          }
+          selected_ids={@all_image_ids}
           phoenix_kit_current_user={@phoenix_kit_current_user}
         />
       </div>
@@ -1795,14 +1741,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     """
   end
 
-  # Get currently selected IDs based on target
-  defp get_current_selection(:featured, featured_id, _gallery_ids)
-       when not is_nil(featured_id) do
-    [featured_id]
-  end
+  # Build unified image list from featured + gallery (featured always first)
+  defp build_all_image_ids(nil, gallery_ids), do: Enum.uniq(gallery_ids)
 
-  defp get_current_selection(:gallery, _featured_id, gallery_ids), do: gallery_ids
-  defp get_current_selection(_, _, _), do: []
+  defp build_all_image_ids(featured_id, gallery_ids) do
+    [featured_id | Enum.reject(gallery_ids, &(&1 == featured_id))]
+    |> Enum.uniq()
+  end
 
   # Get image URL from Storage
   defp get_image_url(nil, _variant), do: nil
@@ -2280,14 +2225,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   # Build list of valid image IDs from socket assigns
   defp build_valid_image_ids(assigns) do
-    gallery_ids = assigns[:gallery_image_ids] || []
-    featured_id = assigns[:featured_image_id]
-
-    if featured_id do
-      [featured_id | gallery_ids]
-    else
-      gallery_ids
-    end
+    assigns[:all_image_ids] || []
   end
 
   # Clean up _image_mappings - remove empty values and invalid image IDs

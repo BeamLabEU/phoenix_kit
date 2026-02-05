@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     import_log_id = Map.fetch!(args, "import_log_id")
     path = Map.fetch!(args, "path")
     config_id = Map.get(args, "config_id")
-    language = Map.get(args, "language")
+    language = Map.get(args, "language") || default_import_language()
     option_mappings = Map.get(args, "option_mappings", [])
     download_images = Map.get(args, "download_images", false)
 
@@ -200,7 +200,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp process_product(handle, rows, categories_map, config, language, option_mappings) do
-    transform_opts = if language, do: [language: language], else: []
+    transform_opts = [language: language]
     transform_opts = Keyword.put(transform_opts, :option_mappings, option_mappings)
 
     # Use extended transform if we have option mappings
@@ -400,5 +400,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     Manager.broadcast("shop:imports", message)
   rescue
     _ -> :ok
+  end
+
+  # Default language for import - uses site's configured default language
+  defp default_import_language do
+    Translations.default_language()
   end
 end
