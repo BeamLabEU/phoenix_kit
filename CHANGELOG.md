@@ -11,6 +11,14 @@
   - Admin UI with delete button, confirmation modal, and real-time list updates
   - Broadcast :user_deleted event for multi-admin synchronization
 - Fix compilation errors in auth.ex (pin operator with dynamic Ecto queries)
+- Update core PhoenixKit schemas and Referrals to new UUID standard
+- Update Shop module with localized slug support and unified image gallery
+- Add PubSub events for Tickets and Shop modules, User Deletion API
+- Added support for uuid to referral module
+- Add markdown rendering and bucket access types
+- Update Sync module to new UUID standard pattern
+- Update billing module to use DB-generated UUIDs
+- Update entities module to UUID standard matching AI module
 
 ## 1.7.32 - 2026-02-03
 - Storage Module: Smart file serving with bucket access types (V50 migration)
