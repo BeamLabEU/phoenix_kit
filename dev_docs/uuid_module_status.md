@@ -1,7 +1,7 @@
 # PhoenixKit Modules - UUID Status
 
 **Last Updated**: 2026-02-05 (All schemas migrated)
-**Reference PRs**: #311, #312, #313, #314, #315, #316, #317, #318
+**Reference PRs**: #311, #312, #313, #314, #315, #316, #317, #320
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
 
@@ -157,23 +157,23 @@ def get(_), do: nil
 #### Legal Module (1 schema)
 - `consent_log.ex` - `phoenix_kit_consent_logs`
 
-#### Referrals Module (2 schemas) - PR #317
+#### Referrals Module (2 schemas) - PR #317, cleanup in #320
 - `referrals.ex` - `phoenix_kit_referral_codes`
 - `referral_code_usage.ex` - `phoenix_kit_referral_code_usage`
 
-#### Core - AuditLog (1 schema)
-- `lib/phoenix_kit/audit_log/entry.ex` - `phoenix_kit_audit_log`
+#### Core - AuditLog (1 schema) - PR #320
+- `lib/phoenix_kit/audit_log/entry.ex` - `phoenix_kit_audit_logs`
 
-#### Core - Settings (1 schema)
+#### Core - Settings (1 schema) - PR #320
 - `lib/phoenix_kit/settings/setting.ex` - `phoenix_kit_settings`
 
-#### Core - Users (6 schemas)
-- `lib/phoenix_kit/users/auth/user.ex` - `users`
-- `lib/phoenix_kit/users/auth/user_token.ex` - `user_tokens`
-- `lib/phoenix_kit/users/role.ex` - `roles`
-- `lib/phoenix_kit/users/role_assignment.ex` - `role_assignments`
-- `lib/phoenix_kit/users/admin_note.ex` - `admin_notes`
-- `lib/phoenix_kit/users/oauth_provider.ex` - `oauth_providers`
+#### Core - Users (6 schemas) - PR #320
+- `lib/phoenix_kit/users/auth/user.ex` - `phoenix_kit_users`
+- `lib/phoenix_kit/users/auth/user_token.ex` - `phoenix_kit_users_tokens`
+- `lib/phoenix_kit/users/role.ex` - `phoenix_kit_user_roles`
+- `lib/phoenix_kit/users/role_assignment.ex` - `phoenix_kit_user_role_assignments`
+- `lib/phoenix_kit/users/admin_note.ex` - `phoenix_kit_admin_notes`
+- `lib/phoenix_kit/users/oauth_provider.ex` - `phoenix_kit_user_oauth_providers`
 
 ### ✅ Native UUID PK (28 schemas)
 
@@ -242,6 +242,6 @@ Zero instances of `maybe_generate_uuid` remain in the codebase.
 - PR #315: Shop, Emails, Sync modules UUID update (13 schemas)
 - PR #316: Legal module UUID update (1 schema)
 - PR #317: Referrals module UUID update (2 schemas) + review fixes
-- PR #318: Core PhoenixKit schemas + Referrals cleanup (10 schemas)
+- PR #320: Core PhoenixKit schemas + Referrals cleanup (10 schemas)
 - UUID Utility: `lib/phoenix_kit/utils/uuid.ex`
 - CLAUDE.md: "Adding UUID Fields to Existing Schemas" section
