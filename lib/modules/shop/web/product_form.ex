@@ -1650,6 +1650,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                 id="product-images"
                 items={@all_image_ids}
                 on_reorder="reorder_images"
+                item_id={& &1}
                 cols={6}
                 gap="gap-3"
                 item_class="relative group"
