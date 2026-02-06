@@ -218,6 +218,32 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
             </div>
           </div>
         </div>
+
+        <%!-- Import Configurations --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title text-xl mb-6">
+              <.icon name="hero-funnel" class="w-6 h-6" /> Import Configurations
+            </h2>
+
+            <div class="form-control">
+              <label class="label cursor-pointer justify-between">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">CSV Import Filters</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Configure keyword filters and category rules for CSV product imports
+                  </div>
+                </span>
+                <.link
+                  navigate={Routes.path("/admin/shop/settings/import-configs")}
+                  class="btn btn-primary"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> Configure
+                </.link>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """

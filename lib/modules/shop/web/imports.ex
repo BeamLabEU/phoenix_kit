@@ -48,6 +48,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     # Get global options for mapping UI
     global_options = Options.get_global_options()
 
+    # Load import configs for filter selection
+    import_configs = Shop.list_import_configs(active_only: true)
+    default_config = Shop.get_default_import_config()
+
     socket =
       socket
       |> assign(:page_title, "CSV Import")
@@ -60,6 +64,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       |> assign(:download_images, false)
       |> assign(:migration_stats, migration_stats)
       |> assign(:migration_in_progress, migration_stats.in_progress > 0)
+      |> assign(:import_configs, import_configs)
+      |> assign(:selected_config, default_config)
+      |> assign(:selected_config_id, if(default_config, do: default_config.id))
       # Multi-step wizard state
       |> assign(:import_step, :upload)
       |> assign(:csv_analysis, nil)
@@ -223,6 +230,30 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   @impl true
   def handle_event("select_language", %{"language" => lang}, socket) do
     {:noreply, assign(socket, :current_language, lang)}
+  end
+
+  @impl true
+  def handle_event("select_config", %{"config_id" => ""}, socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_config, nil)
+     |> assign(:selected_config_id, nil)}
+  end
+
+  @impl true
+  def handle_event("select_config", %{"config_id" => id_str}, socket) do
+    case Integer.parse(id_str) do
+      {id, ""} ->
+        config = Enum.find(socket.assigns.import_configs, &(&1.id == id))
+
+        {:noreply,
+         socket
+         |> assign(:selected_config, config)
+         |> assign(:selected_config_id, if(config, do: config.id))}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   @impl true
@@ -409,10 +440,20 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           {:ok, updated_log} =
             Shop.update_import_log(import_log, %{status: "pending", error_details: []})
 
-          # Re-enqueue job with language
+          # Re-enqueue job with language and config_id
           language = socket.assigns.current_language
+          config_id = get_in(import_log.options, ["config_id"])
 
-          %{import_log_id: updated_log.id, path: import_log.file_path, language: language}
+          worker_args = %{
+            import_log_id: updated_log.id,
+            path: import_log.file_path,
+            language: language
+          }
+
+          worker_args =
+            if config_id, do: Map.put(worker_args, :config_id, config_id), else: worker_args
+
+          worker_args
           |> CSVImportWorker.new()
           |> Oban.insert()
 
@@ -466,25 +507,32 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     # Convert mappings to format expected by worker
     worker_mappings = convert_mappings_for_worker(mappings)
 
-    # Create import log
+    # Create import log with config_id
+    config_id = socket.assigns.selected_config_id
+
     case Shop.create_import_log(%{
            filename: filename,
            file_path: dest_path,
            user_id: user.id,
-           options: %{"option_mappings" => worker_mappings}
+           options: %{"option_mappings" => worker_mappings, "config_id" => config_id}
          }) do
       {:ok, import_log} ->
-        # Enqueue Oban job with language, mappings, and download_images option
+        # Enqueue Oban job with language, mappings, config_id, and download_images option
         language = socket.assigns.current_language
         download_images = socket.assigns.download_images
 
-        %{
+        worker_args = %{
           import_log_id: import_log.id,
           path: dest_path,
           language: language,
           option_mappings: worker_mappings,
           download_images: download_images
         }
+
+        worker_args =
+          if config_id, do: Map.put(worker_args, :config_id, config_id), else: worker_args
+
+        worker_args
         |> CSVImportWorker.new()
         |> Oban.insert()
 
@@ -700,6 +748,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   enabled_languages={@enabled_languages}
                   current_language={@current_language}
                   download_images={@download_images}
+                  import_configs={@import_configs}
+                  selected_config={@selected_config}
+                  selected_config_id={@selected_config_id}
                 />
               <% :configure -> %>
                 <.render_configure_step
@@ -983,6 +1034,46 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       <div class="flex items-center gap-2 text-sm text-base-content/70 mb-4">
         <.icon name="hero-language" class="w-4 h-4" />
         <span>Import language: <strong>{String.upcase(@current_language)}</strong></span>
+      </div>
+    <% end %>
+
+    <%!-- Import Config Selector --%>
+    <%= if @import_configs != [] do %>
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text font-medium">
+            <.icon name="hero-funnel" class="w-4 h-4 inline mr-1" /> Import Filter
+          </span>
+        </label>
+        <select
+          class="select select-bordered w-full"
+          phx-change="select_config"
+          name="config_id"
+        >
+          <option value="">No filter (import all products)</option>
+          <%= for config <- @import_configs do %>
+            <option value={config.id} selected={@selected_config_id == config.id}>
+              {config.name}{if config.is_default, do: " (default)"}
+            </option>
+          <% end %>
+        </select>
+        <%= if @selected_config do %>
+          <div class="flex flex-wrap gap-1 mt-2">
+            <%= unless @selected_config.skip_filter do %>
+              <span class="badge badge-sm badge-success badge-outline">
+                {length(@selected_config.include_keywords)} include
+              </span>
+              <span class="badge badge-sm badge-error badge-outline">
+                {length(@selected_config.exclude_keywords)} exclude
+              </span>
+              <span class="badge badge-sm badge-info badge-outline">
+                {length(@selected_config.category_rules)} category rules
+              </span>
+            <% else %>
+              <span class="badge badge-sm badge-warning">Skip filter — all products imported</span>
+            <% end %>
+          </div>
+        <% end %>
       </div>
     <% end %>
 

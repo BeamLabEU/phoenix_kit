@@ -2318,6 +2318,29 @@ defmodule PhoenixKit.Modules.Shop do
     |> repo().update_all(set: [is_default: false])
   end
 
+  @doc """
+  Returns a changeset for tracking import config changes.
+  """
+  def change_import_config(%ImportConfig{} = config, attrs \\ %{}) do
+    ImportConfig.changeset(config, attrs)
+  end
+
+  @doc """
+  Creates the legacy default import config if no configs exist.
+
+  Returns `{:created, config}` if a new config was created,
+  or `:exists` if configs already exist.
+  """
+  def ensure_default_import_config do
+    if repo().aggregate(ImportConfig, :count) == 0 do
+      attrs = Map.from_struct(ImportConfig.from_legacy_defaults())
+      {:ok, config} = create_import_config(attrs)
+      {:created, config}
+    else
+      :exists
+    end
+  end
+
   # ============================================
   # PRODUCT UPSERT
   # ============================================
