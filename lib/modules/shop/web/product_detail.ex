@@ -21,6 +21,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     # Get price-affecting specs for admin view
     price_affecting_specs = Options.get_price_affecting_specs_for_product(product)
 
+    # Get selectable specs (consistent with catalog page)
+    selectable_specs = Options.get_selectable_specs_for_product(product)
+
     {min_price, max_price} =
       Options.get_price_range(price_affecting_specs, product.price, product.metadata)
 
@@ -38,6 +41,18 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     # Get all images for the gallery
     all_images = get_all_product_images(product)
     first_image_id = get_first_image_id(product)
+
+    # Auto-select first value of each option for immediate add-to-cart
+    # Uses selectable_specs to include both metadata and schema-defined options
+    selected_specs =
+      selectable_specs
+      |> Enum.map(fn spec ->
+        key = spec["key"]
+        values = get_option_values(product, spec)
+        {key, List.first(values)}
+      end)
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Enum.into(%{})
 
     socket =
       socket
@@ -57,6 +72,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       |> assign(:max_price, max_price)
       |> assign(:all_images, all_images)
       |> assign(:selected_image_id, first_image_id)
+      |> assign(:selectable_specs, selectable_specs)
+      |> assign(:selected_specs, selected_specs)
 
     {:ok, socket}
   end
@@ -78,6 +95,21 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   @impl true
   def handle_event("select_image", %{"id" => image_id}, socket) do
     {:noreply, assign(socket, :selected_image_id, image_id)}
+  end
+
+  @impl true
+  def handle_event("select_option", %{"key" => key, "value" => value}, socket) do
+    product = socket.assigns.product
+    selected_specs = Map.put(socket.assigns.selected_specs, key, value)
+
+    # Check for image mapping - update selected_image_id if mapping exists
+    selected_image_id =
+      get_mapped_image_id(product, key, value, socket.assigns.selected_image_id)
+
+    {:noreply,
+     socket
+     |> assign(:selected_specs, selected_specs)
+     |> assign(:selected_image_id, selected_image_id)}
   end
 
   @impl true
@@ -221,6 +253,47 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
               </div>
             </div>
 
+            <%!-- Option Values Section --%>
+            <% image_mappings = @product.metadata["_image_mappings"] || %{} %>
+            <%= if @selectable_specs != [] do %>
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h2 class="card-title">
+                    <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Available Options
+                  </h2>
+                  <div class="space-y-3">
+                    <%= for attr <- @selectable_specs do %>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-medium min-w-24">{attr["label"]}:</span>
+                        <%= for value <- get_option_values(@product, attr) do %>
+                          <% has_image = get_in(image_mappings, [attr["key"], value]) not in [nil, ""] %>
+                          <button
+                            type="button"
+                            phx-click="select_option"
+                            phx-value-key={attr["key"]}
+                            phx-value-value={value}
+                            class={[
+                              "badge cursor-pointer transition-all",
+                              if(@selected_specs[attr["key"]] == value,
+                                do: "badge-primary",
+                                else: "badge-outline hover:badge-primary/30"
+                              ),
+                              has_image && "gap-1"
+                            ]}
+                          >
+                            <%= if has_image do %>
+                              <.icon name="hero-photo" class="w-3 h-3" />
+                            <% end %>
+                            {value}
+                          </button>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+
             <%!-- Details --%>
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
@@ -330,28 +403,6 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 </div>
               </div>
             </div>
-
-            <%!-- Option Values Section --%>
-            <% option_values = @product.metadata["_option_values"] || %{} %>
-            <%= if option_values != %{} do %>
-              <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                  <h2 class="card-title">
-                    <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Available Options
-                  </h2>
-                  <div class="space-y-3">
-                    <%= for {key, values} <- option_values do %>
-                      <div class="flex flex-wrap items-center gap-2">
-                        <span class="font-medium min-w-24">{String.capitalize(key)}:</span>
-                        <%= for value <- values do %>
-                          <span class="badge badge-outline">{value}</span>
-                        <% end %>
-                      </div>
-                    <% end %>
-                  </div>
-                </div>
-              </div>
-            <% end %>
 
             <%!-- Price Modifiers Section (Admin Only) --%>
             <%= if @price_affecting_specs != [] do %>
@@ -522,6 +573,41 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       </div>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
+  end
+
+  defp get_mapped_image_id(product, option_key, option_value, current_image_id) do
+    case get_in(product.metadata || %{}, ["_image_mappings", option_key, option_value]) do
+      nil -> current_image_id
+      "" -> current_image_id
+      "http" <> _rest -> current_image_id
+      image_id -> image_id
+    end
+  end
+
+  defp get_option_values(product, option) do
+    key = option["key"]
+
+    values =
+      case product.metadata do
+        %{"_option_values" => %{^key => vals}} when is_list(vals) and vals != [] ->
+          vals
+
+        _ ->
+          option["options"] || []
+      end
+
+    # Apply stored order if exists
+    stored_order = get_in(product.metadata, ["_option_value_order", key])
+
+    if stored_order do
+      # Filter to only include values that still exist
+      ordered_existing = Enum.filter(stored_order, &(&1 in values))
+      # Add any new values not in stored order at the end
+      new_values = Enum.reject(values, &(&1 in stored_order))
+      ordered_existing ++ new_values
+    else
+      values
+    end
   end
 
   defp status_badge_class("active"), do: "badge badge-success badge-lg"

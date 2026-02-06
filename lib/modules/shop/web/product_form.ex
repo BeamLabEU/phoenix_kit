@@ -512,6 +512,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
      |> assign(:selected_option_values, updated_selected)}
   end
 
+  def handle_event(
+        "reorder_option_values:" <> option_key,
+        %{"ordered_ids" => ordered_values},
+        socket
+      ) do
+    metadata = socket.assigns.metadata || %{}
+
+    # Update the order in metadata
+    current_order = Map.get(metadata, "_option_value_order", %{})
+    updated_order = Map.put(current_order, option_key, ordered_values)
+
+    metadata = Map.put(metadata, "_option_value_order", updated_order)
+
+    {:noreply, assign(socket, :metadata, metadata)}
+  end
+
   @impl true
   def handle_info({:media_selected, file_ids}, socket) do
     socket = apply_media_selection(socket, socket.assigns.media_selection_target, file_ids)
@@ -1096,9 +1112,23 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                         Enum.uniq(original_imported ++ current_imported ++ manually_added)
                       end
 
+                    # Apply stored order if exists
+                    stored_order = get_in(@metadata, ["_option_value_order", option_key])
+
+                    ordered_values =
+                      if stored_order do
+                        # Filter to only include values that still exist
+                        ordered_existing = Enum.filter(stored_order, &(&1 in all_values))
+                        # Add any new values not in stored order at the end
+                        new_values = Enum.reject(all_values, &(&1 in stored_order))
+                        ordered_existing ++ new_values
+                      else
+                        all_values
+                      end
+
                     # Active values = from socket assigns (managed via phx-click, not form)
                     # If selected_option_values has this key, use it; otherwise all are active
-                    active_values = Map.get(@selected_option_values, option_key, all_values)
+                    active_values = Map.get(@selected_option_values, option_key, ordered_values)
 
                     is_imported = option["imported"] == true
 
@@ -1122,19 +1152,26 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                         <% end %>
                       </div>
 
-                      <%!-- Option values as toggleable badges --%>
-                      <div class="flex flex-wrap gap-2 mb-3">
-                        <%= for value <- all_values do %>
+                      <%!-- Option values as draggable badges --%>
+                      <.draggable_list
+                        id={"option-values-#{option_key}"}
+                        items={ordered_values}
+                        item_id={fn value -> value end}
+                        on_reorder={"reorder_option_values:#{option_key}"}
+                        layout={:list}
+                        item_class="flex items-center gap-2 p-2 bg-base-100 rounded-lg border border-base-200 hover:bg-base-200"
+                      >
+                        <:item :let={value}>
                           <% is_selected = value in active_values %>
-                          <div class="flex items-center gap-1">
+                          <div class="flex items-center gap-1 flex-1">
                             <button
                               type="button"
                               phx-click="toggle_option_value"
                               phx-value-key={option_key}
                               phx-value-opt-value={value}
-                              phx-value-all-values={Jason.encode!(all_values)}
+                              phx-value-all-values={Jason.encode!(ordered_values)}
                               class={[
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors",
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors flex-1",
                                 if(is_selected,
                                   do: "bg-primary/10 border-primary text-primary",
                                   else:
@@ -1167,8 +1204,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                               </button>
                             <% end %>
                           </div>
-                        <% end %>
-                      </div>
+                        </:item>
+                      </.draggable_list>
 
                       <%!-- Add new value input --%>
                       <%= if is_editable do %>
