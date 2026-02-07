@@ -51,81 +51,80 @@ defmodule PhoenixKit.Migrations.Postgres.V51 do
     # Part 2: Fix User Deletion Foreign Key Constraints
     # ===========================================
 
-    # 2.1 ORDERS: RESTRICT → SET NULL
+    # 2.1 ORDERS: RESTRICT → SET NULL (only if table exists)
     execute """
     DO $$
     BEGIN
-      IF EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'phoenix_kit_orders_user_id_fkey'
-        AND conrelid = '#{prefix_str}phoenix_kit_orders'::regclass
-      ) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{if prefix && prefix != "public", do: prefix, else: "public"}' AND table_name = 'phoenix_kit_orders') THEN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'phoenix_kit_orders_user_id_fkey'
+          AND conrelid = '#{prefix_str}phoenix_kit_orders'::regclass
+        ) THEN
+          ALTER TABLE #{prefix_str}phoenix_kit_orders
+          DROP CONSTRAINT phoenix_kit_orders_user_id_fkey;
+        END IF;
+
         ALTER TABLE #{prefix_str}phoenix_kit_orders
-        DROP CONSTRAINT phoenix_kit_orders_user_id_fkey;
+        ADD CONSTRAINT phoenix_kit_orders_user_id_fkey
+        FOREIGN KEY (user_id)
+        REFERENCES #{prefix_str}phoenix_kit_users(id)
+        ON DELETE SET NULL;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_orders ALTER COLUMN user_id DROP NOT NULL;
       END IF;
     END $$;
     """
 
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_orders
-    ADD CONSTRAINT phoenix_kit_orders_user_id_fkey
-    FOREIGN KEY (user_id)
-    REFERENCES #{prefix_str}phoenix_kit_users(id)
-    ON DELETE SET NULL;
-    """
-
-    # 2.2 BILLING PROFILES: CASCADE → SET NULL
+    # 2.2 BILLING PROFILES: CASCADE → SET NULL (only if table exists)
     execute """
     DO $$
     BEGIN
-      IF EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'phoenix_kit_billing_profiles_user_id_fkey'
-        AND conrelid = '#{prefix_str}phoenix_kit_billing_profiles'::regclass
-      ) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{if prefix && prefix != "public", do: prefix, else: "public"}' AND table_name = 'phoenix_kit_billing_profiles') THEN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'phoenix_kit_billing_profiles_user_id_fkey'
+          AND conrelid = '#{prefix_str}phoenix_kit_billing_profiles'::regclass
+        ) THEN
+          ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles
+          DROP CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey;
+        END IF;
+
         ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles
-        DROP CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey;
+        ADD CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey
+        FOREIGN KEY (user_id)
+        REFERENCES #{prefix_str}phoenix_kit_users(id)
+        ON DELETE SET NULL;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles ALTER COLUMN user_id DROP NOT NULL;
       END IF;
     END $$;
     """
 
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles
-    ADD CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey
-    FOREIGN KEY (user_id)
-    REFERENCES #{prefix_str}phoenix_kit_users(id)
-    ON DELETE SET NULL;
-    """
-
-    # 2.3 TICKETS: DELETE_ALL → SET NULL
+    # 2.3 TICKETS: DELETE_ALL → SET NULL (only if table exists)
     execute """
     DO $$
     BEGIN
-      IF EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'phoenix_kit_tickets_user_id_fkey'
-        AND conrelid = '#{prefix_str}phoenix_kit_tickets'::regclass
-      ) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{if prefix && prefix != "public", do: prefix, else: "public"}' AND table_name = 'phoenix_kit_tickets') THEN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'phoenix_kit_tickets_user_id_fkey'
+          AND conrelid = '#{prefix_str}phoenix_kit_tickets'::regclass
+        ) THEN
+          ALTER TABLE #{prefix_str}phoenix_kit_tickets
+          DROP CONSTRAINT phoenix_kit_tickets_user_id_fkey;
+        END IF;
+
         ALTER TABLE #{prefix_str}phoenix_kit_tickets
-        DROP CONSTRAINT phoenix_kit_tickets_user_id_fkey;
+        ADD CONSTRAINT phoenix_kit_tickets_user_id_fkey
+        FOREIGN KEY (user_id)
+        REFERENCES #{prefix_str}phoenix_kit_users(id)
+        ON DELETE SET NULL;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_tickets ALTER COLUMN user_id DROP NOT NULL;
       END IF;
     END $$;
     """
-
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_tickets
-    ADD CONSTRAINT phoenix_kit_tickets_user_id_fkey
-    FOREIGN KEY (user_id)
-    REFERENCES #{prefix_str}phoenix_kit_users(id)
-    ON DELETE SET NULL;
-    """
-
-    # 2.4 Allow NULL values for user_id columns (required for SET NULL to work)
-    execute "ALTER TABLE #{prefix_str}phoenix_kit_orders ALTER COLUMN user_id DROP NOT NULL"
-
-    execute "ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles ALTER COLUMN user_id DROP NOT NULL"
-
-    execute "ALTER TABLE #{prefix_str}phoenix_kit_tickets ALTER COLUMN user_id DROP NOT NULL"
 
     # Record migration version
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '51'"
@@ -138,81 +137,80 @@ defmodule PhoenixKit.Migrations.Postgres.V51 do
     # Revert FK Constraints
     # ===========================================
 
-    # Revert ORDERS: SET NULL → RESTRICT
+    # Revert ORDERS: SET NULL → RESTRICT (only if table exists)
     execute """
     DO $$
     BEGIN
-      IF EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'phoenix_kit_orders_user_id_fkey'
-        AND conrelid = '#{prefix_str}phoenix_kit_orders'::regclass
-      ) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{if prefix && prefix != "public", do: prefix, else: "public"}' AND table_name = 'phoenix_kit_orders') THEN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'phoenix_kit_orders_user_id_fkey'
+          AND conrelid = '#{prefix_str}phoenix_kit_orders'::regclass
+        ) THEN
+          ALTER TABLE #{prefix_str}phoenix_kit_orders
+          DROP CONSTRAINT phoenix_kit_orders_user_id_fkey;
+        END IF;
+
         ALTER TABLE #{prefix_str}phoenix_kit_orders
-        DROP CONSTRAINT phoenix_kit_orders_user_id_fkey;
+        ADD CONSTRAINT phoenix_kit_orders_user_id_fkey
+        FOREIGN KEY (user_id)
+        REFERENCES #{prefix_str}phoenix_kit_users(id)
+        ON DELETE RESTRICT;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_orders ALTER COLUMN user_id SET NOT NULL;
       END IF;
     END $$;
     """
 
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_orders
-    ADD CONSTRAINT phoenix_kit_orders_user_id_fkey
-    FOREIGN KEY (user_id)
-    REFERENCES #{prefix_str}phoenix_kit_users(id)
-    ON DELETE RESTRICT;
-    """
-
-    # Revert BILLING PROFILES: SET NULL → CASCADE
+    # Revert BILLING PROFILES: SET NULL → CASCADE (only if table exists)
     execute """
     DO $$
     BEGIN
-      IF EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'phoenix_kit_billing_profiles_user_id_fkey'
-        AND conrelid = '#{prefix_str}phoenix_kit_billing_profiles'::regclass
-      ) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{if prefix && prefix != "public", do: prefix, else: "public"}' AND table_name = 'phoenix_kit_billing_profiles') THEN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'phoenix_kit_billing_profiles_user_id_fkey'
+          AND conrelid = '#{prefix_str}phoenix_kit_billing_profiles'::regclass
+        ) THEN
+          ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles
+          DROP CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey;
+        END IF;
+
         ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles
-        DROP CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey;
+        ADD CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey
+        FOREIGN KEY (user_id)
+        REFERENCES #{prefix_str}phoenix_kit_users(id)
+        ON DELETE CASCADE;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles ALTER COLUMN user_id SET NOT NULL;
       END IF;
     END $$;
     """
 
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles
-    ADD CONSTRAINT phoenix_kit_billing_profiles_user_id_fkey
-    FOREIGN KEY (user_id)
-    REFERENCES #{prefix_str}phoenix_kit_users(id)
-    ON DELETE CASCADE;
-    """
-
-    # Revert TICKETS: SET NULL → CASCADE
+    # Revert TICKETS: SET NULL → CASCADE (only if table exists)
     execute """
     DO $$
     BEGIN
-      IF EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'phoenix_kit_tickets_user_id_fkey'
-        AND conrelid = '#{prefix_str}phoenix_kit_tickets'::regclass
-      ) THEN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{if prefix && prefix != "public", do: prefix, else: "public"}' AND table_name = 'phoenix_kit_tickets') THEN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'phoenix_kit_tickets_user_id_fkey'
+          AND conrelid = '#{prefix_str}phoenix_kit_tickets'::regclass
+        ) THEN
+          ALTER TABLE #{prefix_str}phoenix_kit_tickets
+          DROP CONSTRAINT phoenix_kit_tickets_user_id_fkey;
+        END IF;
+
         ALTER TABLE #{prefix_str}phoenix_kit_tickets
-        DROP CONSTRAINT phoenix_kit_tickets_user_id_fkey;
+        ADD CONSTRAINT phoenix_kit_tickets_user_id_fkey
+        FOREIGN KEY (user_id)
+        REFERENCES #{prefix_str}phoenix_kit_users(id)
+        ON DELETE CASCADE;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_tickets ALTER COLUMN user_id SET NOT NULL;
       END IF;
     END $$;
     """
-
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_tickets
-    ADD CONSTRAINT phoenix_kit_tickets_user_id_fkey
-    FOREIGN KEY (user_id)
-    REFERENCES #{prefix_str}phoenix_kit_users(id)
-    ON DELETE CASCADE;
-    """
-
-    # Restore NOT NULL constraints ( Note: will fail if NULL values exist )
-    execute "ALTER TABLE #{prefix_str}phoenix_kit_orders ALTER COLUMN user_id SET NOT NULL"
-
-    execute "ALTER TABLE #{prefix_str}phoenix_kit_billing_profiles ALTER COLUMN user_id SET NOT NULL"
-
-    execute "ALTER TABLE #{prefix_str}phoenix_kit_tickets ALTER COLUMN user_id SET NOT NULL"
 
     # ===========================================
     # Revert Cart Items Index

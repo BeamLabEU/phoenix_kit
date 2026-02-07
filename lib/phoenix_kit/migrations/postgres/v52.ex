@@ -30,41 +30,9 @@ defmodule PhoenixKit.Migrations.Postgres.V52 do
 
   def up(%{prefix: prefix} = _opts) do
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
+    schema_name = if prefix && prefix != "public", do: prefix, else: "public"
 
-    # Step 1: Drop any old incorrect unique indexes
-    execute """
-    DROP INDEX IF EXISTS #{prefix_str}phoenix_kit_shop_products_slug_unique_idx
-    """
-
-    execute """
-    DROP INDEX IF EXISTS #{prefix_str}phoenix_kit_shop_categories_slug_unique_idx
-    """
-
-    # Drop constraint-based unique if it exists on JSONB
-    # V45 creates 'phoenix_kit_shop_products_slug_unique'
-    # V47 rollback creates 'phoenix_kit_shop_products_slug_key'
-    # Both are incorrect on JSONB columns, so drop whichever exists
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_shop_products
-    DROP CONSTRAINT IF EXISTS phoenix_kit_shop_products_slug_unique
-    """
-
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_shop_products
-    DROP CONSTRAINT IF EXISTS phoenix_kit_shop_products_slug_key
-    """
-
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
-    DROP CONSTRAINT IF EXISTS phoenix_kit_shop_categories_slug_unique
-    """
-
-    execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
-    DROP CONSTRAINT IF EXISTS phoenix_kit_shop_categories_slug_key
-    """
-
-    # Step 2: Create SQL function to extract primary slug from JSONB
+    # Step 1: Create SQL function to extract primary slug from JSONB
     # Uses alphabetically first key for deterministic, language-agnostic extraction.
     # The function is IMMUTABLE (required for unique index) so it cannot query
     # the settings table for default_language. Alphabetical key order ensures
@@ -78,23 +46,54 @@ defmodule PhoenixKit.Migrations.Postgres.V52 do
     $$ LANGUAGE plpgsql IMMUTABLE STRICT
     """
 
-    # Step 3: Create functional unique index for products
-    # Only include products that have a non-null primary slug
+    # Step 2: Fix shop products indexes (only if table exists)
     execute """
-    CREATE UNIQUE INDEX idx_shop_products_slug_primary
-    ON #{prefix_str}phoenix_kit_shop_products (
-      (#{prefix_str}extract_primary_slug(slug))
-    )
-    WHERE #{prefix_str}extract_primary_slug(slug) IS NOT NULL
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{schema_name}' AND table_name = 'phoenix_kit_shop_products') THEN
+        -- Drop any old incorrect unique indexes
+        DROP INDEX IF EXISTS #{prefix_str}phoenix_kit_shop_products_slug_unique_idx;
+
+        -- Drop constraint-based unique if it exists on JSONB
+        ALTER TABLE #{prefix_str}phoenix_kit_shop_products
+        DROP CONSTRAINT IF EXISTS phoenix_kit_shop_products_slug_unique;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_shop_products
+        DROP CONSTRAINT IF EXISTS phoenix_kit_shop_products_slug_key;
+
+        -- Create functional unique index for products
+        CREATE UNIQUE INDEX idx_shop_products_slug_primary
+        ON #{prefix_str}phoenix_kit_shop_products (
+          (#{prefix_str}extract_primary_slug(slug))
+        )
+        WHERE #{prefix_str}extract_primary_slug(slug) IS NOT NULL;
+      END IF;
+    END $$;
     """
 
-    # Step 4: Create functional unique index for categories
+    # Step 3: Fix shop categories indexes (only if table exists)
     execute """
-    CREATE UNIQUE INDEX idx_shop_categories_slug_primary
-    ON #{prefix_str}phoenix_kit_shop_categories (
-      (#{prefix_str}extract_primary_slug(slug))
-    )
-    WHERE #{prefix_str}extract_primary_slug(slug) IS NOT NULL
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '#{schema_name}' AND table_name = 'phoenix_kit_shop_categories') THEN
+        -- Drop any old incorrect unique indexes
+        DROP INDEX IF EXISTS #{prefix_str}phoenix_kit_shop_categories_slug_unique_idx;
+
+        -- Drop constraint-based unique if it exists on JSONB
+        ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
+        DROP CONSTRAINT IF EXISTS phoenix_kit_shop_categories_slug_unique;
+
+        ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
+        DROP CONSTRAINT IF EXISTS phoenix_kit_shop_categories_slug_key;
+
+        -- Create functional unique index for categories
+        CREATE UNIQUE INDEX idx_shop_categories_slug_primary
+        ON #{prefix_str}phoenix_kit_shop_categories (
+          (#{prefix_str}extract_primary_slug(slug))
+        )
+        WHERE #{prefix_str}extract_primary_slug(slug) IS NOT NULL;
+      END IF;
+    END $$;
     """
 
     # Record migration version
