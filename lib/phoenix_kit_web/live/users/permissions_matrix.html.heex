@@ -1,0 +1,150 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Permissions Matrix"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Roles
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Permissions Matrix</h1>
+        <p class="text-lg text-base-content/70">
+          Overview of role permissions across all modules
+        </p>
+      </div>
+    </header>
+
+    <%!-- Matrix Table --%>
+    <div class="overflow-x-auto bg-base-100 rounded-lg">
+      <table class="table table-sm">
+        <thead>
+          <tr class="bg-base-200">
+            <th class="sticky left-0 bg-base-200 z-10 min-w-[180px]">Module</th>
+            <%= for role <- @roles do %>
+              <th class="text-center min-w-[100px]">
+                <.pk_link navigate="/admin/users/roles" class="link link-hover">
+                  {role.name}
+                </.pk_link>
+              </th>
+            <% end %>
+          </tr>
+        </thead>
+        <tbody>
+          <%!-- Core Sections Header --%>
+          <tr class="bg-base-200/50">
+            <td
+              colspan={length(@roles) + 1}
+              class="font-semibold text-xs uppercase tracking-wide text-base-content/70 py-2"
+            >
+              Core Sections
+            </td>
+          </tr>
+          <%= for key <- @core_keys do %>
+            <tr class="hover">
+              <td class="sticky left-0 bg-base-100 z-10 font-medium">
+                {PhoenixKit.Users.Permissions.module_label(key)}
+              </td>
+              <%= for role <- @roles do %>
+                <td class="text-center">
+                  <%= if role.name == "Owner" do %>
+                    <span class="badge badge-sm badge-primary badge-outline">always</span>
+                  <% else %>
+                    <button
+                      phx-click="toggle_permission"
+                      phx-value-role_id={role.id}
+                      phx-value-key={key}
+                      class="cursor-pointer hover:opacity-70 transition-opacity"
+                    >
+                      <%= if Map.get(@matrix, role.id, MapSet.new()) |> MapSet.member?(key) do %>
+                        <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                      <% else %>
+                        <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                      <% end %>
+                    </button>
+                  <% end %>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+
+          <%!-- Feature Modules Header --%>
+          <tr class="bg-base-200/50">
+            <td
+              colspan={length(@roles) + 1}
+              class="font-semibold text-xs uppercase tracking-wide text-base-content/70 py-2"
+            >
+              Feature Modules
+            </td>
+          </tr>
+          <%= for key <- @feature_keys do %>
+            <tr class="hover">
+              <td class="sticky left-0 bg-base-100 z-10 font-medium">
+                {PhoenixKit.Users.Permissions.module_label(key)}
+              </td>
+              <%= for role <- @roles do %>
+                <td class="text-center">
+                  <%= if role.name == "Owner" do %>
+                    <span class="badge badge-sm badge-primary badge-outline">always</span>
+                  <% else %>
+                    <button
+                      phx-click="toggle_permission"
+                      phx-value-role_id={role.id}
+                      phx-value-key={key}
+                      class="cursor-pointer hover:opacity-70 transition-opacity"
+                    >
+                      <%= if Map.get(@matrix, role.id, MapSet.new()) |> MapSet.member?(key) do %>
+                        <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                      <% else %>
+                        <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                      <% end %>
+                    </button>
+                  <% end %>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+          <%!-- Summary Row --%>
+          <tr class="bg-base-200 font-semibold">
+            <td class="sticky left-0 bg-base-200 z-10">
+              Total
+            </td>
+            <%= for role <- @roles do %>
+              <td class="text-center">
+                <%= if role.name == "Owner" do %>
+                  {length(PhoenixKit.Users.Permissions.all_module_keys())} / {length(PhoenixKit.Users.Permissions.all_module_keys())}
+                <% else %>
+                  {Map.get(@matrix, role.id, MapSet.new()) |> MapSet.size()} / {length(PhoenixKit.Users.Permissions.all_module_keys())}
+                <% end %>
+              </td>
+            <% end %>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <%!-- Help Info --%>
+    <div class="alert alert-info mt-6">
+      <.icon name="hero-information-circle" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">About Permissions</h3>
+        <p class="text-sm">
+          Click any check or cross icon to toggle a permission for that role.
+          The Owner role always has full access and cannot be modified.
+          You can only grant or revoke permissions that your own role has.
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

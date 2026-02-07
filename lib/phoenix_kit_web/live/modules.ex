@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Pages
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(_params, _session, socket) do
@@ -58,10 +59,14 @@ defmodule PhoenixKitWeb.Live.Modules do
     db_explorer_config = DB.get_config()
     shop_config = Shop.get_config()
 
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    accessible = if scope, do: Scope.accessible_modules(scope), else: MapSet.new()
+
     socket =
       socket
       |> assign(:page_title, "Modules")
       |> assign(:project_title, project_title)
+      |> assign(:accessible_modules, accessible)
       |> assign(:referral_codes_enabled, referral_codes_config.enabled)
       |> assign(:referral_codes_required, referral_codes_config.required)
       |> assign(:max_uses_per_code, referral_codes_config.max_uses_per_code)

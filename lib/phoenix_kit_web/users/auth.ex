@@ -547,7 +547,30 @@ defmodule PhoenixKitWeb.Users.Auth do
 
       Scope.admin?(scope) ->
         socket = attach_locale_hook(socket)
-        {:cont, socket}
+
+        # Check module-level permissions for admin views
+        case permission_key_for_admin_view(socket.view) do
+          nil ->
+            {:cont, socket}
+
+          module_key ->
+            socket =
+              Phoenix.Component.assign(socket, :phoenix_kit_current_module_key, module_key)
+
+            if Scope.has_module_access?(scope, module_key) do
+              {:cont, socket}
+            else
+              socket =
+                socket
+                |> Phoenix.LiveView.put_flash(
+                  :error,
+                  "You do not have permission to access this section."
+                )
+                |> Phoenix.LiveView.redirect(to: "/")
+
+              {:halt, socket}
+            end
+        end
 
       true ->
         socket =
@@ -557,6 +580,62 @@ defmodule PhoenixKitWeb.Users.Auth do
             "You do not have the required role to access this page."
           )
           |> Phoenix.LiveView.redirect(to: "/")
+
+        {:halt, socket}
+    end
+  end
+
+  def on_mount({:phoenix_kit_ensure_module_access, module_key}, params, session, socket) do
+    socket = mount_phoenix_kit_current_scope(socket, session, params)
+    socket = check_maintenance_mode(socket)
+    scope = socket.assigns.phoenix_kit_current_scope
+
+    # Store current module key for scope refresh checks
+    socket = Phoenix.Component.assign(socket, :phoenix_kit_current_module_key, module_key)
+
+    cond do
+      not Scope.authenticated?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+
+        {:halt, socket}
+
+      Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
+
+        {:halt, socket}
+
+      not Scope.admin?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "You do not have the required role to access this page."
+          )
+          |> Phoenix.LiveView.redirect(to: "/")
+
+        {:halt, socket}
+
+      Scope.has_module_access?(scope, module_key) ->
+        socket = attach_locale_hook(socket)
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "You do not have permission to access this section."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/admin"))
 
         {:halt, socket}
     end
@@ -774,12 +853,30 @@ defmodule PhoenixKitWeb.Users.Auth do
       {socket, new_scope} = refresh_scope_assigns(socket)
 
       socket =
-        if was_admin and not Scope.admin?(new_scope) do
-          socket
-          |> LiveView.put_flash(:error, "You must be an admin to access this page.")
-          |> LiveView.push_navigate(to: "/")
-        else
-          socket
+        cond do
+          # Lost admin role entirely
+          was_admin and not Scope.admin?(new_scope) ->
+            socket
+            |> LiveView.put_flash(:error, "You must be an admin to access this page.")
+            |> LiveView.push_navigate(to: "/")
+
+          # Still admin but lost access to current module
+          Scope.admin?(new_scope) and
+              not has_current_module_access?(socket, new_scope) ->
+            redirect_to =
+              if Scope.has_module_access?(new_scope, "dashboard"),
+                do: Routes.path("/admin"),
+                else: "/"
+
+            socket
+            |> LiveView.put_flash(
+              :error,
+              "You no longer have permission to access this section."
+            )
+            |> LiveView.push_navigate(to: redirect_to)
+
+          true ->
+            socket
         end
 
       {:halt, socket}
@@ -789,6 +886,55 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp handle_scope_refresh(_msg, socket), do: {:cont, socket}
+
+  # Check if user still has access to the currently viewed module
+  defp has_current_module_access?(socket, scope) do
+    case socket.assigns[:phoenix_kit_current_module_key] do
+      nil -> true
+      module_key -> Scope.has_module_access?(scope, module_key)
+    end
+  end
+
+  # Maps admin LiveView modules to their permission keys.
+  # Used by :phoenix_kit_ensure_admin to enforce module-level permissions
+  # on core admin routes that share the same live_session.
+  # Returns nil for unmapped views (allows access by default for backward compat).
+  @admin_view_permissions %{
+    PhoenixKitWeb.Live.Dashboard => "dashboard",
+    PhoenixKitWeb.Live.Modules => "modules",
+    PhoenixKitWeb.Live.Users.Users => "users",
+    PhoenixKitWeb.Users.UserForm => "users",
+    PhoenixKitWeb.Live.Users.UserDetails => "users",
+    PhoenixKitWeb.Live.Users.Roles => "users",
+    PhoenixKitWeb.Live.Users.PermissionsMatrix => "users",
+    PhoenixKitWeb.Live.Users.LiveSessions => "users",
+    PhoenixKitWeb.Live.Users.Sessions => "users",
+    PhoenixKitWeb.Live.Users.Media => "media",
+    PhoenixKitWeb.Live.Users.MediaDetail => "media",
+    PhoenixKitWeb.Live.Users.MediaSelector => "media",
+    PhoenixKitWeb.Live.Settings => "settings",
+    PhoenixKitWeb.Live.Settings.Users => "settings",
+    PhoenixKitWeb.Live.Settings.Organization => "settings",
+    PhoenixKitWeb.Live.Settings.SEO => "seo",
+    PhoenixKitWeb.Live.Modules.Posts.Posts => "posts",
+    PhoenixKitWeb.Live.Modules.Posts.Edit => "posts",
+    PhoenixKitWeb.Live.Modules.Posts.Groups => "posts",
+    PhoenixKitWeb.Live.Modules.Posts.GroupEdit => "posts",
+    PhoenixKitWeb.Live.Modules.Posts.Details => "posts",
+    PhoenixKitWeb.Live.Modules.Posts.Settings => "posts",
+    PhoenixKitWeb.Live.Modules.Languages => "languages",
+    PhoenixKitWeb.Live.Modules.Legal.Settings => "legal",
+    PhoenixKitWeb.Live.Modules.Maintenance.Settings => "maintenance",
+    PhoenixKitWeb.Live.Modules.Storage.Settings => "storage",
+    PhoenixKitWeb.Live.Modules.Storage.BucketForm => "storage",
+    PhoenixKitWeb.Live.Modules.Storage.Dimensions => "storage",
+    PhoenixKitWeb.Live.Modules.Storage.DimensionForm => "storage",
+    PhoenixKitWeb.Live.Modules.Jobs.Index => "jobs"
+  }
+
+  defp permission_key_for_admin_view(view_module) do
+    Map.get(@admin_view_permissions, view_module)
+  end
 
   defp check_maintenance_mode(socket) do
     # Check if maintenance mode is enabled
@@ -1039,8 +1185,35 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   @doc """
-  Used for routes that require the user to have a specific role.
+  Used for routes that require the user to have module-level permission.
   """
+  def require_module_access(conn, module_key) when is_binary(module_key) do
+    case conn.assigns[:phoenix_kit_current_scope] do
+      %Scope{} = scope ->
+        cond do
+          not Scope.admin?(scope) ->
+            conn
+            |> put_flash(:error, "You do not have the required role to access this page.")
+            |> redirect(to: "/")
+            |> halt()
+
+          Scope.has_module_access?(scope, module_key) ->
+            conn
+
+          true ->
+            conn
+            |> put_flash(:error, "You do not have permission to access this section.")
+            |> redirect(to: Routes.path("/admin"))
+            |> halt()
+        end
+
+      _ ->
+        conn
+        |> fetch_phoenix_kit_current_scope([])
+        |> require_module_access(module_key)
+    end
+  end
+
   def require_role(conn, role_name) when is_binary(role_name) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->

@@ -16,7 +16,9 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_publishing_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [
+            {PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "publishing"}}
+          ] do
           live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
             as: :publishing_index_localized
 
@@ -49,7 +51,9 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_publishing,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [
+            {PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "publishing"}}
+          ] do
           live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
             as: :publishing_index
 

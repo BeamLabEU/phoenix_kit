@@ -67,6 +67,7 @@ defmodule PhoenixKit.Admin.Events do
   @topic_sessions "phoenix_kit:admin:sessions"
   @topic_presence "phoenix_kit:admin:presence"
   @topic_stats "phoenix_kit:admin:stats"
+  @topic_permissions "phoenix_kit:admin:permissions"
 
   ## User Events
 
@@ -240,7 +241,37 @@ defmodule PhoenixKit.Admin.Events do
     broadcast(@topic_stats, {:stats_updated, stats})
   end
 
+  ## Permission Events
+
+  @doc """
+  Broadcasts permission granted event to admin panels.
+  """
+  def broadcast_permission_granted(role_id, module_key) do
+    broadcast(@topic_permissions, {:permission_granted, role_id, module_key})
+  end
+
+  @doc """
+  Broadcasts permission revoked event to admin panels.
+  """
+  def broadcast_permission_revoked(role_id, module_key) do
+    broadcast(@topic_permissions, {:permission_revoked, role_id, module_key})
+  end
+
+  @doc """
+  Broadcasts permissions synced event to admin panels.
+  """
+  def broadcast_permissions_synced(role_id, module_keys) do
+    broadcast(@topic_permissions, {:permissions_synced, role_id, module_keys})
+  end
+
   ## Subscription Functions
+
+  @doc """
+  Subscribes to permission events for admin panels.
+  """
+  def subscribe_to_permissions do
+    Manager.subscribe(@topic_permissions)
+  end
 
   @doc """
   Subscribes to user events for admin panels.
@@ -286,6 +317,7 @@ defmodule PhoenixKit.Admin.Events do
     subscribe_to_sessions()
     subscribe_to_presence()
     subscribe_to_stats()
+    subscribe_to_permissions()
   end
 
   ## Private Functions

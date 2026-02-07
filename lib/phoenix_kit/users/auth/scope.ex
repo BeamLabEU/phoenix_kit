@@ -29,15 +29,17 @@ defmodule PhoenixKit.Users.Auth.Scope do
   """
 
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Role
 
   @type t :: %__MODULE__{
           user: User.t() | nil,
           authenticated?: boolean(),
-          cached_roles: [String.t()] | nil
+          cached_roles: [String.t()] | nil,
+          cached_permissions: MapSet.t(String.t()) | nil
         }
 
-  defstruct user: nil, authenticated?: false, cached_roles: nil
+  defstruct user: nil, authenticated?: false, cached_roles: nil, cached_permissions: nil
 
   @doc """
   Creates a new scope for the given user.
@@ -62,10 +64,21 @@ defmodule PhoenixKit.Users.Auth.Scope do
     # Pre-load user roles to cache them in the scope
     cached_roles = User.get_roles(user)
 
+    # Load permissions: Owner gets all, others get from DB
+    roles = Role.system_roles()
+
+    cached_permissions =
+      if roles.owner in cached_roles do
+        MapSet.new(Permissions.all_module_keys())
+      else
+        Permissions.get_permissions_for_user(user) |> MapSet.new()
+      end
+
     %__MODULE__{
       user: user,
       authenticated?: true,
-      cached_roles: cached_roles
+      cached_roles: cached_roles,
+      cached_permissions: cached_permissions
     }
   end
 
@@ -73,7 +86,8 @@ defmodule PhoenixKit.Users.Auth.Scope do
     %__MODULE__{
       user: nil,
       authenticated?: false,
-      cached_roles: []
+      cached_roles: [],
+      cached_permissions: MapSet.new()
     }
   end
 
@@ -324,4 +338,24 @@ defmodule PhoenixKit.Users.Auth.Scope do
       user_active?: user_active?(scope)
     }
   end
+
+  @doc """
+  Checks if the user has access to a specific admin module/section.
+
+  Owner always has access. Other roles check `cached_permissions`.
+  """
+  @spec has_module_access?(t(), String.t()) :: boolean()
+  def has_module_access?(%__MODULE__{cached_permissions: perms}, module_key)
+      when is_binary(module_key) and not is_nil(perms) do
+    MapSet.member?(perms, module_key)
+  end
+
+  def has_module_access?(_, _), do: false
+
+  @doc """
+  Returns the set of module keys the user can access.
+  """
+  @spec accessible_modules(t()) :: MapSet.t()
+  def accessible_modules(%__MODULE__{cached_permissions: perms}) when not is_nil(perms), do: perms
+  def accessible_modules(_), do: MapSet.new()
 end
