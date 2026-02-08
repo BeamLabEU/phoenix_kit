@@ -18,7 +18,6 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Modules.Tickets.Events
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -26,49 +25,42 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     if Tickets.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
-      if can_access_tickets?(current_user) do
-        case Tickets.get_ticket(id, preload: [:user, :assigned_to]) do
-          nil ->
-            {:ok,
-             socket
-             |> put_flash(:error, "Ticket not found")
-             |> push_navigate(to: Routes.path("/admin/tickets"))}
+      case Tickets.get_ticket(id, preload: [:user, :assigned_to]) do
+        nil ->
+          {:ok,
+           socket
+           |> put_flash(:error, "Ticket not found")
+           |> push_navigate(to: Routes.path("/admin/tickets"))}
 
-          ticket ->
-            # Subscribe to events for this specific ticket
-            Events.subscribe_to_ticket(ticket.id)
+        ticket ->
+          # Subscribe to events for this specific ticket
+          Events.subscribe_to_ticket(ticket.id)
 
-            project_title = Settings.get_project_title()
+          project_title = Settings.get_project_title()
 
-            socket =
-              socket
-              |> assign(:page_title, "Ticket: #{ticket.title}")
-              |> assign(:project_title, project_title)
-              |> assign(:ticket, ticket)
-              |> assign(:current_user, current_user)
-              |> assign(:can_view_internal, can_access_tickets?(current_user))
-              |> assign(
-                :internal_notes_enabled,
-                Settings.get_boolean_setting("tickets_internal_notes_enabled", true)
-              )
-              |> assign(:comment_form, %{"content" => "", "is_internal" => false})
-              |> assign(:show_internal_form, false)
-              |> assign(:show_media_selector, false)
-              |> assign(
-                :attachments_enabled,
-                Settings.get_boolean_setting("tickets_attachments_enabled", true)
-              )
-              |> load_comments()
-              |> load_attachments()
-              |> load_status_history()
+          socket =
+            socket
+            |> assign(:page_title, "Ticket: #{ticket.title}")
+            |> assign(:project_title, project_title)
+            |> assign(:ticket, ticket)
+            |> assign(:current_user, current_user)
+            |> assign(:can_view_internal, true)
+            |> assign(
+              :internal_notes_enabled,
+              Settings.get_boolean_setting("tickets_internal_notes_enabled", true)
+            )
+            |> assign(:comment_form, %{"content" => "", "is_internal" => false})
+            |> assign(:show_internal_form, false)
+            |> assign(:show_media_selector, false)
+            |> assign(
+              :attachments_enabled,
+              Settings.get_boolean_setting("tickets_attachments_enabled", true)
+            )
+            |> load_comments()
+            |> load_attachments()
+            |> load_status_history()
 
-            {:ok, socket}
-        end
-      else
-        {:ok,
-         socket
-         |> put_flash(:error, "Access denied")
-         |> push_navigate(to: Routes.path("/admin"))}
+          {:ok, socket}
       end
     else
       {:ok,
@@ -295,14 +287,6 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   end
 
   # Private functions
-
-  defp can_access_tickets?(nil), do: false
-
-  defp can_access_tickets?(user) do
-    Roles.user_has_role_owner?(user) or
-      Roles.user_has_role_admin?(user) or
-      Roles.user_has_role?(user, "SupportAgent")
-  end
 
   defp load_comments(socket) do
     ticket = socket.assigns.ticket

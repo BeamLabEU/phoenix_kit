@@ -30,7 +30,6 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
   alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Modules.Tickets.Events
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -38,31 +37,24 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
     if tickets_enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
-      if can_access_tickets?(current_user) do
-        # Subscribe to ticket events for real-time updates
-        Events.subscribe_to_all()
+      # Subscribe to ticket events for real-time updates
+      Events.subscribe_to_all()
 
-        project_title = Settings.get_project_title()
+      project_title = Settings.get_project_title()
 
-        socket =
-          socket
-          |> assign(:page_title, "Support Tickets")
-          |> assign(:project_title, project_title)
-          |> assign(:current_user, current_user)
-          |> assign(:tickets, [])
-          |> assign(:total_count, 0)
-          |> assign(:stats, Tickets.get_stats())
-          |> assign(:loading, true)
-          |> assign_filter_defaults()
-          |> assign_pagination_defaults()
+      socket =
+        socket
+        |> assign(:page_title, "Support Tickets")
+        |> assign(:project_title, project_title)
+        |> assign(:current_user, current_user)
+        |> assign(:tickets, [])
+        |> assign(:total_count, 0)
+        |> assign(:stats, Tickets.get_stats())
+        |> assign(:loading, true)
+        |> assign_filter_defaults()
+        |> assign_pagination_defaults()
 
-        {:ok, socket}
-      else
-        {:ok,
-         socket
-         |> put_flash(:error, "You don't have access to the ticketing system")
-         |> push_navigate(to: Routes.path("/admin"))}
-      end
+      {:ok, socket}
     else
       {:ok,
        socket
@@ -201,14 +193,6 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
 
   defp tickets_enabled? do
     Tickets.enabled?()
-  end
-
-  defp can_access_tickets?(nil), do: false
-
-  defp can_access_tickets?(user) do
-    Roles.user_has_role_owner?(user) or
-      Roles.user_has_role_admin?(user) or
-      Roles.user_has_role?(user, "SupportAgent")
   end
 
   defp assign_filter_defaults(socket) do

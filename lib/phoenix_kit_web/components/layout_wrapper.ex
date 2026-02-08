@@ -841,9 +841,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <% end %>
 
                     <%!-- Settings section with direct link and conditional submenu --%>
-                    <%= if module_accessible?(@scope, "settings") do %>
+                    <%= if settings_section_visible?(@scope) do %>
                       <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/settings")}
+                        href={settings_href(assigns, @scope)}
                         icon="settings"
                         label={gettext("Settings")}
                         current_path={@current_path || ""}
@@ -875,32 +875,34 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/publishing", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/tickets", "/admin/settings/billing", "/admin/settings/billing/providers", "/admin/shop/settings"]) do %>
                         <%!-- Settings submenu items --%>
                         <div class="mt-1">
-                          <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/settings")}
-                            icon="settings"
-                            label={gettext("General")}
-                            current_path={@current_path || ""}
-                            nested={true}
-                            exact_match_only={true}
-                          />
+                          <%= if module_accessible?(@scope, "settings") do %>
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/settings")}
+                              icon="settings"
+                              label={gettext("General")}
+                              current_path={@current_path || ""}
+                              nested={true}
+                              exact_match_only={true}
+                            />
 
-                          <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/settings/organization")}
-                            icon="organization"
-                            label={gettext("Organization")}
-                            current_path={@current_path || ""}
-                            nested={true}
-                          />
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/organization")}
+                              icon="organization"
+                              label={gettext("Organization")}
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
 
-                          <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/settings/users")}
-                            icon="users"
-                            label={gettext("Users")}
-                            current_path={@current_path || ""}
-                            nested={true}
-                          />
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/users")}
+                              icon="users"
+                              label={gettext("Users")}
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
+                          <% end %>
 
-                          <%= if PhoenixKit.Modules.Referrals.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Referrals.enabled?() and module_accessible?(@scope, "referrals") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/referral-codes")}
                               icon="referral_codes"
@@ -910,7 +912,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if Publishing.enabled?() do %>
+                          <%= if Publishing.enabled?() and module_accessible?(@scope, "publishing") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/publishing")}
                               icon="document"
@@ -920,7 +922,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if PhoenixKit.Settings.get_setting_cached("posts_enabled", "true") == "true" do %>
+                          <%= if PhoenixKit.Settings.get_setting_cached("posts_enabled", "true") == "true" and module_accessible?(@scope, "posts") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/posts")}
                               icon="document"
@@ -930,7 +932,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if PhoenixKit.Modules.Tickets.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Tickets.enabled?() and module_accessible?(@scope, "tickets") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/tickets")}
                               icon="hero-ticket"
@@ -942,7 +944,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                           <%!-- Legacy Pages settings navigation retained for future use --%>
 
-                          <%= if PhoenixKit.Modules.Emails.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Emails.enabled?() and module_accessible?(@scope, "emails") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/emails")}
                               icon="email"
@@ -952,7 +954,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if PhoenixKit.Modules.Billing.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Billing.enabled?() and module_accessible?(@scope, "billing") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/billing")}
                               icon="billing"
@@ -962,7 +964,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if PhoenixKit.Modules.Shop.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Shop.enabled?() and module_accessible?(@scope, "shop") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/shop/settings")}
                               icon="shop"
@@ -972,7 +974,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if Languages.enabled?() do %>
+                          <%= if Languages.enabled?() and module_accessible?(@scope, "languages") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/languages")}
                               icon="language"
@@ -982,7 +984,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if PhoenixKit.Modules.Legal.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Legal.enabled?() and module_accessible?(@scope, "legal") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/legal")}
                               icon="legal"
@@ -992,7 +994,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if SEO.module_enabled?() do %>
+                          <%= if SEO.module_enabled?() and module_accessible?(@scope, "seo") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/seo")}
                               icon="seo"
@@ -1002,7 +1004,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if PhoenixKit.Modules.Sitemap.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Sitemap.enabled?() and module_accessible?(@scope, "sitemap") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/sitemap")}
                               icon="sitemap"
@@ -1012,7 +1014,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%= if PhoenixKit.Modules.Maintenance.module_enabled?() do %>
+                          <%= if PhoenixKit.Modules.Maintenance.module_enabled?() and module_accessible?(@scope, "maintenance") do %>
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/maintenance")}
                               icon="maintenance"
@@ -1022,29 +1024,31 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             />
                           <% end %>
 
-                          <%!-- Media section with submenu --%>
-                          <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/settings/media")}
-                            icon="photo"
-                            label={gettext("Media")}
-                            current_path={@current_path || ""}
-                            nested={true}
-                          />
+                          <%!-- Media settings section with submenu --%>
+                          <%= if module_accessible?(@scope, "media") do %>
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/media")}
+                              icon="photo"
+                              label={gettext("Media")}
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
 
-                          <%= if submenu_open?(@current_path, ["/admin/settings/media", "/admin/settings/media/dimensions"]) do %>
-                            <%!-- Storage submenu items --%>
-                            <div class="mt-1 pl-4">
-                              <.admin_nav_item
-                                href={Routes.locale_aware_path(assigns, "/admin/settings/media/dimensions")}
-                                icon="photo"
-                                label={gettext("Dimensions")}
-                                current_path={@current_path || ""}
-                                nested={true}
-                              />
-                            </div>
+                            <%= if submenu_open?(@current_path, ["/admin/settings/media", "/admin/settings/media/dimensions"]) do %>
+                              <%!-- Storage submenu items --%>
+                              <div class="mt-1 pl-4">
+                                <.admin_nav_item
+                                  href={Routes.locale_aware_path(assigns, "/admin/settings/media/dimensions")}
+                                  icon="photo"
+                                  label={gettext("Dimensions")}
+                                  current_path={@current_path || ""}
+                                  nested={true}
+                                />
+                              </div>
+                            <% end %>
                           <% end %>
 
-                          <%= if PhoenixKit.Modules.Entities.enabled?() do %>
+                          <%= if PhoenixKit.Modules.Entities.enabled?() and module_accessible?(@scope, "entities") do %>
                             <.admin_nav_item
                               href={Routes.path("/admin/settings/entities")}
                               icon="entities"
@@ -1324,6 +1328,48 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # Check if a user has access to a specific admin module/section
   defp module_accessible?(scope, module_key) do
     Scope.has_module_access?(scope, module_key)
+  end
+
+  # Settings section is visible if user has "settings" permission
+  # or has permission for any module that has a settings sub-page
+  @settings_submodule_keys ~w(referrals publishing posts tickets emails billing shop languages legal seo sitemap maintenance media entities)
+  defp settings_section_visible?(scope) do
+    module_accessible?(scope, "settings") or
+      Enum.any?(@settings_submodule_keys, &module_accessible?(scope, &1))
+  end
+
+  # Returns the best settings href for the parent nav item.
+  # If user has "settings" permission, go to General settings.
+  # Otherwise, find the first accessible sub-module settings page.
+  @settings_submodule_paths [
+    {"referrals", "/admin/settings/referral-codes"},
+    {"publishing", "/admin/settings/publishing"},
+    {"posts", "/admin/settings/posts"},
+    {"tickets", "/admin/settings/tickets"},
+    {"emails", "/admin/settings/emails"},
+    {"billing", "/admin/settings/billing"},
+    {"shop", "/admin/shop/settings"},
+    {"languages", "/admin/settings/languages"},
+    {"legal", "/admin/settings/legal"},
+    {"seo", "/admin/settings/seo"},
+    {"sitemap", "/admin/settings/sitemap"},
+    {"maintenance", "/admin/settings/maintenance"},
+    {"media", "/admin/settings/media"},
+    {"entities", "/admin/settings/entities"}
+  ]
+  defp settings_href(assigns, scope) do
+    if module_accessible?(scope, "settings") do
+      Routes.locale_aware_path(assigns, "/admin/settings")
+    else
+      enabled = PhoenixKit.Users.Permissions.enabled_module_keys()
+
+      case Enum.find(@settings_submodule_paths, fn {key, _} ->
+             module_accessible?(scope, key) and MapSet.member?(enabled, key)
+           end) do
+        {_, path} -> Routes.locale_aware_path(assigns, path)
+        nil -> Routes.locale_aware_path(assigns, "/admin/settings")
+      end
+    end
   end
 
   # Check if a submenu should be open based on current path

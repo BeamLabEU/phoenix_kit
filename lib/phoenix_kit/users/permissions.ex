@@ -119,7 +119,7 @@ defmodule PhoenixKit.Users.Permissions do
       "languages" => "Languages",
       "connections" => "Connections",
       "legal" => "Legal",
-      "db" => "DB Explorer",
+      "db" => "DB",
       "jobs" => "Jobs"
     }
 
@@ -141,14 +141,22 @@ defmodule PhoenixKit.Users.Permissions do
     from(rp in RolePermission,
       join: ra in "phoenix_kit_user_role_assignments",
       on: ra.role_id == rp.role_id,
-      where: ra.user_id == ^user_id and ra.is_active == true,
+      where: ra.user_id == ^user_id,
       select: rp.module_key,
       distinct: true
     )
     |> repo.all()
   rescue
     e ->
-      Logger.warning("Permissions.get_permissions_for_user failed: #{inspect(e)}")
+      if table_missing_error?(e) do
+        Logger.error(
+          "PhoenixKit: phoenix_kit_role_permissions table not found. " <>
+            "Run `mix phoenix_kit.update` to apply V53 migration."
+        )
+      else
+        Logger.warning("Permissions.get_permissions_for_user failed: #{inspect(e)}")
+      end
+
       []
   end
 
@@ -357,13 +365,24 @@ defmodule PhoenixKit.Users.Permissions do
     _ -> false
   end
 
+  # Detect Postgrex "relation does not exist" errors (table missing)
+  defp table_missing_error?(%{postgres: %{code: :undefined_table}}), do: true
+
+  defp table_missing_error?(%Postgrex.Error{postgres: %{code: :undefined_table}}), do: true
+
+  defp table_missing_error?(%{message: msg}) when is_binary(msg) do
+    String.contains?(msg, "does not exist")
+  end
+
+  defp table_missing_error?(_), do: false
+
   # Notify all users with the affected role to refresh their scope
   defp notify_affected_users(role_id) do
     repo = RepoHelper.repo()
 
     user_ids =
       from(ra in "phoenix_kit_user_role_assignments",
-        where: ra.role_id == ^role_id and ra.is_active == true,
+        where: ra.role_id == ^role_id,
         select: ra.user_id
       )
       |> repo.all()

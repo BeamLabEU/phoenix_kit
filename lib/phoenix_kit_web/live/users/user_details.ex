@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Admin.Events
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.AdminNote
@@ -38,6 +39,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
          |> push_navigate(to: Routes.path("/admin/users"))}
 
       user ->
+        if connected?(socket), do: Events.subscribe_to_users()
+
         custom_field_definitions = CustomFields.list_field_definitions()
 
         # Load connections stats if module is enabled
@@ -223,6 +226,72 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  # --- PubSub Handlers ---
+
+  @impl true
+  def handle_info({:user_updated, user}, socket) do
+    {:noreply, maybe_refresh_user(socket, user)}
+  end
+
+  @impl true
+  def handle_info({:user_role_assigned, user, _role}, socket) do
+    {:noreply, maybe_refresh_user(socket, user)}
+  end
+
+  @impl true
+  def handle_info({:user_role_removed, user, _role}, socket) do
+    {:noreply, maybe_refresh_user(socket, user)}
+  end
+
+  @impl true
+  def handle_info({:user_roles_synced, user, _roles}, socket) do
+    {:noreply, maybe_refresh_user(socket, user)}
+  end
+
+  @impl true
+  def handle_info({:user_confirmed, user}, socket) do
+    {:noreply, maybe_refresh_user(socket, user)}
+  end
+
+  @impl true
+  def handle_info({:user_unconfirmed, user}, socket) do
+    {:noreply, maybe_refresh_user(socket, user)}
+  end
+
+  @impl true
+  def handle_info({:user_deleted, user}, socket) do
+    if user.id == socket.assigns.user.id do
+      {:noreply,
+       socket
+       |> put_flash(:info, gettext("This user has been deleted"))
+       |> push_navigate(to: Routes.path("/admin/users"))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:user_created, _user}, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  defp maybe_refresh_user(socket, event_user) do
+    if event_user.id == socket.assigns.user.id do
+      case Auth.get_user_with_roles(event_user.id) do
+        nil ->
+          socket
+          |> put_flash(:info, gettext("This user has been deleted"))
+          |> push_navigate(to: Routes.path("/admin/users"))
+
+        user ->
+          assign(socket, :user, user)
+      end
+    else
+      socket
     end
   end
 

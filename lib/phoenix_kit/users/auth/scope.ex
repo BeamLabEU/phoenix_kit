@@ -68,10 +68,21 @@ defmodule PhoenixKit.Users.Auth.Scope do
     roles = Role.system_roles()
 
     cached_permissions =
-      if roles.owner in cached_roles do
-        MapSet.new(Permissions.all_module_keys())
-      else
-        Permissions.get_permissions_for_user(user) |> MapSet.new()
+      cond do
+        roles.owner in cached_roles ->
+          MapSet.new(Permissions.all_module_keys())
+
+        roles.admin in cached_roles ->
+          case Permissions.get_permissions_for_user(user) do
+            # Admin with no explicit permissions gets full access.
+            # This handles backward compat before V53 migration is applied
+            # (V53 seeds Admin with all 24 permission keys by default).
+            [] -> MapSet.new(Permissions.all_module_keys())
+            perms -> MapSet.new(perms)
+          end
+
+        true ->
+          Permissions.get_permissions_for_user(user) |> MapSet.new()
       end
 
     %__MODULE__{
@@ -224,7 +235,14 @@ defmodule PhoenixKit.Users.Auth.Scope do
   def owner?(%__MODULE__{user: nil}), do: false
 
   @doc """
-  Checks if the user is an admin or owner.
+  Checks if the user can access the admin panel.
+
+  Returns true when the user holds the Admin or Owner role, OR has been
+  explicitly granted any module-level permissions (via `RolePermission`).
+  This allows custom roles (e.g. "Editor", "Support") to access the admin
+  panel when they've been granted at least one permission.
+
+  Per-page access is enforced separately by `has_module_access?/2`.
 
   ## Examples
 
@@ -238,9 +256,12 @@ defmodule PhoenixKit.Users.Auth.Scope do
       false
   """
   @spec admin?(t()) :: boolean()
-  def admin?(%__MODULE__{cached_roles: cached_roles}) when is_list(cached_roles) do
+  def admin?(%__MODULE__{cached_roles: cached_roles, cached_permissions: perms})
+      when is_list(cached_roles) do
     roles = Role.system_roles()
-    roles.admin in cached_roles or roles.owner in cached_roles
+
+    roles.admin in cached_roles or roles.owner in cached_roles or
+      (is_struct(perms, MapSet) and MapSet.size(perms) > 0)
   end
 
   def admin?(%__MODULE__{user: nil}), do: false
@@ -342,7 +363,9 @@ defmodule PhoenixKit.Users.Auth.Scope do
   @doc """
   Checks if the user has access to a specific admin module/section.
 
-  Owner always has access. Other roles check `cached_permissions`.
+  Looks up `module_key` in `cached_permissions`. Owner access works because
+  `for_user/1` pre-populates all keys for owners; this function itself does
+  not special-case roles.
   """
   @spec has_module_access?(t(), String.t()) :: boolean()
   def has_module_access?(%__MODULE__{cached_permissions: perms}, module_key)

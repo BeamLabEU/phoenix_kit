@@ -27,11 +27,11 @@
     </header>
 
     <%!-- Matrix Table --%>
-    <div class="overflow-x-auto bg-base-100 rounded-lg">
+    <div class="overflow-x-auto bg-base-100 rounded-lg border border-base-300">
       <table class="table table-sm">
         <thead>
-          <tr class="bg-base-200">
-            <th class="sticky left-0 bg-base-200 z-10 min-w-[180px]">Module</th>
+          <tr class="bg-base-300 text-base-content">
+            <th class="sticky left-0 bg-base-300 z-10 min-w-[180px]">Module</th>
             <%= for role <- @roles do %>
               <th class="text-center min-w-[100px]">
                 <.pk_link navigate="/admin/users/roles" class="link link-hover">
@@ -43,17 +43,20 @@
         </thead>
         <tbody>
           <%!-- Core Sections Header --%>
-          <tr class="bg-base-200/50">
+          <tr class="bg-primary/10">
             <td
               colspan={length(@roles) + 1}
-              class="font-semibold text-xs uppercase tracking-wide text-base-content/70 py-2"
+              class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
               Core Sections
             </td>
           </tr>
-          <%= for key <- @core_keys do %>
-            <tr class="hover">
-              <td class="sticky left-0 bg-base-100 z-10 font-medium">
+          <%= for {key, idx} <- Enum.with_index(@core_keys) do %>
+            <tr class={if(rem(idx, 2) == 1, do: "bg-base-200", else: "")}>
+              <td class={[
+                "sticky left-0 z-10 font-medium",
+                if(rem(idx, 2) == 1, do: "bg-base-200", else: "bg-base-100")
+              ]}>
                 {PhoenixKit.Users.Permissions.module_label(key)}
               </td>
               <%= for role <- @roles do %>
@@ -80,17 +83,20 @@
           <% end %>
 
           <%!-- Feature Modules Header --%>
-          <tr class="bg-base-200/50">
+          <tr class="bg-primary/10">
             <td
               colspan={length(@roles) + 1}
-              class="font-semibold text-xs uppercase tracking-wide text-base-content/70 py-2"
+              class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
               Feature Modules
             </td>
           </tr>
-          <%= for key <- @feature_keys do %>
-            <tr class="hover">
-              <td class="sticky left-0 bg-base-100 z-10 font-medium">
+          <%= for {key, idx} <- Enum.with_index(@feature_keys) do %>
+            <tr class={if(rem(idx, 2) == 1, do: "bg-base-200", else: "")}>
+              <td class={[
+                "sticky left-0 z-10 font-medium",
+                if(rem(idx, 2) == 1, do: "bg-base-200", else: "bg-base-100")
+              ]}>
                 {PhoenixKit.Users.Permissions.module_label(key)}
               </td>
               <%= for role <- @roles do %>
@@ -116,16 +122,20 @@
             </tr>
           <% end %>
           <%!-- Summary Row --%>
-          <tr class="bg-base-200 font-semibold">
-            <td class="sticky left-0 bg-base-200 z-10">
+          <tr class="bg-base-300 font-semibold text-base-content">
+            <td class="sticky left-0 bg-base-300 z-10">
               Total
             </td>
             <%= for role <- @roles do %>
               <td class="text-center">
                 <%= if role.name == "Owner" do %>
-                  {length(PhoenixKit.Users.Permissions.all_module_keys())} / {length(PhoenixKit.Users.Permissions.all_module_keys())}
+                  {length(PhoenixKit.Users.Permissions.all_module_keys())} / {length(
+                    PhoenixKit.Users.Permissions.all_module_keys()
+                  )}
                 <% else %>
-                  {Map.get(@matrix, role.id, MapSet.new()) |> MapSet.size()} / {length(PhoenixKit.Users.Permissions.all_module_keys())}
+                  {Map.get(@matrix, role.id, MapSet.new()) |> MapSet.size()} / {length(
+                    PhoenixKit.Users.Permissions.all_module_keys()
+                  )}
                 <% end %>
               </td>
             <% end %>

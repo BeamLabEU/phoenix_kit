@@ -33,6 +33,8 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
+  alias PhoenixKit.Users.Permissions
+  alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.SessionFingerprint
@@ -549,24 +551,54 @@ defmodule PhoenixKitWeb.Users.Auth do
         socket = attach_locale_hook(socket)
 
         # Check module-level permissions for admin views
-        case permission_key_for_admin_view(socket.view) do
+        perm_key = permission_key_for_admin_view(socket.view)
+
+        case perm_key do
           nil ->
-            {:cont, socket}
-
-          module_key ->
-            socket =
-              Phoenix.Component.assign(socket, :phoenix_kit_current_module_key, module_key)
-
-            if Scope.has_module_access?(scope, module_key) do
+            # Unmapped views: fail-closed for custom roles, allow Admin/Owner
+            if Scope.owner?(scope) or
+                 Scope.has_role?(scope, Role.system_roles().admin) do
               {:cont, socket}
             else
+              redirect_to = best_available_admin_path(scope)
+
               socket =
                 socket
                 |> Phoenix.LiveView.put_flash(
                   :error,
                   "You do not have permission to access this section."
                 )
-                |> Phoenix.LiveView.redirect(to: "/")
+                |> Phoenix.LiveView.redirect(to: redirect_to)
+
+              {:halt, socket}
+            end
+
+          module_key ->
+            socket =
+              Phoenix.Component.assign(socket, :phoenix_kit_current_module_key, module_key)
+
+            # Owner/Admin can access disabled module settings (to enable them).
+            # Custom roles must also have the module enabled.
+            has_perm = Scope.has_module_access?(scope, module_key)
+
+            is_system_role =
+              Scope.owner?(scope) or
+                Scope.has_role?(scope, Role.system_roles().admin)
+
+            module_enabled = MapSet.member?(Permissions.enabled_module_keys(), module_key)
+
+            if has_perm and (is_system_role or module_enabled) do
+              {:cont, socket}
+            else
+              redirect_to = best_available_admin_path(scope)
+
+              socket =
+                socket
+                |> Phoenix.LiveView.put_flash(
+                  :error,
+                  "You do not have permission to access this section."
+                )
+                |> Phoenix.LiveView.redirect(to: redirect_to)
 
               {:halt, socket}
             end
@@ -624,18 +656,23 @@ defmodule PhoenixKitWeb.Users.Auth do
 
         {:halt, socket}
 
-      Scope.has_module_access?(scope, module_key) ->
+      Scope.has_module_access?(scope, module_key) and
+          (Scope.owner?(scope) or
+             Scope.has_role?(scope, Role.system_roles().admin) or
+             MapSet.member?(Permissions.enabled_module_keys(), module_key)) ->
         socket = attach_locale_hook(socket)
         {:cont, socket}
 
       true ->
+        redirect_to = best_available_admin_path(scope)
+
         socket =
           socket
           |> Phoenix.LiveView.put_flash(
             :error,
             "You do not have permission to access this section."
           )
-          |> Phoenix.LiveView.redirect(to: Routes.path("/admin"))
+          |> Phoenix.LiveView.redirect(to: redirect_to)
 
         {:halt, socket}
     end
@@ -863,10 +900,7 @@ defmodule PhoenixKitWeb.Users.Auth do
           # Still admin but lost access to current module
           Scope.admin?(new_scope) and
               not has_current_module_access?(socket, new_scope) ->
-            redirect_to =
-              if Scope.has_module_access?(new_scope, "dashboard"),
-                do: Routes.path("/admin"),
-                else: "/"
+            redirect_to = best_available_admin_path(new_scope)
 
             socket
             |> LiveView.put_flash(
@@ -886,6 +920,51 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp handle_scope_refresh(_msg, socket), do: {:cont, socket}
+
+  # Priority-ordered list of admin sections to try when redirecting
+  # a user who lacks access to the requested page.
+  # Priority-ordered fallback routes for redirecting users who lack access.
+  # Top-level module pages first, then settings sub-pages.
+  @admin_fallback_routes [
+    # Core admin sections
+    {"dashboard", "/admin"},
+    {"users", "/admin/users"},
+    {"settings", "/admin/settings"},
+    {"modules", "/admin/modules"},
+    {"media", "/admin/media"},
+    # Top-level feature module pages
+    {"shop", "/admin/shop"},
+    {"posts", "/admin/posts"},
+    {"billing", "/admin/billing"},
+    {"entities", "/admin/entities"},
+    {"tickets", "/admin/tickets"},
+    {"emails", "/admin/emails"},
+    {"ai", "/admin/ai"},
+    {"jobs", "/admin/jobs"},
+    {"sync", "/admin/sync"},
+    {"db", "/admin/db"},
+    {"publishing", "/admin/publishing"},
+    # Settings sub-pages (lower priority landing pages)
+    {"languages", "/admin/settings/languages"},
+    {"seo", "/admin/settings/seo"},
+    {"sitemap", "/admin/settings/sitemap"},
+    {"maintenance", "/admin/settings/maintenance"},
+    {"legal", "/admin/settings/legal"},
+    {"referrals", "/admin/settings/referral-codes"},
+    {"connections", "/admin/sync/connections"}
+  ]
+
+  # Find the best admin page the user has access to, falling back to "/"
+  # Checks both permission (user can access) AND enabled status (module is active)
+  # to prevent redirect loops when a user has permission for a disabled module.
+  defp best_available_admin_path(scope) do
+    enabled = Permissions.enabled_module_keys()
+
+    Enum.find_value(@admin_fallback_routes, "/", fn {key, path} ->
+      if Scope.has_module_access?(scope, key) and MapSet.member?(enabled, key),
+        do: Routes.path(path)
+    end)
+  end
 
   # Check if user still has access to the currently viewed module
   defp has_current_module_access?(socket, scope) do
@@ -925,15 +1004,29 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Modules.Languages => "languages",
     PhoenixKitWeb.Live.Modules.Legal.Settings => "legal",
     PhoenixKitWeb.Live.Modules.Maintenance.Settings => "maintenance",
-    PhoenixKitWeb.Live.Modules.Storage.Settings => "storage",
-    PhoenixKitWeb.Live.Modules.Storage.BucketForm => "storage",
-    PhoenixKitWeb.Live.Modules.Storage.Dimensions => "storage",
-    PhoenixKitWeb.Live.Modules.Storage.DimensionForm => "storage",
+    PhoenixKitWeb.Live.Modules.Storage.Settings => "media",
+    PhoenixKitWeb.Live.Modules.Storage.BucketForm => "media",
+    PhoenixKitWeb.Live.Modules.Storage.Dimensions => "media",
+    PhoenixKitWeb.Live.Modules.Storage.DimensionForm => "media",
     PhoenixKitWeb.Live.Modules.Jobs.Index => "jobs"
   }
 
   defp permission_key_for_admin_view(view_module) do
-    Map.get(@admin_view_permissions, view_module)
+    case Map.get(@admin_view_permissions, view_module) do
+      nil -> infer_permission_key_from_module(view_module)
+      key -> key
+    end
+  end
+
+  # Infer permission key from PhoenixKit.Modules.<Name>.Web.* namespace
+  defp infer_permission_key_from_module(view_module) do
+    case Module.split(view_module) do
+      ["PhoenixKit", "Modules", module_name | _rest] ->
+        Macro.underscore(module_name)
+
+      _ ->
+        nil
+    end
   end
 
   defp check_maintenance_mode(socket) do
@@ -1203,7 +1296,7 @@ defmodule PhoenixKitWeb.Users.Auth do
           true ->
             conn
             |> put_flash(:error, "You do not have permission to access this section.")
-            |> redirect(to: Routes.path("/admin"))
+            |> redirect(to: best_available_admin_path(scope))
             |> halt()
         end
 

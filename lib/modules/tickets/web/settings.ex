@@ -7,30 +7,20 @@ defmodule PhoenixKit.Modules.Tickets.Web.Settings do
 
   alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Roles
-  alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
     current_user = socket.assigns[:phoenix_kit_current_user]
+    project_title = Settings.get_project_title()
 
-    if can_access_settings?(current_user) do
-      project_title = Settings.get_project_title()
+    socket =
+      socket
+      |> assign(:page_title, "Tickets Settings")
+      |> assign(:project_title, project_title)
+      |> assign(:current_user, current_user)
+      |> load_settings()
 
-      socket =
-        socket
-        |> assign(:page_title, "Tickets Settings")
-        |> assign(:project_title, project_title)
-        |> assign(:current_user, current_user)
-        |> load_settings()
-
-      {:ok, socket}
-    else
-      {:ok,
-       socket
-       |> put_flash(:error, "Access denied")
-       |> push_navigate(to: Routes.path("/admin"))}
-    end
+    {:ok, socket}
   end
 
   @impl true
@@ -114,12 +104,6 @@ defmodule PhoenixKit.Modules.Tickets.Web.Settings do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to update setting")}
     end
-  end
-
-  defp can_access_settings?(nil), do: false
-
-  defp can_access_settings?(user) do
-    Roles.user_has_role_owner?(user) or Roles.user_has_role_admin?(user)
   end
 
   defp load_settings(socket) do

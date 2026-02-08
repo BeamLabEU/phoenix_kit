@@ -19,6 +19,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     if connected?(socket) do
       Events.subscribe_to_roles()
       Events.subscribe_to_permissions()
+      Events.subscribe_to_modules()
     end
 
     project_title = Settings.get_project_title()
@@ -57,6 +58,16 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
   def handle_info({:permissions_synced, _role_id, _keys}, socket) do
     {:noreply, refresh_matrix(socket)}
   end
+
+  def handle_info({:module_enabled, _key}, socket) do
+    {:noreply, load_matrix(socket)}
+  end
+
+  def handle_info({:module_disabled, _key}, socket) do
+    {:noreply, load_matrix(socket)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   # --- Events ---
 
