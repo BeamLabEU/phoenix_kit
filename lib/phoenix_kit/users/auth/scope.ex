@@ -36,7 +36,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
           user: User.t() | nil,
           authenticated?: boolean(),
           cached_roles: [String.t()] | nil,
-          cached_permissions: MapSet.t(String.t()) | nil
+          cached_permissions: MapSet.t() | nil
         }
 
   defstruct user: nil, authenticated?: false, cached_roles: nil, cached_permissions: nil
@@ -261,7 +261,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
     roles = Role.system_roles()
 
     roles.admin in cached_roles or roles.owner in cached_roles or
-      (is_struct(perms, MapSet) and MapSet.size(perms) > 0)
+      (not is_nil(perms) and MapSet.size(perms) > 0)
   end
 
   def admin?(%__MODULE__{user: nil}), do: false
@@ -381,4 +381,58 @@ defmodule PhoenixKit.Users.Auth.Scope do
   @spec accessible_modules(t()) :: MapSet.t()
   def accessible_modules(%__MODULE__{cached_permissions: perms}) when not is_nil(perms), do: perms
   def accessible_modules(_), do: MapSet.new()
+
+  @doc """
+  Returns the number of module permissions the user has been granted.
+  """
+  @spec permission_count(t()) :: non_neg_integer()
+  def permission_count(%__MODULE__{cached_permissions: perms}) when not is_nil(perms) do
+    MapSet.size(perms)
+  end
+
+  def permission_count(_), do: 0
+
+  @doc """
+  Checks if the user has access to at least one of the given module keys.
+
+  ## Examples
+
+      Scope.has_any_module_access?(scope, ["billing", "shop"])
+  """
+  @spec has_any_module_access?(t(), [String.t()]) :: boolean()
+  def has_any_module_access?(%__MODULE__{cached_permissions: perms}, keys)
+      when is_list(keys) and not is_nil(perms) do
+    Enum.any?(keys, &MapSet.member?(perms, &1))
+  end
+
+  def has_any_module_access?(_, _), do: false
+
+  @doc """
+  Checks if the user has access to all of the given module keys.
+
+  ## Examples
+
+      Scope.has_all_module_access?(scope, ["billing", "shop"])
+  """
+  @spec has_all_module_access?(t(), [String.t()]) :: boolean()
+  def has_all_module_access?(%__MODULE__{cached_permissions: perms}, keys)
+      when is_list(keys) and not is_nil(perms) do
+    Enum.all?(keys, &MapSet.member?(perms, &1))
+  end
+
+  def has_all_module_access?(_, _), do: false
+
+  @doc """
+  Checks if the user holds the Owner or Admin system role.
+
+  Unlike `admin?/1` which also returns true for custom roles with permissions,
+  this strictly checks for the two built-in system roles.
+  """
+  @spec system_role?(t()) :: boolean()
+  def system_role?(%__MODULE__{cached_roles: cached_roles}) when is_list(cached_roles) do
+    roles = Role.system_roles()
+    roles.owner in cached_roles or roles.admin in cached_roles
+  end
+
+  def system_role?(%__MODULE__{user: nil}), do: false
 end

@@ -43,6 +43,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Utils.PhoenixVersion
   alias PhoenixKit.Utils.Routes
 
@@ -1361,7 +1362,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     if module_accessible?(scope, "settings") do
       Routes.locale_aware_path(assigns, "/admin/settings")
     else
-      enabled = PhoenixKit.Users.Permissions.enabled_module_keys()
+      enabled = Permissions.enabled_module_keys()
 
       case Enum.find(@settings_submodule_paths, fn {key, _} ->
              module_accessible?(scope, key) and MapSet.member?(enabled, key)

@@ -129,6 +129,12 @@
   # Dialyzer can't properly track MapSet opaque types through recursive functions
   ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*call_without_opaque/,
 
+  # Scope struct contains MapSet.t() which is opaque - Dialyzer can't reconcile
+  # opaque types inside struct type definitions with their constructed values
+  {"lib/phoenix_kit/users/auth/scope.ex", :contract_with_opaque},
+  # Callers of Scope.admin?/1 inherit the opaque mismatch from Scope.for_user/1
+  {"lib/modules/maintenance/web/plugs/maintenance_mode.ex", :call_without_opaque},
+
   # Shop catalog_product - false positive guard_fail warning
   # Case statement already handles nil in earlier branch, Dialyzer incorrectly warns
   # that remaining branch comparing binary() to nil can never succeed

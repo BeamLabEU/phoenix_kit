@@ -13,16 +13,37 @@ defmodule PhoenixKit.Users.Permissions do
     sync, publishing, referrals, sitemap, seo, maintenance, storage,
     languages, connections, legal, db, jobs
 
-  ## Usage
+  ## Constants & Metadata
 
-      # Check if a role has access to billing
-      Permissions.role_has_permission?(role_id, "billing")
+      Permissions.all_module_keys()        # All 24 keys
+      Permissions.core_section_keys()      # 5 core keys
+      Permissions.feature_module_keys()    # 19 feature keys
+      Permissions.enabled_module_keys()    # Core + currently enabled features
+      Permissions.valid_module_key?("ai")  # true
+      Permissions.feature_enabled?("ai")   # true/false based on module status
+      Permissions.module_label("shop")     # "E-Commerce"
+      Permissions.module_icon("shop")      # "hero-shopping-cart"
+      Permissions.module_description("shop") # "Product catalog, orders, ..."
 
-      # Get all permissions for a user (via their role assignments)
-      Permissions.get_permissions_for_user(user)
+  ## Query API
 
-      # Grant/revoke in bulk
+      Permissions.get_permissions_for_user(user)        # User's keys via roles
+      Permissions.get_permissions_for_role(role_id)      # Keys for a role
+      Permissions.role_has_permission?(role_id, "billing") # Single check
+      Permissions.get_permissions_matrix()               # All roles → MapSet
+      Permissions.roles_with_permission("billing")       # Role IDs with key
+      Permissions.users_with_permission("billing")       # User IDs with key
+      Permissions.count_permissions_for_role(role_id)     # Efficient count
+      Permissions.diff_permissions(role_a, role_b)        # Compare two roles
+
+  ## Mutation API
+
+      Permissions.grant_permission(role_id, "billing", granted_by_id)
+      Permissions.revoke_permission(role_id, "billing")
       Permissions.set_permissions(role_id, ["dashboard", "users"], granted_by_id)
+      Permissions.grant_all_permissions(role_id, granted_by_id)
+      Permissions.revoke_all_permissions(role_id)
+      Permissions.copy_permissions(source_role_id, target_role_id, granted_by_id)
   """
 
   import Ecto.Query, warn: false
@@ -88,43 +109,130 @@ defmodule PhoenixKit.Users.Permissions do
   def enabled_module_keys do
     enabled_features =
       @feature_module_keys
-      |> Enum.filter(&feature_enabled?/1)
+      |> Enum.filter(&do_feature_enabled?/1)
 
     MapSet.new(@core_section_keys ++ enabled_features)
   end
 
+  @doc "Checks whether `key` is one of the 24 known permission keys."
+  @spec valid_module_key?(String.t()) :: boolean()
+  def valid_module_key?(key) when is_binary(key), do: key in @all_module_keys
+  def valid_module_key?(_), do: false
+
+  @doc """
+  Checks whether a feature module is currently enabled.
+
+  Core section keys always return `true`. Feature module keys return the
+  result of calling the module's `enabled?/0` (or equivalent) function.
+  Returns `false` for unknown keys.
+  """
+  @spec feature_enabled?(String.t()) :: boolean()
+  def feature_enabled?(key) when key in @core_section_keys, do: true
+
+  def feature_enabled?(key) when is_binary(key) do
+    case Map.get(@feature_enabled_checks, key) do
+      {mod, fun} ->
+        Code.ensure_loaded?(mod) && apply(mod, fun, [])
+
+      nil ->
+        false
+    end
+  rescue
+    _ -> false
+  end
+
+  @labels %{
+    "dashboard" => "Dashboard",
+    "users" => "Users",
+    "media" => "Media",
+    "settings" => "Settings",
+    "modules" => "Modules",
+    "billing" => "Billing",
+    "shop" => "E-Commerce",
+    "emails" => "Emails",
+    "entities" => "Entities",
+    "tickets" => "Tickets",
+    "posts" => "Posts",
+    "ai" => "AI",
+    "sync" => "Sync",
+    "publishing" => "Publishing",
+    "referrals" => "Referrals",
+    "sitemap" => "Sitemap",
+    "seo" => "SEO",
+    "maintenance" => "Maintenance",
+    "storage" => "Storage",
+    "languages" => "Languages",
+    "connections" => "Connections",
+    "legal" => "Legal",
+    "db" => "DB",
+    "jobs" => "Jobs"
+  }
+
   @doc "Returns a human-readable label for a module key."
   @spec module_label(String.t()) :: String.t()
-  def module_label(key) do
-    labels = %{
-      "dashboard" => "Dashboard",
-      "users" => "Users",
-      "media" => "Media",
-      "settings" => "Settings",
-      "modules" => "Modules",
-      "billing" => "Billing",
-      "shop" => "E-Commerce",
-      "emails" => "Emails",
-      "entities" => "Entities",
-      "tickets" => "Tickets",
-      "posts" => "Posts",
-      "ai" => "AI",
-      "sync" => "Sync",
-      "publishing" => "Publishing",
-      "referrals" => "Referrals",
-      "sitemap" => "Sitemap",
-      "seo" => "SEO",
-      "maintenance" => "Maintenance",
-      "storage" => "Storage",
-      "languages" => "Languages",
-      "connections" => "Connections",
-      "legal" => "Legal",
-      "db" => "DB",
-      "jobs" => "Jobs"
-    }
+  def module_label(key), do: Map.get(@labels, key, String.capitalize(key))
 
-    Map.get(labels, key, String.capitalize(key))
-  end
+  @icons %{
+    "dashboard" => "hero-home",
+    "users" => "hero-users",
+    "media" => "hero-photo",
+    "settings" => "hero-cog-6-tooth",
+    "modules" => "hero-squares-2x2",
+    "billing" => "hero-credit-card",
+    "shop" => "hero-shopping-cart",
+    "emails" => "hero-envelope",
+    "entities" => "hero-cube-transparent",
+    "tickets" => "hero-ticket",
+    "posts" => "hero-document-text",
+    "ai" => "hero-sparkles",
+    "sync" => "hero-arrow-path",
+    "publishing" => "hero-document-duplicate",
+    "referrals" => "hero-gift",
+    "sitemap" => "hero-map",
+    "seo" => "hero-magnifying-glass",
+    "maintenance" => "hero-wrench-screwdriver",
+    "storage" => "hero-circle-stack",
+    "languages" => "hero-language",
+    "connections" => "hero-link",
+    "legal" => "hero-scale",
+    "db" => "hero-server-stack",
+    "jobs" => "hero-clock"
+  }
+
+  @doc "Returns a Heroicon name for a module key."
+  @spec module_icon(String.t()) :: String.t()
+  def module_icon(key), do: Map.get(@icons, key, "hero-squares-2x2")
+
+  @descriptions %{
+    "dashboard" => "Overview statistics, charts, and system health",
+    "users" => "User accounts, roles, and access management",
+    "media" => "File uploads, image processing, and storage buckets",
+    "settings" => "General, organization, and user preference settings",
+    "modules" => "Enable, disable, and configure feature modules",
+    "billing" => "Payment providers, subscriptions, and invoices",
+    "shop" => "Product catalog, orders, and e-commerce management",
+    "emails" => "Email delivery tracking, templates, and analytics",
+    "entities" => "Dynamic content types and custom data structures",
+    "tickets" => "Support ticket management and customer communication",
+    "posts" => "Blog posts, categories, and content publishing",
+    "ai" => "AI endpoints, prompts, and usage tracking",
+    "sync" => "Peer-to-peer data synchronization and replication",
+    "publishing" => "Filesystem-based CMS pages and multi-language content",
+    "referrals" => "Referral codes, tracking, and reward programs",
+    "sitemap" => "XML sitemap generation and search engine indexing",
+    "seo" => "Meta tags, Open Graph, and search optimization",
+    "maintenance" => "Maintenance mode and under-construction pages",
+    "storage" => "Distributed file storage with multi-location redundancy",
+    "languages" => "Multi-language support and locale management",
+    "connections" => "External service connections and integrations",
+    "legal" => "Legal pages, terms of service, and privacy policies",
+    "db" => "Database explorer and schema inspection",
+    "jobs" => "Background job queues and task scheduling"
+  }
+
+  @doc "Returns a short description for a module key."
+  @spec module_description(String.t()) :: String.t()
+  def module_description(key), do: Map.get(@descriptions, key, "")
 
   # --- Query API ---
 
@@ -216,6 +324,90 @@ defmodule PhoenixKit.Users.Permissions do
       %{}
   end
 
+  @doc """
+  Returns a list of role_ids that have been granted the given module_key.
+  """
+  @spec roles_with_permission(String.t()) :: [integer()]
+  def roles_with_permission(module_key) do
+    repo = RepoHelper.repo()
+
+    from(rp in RolePermission,
+      where: rp.module_key == ^module_key,
+      select: rp.role_id,
+      order_by: [asc: rp.role_id]
+    )
+    |> repo.all()
+  rescue
+    e ->
+      Logger.warning("Permissions.roles_with_permission failed: #{inspect(e)}")
+      []
+  end
+
+  @doc """
+  Returns a list of user_ids that have access to the given module_key
+  (through any of their assigned roles).
+  """
+  @spec users_with_permission(String.t()) :: [integer()]
+  def users_with_permission(module_key) do
+    repo = RepoHelper.repo()
+
+    from(rp in RolePermission,
+      join: ra in "phoenix_kit_user_role_assignments",
+      on: ra.role_id == rp.role_id,
+      where: rp.module_key == ^module_key,
+      select: ra.user_id,
+      distinct: true,
+      order_by: [asc: ra.user_id]
+    )
+    |> repo.all()
+  rescue
+    e ->
+      Logger.warning("Permissions.users_with_permission failed: #{inspect(e)}")
+      []
+  end
+
+  @doc """
+  Returns the number of permission keys granted to a role.
+  More efficient than `length(get_permissions_for_role(role_id))`.
+  """
+  @spec count_permissions_for_role(integer()) :: non_neg_integer()
+  def count_permissions_for_role(role_id) do
+    repo = RepoHelper.repo()
+
+    from(rp in RolePermission,
+      where: rp.role_id == ^role_id,
+      select: count()
+    )
+    |> repo.one()
+  rescue
+    e ->
+      Logger.warning("Permissions.count_permissions_for_role failed: #{inspect(e)}")
+      0
+  end
+
+  @doc """
+  Compares permissions between two roles and returns a diff map.
+
+  Returns `%{only_a: MapSet.t(), only_b: MapSet.t(), common: MapSet.t()}`
+  where `only_a` are keys role_a has but role_b doesn't, `only_b` is the
+  inverse, and `common` are keys both roles share.
+  """
+  @spec diff_permissions(integer(), integer()) :: %{
+          only_a: MapSet.t(),
+          only_b: MapSet.t(),
+          common: MapSet.t()
+        }
+  def diff_permissions(role_id_a, role_id_b) do
+    keys_a = get_permissions_for_role(role_id_a) |> MapSet.new()
+    keys_b = get_permissions_for_role(role_id_b) |> MapSet.new()
+
+    %{
+      only_a: MapSet.difference(keys_a, keys_b),
+      only_b: MapSet.difference(keys_b, keys_a),
+      common: MapSet.intersection(keys_a, keys_b)
+    }
+  end
+
   # --- Mutation API ---
 
   @doc """
@@ -275,7 +467,7 @@ defmodule PhoenixKit.Users.Permissions do
   @spec set_permissions(integer(), [String.t()], integer() | nil) :: :ok | {:error, term()}
   def set_permissions(role_id, desired_keys, granted_by_id \\ nil) do
     repo = RepoHelper.repo()
-    valid_keys = MapSet.new(@all_module_keys)
+    valid_keys = MapSet.new(all_module_keys())
 
     repo.transaction(fn ->
       current_keys = get_permissions_for_role(role_id) |> MapSet.new()
@@ -351,9 +543,22 @@ defmodule PhoenixKit.Users.Permissions do
     :ok
   end
 
+  @doc """
+  Copies all permissions from one role to another.
+
+  The target role will end up with the exact same set of permissions as the
+  source role. Existing permissions on the target that don't exist on the
+  source will be revoked.
+  """
+  @spec copy_permissions(integer(), integer(), integer() | nil) :: :ok | {:error, term()}
+  def copy_permissions(source_role_id, target_role_id, granted_by_id \\ nil) do
+    source_keys = get_permissions_for_role(source_role_id)
+    set_permissions(target_role_id, source_keys, granted_by_id)
+  end
+
   # --- Helpers ---
 
-  defp feature_enabled?(key) do
+  defp do_feature_enabled?(key) do
     case Map.get(@feature_enabled_checks, key) do
       {mod, fun} ->
         Code.ensure_loaded?(mod) && apply(mod, fun, [])

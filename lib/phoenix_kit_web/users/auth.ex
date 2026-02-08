@@ -34,7 +34,6 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
   alias PhoenixKit.Users.Permissions
-  alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.SessionFingerprint
@@ -549,60 +548,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
       Scope.admin?(scope) ->
         socket = attach_locale_hook(socket)
-
-        # Check module-level permissions for admin views
-        perm_key = permission_key_for_admin_view(socket.view)
-
-        case perm_key do
-          nil ->
-            # Unmapped views: fail-closed for custom roles, allow Admin/Owner
-            if Scope.owner?(scope) or
-                 Scope.has_role?(scope, Role.system_roles().admin) do
-              {:cont, socket}
-            else
-              redirect_to = best_available_admin_path(scope)
-
-              socket =
-                socket
-                |> Phoenix.LiveView.put_flash(
-                  :error,
-                  "You do not have permission to access this section."
-                )
-                |> Phoenix.LiveView.redirect(to: redirect_to)
-
-              {:halt, socket}
-            end
-
-          module_key ->
-            socket =
-              Phoenix.Component.assign(socket, :phoenix_kit_current_module_key, module_key)
-
-            # Owner/Admin can access disabled module settings (to enable them).
-            # Custom roles must also have the module enabled.
-            has_perm = Scope.has_module_access?(scope, module_key)
-
-            is_system_role =
-              Scope.owner?(scope) or
-                Scope.has_role?(scope, Role.system_roles().admin)
-
-            module_enabled = MapSet.member?(Permissions.enabled_module_keys(), module_key)
-
-            if has_perm and (is_system_role or module_enabled) do
-              {:cont, socket}
-            else
-              redirect_to = best_available_admin_path(scope)
-
-              socket =
-                socket
-                |> Phoenix.LiveView.put_flash(
-                  :error,
-                  "You do not have permission to access this section."
-                )
-                |> Phoenix.LiveView.redirect(to: redirect_to)
-
-              {:halt, socket}
-            end
-        end
+        enforce_admin_view_permission(socket, scope)
 
       true ->
         socket =
@@ -657,8 +603,7 @@ defmodule PhoenixKitWeb.Users.Auth do
         {:halt, socket}
 
       Scope.has_module_access?(scope, module_key) and
-          (Scope.owner?(scope) or
-             Scope.has_role?(scope, Role.system_roles().admin) or
+          (Scope.system_role?(scope) or
              MapSet.member?(Permissions.enabled_module_keys(), module_key)) ->
         socket = attach_locale_hook(socket)
         {:cont, socket}
@@ -964,6 +909,47 @@ defmodule PhoenixKitWeb.Users.Auth do
       if Scope.has_module_access?(scope, key) and MapSet.member?(enabled, key),
         do: Routes.path(path)
     end)
+  end
+
+  # Enforces module-level permission checks for admin views.
+  # Extracted from on_mount(:phoenix_kit_ensure_admin) to reduce complexity.
+  defp enforce_admin_view_permission(socket, scope) do
+    case permission_key_for_admin_view(socket.view) do
+      nil ->
+        # Unmapped views: fail-closed for custom roles, allow Admin/Owner
+        if Scope.system_role?(scope) do
+          {:cont, socket}
+        else
+          deny_admin_access(socket, scope)
+        end
+
+      module_key ->
+        socket =
+          Phoenix.Component.assign(socket, :phoenix_kit_current_module_key, module_key)
+
+        has_perm = Scope.has_module_access?(scope, module_key)
+        module_enabled = MapSet.member?(Permissions.enabled_module_keys(), module_key)
+
+        if has_perm and (Scope.system_role?(scope) or module_enabled) do
+          {:cont, socket}
+        else
+          deny_admin_access(socket, scope)
+        end
+    end
+  end
+
+  defp deny_admin_access(socket, scope) do
+    redirect_to = best_available_admin_path(scope)
+
+    socket =
+      socket
+      |> Phoenix.LiveView.put_flash(
+        :error,
+        "You do not have permission to access this section."
+      )
+      |> Phoenix.LiveView.redirect(to: redirect_to)
+
+    {:halt, socket}
   end
 
   # Check if user still has access to the currently viewed module
