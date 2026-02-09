@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Admin.Events
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Billing
@@ -28,10 +29,12 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Pages
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(_params, _session, socket) do
     # Set locale for LiveView process
+    if connected?(socket), do: Events.subscribe_to_modules()
 
     # Get project title from settings cache
     project_title = Settings.get_project_title()
@@ -58,10 +61,14 @@ defmodule PhoenixKitWeb.Live.Modules do
     db_explorer_config = DB.get_config()
     shop_config = Shop.get_config()
 
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    accessible = if scope, do: Scope.accessible_modules(scope), else: MapSet.new()
+
     socket =
       socket
       |> assign(:page_title, "Modules")
       |> assign(:project_title, project_title)
+      |> assign(:accessible_modules, accessible)
       |> assign(:referral_codes_enabled, referral_codes_config.enabled)
       |> assign(:referral_codes_required, referral_codes_config.required)
       |> assign(:max_uses_per_code, referral_codes_config.max_uses_per_code)
@@ -142,6 +149,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _setting} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("referrals"),
+          else: Events.broadcast_module_disabled("referrals")
+
         socket =
           socket
           |> assign(:referral_codes_enabled, new_enabled)
@@ -174,6 +185,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _setting} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("emails"),
+          else: Events.broadcast_module_disabled("emails")
+
         socket =
           socket
           |> assign(:email_enabled, new_enabled)
@@ -206,6 +221,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("languages"),
+          else: Events.broadcast_module_disabled("languages")
+
         # Reload languages configuration to get fresh data
         languages_config = Languages.get_config()
 
@@ -244,6 +263,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("entities"),
+          else: Events.broadcast_module_disabled("entities")
+
         # Reload entities configuration to get fresh data
         entities_config = Entities.get_config()
 
@@ -280,6 +303,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _setting} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("seo"),
+          else: Events.broadcast_module_disabled("seo")
+
         seo_no_index_enabled =
           if new_enabled do
             SEO.no_index_enabled?()
@@ -320,6 +347,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("publishing"),
+          else: Events.broadcast_module_disabled("publishing")
+
         socket =
           socket
           |> assign(:publishing_enabled, new_enabled)
@@ -351,6 +382,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _setting} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("pages"),
+          else: Events.broadcast_module_disabled("pages")
+
         socket =
           socket
           |> assign(:pages_enabled, new_enabled)
@@ -383,6 +418,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _setting} ->
+        if new_module_enabled,
+          do: Events.broadcast_module_enabled("maintenance"),
+          else: Events.broadcast_module_disabled("maintenance")
+
         socket =
           socket
           |> assign(:under_construction_module_enabled, new_module_enabled)
@@ -414,6 +453,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("sitemap"),
+          else: Events.broadcast_module_disabled("sitemap")
+
         sitemap_config = Sitemap.get_config()
 
         socket =
@@ -459,6 +502,13 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       :ok ->
+        if new_enabled do
+          Events.broadcast_module_enabled("billing")
+        else
+          Events.broadcast_module_disabled("billing")
+          if shop_was_disabled, do: Events.broadcast_module_disabled("shop")
+        end
+
         billing_config = Billing.get_config()
 
         socket =
@@ -493,6 +543,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("ai"),
+          else: Events.broadcast_module_disabled("ai")
+
         ai_config = AI.get_config()
 
         socket =
@@ -528,6 +582,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("posts"),
+          else: Events.broadcast_module_disabled("posts")
+
         posts_config = Posts.get_config()
 
         socket =
@@ -564,6 +622,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("sync"),
+          else: Events.broadcast_module_disabled("sync")
+
         sync_config = Sync.get_config()
 
         socket =
@@ -600,6 +662,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       {:ok, _} ->
         config = DB.get_config()
 
+        if config.enabled,
+          do: Events.broadcast_module_enabled("db"),
+          else: Events.broadcast_module_disabled("db")
+
         socket =
           socket
           |> assign(:db_explorer_enabled, config.enabled)
@@ -634,6 +700,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("tickets"),
+          else: Events.broadcast_module_disabled("tickets")
+
         tickets_config = Tickets.get_config()
 
         socket =
@@ -670,6 +740,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("connections"),
+          else: Events.broadcast_module_disabled("connections")
+
         connections_config = Connections.get_config()
 
         socket =
@@ -706,6 +780,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("jobs"),
+          else: Events.broadcast_module_disabled("jobs")
+
         jobs_config = Jobs.get_config()
 
         socket =
@@ -732,6 +810,8 @@ defmodule PhoenixKitWeb.Live.Modules do
     if socket.assigns.legal_enabled do
       case Legal.disable_system() do
         {:ok, _} ->
+          Events.broadcast_module_disabled("legal")
+
           {:noreply,
            socket
            |> assign(:legal_enabled, false)
@@ -743,6 +823,8 @@ defmodule PhoenixKitWeb.Live.Modules do
     else
       case Legal.enable_system() do
         {:ok, _} ->
+          Events.broadcast_module_enabled("legal")
+
           {:noreply,
            socket
            |> assign(:legal_enabled, true)
@@ -762,6 +844,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       # Disabling
       case Shop.disable_system() do
         :ok ->
+          Events.broadcast_module_disabled("shop")
+
           {:noreply,
            socket
            |> assign(:shop_enabled, false)
@@ -775,6 +859,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       if socket.assigns.billing_enabled do
         case Shop.enable_system() do
           :ok ->
+            Events.broadcast_module_enabled("shop")
             shop_config = Shop.get_config()
 
             {:noreply,
@@ -842,4 +927,195 @@ defmodule PhoenixKitWeb.Live.Modules do
   end
 
   def format_bytes(_), do: "0 B"
+
+  # --- PubSub Handlers ---
+
+  def handle_info({:module_enabled, module_key}, socket) do
+    {:noreply, reload_module_config(socket, module_key)}
+  end
+
+  def handle_info({:module_disabled, module_key}, socket) do
+    {:noreply, reload_module_config(socket, module_key)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  defp reload_module_config(socket, "referrals") do
+    config = Referrals.get_config()
+
+    socket
+    |> assign(:referral_codes_enabled, config.enabled)
+    |> assign(:referral_codes_required, config.required)
+    |> assign(:max_uses_per_code, config.max_uses_per_code)
+    |> assign(:max_codes_per_user, config.max_codes_per_user)
+  end
+
+  defp reload_module_config(socket, "emails") do
+    config = Emails.get_config()
+
+    socket
+    |> assign(:email_enabled, config.enabled)
+    |> assign(:email_save_body, config.save_body)
+    |> assign(:email_ses_events, config.ses_events)
+    |> assign(:email_retention_days, config.retention_days)
+  end
+
+  defp reload_module_config(socket, "languages") do
+    config = Languages.get_config()
+
+    socket
+    |> assign(:languages_enabled, config.enabled)
+    |> assign(:languages_count, config.language_count)
+    |> assign(:languages_enabled_count, config.enabled_count)
+    |> assign(:languages_default, config.default_language)
+  end
+
+  defp reload_module_config(socket, "entities") do
+    config = Entities.get_config()
+
+    socket
+    |> assign(:entities_enabled, config.enabled)
+    |> assign(:entities_count, config.entity_count)
+    |> assign(:entities_total_data, config.total_data_count)
+  end
+
+  defp reload_module_config(socket, "seo") do
+    config = SEO.get_config()
+
+    socket
+    |> assign(:seo_module_enabled, config.module_enabled)
+    |> assign(:seo_no_index_enabled, config.no_index_enabled)
+  end
+
+  defp reload_module_config(socket, "publishing") do
+    assign(socket, :publishing_enabled, Publishing.enabled?())
+  end
+
+  defp reload_module_config(socket, "pages") do
+    assign(socket, :pages_enabled, Pages.enabled?())
+  end
+
+  defp reload_module_config(socket, "maintenance") do
+    config = Maintenance.get_config()
+
+    socket
+    |> assign(:under_construction_module_enabled, config.module_enabled)
+    |> assign(:under_construction_enabled, config.enabled)
+    |> assign(:under_construction_header, config.header)
+    |> assign(:under_construction_subtext, config.subtext)
+  end
+
+  defp reload_module_config(socket, "sitemap") do
+    config = Sitemap.get_config()
+
+    socket
+    |> assign(:sitemap_enabled, config.enabled)
+    |> assign(:sitemap_url_count, config.url_count)
+    |> assign(:sitemap_last_generated, config.last_generated)
+    |> assign(:sitemap_schedule_enabled, config.schedule_enabled)
+  end
+
+  defp reload_module_config(socket, "billing") do
+    config = Billing.get_config()
+
+    socket
+    |> assign(:billing_enabled, config.enabled)
+    |> assign(:billing_orders_count, config.orders_count)
+    |> assign(:billing_invoices_count, config.invoices_count)
+    |> assign(:billing_currencies_count, config.currencies_count)
+  end
+
+  defp reload_module_config(socket, "ai") do
+    config = AI.get_config()
+
+    socket
+    |> assign(:ai_enabled, config.enabled)
+    |> assign(:ai_endpoints_count, config.endpoints_count)
+    |> assign(:ai_total_requests, config.total_requests)
+  end
+
+  defp reload_module_config(socket, "posts") do
+    config = Posts.get_config()
+
+    socket
+    |> assign(:posts_enabled, config.enabled)
+    |> assign(:posts_total, config.total_posts)
+    |> assign(:posts_published, config.published_posts)
+    |> assign(:posts_draft, config.draft_posts)
+  end
+
+  defp reload_module_config(socket, "sync") do
+    config = Sync.get_config()
+
+    socket
+    |> assign(:sync_enabled, config.enabled)
+    |> assign(:sync_active_sessions, config.active_sessions)
+  end
+
+  defp reload_module_config(socket, "db") do
+    config = DB.get_config()
+
+    socket
+    |> assign(:db_explorer_enabled, config.enabled)
+    |> assign(:db_explorer_table_count, config.table_count)
+    |> assign(:db_explorer_total_rows, config.approx_rows)
+    |> assign(:db_explorer_total_size, config.total_size_bytes)
+    |> assign(:db_explorer_database_size, config.database_size_bytes)
+  end
+
+  defp reload_module_config(socket, "tickets") do
+    config = Tickets.get_config()
+
+    socket
+    |> assign(:tickets_enabled, config.enabled)
+    |> assign(:tickets_total, config.total_tickets)
+    |> assign(:tickets_open, config.open_tickets)
+    |> assign(:tickets_in_progress, config.in_progress_tickets)
+  end
+
+  defp reload_module_config(socket, "connections") do
+    config = Connections.get_config()
+
+    socket
+    |> assign(:connections_enabled, config.enabled)
+    |> assign(:connections_follows_count, config.follows_count)
+    |> assign(:connections_connections_count, config.connections_count)
+    |> assign(:connections_blocks_count, config.blocks_count)
+  end
+
+  defp reload_module_config(socket, "jobs") do
+    config = Jobs.get_config()
+
+    socket
+    |> assign(:jobs_enabled, config.enabled)
+    |> assign(:jobs_stats, config.stats)
+  end
+
+  defp reload_module_config(socket, "legal") do
+    config = Legal.get_config()
+
+    socket
+    |> assign(:legal_enabled, config.enabled)
+    |> assign(:publishing_enabled_for_legal, config.publishing_enabled)
+  end
+
+  defp reload_module_config(socket, "shop") do
+    config = Shop.get_config()
+
+    socket
+    |> assign(:shop_enabled, config.enabled)
+    |> assign(:shop_products_count, config.products_count)
+    |> assign(:shop_categories_count, config.categories_count)
+  end
+
+  defp reload_module_config(socket, "storage") do
+    config = Storage.get_config()
+
+    socket
+    |> assign(:storage_enabled, config.module_enabled)
+    |> assign(:storage_buckets_count, config.buckets_count)
+    |> assign(:storage_active_buckets_count, config.active_buckets_count)
+  end
+
+  defp reload_module_config(socket, _unknown), do: socket
 end

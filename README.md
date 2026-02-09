@@ -434,6 +434,7 @@ PhoenixKit creates these PostgreSQL tables:
 - `phoenix_kit_users_tokens` - Authentication tokens (session, reset, confirm)
 - `phoenix_kit_user_roles` - System and custom roles
 - `phoenix_kit_user_role_assignments` - User-role mappings with audit trail
+- `phoenix_kit_role_permissions` - Module-level permission grants per role (V53)
 - `phoenix_kit_schema_versions` - Migration version tracking
 
 ## Role-Based Access Control
@@ -458,6 +459,37 @@ PhoenixKit.Users.Roles.demote_to_user(user)
 # Create custom roles
 PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 ```
+
+### Module-Level Permissions (V53)
+
+PhoenixKit includes a granular permission system that controls which roles can access which admin sections and feature modules.
+
+**24 permission keys**: 5 core sections (dashboard, users, media, settings, modules) + 19 feature modules
+
+**Access rules**:
+- **Owner** bypasses all checks (full access always)
+- **Admin** seeded with all 24 keys by default
+- **Custom roles** start with no permissions, assigned via matrix UI or API
+
+```elixir
+# Grant/revoke permissions for a role
+Permissions.grant_permission(role_id, "billing", admin_id)
+Permissions.revoke_permission(role_id, "billing")
+Permissions.set_permissions(role_id, ["dashboard", "users", "billing"], admin_id)
+
+# Query permissions
+Permissions.get_permissions_for_role(role_id)    # ["dashboard", "users", ...]
+Permissions.role_has_permission?(role_id, "shop") # true/false
+
+# Check access via Scope (in LiveViews)
+Scope.has_module_access?(scope, "billing")       # true/false
+Scope.has_any_module_access?(scope, ["billing", "shop"])
+Scope.system_role?(scope)                        # Owner or Admin?
+```
+
+**Admin UI**: Interactive permission matrix at `{prefix}/admin/users/permissions` and inline editor on the Roles page.
+
+**Route enforcement**: `phoenix_kit_ensure_admin` and `phoenix_kit_ensure_module_access` on_mount hooks enforce permissions at the route level. Sidebar navigation is gated per-user based on granted permissions.
 
 ### Module System
 
@@ -493,6 +525,7 @@ PhoenixKit.Modules.AI.disable_system()
 **Core Administration:**
 - `{prefix}/admin` - System statistics and overview
 - `{prefix}/admin/users` - User management with role controls
+- `{prefix}/admin/users/permissions` - Permission matrix for all roles
 - `{prefix}/admin/sessions` - Active session management
 - `{prefix}/admin/modules` - Enable/disable PhoenixKit modules
 - `{prefix}/admin/settings` - System settings (timezone, date/time formats)

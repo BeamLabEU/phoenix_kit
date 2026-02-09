@@ -230,7 +230,7 @@ This ensures consistent code formatting across the project.
 
 ### 🏷️ Version Management
 
-**Current Version**: 1.7.0 (mix.exs) | **Migration Version**: V31
+**Current Version**: 1.7.33 (mix.exs) | **Migration Version**: V53
 
 **Version updates require:** Update `mix.exs` (@version), `CHANGELOG.md`, and optionally `README.md`. Always run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
@@ -383,7 +383,43 @@ Tracks IP and user agent to detect session hijacking. Config: `session_fingerpri
 
 ### Role System
 
-Three system roles: Owner, Admin, User. First user becomes Owner. API: `PhoenixKit.Users.Roles`. Admin UI at `{prefix}/admin/users`. Role checks via `PhoenixKit.Users.Auth.Scope`.
+Three system roles: Owner, Admin, User. First user becomes Owner. Custom roles can be created via the admin UI. API: `PhoenixKit.Users.Roles`. Admin UI at `{prefix}/admin/users`. Role checks via `PhoenixKit.Users.Auth.Scope`.
+
+### Module-Level Permissions (V53)
+
+Granular access control for admin sections and feature modules. Uses an allowlist model: permission row present = granted, absent = denied.
+
+**24 permission keys:** 5 core (`dashboard`, `users`, `media`, `settings`, `modules`) + 19 feature modules (`billing`, `shop`, `emails`, `entities`, `tickets`, `posts`, `ai`, `sync`, `publishing`, `referrals`, `sitemap`, `seo`, `maintenance`, `storage`, `languages`, `connections`, `legal`, `db`, `jobs`).
+
+**Access rules:**
+- Owner always has full access (hard-coded, no DB rows needed)
+- Admin gets all 24 permissions by default (V53 seeds them)
+- Custom roles start with no permissions; grant via matrix UI or API
+
+**Key modules:**
+- `PhoenixKit.Users.Permissions` - Full context with 19 public functions (queries, mutations, metadata)
+- `PhoenixKit.Users.Auth.Scope` - `has_module_access?/2`, `has_any_module_access?/2`, `has_all_module_access?/2`, `system_role?/1`, `permission_count/1`
+- `PhoenixKit.Users.RolePermission` - Schema for `phoenix_kit_role_permissions` table
+
+**Route enforcement:**
+- `:phoenix_kit_ensure_admin` on_mount - Checks permission + enabled status for mapped admin views
+- `:phoenix_kit_ensure_module_access` on_mount - Checks permission + enabled status for feature module routes
+- Custom roles are fail-closed for unmapped views; Owner/Admin are fail-open
+
+**Usage:**
+
+```elixir
+# Check access in code
+Scope.has_module_access?(scope, "billing")
+
+# Grant permissions programmatically
+Permissions.set_permissions(role_id, ["dashboard", "users", "billing"], granted_by_id)
+
+# Copy permissions between roles
+Permissions.copy_permissions(source_role_id, target_role_id)
+```
+
+**Admin UI:** Permission matrix at `{prefix}/admin/users/permissions`, inline editor in Roles page.
 
 ### Date Formatting
 
@@ -596,7 +632,7 @@ item_id = params["item_id"]  # Let the lookup function handle it
 - **PostgreSQL** - Primary database with Ecto integration
 - **Repository Pattern** - Auto-detection or explicit configuration
 - **Migration Support** - V01 migration with authentication, role, and settings tables
-- **Role System Tables** - phoenix_kit_user_roles, phoenix_kit_user_role_assignments
+- **Role System Tables** - phoenix_kit_user_roles, phoenix_kit_user_role_assignments, phoenix_kit_role_permissions (V53)
 - **Settings Table** - phoenix_kit_settings with key/value/timestamp storage
 - **Race Condition Protection** - FOR UPDATE locking in Ecto transactions
 - **Test Database** - Separate test database with sandbox
@@ -777,7 +813,8 @@ end
 - `lib/phoenix_kit/users/magic_link_registration.ex` - Magic link registration (V16+)
 - `lib/phoenix_kit/users/oauth.ex` - OAuth authentication context (V16+)
 - `lib/phoenix_kit/users/oauth_provider.ex` - OAuth provider schema (V16+)
-- `lib/phoenix_kit/users/role*.ex` - Role system (Role, RoleAssignment, Roles)
+- `lib/phoenix_kit/users/role*.ex` - Role system (Role, RoleAssignment, RolePermission, Roles)
+- `lib/phoenix_kit/users/permissions.ex` - Module-level permission context (V53+)
 - `lib/phoenix_kit/settings.ex` - Settings context and management
 - `lib/phoenix_kit/utils/date.ex` - Date formatting utilities with Settings integration
 - `lib/phoenix_kit/emails/*.ex` - Email system modules

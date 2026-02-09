@@ -421,17 +421,41 @@ end
 
 ```elixir
 # Check if user has a role
-PhoenixKit.Users.Roles.has_role?(user, "admin")
-PhoenixKit.Users.Roles.has_role?(user, "owner")
+PhoenixKit.Users.Roles.user_has_role?(user, "Admin")
+PhoenixKit.Users.Roles.user_has_role?(user, "Owner")
 
 # Get user's roles
-roles = PhoenixKit.Users.Roles.list_user_roles(user.id)
+roles = PhoenixKit.Users.Roles.get_user_roles(user)
 
 # Check in templates
-<%= if PhoenixKit.Users.Roles.has_role?(@current_user, "admin") do %>
+<%= if PhoenixKit.Users.Roles.user_has_role?(@current_user, "Admin") do %>
   <.link navigate="/admin">Admin Panel</.link>
 <% end %>
 ```
+
+### Check Module-Level Permissions
+
+PhoenixKit V53+ includes granular permissions that control which admin sections each role can access.
+
+```elixir
+# In a LiveView, use the scope from assigns
+scope = socket.assigns.phoenix_kit_current_scope
+
+# Check single permission
+Scope.has_module_access?(scope, "billing")        # true/false
+
+# Check multiple permissions
+Scope.has_any_module_access?(scope, ["billing", "shop"])  # any granted?
+Scope.has_all_module_access?(scope, ["billing", "shop"])  # all granted?
+
+# Check system role (Owner or Admin, not custom roles)
+Scope.system_role?(scope)
+
+# Get all granted keys
+Scope.accessible_modules(scope)  # MapSet of granted permission keys
+```
+
+**Route enforcement**: PhoenixKit's `phoenix_kit_ensure_admin` and `phoenix_kit_ensure_module_access` on_mount hooks automatically enforce permissions on admin routes. Sidebar navigation is gated per-user.
 
 ### User Registration
 
@@ -637,10 +661,99 @@ Auth.delete_user_session_token(token) :: :ok
 ### PhoenixKit.Users.Roles
 
 ```elixir
-Roles.has_role?(user, role_name) :: boolean()
-Roles.list_user_roles(user_id) :: [Role.t()]
-Roles.assign_role(user_id, role_name, assigned_by) :: {:ok, RoleAssignment.t()} | {:error, term()}
-Roles.remove_role(user_id, role_name) :: :ok | {:error, term()}
+# Query
+Roles.user_has_role?(user, role_name) :: boolean()
+Roles.user_has_role_owner?(user) :: boolean()
+Roles.user_has_role_admin?(user) :: boolean()
+Roles.get_user_roles(user) :: [String.t()]
+Roles.users_with_role(role_name) :: [User.t()]
+Roles.list_roles() :: [Role.t()]
+Roles.get_role_by_name(name) :: Role.t() | nil
+Roles.get_custom_roles() :: [Role.t()]
+Roles.count_users_with_role(role_name) :: non_neg_integer()
+Roles.get_role_stats() :: map()
+Roles.get_extended_stats() :: map()
+Roles.count_active_owners() :: non_neg_integer()
+Roles.can_deactivate_user?(user) :: :ok | {:error, atom()}
+
+# Mutations
+Roles.assign_role(user, role_name, assigned_by \\ nil) :: {:ok, RoleAssignment.t()} | {:error, term()}
+Roles.remove_role(user, role_name) :: {:ok, RoleAssignment.t()} | {:error, term()}
+Roles.create_role(attrs) :: {:ok, Role.t()} | {:error, Changeset.t()}
+Roles.update_role(role, attrs) :: {:ok, Role.t()} | {:error, Changeset.t()}
+Roles.delete_role(role) :: {:ok, Role.t()} | {:error, atom() | Changeset.t()}
+Roles.promote_to_admin(user) :: {:ok, RoleAssignment.t()} | {:error, term()}
+Roles.demote_to_user(user) :: {:ok, RoleAssignment.t()} | {:error, atom() | Changeset.t()}
+Roles.sync_user_roles(user, [role_name]) :: {:ok, [RoleAssignment.t()]} | {:error, term()}
+Roles.safely_remove_role(user, role_name) :: {:ok, RoleAssignment.t()} | {:error, atom() | Changeset.t()}
+Roles.ensure_first_user_is_owner(user) :: {:ok, atom()} | {:error, term()}
+Roles.assign_roles_to_existing_users(opts \\ []) :: {:ok, map()} | {:error, term()}
+```
+
+### PhoenixKit.Users.Permissions
+
+```elixir
+# Constants & Metadata
+Permissions.all_module_keys() :: [String.t()]          # All 24 keys
+Permissions.core_section_keys() :: [String.t()]        # 5 core keys
+Permissions.feature_module_keys() :: [String.t()]      # 19 feature keys
+Permissions.enabled_module_keys() :: MapSet.t()        # Core + enabled features
+Permissions.valid_module_key?(key) :: boolean()
+Permissions.feature_enabled?(key) :: boolean()
+Permissions.module_label(key) :: String.t()
+Permissions.module_icon(key) :: String.t()
+Permissions.module_description(key) :: String.t()
+
+# Query
+Permissions.get_permissions_for_user(user) :: [String.t()]
+Permissions.get_permissions_for_role(role_id) :: [String.t()]
+Permissions.role_has_permission?(role_id, key) :: boolean()
+Permissions.get_permissions_matrix() :: %{integer() => MapSet.t()}
+Permissions.roles_with_permission(key) :: [integer()]
+Permissions.users_with_permission(key) :: [integer()]
+Permissions.count_permissions_for_role(role_id) :: non_neg_integer()
+Permissions.diff_permissions(role_a_id, role_b_id) :: map()
+
+# Mutations
+Permissions.grant_permission(role_id, key, granted_by_id) :: {:ok, RolePermission.t()} | {:error, term()}
+Permissions.revoke_permission(role_id, key) :: :ok | {:error, :not_found}
+Permissions.set_permissions(role_id, keys, granted_by_id) :: :ok | {:error, term()}
+Permissions.grant_all_permissions(role_id, granted_by_id) :: :ok | {:error, term()}
+Permissions.revoke_all_permissions(role_id) :: :ok
+Permissions.copy_permissions(source_role_id, target_role_id, granted_by_id) :: :ok | {:error, term()}
+```
+
+### PhoenixKit.Users.Auth.Scope
+
+```elixir
+# Construction
+Scope.for_user(user_or_nil) :: Scope.t()
+
+# Identity
+Scope.authenticated?(scope) :: boolean()
+Scope.user(scope) :: User.t() | nil
+Scope.user_id(scope) :: integer() | nil
+Scope.user_email(scope) :: String.t() | nil
+Scope.user_full_name(scope) :: String.t() | nil
+Scope.anonymous?(scope) :: boolean()
+Scope.user_active?(scope) :: boolean()
+
+# Roles
+Scope.has_role?(scope, role_name) :: boolean()
+Scope.owner?(scope) :: boolean()
+Scope.admin?(scope) :: boolean()             # Owner, Admin, or custom role with permissions
+Scope.system_role?(scope) :: boolean()       # Strictly Owner or Admin (not custom roles)
+Scope.user_roles(scope) :: [String.t()]
+
+# Module-Level Permissions
+Scope.has_module_access?(scope, key) :: boolean()
+Scope.has_any_module_access?(scope, [String.t()]) :: boolean()
+Scope.has_all_module_access?(scope, [String.t()]) :: boolean()
+Scope.accessible_modules(scope) :: MapSet.t()
+Scope.permission_count(scope) :: non_neg_integer()
+
+# Debug
+Scope.to_map(scope) :: map()
 ```
 
 ### PhoenixKit.Settings
@@ -723,6 +836,8 @@ When working with PhoenixKit source (for debugging or understanding):
 | Authentication | `deps/phoenix_kit/lib/phoenix_kit/users/auth.ex` |
 | User schema | `deps/phoenix_kit/lib/phoenix_kit/users/auth/user.ex` |
 | Roles | `deps/phoenix_kit/lib/phoenix_kit/users/roles.ex` |
+| Permissions | `deps/phoenix_kit/lib/phoenix_kit/users/permissions.ex` |
+| Scope (auth + permissions) | `deps/phoenix_kit/lib/phoenix_kit/users/auth/scope.ex` |
 | Settings | `deps/phoenix_kit/lib/phoenix_kit/settings.ex` |
 | Router integration | `deps/phoenix_kit/lib/phoenix_kit_web/integration.ex` |
 
@@ -740,6 +855,8 @@ When helping a developer with PhoenixKit:
 6. **Public forms need fields selected** - Both `public_form_enabled` and `public_form_fields` must be set
 7. **First user is Owner** - First registered user gets the Owner role automatically
 8. **Routes are prefixed** - Default is `/phoenix_kit/`, configurable via `url_prefix`
+9. **Permissions are cached in Scope** - Use `Scope.has_module_access?/2` not raw DB queries
+10. **Owner bypasses all permission checks** - No DB rows needed for Owner access
 
 ### Common Patterns
 
@@ -748,7 +865,7 @@ When helping a developer with PhoenixKit:
 @current_user = socket.assigns[:current_user]
 
 # Check admin access
-if PhoenixKit.Users.Roles.has_role?(user, "admin"), do: ...
+if PhoenixKit.Users.Roles.user_has_role?(user, "Admin"), do: ...
 
 # Create entity with public form
 PhoenixKit.Entities.create_entity(%{
@@ -764,4 +881,4 @@ records = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
 
 ---
 
-**Last Updated**: 2025-12-03
+**Last Updated**: 2026-02-08

@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.{Role, Roles}
 
   def mount(_params, _session, socket) do
@@ -18,6 +20,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     if connected?(socket) do
       Events.subscribe_to_roles()
       Events.subscribe_to_stats()
+      Events.subscribe_to_permissions()
+      Events.subscribe_to_modules()
     end
 
     # Load optimized role statistics once
@@ -35,6 +39,11 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       |> assign(:edit_role_form, nil)
       |> assign(:editing_role, nil)
       |> assign(:delete_confirmation, %{show: false})
+      |> assign(:show_permissions_editor, false)
+      |> assign(:permissions_role, nil)
+      |> assign(:permissions_role_keys, MapSet.new())
+      |> assign(:permissions_grantable_keys, MapSet.new())
+      |> assign(:permissions_preserved_keys, MapSet.new())
       |> assign(:page_title, "Roles")
       |> assign(:role_stats, role_stats)
       |> assign(:project_title, project_title)
@@ -54,8 +63,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     {:noreply, socket}
   end
 
-  def handle_event("show_edit_role", %{"role_id" => role_id}, socket) do
-    role = Enum.find(socket.assigns.roles, &(&1.id == String.to_integer(role_id)))
+  def handle_event("show_edit_role", %{"role_id" => role_id_str}, socket) do
+    role = find_role_by_id(socket.assigns.roles, role_id_str)
 
     if role && !role.is_system_role do
       form = to_form(Role.changeset(role, %{}))
@@ -87,10 +96,15 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
   def handle_event("create_role", %{"role" => role_params}, socket) do
     case Roles.create_role(role_params) do
-      {:ok, _role} ->
+      {:ok, role} ->
+        flash_msg =
+          if can_manage_permissions?(socket),
+            do: "Role \"#{role.name}\" created. Click Permissions to configure access.",
+            else: "Role created successfully"
+
         socket =
           socket
-          |> put_flash(:info, "Role created successfully")
+          |> put_flash(:info, flash_msg)
           |> assign(:show_create_form, false)
           |> assign(:create_role_form, nil)
           |> load_roles()
@@ -141,7 +155,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     {:noreply, assign(socket, :delete_confirmation, %{show: false})}
   end
 
-  def handle_event("confirm_delete_role", %{"role_id" => role_id}, socket) do
+  def handle_event("confirm_delete_role", _params, socket) do
+    role_id = socket.assigns.delete_confirmation.role_id
+
     # Close modal first
     socket = assign(socket, :delete_confirmation, %{show: false})
 
@@ -154,9 +170,129 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     handle_delete_role(role_id, socket)
   end
 
+  # --- Permission Editor Events ---
+
+  def handle_event("show_permissions_editor", %{"role_id" => role_id_str}, socket) do
+    if can_manage_permissions?(socket) do
+      role = find_role_by_id(socket.assigns.roles, role_id_str)
+
+      if role do
+        grantable = grantable_keys(socket)
+        enabled = Permissions.enabled_module_keys()
+        # Only show keys that are both grantable AND enabled
+        displayable = MapSet.intersection(grantable, enabled)
+        current_keys = Permissions.get_permissions_for_role(role.id) |> MapSet.new()
+        editable_checked = MapSet.intersection(current_keys, displayable)
+        # Preserve: keys outside displayable set (not grantable OR disabled modules)
+        preserved = MapSet.difference(current_keys, displayable)
+
+        socket =
+          socket
+          |> assign(:show_permissions_editor, true)
+          |> assign(:permissions_role, role)
+          |> assign(:permissions_role_keys, editable_checked)
+          |> assign(:permissions_grantable_keys, displayable)
+          |> assign(:permissions_preserved_keys, preserved)
+
+        {:noreply, socket}
+      else
+        {:noreply, put_flash(socket, :error, "Role not found")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+    end
+  end
+
+  def handle_event("hide_permissions_editor", _params, socket) do
+    socket =
+      socket
+      |> assign(:show_permissions_editor, false)
+      |> assign(:permissions_role, nil)
+      |> assign(:permissions_role_keys, MapSet.new())
+      |> assign(:permissions_grantable_keys, MapSet.new())
+      |> assign(:permissions_preserved_keys, MapSet.new())
+
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_permission", %{"key" => key}, socket) do
+    if can_manage_permissions?(socket) do
+      grantable = socket.assigns.permissions_grantable_keys
+
+      if MapSet.member?(grantable, key) do
+        keys = socket.assigns.permissions_role_keys
+
+        new_keys =
+          if MapSet.member?(keys, key),
+            do: MapSet.delete(keys, key),
+            else: MapSet.put(keys, key)
+
+        {:noreply, assign(socket, :permissions_role_keys, new_keys)}
+      else
+        {:noreply, put_flash(socket, :error, "You can only manage permissions you have")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+    end
+  end
+
+  def handle_event("grant_all_permissions", _params, socket) do
+    if can_manage_permissions?(socket) do
+      {:noreply,
+       assign(socket, :permissions_role_keys, socket.assigns.permissions_grantable_keys)}
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+    end
+  end
+
+  def handle_event("revoke_all_permissions", _params, socket) do
+    if can_manage_permissions?(socket) do
+      {:noreply, assign(socket, :permissions_role_keys, MapSet.new())}
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+    end
+  end
+
+  def handle_event("save_permissions", _params, socket) do
+    role = socket.assigns.permissions_role
+
+    cond do
+      is_nil(role) ->
+        {:noreply, put_flash(socket, :error, "No role selected")}
+
+      !can_manage_permissions?(socket) ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+
+      true ->
+        preserved = socket.assigns.permissions_preserved_keys
+        editor_keys = socket.assigns.permissions_role_keys
+        final_keys = MapSet.union(preserved, editor_keys) |> MapSet.to_list()
+
+        scope = socket.assigns[:phoenix_kit_current_scope]
+        granted_by_id = if scope, do: Scope.user_id(scope), else: nil
+
+        case Permissions.set_permissions(role.id, final_keys, granted_by_id) do
+          :ok ->
+            socket =
+              socket
+              |> put_flash(:info, "Permissions updated for #{role.name}")
+              |> assign(:show_permissions_editor, false)
+              |> assign(:permissions_role, nil)
+              |> assign(:permissions_role_keys, MapSet.new())
+              |> assign(:permissions_grantable_keys, MapSet.new())
+              |> assign(:permissions_preserved_keys, MapSet.new())
+
+            {:noreply, socket}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Failed to update permissions")}
+        end
+    end
+  end
+
   # Keep the old handler for backward compatibility and make it private
   defp handle_delete_role(role_id, socket) when is_binary(role_id) do
-    role = Enum.find(socket.assigns.roles, &(&1.id == String.to_integer(role_id)))
+    role = find_role_by_id(socket.assigns.roles, role_id)
 
     if role && !role.is_system_role do
       case Roles.delete_role(role) do
@@ -222,9 +358,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     {:noreply, socket}
   end
 
-  def handle_info({:role_deleted, _role}, socket) do
+  def handle_info({:role_deleted, role}, socket) do
     socket =
       socket
+      |> close_modals_for_deleted_role(role)
       |> load_roles()
       |> assign(:role_stats, load_role_statistics())
 
@@ -237,5 +374,114 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       |> assign(:role_stats, load_role_statistics())
 
     {:noreply, socket}
+  end
+
+  def handle_info({:permission_granted, role_id, _key}, socket) do
+    {:noreply, refresh_permissions_if_editing(socket, role_id)}
+  end
+
+  def handle_info({:permission_revoked, role_id, _key}, socket) do
+    {:noreply, refresh_permissions_if_editing(socket, role_id)}
+  end
+
+  def handle_info({:permissions_synced, role_id, _keys}, socket) do
+    {:noreply, refresh_permissions_if_editing(socket, role_id)}
+  end
+
+  def handle_info({:module_enabled, _key}, socket) do
+    {:noreply, refresh_permissions_if_editing_any(socket)}
+  end
+
+  def handle_info({:module_disabled, _key}, socket) do
+    {:noreply, refresh_permissions_if_editing_any(socket)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  # --- Helpers ---
+
+  defp can_manage_permissions?(socket) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    scope && Scope.has_module_access?(scope, "users")
+  end
+
+  defp grantable_keys(socket) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    if scope && Scope.owner?(scope) do
+      MapSet.new(Permissions.all_module_keys())
+    else
+      Scope.accessible_modules(scope)
+    end
+  end
+
+  defp find_role_by_id(roles, id_str) when is_binary(id_str) do
+    case Integer.parse(id_str) do
+      {id, ""} -> Enum.find(roles, &(&1.id == id))
+      _ -> nil
+    end
+  end
+
+  defp close_modals_for_deleted_role(socket, deleted_role) do
+    socket
+    |> then(fn s ->
+      if s.assigns.show_permissions_editor &&
+           s.assigns.permissions_role &&
+           s.assigns.permissions_role.id == deleted_role.id do
+        s
+        |> assign(:show_permissions_editor, false)
+        |> assign(:permissions_role, nil)
+        |> assign(:permissions_role_keys, MapSet.new())
+        |> assign(:permissions_grantable_keys, MapSet.new())
+        |> assign(:permissions_preserved_keys, MapSet.new())
+        |> put_flash(:info, "Role \"#{deleted_role.name}\" was deleted")
+      else
+        s
+      end
+    end)
+    |> then(fn s ->
+      if s.assigns.editing_role && s.assigns.editing_role.id == deleted_role.id do
+        s
+        |> assign(:show_edit_form, false)
+        |> assign(:edit_role_form, nil)
+        |> assign(:editing_role, nil)
+        |> put_flash(:info, "Role \"#{deleted_role.name}\" was deleted")
+      else
+        s
+      end
+    end)
+  end
+
+  defp refresh_permissions_if_editing(socket, role_id) do
+    if socket.assigns.show_permissions_editor &&
+         socket.assigns.permissions_role &&
+         socket.assigns.permissions_role.id == role_id do
+      reload_permission_editor_data(socket)
+    else
+      socket
+    end
+  end
+
+  defp refresh_permissions_if_editing_any(socket) do
+    if socket.assigns.show_permissions_editor && socket.assigns.permissions_role do
+      reload_permission_editor_data(socket)
+    else
+      socket
+    end
+  end
+
+  defp reload_permission_editor_data(socket) do
+    role = socket.assigns.permissions_role
+    grantable = grantable_keys(socket)
+    enabled = Permissions.enabled_module_keys()
+    displayable = MapSet.intersection(grantable, enabled)
+    current_keys = Permissions.get_permissions_for_role(role.id) |> MapSet.new()
+    editable_checked = MapSet.intersection(current_keys, displayable)
+    preserved = MapSet.difference(current_keys, displayable)
+
+    socket
+    |> assign(:permissions_grantable_keys, displayable)
+    |> assign(:permissions_role_keys, editable_checked)
+    |> assign(:permissions_preserved_keys, preserved)
   end
 end
