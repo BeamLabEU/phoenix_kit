@@ -1,4 +1,16 @@
 ## 1.7.33 - 2026-02-04
+- Add module-level permission system (V53 migration)
+  - `phoenix_kit_role_permissions` table with allowlist model (row present = granted)
+  - 24 permission keys: 5 core sections + 19 feature modules
+  - Owner bypasses all checks; Admin seeded with all 24 keys by default
+  - Custom roles start with no permissions, assigned via matrix UI or API
+  - `PhoenixKit.Users.Permissions` context for granting, revoking, and querying role permissions
+  - Interactive permission matrix at `{prefix}/admin/users/permissions`
+  - Inline permission editor in Roles page with grant/revoke all
+  - Route-level enforcement via `phoenix_kit_ensure_admin` and `phoenix_kit_ensure_module_access`
+  - Sidebar nav gated per-user based on granted permissions
+  - Real-time PubSub updates: permission changes reflect across all admin tabs
+  - Backward compatible: pre-existing Admins retain full access before V53 migration
 - Add PubSub events for real-time updates in Tickets and Shop modules
   - Tickets.Events module with broadcast for ticket lifecycle (created, updated, status changed, assigned, priority changed)
   - Comment and internal note events for ticket discussions

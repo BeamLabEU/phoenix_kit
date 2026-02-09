@@ -11,7 +11,18 @@ defmodule PhoenixKitWeb.Users.Auth do
   - Remember me functionality with secure cookies
   - Session-based authentication
   - Route protection and access control
+  - Module-level permission enforcement via on_mount hooks
   - Integration with Phoenix LiveView on_mount callbacks
+
+  ## on_mount Hooks
+
+  - `:phoenix_kit_ensure_admin` — Requires Owner/Admin role, or a custom role
+    with at least one permission. For custom roles, also checks the specific
+    permission key mapped to the current admin view. Unmapped views deny
+    custom roles but allow Owner/Admin.
+  - `:phoenix_kit_ensure_module_access` — For custom roles, checks that the
+    feature module is both enabled and permitted. Owner/Admin bypass both
+    the enabled and permission checks.
 
   ## Usage
 

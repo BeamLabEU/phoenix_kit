@@ -22,10 +22,37 @@ defmodule PhoenixKit.Users.Auth.Scope do
       Scope.user_id(scope)     # user.id or nil
       Scope.user_email(scope)  # user.email or nil
 
+  ## Role & State Checks
+
+      Scope.has_role?(scope, "Admin")  # true/false
+      Scope.owner?(scope)             # Owner role?
+      Scope.admin?(scope)             # Owner, Admin, or custom role with permissions?
+      Scope.system_role?(scope)       # Strictly Owner or Admin (not custom roles)?
+      Scope.anonymous?(scope)         # Not authenticated?
+      Scope.user_roles(scope)         # ["Admin", "User"]
+      Scope.user_full_name(scope)     # "John Doe" or nil
+      Scope.user_active?(scope)       # true/false
+      Scope.to_map(scope)             # Debug-friendly map of all fields
+
+  ## Module-Level Permissions
+
+  Permissions are cached in the scope when it is built via `for_user/1`
+  (on mount and on PubSub-triggered refresh). Owner gets all 24 keys
+  automatically. Admin with no explicit permissions gets full access
+  (backward compat before V53 migration).
+
+      Scope.has_module_access?(scope, "billing")          # Single key check
+      Scope.has_any_module_access?(scope, ["billing", "shop"])  # Any of these?
+      Scope.has_all_module_access?(scope, ["billing", "shop"])  # All of these?
+      Scope.accessible_modules(scope)                     # MapSet of granted keys
+      Scope.permission_count(scope)                       # Number of granted keys
+
   ## Struct Fields
 
   - `:user` - The current user struct or nil
   - `:authenticated?` - Boolean indicating if user is authenticated
+  - `:cached_roles` - List of role name strings, loaded at scope creation
+  - `:cached_permissions` - MapSet of granted permission keys, loaded at scope creation
   """
 
   alias PhoenixKit.Users.Auth.User
