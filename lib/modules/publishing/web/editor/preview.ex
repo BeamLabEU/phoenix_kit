@@ -293,8 +293,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     if post.path do
       case Publishing.read_post(blog_slug, post.path) do
         {:ok, disk_post} ->
+          # Merge disk metadata as base, with preview metadata on top.
+          # This preserves non-form fields (description, created_at, version_created_at,
+          # previous_url_slugs, etc.) that aren't carried in the preview token,
+          # preventing silent data loss if the user saves after returning from preview.
+          preview_meta_values =
+            post.metadata |> Enum.reject(fn {_k, v} -> is_nil(v) end) |> Map.new()
+
+          merged_metadata = Map.merge(disk_post.metadata, preview_meta_values)
+
           enriched =
             post
+            |> Map.put(:metadata, merged_metadata)
             |> Map.put(:language_statuses, Map.get(disk_post, :language_statuses, %{}))
             |> Map.put(:available_versions, Map.get(disk_post, :available_versions, []))
             |> Map.put(:version_statuses, Map.get(disk_post, :version_statuses, %{}))
