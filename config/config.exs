@@ -4,7 +4,9 @@ import Config
 config :phoenix_kit,
   ecto_repos: [],
   # Required for standalone development - ensures Storage.root_path() resolves correctly
-  parent_app_name: :phoenix_kit
+  parent_app_name: :phoenix_kit,
+  parent_module: PhoenixKit,
+  url_prefix: "/phoenix_kit"
 
 # Configure password requirements (optional - these are the defaults)
 # Uncomment and modify to enforce specific password strength requirements
@@ -27,7 +29,7 @@ config :hammer,
 
 # Configure Ueberauth (minimal configuration for compilation)
 # Applications using PhoenixKit should configure their own providers
-config :ueberauth, Ueberauth, providers: []
+config :ueberauth, Ueberauth, providers: %{}
 
 # Configure Oban (if using job processing)
 config :phoenix_kit, Oban,
@@ -38,7 +40,11 @@ config :phoenix_kit, Oban,
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
     {Oban.Plugins.Cron,
      crontab: [
-       {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
+       {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
+       sitemap: 5,
+       sqs_polling: 1,
+       sync: 5,
+       shop_imports: 2
      ]}
   ]
 
@@ -56,6 +62,9 @@ config :logger, :console,
     :content_size,
     :error
   ]
+
+config :esbuild, :version, "0.25.0"
+config :tailwind, :version, "4.1.12"
 
 # For development/testing with real SMTP (when available)
 # config :phoenix_kit, PhoenixKit.Mailer,

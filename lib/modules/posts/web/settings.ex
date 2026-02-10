@@ -91,7 +91,6 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Settings do
       "posts_per_page" => "20",
       "posts_default_status" => "draft",
       # Feature Toggles
-      "posts_comments_enabled" => "true",
       "posts_likes_enabled" => "true",
       "posts_allow_scheduling" => "true",
       "posts_allow_groups" => "true",
@@ -99,8 +98,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Settings do
       "posts_seo_auto_slug" => "true",
       "posts_show_view_count" => "true",
       # Moderation
-      "posts_require_approval" => "false",
-      "posts_comment_moderation" => "false"
+      "posts_require_approval" => "false"
     }
 
     Enum.each(defaults, fn {key, value} ->
@@ -133,10 +131,6 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Settings do
     |> assign(:posts_per_page, Settings.get_setting("posts_per_page", "20"))
     |> assign(:posts_default_status, Settings.get_setting("posts_default_status", "draft"))
     # Feature Toggles
-    |> assign(
-      :posts_comments_enabled,
-      Settings.get_setting("posts_comments_enabled", "true")
-    )
     |> assign(:posts_likes_enabled, Settings.get_setting("posts_likes_enabled", "true"))
     |> assign(
       :posts_allow_scheduling,
@@ -148,9 +142,5 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Settings do
     |> assign(:posts_show_view_count, Settings.get_setting("posts_show_view_count", "true"))
     # Moderation
     |> assign(:posts_require_approval, Settings.get_setting("posts_require_approval", "false"))
-    |> assign(
-      :posts_comment_moderation,
-      Settings.get_setting("posts_comment_moderation", "false")
-    )
   end
 end

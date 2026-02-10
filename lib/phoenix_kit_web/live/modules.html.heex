@@ -470,6 +470,75 @@
         </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
       <% end %>
 
+      <%!-- Comments Module --%>
+      <%= if "comments" in @accessible_modules do %>
+        <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+          title="Comments"
+          description="Threaded comments with likes, moderation, and reactions across all content types"
+          icon="💬"
+          enabled={@comments_enabled}
+          toggle_event="toggle_comments"
+        >
+          <:status_badges>
+            <span class={[
+              "badge",
+              if(@comments_enabled, do: "badge-success", else: "badge-neutral")
+            ]}>
+              {if @comments_enabled, do: "Enabled", else: "Disabled"}
+            </span>
+            <%= if @comments_enabled and @comments_pending > 0 do %>
+              <span class="badge badge-warning ml-2 whitespace-nowrap">
+                {@comments_pending} pending
+              </span>
+            <% end %>
+          </:status_badges>
+
+          <:action_buttons>
+            <div class="flex flex-col gap-2 w-full">
+              <%= if @comments_enabled do %>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/comments")}
+                  class="btn btn-primary btn-sm"
+                >
+                  <.icon name="hero-chat-bubble-left-right" class="w-4 h-4 mr-1" />
+                  Manage Comments
+                </.link>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/comments")}
+                  class="btn btn-outline btn-sm"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Settings
+                </.link>
+              <% else %>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/comments")}
+                  class="btn btn-outline btn-sm"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+                </.link>
+              <% end %>
+            </div>
+          </:action_buttons>
+
+          <:stats>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <span class="text-base-content/70">Total:</span>
+                <span class="font-medium">{@comments_total}</span>
+              </div>
+              <div>
+                <span class="text-base-content/70">Published:</span>
+                <span class="font-medium">{@comments_published}</span>
+              </div>
+              <div>
+                <span class="text-base-content/70">Pending:</span>
+                <span class="font-medium">{@comments_pending}</span>
+              </div>
+            </div>
+          </:stats>
+        </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+      <% end %>
+
       <%!-- Support Tickets Module --%>
       <%= if "tickets" in @accessible_modules do %>
         <PhoenixKitWeb.Components.Core.ModuleCard.module_card

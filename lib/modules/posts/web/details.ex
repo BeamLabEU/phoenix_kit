@@ -1,13 +1,13 @@
 defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
   @moduledoc """
-  LiveView for displaying a single post with all details, comments, and interactions.
+  LiveView for displaying a single post with all details and interactions.
 
   Displays:
   - Post content (title, subtitle, content, media)
   - Author information
   - Post statistics (views, likes, comments)
   - Tags and groups
-  - Comments with unlimited threading
+  - Comments via standalone CommentsComponent
   - Like/unlike functionality
   - Admin actions (edit, delete, status changes)
 
@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
 
   require Logger
 
+  alias PhoenixKit.Modules.Comments
   alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Settings
@@ -53,7 +54,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
         liked_by_user = Posts.post_liked_by?(post.id, current_user.id)
 
         # Load settings
-        comments_enabled = Settings.get_setting("posts_comments_enabled", "true") == "true"
+        comments_enabled = Comments.enabled?()
         likes_enabled = Settings.get_setting("posts_likes_enabled", "true") == "true"
         show_view_count = Settings.get_setting("posts_show_view_count", "true") == "true"
 
@@ -68,9 +69,6 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
           |> assign(:comments_enabled, comments_enabled)
           |> assign(:likes_enabled, likes_enabled)
           |> assign(:show_view_count, show_view_count)
-          |> assign(:new_comment, "")
-          |> assign(:reply_to, nil)
-          |> load_comments()
 
         {:ok, socket}
     end
@@ -103,81 +101,6 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
        socket
        |> assign(:post, updated_post)
        |> assign(:liked_by_user, true)}
-    end
-  end
-
-  @impl true
-  def handle_event("add_comment", %{"comment" => comment_text}, socket) do
-    if comment_text != "" do
-      parent_id = socket.assigns.reply_to
-
-      attrs = %{
-        content: comment_text,
-        parent_id: parent_id
-      }
-
-      case Posts.create_comment(socket.assigns.post.id, socket.assigns.current_user.id, attrs) do
-        {:ok, _comment} ->
-          updated_post =
-            Posts.get_post!(socket.assigns.post.id,
-              preload: [:user, :media, :tags, :groups, :mentions]
-            )
-
-          {:noreply,
-           socket
-           |> assign(:post, updated_post)
-           |> assign(:new_comment, "")
-           |> assign(:reply_to, nil)
-           |> load_comments()
-           |> put_flash(:info, "Comment added")}
-
-        {:error, _changeset} ->
-          {:noreply, socket |> put_flash(:error, "Failed to add comment")}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
-  @impl true
-  def handle_event("reply_to", %{"id" => comment_id}, socket) do
-    {:noreply, assign(socket, :reply_to, comment_id)}
-  end
-
-  @impl true
-  def handle_event("cancel_reply", _params, socket) do
-    {:noreply, assign(socket, :reply_to, nil)}
-  end
-
-  @impl true
-  def handle_event("delete_comment", %{"id" => comment_id}, socket) do
-    case Posts.get_comment(comment_id) do
-      nil ->
-        {:noreply, socket |> put_flash(:error, "Comment not found")}
-
-      comment ->
-        # Check if user can delete (owns comment or is admin)
-        if can_delete_comment?(socket.assigns.current_user, comment) do
-          case Posts.delete_comment(comment) do
-            {:ok, _} ->
-              updated_post =
-                Posts.get_post!(socket.assigns.post.id,
-                  preload: [:user, :media, :tags, :groups, :mentions]
-                )
-
-              {:noreply,
-               socket
-               |> assign(:post, updated_post)
-               |> load_comments()
-               |> put_flash(:info, "Comment deleted")}
-
-            {:error, _} ->
-              {:noreply, socket |> put_flash(:error, "Failed to delete comment")}
-          end
-        else
-          {:noreply,
-           socket |> put_flash(:error, "You don't have permission to delete this comment")}
-        end
     end
   end
 
@@ -215,16 +138,18 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
     end
   end
 
+  # Handle comment count updates from CommentsComponent
+  @impl true
+  def handle_info({:comments_updated, _info}, socket) do
+    updated_post =
+      Posts.get_post!(socket.assigns.post.id,
+        preload: [:user, [media: :file], :tags, :groups, :mentions]
+      )
+
+    {:noreply, assign(socket, :post, updated_post)}
+  end
+
   ## --- Private Helper Functions ---
-
-  defp load_comments(socket) do
-    comments = Posts.get_comment_tree(socket.assigns.post.id)
-    assign(socket, :comments, comments)
-  end
-
-  defp can_delete_comment?(user, comment) do
-    user.id == comment.user_id or user_is_admin?(user)
-  end
 
   defp user_is_admin?(user) do
     Roles.user_has_role_owner?(user) or Roles.user_has_role_admin?(user)
@@ -261,71 +186,4 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
   end
 
   defp render_markdown_content(_), do: ""
-
-  defp render_comment(comment, current_user, assigns) do
-    assigns = Map.merge(assigns, %{comment: comment, current_user: current_user})
-
-    ~H"""
-    <div class={[
-      "pl-#{@comment.depth * 4}",
-      if(@comment.depth > 0, do: "ml-4 border-l-2 border-base-300", else: "")
-    ]}>
-      <div class="bg-base-200 rounded-lg p-4">
-        <%!-- Comment Header --%>
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-2 text-sm">
-            <.icon name="hero-user-circle" class="w-5 h-5 text-base-content/60" />
-            <span class="font-semibold">
-              <%= if @comment.user do %>
-                {@comment.user.email}
-              <% else %>
-                Unknown
-              <% end %>
-            </span>
-            <span class="text-base-content/60">•</span>
-            <span class="text-base-content/60">
-              {Calendar.strftime(@comment.inserted_at, "%b %d, %Y %I:%M %p")}
-            </span>
-          </div>
-
-          <%!-- Comment Actions --%>
-          <div class="flex gap-2">
-            <button
-              phx-click="reply_to"
-              phx-value-id={@comment.id}
-              class="btn btn-ghost btn-xs"
-            >
-              <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> Reply
-            </button>
-
-            <%= if can_delete_comment?(@current_user, @comment) do %>
-              <button
-                phx-click="delete_comment"
-                phx-value-id={@comment.id}
-                class="btn btn-ghost btn-xs text-error"
-                data-confirm="Are you sure you want to delete this comment?"
-              >
-                <.icon name="hero-trash" class="w-4 h-4" />
-              </button>
-            <% end %>
-          </div>
-        </div>
-
-        <%!-- Comment Content --%>
-        <div class="text-base-content">
-          {@comment.content}
-        </div>
-
-        <%!-- Nested Comments (Replies) --%>
-        <%= if @comment.children && length(@comment.children) > 0 do %>
-          <div class="mt-4 space-y-3">
-            <%= for child <- @comment.children do %>
-              {render_comment(child, @current_user, assigns)}
-            <% end %>
-          </div>
-        <% end %>
-      </div>
-    </div>
-    """
-  end
 end

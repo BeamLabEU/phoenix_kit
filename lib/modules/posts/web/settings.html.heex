@@ -226,28 +226,6 @@
             </h2>
 
             <div class="space-y-4">
-              <%!-- Comments Enabled --%>
-              <div class="form-control">
-                <label class="label cursor-pointer">
-                  <span class="label-text text-lg">
-                    <span class="font-semibold">Enable Comments</span>
-                    <div class="text-sm text-base-content/70 mt-1">
-                      Allow users to comment on posts with unlimited threading
-                    </div>
-                  </span>
-                  <input type="hidden" name="settings[posts_comments_enabled]" value="false" />
-                  <input
-                    type="checkbox"
-                    name="settings[posts_comments_enabled]"
-                    value="true"
-                    class="toggle toggle-secondary"
-                    checked={@posts_comments_enabled == "true"}
-                  />
-                </label>
-              </div>
-
-              <div class="divider"></div>
-
               <%!-- Likes Enabled --%>
               <div class="form-control">
                 <label class="label cursor-pointer">
@@ -405,28 +383,6 @@
                     value="true"
                     class="toggle toggle-warning"
                     checked={@posts_require_approval == "true"}
-                  />
-                </label>
-              </div>
-
-              <div class="divider"></div>
-
-              <%!-- Comment Moderation --%>
-              <div class="form-control">
-                <label class="label cursor-pointer">
-                  <span class="label-text text-lg">
-                    <span class="font-semibold">Comment Moderation</span>
-                    <div class="text-sm text-base-content/70 mt-1">
-                      Comments must be approved before appearing publicly
-                    </div>
-                  </span>
-                  <input type="hidden" name="settings[posts_comment_moderation]" value="false" />
-                  <input
-                    type="checkbox"
-                    name="settings[posts_comment_moderation]"
-                    value="true"
-                    class="toggle toggle-warning"
-                    checked={@posts_comment_moderation == "true"}
                   />
                 </label>
               </div>

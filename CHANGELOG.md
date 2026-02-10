@@ -1,3 +1,17 @@
+## 1.7.34 - 2026-02-10
+- Extract Comments into standalone reusable module (V55 migration)
+  - New `PhoenixKit.Modules.Comments` context with polymorphic `resource_type` + `resource_id` associations
+  - New tables: `phoenix_kit_comments`, `phoenix_kit_comments_likes`, `phoenix_kit_comments_dislikes`
+  - Reusable `CommentsComponent` LiveComponent that can be embedded in any resource detail page
+  - Threaded comments with configurable max depth and content length
+  - Like/dislike system with atomic counter cache
+  - Moderation admin UI at `{prefix}/admin/comments` with filters, search, and bulk actions
+  - Module settings page at `{prefix}/admin/settings/comments`
+  - Resource handler callback system for notifying parent modules (e.g., Posts) of comment changes
+  - "comments" permission key added (25 total permission keys, 20 feature modules)
+  - Posts module refactored to consume Comments module API instead of inline implementation
+  - Legacy `phoenix_kit_post_comments` tables preserved for backward compatibility
+
 ## 1.7.33 - 2026-02-04
 - Add module-level permission system (V53 migration)
   - `phoenix_kit_role_permissions` table with allowlist model (row present = granted)

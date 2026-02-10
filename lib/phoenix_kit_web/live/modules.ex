@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Comments
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.DB
   alias PhoenixKit.Modules.Emails
@@ -52,6 +53,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     sitemap_config = Sitemap.get_config()
     billing_config = Billing.get_config()
     posts_config = Posts.get_config()
+    comments_config = Comments.get_config()
     ai_config = AI.get_config()
     db_sync_config = Sync.get_config()
     tickets_config = Tickets.get_config()
@@ -110,6 +112,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:posts_total, posts_config.total_posts)
       |> assign(:posts_published, posts_config.published_posts)
       |> assign(:posts_draft, posts_config.draft_posts)
+      |> assign(:comments_enabled, comments_config.enabled)
+      |> assign(:comments_total, comments_config.total_comments)
+      |> assign(:comments_published, comments_config.published_comments)
+      |> assign(:comments_pending, comments_config.pending_comments)
       |> assign(:sync_enabled, db_sync_config.enabled)
       |> assign(:sync_active_sessions, db_sync_config.active_sessions)
       |> assign(:tickets_enabled, tickets_config.enabled)
@@ -610,6 +616,46 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
+  def handle_event("toggle_comments", _params, socket) do
+    new_enabled = !socket.assigns.comments_enabled
+
+    result =
+      if new_enabled do
+        Comments.enable_system()
+      else
+        Comments.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        if new_enabled,
+          do: Events.broadcast_module_enabled("comments"),
+          else: Events.broadcast_module_disabled("comments")
+
+        comments_config = Comments.get_config()
+
+        socket =
+          socket
+          |> assign(:comments_enabled, new_enabled)
+          |> assign(:comments_total, comments_config.total_comments)
+          |> assign(:comments_published, comments_config.published_comments)
+          |> assign(:comments_pending, comments_config.pending_comments)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "Comments module enabled",
+              else: "Comments module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update comments module")
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("toggle_sync", _params, socket) do
     new_enabled = !socket.assigns.sync_enabled
 
@@ -1042,6 +1088,16 @@ defmodule PhoenixKitWeb.Live.Modules do
     |> assign(:posts_total, config.total_posts)
     |> assign(:posts_published, config.published_posts)
     |> assign(:posts_draft, config.draft_posts)
+  end
+
+  defp reload_module_config(socket, "comments") do
+    config = Comments.get_config()
+
+    socket
+    |> assign(:comments_enabled, config.enabled)
+    |> assign(:comments_total, config.total_comments)
+    |> assign(:comments_published, config.published_comments)
+    |> assign(:comments_pending, config.pending_comments)
   end
 
   defp reload_module_config(socket, "sync") do
