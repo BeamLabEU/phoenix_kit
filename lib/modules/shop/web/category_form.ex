@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     category = %Category{}
     changeset = Shop.change_category(category)
     parent_options = Shop.category_options()
-    global_options = Options.get_global_options()
+    global_options = Options.get_enabled_global_options()
 
     socket
     |> assign(:page_title, "New Category")
@@ -62,7 +62,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     category = Shop.get_category!(id)
     changeset = Shop.change_category(category)
     category_options = Options.get_category_options(category)
-    global_options = Options.get_global_options()
+    global_options = Options.get_enabled_global_options()
     merged = Options.merge_schemas(global_options, category_options)
 
     # Exclude self from parent options

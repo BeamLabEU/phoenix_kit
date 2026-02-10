@@ -26,16 +26,16 @@ defmodule PhoenixKit.Migrations.Postgres.V54 do
   def up(%{prefix: prefix} = _opts) do
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
 
-    # Step 1: Add featured_product_id column with FK
+    # Step 1: Add featured_product_id column with FK (IF NOT EXISTS for idempotency)
     execute """
     ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
-    ADD COLUMN featured_product_id BIGINT
+    ADD COLUMN IF NOT EXISTS featured_product_id BIGINT
       REFERENCES #{prefix_str}phoenix_kit_shop_products(id) ON DELETE SET NULL
     """
 
     # Step 2: Create index
     execute """
-    CREATE INDEX idx_shop_categories_featured_product
+    CREATE INDEX IF NOT EXISTS idx_shop_categories_featured_product
     ON #{prefix_str}phoenix_kit_shop_categories(featured_product_id)
     """
 

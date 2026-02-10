@@ -53,7 +53,8 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
         affects_price: option["affects_price"] || false,
         modifier_type: option["modifier_type"] || "fixed",
         price_modifiers: option["price_modifiers"] || %{},
-        allow_override: option["allow_override"] || false
+        allow_override: option["allow_override"] || false,
+        enabled: Map.get(option, "enabled", true)
       }
 
       {:noreply,
@@ -185,6 +186,35 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
   end
 
   @impl true
+  def handle_event("toggle_enabled", %{"key" => key}, socket) do
+    current = socket.assigns.options
+
+    updated =
+      Enum.map(current, fn opt ->
+        if opt["key"] == key do
+          current_enabled = Map.get(opt, "enabled", true)
+          Map.put(opt, "enabled", !current_enabled)
+        else
+          opt
+        end
+      end)
+
+    case Options.update_global_options(updated) do
+      {:ok, _} ->
+        toggled = Enum.find(updated, &(&1["key"] == key))
+        label = if Map.get(toggled, "enabled", true), do: "enabled", else: "disabled"
+
+        {:noreply,
+         socket
+         |> assign(:options, Options.get_global_options())
+         |> put_flash(:info, "Option #{key} #{label}")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Error: #{reason}")}
+    end
+  end
+
+  @impl true
   def handle_event("reorder_options", %{"ordered_ids" => ordered_keys}, socket) do
     current = socket.assigns.options
 
@@ -234,65 +264,94 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
         <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop/settings")}
-              class="btn btn-outline btn-primary btn-sm shrink-0"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">Product Options</h1>
-              <p class="text-base-content/70 mt-1">
-                Define global options that apply to all products
-              </p>
-            </div>
+        <header class="w-full relative mb-8">
+          <.link
+            navigate={Routes.path("/admin/shop/settings")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+          </.link>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-3xl font-bold text-base-content">Product Options</h1>
+            <p class="text-base-content/70 mt-1">
+              Define global options that apply to all products
+            </p>
           </div>
         </header>
 
         <%!-- Controls Bar --%>
-        <div class="bg-base-200 rounded-lg p-6 mb-6">
-          <div class="flex flex-col lg:flex-row gap-4 justify-end">
-            <button type="button" phx-click="show_add_modal" class="btn btn-primary">
-              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Add Option
+        <div class="bg-base-200 rounded-lg p-4 mb-6">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-sm text-base-content/70">
+              <.icon name="hero-information-circle" class="w-4 h-4" />
+              <span>
+                Global options apply to all products. Categories can override or add their own.
+              </span>
+            </div>
+            <button type="button" phx-click="show_add_modal" class="btn btn-primary btn-sm">
+              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Option
             </button>
-          </div>
-        </div>
-
-        <%!-- Info Alert --%>
-        <div class="alert alert-info mb-6">
-          <.icon name="hero-information-circle" class="w-6 h-6" />
-          <div>
-            <p class="font-medium">Global options apply to all products</p>
-            <p class="text-sm">
-              Categories can override these options or add their own specific ones.
-              Options with "Affects Price" will modify the product price.
-            </p>
           </div>
         </div>
 
         <%!-- Options List --%>
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
-            <h2 class="card-title text-xl mb-6">
-              <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Global Options
-            </h2>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="card-title text-lg">
+                <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Global Options
+              </h2>
+              <span class="text-sm text-base-content/60">
+                {length(@options)} {if length(@options) == 1, do: "option", else: "options"}
+              </span>
+            </div>
 
             <%= if @options == [] do %>
-              <div class="text-center py-12 text-base-content/60">
-                <.icon name="hero-adjustments-horizontal" class="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p class="text-lg">No options defined yet</p>
-                <p class="text-sm">Add your first option to get started</p>
+              <div class="text-center py-12">
+                <.icon
+                  name="hero-adjustments-horizontal"
+                  class="w-16 h-16 mx-auto text-base-content/30 mb-4"
+                />
+                <h3 class="text-lg font-medium text-base-content mb-2">
+                  No options defined yet
+                </h3>
+                <p class="text-base-content/60 mb-4">
+                  Add your first global option to get started
+                </p>
+                <button type="button" phx-click="show_add_modal" class="btn btn-primary">
+                  <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Create First Option
+                </button>
               </div>
             <% else %>
+              <%!-- Table Header --%>
+              <div class="hidden sm:flex items-center px-4 py-2 text-xs font-semibold text-base-content/50 uppercase tracking-wider">
+                <div class="flex-1">Option</div>
+                <div class="w-52 text-right">Actions</div>
+              </div>
+
               <div class="flex flex-col gap-2">
                 <%= for opt <- @options do %>
-                  <div class="flex items-center p-4 bg-base-200 rounded-lg hover:bg-base-300 transition-colors">
+                  <% enabled = Map.get(opt, "enabled", true) != false %>
+                  <div class={[
+                    "flex flex-col sm:flex-row sm:items-center p-4 rounded-lg border transition-all",
+                    if(enabled,
+                      do: "bg-base-200/60 border-base-300 hover:bg-base-200",
+                      else: "bg-base-200/30 border-base-300/50 opacity-60"
+                    )
+                  ]}>
+                    <%!-- Content --%>
                     <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="font-medium">{opt["label"]}</span>
-                        <span class="badge badge-ghost badge-sm">{opt["type"]}</span>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class={[
+                          "font-semibold",
+                          if(!enabled, do: "line-through text-base-content/50")
+                        ]}>
+                          {opt["label"]}
+                        </span>
+                        <span class="badge badge-ghost badge-sm font-mono">{opt["type"]}</span>
+                        <%= if !enabled do %>
+                          <span class="badge badge-neutral badge-sm">Disabled</span>
+                        <% end %>
                         <%= if opt["required"] do %>
                           <span class="badge badge-warning badge-sm">Required</span>
                         <% end %>
@@ -301,29 +360,46 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
                         <% end %>
                         <%= if opt["affects_price"] do %>
                           <span class="badge badge-success badge-sm">
-                            Affects Price ({opt["modifier_type"] || "fixed"})
+                            {opt["modifier_type"] || "fixed"}
                           </span>
                           <%= if opt["allow_override"] do %>
                             <span class="badge badge-info badge-sm">Override</span>
                           <% end %>
                         <% end %>
                       </div>
-                      <div class="text-sm text-base-content/60">
-                        Key: <code class="bg-base-300 px-1 rounded">{opt["key"]}</code>
+                      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-base-content/50">
+                        <code class="bg-base-300/60 px-1.5 py-0.5 rounded text-xs">
+                          {opt["key"]}
+                        </code>
                         <%= if opt["options"] && opt["options"] != [] do %>
-                          <span class="ml-2">
-                            Options: {format_options_with_modifiers(opt)}
+                          <span class="truncate max-w-xs" title={format_options_with_modifiers(opt)}>
+                            {format_options_with_modifiers(opt)}
                           </span>
                         <% end %>
                       </div>
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <%!-- Actions Column --%>
+                    <div class="flex items-center gap-1 mt-3 sm:mt-0 sm:ml-4 shrink-0">
+                      <label
+                        class="swap swap-rotate btn btn-ghost btn-sm tooltip tooltip-bottom"
+                        data-tip={if enabled, do: "Disable", else: "Enable"}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          phx-click="toggle_enabled"
+                          phx-value-key={opt["key"]}
+                        />
+                        <.icon name="hero-eye" class="swap-on w-4 h-4 text-success" />
+                        <.icon name="hero-eye-slash" class="swap-off w-4 h-4 text-base-content/40" />
+                      </label>
                       <button
                         type="button"
                         phx-click="show_edit_modal"
                         phx-value-key={opt["key"]}
-                        class="btn btn-ghost btn-sm"
+                        class="btn btn-ghost btn-sm tooltip tooltip-bottom"
+                        data-tip="Edit"
                       >
                         <.icon name="hero-pencil" class="w-4 h-4" />
                       </button>
@@ -331,8 +407,9 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
                         type="button"
                         phx-click="delete_option"
                         phx-value-key={opt["key"]}
-                        data-confirm="Delete this option?"
-                        class="btn btn-ghost btn-sm text-error"
+                        data-confirm="Delete this option? This cannot be undone."
+                        class="btn btn-ghost btn-sm text-error tooltip tooltip-bottom"
+                        data-tip="Delete"
                       >
                         <.icon name="hero-trash" class="w-4 h-4" />
                       </button>
@@ -344,26 +421,38 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
           </div>
         </div>
 
-        <%!-- Supported Types Reference --%>
-        <div class="card bg-base-200/50 mt-6">
-          <div class="card-body">
-            <h3 class="card-title text-sm">Supported Option Types</h3>
-            <div class="flex flex-wrap gap-2">
-              <span class="badge">text - Free text input</span>
-              <span class="badge">number - Numeric input</span>
-              <span class="badge">boolean - Yes/No checkbox</span>
-              <span class="badge">select - Single choice dropdown</span>
-              <span class="badge">multiselect - Multiple choice</span>
-            </div>
-            <div class="mt-4">
-              <h4 class="font-medium text-sm mb-2">Price Modifier Types</h4>
-              <div class="flex flex-wrap gap-2">
-                <span class="badge badge-success">fixed - Add exact amount (+10)</span>
-                <span class="badge badge-info">percent - Add percentage (+20%)</span>
+        <%!-- Reference Section (collapsible) --%>
+        <div class="collapse collapse-arrow bg-base-200/50 mt-6">
+          <input type="checkbox" />
+          <div class="collapse-title font-medium text-sm flex items-center gap-2">
+            <.icon name="hero-book-open" class="w-4 h-4" /> Option Types Reference
+          </div>
+          <div class="collapse-content">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div>
+                <h4 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">
+                  Input Types
+                </h4>
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="badge badge-sm">text</span>
+                  <span class="badge badge-sm">number</span>
+                  <span class="badge badge-sm">boolean</span>
+                  <span class="badge badge-sm">select</span>
+                  <span class="badge badge-sm">multiselect</span>
+                </div>
               </div>
-              <p class="text-xs text-base-content/60 mt-2">
-                Enable "Allow Override" to edit values per-product
-              </p>
+              <div>
+                <h4 class="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">
+                  Price Modifiers
+                </h4>
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="badge badge-success badge-sm">fixed (+10)</span>
+                  <span class="badge badge-info badge-sm">percent (+20%)</span>
+                </div>
+                <p class="text-xs text-base-content/50 mt-1.5">
+                  Enable "Allow Override" for per-product values
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -373,6 +462,13 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
       <%= if @show_modal do %>
         <div class="modal modal-open">
           <div class="modal-box max-w-lg">
+            <button
+              type="button"
+              phx-click="close_modal"
+              class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4" />
+            </button>
             <h3 class="font-bold text-lg mb-4">
               {if @editing_option, do: "Edit Option", else: "Add Option"}
             </h3>
@@ -431,7 +527,7 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
                       phx-click="add_option"
                       class="btn btn-ghost btn-xs"
                     >
-                      <.icon name="hero-plus" class="w-4 h-4" /> Add Option
+                      <.icon name="hero-plus" class="w-4 h-4" /> Add
                     </button>
                   </label>
                   <div class="space-y-2">
@@ -639,7 +735,8 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
       affects_price: false,
       modifier_type: "fixed",
       price_modifiers: %{},
-      allow_override: false
+      allow_override: false,
+      enabled: true
     }
   end
 

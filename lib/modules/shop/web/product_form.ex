@@ -37,7 +37,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     currency = Shop.get_default_currency()
 
     # Get global options (no category selected yet)
-    option_schema = Options.get_global_options()
+    option_schema = Options.get_enabled_global_options()
     price_affecting_options = get_price_affecting_options(option_schema)
 
     socket
@@ -1991,8 +1991,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   # Get option schema based on category_id string
-  defp get_schema_for_category_id(nil), do: Options.get_global_options()
-  defp get_schema_for_category_id(""), do: Options.get_global_options()
+  defp get_schema_for_category_id(nil), do: Options.get_enabled_global_options()
+  defp get_schema_for_category_id(""), do: Options.get_enabled_global_options()
 
   defp get_schema_for_category_id(category_id) when is_binary(category_id) do
     case Integer.parse(category_id) do
@@ -2002,13 +2002,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
         Options.get_option_schema_for_product(product)
 
       _ ->
-        Options.get_global_options()
+        Options.get_enabled_global_options()
     end
   rescue
-    _ -> Options.get_global_options()
+    _ -> Options.get_enabled_global_options()
   end
 
-  defp get_schema_for_category_id(_), do: Options.get_global_options()
+  defp get_schema_for_category_id(_), do: Options.get_enabled_global_options()
 
   # Clean up _option_values - remove entries where all values are selected (use defaults)
   defp clean_option_values(metadata, option_schema, original_option_values) do

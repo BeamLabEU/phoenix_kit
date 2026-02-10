@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     migration_stats = ImageMigration.migration_stats()
 
     # Get global options for mapping UI
-    global_options = Options.get_global_options()
+    global_options = Options.get_enabled_global_options()
 
     # Load import configs for filter selection
     import_configs = Shop.list_import_configs(active_only: true)
