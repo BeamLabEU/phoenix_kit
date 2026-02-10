@@ -309,7 +309,6 @@ defmodule PhoenixKitWeb.Integration do
 
         get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :xml
         get "/sitemap.html", PhoenixKit.Modules.Sitemap.Web.Controller, :html
-        get "/sitemap/version", PhoenixKit.Modules.Sitemap.Web.Controller, :version
         get "/sitemaps/:index", PhoenixKit.Modules.Sitemap.Web.Controller, :index_part
         get "/sitemap.xsl", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
         get "/assets/sitemap/:style", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet

@@ -267,6 +267,95 @@
           </div>
         </div>
 
+        <%!-- Data Sources Card --%>
+        <div class="card bg-base-200 shadow-md lg:col-span-2">
+          <div class="card-body">
+            <h2 class="card-title">
+              <.icon name="hero-circle-stack" class="w-5 h-5" /> Data Sources
+            </h2>
+            <p class="text-sm text-base-content/60 mb-2">
+              Choose which data sources are included in the sitemap
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+              <%!-- Router Discovery --%>
+              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
+                <div>
+                  <span class="label-text font-medium">Router Discovery</span>
+                  <span class="text-xs text-base-content/60 block">Auto-discover routes</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.router_discovery_enabled}
+                  phx-click="toggle_source"
+                  phx-value-source="router_discovery"
+                />
+              </label>
+
+              <%!-- Entities --%>
+              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
+                <div>
+                  <span class="label-text font-medium">Entities</span>
+                  <span class="text-xs text-base-content/60 block">Dynamic content types</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_entities}
+                  phx-click="toggle_source"
+                  phx-value-source="entities"
+                />
+              </label>
+
+              <%!-- Blog Posts --%>
+              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
+                <div>
+                  <span class="label-text font-medium">Blog Posts</span>
+                  <span class="text-xs text-base-content/60 block">Published blog articles</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_blogs}
+                  phx-click="toggle_source"
+                  phx-value-source="blogs"
+                />
+              </label>
+
+              <%!-- Static Pages --%>
+              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
+                <div>
+                  <span class="label-text font-medium">Static Pages</span>
+                  <span class="text-xs text-base-content/60 block">Manually added URLs</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_static}
+                  phx-click="toggle_source"
+                  phx-value-source="static"
+                />
+              </label>
+
+              <%!-- Shop --%>
+              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
+                <div>
+                  <span class="label-text font-medium">Shop</span>
+                  <span class="text-xs text-base-content/60 block">Products and categories</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_shop}
+                  phx-click="toggle_source"
+                  phx-value-source="shop"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
         <%!-- Quick Actions Card (spans full width) --%>
         <div class="card bg-base-200 shadow-md lg:col-span-2">
           <div class="card-body">
