@@ -432,6 +432,8 @@ defmodule PhoenixKitWeb.Integration do
   # Generates all admin routes
   defmacro phoenix_kit_admin_routes(suffix) do
     session_name = :"phoenix_kit_admin#{suffix}"
+    comments_session_name = :"phoenix_kit_comments#{suffix}"
+    modules_session_name = :"phoenix_kit_modules#{suffix}"
 
     # Get external route module AST outside quote to avoid require/alias inside quote
     emails_admin = EmailsRoutes.admin_routes()
@@ -624,10 +626,10 @@ defmodule PhoenixKitWeb.Integration do
       end
 
       # Comments module routes - uses PhoenixKit.Modules.Comments namespace
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+      scope "/", alias: false do
+        pipe_through [:phoenix_kit_admin_only]
 
-        live_session :phoenix_kit_comments,
+        live_session unquote(comments_session_name),
           on_mount: [
             {PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "comments"}}
           ] do
@@ -640,9 +642,11 @@ defmodule PhoenixKitWeb.Integration do
       end
 
       # Sync module routes - uses PhoenixKit.Modules.Sync namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+      scope "/", alias: false do
+        pipe_through [:phoenix_kit_admin_only]
 
+        live_session unquote(modules_session_name),
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           # Sync module routes
           live "/admin/sync", PhoenixKit.Modules.Sync.Web.Index, :index, as: :sync_index
 
