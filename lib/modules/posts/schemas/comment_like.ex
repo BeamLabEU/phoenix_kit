@@ -1,6 +1,9 @@
 defmodule PhoenixKit.Modules.Posts.CommentLike do
-  @moduledoc false
-  # Legacy schema. New comment likes use PhoenixKit.Modules.Comments.CommentLike.
+  @moduledoc """
+  Legacy schema for comment likes.
+
+  New comment likes should use `PhoenixKit.Modules.Comments.CommentLike` instead.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

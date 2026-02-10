@@ -1,6 +1,9 @@
 defmodule PhoenixKit.Modules.Posts.CommentDislike do
-  @moduledoc false
-  # Legacy schema. New comment dislikes use PhoenixKit.Modules.Comments.CommentDislike.
+  @moduledoc """
+  Legacy schema for comment dislikes.
+
+  New comment dislikes should use `PhoenixKit.Modules.Comments.CommentDislike` instead.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 
