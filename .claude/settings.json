@@ -1,0 +1,47 @@
+{
+  "companyAnnouncements": [
+    "Welcome to PhoenixKit! The Elixir Phoenix Starter Kit for SaaS apps"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(mix compile:*)",
+      "Bash(mix format:*)",
+      "Bash(mix quality:*)",
+      "Bash(mix dialyzer:*)",
+      "Bash(mix:*)"
+     ],
+    "deny": [],
+    "ask": []
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-dangerous-git.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mix format"
+          },
+          {
+            "type": "command",
+            "command": "mix compile"
+          }
+        ]
+      }
+    ]
+  }
+}
+
