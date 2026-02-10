@@ -40,27 +40,6 @@
           </xsl:for-each>
         </ul>
         <footer>PhoenixKit Sitemap</footer>
-        <script>
-          // Auto-reload on style change
-          (function() {
-            var currentStyle = 'minimal';
-            var prefix = window.location.pathname.replace('/sitemap.xml', '');
-            var checkUrl = prefix + '/sitemap/version';
-
-            function checkVersion() {
-              fetch(checkUrl, { cache: 'no-store' })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                  if (data.style &amp;&amp; data.style !== currentStyle) {
-                    window.location.reload();
-                  }
-                })
-                .catch(function() {});
-            }
-
-            setInterval(checkVersion, 3000);
-          })();
-        </script>
       </body>
     </html>
   </xsl:template>

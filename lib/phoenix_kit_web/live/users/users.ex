@@ -263,6 +263,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       "toggle_user_confirmation" ->
         handle_toggle_user_confirmation(%{"user_id" => user_id}, socket)
 
+      "delete_user" ->
+        handle_delete_user(%{"user_id" => user_id}, socket)
+
       _ ->
         {:noreply, socket}
     end
@@ -310,32 +313,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   def handle_event("delete_user", %{"user_id" => user_id}, socket) do
-    current_user = socket.assigns.phoenix_kit_current_user
-    user = Auth.get_user!(user_id)
-
-    # Close modal first
-    socket = assign(socket, :confirmation_modal, %{show: false})
-
-    opts = %{
-      current_user: current_user,
-      ip_address: socket.assigns[:ip_address],
-      user_agent: socket.assigns[:user_agent]
-    }
-
-    case Auth.delete_user(user, opts) do
-      {:ok, _result} ->
-        # User list will be updated via PubSub broadcast
-        {:noreply, put_flash(socket, :info, "User deleted successfully")}
-
-      {:error, :cannot_delete_self} ->
-        {:noreply, put_flash(socket, :error, "Cannot delete your own account")}
-
-      {:error, :cannot_delete_last_owner} ->
-        {:noreply, put_flash(socket, :error, "Cannot delete the last system owner")}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to delete user")}
-    end
+    handle_delete_user(%{"user_id" => user_id}, socket)
   end
 
   # Keep old handlers for backward compatibility, but make them delegate to private handlers
@@ -531,6 +509,35 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       {:noreply, socket}
     else
       toggle_user_status_safely(socket, user)
+    end
+  end
+
+  defp handle_delete_user(%{"user_id" => user_id}, socket) do
+    current_user = socket.assigns.phoenix_kit_current_user
+    user = Auth.get_user!(user_id)
+
+    # Close modal first
+    socket = assign(socket, :confirmation_modal, %{show: false})
+
+    opts = %{
+      current_user: current_user,
+      ip_address: socket.assigns[:ip_address],
+      user_agent: socket.assigns[:user_agent]
+    }
+
+    case Auth.delete_user(user, opts) do
+      {:ok, _result} ->
+        # User list will be updated via PubSub broadcast
+        {:noreply, put_flash(socket, :info, "User deleted successfully")}
+
+      {:error, :cannot_delete_self} ->
+        {:noreply, put_flash(socket, :error, "Cannot delete your own account")}
+
+      {:error, :cannot_delete_last_owner} ->
+        {:noreply, put_flash(socket, :error, "Cannot delete the last system owner")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete user")}
     end
   end
 

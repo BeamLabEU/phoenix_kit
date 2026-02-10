@@ -520,7 +520,7 @@ defmodule PhoenixKit.Migrations.Postgres.V31 do
     """
 
     # Update version
-    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '29'"
+    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '31'"
 
     # Seed billing_invoice email template
     flush()
@@ -760,7 +760,7 @@ defmodule PhoenixKit.Migrations.Postgres.V31 do
     """
 
     # Update version
-    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '28'"
+    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '30'"
   end
 
   defp prefix_table_name(table_name, nil), do: table_name

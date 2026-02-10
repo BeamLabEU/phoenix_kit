@@ -308,11 +308,34 @@ defmodule PhoenixKit.Modules.Billing do
       |> where([c], c.is_default == true)
       |> repo().update_all(set: [is_default: false])
 
-      # Set new default
+      # Set new default (also enable if disabled)
       currency
-      |> Currency.changeset(%{is_default: true})
+      |> Currency.changeset(%{is_default: true, enabled: true})
       |> repo().update!()
     end)
+  end
+
+  @doc """
+  Deletes a currency.
+
+  The default currency and currencies referenced by orders cannot be deleted.
+  """
+  def delete_currency(%Currency{} = currency) do
+    cond do
+      currency.is_default ->
+        {:error, :is_default}
+
+      order_count_for_currency(currency.code) > 0 ->
+        {:error, :currency_in_use}
+
+      true ->
+        repo().delete(currency)
+    end
+  end
+
+  defp order_count_for_currency(code) do
+    from(o in Order, where: o.currency == ^code, select: count(o.id))
+    |> repo().one()
   end
 
   # ============================================

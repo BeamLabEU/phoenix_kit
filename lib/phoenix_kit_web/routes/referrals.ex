@@ -6,57 +6,48 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
   """
 
   @doc """
-  Returns quoted code for referral codes routes.
+  Returns quoted admin LiveView route declarations for the shared admin live_session (localized).
   """
-  def generate(url_prefix) do
+  def admin_locale_routes do
     quote do
-      # Referral codes admin LiveView routes (localized)
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+      live "/admin/settings/referral-codes",
+           PhoenixKit.Modules.Referrals.Web.Settings,
+           :index,
+           as: :referral_codes_settings_localized
 
-        live_session :phoenix_kit_referral_codes_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "referrals"}}] do
-          live "/admin/settings/referral-codes",
-               PhoenixKit.Modules.Referrals.Web.Settings,
-               :index,
-               as: :referral_codes_settings_localized
+      live "/admin/users/referral-codes", PhoenixKit.Modules.Referrals.Web.List, :index,
+        as: :referral_codes_list_localized
 
-          live "/admin/users/referral-codes", PhoenixKit.Modules.Referrals.Web.List, :index,
-            as: :referral_codes_list_localized
+      live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
+        as: :referral_codes_new_localized
 
-          live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
-            as: :referral_codes_new_localized
+      live "/admin/users/referral-codes/edit/:code_id",
+           PhoenixKit.Modules.Referrals.Web.Form,
+           :edit,
+           as: :referral_codes_edit_localized
+    end
+  end
 
-          live "/admin/users/referral-codes/edit/:code_id",
-               PhoenixKit.Modules.Referrals.Web.Form,
-               :edit,
-               as: :referral_codes_edit_localized
-        end
-      end
+  @doc """
+  Returns quoted admin LiveView route declarations for the shared admin live_session (non-localized).
+  """
+  def admin_routes do
+    quote do
+      live "/admin/settings/referral-codes",
+           PhoenixKit.Modules.Referrals.Web.Settings,
+           :index,
+           as: :referral_codes_settings
 
-      # Referral codes admin LiveView routes (non-localized)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+      live "/admin/users/referral-codes", PhoenixKit.Modules.Referrals.Web.List, :index,
+        as: :referral_codes_list
 
-        live_session :phoenix_kit_referral_codes,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "referrals"}}] do
-          live "/admin/settings/referral-codes",
-               PhoenixKit.Modules.Referrals.Web.Settings,
-               :index,
-               as: :referral_codes_settings
+      live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
+        as: :referral_codes_new
 
-          live "/admin/users/referral-codes", PhoenixKit.Modules.Referrals.Web.List, :index,
-            as: :referral_codes_list
-
-          live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
-            as: :referral_codes_new
-
-          live "/admin/users/referral-codes/edit/:code_id",
-               PhoenixKit.Modules.Referrals.Web.Form,
-               :edit,
-               as: :referral_codes_edit
-        end
-      end
+      live "/admin/users/referral-codes/edit/:code_id",
+           PhoenixKit.Modules.Referrals.Web.Form,
+           :edit,
+           as: :referral_codes_edit
     end
   end
 end

@@ -109,6 +109,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   @include_entities_key "sitemap_include_entities"
   @include_blogs_key "sitemap_include_blogs"
   @include_static_key "sitemap_include_static"
+  @include_shop_key "sitemap_include_shop"
   @router_discovery_key "sitemap_router_discovery_enabled"
   @html_enabled_key "sitemap_html_enabled"
   @html_style_key "sitemap_html_style"
@@ -127,6 +128,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   @default_include_entities true
   @default_include_blogs true
   @default_include_static true
+  @default_include_shop true
   @default_router_discovery true
   @default_html_enabled true
   @default_html_style "hierarchical"
@@ -225,6 +227,7 @@ defmodule PhoenixKit.Modules.Sitemap do
       include_entities: include_entities?(),
       include_blogs: include_blogs?(),
       include_static: include_static?(),
+      include_shop: include_shop?(),
       base_url: get_base_url(),
       html_enabled: html_enabled?(),
       html_style: get_html_style(),
@@ -347,6 +350,19 @@ defmodule PhoenixKit.Modules.Sitemap do
   @spec include_static?() :: boolean()
   def include_static? do
     settings_call(:get_boolean_setting, [@include_static_key, @default_include_static])
+  end
+
+  @doc """
+  Returns true if shop pages should be included in sitemap.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Sitemap.include_shop?()
+      true
+  """
+  @spec include_shop?() :: boolean()
+  def include_shop? do
+    settings_call(:get_boolean_setting, [@include_shop_key, @default_include_shop])
   end
 
   @doc """

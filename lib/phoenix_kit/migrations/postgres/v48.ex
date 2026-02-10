@@ -38,6 +38,10 @@ defmodule PhoenixKit.Migrations.Postgres.V48 do
 
     # Add dislike_count to comments
     add_dislike_count_to_comments(prefix)
+
+    # Record migration version
+    prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '48'"
   end
 
   def down(%{prefix: prefix} = _opts) do
@@ -63,6 +67,9 @@ defmodule PhoenixKit.Migrations.Postgres.V48 do
 
     # Drop post dislikes table
     drop_if_exists table(:phoenix_kit_post_dislikes, prefix: prefix)
+
+    # Record migration version
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '47'"
   end
 
   defp create_post_dislikes_table(prefix) do

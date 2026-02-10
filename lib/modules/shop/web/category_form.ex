@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     category = %Category{}
     changeset = Shop.change_category(category)
     parent_options = Shop.category_options()
-    global_options = Options.get_global_options()
+    global_options = Options.get_enabled_global_options()
 
     socket
     |> assign(:page_title, "New Category")
@@ -54,6 +54,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
     |> assign(:image_id, nil)
+    |> assign(:product_options, [])
     |> assign_translation_state(%Category{})
   end
 
@@ -61,13 +62,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     category = Shop.get_category!(id)
     changeset = Shop.change_category(category)
     category_options = Options.get_category_options(category)
-    global_options = Options.get_global_options()
+    global_options = Options.get_enabled_global_options()
     merged = Options.merge_schemas(global_options, category_options)
 
     # Exclude self from parent options
     parent_options =
       Shop.category_options()
       |> Enum.reject(fn {_name, parent_id} -> parent_id == category.id end)
+
+    product_options = Shop.list_category_product_options(category.id)
 
     socket
     |> assign(
@@ -84,6 +87,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
     |> assign(:image_id, category.image_id)
+    |> assign(:product_options, product_options)
     |> assign_translation_state(category)
   end
 
@@ -537,22 +541,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                         </button>
                       </div>
                     <% else %>
-                      <%= if image_url = Ecto.Changeset.get_field(@changeset, :image_url) do %>
-                        <div class="relative">
-                          <img
-                            src={image_url}
-                            class="w-24 h-24 object-cover rounded-lg shadow"
-                            alt="Category image"
-                          />
-                          <span class="absolute -bottom-1 left-0 right-0 text-center text-xs text-base-content/50">
-                            URL
-                          </span>
-                        </div>
-                      <% else %>
-                        <div class="w-24 h-24 border-2 border-dashed border-base-300 rounded-lg flex items-center justify-center">
-                          <.icon name="hero-photo" class="w-8 h-8 opacity-30" />
-                        </div>
-                      <% end %>
+                      <div class="w-24 h-24 border-2 border-dashed border-base-300 rounded-lg flex items-center justify-center">
+                        <.icon name="hero-photo" class="w-8 h-8 opacity-30" />
+                      </div>
                     <% end %>
 
                     <%!-- Select from Storage --%>
@@ -565,37 +556,43 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                         <.icon name="hero-photo" class="w-4 h-4 mr-1" />
                         {if @image_id, do: "Change Image", else: "Select from Storage"}
                       </button>
-                      <p class="text-xs text-base-content/50">
-                        or use external URL below
-                      </p>
                     </div>
                   </div>
                 </div>
 
-                <%!-- Fallback Image URL --%>
-                <div class="form-control w-full md:col-span-2">
-                  <label class="label">
-                    <span class="label-text font-medium">Image URL (fallback)</span>
-                    <%= if @image_id do %>
-                      <span class="label-text-alt text-warning">Storage image has priority</span>
-                    <% end %>
-                  </label>
-                  <input
-                    type="url"
-                    name="category[image_url]"
-                    value={Ecto.Changeset.get_field(@changeset, :image_url)}
-                    class={[
-                      "input input-bordered w-full focus:input-primary",
-                      @image_id && "opacity-50"
-                    ]}
-                    placeholder="https://..."
-                  />
-                  <label class="label">
-                    <span class="label-text-alt text-base-content/50">
-                      Used only if no Storage image is selected
-                    </span>
-                  </label>
-                </div>
+                <%!-- Featured Product (fallback image source) --%>
+                <%= if @live_action == :edit and @product_options != [] do %>
+                  <div class="form-control w-full md:col-span-2">
+                    <label class="label">
+                      <span class="label-text font-medium">Featured Product (image fallback)</span>
+                      <%= if @image_id do %>
+                        <span class="label-text-alt text-warning">Storage image has priority</span>
+                      <% end %>
+                    </label>
+                    <select
+                      name="category[featured_product_id]"
+                      class={[
+                        "select select-bordered w-full focus:select-primary",
+                        @image_id && "opacity-50"
+                      ]}
+                    >
+                      <option value="">Auto-detect (first product with image)</option>
+                      <%= for {name, id} <- @product_options do %>
+                        <option
+                          value={id}
+                          selected={Ecto.Changeset.get_field(@changeset, :featured_product_id) == id}
+                        >
+                          {name}
+                        </option>
+                      <% end %>
+                    </select>
+                    <label class="label">
+                      <span class="label-text-alt text-base-content/50">
+                        Used as category image when no Storage image is selected
+                      </span>
+                    </label>
+                  </div>
+                <% end %>
               </div>
             </div>
           </div>

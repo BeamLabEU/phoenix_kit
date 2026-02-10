@@ -55,6 +55,18 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
           <div class="divider my-0"></div>
 
+          <%= if PhoenixKit.Users.Auth.Scope.admin?(@scope) do %>
+            <li>
+              <a
+                href={PhoenixKit.Utils.Routes.path("/admin")}
+                class={"flex items-center gap-3" <> if(active_path?(assigns[:current_path], "/admin"), do: " bg-primary text-primary-content", else: "")}
+              >
+                <.icon name="hero-shield-check" class="w-4 h-4" />
+                <span>Admin Panel</span>
+              </a>
+            </li>
+          <% end %>
+
           <li>
             <a
               href={PhoenixKit.Utils.Routes.path("/dashboard", locale: @current_locale)}

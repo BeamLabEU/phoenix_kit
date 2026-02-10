@@ -1,8 +1,9 @@
 defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   @moduledoc """
-  Oban worker for background Shopify CSV import.
+  Oban worker for background CSV import.
 
-  Processes CSV files in batches with progress tracking via PubSub.
+  Processes CSV files with automatic format detection via the ImportFormat behaviour.
+  Supports Shopify, Prom.ua, and other formats transparently.
 
   ## Job Arguments
 
@@ -35,7 +36,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     unique: [period: :infinity, keys: [:import_log_id], states: :incomplete]
 
   alias PhoenixKit.Modules.Shop
-  alias PhoenixKit.Modules.Shop.Import.{CSVParser, CSVValidator, Filter, ProductTransformer}
+  alias PhoenixKit.Modules.Shop.Import.{CSVValidator, FormatDetector}
   alias PhoenixKit.Modules.Shop.ImportConfig
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker
@@ -53,17 +54,28 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     language = Map.get(args, "language") || default_import_language()
     option_mappings = Map.get(args, "option_mappings", [])
     download_images = Map.get(args, "download_images", false)
+    skip_empty_categories = Map.get(args, "skip_empty_categories", false)
 
     Logger.info("CSVImportWorker: Starting import #{import_log_id} from #{path}")
 
     with {:ok, import_log} <- get_import_log(import_log_id),
          {:ok, config} <- load_config(config_id, import_log),
-         :ok <- validate_file(path, config),
-         {:ok, total_rows} <- count_products(path, config),
-         {:ok, import_log} <- start_import(import_log, total_rows),
+         {:ok, format_mod} <- detect_format(path),
+         :ok <- validate_file(path, format_mod, config),
+         {:ok, total_rows} <- count_products(path, format_mod, config),
+         {:ok, import_log} <- start_import(import_log, total_rows, format_mod),
          {:ok, stats} <-
-           process_file(import_log, path, config, language, option_mappings, download_images),
+           process_file(
+             import_log,
+             path,
+             format_mod,
+             config,
+             language,
+             option_mappings,
+             download_images
+           ),
          {:ok, _import_log} <- complete_import(import_log, stats) do
+      if skip_empty_categories, do: cleanup_empty_categories(stats)
       cleanup_file(path)
       broadcast_complete(import_log_id, stats)
       Logger.info("CSVImportWorker: Completed import #{import_log_id} - #{inspect(stats)}")
@@ -88,13 +100,11 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp load_config(nil, import_log) do
-    # Try to load config from import_log options, or use default
     config_id = get_in(import_log.options, ["config_id"])
 
     if config_id do
       load_config_by_id(config_id)
     else
-      # Try to get default config, fall back to nil (legacy defaults)
       case Shop.get_default_import_config() do
         nil -> {:ok, nil}
         config -> {:ok, config}
@@ -117,11 +127,24 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp validate_file(path, config) do
-    # Check file exists
+  defp detect_format(path) do
+    case FormatDetector.detect(path) do
+      {:ok, format_mod} ->
+        Logger.info("CSVImportWorker: Detected format: #{FormatDetector.format_name(format_mod)}")
+
+        {:ok, format_mod}
+
+      {:error, :unknown_format} ->
+        {:error, {:validation_failed, :unknown_format}}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp validate_file(path, format_mod, config) do
     if File.exists?(path) do
-      # Validate CSV structure
-      required_columns = get_required_columns(config)
+      required_columns = get_required_columns(format_mod, config)
 
       case CSVValidator.validate_headers(path, required_columns) do
         {:ok, _headers} -> :ok
@@ -132,36 +155,56 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp get_required_columns(%ImportConfig{required_columns: cols}) when is_list(cols), do: cols
-  defp get_required_columns(_), do: ImportConfig.default_required_columns()
+  defp get_required_columns(format_mod, config) do
+    # Use format-specific required columns from default_config_attrs
+    # rather than the loaded config (which may be for a different format)
+    format_defaults = format_mod.default_config_attrs()
+    format_required = Map.get(format_defaults, :required_columns, [])
 
-  defp count_products(path, config) do
-    grouped = CSVParser.parse_and_group(path)
+    if format_required != [] do
+      format_required
+    else
+      case config do
+        %ImportConfig{required_columns: cols} when is_list(cols) -> cols
+        _ -> ImportConfig.default_required_columns()
+      end
+    end
+  end
 
-    filtered_count =
-      Enum.count(grouped, fn {_handle, rows} -> Filter.should_include?(rows, config) end)
-
-    {:ok, filtered_count}
+  defp count_products(path, format_mod, config) do
+    {:ok, format_mod.count(path, config)}
   rescue
     e ->
       Logger.error("CSVImportWorker: Failed to count products - #{inspect(e)}")
       {:error, {:parse_error, e}}
   end
 
-  defp start_import(import_log, total_rows) do
+  defp start_import(import_log, total_rows, format_mod) do
     with {:ok, updated_log} <- Shop.start_import(import_log, total_rows) do
       broadcast_started(import_log.id, total_rows)
+
+      Logger.info(
+        "CSVImportWorker: Format #{FormatDetector.format_name(format_mod)}, #{total_rows} products"
+      )
+
       {:ok, updated_log}
     end
   end
 
-  defp process_file(import_log, path, config, language, option_mappings, download_images_arg) do
+  defp process_file(
+         import_log,
+         path,
+         format_mod,
+         config,
+         language,
+         option_mappings,
+         download_images_arg
+       ) do
     categories_map = build_categories_map()
-    grouped = CSVParser.parse_and_group(path)
-
-    # Check if we should download images to Storage (from arg or config)
     download_images = download_images_arg || should_download_images?(config)
     user_id = import_log.user_id
+
+    opts = [language: language, option_mappings: option_mappings]
 
     stats = %{
       imported_count: 0,
@@ -174,17 +217,13 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     }
 
     result =
-      grouped
-      |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows, config) end)
+      format_mod.parse_and_transform(path, categories_map, config, opts)
       |> Enum.with_index(1)
-      |> Enum.reduce(stats, fn {{handle, rows}, index}, acc ->
-        result = process_product(handle, rows, categories_map, config, language, option_mappings)
+      |> Enum.reduce(stats, fn {attrs, index}, acc ->
+        result = upsert_product(attrs)
         new_acc = update_stats(acc, result)
-
-        # Queue image migration if enabled and product was created/updated
         new_acc = maybe_queue_image_migration(new_acc, result, download_images, user_id)
 
-        # Broadcast progress at intervals
         if rem(index, @progress_interval) == 0 do
           broadcast_progress(import_log.id, index, import_log.total_rows, new_acc)
         end
@@ -199,37 +238,20 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       {:error, {:process_error, e}}
   end
 
-  defp process_product(handle, rows, categories_map, config, language, option_mappings) do
-    transform_opts = [language: language]
-    transform_opts = Keyword.put(transform_opts, :option_mappings, option_mappings)
-
-    # Use extended transform if we have option mappings
-    attrs =
-      if option_mappings != [] do
-        ProductTransformer.transform_extended(
-          handle,
-          rows,
-          categories_map,
-          config,
-          transform_opts
-        )
-      else
-        ProductTransformer.transform(handle, rows, categories_map, config, transform_opts)
-      end
-
+  defp upsert_product(attrs) do
     case Shop.upsert_product(attrs) do
       {:ok, product, :inserted} ->
-        {:imported, handle, product}
+        {:imported, nil, product}
 
       {:ok, product, :updated} ->
-        {:updated, handle, product}
+        {:updated, nil, product}
 
       {:error, changeset} ->
-        {:error, handle, changeset}
+        {:error, nil, changeset}
     end
   rescue
     e ->
-      {:error, handle, e}
+      {:error, nil, e}
   end
 
   defp update_stats(stats, result) do
@@ -292,7 +314,6 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp queue_image_job(product, user_id) do
-    # Only queue if product has legacy images but no storage images
     has_legacy = has_legacy_images?(product)
     has_storage = has_storage_images?(product)
 
@@ -316,7 +337,6 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp complete_import(import_log, stats) do
-    # Reverse product_ids to correct order (list was built by prepending)
     corrected_stats = Map.update!(stats, :product_ids, &Enum.reverse/1)
     Shop.complete_import(import_log, corrected_stats)
   end
@@ -332,6 +352,27 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
+  defp cleanup_empty_categories(_stats) do
+    empty_categories = Shop.list_empty_categories()
+
+    Enum.each(empty_categories, fn cat ->
+      case Shop.delete_category(cat) do
+        {:ok, _} ->
+          Logger.info("CSVImportWorker: Removed empty category: #{cat.id}")
+
+        {:error, _} ->
+          Logger.warning("CSVImportWorker: Failed to remove empty category: #{cat.id}")
+      end
+    end)
+
+    if empty_categories != [] do
+      Logger.info("CSVImportWorker: Cleaned up #{length(empty_categories)} empty categories")
+    end
+  rescue
+    e ->
+      Logger.warning("CSVImportWorker: Category cleanup failed - #{inspect(e)}")
+  end
+
   defp cleanup_file(path) do
     File.rm(path)
   rescue
@@ -343,7 +384,6 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
     Shop.list_categories()
     |> Enum.reduce(%{}, fn cat, acc ->
-      # Extract string slug from JSONB map for map key
       slug = Translations.get(cat, :slug, lang)
 
       if slug && slug != "" do
@@ -379,13 +419,11 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp broadcast_complete(import_log_id, stats) do
     broadcast(import_log_id, {:import_complete, stats})
-    # Also broadcast to general topic so all subscribers get notified
     broadcast_general({:import_complete, %{import_log_id: import_log_id, stats: stats}})
   end
 
   defp broadcast_failed(import_log_id, reason) do
     broadcast(import_log_id, {:import_failed, %{reason: inspect(reason)}})
-    # Also broadcast to general topic so all subscribers get notified
     broadcast_general({:import_failed, %{import_log_id: import_log_id, reason: inspect(reason)}})
   end
 
@@ -402,7 +440,6 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     _ -> :ok
   end
 
-  # Default language for import - uses site's configured default language
   defp default_import_language do
     Translations.default_language()
   end

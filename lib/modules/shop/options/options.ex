@@ -83,6 +83,17 @@ defmodule PhoenixKit.Modules.Shop.Options do
   end
 
   @doc """
+  Gets enabled global options only.
+
+  Filters out options where `enabled` is explicitly set to `false`.
+  Options without the `enabled` key default to enabled (backward compatible).
+  """
+  def get_enabled_global_options do
+    get_global_options()
+    |> Enum.filter(fn opt -> Map.get(opt, "enabled", true) != false end)
+  end
+
+  @doc """
   Updates global option schema.
 
   ## Examples
@@ -314,7 +325,7 @@ defmodule PhoenixKit.Modules.Shop.Options do
       schema = Options.get_option_schema_for_product(product_without_category)
   """
   def get_option_schema_for_product(product) do
-    global = get_global_options()
+    global = get_enabled_global_options()
 
     category_opts =
       case product do
@@ -394,17 +405,21 @@ defmodule PhoenixKit.Modules.Shop.Options do
         nil
 
       source_option ->
-        # Create new option spec using slot key/label but source's type/options
-        %{
-          "key" => slot_key,
-          "label" => slot["label"] || slot_key,
-          "type" => source_option["type"],
-          "options" => source_option["options"],
-          "source_key" => source_key,
-          "required" => Map.get(slot, "required", false),
-          "position" => Map.get(slot, "position", 0)
-        }
-        |> maybe_add_price_modifiers(source_option)
+        if Map.get(source_option, "enabled", true) == false do
+          nil
+        else
+          # Create new option spec using slot key/label but source's type/options
+          %{
+            "key" => slot_key,
+            "label" => slot["label"] || slot_key,
+            "type" => source_option["type"],
+            "options" => source_option["options"],
+            "source_key" => source_key,
+            "required" => Map.get(slot, "required", false),
+            "position" => Map.get(slot, "position", 0)
+          }
+          |> maybe_add_price_modifiers(source_option)
+        end
     end
   end
 
@@ -745,18 +760,27 @@ defmodule PhoenixKit.Modules.Shop.Options do
 
   # Filters options - keeps only those for which product has values in metadata.
   # If product has no _option_values, returns all options (backward compatibility).
+  # Also keeps schema specs that have image mappings AND their own defined options.
   defp filter_by_product_option_values(specs, product) do
     metadata = product.metadata || %{}
     option_values = Map.get(metadata, "_option_values", %{})
 
     # Only filter if product has _option_values (imported products)
     if option_values != %{} do
+      image_mappings = Map.get(metadata, "_image_mappings", %{})
+
       Enum.filter(specs, fn spec ->
         key = spec["key"]
 
         case Map.get(option_values, key) do
-          values when is_list(values) and values != [] -> true
-          _ -> false
+          values when is_list(values) and values != [] ->
+            true
+
+          _ ->
+            # Keep schema specs that have image mappings AND their own options
+            has_image_mappings = is_map(image_mappings[key]) and image_mappings[key] != %{}
+            has_own_options = is_list(spec["options"]) and spec["options"] != []
+            has_image_mappings and has_own_options
         end
       end)
     else

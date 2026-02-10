@@ -8,9 +8,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
   alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -48,7 +51,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
         page = min(page, total_pages)
 
         currency = Shop.get_default_currency()
-        all_categories = Shop.list_active_categories()
+        all_categories = Shop.list_active_categories(preload: [:featured_product])
 
         # Check if user is authenticated
         authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
@@ -92,6 +95,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
           |> assign(:authenticated, authenticated)
           |> assign(:dashboard_tabs, dashboard_tabs)
           |> assign(:current_path, current_path)
+          |> assign(
+            :category_name_wrap,
+            Settings.get_setting_cached("shop_category_name_display", "truncate") == "wrap"
+          )
+          |> assign(
+            :category_icon_mode,
+            Settings.get_setting_cached("shop_category_icon_mode", "none")
+          )
 
         {:ok, socket}
     end
@@ -141,9 +152,20 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
          |> push_navigate(to: Shop.catalog_url(current_language))}
 
       {:ok, category, _matched_lang} ->
-        # Found category - redirect to correct localized URL
-        correct_url = Shop.category_url(category, current_language)
-        {:ok, push_navigate(socket, to: correct_url)}
+        # Found category - redirect to best enabled language that has a slug
+        case best_redirect_language(category.slug || %{}) do
+          nil ->
+            {:ok,
+             socket
+             |> put_flash(:error, "Category not found")
+             |> push_navigate(to: Shop.catalog_url(current_language))}
+
+          redirect_lang ->
+            slug = SlugResolver.category_slug(category, redirect_lang)
+
+            {:ok,
+             push_navigate(socket, to: build_lang_url("/shop/category/#{slug}", redirect_lang))}
+        end
     end
   end
 
@@ -187,14 +209,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   # Create shop parent tab (only if not in registry)
   # When viewing a category page, parent tab is not active
   defp create_shop_parent_tab(_current_category) do
-    default_lang = Translations.default_language()
-
     tab =
       Tab.new!(
         id: :dashboard_shop,
         label: "Shop",
         icon: "hero-building-storefront",
-        path: Shop.catalog_url(default_lang),
+        path: "/shop",
         priority: 300,
         group: :shop,
         match: :prefix,
@@ -207,6 +227,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   # Build category subtabs for existing dashboard_shop tab
   defp build_category_subtabs(categories, current_category) do
     default_lang = Translations.default_language()
+    icon_mode = Settings.get_setting_cached("shop_category_icon_mode", "none")
 
     categories
     |> Enum.with_index()
@@ -214,20 +235,66 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
       # Get localized name
       cat_name = Translations.get(cat, :name, default_lang)
 
+      # Determine icon based on settings
+      {icon, icon_metadata} = category_icon(icon_mode, cat)
+
       tab =
         Tab.new!(
           id: String.to_atom("shop_cat_#{cat.id}"),
           label: cat_name,
-          icon: "hero-folder",
+          icon: icon,
           path: Shop.category_url(cat, default_lang),
           priority: 301 + idx,
           parent: :dashboard_shop,
           group: :shop,
-          match: :prefix
+          match: :prefix,
+          subtab_indent: "pl-2",
+          metadata: icon_metadata
         )
 
       Map.put(tab, :active, current_category.id == cat.id)
     end)
+  end
+
+  # Returns {icon, metadata} tuple based on icon mode setting
+  defp category_icon("folder", _cat), do: {"hero-folder", %{}}
+
+  defp category_icon("category", cat) do
+    alias PhoenixKit.Modules.Shop.Category
+
+    case Category.get_image_url(cat, size: "thumbnail") do
+      nil -> {nil, %{}}
+      url -> {nil, %{icon_image_url: url}}
+    end
+  end
+
+  defp category_icon(_mode, _cat), do: {nil, %{}}
+
+  # Guest sidebar icon component
+  attr :mode, :string, required: true
+  attr :category, :any, required: true
+
+  defp guest_sidebar_icon(%{mode: "folder"} = assigns) do
+    ~H"""
+    <.icon name="hero-folder" class="w-4 h-4 shrink-0" />
+    """
+  end
+
+  defp guest_sidebar_icon(%{mode: "category"} = assigns) do
+    alias PhoenixKit.Modules.Shop.Category
+    image_url = Category.get_image_url(assigns.category, size: "thumbnail")
+    assigns = assign(assigns, :image_url, image_url)
+
+    ~H"""
+    <%= if @image_url do %>
+      <img src={@image_url} alt="" class="w-4 h-4 rounded object-cover shrink-0" />
+    <% end %>
+    """
+  end
+
+  defp guest_sidebar_icon(assigns) do
+    ~H"""
+    """
   end
 
   @impl true
@@ -327,7 +394,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
                           navigate={Shop.category_url(cat, @current_language)}
                           class={if cat.id == @category.id, do: "active", else: ""}
                         >
-                          {cat_name}
+                          <.guest_sidebar_icon mode={@category_icon_mode} category={cat} />
+                          <span class={
+                            if(@category_name_wrap,
+                              do: "break-words leading-tight",
+                              else: "truncate block"
+                            )
+                          }>
+                            {cat_name}
+                          </span>
                         </.link>
                       </li>
                     <% end %>
@@ -556,6 +631,34 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
   defp get_language_from_params_or_default(_params) do
     Translations.default_language()
+  end
+
+  # Find the best enabled language that has a slug for this entity.
+  # Prefers the default language, then checks other enabled languages.
+  defp best_redirect_language(slug_map) when slug_map == %{}, do: nil
+
+  defp best_redirect_language(slug_map) do
+    enabled = Languages.get_enabled_languages()
+    default_first = Enum.sort_by(enabled, fn l -> if l["is_default"], do: 0, else: 1 end)
+
+    Enum.find_value(default_first, fn lang ->
+      code = lang["code"]
+      base = DialectMapper.extract_base(code)
+      if Map.has_key?(slug_map, code) or Map.has_key?(slug_map, base), do: code
+    end)
+  end
+
+  # Build a localized URL path, adding language prefix for non-default languages.
+  # Uses locale: :none to bypass Routes.path default-language logic.
+  defp build_lang_url(path, lang) do
+    base = DialectMapper.extract_base(lang)
+    default_base = DialectMapper.extract_base(Translations.default_language())
+
+    if base == default_base do
+      Routes.path(path, locale: :none)
+    else
+      Routes.path("/#{base}#{path}", locale: :none)
+    end
   end
 
   # Pagination UI component

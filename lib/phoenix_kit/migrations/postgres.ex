@@ -398,12 +398,28 @@ defmodule PhoenixKit.Migrations.Postgres do
   - tickets.user_id: DELETE_ALL → SET NULL (preserve support history)
   - Enables GDPR-compliant user deletion while preserving financial records
 
-  ### V52 - Shop Localized Slug Functional Unique Index ⚡ LATEST
+  ### V52 - Shop Localized Slug Functional Unique Index
   - Creates extract_primary_slug() SQL function for JSONB slug extraction
   - Creates functional unique index on products (primary slug only)
   - Creates functional unique index on categories (primary slug only)
   - Fixes upsert behavior after V47 JSONB migration
   - Language-agnostic: uses alphabetically first key for deterministic extraction
+
+  ### V53 - Module-Level Permission System
+  - Creates phoenix_kit_role_permissions table for granular access control
+  - Allowlist model: row present = granted, absent = denied
+  - Owner role bypasses permissions entirely (hardcoded in code)
+  - Admin role gets ALL permissions seeded by default
+  - Unique constraint on (role_id, module_key) prevents duplicates
+  - 24 permission keys: 5 core sections + 19 feature modules
+
+  ### V54 - Category Featured Product + Import Config fix ⚡ LATEST
+  - Replaces image_url with featured_product_id FK to products
+  - Auto-populates featured_product_id from first active product with image
+  - Creates index on featured_product_id
+  - Drops image_url column from categories
+  - Image priority: image_id (Storage) → featured_product's featured_image_id
+  - Adds download_images BOOLEAN to import_configs (schema field was missing from DB)
 
   ## Migration Paths
 

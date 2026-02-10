@@ -9,10 +9,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Options
+  alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
@@ -151,9 +153,20 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
          |> push_navigate(to: Shop.catalog_url(current_language))}
 
       {:ok, product, _matched_lang} ->
-        # Found product - redirect to correct localized URL with 301
-        correct_url = Shop.product_url(product, current_language)
-        {:ok, push_navigate(socket, to: correct_url)}
+        # Found product - redirect to best enabled language that has a slug
+        case best_redirect_language(product.slug || %{}) do
+          nil ->
+            {:ok,
+             socket
+             |> put_flash(:error, "Product not found")
+             |> push_navigate(to: Shop.catalog_url(current_language))}
+
+          redirect_lang ->
+            slug = SlugResolver.product_slug(product, redirect_lang)
+
+            {:ok,
+             push_navigate(socket, to: build_lang_url("/shop/product/#{slug}", redirect_lang))}
+        end
     end
   end
 
@@ -1207,6 +1220,34 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   defp get_language_from_params_or_default(_params) do
     # Non-localized route - always use default language
     Translations.default_language()
+  end
+
+  # Find the best enabled language that has a slug for this entity.
+  # Prefers the default language, then checks other enabled languages.
+  defp best_redirect_language(slug_map) when slug_map == %{}, do: nil
+
+  defp best_redirect_language(slug_map) do
+    enabled = Languages.get_enabled_languages()
+    default_first = Enum.sort_by(enabled, fn l -> if l["is_default"], do: 0, else: 1 end)
+
+    Enum.find_value(default_first, fn lang ->
+      code = lang["code"]
+      base = DialectMapper.extract_base(code)
+      if Map.has_key?(slug_map, code) or Map.has_key?(slug_map, base), do: code
+    end)
+  end
+
+  # Build a localized URL path, adding language prefix for non-default languages.
+  # Uses locale: :none to bypass Routes.path default-language logic.
+  defp build_lang_url(path, lang) do
+    base = DialectMapper.extract_base(lang)
+    default_base = DialectMapper.extract_base(Translations.default_language())
+
+    if base == default_base do
+      Routes.path(path, locale: :none)
+    else
+      Routes.path("/#{base}#{path}", locale: :none)
+    end
   end
 
   # PubSub event handlers

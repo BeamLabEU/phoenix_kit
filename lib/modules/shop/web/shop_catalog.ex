@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
     # This ensures /shop always uses default language, not session
     current_language = get_language_from_params_or_default(params)
 
-    categories = Shop.list_active_categories(preload: [:parent])
+    categories = Shop.list_active_categories(preload: [:parent, :featured_product])
 
     per_page = 24
     page = parse_page(params["page"])
@@ -150,7 +150,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
         id: :dashboard_shop,
         label: "Shop",
         icon: "hero-building-storefront",
-        path: Routes.path("/shop"),
+        path: "/shop",
         priority: 300,
         group: :shop,
         match: :prefix,
@@ -163,6 +163,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   # Build category subtabs for existing dashboard_shop tab
   defp build_category_subtabs(categories, current_category) do
     default_lang = Translations.default_language()
+    icon_mode = PhoenixKit.Settings.get_setting_cached("shop_category_icon_mode", "none")
 
     categories
     |> Enum.with_index()
@@ -170,22 +171,41 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
       # Get localized name
       cat_name = Translations.get(cat, :name, default_lang)
 
+      # Determine icon based on settings
+      {icon, icon_metadata} = category_icon(icon_mode, cat)
+
       tab =
         Tab.new!(
           id: String.to_atom("shop_cat_#{cat.id}"),
           label: cat_name,
-          icon: "hero-folder",
+          icon: icon,
           path: Shop.category_url(cat, default_lang),
           priority: 301 + idx,
           parent: :dashboard_shop,
           group: :shop,
-          match: :prefix
+          match: :prefix,
+          subtab_indent: "pl-2",
+          metadata: icon_metadata
         )
 
       is_active = current_category && current_category.id == cat.id
       Map.put(tab, :active, is_active)
     end)
   end
+
+  # Returns {icon, metadata} tuple based on icon mode setting
+  defp category_icon("folder", _cat), do: {"hero-folder", %{}}
+
+  defp category_icon("category", cat) do
+    alias PhoenixKit.Modules.Shop.Category
+
+    case Category.get_image_url(cat, size: "thumbnail") do
+      nil -> {nil, %{}}
+      url -> {nil, %{icon_image_url: url}}
+    end
+  end
+
+  defp category_icon(_mode, _cat), do: {nil, %{}}
 
   @impl true
   def render(assigns) do

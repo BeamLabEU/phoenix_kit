@@ -132,60 +132,48 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
     get_route?(route) and
       not excluded?(route.path, exclude_patterns) and
       included?(route.path, include_only) and
-      not protected_route?(route) and
-      not protected_liveview_route?(route)
+      not protected_by_route_info?(route)
   end
 
-  # Check if route uses authentication pipelines
-  # Uses Phoenix.Router.route_info/4 to get pipe_through info (not available in __routes__)
-  defp protected_route?(route) do
-    route_pipelines = get_route_pipelines(route.path)
+  # Single route_info call checks both pipelines and on_mount hooks
+  defp protected_by_route_info?(route) do
+    case get_route_info(route.path) do
+      nil ->
+        false
+
+      info ->
+        has_protected_pipeline?(info) or has_protected_on_mount?(info)
+    end
+  end
+
+  # Get route_info once per route (instead of twice)
+  defp get_route_info(path) do
+    case RouteResolver.get_router() do
+      nil -> nil
+      router -> Phoenix.Router.route_info(router, "GET", path, "localhost")
+    end
+  rescue
+    _ -> nil
+  end
+
+  # Check if route_info has protected pipelines
+  defp has_protected_pipeline?(%{pipe_through: pipelines}) when is_list(pipelines) do
     protected_pipelines = get_protected_pipelines()
-    Enum.any?(protected_pipelines, &(&1 in route_pipelines))
+    Enum.any?(protected_pipelines, &(&1 in pipelines))
   end
 
-  # Get pipelines for a route using Phoenix.Router.route_info/4
-  defp get_route_pipelines(path) do
-    case RouteResolver.get_router() do
-      nil ->
-        []
+  defp has_protected_pipeline?(_), do: false
 
-      router ->
-        case Phoenix.Router.route_info(router, "GET", path, "localhost") do
-          %{pipe_through: pipelines} when is_list(pipelines) -> pipelines
-          _ -> []
-        end
-    end
-  rescue
-    _ -> []
+  # Check if route_info has protected on_mount hooks
+  defp has_protected_on_mount?(%{
+         phoenix_live_view: {_module, _action, _opts, %{extra: %{on_mount: hooks}}}
+       })
+       when is_list(hooks) do
+    hook_ids = Enum.map(hooks, & &1.id)
+    Enum.any?(@default_protected_on_mount_hooks, &(&1 in hook_ids))
   end
 
-  # Check if LiveView route uses authentication on_mount hooks
-  defp protected_liveview_route?(route) do
-    on_mount_hooks = get_route_on_mount_hooks(route.path)
-    protected_hooks = @default_protected_on_mount_hooks
-    Enum.any?(protected_hooks, &(&1 in on_mount_hooks))
-  end
-
-  # Get on_mount hook IDs for a LiveView route
-  defp get_route_on_mount_hooks(path) do
-    case RouteResolver.get_router() do
-      nil ->
-        []
-
-      router ->
-        case Phoenix.Router.route_info(router, "GET", path, "localhost") do
-          %{phoenix_live_view: {_module, _action, _opts, %{extra: %{on_mount: hooks}}}}
-          when is_list(hooks) ->
-            Enum.map(hooks, & &1.id)
-
-          _ ->
-            []
-        end
-    end
-  rescue
-    _ -> []
-  end
+  defp has_protected_on_mount?(_), do: false
 
   defp get_protected_pipelines do
     custom_pipelines = get_custom_protected_pipelines()
