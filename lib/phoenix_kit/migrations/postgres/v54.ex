@@ -1,11 +1,14 @@
 defmodule PhoenixKit.Migrations.Postgres.V54 do
   @moduledoc """
-  V54: Replace category image_url with featured_product_id
+  V54: Category Featured Product + Import Config download_images
 
   Categories currently have two image fields: image_id (Storage upload) and
   image_url (external URL fallback). This migration replaces image_url with
   featured_product_id — a FK to products — so the category image automatically
   comes from a representative product.
+
+  Also adds the missing download_images column to import_configs that was
+  present in the Ecto schema but never added via migration.
 
   ## Changes
 
@@ -14,6 +17,7 @@ defmodule PhoenixKit.Migrations.Postgres.V54 do
   - Auto-populates featured_product_id for categories without image_id
     (picks first active product with featured_image_id)
   - Drops image_url column
+  - Adds download_images BOOLEAN column to import_configs (default: false)
 
   ## Image Resolution Priority (new)
 
@@ -59,12 +63,24 @@ defmodule PhoenixKit.Migrations.Postgres.V54 do
     DROP COLUMN IF EXISTS image_url
     """
 
+    # Step 5: Add download_images to import_configs (was in schema but missing from DB)
+    execute """
+    ALTER TABLE #{prefix_str}phoenix_kit_shop_import_configs
+    ADD COLUMN IF NOT EXISTS download_images BOOLEAN DEFAULT false
+    """
+
     # Record migration version
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '54'"
   end
 
   def down(%{prefix: prefix} = _opts) do
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
+
+    # Drop download_images from import_configs
+    execute """
+    ALTER TABLE #{prefix_str}phoenix_kit_shop_import_configs
+    DROP COLUMN IF EXISTS download_images
+    """
 
     # Restore image_url column
     execute """

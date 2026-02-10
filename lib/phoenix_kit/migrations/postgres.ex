@@ -413,12 +413,13 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Unique constraint on (role_id, module_key) prevents duplicates
   - 24 permission keys: 5 core sections + 19 feature modules
 
-  ### V54 - Category Featured Product ⚡ LATEST
+  ### V54 - Category Featured Product + Import Config fix ⚡ LATEST
   - Replaces image_url with featured_product_id FK to products
   - Auto-populates featured_product_id from first active product with image
   - Creates index on featured_product_id
   - Drops image_url column from categories
   - Image priority: image_id (Storage) → featured_product's featured_image_id
+  - Adds download_images BOOLEAN to import_configs (schema field was missing from DB)
 
   ## Migration Paths
 
