@@ -235,60 +235,15 @@
         </div>
       </div>
 
-      <%!-- Comments Section --%>
+      <%!-- Comments Section (via standalone CommentsComponent) --%>
       <%= if @comments_enabled do %>
-        <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
-            <h2 class="card-title text-2xl mb-4">
-              <.icon name="hero-chat-bubble-left-right" class="w-6 h-6" />
-              Comments ({@post.comment_count})
-            </h2>
-
-            <%!-- New Comment Form --%>
-            <div class="mb-6">
-              <%= if @reply_to do %>
-                <div class="alert alert-info mb-2">
-                  <div class="flex-1">
-                    <span>Replying to comment</span>
-                  </div>
-                  <button phx-click="cancel_reply" class="btn btn-ghost btn-sm">
-                    Cancel
-                  </button>
-                </div>
-              <% end %>
-
-              <.form for={%{}} phx-submit="add_comment" class="space-y-2">
-                <textarea
-                  name="comment"
-                  placeholder="Write a comment..."
-                  class="textarea textarea-bordered w-full"
-                  rows="3"
-                  required
-                ><%= @new_comment %></textarea>
-
-                <div class="flex justify-end">
-                  <button type="submit" class="btn btn-primary btn-sm">
-                    <.icon name="hero-paper-airplane" class="w-4 h-4 mr-2" /> Post Comment
-                  </button>
-                </div>
-              </.form>
-            </div>
-
-            <%!-- Comments List --%>
-            <%= if length(@comments) > 0 do %>
-              <div class="space-y-4">
-                <%= for comment <- @comments do %>
-                  {render_comment(comment, @current_user, assigns)}
-                <% end %>
-              </div>
-            <% else %>
-              <div class="text-center py-8 text-base-content/60">
-                <.icon name="hero-chat-bubble-left" class="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No comments yet. Be the first to comment!</p>
-              </div>
-            <% end %>
-          </div>
-        </div>
+        <.live_component
+          module={PhoenixKit.Modules.Comments.Web.CommentsComponent}
+          id={"post-comments-#{@post.id}"}
+          resource_type="post"
+          resource_id={@post.id}
+          current_user={@current_user}
+        />
       <% end %>
     </div>
   </div>

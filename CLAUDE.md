@@ -230,7 +230,7 @@ This ensures consistent code formatting across the project.
 
 ### 🏷️ Version Management
 
-**Current Version**: 1.7.33 (mix.exs) | **Migration Version**: V53
+**Current Version**: 1.7.34 (mix.exs) | **Migration Version**: V54
 
 **Version updates require:** Update `mix.exs` (@version), `CHANGELOG.md`, and optionally `README.md`. Always run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
@@ -389,11 +389,11 @@ Three system roles: Owner, Admin, User. First user becomes Owner. Custom roles c
 
 Granular access control for admin sections and feature modules. Uses an allowlist model: permission row present = granted, absent = denied.
 
-**24 permission keys:** 5 core (`dashboard`, `users`, `media`, `settings`, `modules`) + 19 feature modules (`billing`, `shop`, `emails`, `entities`, `tickets`, `posts`, `ai`, `sync`, `publishing`, `referrals`, `sitemap`, `seo`, `maintenance`, `storage`, `languages`, `connections`, `legal`, `db`, `jobs`).
+**25 permission keys:** 5 core (`dashboard`, `users`, `media`, `settings`, `modules`) + 20 feature modules (`billing`, `shop`, `emails`, `entities`, `tickets`, `posts`, `comments`, `ai`, `sync`, `publishing`, `referrals`, `sitemap`, `seo`, `maintenance`, `storage`, `languages`, `connections`, `legal`, `db`, `jobs`).
 
 **Access rules:**
 - Owner always has full access (hard-coded, no DB rows needed)
-- Admin gets all 24 permissions by default (V53 seeds them)
+- Admin gets all 25 permissions by default (V54 seeds comments)
 - Custom roles start with no permissions; grant via matrix UI or API
 
 **Key modules:**
@@ -464,6 +464,7 @@ lib/modules/db/
 - **Entities module:** See `lib/modules/entities/README.md` for dynamic content types.
 - **Languages module:** See `lib/modules/languages/README.md` for multi-language support, two-tier locale system, and frontend/backend language configuration.
 - **Billing module:** See `lib/modules/billing/README.md` for payment providers, subscriptions, invoices.
+- **Comments module:** Standalone, resource-agnostic commenting system with polymorphic associations (`resource_type` + `resource_id`). Provides `PhoenixKit.Modules.Comments` context, reusable `CommentsComponent` LiveComponent, threaded comments, like/dislike reactions, and moderation admin UI.
 
 ### ⚠️ CRITICAL: Enabling Modules Before Use
 
@@ -480,6 +481,7 @@ PhoenixKit.Modules.AI.enabled?()              # => false (default)
 PhoenixKit.Modules.Entities.enable_system()   # Enables entities module
 PhoenixKit.Modules.AI.enable_system()         # Enables AI module
 PhoenixKit.Modules.Posts.enable_system()      # Enables posts module
+PhoenixKit.Modules.Comments.enable_system()   # Enables comments module
 PhoenixKit.Emails.enable_system()     # Enables email tracking
 PhoenixKit.Billing.enable_system()    # Enables billing module
 PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation

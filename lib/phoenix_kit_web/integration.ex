@@ -472,6 +472,22 @@ defmodule PhoenixKitWeb.Integration do
         end
       end
 
+      # Comments module routes - uses PhoenixKit.Modules.Comments namespace
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_comments,
+          on_mount: [
+            {PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "comments"}}
+          ] do
+          live "/admin/comments", PhoenixKit.Modules.Comments.Web.Index, :index,
+            as: :comments_index
+
+          live "/admin/settings/comments", PhoenixKit.Modules.Comments.Web.Settings, :settings,
+            as: :comments_settings
+        end
+      end
+
       # Sync module routes - uses PhoenixKit.Modules.Sync namespace (no PhoenixKitWeb prefix)
       scope unquote(url_prefix) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]

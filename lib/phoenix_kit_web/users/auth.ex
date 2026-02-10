@@ -891,6 +891,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     # Top-level feature module pages
     {"shop", "/admin/shop"},
     {"posts", "/admin/posts"},
+    {"comments", "/admin/comments"},
     {"billing", "/admin/billing"},
     {"entities", "/admin/entities"},
     {"tickets", "/admin/tickets"},

@@ -1,9 +1,10 @@
 defmodule PhoenixKit.Modules.Posts do
   @moduledoc """
-  Context for managing posts, comments, likes, tags, and groups.
+  Context for managing posts, likes, tags, and groups.
 
   Provides complete API for the social posts system including CRUD operations,
-  counter cache management, comment threading, tag assignment, and group organization.
+  counter cache management, tag assignment, and group organization.
+  Comments are now handled by the standalone `PhoenixKit.Modules.Comments` module.
 
   ## Features
 
@@ -48,10 +49,7 @@ defmodule PhoenixKit.Modules.Posts do
   require Logger
 
   alias PhoenixKit.Modules.Posts.{
-    CommentDislike,
-    CommentLike,
     Post,
-    PostComment,
     PostDislike,
     PostGroup,
     PostGroupAssignment,
@@ -120,7 +118,6 @@ defmodule PhoenixKit.Modules.Posts do
       total_posts: count_posts(),
       published_posts: count_posts_by_status("public"),
       draft_posts: count_posts_by_status("draft"),
-      comments_enabled: Settings.get_boolean_setting("posts_comments_enabled", true),
       likes_enabled: Settings.get_boolean_setting("posts_likes_enabled", true)
     }
   end
@@ -873,494 +870,30 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   # ============================================================================
-  # Comment Operations
+  # Comment Resource Handler Callbacks
   # ============================================================================
 
   @doc """
-  Creates a comment on a post.
-
-  Increments the post's comment counter. Automatically calculates depth if replying to another comment.
-
-  ## Parameters
-
-  - `post_id` - Post ID
-  - `user_id` - User ID
-  - `attrs` - Comment attributes (content, parent_id, etc.)
-
-  ## Examples
-
-      iex> create_comment("018e3c4a-...", 42, %{content: "Great post!"})
-      {:ok, %PostComment{}}
-
-      iex> create_comment("018e3c4a-...", 42, %{content: "Reply", parent_id: "..."})
-      {:ok, %PostComment{depth: 1}}
+  Callback invoked by the Comments module when a comment is created on a post.
+  Increments the post's denormalized comment_count.
   """
-  def create_comment(post_id, user_id, attrs) do
-    repo().transaction(fn ->
-      attrs =
-        attrs
-        |> Map.put(:post_id, post_id)
-        |> Map.put(:user_id, user_id)
-        |> maybe_calculate_depth()
-
-      case %PostComment{}
-           |> PostComment.changeset(attrs)
-           |> repo().insert() do
-        {:ok, comment} ->
-          increment_comment_count(%Post{id: post_id})
-          comment
-
-        {:error, changeset} ->
-          repo().rollback(changeset)
-      end
-    end)
+  def on_comment_created("post", resource_id, _comment) do
+    increment_comment_count(%Post{id: resource_id})
+    :ok
   end
+
+  def on_comment_created(_resource_type, _resource_id, _comment), do: :ok
 
   @doc """
-  Updates a comment.
-
-  ## Parameters
-
-  - `comment` - Comment to update
-  - `attrs` - Attributes to update
-
-  ## Examples
-
-      iex> update_comment(comment, %{content: "Updated content"})
-      {:ok, %PostComment{}}
+  Callback invoked by the Comments module when a comment is deleted from a post.
+  Decrements the post's denormalized comment_count.
   """
-  def update_comment(%PostComment{} = comment, attrs) do
-    comment
-    |> PostComment.changeset(attrs)
-    |> repo().update()
+  def on_comment_deleted("post", resource_id, _comment) do
+    decrement_comment_count(%Post{id: resource_id})
+    :ok
   end
 
-  @doc """
-  Deletes a comment.
-
-  Decrements the post's comment counter. Cascades to child comments.
-
-  ## Parameters
-
-  - `comment` - Comment to delete
-
-  ## Examples
-
-      iex> delete_comment(comment)
-      {:ok, %PostComment{}}
-  """
-  def delete_comment(%PostComment{post_id: post_id} = comment) do
-    repo().transaction(fn ->
-      case repo().delete(comment) do
-        {:ok, deleted} ->
-          decrement_comment_count(%Post{id: post_id})
-          deleted
-
-        {:error, changeset} ->
-          repo().rollback(changeset)
-      end
-    end)
-  end
-
-  @doc """
-  Gets a single comment by ID with optional preloads.
-
-  Returns `nil` if comment not found.
-
-  ## Parameters
-
-  - `id` - Comment ID (UUIDv7)
-  - `opts` - Options
-    - `:preload` - List of associations to preload (e.g., [:user, :post])
-
-  ## Examples
-
-      iex> get_comment("018e3c4a-...")
-      %PostComment{}
-
-      iex> get_comment("018e3c4a-...", preload: [:user, :post])
-      %PostComment{user: %User{}, post: %Post{}}
-
-      iex> get_comment("nonexistent")
-      nil
-  """
-  def get_comment(id, opts \\ []) do
-    preloads = Keyword.get(opts, :preload, [])
-
-    case repo().get(PostComment, id) do
-      nil -> nil
-      comment -> repo().preload(comment, preloads)
-    end
-  end
-
-  @doc """
-  Gets a single comment by ID with optional preloads.
-
-  Raises `Ecto.NoResultsError` if comment not found.
-
-  ## Parameters
-
-  - `id` - Comment ID (UUIDv7)
-  - `opts` - Options
-    - `:preload` - List of associations to preload (e.g., [:user, :post])
-
-  ## Examples
-
-      iex> get_comment!("018e3c4a-...")
-      %PostComment{}
-
-      iex> get_comment!("018e3c4a-...", preload: [:user, :post])
-      %PostComment{user: %User{}, post: %Post{}}
-
-      iex> get_comment!("nonexistent")
-      ** (Ecto.NoResultsError)
-  """
-  def get_comment!(id, opts \\ []) do
-    preloads = Keyword.get(opts, :preload, [])
-
-    PostComment
-    |> repo().get!(id)
-    |> repo().preload(preloads)
-  end
-
-  @doc """
-  Gets comment tree for a post (nested structure).
-
-  Returns all comments organized in a tree structure with children nested under parents.
-
-  ## Parameters
-
-  - `post_id` - Post ID
-
-  ## Examples
-
-      iex> get_comment_tree("018e3c4a-...")
-      [
-        %PostComment{depth: 0, children: [
-          %PostComment{depth: 1, children: []}
-        ]}
-      ]
-  """
-  def get_comment_tree(post_id) do
-    comments =
-      from(c in PostComment,
-        where: c.post_id == ^post_id,
-        order_by: [asc: c.inserted_at],
-        preload: [:user]
-      )
-      |> repo().all()
-
-    build_comment_tree(comments)
-  end
-
-  @doc """
-  Lists comments for a post (flat list).
-
-  ## Parameters
-
-  - `post_id` - Post ID
-  - `opts` - Options
-    - `:preload` - Associations to preload
-
-  ## Examples
-
-      iex> list_post_comments("018e3c4a-...")
-      [%PostComment{}, ...]
-  """
-  def list_post_comments(post_id, opts \\ []) do
-    preloads = Keyword.get(opts, :preload, [])
-
-    from(c in PostComment, where: c.post_id == ^post_id, order_by: [asc: c.inserted_at])
-    |> repo().all()
-    |> repo().preload(preloads)
-  end
-
-  # ============================================================================
-  # Comment Like/Dislike Operations
-  # ============================================================================
-
-  @doc """
-  Increments the like counter for a comment.
-
-  ## Examples
-
-      iex> increment_comment_like_count(comment)
-      {1, nil}
-  """
-  def increment_comment_like_count(%PostComment{id: id}) do
-    from(c in PostComment, where: c.id == ^id)
-    |> repo().update_all(inc: [like_count: 1])
-  end
-
-  @doc """
-  Decrements the like counter for a comment.
-
-  ## Examples
-
-      iex> decrement_comment_like_count(comment)
-      {1, nil}
-  """
-  def decrement_comment_like_count(%PostComment{id: id}) do
-    from(c in PostComment, where: c.id == ^id and c.like_count > 0)
-    |> repo().update_all(inc: [like_count: -1])
-  end
-
-  @doc """
-  Increments the dislike counter for a comment.
-
-  ## Examples
-
-      iex> increment_comment_dislike_count(comment)
-      {1, nil}
-  """
-  def increment_comment_dislike_count(%PostComment{id: id}) do
-    from(c in PostComment, where: c.id == ^id)
-    |> repo().update_all(inc: [dislike_count: 1])
-  end
-
-  @doc """
-  Decrements the dislike counter for a comment.
-
-  ## Examples
-
-      iex> decrement_comment_dislike_count(comment)
-      {1, nil}
-  """
-  def decrement_comment_dislike_count(%PostComment{id: id}) do
-    from(c in PostComment, where: c.id == ^id and c.dislike_count > 0)
-    |> repo().update_all(inc: [dislike_count: -1])
-  end
-
-  @doc """
-  User likes a comment.
-
-  Creates a like record and increments the comment's like counter.
-  Returns error if user has already liked the comment.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `user_id` - User ID
-
-  ## Examples
-
-      iex> like_comment("018e3c4a-...", 42)
-      {:ok, %CommentLike{}}
-
-      iex> like_comment("018e3c4a-...", 42)  # Already liked
-      {:error, %Ecto.Changeset{}}
-  """
-  def like_comment(comment_id, user_id) do
-    repo().transaction(fn ->
-      case %CommentLike{}
-           |> CommentLike.changeset(%{comment_id: comment_id, user_id: user_id})
-           |> repo().insert() do
-        {:ok, like} ->
-          increment_comment_like_count(%PostComment{id: comment_id})
-          like
-
-        {:error, changeset} ->
-          repo().rollback(changeset)
-      end
-    end)
-  end
-
-  @doc """
-  User unlikes a comment.
-
-  Deletes the like record and decrements the comment's like counter.
-  Returns error if like doesn't exist.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `user_id` - User ID
-
-  ## Examples
-
-      iex> unlike_comment("018e3c4a-...", 42)
-      {:ok, %CommentLike{}}
-
-      iex> unlike_comment("018e3c4a-...", 42)  # Not liked
-      {:error, :not_found}
-  """
-  def unlike_comment(comment_id, user_id) do
-    repo().transaction(fn ->
-      case repo().get_by(CommentLike, comment_id: comment_id, user_id: user_id) do
-        nil ->
-          repo().rollback(:not_found)
-
-        like ->
-          {:ok, _} = repo().delete(like)
-          decrement_comment_like_count(%PostComment{id: comment_id})
-          like
-      end
-    end)
-  end
-
-  @doc """
-  Checks if a user has liked a comment.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `user_id` - User ID
-
-  ## Examples
-
-      iex> comment_liked_by?("018e3c4a-...", 42)
-      true
-
-      iex> comment_liked_by?("018e3c4a-...", 99)
-      false
-  """
-  def comment_liked_by?(comment_id, user_id) do
-    repo().exists?(
-      from l in CommentLike, where: l.comment_id == ^comment_id and l.user_id == ^user_id
-    )
-  end
-
-  @doc """
-  Lists all likes for a comment.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `opts` - Options
-    - `:preload` - Associations to preload
-
-  ## Examples
-
-      iex> list_comment_likes("018e3c4a-...")
-      [%CommentLike{}, ...]
-
-      iex> list_comment_likes("018e3c4a-...", preload: [:user])
-      [%CommentLike{user: %User{}}, ...]
-  """
-  def list_comment_likes(comment_id, opts \\ []) do
-    preloads = Keyword.get(opts, :preload, [])
-
-    from(l in CommentLike, where: l.comment_id == ^comment_id, order_by: [desc: l.inserted_at])
-    |> repo().all()
-    |> repo().preload(preloads)
-  end
-
-  @doc """
-  User dislikes a comment.
-
-  Creates a dislike record and increments the comment's dislike counter.
-  Returns error if user has already disliked the comment.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `user_id` - User ID
-
-  ## Examples
-
-      iex> dislike_comment("018e3c4a-...", 42)
-      {:ok, %CommentDislike{}}
-
-      iex> dislike_comment("018e3c4a-...", 42)  # Already disliked
-      {:error, %Ecto.Changeset{}}
-  """
-  def dislike_comment(comment_id, user_id) do
-    repo().transaction(fn ->
-      case %CommentDislike{}
-           |> CommentDislike.changeset(%{comment_id: comment_id, user_id: user_id})
-           |> repo().insert() do
-        {:ok, dislike} ->
-          increment_comment_dislike_count(%PostComment{id: comment_id})
-          dislike
-
-        {:error, changeset} ->
-          repo().rollback(changeset)
-      end
-    end)
-  end
-
-  @doc """
-  User removes dislike from a comment.
-
-  Deletes the dislike record and decrements the comment's dislike counter.
-  Returns error if dislike doesn't exist.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `user_id` - User ID
-
-  ## Examples
-
-      iex> undislike_comment("018e3c4a-...", 42)
-      {:ok, %CommentDislike{}}
-
-      iex> undislike_comment("018e3c4a-...", 42)  # Not disliked
-      {:error, :not_found}
-  """
-  def undislike_comment(comment_id, user_id) do
-    repo().transaction(fn ->
-      case repo().get_by(CommentDislike, comment_id: comment_id, user_id: user_id) do
-        nil ->
-          repo().rollback(:not_found)
-
-        dislike ->
-          {:ok, _} = repo().delete(dislike)
-          decrement_comment_dislike_count(%PostComment{id: comment_id})
-          dislike
-      end
-    end)
-  end
-
-  @doc """
-  Checks if a user has disliked a comment.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `user_id` - User ID
-
-  ## Examples
-
-      iex> comment_disliked_by?("018e3c4a-...", 42)
-      true
-
-      iex> comment_disliked_by?("018e3c4a-...", 99)
-      false
-  """
-  def comment_disliked_by?(comment_id, user_id) do
-    repo().exists?(
-      from d in CommentDislike, where: d.comment_id == ^comment_id and d.user_id == ^user_id
-    )
-  end
-
-  @doc """
-  Lists all dislikes for a comment.
-
-  ## Parameters
-
-  - `comment_id` - Comment ID
-  - `opts` - Options
-    - `:preload` - Associations to preload
-
-  ## Examples
-
-      iex> list_comment_dislikes("018e3c4a-...")
-      [%CommentDislike{}, ...]
-
-      iex> list_comment_dislikes("018e3c4a-...", preload: [:user])
-      [%CommentDislike{user: %User{}}, ...]
-  """
-  def list_comment_dislikes(comment_id, opts \\ []) do
-    preloads = Keyword.get(opts, :preload, [])
-
-    from(d in CommentDislike,
-      where: d.comment_id == ^comment_id,
-      order_by: [desc: d.inserted_at]
-    )
-    |> repo().all()
-    |> repo().preload(preloads)
-  end
+  def on_comment_deleted(_resource_type, _resource_id, _comment), do: :ok
 
   # ============================================================================
   # Tag Operations
@@ -2084,39 +1617,6 @@ defmodule PhoenixKit.Modules.Posts do
       [p],
       ilike(p.title, ^search_pattern) or ilike(p.content, ^search_pattern)
     )
-  end
-
-  defp maybe_calculate_depth(attrs) do
-    case Map.get(attrs, :parent_id) do
-      nil ->
-        Map.put(attrs, :depth, 0)
-
-      parent_id ->
-        case repo().get(PostComment, parent_id) do
-          nil -> Map.put(attrs, :depth, 0)
-          parent -> Map.put(attrs, :depth, (parent.depth || 0) + 1)
-        end
-    end
-  end
-
-  defp build_comment_tree(comments) do
-    # Build a map of comments by ID for fast lookup
-    comment_map = Map.new(comments, &{&1.id, &1})
-
-    # Build tree structure
-    comments
-    |> Enum.filter(&(&1.parent_id == nil))
-    |> Enum.map(&add_children(&1, comment_map))
-  end
-
-  defp add_children(comment, comment_map) do
-    children =
-      comment_map
-      |> Map.values()
-      |> Enum.filter(&(&1.parent_id == comment.id))
-      |> Enum.map(&add_children(&1, comment_map))
-
-    Map.put(comment, :children, children)
   end
 
   # Get repository based on configuration (for tests and apps with custom repos)

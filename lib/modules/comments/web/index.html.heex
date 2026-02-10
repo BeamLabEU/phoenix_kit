@@ -1,0 +1,237 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Comments"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <header class="w-full relative mb-6">
+      <.link
+        navigate={Routes.path("/admin")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back
+      </.link>
+
+      <div class="text-center">
+        <h1 class="text-4xl font-bold">Comments</h1>
+        <p class="text-lg text-base-content/70">Moderate comments across all content</p>
+      </div>
+
+      <div class="absolute right-0 top-0">
+        <.link
+          navigate={Routes.path("/admin/settings/comments")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> Settings
+        </.link>
+      </div>
+    </header>
+
+    <%!-- Statistics --%>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Total</div>
+        <div class="stat-value text-primary text-2xl">{@stats.total}</div>
+      </div>
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Published</div>
+        <div class="stat-value text-success text-2xl">{@stats.published}</div>
+      </div>
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Pending</div>
+        <div class="stat-value text-warning text-2xl">{@stats.pending}</div>
+      </div>
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Hidden</div>
+        <div class="stat-value text-info text-2xl">{@stats.hidden}</div>
+      </div>
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Deleted</div>
+        <div class="stat-value text-error text-2xl">{@stats.deleted}</div>
+      </div>
+    </div>
+
+    <%!-- Filters --%>
+    <div class="bg-base-200 rounded-lg p-4 mb-6">
+      <.form for={%{}} phx-change="filter" class="flex flex-wrap gap-4 items-end">
+        <div class="form-control flex-1 min-w-48">
+          <label class="label"><span class="label-text">Search</span></label>
+          <input
+            type="text"
+            name="search[query]"
+            value={@search}
+            placeholder="Search comment content..."
+            class="input input-bordered input-sm w-full"
+            phx-debounce="300"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Resource Type</span></label>
+          <select name="filter[resource_type]" class="select select-bordered select-sm">
+            <option value="">All Types</option>
+            <option value="post" selected={@filter_resource_type == "post"}>Post</option>
+            <option value="entity" selected={@filter_resource_type == "entity"}>Entity</option>
+            <option value="ticket" selected={@filter_resource_type == "ticket"}>Ticket</option>
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Status</span></label>
+          <select name="filter[status]" class="select select-bordered select-sm">
+            <option value="">All Statuses</option>
+            <option value="published" selected={@filter_status == "published"}>Published</option>
+            <option value="pending" selected={@filter_status == "pending"}>Pending</option>
+            <option value="hidden" selected={@filter_status == "hidden"}>Hidden</option>
+            <option value="deleted" selected={@filter_status == "deleted"}>Deleted</option>
+          </select>
+        </div>
+
+        <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+          Clear
+        </button>
+      </.form>
+    </div>
+
+    <%!-- Bulk Actions --%>
+    <%= if length(@selected_ids) > 0 do %>
+      <div class="flex gap-2 mb-4 items-center">
+        <span class="text-sm text-base-content/70">{length(@selected_ids)} selected</span>
+        <button phx-click="bulk_action" phx-value-action="approve" class="btn btn-success btn-xs">
+          Approve
+        </button>
+        <button phx-click="bulk_action" phx-value-action="hide" class="btn btn-warning btn-xs">
+          Hide
+        </button>
+        <button
+          phx-click="bulk_action"
+          phx-value-action="delete"
+          class="btn btn-error btn-xs"
+          data-confirm="Delete selected comments?"
+        >
+          Delete
+        </button>
+      </div>
+    <% end %>
+
+    <%!-- Comments Table --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body p-0">
+        <%= if length(@comments) > 0 do %>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th class="w-8"></th>
+                  <th>Content</th>
+                  <th>Author</th>
+                  <th>Resource</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for comment <- @comments do %>
+                  <tr class="hover">
+                    <td>
+                      <input
+                        type="checkbox"
+                        class="checkbox checkbox-xs"
+                        phx-click="toggle_select"
+                        phx-value-id={comment.id}
+                        checked={comment.id in @selected_ids}
+                      />
+                    </td>
+                    <td class="max-w-xs">
+                      <div class="truncate text-sm">{String.slice(comment.content, 0..99)}</div>
+                    </td>
+                    <td class="text-sm">
+                      <%= if comment.user do %>
+                        {comment.user.email}
+                      <% else %>
+                        <span class="text-base-content/50">Deleted user</span>
+                      <% end %>
+                    </td>
+                    <td>
+                      <span class="badge badge-ghost badge-sm">{comment.resource_type}</span>
+                    </td>
+                    <td>
+                      <span class={status_badge_class(comment.status)}>
+                        {comment.status}
+                      </span>
+                    </td>
+                    <td class="text-sm text-base-content/70">
+                      {Calendar.strftime(comment.inserted_at, "%b %d, %Y")}
+                    </td>
+                    <td>
+                      <div class="flex gap-1">
+                        <%= if comment.status != "published" do %>
+                          <button
+                            phx-click="approve"
+                            phx-value-id={comment.id}
+                            class="btn btn-ghost btn-xs text-success"
+                            title="Approve"
+                          >
+                            <.icon name="hero-check" class="w-4 h-4" />
+                          </button>
+                        <% end %>
+                        <%= if comment.status != "hidden" do %>
+                          <button
+                            phx-click="hide"
+                            phx-value-id={comment.id}
+                            class="btn btn-ghost btn-xs text-warning"
+                            title="Hide"
+                          >
+                            <.icon name="hero-eye-slash" class="w-4 h-4" />
+                          </button>
+                        <% end %>
+                        <button
+                          phx-click="delete"
+                          phx-value-id={comment.id}
+                          class="btn btn-ghost btn-xs text-error"
+                          title="Delete"
+                          data-confirm="Delete this comment?"
+                        >
+                          <.icon name="hero-trash" class="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% else %>
+          <div class="text-center py-12 text-base-content/60">
+            <.icon name="hero-chat-bubble-left" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No comments found</p>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Pagination --%>
+    <%= if @total_pages > 1 do %>
+      <div class="flex justify-center mt-6">
+        <div class="join">
+          <%= for page <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
+            <.link
+              patch={
+                Routes.path(
+                  "/admin/comments?page=#{page}&search=#{@search}&resource_type=#{@filter_resource_type || ""}&status=#{@filter_status || ""}"
+                )
+              }
+              class={["join-item btn btn-sm", if(page == @page, do: "btn-active", else: "")]}
+            >
+              {page}
+            </.link>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

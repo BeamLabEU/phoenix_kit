@@ -1,0 +1,152 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Comments Settings"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <header class="w-full relative mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Settings
+      </.link>
+
+      <div class="text-center">
+        <h1 class="text-4xl font-bold">Comments Settings</h1>
+        <p class="text-lg text-base-content/70">Configure the standalone comments module</p>
+      </div>
+    </header>
+
+    <%!-- Settings Form --%>
+    <div class="max-w-4xl mx-auto space-y-8">
+      <.form for={%{}} phx-submit="save">
+        <%!-- Module Status --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Module Status
+            </h2>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Enable Comments</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Enable the standalone comments system across all content types
+                  </div>
+                </span>
+                <input type="hidden" name="settings[comments_enabled]" value="false" />
+                <input
+                  type="checkbox"
+                  name="settings[comments_enabled]"
+                  value="true"
+                  class="toggle toggle-primary"
+                  checked={@comments_enabled == "true"}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Moderation --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-shield-check" class="w-6 h-6" /> Moderation
+            </h2>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Require Moderation</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    New comments must be approved before appearing publicly
+                  </div>
+                </span>
+                <input type="hidden" name="settings[comments_moderation]" value="false" />
+                <input
+                  type="checkbox"
+                  name="settings[comments_moderation]"
+                  value="true"
+                  class="toggle toggle-warning"
+                  checked={@comments_moderation == "true"}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Limits --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-adjustments-horizontal" class="w-6 h-6" /> Limits
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Max Thread Depth</span>
+                </label>
+                <input
+                  type="number"
+                  name="settings[comments_max_depth]"
+                  value={@comments_max_depth}
+                  min="1"
+                  max="50"
+                  class="input input-bordered"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    Maximum nesting level for reply threads (default: 10)
+                  </span>
+                </label>
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Max Comment Length</span>
+                </label>
+                <input
+                  type="number"
+                  name="settings[comments_max_length]"
+                  value={@comments_max_length}
+                  min="100"
+                  max="100000"
+                  class="input input-bordered"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    Maximum characters per comment (default: 10,000)
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Action Buttons --%>
+        <div class="flex gap-4 justify-end">
+          <button
+            type="button"
+            phx-click="reset_defaults"
+            class="btn btn-ghost btn-outline"
+          >
+            Reset to Defaults
+          </button>
+          <button type="submit" class="btn btn-primary" disabled={@saving}>
+            <%= if @saving do %>
+              <span class="loading loading-spinner loading-sm"></span> Saving...
+            <% else %>
+              Save Settings
+            <% end %>
+          </button>
+        </div>
+      </.form>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
