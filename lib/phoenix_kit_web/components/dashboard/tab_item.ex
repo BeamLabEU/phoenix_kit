@@ -195,16 +195,41 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   attr :subtab_style, :map, default: %{}
 
   def tab_content(assigns) do
+    # Check if tab has wrap_label attribute or fall back to global setting
+    wrap_label =
+      Map.get(assigns.tab, :wrap_label) ||
+        PhoenixKit.Settings.get_setting_cached("shop_category_name_display", "truncate") ==
+          "wrap"
+
+    assigns = assign(assigns, :wrap_label, wrap_label)
+
     ~H"""
     <div class="flex items-center gap-3 flex-1 min-w-0">
-      <%= if @tab.icon do %>
-        <.icon
-          name={@tab.icon}
-          class={icon_classes(@active, @tab.attention, @is_subtab, @subtab_style)}
+      <%= if icon_image_url = Map.get(@tab.metadata || %{}, :icon_image_url) do %>
+        <img
+          src={icon_image_url}
+          alt=""
+          class={[
+            "rounded object-cover shrink-0",
+            if(@is_subtab,
+              do: @subtab_style[:icon_size] || "w-4 h-4",
+              else: "w-5 h-5"
+            )
+          ]}
         />
+      <% else %>
+        <%= if @tab.icon do %>
+          <.icon
+            name={@tab.icon}
+            class={icon_classes(@active, @tab.attention, @is_subtab, @subtab_style)}
+          />
+        <% end %>
       <% end %>
       <%= unless @compact do %>
-        <span class={["truncate", @is_subtab && (@subtab_style[:text_size] || "text-sm")]}>
+        <span class={[
+          if(@wrap_label, do: "break-words leading-tight", else: "truncate"),
+          @is_subtab && (@subtab_style[:text_size] || "text-sm")
+        ]}>
           {@tab.label}
         </span>
       <% end %>
@@ -264,9 +289,25 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   # When locale is nil, use :none to skip locale prefix but still apply URL prefix
   defp build_path(path, nil), do: Routes.path(path, locale: :none)
 
-  defp build_path(path, locale) do
-    Routes.path(path, locale: locale)
+  defp build_path(path, locale) when is_binary(path) do
+    # Check if path already contains a locale prefix to avoid double locale
+    if path_has_locale_prefix?(path) do
+      Routes.path(path, locale: :none)
+    else
+      Routes.path(path, locale: locale)
+    end
   end
+
+  @doc """
+  Checks if a path already contains a locale prefix (e.g., /uk/, /en/, /zh-Hans/).
+  Returns true if the path starts with a locale pattern.
+  """
+  def path_has_locale_prefix?(path) when is_binary(path) do
+    # Matches: /uk/, /en/, /zh-Hans/, /pt-BR/ etc.
+    String.match?(path, ~r/^\/[a-z]{2}(-[A-Z][a-z]{2,3})?\//u)
+  end
+
+  def path_has_locale_prefix?(_), do: false
 
   # Returns {class_string, inline_style} tuple
   # Supports both Tailwind classes and inline CSS values for subtab indent

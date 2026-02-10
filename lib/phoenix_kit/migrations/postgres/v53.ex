@@ -1,0 +1,89 @@
+defmodule PhoenixKit.Migrations.Postgres.V53 do
+  @moduledoc """
+  V53: Replace category image_url with featured_product_id
+
+  Categories currently have two image fields: image_id (Storage upload) and
+  image_url (external URL fallback). This migration replaces image_url with
+  featured_product_id — a FK to products — so the category image automatically
+  comes from a representative product.
+
+  ## Changes
+
+  - Adds featured_product_id BIGINT column to categories with FK to products
+  - Creates index on featured_product_id
+  - Auto-populates featured_product_id for categories without image_id
+    (picks first active product with featured_image_id)
+  - Drops image_url column
+
+  ## Image Resolution Priority (new)
+
+  1. image_id — direct Storage upload (unchanged)
+  2. featured_product_id → product's featured_image_id
+  """
+
+  use Ecto.Migration
+
+  def up(%{prefix: prefix} = _opts) do
+    prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
+
+    # Step 1: Add featured_product_id column with FK
+    execute """
+    ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
+    ADD COLUMN featured_product_id BIGINT
+      REFERENCES #{prefix_str}phoenix_kit_shop_products(id) ON DELETE SET NULL
+    """
+
+    # Step 2: Create index
+    execute """
+    CREATE INDEX idx_shop_categories_featured_product
+    ON #{prefix_str}phoenix_kit_shop_categories(featured_product_id)
+    """
+
+    # Step 3: Auto-populate for categories without image_id
+    # Pick first active product with featured_image_id per category
+    execute """
+    UPDATE #{prefix_str}phoenix_kit_shop_categories c
+    SET featured_product_id = sub.product_id
+    FROM (
+      SELECT DISTINCT ON (p.category_id) p.category_id, p.id AS product_id
+      FROM #{prefix_str}phoenix_kit_shop_products p
+      WHERE p.status = 'active' AND p.featured_image_id IS NOT NULL
+      ORDER BY p.category_id, p.id
+    ) sub
+    WHERE c.id = sub.category_id AND c.image_id IS NULL
+    """
+
+    # Step 4: Drop image_url column
+    execute """
+    ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
+    DROP COLUMN IF EXISTS image_url
+    """
+
+    # Record migration version
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '53'"
+  end
+
+  def down(%{prefix: prefix} = _opts) do
+    prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
+
+    # Restore image_url column
+    execute """
+    ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
+    ADD COLUMN image_url TEXT
+    """
+
+    # Drop index
+    execute """
+    DROP INDEX IF EXISTS #{prefix_str}idx_shop_categories_featured_product
+    """
+
+    # Drop featured_product_id column
+    execute """
+    ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
+    DROP COLUMN IF EXISTS featured_product_id
+    """
+
+    # Record migration version
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '52'"
+  end
+end

@@ -672,6 +672,16 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Lists categories that have no products assigned.
+  """
+  def list_empty_categories do
+    subquery = from(p in Product, select: p.category_id, where: not is_nil(p.category_id))
+
+    from(c in Category, where: c.id not in subquery(subquery))
+    |> repo().all()
+  end
+
+  @doc """
   Deletes a category.
   """
   def delete_category(%Category{} = category) do
@@ -706,6 +716,66 @@ defmodule PhoenixKit.Modules.Shop do
     |> repo().all()
     |> Enum.map(fn cat ->
       {Translations.get(cat, :name, default_lang), cat.id}
+    end)
+  end
+
+  @doc """
+  Ensures a category has a featured_product_id set.
+
+  If the category has no image_id and no featured_product_id, auto-detects the
+  first active product with an image and saves it. Returns the (possibly updated)
+  category with :featured_product preloaded.
+  """
+  def ensure_featured_product(
+        %Category{featured_product_id: nil, image_id: nil, id: cat_id} = cat
+      ) do
+    case find_default_featured_product(cat_id) do
+      nil ->
+        cat
+
+      product_id ->
+        {:ok, updated} = update_category(cat, %{featured_product_id: product_id})
+        repo().preload(updated, :featured_product)
+    end
+  end
+
+  def ensure_featured_product(cat), do: cat
+
+  defp find_default_featured_product(category_id) do
+    from(p in Product,
+      where: p.category_id == ^category_id,
+      where: p.status == "active",
+      where: not is_nil(p.featured_image_id),
+      order_by: [asc: p.id],
+      limit: 1,
+      select: p.id
+    )
+    |> repo().one()
+  end
+
+  @doc """
+  Returns a list of {name, id} tuples for products in a category that have images.
+  Used for the featured product dropdown in the admin category form.
+  """
+  def list_category_product_options(category_id) do
+    default_lang = Translations.default_language()
+
+    from(p in Product,
+      where: p.category_id == ^category_id,
+      where: p.status == "active",
+      where: not is_nil(p.featured_image_id),
+      order_by: [asc: p.id],
+      select: {p.title, p.id}
+    )
+    |> repo().all()
+    |> Enum.map(fn {title_map, id} ->
+      name =
+        case title_map do
+          %{} = map -> map[default_lang] || map |> Map.values() |> List.first()
+          _ -> "Product ##{id}"
+        end
+
+      {name, id}
     end)
   end
 
@@ -2338,6 +2408,26 @@ defmodule PhoenixKit.Modules.Shop do
       {:created, config}
     else
       :exists
+    end
+  end
+
+  @doc """
+  Ensures a default Prom.ua import config exists.
+  Creates one if no config with name "prom_ua_default" is found.
+  """
+  def ensure_prom_ua_import_config do
+    case repo().get_by(ImportConfig, name: "prom_ua_default") do
+      nil ->
+        attrs =
+          ImportConfig.from_prom_ua_defaults()
+          |> Map.from_struct()
+          |> Map.drop([:__meta__, :id, :uuid, :inserted_at, :updated_at])
+
+        {:ok, config} = create_import_config(attrs)
+        {:created, config}
+
+      config ->
+        {:exists, config}
     end
   end
 

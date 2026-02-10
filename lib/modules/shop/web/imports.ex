@@ -1,11 +1,15 @@
 defmodule PhoenixKit.Modules.Shop.Web.Imports do
   @moduledoc """
-  Admin LiveView for managing Shopify CSV imports.
+  Admin LiveView for managing CSV product imports.
+
+  Supports multiple CSV formats (Shopify, Prom.ua, etc.) via the ImportFormat behaviour.
+  Format is auto-detected from file headers after upload.
 
   Features:
-  - Multi-step import wizard: Upload → Analyze → Configure → Import
+  - Multi-step import wizard with format-aware steps
   - File upload with drag-and-drop
-  - Option mapping UI for global options with multiple slots
+  - Option mapping UI for formats that require it (e.g. Shopify)
+  - Direct import for formats that don't (e.g. Prom.ua)
   - Import history table with statistics
   - Real-time progress tracking via PubSub
   - Retry failed imports
@@ -14,7 +18,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Shop
-  alias PhoenixKit.Modules.Shop.Import.CSVAnalyzer
+  alias PhoenixKit.Modules.Shop.Import.{CSVAnalyzer, FormatDetector}
   alias PhoenixKit.Modules.Shop.ImportLog
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Services.ImageMigration
@@ -62,6 +66,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       |> assign(:enabled_languages, enabled_languages)
       |> assign(:show_language_selector, show_language_selector)
       |> assign(:download_images, false)
+      |> assign(:skip_empty_categories, true)
       |> assign(:migration_stats, migration_stats)
       |> assign(:migration_in_progress, migration_stats.in_progress > 0)
       |> assign(:import_configs, import_configs)
@@ -69,10 +74,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       |> assign(:selected_config_id, if(default_config, do: default_config.id))
       # Multi-step wizard state
       |> assign(:import_step, :upload)
+      |> assign(:format_mod, nil)
+      |> assign(:format_name, nil)
       |> assign(:csv_analysis, nil)
       |> assign(:option_mappings, [])
       |> assign(:uploaded_file_path, nil)
       |> assign(:uploaded_filename, nil)
+      |> assign(:confirm_product_count, nil)
       |> assign(:global_options, global_options)
       |> allow_upload(:csv_file,
         accept: ~w(.csv),
@@ -97,9 +105,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_event("start_import", _params, socket) do
-    # Multi-step: First analyze the CSV, then show mapping UI
+    # Multi-step: consume upload, detect format, then route to appropriate step
     case consume_uploaded_entries(socket, :csv_file, fn %{path: path}, entry ->
-           # Copy to persistent location
            dest_dir = Path.join(System.tmp_dir!(), "shop_imports")
            File.mkdir_p!(dest_dir)
 
@@ -110,33 +117,35 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
            {:ok, {dest_path, entry.client_name}}
          end) do
       [{dest_path, filename}] ->
-        # Analyze the CSV for options (with error handling)
-        case safe_analyze_csv(dest_path) do
-          {:ok, analysis} ->
-            # Build initial mappings with comparison to global options
-            initial_mappings =
-              build_initial_mappings(analysis.options, socket.assigns.global_options)
+        # Detect format from file headers
+        case FormatDetector.detect(dest_path) do
+          {:ok, format_mod} ->
+            if format_mod.requires_option_mapping?() do
+              # Shopify path: analyze CSV, show mapping UI
+              handle_mapping_format(socket, dest_path, filename, format_mod)
+            else
+              # Prom.ua path: skip configure, go to confirm
+              handle_direct_format(socket, dest_path, filename, format_mod)
+            end
 
-            socket =
-              socket
-              |> assign(:uploaded_file_path, dest_path)
-              |> assign(:uploaded_filename, filename)
-              |> assign(:csv_analysis, analysis)
-              |> assign(:option_mappings, initial_mappings)
-              |> assign(:import_step, :configure)
-
-            {:noreply, socket}
-
-          {:error, message} ->
-            # Clean up uploaded file
+          {:error, :unknown_format} ->
             File.rm(dest_path)
+            {:noreply, put_flash(socket, :error, "Unrecognized CSV format")}
 
-            {:noreply, put_flash(socket, :error, message)}
+          {:error, _reason} ->
+            File.rm(dest_path)
+            {:noreply, put_flash(socket, :error, "Failed to read CSV file headers")}
         end
 
       [] ->
         {:noreply, put_flash(socket, :error, "Please select a CSV file first")}
     end
+  end
+
+  @impl true
+  def handle_event("confirm_import", _params, socket) do
+    # Direct import from confirm step (no option mappings)
+    run_import_with_mappings(socket, [])
   end
 
   @impl true
@@ -184,7 +193,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_event("back_to_upload", _params, socket) do
-    # Clean up uploaded file if exists
     if socket.assigns.uploaded_file_path do
       File.rm(socket.assigns.uploaded_file_path)
     end
@@ -192,10 +200,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     socket =
       socket
       |> assign(:import_step, :upload)
+      |> assign(:format_mod, nil)
+      |> assign(:format_name, nil)
       |> assign(:csv_analysis, nil)
       |> assign(:option_mappings, [])
       |> assign(:uploaded_file_path, nil)
       |> assign(:uploaded_filename, nil)
+      |> assign(:confirm_product_count, nil)
 
     {:noreply, socket}
   end
@@ -225,6 +236,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   @impl true
   def handle_event("toggle_download_images", _params, socket) do
     {:noreply, assign(socket, :download_images, not socket.assigns.download_images)}
+  end
+
+  @impl true
+  def handle_event("toggle_skip_empty_categories", _params, socket) do
+    {:noreply, assign(socket, :skip_empty_categories, not socket.assigns.skip_empty_categories)}
   end
 
   @impl true
@@ -314,16 +330,18 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_info({:import_complete, _stats}, socket) do
-    # Reset wizard to upload step when import completes
     socket =
       socket
       |> assign(:current_import, nil)
       |> assign(:import_progress, nil)
       |> assign(:import_step, :upload)
+      |> assign(:format_mod, nil)
+      |> assign(:format_name, nil)
       |> assign(:csv_analysis, nil)
       |> assign(:option_mappings, [])
       |> assign(:uploaded_file_path, nil)
       |> assign(:uploaded_filename, nil)
+      |> assign(:confirm_product_count, nil)
       |> assign(:imports, list_imports())
       |> put_flash(:info, "Import completed successfully!")
 
@@ -332,16 +350,18 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_info({:import_failed, %{reason: reason}}, socket) do
-    # Reset wizard to upload step when import fails
     socket =
       socket
       |> assign(:current_import, nil)
       |> assign(:import_progress, nil)
       |> assign(:import_step, :upload)
+      |> assign(:format_mod, nil)
+      |> assign(:format_name, nil)
       |> assign(:csv_analysis, nil)
       |> assign(:option_mappings, [])
       |> assign(:uploaded_file_path, nil)
       |> assign(:uploaded_filename, nil)
+      |> assign(:confirm_product_count, nil)
       |> assign(:imports, list_imports())
       |> put_flash(:error, "Import failed: #{reason}")
 
@@ -521,12 +541,15 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         language = socket.assigns.current_language
         download_images = socket.assigns.download_images
 
+        skip_empty_categories = socket.assigns[:skip_empty_categories] || false
+
         worker_args = %{
           import_log_id: import_log.id,
           path: dest_path,
           language: language,
           option_mappings: worker_mappings,
-          download_images: download_images
+          download_images: download_images,
+          skip_empty_categories: skip_empty_categories
         }
 
         worker_args =
@@ -665,6 +688,52 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     end)
   end
 
+  # Handle format that requires option mapping (Shopify)
+  defp handle_mapping_format(socket, dest_path, filename, format_mod) do
+    case safe_analyze_csv(dest_path) do
+      {:ok, analysis} ->
+        initial_mappings =
+          build_initial_mappings(analysis.options, socket.assigns.global_options)
+
+        socket =
+          socket
+          |> assign(:format_mod, format_mod)
+          |> assign(:format_name, FormatDetector.format_name(format_mod))
+          |> assign(:uploaded_file_path, dest_path)
+          |> assign(:uploaded_filename, filename)
+          |> assign(:csv_analysis, analysis)
+          |> assign(:option_mappings, initial_mappings)
+          |> assign(:import_step, :configure)
+
+        {:noreply, socket}
+
+      {:error, message} ->
+        File.rm(dest_path)
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
+  # Handle format that doesn't require option mapping (Prom.ua)
+  defp handle_direct_format(socket, dest_path, filename, format_mod) do
+    product_count =
+      try do
+        format_mod.count(dest_path, nil)
+      rescue
+        _ -> 0
+      end
+
+    socket =
+      socket
+      |> assign(:format_mod, format_mod)
+      |> assign(:format_name, FormatDetector.format_name(format_mod))
+      |> assign(:uploaded_file_path, dest_path)
+      |> assign(:uploaded_filename, filename)
+      |> assign(:confirm_product_count, product_count)
+      |> assign(:import_step, :confirm)
+
+    {:noreply, socket}
+  end
+
   # Safe CSV analysis with error handling
   defp safe_analyze_csv(path) do
     CSVAnalyzer.analyze_options(path)
@@ -716,7 +785,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
             </.link>
             <div class="flex-1 min-w-0">
               <h1 class="text-3xl font-bold text-base-content">CSV Import</h1>
-              <p class="text-base-content/70 mt-1">Import products from Shopify CSV files</p>
+              <p class="text-base-content/70 mt-1">
+                Import products from CSV files
+                <%= if @format_name do %>
+                  <span class="badge badge-primary badge-outline badge-sm ml-2">{@format_name}</span>
+                <% end %>
+              </p>
             </div>
           </div>
         </header>
@@ -725,20 +799,45 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         <div class="card bg-base-100 shadow-xl mb-6">
           <div class="card-body">
             <%!-- Wizard Steps Indicator --%>
-            <ul class="steps steps-horizontal w-full mb-6">
-              <li class={[
-                "step",
-                if(@import_step in [:upload, :configure, :importing], do: "step-primary")
-              ]}>
-                Upload
-              </li>
-              <li class={["step", if(@import_step in [:configure, :importing], do: "step-primary")]}>
-                Configure
-              </li>
-              <li class={["step", if(@import_step == :importing, do: "step-primary")]}>
-                Import
-              </li>
-            </ul>
+            <%= if @format_mod && !@format_mod.requires_option_mapping?() do %>
+              <%!-- 2-step wizard for formats without option mapping --%>
+              <ul class="steps steps-horizontal w-full mb-6">
+                <li class={[
+                  "step",
+                  if(@import_step in [:upload, :confirm, :importing], do: "step-primary")
+                ]}>
+                  Upload
+                </li>
+                <li class={[
+                  "step",
+                  if(@import_step in [:confirm, :importing], do: "step-primary")
+                ]}>
+                  Confirm
+                </li>
+                <li class={["step", if(@import_step == :importing, do: "step-primary")]}>
+                  Import
+                </li>
+              </ul>
+            <% else %>
+              <%!-- 3-step wizard for formats with option mapping --%>
+              <ul class="steps steps-horizontal w-full mb-6">
+                <li class={[
+                  "step",
+                  if(@import_step in [:upload, :configure, :importing], do: "step-primary")
+                ]}>
+                  Upload
+                </li>
+                <li class={[
+                  "step",
+                  if(@import_step in [:configure, :importing], do: "step-primary")
+                ]}>
+                  Configure
+                </li>
+                <li class={["step", if(@import_step == :importing, do: "step-primary")]}>
+                  Import
+                </li>
+              </ul>
+            <% end %>
 
             <%= case @import_step do %>
               <% :upload -> %>
@@ -758,6 +857,14 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   option_mappings={@option_mappings}
                   global_options={@global_options}
                   uploaded_filename={@uploaded_filename}
+                  format_name={@format_name}
+                />
+              <% :confirm -> %>
+                <.render_confirm_step
+                  format_name={@format_name}
+                  uploaded_filename={@uploaded_filename}
+                  confirm_product_count={@confirm_product_count}
+                  download_images={@download_images}
                 />
               <% :importing -> %>
                 <.render_importing_step
@@ -979,10 +1086,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           <div>
             <h3 class="font-bold">About CSV Import</h3>
             <ul class="text-sm mt-1 list-disc list-inside">
-              <li>Only 3D printed products are imported (decals and other items are filtered)</li>
-              <li>Products are automatically categorized based on title</li>
-              <li>Existing products with the same handle are updated</li>
-              <li>Import runs in the background - you can leave this page</li>
+              <li>Supported formats: Shopify, Prom.ua (auto-detected from file headers)</li>
+              <li>Products are automatically categorized based on title or category name</li>
+              <li>Existing products with the same slug are updated</li>
+              <li>Import runs in the background — you can leave this page</li>
             </ul>
           </div>
         </div>
@@ -1091,7 +1198,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                 Drag CSV file here or click to browse
               </p>
               <p class="text-sm text-base-content/70 mt-1">
-                Shopify products_export.csv format, max 50MB
+                Shopify or Prom.ua CSV format, max 50MB
               </p>
             </div>
           </div>
@@ -1143,6 +1250,23 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         </label>
       </div>
 
+      <div class="form-control mt-2">
+        <label class="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-primary"
+            checked={@skip_empty_categories}
+            phx-click="toggle_skip_empty_categories"
+          />
+          <span class="label-text">
+            <span class="font-medium">Skip empty categories</span>
+            <span class="block text-xs text-base-content/60">
+              Remove auto-created categories that have no products after import
+            </span>
+          </span>
+        </label>
+      </div>
+
       <%!-- Start Import Button --%>
       <%= if length(@uploads.csv_file.entries) > 0 do %>
         <% entry = List.first(@uploads.csv_file.entries) %>
@@ -1160,6 +1284,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     ~H"""
     <h2 class="card-title text-xl mb-4">
       <.icon name="hero-adjustments-horizontal" class="w-6 h-6" /> Configure Option Mappings
+      <%= if @format_name do %>
+        <span class="badge badge-primary badge-outline badge-sm">{@format_name}</span>
+      <% end %>
     </h2>
 
     <div class="alert alert-info mb-4">
@@ -1297,6 +1424,71 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           </div>
         <% end %>
       </div>
+    </div>
+    """
+  end
+
+  defp render_confirm_step(assigns) do
+    ~H"""
+    <h2 class="card-title text-xl mb-4">
+      <.icon name="hero-check-circle" class="w-6 h-6" /> Confirm Import
+      <span class="badge badge-primary badge-outline badge-sm">{@format_name}</span>
+    </h2>
+
+    <div class="alert alert-info mb-4">
+      <.icon name="hero-information-circle" class="w-5 h-5" />
+      <div>
+        <p class="font-medium">File: {@uploaded_filename}</p>
+        <p class="text-sm">
+          Found {@confirm_product_count} products to import
+        </p>
+      </div>
+    </div>
+
+    <div class="bg-base-200 rounded-lg p-4 mb-4">
+      <h3 class="font-medium mb-2">Import details:</h3>
+      <ul class="text-sm space-y-1 text-base-content/80">
+        <li>
+          <.icon name="hero-document-text" class="w-4 h-4 inline mr-1" /> Format:
+          <strong>{@format_name}</strong>
+        </li>
+        <li>
+          <.icon name="hero-cube" class="w-4 h-4 inline mr-1" /> Products:
+          <strong>{@confirm_product_count}</strong>
+        </li>
+        <li>
+          <.icon name="hero-photo" class="w-4 h-4 inline mr-1" /> Download images:
+          <strong>{if @download_images, do: "Yes", else: "No"}</strong>
+        </li>
+        <li>
+          <.icon name="hero-folder" class="w-4 h-4 inline mr-1" /> Skip empty categories:
+          <strong>{if @skip_empty_categories, do: "Yes", else: "No"}</strong>
+        </li>
+      </ul>
+    </div>
+
+    <div class="form-control mb-4">
+      <label class="label cursor-pointer justify-start gap-3">
+        <input
+          type="checkbox"
+          class="toggle toggle-sm toggle-primary"
+          checked={@skip_empty_categories}
+          phx-click="toggle_skip_empty_categories"
+        />
+        <span class="label-text">
+          Skip empty categories (remove categories with no products after import)
+        </span>
+      </label>
+    </div>
+
+    <div class="flex gap-3 mt-6">
+      <button type="button" phx-click="back_to_upload" class="btn btn-outline">
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+      </button>
+      <div class="flex-1"></div>
+      <button type="button" phx-click="confirm_import" class="btn btn-primary">
+        <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-2" /> Start Import
+      </button>
     </div>
     """
   end

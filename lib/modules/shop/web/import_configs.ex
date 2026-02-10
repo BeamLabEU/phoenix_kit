@@ -15,6 +15,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
   def mount(_params, _session, socket) do
     # Auto-seed defaults on first visit
     Shop.ensure_default_import_config()
+    Shop.ensure_prom_ua_import_config()
 
     configs = Shop.list_import_configs(active_only: false)
 

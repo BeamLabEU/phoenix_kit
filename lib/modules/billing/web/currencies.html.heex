@@ -20,9 +20,17 @@
           <p class="text-base-content/60 mt-1">Manage supported currencies for billing</p>
         </div>
       </div>
-      <button phx-click="refresh" class="btn btn-ghost btn-sm">
-        <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
-      </button>
+      <div class="flex items-center gap-2">
+        <button phx-click="show_add_form" class="btn btn-primary btn-sm">
+          <.icon name="hero-plus" class="w-4 h-4" /> Add Currency
+        </button>
+        <button phx-click="show_import" class="btn btn-ghost btn-sm">
+          <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Import
+        </button>
+        <button phx-click="refresh" class="btn btn-ghost btn-sm btn-square">
+          <.icon name="hero-arrow-path" class="w-4 h-4" />
+        </button>
+      </div>
     </div>
 
     <%!-- Navigation Tabs --%>
@@ -68,9 +76,17 @@
                 class="w-16 h-16 mx-auto mb-4 text-base-content/30"
               />
               <h3 class="text-xl font-semibold mb-2">No currencies configured</h3>
-              <p class="text-base-content/60">
-                Run the billing migration to seed default currencies
+              <p class="text-base-content/60 mb-4">
+                Add currencies manually or import from the ISO 4217 library
               </p>
+              <div class="flex justify-center gap-2">
+                <button phx-click="show_add_form" class="btn btn-primary btn-sm">
+                  <.icon name="hero-plus" class="w-4 h-4" /> Add Currency
+                </button>
+                <button phx-click="show_import" class="btn btn-ghost btn-sm">
+                  <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Import
+                </button>
+              </div>
             </div>
           <% else %>
             <div class="overflow-x-auto">
@@ -123,15 +139,13 @@
                         <%= if currency.is_default do %>
                           <span class="badge badge-primary">Default</span>
                         <% else %>
-                          <%= if currency.enabled do %>
-                            <button
-                              phx-click="set_default"
-                              phx-value-id={currency.id}
-                              class="btn btn-ghost btn-xs"
-                            >
-                              Set Default
-                            </button>
-                          <% end %>
+                          <button
+                            phx-click="set_default"
+                            phx-value-id={currency.id}
+                            class="btn btn-ghost btn-xs"
+                          >
+                            Set Default
+                          </button>
                         <% end %>
                       </td>
                       <td class="text-right">
@@ -144,6 +158,14 @@
                             class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
                           >
                             <li>
+                              <button
+                                phx-click="show_edit_form"
+                                phx-value-id={currency.id}
+                              >
+                                <.icon name="hero-pencil-square" class="w-4 h-4" /> Edit
+                              </button>
+                            </li>
+                            <li>
                               <button phx-click="toggle_enabled" phx-value-id={currency.id}>
                                 <%= if currency.enabled do %>
                                   <.icon name="hero-x-circle" class="w-4 h-4" /> Disable
@@ -152,10 +174,22 @@
                                 <% end %>
                               </button>
                             </li>
-                            <%= if !currency.is_default and currency.enabled do %>
+                            <%= unless currency.is_default do %>
                               <li>
                                 <button phx-click="set_default" phx-value-id={currency.id}>
                                   <.icon name="hero-star" class="w-4 h-4" /> Set as Default
+                                </button>
+                              </li>
+                            <% end %>
+                            <%= unless currency.is_default do %>
+                              <li>
+                                <button
+                                  phx-click="delete_currency"
+                                  phx-value-id={currency.id}
+                                  data-confirm={"Delete #{currency.code}? This cannot be undone."}
+                                  class="text-error"
+                                >
+                                  <.icon name="hero-trash" class="w-4 h-4" /> Delete
                                 </button>
                               </li>
                             <% end %>
@@ -184,4 +218,223 @@
       </div>
     </div>
   </div>
+
+  <%!-- Currency Form Modal --%>
+  <%= if @show_form do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">
+          {if @editing_currency, do: "Edit Currency", else: "Add Currency"}
+        </h3>
+        <.form for={@form} phx-change="validate" phx-submit="save">
+          <div class="space-y-4">
+            <%!-- Code --%>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Currency Code</span></label>
+              <input
+                type="text"
+                name="currency[code]"
+                value={@form[:code].value}
+                maxlength="3"
+                placeholder="USD"
+                disabled={@editing_currency != nil}
+                class={"input input-bordered w-full uppercase #{if @form[:code].errors != [], do: "input-error"}"}
+              />
+              <%= if @form[:code].errors != [] do %>
+                <label class="label">
+                  <span class="label-text-alt text-error">
+                    {error_to_string(@form[:code].errors)}
+                  </span>
+                </label>
+              <% end %>
+              <%= if @editing_currency do %>
+                <input type="hidden" name="currency[code]" value={@editing_currency.code} />
+              <% end %>
+            </div>
+
+            <%!-- Name --%>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Name</span></label>
+              <input
+                type="text"
+                name="currency[name]"
+                value={@form[:name].value}
+                placeholder="US Dollar"
+                class={"input input-bordered w-full #{if @form[:name].errors != [], do: "input-error"}"}
+              />
+              <%= if @form[:name].errors != [] do %>
+                <label class="label">
+                  <span class="label-text-alt text-error">
+                    {error_to_string(@form[:name].errors)}
+                  </span>
+                </label>
+              <% end %>
+            </div>
+
+            <%!-- Symbol --%>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Symbol</span></label>
+              <input
+                type="text"
+                name="currency[symbol]"
+                value={@form[:symbol].value}
+                placeholder="$"
+                maxlength="5"
+                class={"input input-bordered w-full #{if @form[:symbol].errors != [], do: "input-error"}"}
+              />
+              <%= if @form[:symbol].errors != [] do %>
+                <label class="label">
+                  <span class="label-text-alt text-error">
+                    {error_to_string(@form[:symbol].errors)}
+                  </span>
+                </label>
+              <% end %>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <%!-- Decimal Places --%>
+              <div class="form-control">
+                <label class="label"><span class="label-text">Decimal Places</span></label>
+                <input
+                  type="number"
+                  name="currency[decimal_places]"
+                  value={@form[:decimal_places].value}
+                  min="0"
+                  max="4"
+                  class="input input-bordered w-full"
+                />
+              </div>
+
+              <%!-- Exchange Rate --%>
+              <div class="form-control">
+                <label class="label"><span class="label-text">Exchange Rate</span></label>
+                <input
+                  type="text"
+                  name="currency[exchange_rate]"
+                  value={@form[:exchange_rate].value}
+                  placeholder="1.0"
+                  class="input input-bordered w-full"
+                />
+              </div>
+            </div>
+
+            <%!-- Sort Order --%>
+            <div class="form-control">
+              <label class="label"><span class="label-text">Sort Order</span></label>
+              <input
+                type="number"
+                name="currency[sort_order]"
+                value={@form[:sort_order].value}
+                min="0"
+                class="input input-bordered w-full"
+              />
+            </div>
+
+            <%!-- Enabled --%>
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-3">
+                <input type="hidden" name="currency[enabled]" value="false" />
+                <input
+                  type="checkbox"
+                  name="currency[enabled]"
+                  value="true"
+                  checked={to_string(@form[:enabled].value) == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Enabled</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-action">
+            <button type="button" phx-click="close_form" class="btn">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              {if @editing_currency, do: "Update", else: "Create"}
+            </button>
+          </div>
+        </.form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_form"></div>
+    </div>
+  <% end %>
+
+  <%!-- Import Modal --%>
+  <%= if @show_import do %>
+    <div class="modal modal-open">
+      <div class="modal-box max-w-3xl">
+        <h3 class="font-bold text-lg mb-4">Import Currencies</h3>
+
+        <%= if Enum.empty?(@available_currencies) do %>
+          <div class="text-center py-8">
+            <.icon name="hero-check-circle" class="w-12 h-12 mx-auto mb-3 text-success" />
+            <p class="text-base-content/60">All available currencies have already been added</p>
+          </div>
+        <% else %>
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-sm text-base-content/60">
+              {MapSet.size(@selected_imports)} of {length(@available_currencies)} selected
+            </span>
+            <div class="flex gap-2">
+              <button phx-click="select_all_imports" class="btn btn-ghost btn-xs">
+                Select All
+              </button>
+              <button phx-click="deselect_all_imports" class="btn btn-ghost btn-xs">
+                Deselect All
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-y-auto max-h-96 border border-base-300 rounded-lg">
+            <table class="table table-sm">
+              <thead class="sticky top-0 bg-base-200">
+                <tr>
+                  <th class="w-10"></th>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Symbol</th>
+                  <th>Decimals</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for cur <- @available_currencies do %>
+                  <tr
+                    phx-click="toggle_import_selection"
+                    phx-value-code={cur.code}
+                    class={"hover cursor-pointer #{if MapSet.member?(@selected_imports, cur.code), do: "bg-primary/10"}"}
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        class="checkbox checkbox-primary checkbox-sm"
+                        checked={MapSet.member?(@selected_imports, cur.code)}
+                        tabindex="-1"
+                      />
+                    </td>
+                    <td class="font-mono font-bold">{cur.code}</td>
+                    <td>{cur.name}</td>
+                    <td class="text-lg">{cur.symbol_native}</td>
+                    <td>{cur.decimal_digits}</td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+
+        <div class="modal-action">
+          <button type="button" phx-click="close_import" class="btn">Cancel</button>
+          <%= unless Enum.empty?(@available_currencies) do %>
+            <button
+              phx-click="import_selected"
+              disabled={MapSet.size(@selected_imports) == 0}
+              class="btn btn-primary"
+            >
+              Import {MapSet.size(@selected_imports)} Currencies
+            </button>
+          <% end %>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="close_import"></div>
+    </div>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

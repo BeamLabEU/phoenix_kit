@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
       Events.subscribe_categories()
     end
 
-    categories = Shop.list_categories(preload: [:parent])
+    categories = Shop.list_categories(preload: [:parent, :featured_product])
     current_language = Translations.default_language()
 
     socket =
@@ -35,11 +35,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
 
     case Shop.delete_category(category) do
       {:ok, _} ->
-        categories = Shop.list_categories(preload: [:parent])
-
         {:noreply,
          socket
-         |> assign(:categories, categories)
+         |> reload_categories()
          |> put_flash(:info, "Category deleted")}
 
       {:error, _} ->
@@ -50,17 +48,24 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
   # PubSub event handlers
   @impl true
   def handle_info({:category_created, _category}, socket) do
-    {:noreply, assign(socket, :categories, Shop.list_categories(preload: [:parent]))}
+    {:noreply, reload_categories(socket)}
   end
 
   @impl true
   def handle_info({:category_updated, _category}, socket) do
-    {:noreply, assign(socket, :categories, Shop.list_categories(preload: [:parent]))}
+    {:noreply, reload_categories(socket)}
   end
 
   @impl true
   def handle_info({:category_deleted, _category_id}, socket) do
-    {:noreply, assign(socket, :categories, Shop.list_categories(preload: [:parent]))}
+    {:noreply, reload_categories(socket)}
+  end
+
+  defp reload_categories(socket) do
+    categories = Shop.list_categories(preload: [:parent, :featured_product])
+
+    socket
+    |> assign(:categories, categories)
   end
 
   @impl true
