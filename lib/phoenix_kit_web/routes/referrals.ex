@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_referral_codes_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "referrals"}}] do
           live "/admin/settings/referral-codes",
                PhoenixKit.Modules.Referrals.Web.Settings,
                :index,
@@ -27,7 +27,7 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
           live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
             as: :referral_codes_new_localized
 
-          live "/admin/users/referral-codes/edit/:id",
+          live "/admin/users/referral-codes/edit/:code_id",
                PhoenixKit.Modules.Referrals.Web.Form,
                :edit,
                as: :referral_codes_edit_localized
@@ -39,7 +39,7 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_referral_codes,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "referrals"}}] do
           live "/admin/settings/referral-codes",
                PhoenixKit.Modules.Referrals.Web.Settings,
                :index,
@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Routes.ReferralsRoutes do
           live "/admin/users/referral-codes/new", PhoenixKit.Modules.Referrals.Web.Form, :new,
             as: :referral_codes_new
 
-          live "/admin/users/referral-codes/edit/:id",
+          live "/admin/users/referral-codes/edit/:code_id",
                PhoenixKit.Modules.Referrals.Web.Form,
                :edit,
                as: :referral_codes_edit

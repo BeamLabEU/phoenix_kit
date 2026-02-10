@@ -405,7 +405,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Fixes upsert behavior after V47 JSONB migration
   - Language-agnostic: uses alphabetically first key for deterministic extraction
 
-  ### V53 - Category Featured Product ⚡ LATEST
+  ### V53 - Module-Level Permission System
+  - Creates phoenix_kit_role_permissions table for granular access control
+  - Allowlist model: row present = granted, absent = denied
+  - Owner role bypasses permissions entirely (hardcoded in code)
+  - Admin role gets ALL permissions seeded by default
+  - Unique constraint on (role_id, module_key) prevents duplicates
+  - 24 permission keys: 5 core sections + 19 feature modules
+
+  ### V54 - Category Featured Product ⚡ LATEST
   - Replaces image_url with featured_product_id FK to products
   - Auto-populates featured_product_id from first active product with image
   - Creates index on featured_product_id
@@ -470,7 +478,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 53
+  @current_version 54
   @default_prefix "public"
 
   @doc false

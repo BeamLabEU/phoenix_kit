@@ -1,7 +1,7 @@
 # PhoenixKit Modules - UUID Status
 
-**Last Updated**: 2026-02-04
-**Reference PRs**: #311, #312, #313, #314, #315, #316
+**Last Updated**: 2026-02-05 (All schemas migrated)
+**Reference PRs**: #311, #312, #313, #314, #315, #316, #317, #320
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
 
@@ -16,7 +16,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | **Emails** | 4 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Sync** | 2 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Legal** | 1 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
-| **Referrals** | 2 | ⚠️ Old Pattern | Has UUID, uses `maybe_generate_uuid` |
+| **Referrals** | 2 | ✅ New Standard | `read_after_writes: true`, flexible lookups |
 | **Posts** | 13 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
 | **Connections** | 6 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
 | **Storage** | 5 | ✅ Native UUID PK | `@primary_key {:id, UUIDv7, autogenerate: true}` |
@@ -29,25 +29,31 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | **Sitemap** | 0 | — | File-based generation |
 | **Blogging** | 0 | — | Wrapper module |
 
+### Core PhoenixKit (Non-Modules)
+
+| Component | Schemas | UUID Status | Notes |
+|-----------|---------|-------------|-------|
+| **AuditLog** | 1 | ✅ New Standard | `read_after_writes: true` |
+| **Settings** | 1 | ✅ New Standard | `read_after_writes: true` |
+| **Users** | 6 | ✅ New Standard | `read_after_writes: true` |
+
 ## Legend
 
 | Status | Meaning |
 |--------|---------|
 | ✅ New Standard | DB-generated UUID, `read_after_writes: true`, flexible `get/1` lookups |
 | ✅ Native UUID PK | UUID as primary key (`@primary_key {:id, UUIDv7, autogenerate: true}`) |
-| ⚠️ Old Pattern | Has UUID field but uses app-side `maybe_generate_uuid` |
 | — | No database schemas |
 
 ## Summary
 
 | Category | Modules | Schemas |
 |----------|---------|---------|
-| ✅ New Standard | 7 | 29 |
+| ✅ New Standard | 11 | 41 |
 | ✅ Native UUID PK | 4 | 28 |
-| ⚠️ Old Pattern | 1 | 2 |
 | ❌ No UUID | 0 | 0 |
-| — No schemas | 7 | 0 |
-| **Total** | **19** | **59** |
+| — No schemas | 6 | 0 |
+| **Total** | **21** | **69** |
 
 ---
 
@@ -106,7 +112,7 @@ def get(_), do: nil
 
 ## Detailed Schema Listing
 
-### ✅ New Standard (29 schemas)
+### ✅ New Standard (41 schemas)
 
 #### AI Module (3 schemas)
 - `lib/modules/ai/endpoint.ex` - `phoenix_kit_ai_endpoints`
@@ -151,6 +157,24 @@ def get(_), do: nil
 #### Legal Module (1 schema)
 - `consent_log.ex` - `phoenix_kit_consent_logs`
 
+#### Referrals Module (2 schemas) - PR #317, cleanup in #320
+- `referrals.ex` - `phoenix_kit_referral_codes`
+- `referral_code_usage.ex` - `phoenix_kit_referral_code_usage`
+
+#### Core - AuditLog (1 schema) - PR #320
+- `lib/phoenix_kit/audit_log/entry.ex` - `phoenix_kit_audit_logs`
+
+#### Core - Settings (1 schema) - PR #320
+- `lib/phoenix_kit/settings/setting.ex` - `phoenix_kit_settings`
+
+#### Core - Users (6 schemas) - PR #320
+- `lib/phoenix_kit/users/auth/user.ex` - `phoenix_kit_users`
+- `lib/phoenix_kit/users/auth/user_token.ex` - `phoenix_kit_users_tokens`
+- `lib/phoenix_kit/users/role.ex` - `phoenix_kit_user_roles`
+- `lib/phoenix_kit/users/role_assignment.ex` - `phoenix_kit_user_role_assignments`
+- `lib/phoenix_kit/users/admin_note.ex` - `phoenix_kit_admin_notes`
+- `lib/phoenix_kit/users/oauth_provider.ex` - `phoenix_kit_user_oauth_providers`
+
 ### ✅ Native UUID PK (28 schemas)
 
 Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is a UUID.
@@ -191,12 +215,6 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 - `ticket_comment.ex` - `phoenix_kit_ticket_comments`
 - `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
 
-### ⚠️ Old Pattern (2 schemas)
-
-#### Referrals Module (2 schemas)
-- `referrals.ex` - `phoenix_kit_referral_codes`
-- `referral_code_usage.ex` - `phoenix_kit_referral_code_usage`
-
 ### Other
 
 #### Shop Module (1 schema without UUID)
@@ -204,29 +222,14 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 
 ---
 
-## Migration Priority
+## Migration Status: **COMPLETE** ✅
 
-These modules have UUID fields but use the old `maybe_generate_uuid` pattern.
-Update them to use `read_after_writes: true` for DB-generated UUIDs.
+All 69 schemas across the codebase now use the standardized UUID pattern:
+- **41 schemas** using the New Standard (`read_after_writes: true`, DB-generated UUIDs)
+- **28 schemas** using Native UUID PK (`@primary_key {:id, UUIDv7, autogenerate: true}`)
+- **0 schemas** remaining with old `maybe_generate_uuid` pattern
 
-### Low Priority
-1. **Referrals** (2 schemas) - Referral tracking
-
----
-
-## Update Checklist
-
-When updating a module to the new UUID standard:
-
-- [ ] Add `read_after_writes: true` to UUID field
-- [ ] Remove `maybe_generate_uuid/1` function
-- [ ] Add `:id, :uuid` to `Jason.Encoder` (if applicable)
-- [ ] Update `get/1` to accept integer, UUID, or string-integer
-- [ ] Update `get!/1` to delegate to `get/1`
-- [ ] Remove `String.to_integer` calls from web layer
-- [ ] Use `UUIDUtils.valid?/1` for UUID validation
-- [ ] Update docstrings to document UUID support
-- [ ] Test backward compatibility with integer IDs
+Zero instances of `maybe_generate_uuid` remain in the codebase.
 
 ---
 
@@ -238,5 +241,7 @@ When updating a module to the new UUID standard:
 - PR #314: Billing module UUID update (10 schemas)
 - PR #315: Shop, Emails, Sync modules UUID update (13 schemas)
 - PR #316: Legal module UUID update (1 schema)
+- PR #317: Referrals module UUID update (2 schemas) + review fixes
+- PR #320: Core PhoenixKit schemas + Referrals cleanup (10 schemas)
 - UUID Utility: `lib/phoenix_kit/utils/uuid.ex`
 - CLAUDE.md: "Adding UUID Fields to Existing Schemas" section

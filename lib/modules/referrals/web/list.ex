@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.List do
   end
 
   def handle_event("delete_code", %{"id" => id}, socket) do
-    code = Referrals.get_code!(String.to_integer(id))
+    code = Referrals.get_code!(id)
 
     case Referrals.delete_code(code) do
       {:ok, _code} ->
@@ -49,7 +49,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.List do
   end
 
   def handle_event("toggle_code_status", %{"id" => id}, socket) do
-    code = Referrals.get_code!(String.to_integer(id))
+    code = Referrals.get_code!(id)
     new_status = !code.status
 
     case Referrals.update_code(code, %{status: new_status}) do

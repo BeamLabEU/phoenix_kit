@@ -14,7 +14,6 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
   alias PhoenixKit.Modules.Tickets.Ticket
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
-  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -22,32 +21,25 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     if Tickets.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
-      if can_access_tickets?(current_user) do
-        ticket = %Ticket{}
-        changeset = Ticket.changeset(ticket, %{})
+      ticket = %Ticket{}
+      changeset = Ticket.changeset(ticket, %{})
 
-        attachments_enabled =
-          Settings.get_boolean_setting("tickets_attachments_enabled", true)
+      attachments_enabled =
+        Settings.get_boolean_setting("tickets_attachments_enabled", true)
 
-        socket =
-          socket
-          |> assign(:page_title, gettext("New Ticket"))
-          |> assign(:current_user, current_user)
-          |> assign(:ticket, ticket)
-          |> assign(:form, to_form(changeset))
-          |> assign(:pending_file_ids, [])
-          |> assign(:pending_files, [])
-          |> assign(:attachments_enabled, attachments_enabled)
-          |> assign(:upload_errors, [])
-          |> maybe_allow_upload(attachments_enabled)
+      socket =
+        socket
+        |> assign(:page_title, gettext("New Ticket"))
+        |> assign(:current_user, current_user)
+        |> assign(:ticket, ticket)
+        |> assign(:form, to_form(changeset))
+        |> assign(:pending_file_ids, [])
+        |> assign(:pending_files, [])
+        |> assign(:attachments_enabled, attachments_enabled)
+        |> assign(:upload_errors, [])
+        |> maybe_allow_upload(attachments_enabled)
 
-        {:ok, socket}
-      else
-        {:ok,
-         socket
-         |> put_flash(:error, gettext("You don't have access to the ticketing system"))
-         |> push_navigate(to: Routes.path("/admin"))}
-      end
+      {:ok, socket}
     else
       {:ok,
        socket
@@ -196,11 +188,5 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     socket
     |> assign(:pending_file_ids, socket.assigns.pending_file_ids ++ new_file_ids)
     |> assign(:pending_files, socket.assigns.pending_files ++ new_files)
-  end
-
-  defp can_access_tickets?(user) do
-    Roles.user_has_role?(user, "Admin") or
-      Roles.user_has_role?(user, "Owner") or
-      Roles.user_has_role?(user, "SupportAgent")
   end
 end

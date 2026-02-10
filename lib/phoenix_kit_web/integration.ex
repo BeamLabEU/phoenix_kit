@@ -320,7 +320,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_sitemap_settings,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "sitemap"}}] do
           live "/admin/settings/sitemap",
                PhoenixKit.Modules.Sitemap.Web.Settings,
                :index,
@@ -350,7 +350,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_billing_admin,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "billing"}}] do
           # Dashboard
           live "/admin/billing", PhoenixKit.Modules.Billing.Web.Index, :index, as: :billing_index
 
@@ -462,7 +462,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_db_explorer,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "db"}}] do
           live "/admin/db", PhoenixKit.Modules.DB.Web.Index, :index, as: :db_index
 
           live "/admin/db/activity", PhoenixKit.Modules.DB.Web.Activity, :activity,
@@ -477,7 +477,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_sync,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "sync"}}] do
           live "/admin/sync", PhoenixKit.Modules.Sync.Web.Index, :index, as: :sync_index
 
           live "/admin/sync/connections", PhoenixKit.Modules.Sync.Web.ConnectionsLive, :index,
@@ -493,7 +493,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_entities,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "entities"}}] do
           live "/admin/entities", PhoenixKit.Modules.Entities.Web.Entities, :index, as: :entities
 
           live "/admin/entities/new", PhoenixKit.Modules.Entities.Web.EntityForm, :new,
@@ -534,7 +534,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_shop,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "shop"}}] do
           live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
 
           live "/admin/shop/products", PhoenixKit.Modules.Shop.Web.Products, :index,
@@ -631,7 +631,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_ai,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "ai"}}] do
           live "/admin/ai", PhoenixKit.Modules.AI.Web.Endpoints, :index, as: :ai_index
 
           live "/admin/ai/endpoints", PhoenixKit.Modules.AI.Web.Endpoints, :endpoints,
@@ -734,6 +734,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/users/edit/:id", Users.UserForm, :edit, as: :user_form_edit
         live "/admin/users/view/:id", Live.Users.UserDetails, :show
         live "/admin/users/roles", Live.Users.Roles, :index
+        live "/admin/users/permissions", Live.Users.PermissionsMatrix, :index
         live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
         live "/admin/users/sessions", Live.Users.Sessions, :index
         live "/admin/media", Live.Users.Media, :index

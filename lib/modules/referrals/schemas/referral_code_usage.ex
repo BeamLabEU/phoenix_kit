@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_referral_code_usage" do
-    field :uuid, Ecto.UUID
+    field :uuid, Ecto.UUID, read_after_writes: true
     field :used_by, :integer
     field :date_used, :utc_datetime_usec
 
@@ -59,14 +59,6 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
     |> foreign_key_constraint(:code_id)
     |> validate_number(:used_by, greater_than: 0)
     |> maybe_set_date_used()
-    |> maybe_generate_uuid()
-  end
-
-  defp maybe_generate_uuid(changeset) do
-    case get_field(changeset, :uuid) do
-      nil -> put_change(changeset, :uuid, UUIDv7.generate())
-      _ -> changeset
-    end
   end
 
   @doc """

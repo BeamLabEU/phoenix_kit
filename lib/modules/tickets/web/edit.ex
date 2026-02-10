@@ -17,16 +17,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
   def mount(params, _session, socket) do
     if Tickets.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
-
-      if can_access_tickets?(current_user) do
-        socket = load_ticket_or_new(socket, params, current_user)
-        {:ok, socket}
-      else
-        {:ok,
-         socket
-         |> put_flash(:error, "Access denied")
-         |> push_navigate(to: Routes.path("/admin"))}
-      end
+      socket = load_ticket_or_new(socket, params, current_user)
+      {:ok, socket}
     else
       {:ok,
        socket
@@ -178,14 +170,6 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
-  end
-
-  defp can_access_tickets?(nil), do: false
-
-  defp can_access_tickets?(user) do
-    Roles.user_has_role_owner?(user) or
-      Roles.user_has_role_admin?(user) or
-      Roles.user_has_role?(user, "SupportAgent")
   end
 
   defp list_all_users do

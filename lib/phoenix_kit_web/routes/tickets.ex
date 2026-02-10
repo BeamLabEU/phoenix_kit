@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Routes.TicketsRoutes do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_tickets_admin_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "tickets"}}] do
           live "/admin/tickets", PhoenixKit.Modules.Tickets.Web.List, :index,
             as: :tickets_list_localized
 
@@ -38,7 +38,7 @@ defmodule PhoenixKitWeb.Routes.TicketsRoutes do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
         live_session :phoenix_kit_tickets_admin,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "tickets"}}] do
           live "/admin/tickets", PhoenixKit.Modules.Tickets.Web.List, :index, as: :tickets_list
 
           live "/admin/tickets/new", PhoenixKit.Modules.Tickets.Web.New, :new, as: :tickets_new

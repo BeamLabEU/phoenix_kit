@@ -110,8 +110,8 @@
         textarea.selectionStart = textarea.selectionEnd = newPos;
         textarea.focus();
 
-        // Trigger input event to update LiveView
-        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+        // Trigger keyup event to update LiveView (matches phx-keyup binding on textarea)
+        textarea.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
       };
     })();
   </script>
