@@ -396,6 +396,7 @@ defmodule PhoenixKit.Modules.Shop.OptionTypes do
     opt
     |> Map.put_new("required", false)
     |> Map.put_new("position", 0)
+    |> Map.put_new("enabled", true)
     |> normalize_affects_price()
   end
 

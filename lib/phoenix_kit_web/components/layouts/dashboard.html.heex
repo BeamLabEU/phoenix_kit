@@ -254,7 +254,7 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
         <div class="flex">
           <%!-- Left Sidebar Navigation (Desktop) --%>
           <aside class="w-64 h-[calc(100vh-4rem)] bg-base-100 border-r border-base-300 hidden lg:flex flex-col sticky top-16">
-            <div class="p-4 flex-1">
+            <div class="p-4 flex-1 overflow-y-auto">
               <PhoenixKitWeb.Components.Dashboard.Sidebar.dashboard_sidebar
                 current_path={assigns[:url_path] || "/dashboard"}
                 scope={assigns[:phoenix_kit_current_scope]}

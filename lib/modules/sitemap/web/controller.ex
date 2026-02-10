@@ -133,9 +133,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
           # Save to file for subsequent requests
           FileStorage.save(xml_content)
 
-          # Update URL count in stats
-          entries = Generator.collect_all_entries(base_url: base_url)
-          Sitemap.update_generation_stats(%{url_count: length(entries)})
+          # Count URLs from generated XML instead of re-collecting entries
+          url_count = count_urls_in_xml(xml_content)
+          Sitemap.update_generation_stats(%{url_count: url_count})
 
           etag = generate_content_etag(xml_content)
 
@@ -143,15 +143,15 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
           |> put_resp_content_type("application/xml")
           |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
           |> put_resp_header("etag", etag)
-          |> put_resp_header("x-sitemap-url-count", to_string(length(entries)))
+          |> put_resp_header("x-sitemap-url-count", to_string(url_count))
           |> send_resp(200, xml_content)
 
         {:ok, xml_content, _parts} ->
           # Sitemap index generated
           FileStorage.save(xml_content)
 
-          entries = Generator.collect_all_entries(base_url: base_url)
-          Sitemap.update_generation_stats(%{url_count: length(entries)})
+          url_count = count_urls_in_xml(xml_content)
+          Sitemap.update_generation_stats(%{url_count: url_count})
 
           etag = generate_content_etag(xml_content)
 
@@ -159,7 +159,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
           |> put_resp_content_type("application/xml")
           |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
           |> put_resp_header("etag", etag)
-          |> put_resp_header("x-sitemap-url-count", to_string(length(entries)))
+          |> put_resp_header("x-sitemap-url-count", to_string(url_count))
           |> send_resp(200, xml_content)
 
         {:error, reason} ->
@@ -352,42 +352,12 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
     |> send_resp(status, message)
   end
 
-  @doc """
-  Returns current sitemap style and version for live-reload.
-
-  Used by JavaScript in XSL templates to detect style changes.
-  """
-  def version(conn, _params) do
-    if Sitemap.enabled?() do
-      config = Sitemap.get_config()
-      xsl_style = get_xsl_style(config)
-
-      # Use last_generated timestamp or current time as version
-      version =
-        case config.last_generated do
-          nil ->
-            DateTime.utc_now() |> DateTime.to_unix()
-
-          iso when is_binary(iso) ->
-            case DateTime.from_iso8601(iso) do
-              {:ok, dt, _} -> DateTime.to_unix(dt)
-              _ -> DateTime.utc_now() |> DateTime.to_unix()
-            end
-        end
-
-      conn
-      |> put_resp_content_type("application/json")
-      |> put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
-      |> put_resp_header("access-control-allow-origin", "*")
-      |> send_resp(200, Jason.encode!(%{style: xsl_style, version: version}))
-    else
-      conn
-      |> put_resp_content_type("application/json")
-      |> send_resp(404, Jason.encode!(%{error: "Sitemap disabled"}))
-    end
-  end
-
   # Helper Functions
+
+  # Count URLs in generated XML by counting <loc> tags
+  defp count_urls_in_xml(xml) do
+    xml |> String.split("<loc>") |> length() |> Kernel.-(1) |> max(0)
+  end
 
   defp get_xsl_style(config) do
     html_style = Map.get(config, :html_style, "table")

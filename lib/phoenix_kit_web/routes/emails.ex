@@ -7,7 +7,7 @@ defmodule PhoenixKitWeb.Routes.EmailsRoutes do
   """
 
   @doc """
-  Returns quoted code for email routes.
+  Returns quoted code for email non-LiveView routes (webhooks, exports).
   """
   def generate(url_prefix) do
     quote do
@@ -36,44 +36,42 @@ defmodule PhoenixKitWeb.Routes.EmailsRoutes do
             PhoenixKit.Modules.Emails.Web.ExportController,
             :export_email_details
       end
+    end
+  end
 
-      # Email admin LiveView routes
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+  @doc """
+  Returns quoted admin LiveView route declarations for inclusion in the shared admin live_session.
+  """
+  def admin_routes do
+    quote do
+      live "/admin/settings/emails", PhoenixKit.Modules.Emails.Web.Settings, :index,
+        as: :emails_settings
 
-        live_session :phoenix_kit_emails,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "emails"}}] do
-          live "/admin/settings/emails", PhoenixKit.Modules.Emails.Web.Settings, :index,
-            as: :emails_settings
+      live "/admin/emails/dashboard", PhoenixKit.Modules.Emails.Web.Metrics, :index,
+        as: :emails_metrics
 
-          live "/admin/emails/dashboard", PhoenixKit.Modules.Emails.Web.Metrics, :index,
-            as: :emails_metrics
+      live "/admin/emails", PhoenixKit.Modules.Emails.Web.Emails, :index, as: :emails_index
 
-          live "/admin/emails", PhoenixKit.Modules.Emails.Web.Emails, :index, as: :emails_index
+      live "/admin/emails/email/:id", PhoenixKit.Modules.Emails.Web.Details, :show,
+        as: :emails_details
 
-          live "/admin/emails/email/:id", PhoenixKit.Modules.Emails.Web.Details, :show,
-            as: :emails_details
+      live "/admin/emails/queue", PhoenixKit.Modules.Emails.Web.Queue, :index, as: :emails_queue
 
-          live "/admin/emails/queue", PhoenixKit.Modules.Emails.Web.Queue, :index,
-            as: :emails_queue
+      live "/admin/emails/blocklist", PhoenixKit.Modules.Emails.Web.Blocklist, :index,
+        as: :emails_blocklist
 
-          live "/admin/emails/blocklist", PhoenixKit.Modules.Emails.Web.Blocklist, :index,
-            as: :emails_blocklist
+      live "/admin/modules/emails/templates", PhoenixKit.Modules.Emails.Web.Templates, :index,
+        as: :emails_templates
 
-          live "/admin/modules/emails/templates", PhoenixKit.Modules.Emails.Web.Templates, :index,
-            as: :emails_templates
+      live "/admin/modules/emails/templates/new",
+           PhoenixKit.Modules.Emails.Web.TemplateEditor,
+           :new,
+           as: :emails_template_new
 
-          live "/admin/modules/emails/templates/new",
-               PhoenixKit.Modules.Emails.Web.TemplateEditor,
-               :new,
-               as: :emails_template_new
-
-          live "/admin/modules/emails/templates/:id/edit",
-               PhoenixKit.Modules.Emails.Web.TemplateEditor,
-               :edit,
-               as: :emails_template_edit
-        end
-      end
+      live "/admin/modules/emails/templates/:id/edit",
+           PhoenixKit.Modules.Emails.Web.TemplateEditor,
+           :edit,
+           as: :emails_template_edit
     end
   end
 end

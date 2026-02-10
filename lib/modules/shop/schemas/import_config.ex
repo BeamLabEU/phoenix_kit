@@ -49,6 +49,8 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @default_required_columns ["Handle", "Title", "Variant Price"]
 
   schema "phoenix_kit_shop_import_configs" do
@@ -196,6 +198,24 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
       required_columns: @default_required_columns,
       is_default: true,
       active: true
+    }
+  end
+
+  @doc """
+  Builds a default config for Prom.ua imports (no filtering, import everything).
+  """
+  def from_prom_ua_defaults do
+    %__MODULE__{
+      name: "prom_ua_default",
+      skip_filter: true,
+      category_rules: [],
+      required_columns: ["Назва_позиції", "Ціна"],
+      is_default: false,
+      active: true,
+      download_images: true,
+      include_keywords: [],
+      exclude_keywords: [],
+      exclude_phrases: []
     }
   end
 

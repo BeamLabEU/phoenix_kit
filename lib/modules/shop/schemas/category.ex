@@ -9,7 +9,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
   - `name` - Category name (required)
   - `slug` - URL-friendly identifier (unique)
   - `description` - Category description
-  - `image_url` - Category image
+  - `featured_product_id` - Featured product for fallback image
   - `parent_id` - Parent category for nesting
   - `position` - Sort order
   - `status` - Category status: "active", "hidden", "archived"
@@ -41,7 +41,6 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :description, :map, default: %{}
 
     # Non-localized fields
-    field :image_url, :string
     field :image_id, Ecto.UUID
     field :position, :integer, default: 0
     field :status, :string, default: "active"
@@ -54,6 +53,9 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
     # Products in this category
     has_many :products, PhoenixKit.Modules.Shop.Product
+
+    # Featured product for fallback image
+    belongs_to :featured_product, PhoenixKit.Modules.Shop.Product
 
     timestamps()
   end
@@ -72,8 +74,8 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :name,
       :slug,
       :description,
-      :image_url,
       :image_id,
+      :featured_product_id,
       :parent_id,
       :position,
       :status,
@@ -98,7 +100,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   Priority:
   1. Storage media (image_id) if available
-  2. External image_url if available
+  2. Featured product's featured_image_id (requires :featured_product preloaded)
   3. nil if no image
 
   ## Options
@@ -106,17 +108,24 @@ defmodule PhoenixKit.Modules.Shop.Category do
   """
   def get_image_url(category, opts \\ [])
 
+  # Priority 1: direct Storage image
   def get_image_url(%__MODULE__{image_id: image_id}, opts)
       when is_binary(image_id) and image_id != "" do
     size = Keyword.get(opts, :size, "large")
     URLSigner.signed_url(image_id, size)
   end
 
-  def get_image_url(%__MODULE__{image_url: image_url}, _opts)
-      when is_binary(image_url) and image_url != "" do
-    image_url
+  # Priority 2: featured product's image (preloaded)
+  def get_image_url(
+        %__MODULE__{featured_product: %{featured_image_id: fid}},
+        opts
+      )
+      when is_binary(fid) and fid != "" do
+    size = Keyword.get(opts, :size, "large")
+    URLSigner.signed_url(fid, size)
   end
 
+  # No image available
   def get_image_url(_category, _opts), do: nil
 
   @doc """

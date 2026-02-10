@@ -309,23 +309,9 @@ defmodule PhoenixKitWeb.Integration do
 
         get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :xml
         get "/sitemap.html", PhoenixKit.Modules.Sitemap.Web.Controller, :html
-        get "/sitemap/version", PhoenixKit.Modules.Sitemap.Web.Controller, :version
         get "/sitemaps/:index", PhoenixKit.Modules.Sitemap.Web.Controller, :index_part
         get "/sitemap.xsl", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
         get "/assets/sitemap/:style", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
-      end
-
-      # Sitemap admin settings - uses PhoenixKit.Modules.Sitemap namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_sitemap_settings,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "sitemap"}}] do
-          live "/admin/settings/sitemap",
-               PhoenixKit.Modules.Sitemap.Web.Settings,
-               :index,
-               as: :sitemap_settings
-        end
       end
 
       # Billing webhook routes - uses PhoenixKit.Modules.Billing namespace (no PhoenixKitWeb prefix)
@@ -343,250 +329,6 @@ defmodule PhoenixKitWeb.Integration do
         post "/webhooks/billing/razorpay",
              PhoenixKit.Modules.Billing.Web.WebhookController,
              :razorpay
-      end
-
-      # Billing admin routes - uses PhoenixKit.Modules.Billing namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_billing_admin,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "billing"}}] do
-          # Dashboard
-          live "/admin/billing", PhoenixKit.Modules.Billing.Web.Index, :index, as: :billing_index
-
-          # Orders
-          live "/admin/billing/orders", PhoenixKit.Modules.Billing.Web.Orders, :index,
-            as: :billing_orders
-
-          live "/admin/billing/orders/new", PhoenixKit.Modules.Billing.Web.OrderForm, :new,
-            as: :billing_order_new
-
-          live "/admin/billing/orders/:id", PhoenixKit.Modules.Billing.Web.OrderDetail, :show,
-            as: :billing_order_detail
-
-          live "/admin/billing/orders/:id/edit", PhoenixKit.Modules.Billing.Web.OrderForm, :edit,
-            as: :billing_order_edit
-
-          # Invoices
-          live "/admin/billing/invoices", PhoenixKit.Modules.Billing.Web.Invoices, :index,
-            as: :billing_invoices
-
-          live "/admin/billing/invoices/:id", PhoenixKit.Modules.Billing.Web.InvoiceDetail, :show,
-            as: :billing_invoice_detail
-
-          live "/admin/billing/invoices/:id/print",
-               PhoenixKit.Modules.Billing.Web.InvoicePrint,
-               :print,
-               as: :billing_invoice_print
-
-          live "/admin/billing/invoices/:id/receipt",
-               PhoenixKit.Modules.Billing.Web.ReceiptPrint,
-               :receipt,
-               as: :billing_receipt_print
-
-          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
-               PhoenixKit.Modules.Billing.Web.CreditNotePrint,
-               :credit_note,
-               as: :billing_credit_note
-
-          live "/admin/billing/invoices/:id/payment/:transaction_id",
-               PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint,
-               :payment_confirmation,
-               as: :billing_payment_confirmation
-
-          # Transactions
-          live "/admin/billing/transactions", PhoenixKit.Modules.Billing.Web.Transactions, :index,
-            as: :billing_transactions
-
-          # Subscriptions
-          live "/admin/billing/subscriptions",
-               PhoenixKit.Modules.Billing.Web.Subscriptions,
-               :index,
-               as: :billing_subscriptions
-
-          live "/admin/billing/subscriptions/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionForm,
-               :new,
-               as: :billing_subscription_new
-
-          live "/admin/billing/subscriptions/:id",
-               PhoenixKit.Modules.Billing.Web.SubscriptionDetail,
-               :show,
-               as: :billing_subscription_detail
-
-          # Plans
-          live "/admin/billing/plans", PhoenixKit.Modules.Billing.Web.SubscriptionPlans, :index,
-            as: :billing_plans
-
-          live "/admin/billing/plans/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
-               :new,
-               as: :billing_plan_new
-
-          live "/admin/billing/plans/:id/edit",
-               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
-               :edit,
-               as: :billing_plan_edit
-
-          # Profiles
-          live "/admin/billing/profiles", PhoenixKit.Modules.Billing.Web.BillingProfiles, :index,
-            as: :billing_profiles
-
-          live "/admin/billing/profiles/new",
-               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
-               :new,
-               as: :billing_profile_new
-
-          live "/admin/billing/profiles/:id/edit",
-               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
-               :edit,
-               as: :billing_profile_edit
-
-          # Currencies
-          live "/admin/billing/currencies", PhoenixKit.Modules.Billing.Web.Currencies, :index,
-            as: :billing_currencies
-
-          # Settings
-          live "/admin/settings/billing", PhoenixKit.Modules.Billing.Web.Settings, :settings,
-            as: :billing_settings
-
-          live "/admin/settings/billing/providers",
-               PhoenixKit.Modules.Billing.Web.ProviderSettings,
-               :index,
-               as: :billing_provider_settings
-        end
-      end
-
-      # DB Explorer routes - uses PhoenixKit.Modules.DB namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_db_explorer,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "db"}}] do
-          live "/admin/db", PhoenixKit.Modules.DB.Web.Index, :index, as: :db_index
-
-          live "/admin/db/activity", PhoenixKit.Modules.DB.Web.Activity, :activity,
-            as: :db_activity
-
-          live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
-        end
-      end
-
-      # Sync module routes - uses PhoenixKit.Modules.Sync namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_sync,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "sync"}}] do
-          live "/admin/sync", PhoenixKit.Modules.Sync.Web.Index, :index, as: :sync_index
-
-          live "/admin/sync/connections", PhoenixKit.Modules.Sync.Web.ConnectionsLive, :index,
-            as: :sync_connections
-
-          live "/admin/sync/history", PhoenixKit.Modules.Sync.Web.History, :index,
-            as: :sync_history
-        end
-      end
-
-      # Entities module routes - uses PhoenixKit.Modules.Entities namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_entities,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "entities"}}] do
-          live "/admin/entities", PhoenixKit.Modules.Entities.Web.Entities, :index, as: :entities
-
-          live "/admin/entities/new", PhoenixKit.Modules.Entities.Web.EntityForm, :new,
-            as: :entities_new
-
-          live "/admin/entities/:id/edit", PhoenixKit.Modules.Entities.Web.EntityForm, :edit,
-            as: :entities_edit
-
-          live "/admin/entities/:entity_slug/data",
-               PhoenixKit.Modules.Entities.Web.DataNavigator,
-               :entity,
-               as: :entities_data_entity
-
-          live "/admin/entities/:entity_slug/data/new",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :new,
-               as: :entities_data_new
-
-          live "/admin/entities/:entity_slug/data/:id",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :show,
-               as: :entities_data_show
-
-          live "/admin/entities/:entity_slug/data/:id/edit",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :edit,
-               as: :entities_data_edit
-
-          live "/admin/settings/entities",
-               PhoenixKit.Modules.Entities.Web.EntitiesSettings,
-               :index,
-               as: :entities_settings
-        end
-      end
-
-      # Shop module routes - uses PhoenixKit.Modules.Shop namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_shop,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "shop"}}] do
-          live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
-
-          live "/admin/shop/products", PhoenixKit.Modules.Shop.Web.Products, :index,
-            as: :shop_products
-
-          live "/admin/shop/products/new", PhoenixKit.Modules.Shop.Web.ProductForm, :new,
-            as: :shop_product_new
-
-          live "/admin/shop/products/:id", PhoenixKit.Modules.Shop.Web.ProductDetail, :show,
-            as: :shop_product_detail
-
-          live "/admin/shop/products/:id/edit", PhoenixKit.Modules.Shop.Web.ProductForm, :edit,
-            as: :shop_product_edit
-
-          live "/admin/shop/categories", PhoenixKit.Modules.Shop.Web.Categories, :index,
-            as: :shop_categories
-
-          live "/admin/shop/categories/new", PhoenixKit.Modules.Shop.Web.CategoryForm, :new,
-            as: :shop_category_new
-
-          live "/admin/shop/categories/:id/edit", PhoenixKit.Modules.Shop.Web.CategoryForm, :edit,
-            as: :shop_category_edit
-
-          live "/admin/shop/shipping", PhoenixKit.Modules.Shop.Web.ShippingMethods, :index,
-            as: :shop_shipping_methods
-
-          live "/admin/shop/shipping/new", PhoenixKit.Modules.Shop.Web.ShippingMethodForm, :new,
-            as: :shop_shipping_new
-
-          live "/admin/shop/shipping/:id/edit",
-               PhoenixKit.Modules.Shop.Web.ShippingMethodForm,
-               :edit,
-               as: :shop_shipping_edit
-
-          live "/admin/shop/carts", PhoenixKit.Modules.Shop.Web.Carts, :index, as: :shop_carts
-
-          live "/admin/shop/settings", PhoenixKit.Modules.Shop.Web.Settings, :index,
-            as: :shop_settings
-
-          live "/admin/shop/settings/options",
-               PhoenixKit.Modules.Shop.Web.OptionsSettings,
-               :index,
-               as: :shop_options_settings
-
-          live "/admin/shop/imports", PhoenixKit.Modules.Shop.Web.Imports, :index,
-            as: :shop_imports
-
-          live "/admin/shop/imports/:uuid", PhoenixKit.Modules.Shop.Web.ImportShow, :show,
-            as: :shop_import_show
-
-          live "/admin/shop/test", PhoenixKit.Modules.Shop.Web.TestShop, :index, as: :shop_test
-        end
       end
 
       # Shop public routes are generated via generate_shop_public_routes/1 helper
@@ -618,35 +360,6 @@ defmodule PhoenixKitWeb.Integration do
                PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
                :edit,
                as: :user_billing_profile_edit
-        end
-      end
-
-      # AI module routes - uses PhoenixKit.Modules.AI namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        live_session :phoenix_kit_ai,
-          on_mount: [{PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "ai"}}] do
-          live "/admin/ai", PhoenixKit.Modules.AI.Web.Endpoints, :index, as: :ai_index
-
-          live "/admin/ai/endpoints", PhoenixKit.Modules.AI.Web.Endpoints, :endpoints,
-            as: :ai_endpoints
-
-          live "/admin/ai/usage", PhoenixKit.Modules.AI.Web.Endpoints, :usage, as: :ai_usage
-
-          live "/admin/ai/endpoints/new", PhoenixKit.Modules.AI.Web.EndpointForm, :new,
-            as: :ai_endpoint_new
-
-          live "/admin/ai/endpoints/:id/edit", PhoenixKit.Modules.AI.Web.EndpointForm, :edit,
-            as: :ai_endpoint_edit
-
-          live "/admin/ai/prompts", PhoenixKit.Modules.AI.Web.Prompts, :index, as: :ai_prompts
-
-          live "/admin/ai/prompts/new", PhoenixKit.Modules.AI.Web.PromptForm, :new,
-            as: :ai_prompt_new
-
-          live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
-            as: :ai_prompt_edit
         end
       end
     end
@@ -720,9 +433,28 @@ defmodule PhoenixKitWeb.Integration do
   defmacro phoenix_kit_admin_routes(suffix) do
     session_name = :"phoenix_kit_admin#{suffix}"
 
+    # Get external route module AST outside quote to avoid require/alias inside quote
+    emails_admin = EmailsRoutes.admin_routes()
+
+    {tickets_admin, publishing_admin, referrals_admin} =
+      if suffix == :_locale do
+        {
+          TicketsRoutes.admin_locale_routes(),
+          PublishingRoutes.admin_locale_routes(),
+          ReferralsRoutes.admin_locale_routes()
+        }
+      else
+        {
+          TicketsRoutes.admin_routes(),
+          PublishingRoutes.admin_routes(),
+          ReferralsRoutes.admin_routes()
+        }
+      end
+
     quote do
       live_session unquote(session_name),
         on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+        # Core admin routes (under PhoenixKitWeb alias from parent scope)
         live "/admin", Live.Dashboard, :index
         live "/admin/users", Live.Users.Users, :index
         live "/admin/users/new", Users.UserForm, :new, as: :user_form
@@ -775,6 +507,249 @@ defmodule PhoenixKitWeb.Integration do
 
         # Jobs
         live "/admin/jobs", Live.Modules.Jobs.Index, :index
+
+        # Module admin routes (use alias: false to prevent PhoenixKitWeb prefix
+        # since these modules use their own namespaces like PhoenixKit.Modules.*)
+        scope "/", alias: false do
+          # Sitemap settings
+          live "/admin/settings/sitemap",
+               PhoenixKit.Modules.Sitemap.Web.Settings,
+               :index,
+               as: :sitemap_settings
+
+          # Billing admin routes
+          live "/admin/billing", PhoenixKit.Modules.Billing.Web.Index, :index, as: :billing_index
+
+          live "/admin/billing/orders", PhoenixKit.Modules.Billing.Web.Orders, :index,
+            as: :billing_orders
+
+          live "/admin/billing/orders/new", PhoenixKit.Modules.Billing.Web.OrderForm, :new,
+            as: :billing_order_new
+
+          live "/admin/billing/orders/:id", PhoenixKit.Modules.Billing.Web.OrderDetail, :show,
+            as: :billing_order_detail
+
+          live "/admin/billing/orders/:id/edit", PhoenixKit.Modules.Billing.Web.OrderForm, :edit,
+            as: :billing_order_edit
+
+          live "/admin/billing/invoices", PhoenixKit.Modules.Billing.Web.Invoices, :index,
+            as: :billing_invoices
+
+          live "/admin/billing/invoices/:id", PhoenixKit.Modules.Billing.Web.InvoiceDetail, :show,
+            as: :billing_invoice_detail
+
+          live "/admin/billing/invoices/:id/print",
+               PhoenixKit.Modules.Billing.Web.InvoicePrint,
+               :print,
+               as: :billing_invoice_print
+
+          live "/admin/billing/invoices/:id/receipt",
+               PhoenixKit.Modules.Billing.Web.ReceiptPrint,
+               :receipt,
+               as: :billing_receipt_print
+
+          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
+               PhoenixKit.Modules.Billing.Web.CreditNotePrint,
+               :credit_note,
+               as: :billing_credit_note
+
+          live "/admin/billing/invoices/:id/payment/:transaction_id",
+               PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint,
+               :payment_confirmation,
+               as: :billing_payment_confirmation
+
+          live "/admin/billing/transactions", PhoenixKit.Modules.Billing.Web.Transactions, :index,
+            as: :billing_transactions
+
+          live "/admin/billing/subscriptions",
+               PhoenixKit.Modules.Billing.Web.Subscriptions,
+               :index,
+               as: :billing_subscriptions
+
+          live "/admin/billing/subscriptions/new",
+               PhoenixKit.Modules.Billing.Web.SubscriptionForm,
+               :new,
+               as: :billing_subscription_new
+
+          live "/admin/billing/subscriptions/:id",
+               PhoenixKit.Modules.Billing.Web.SubscriptionDetail,
+               :show,
+               as: :billing_subscription_detail
+
+          live "/admin/billing/plans", PhoenixKit.Modules.Billing.Web.SubscriptionPlans, :index,
+            as: :billing_plans
+
+          live "/admin/billing/plans/new",
+               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+               :new,
+               as: :billing_plan_new
+
+          live "/admin/billing/plans/:id/edit",
+               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+               :edit,
+               as: :billing_plan_edit
+
+          live "/admin/billing/profiles", PhoenixKit.Modules.Billing.Web.BillingProfiles, :index,
+            as: :billing_profiles
+
+          live "/admin/billing/profiles/new",
+               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
+               :new,
+               as: :billing_profile_new
+
+          live "/admin/billing/profiles/:id/edit",
+               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
+               :edit,
+               as: :billing_profile_edit
+
+          live "/admin/billing/currencies", PhoenixKit.Modules.Billing.Web.Currencies, :index,
+            as: :billing_currencies
+
+          live "/admin/settings/billing", PhoenixKit.Modules.Billing.Web.Settings, :settings,
+            as: :billing_settings
+
+          live "/admin/settings/billing/providers",
+               PhoenixKit.Modules.Billing.Web.ProviderSettings,
+               :index,
+               as: :billing_provider_settings
+
+          # DB Explorer routes
+          live "/admin/db", PhoenixKit.Modules.DB.Web.Index, :index, as: :db_index
+
+          live "/admin/db/activity", PhoenixKit.Modules.DB.Web.Activity, :activity,
+            as: :db_activity
+
+          live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
+
+          # Sync module routes
+          live "/admin/sync", PhoenixKit.Modules.Sync.Web.Index, :index, as: :sync_index
+
+          live "/admin/sync/connections", PhoenixKit.Modules.Sync.Web.ConnectionsLive, :index,
+            as: :sync_connections
+
+          live "/admin/sync/history", PhoenixKit.Modules.Sync.Web.History, :index,
+            as: :sync_history
+
+          # Entities module routes
+          live "/admin/entities", PhoenixKit.Modules.Entities.Web.Entities, :index, as: :entities
+
+          live "/admin/entities/new", PhoenixKit.Modules.Entities.Web.EntityForm, :new,
+            as: :entities_new
+
+          live "/admin/entities/:id/edit", PhoenixKit.Modules.Entities.Web.EntityForm, :edit,
+            as: :entities_edit
+
+          live "/admin/entities/:entity_slug/data",
+               PhoenixKit.Modules.Entities.Web.DataNavigator,
+               :entity,
+               as: :entities_data_entity
+
+          live "/admin/entities/:entity_slug/data/new",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :new,
+               as: :entities_data_new
+
+          live "/admin/entities/:entity_slug/data/:id",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :show,
+               as: :entities_data_show
+
+          live "/admin/entities/:entity_slug/data/:id/edit",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :edit,
+               as: :entities_data_edit
+
+          live "/admin/settings/entities",
+               PhoenixKit.Modules.Entities.Web.EntitiesSettings,
+               :index,
+               as: :entities_settings
+
+          # Shop admin routes
+          live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
+
+          live "/admin/shop/products", PhoenixKit.Modules.Shop.Web.Products, :index,
+            as: :shop_products
+
+          live "/admin/shop/products/new", PhoenixKit.Modules.Shop.Web.ProductForm, :new,
+            as: :shop_product_new
+
+          live "/admin/shop/products/:id", PhoenixKit.Modules.Shop.Web.ProductDetail, :show,
+            as: :shop_product_detail
+
+          live "/admin/shop/products/:id/edit", PhoenixKit.Modules.Shop.Web.ProductForm, :edit,
+            as: :shop_product_edit
+
+          live "/admin/shop/categories", PhoenixKit.Modules.Shop.Web.Categories, :index,
+            as: :shop_categories
+
+          live "/admin/shop/categories/new", PhoenixKit.Modules.Shop.Web.CategoryForm, :new,
+            as: :shop_category_new
+
+          live "/admin/shop/categories/:id/edit", PhoenixKit.Modules.Shop.Web.CategoryForm, :edit,
+            as: :shop_category_edit
+
+          live "/admin/shop/shipping", PhoenixKit.Modules.Shop.Web.ShippingMethods, :index,
+            as: :shop_shipping_methods
+
+          live "/admin/shop/shipping/new", PhoenixKit.Modules.Shop.Web.ShippingMethodForm, :new,
+            as: :shop_shipping_new
+
+          live "/admin/shop/shipping/:id/edit",
+               PhoenixKit.Modules.Shop.Web.ShippingMethodForm,
+               :edit,
+               as: :shop_shipping_edit
+
+          live "/admin/shop/carts", PhoenixKit.Modules.Shop.Web.Carts, :index, as: :shop_carts
+
+          live "/admin/shop/settings", PhoenixKit.Modules.Shop.Web.Settings, :index,
+            as: :shop_settings
+
+          live "/admin/shop/settings/options",
+               PhoenixKit.Modules.Shop.Web.OptionsSettings,
+               :index,
+               as: :shop_options_settings
+
+          live "/admin/shop/settings/import-configs",
+               PhoenixKit.Modules.Shop.Web.ImportConfigs,
+               :index,
+               as: :shop_import_configs
+
+          live "/admin/shop/imports", PhoenixKit.Modules.Shop.Web.Imports, :index,
+            as: :shop_imports
+
+          live "/admin/shop/imports/:uuid", PhoenixKit.Modules.Shop.Web.ImportShow, :show,
+            as: :shop_import_show
+
+          live "/admin/shop/test", PhoenixKit.Modules.Shop.Web.TestShop, :index, as: :shop_test
+
+          # AI module routes
+          live "/admin/ai", PhoenixKit.Modules.AI.Web.Endpoints, :index, as: :ai_index
+
+          live "/admin/ai/endpoints", PhoenixKit.Modules.AI.Web.Endpoints, :endpoints,
+            as: :ai_endpoints
+
+          live "/admin/ai/usage", PhoenixKit.Modules.AI.Web.Endpoints, :usage, as: :ai_usage
+
+          live "/admin/ai/endpoints/new", PhoenixKit.Modules.AI.Web.EndpointForm, :new,
+            as: :ai_endpoint_new
+
+          live "/admin/ai/endpoints/:id/edit", PhoenixKit.Modules.AI.Web.EndpointForm, :edit,
+            as: :ai_endpoint_edit
+
+          live "/admin/ai/prompts", PhoenixKit.Modules.AI.Web.Prompts, :index, as: :ai_prompts
+
+          live "/admin/ai/prompts/new", PhoenixKit.Modules.AI.Web.PromptForm, :new,
+            as: :ai_prompt_new
+
+          live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
+            as: :ai_prompt_edit
+
+          # Routes from external route modules
+          unquote(emails_admin)
+          unquote(tickets_admin)
+          unquote(publishing_admin)
+          unquote(referrals_admin)
+        end
       end
     end
   end
@@ -876,7 +851,6 @@ defmodule PhoenixKitWeb.Integration do
 
     # Call route generators BEFORE quote block (aliases work in this context)
     emails_routes = EmailsRoutes.generate(url_prefix)
-    referrals_routes = ReferralsRoutes.generate(url_prefix)
     publishing_routes = PublishingRoutes.generate(url_prefix)
     tickets_routes = TicketsRoutes.generate(url_prefix)
     shop_public_routes = ShopRoutes.generate_public_routes(url_prefix)
@@ -891,7 +865,6 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate module routes from separate files (improves compilation time)
       unquote(emails_routes)
-      unquote(referrals_routes)
       unquote(publishing_routes)
       unquote(tickets_routes)
 
