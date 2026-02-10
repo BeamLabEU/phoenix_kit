@@ -230,7 +230,7 @@ This ensures consistent code formatting across the project.
 
 ### 🏷️ Version Management
 
-**Current Version**: 1.7.34 (mix.exs) | **Migration Version**: V54
+**Current Version**: 1.7.34 (mix.exs) | **Migration Version**: V55
 
 **Version updates require:** Update `mix.exs` (@version), `CHANGELOG.md`, and optionally `README.md`. Always run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
@@ -393,7 +393,7 @@ Granular access control for admin sections and feature modules. Uses an allowlis
 
 **Access rules:**
 - Owner always has full access (hard-coded, no DB rows needed)
-- Admin gets all 25 permissions by default (V54 seeds comments)
+- Admin gets all 25 permissions by default (V55 seeds comments)
 - Custom roles start with no permissions; grant via matrix UI or API
 
 **Key modules:**

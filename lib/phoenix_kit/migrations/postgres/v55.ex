@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V54 do
+defmodule PhoenixKit.Migrations.Postgres.V55 do
   @moduledoc """
-  V54: Standalone Comments Module
+  V55: Standalone Comments Module
 
   Creates polymorphic comments tables decoupled from the Posts module.
   Comments can be attached to any resource type via `resource_type` + `resource_id`.

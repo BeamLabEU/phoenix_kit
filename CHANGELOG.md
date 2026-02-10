@@ -1,5 +1,5 @@
 ## 1.7.34 - 2026-02-10
-- Extract Comments into standalone reusable module (V54 migration)
+- Extract Comments into standalone reusable module (V55 migration)
   - New `PhoenixKit.Modules.Comments` context with polymorphic `resource_type` + `resource_id` associations
   - New tables: `phoenix_kit_comments`, `phoenix_kit_comments_likes`, `phoenix_kit_comments_dislikes`
   - Reusable `CommentsComponent` LiveComponent that can be embedded in any resource detail page
