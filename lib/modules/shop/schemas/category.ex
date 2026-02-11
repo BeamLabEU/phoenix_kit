@@ -88,6 +88,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
     |> validate_inclusion(:status, @statuses)
     |> maybe_generate_slug()
     |> validate_not_self_parent()
+    |> unique_constraint(:slug, name: "idx_shop_categories_slug_primary")
   end
 
   @doc """
