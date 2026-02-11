@@ -122,6 +122,11 @@ defmodule PhoenixKit.Modules.Sitemap do
   @cache_xml_key "sitemap_xml_cache"
   @cache_html_key "sitemap_html_cache"
 
+  # New setting keys for sitemapindex architecture
+  @include_registration_key "sitemap_include_registration"
+  @publishing_split_key "sitemap_publishing_split_by_group"
+  @module_stats_key "sitemap_module_stats"
+
   # Default values
   @default_schedule_enabled true
   @default_schedule_interval_hours 24
@@ -129,7 +134,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   @default_include_blogs true
   @default_include_static true
   @default_include_shop true
-  @default_router_discovery true
+  @default_router_discovery false
   @default_html_enabled true
   @default_html_style "hierarchical"
   @default_changefreq "weekly"
@@ -191,6 +196,16 @@ defmodule PhoenixKit.Modules.Sitemap do
         error
     end
   end
+
+  @doc """
+  Returns true when sitemap is in flat mode (single `<urlset>`).
+
+  Flat mode is active when Router Discovery is enabled — all URLs from all
+  sources are merged into a single sitemap.xml. When Router Discovery is off,
+  index mode is used with per-module sitemap files.
+  """
+  @spec flat_mode?() :: boolean()
+  def flat_mode?, do: router_discovery_enabled?()
 
   ## Configuration Functions
 
@@ -632,6 +647,75 @@ defmodule PhoenixKit.Modules.Sitemap do
     error ->
       Logger.warning("Failed to invalidate sitemap cache: #{inspect(error)}")
       :ok
+  end
+
+  ## Registration / Publishing Toggle Functions
+
+  @doc """
+  Returns true if the registration page should be included in the sitemap.
+
+  Default: false (registration pages are excluded by default).
+  """
+  @spec include_registration?() :: boolean()
+  def include_registration? do
+    settings_call(:get_boolean_setting, [@include_registration_key, false])
+  end
+
+  @doc """
+  Alias for `include_blogs?/0` - reads the same `sitemap_include_blogs` key.
+  """
+  @spec include_publishing?() :: boolean()
+  def include_publishing?, do: include_blogs?()
+
+  @doc """
+  Returns true if publishing posts should be split into per-blog sitemap files.
+
+  Default: false (all publishing posts in a single file).
+  """
+  @spec publishing_split_by_group?() :: boolean()
+  def publishing_split_by_group? do
+    settings_call(:get_boolean_setting, [@publishing_split_key, false])
+  end
+
+  ## Module Stats Functions
+
+  @doc """
+  Returns per-module generation stats from Settings.
+  """
+  @spec get_module_stats() :: [map()]
+  def get_module_stats do
+    # Use get_json_setting (no cache) — this is only called when loading the settings page,
+    # and the cached variant has ETS table naming issues with json settings
+    case settings_call(:get_json_setting, [@module_stats_key]) do
+      nil ->
+        []
+
+      %{"modules" => stats} when is_list(stats) ->
+        stats
+
+      _ ->
+        []
+    end
+  rescue
+    _ -> []
+  end
+
+  @doc """
+  Updates per-module generation stats in Settings.
+  """
+  @spec update_module_stats([map()]) :: {:ok, any()} | {:error, any()}
+  def update_module_stats(module_infos) when is_list(module_infos) do
+    stats =
+      Enum.map(module_infos, fn info ->
+        %{
+          "filename" => info.filename,
+          "url_count" => info.url_count,
+          "last_generated" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      end)
+
+    # Store as JSON map in value_json (jsonb) - wraps list in map since value_json is :map type
+    settings_call(:update_json_setting, [@module_stats_key, %{"modules" => stats}])
   end
 
   ## Private Helper Functions

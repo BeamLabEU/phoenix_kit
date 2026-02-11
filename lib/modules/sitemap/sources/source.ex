@@ -3,47 +3,18 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Source do
   Behaviour for sitemap data sources.
 
   Each source module must implement this behaviour to provide URL entries
-  for sitemap generation. Sources can collect data from various PhoenixKit
-  modules like Entities, Publishing, Pages, etc.
+  for sitemap generation.
 
-  ## Implementing a Source
+  ## Required Callbacks
 
-      defmodule PhoenixKit.Modules.Sitemap.Sources.MyModule do
-        @behaviour PhoenixKit.Modules.Sitemap.Sources.Source
+  - `source_name/0` - Unique atom identifier for the source
+  - `enabled?/0` - Whether this source is active
+  - `collect/1` - Collect URL entries from this source
 
-        alias PhoenixKit.Modules.Sitemap.UrlEntry
+  ## Optional Callbacks
 
-        @impl true
-        def source_name, do: :my_module
-
-        @impl true
-        def enabled?, do: MyModule.enabled?()
-
-        @impl true
-        def collect(_opts) do
-          if enabled?() do
-            # Collect URLs from your module
-            [
-              UrlEntry.new(%{
-                loc: "https://example.com/my-page",
-                lastmod: DateTime.utc_now(),
-                changefreq: "weekly",
-                priority: 0.8,
-                title: "My Page",
-                category: "My Module",
-                source: :my_module
-              })
-            ]
-          else
-            []
-          end
-        end
-      end
-
-  ## Adding Source to Generator
-
-  After implementing the source, add it to the generator's source list
-  in `PhoenixKit.Modules.Sitemap.Generator.collect_all_entries/2`.
+  - `sitemap_filename/0` - Custom filename for the module's sitemap file
+  - `sub_sitemaps/1` - Split into multiple sub-sitemap files (e.g., per-blog, per-entity-type)
   """
 
   require Logger
@@ -52,38 +23,43 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Source do
 
   @doc """
   Returns the unique name/identifier for this source.
-
-  Used for logging, filtering, and organizing sitemap entries.
   """
   @callback source_name() :: atom()
 
   @doc """
   Checks if this source is enabled and should be included in sitemap.
-
-  Should return false if the underlying module is disabled or
-  if sitemap collection is turned off for this source.
   """
   @callback enabled?() :: boolean()
 
   @doc """
   Collects all URL entries from this source.
-
-  Options may include:
-  - `:language` - Preferred language for content
-  - `:base_url` - Base URL for building full URLs
-
-  Should return an empty list if the source is disabled.
   """
   @callback collect(opts :: keyword()) :: [UrlEntry.t()]
 
   @doc """
-  Helper function to check if a source module is valid.
+  Returns the base filename for this source's sitemap file (without .xml extension).
 
-  Ensures the module is loaded before checking for exported functions.
+  Default: `"sitemap-\#{source_name()}"`
+  """
+  @callback sitemap_filename() :: String.t()
+
+  @doc """
+  Returns a list of sub-sitemaps for sources that produce multiple files.
+
+  Return `nil` for a single file, or a list of `{group_name, entries}` tuples
+  for per-group splitting (e.g., per-blog, per-entity-type).
+
+  Each group will be saved as `sitemap-{source}-{group_name}.xml`.
+  """
+  @callback sub_sitemaps(opts :: keyword()) :: [{String.t(), [UrlEntry.t()]}] | nil
+
+  @optional_callbacks [sitemap_filename: 0, sub_sitemaps: 1]
+
+  @doc """
+  Helper function to check if a source module is valid.
   """
   @spec valid_source?(module()) :: boolean()
   def valid_source?(module) when is_atom(module) do
-    # Ensure module is loaded before checking function exports
     case Code.ensure_loaded(module) do
       {:module, _} ->
         function_exported?(module, :source_name, 0) and
@@ -98,11 +74,40 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Source do
   def valid_source?(_), do: false
 
   @doc """
+  Returns the sitemap filename for a source module.
+
+  Calls the optional `sitemap_filename/0` callback if implemented,
+  otherwise returns `"sitemap-\#{source_name()}"`.
+  """
+  @spec get_sitemap_filename(module()) :: String.t()
+  def get_sitemap_filename(source_module) do
+    if function_exported?(source_module, :sitemap_filename, 0) do
+      source_module.sitemap_filename()
+    else
+      "sitemap-#{source_module.source_name()}"
+    end
+  end
+
+  @doc """
+  Returns sub-sitemaps for a source module, or nil if not implemented.
+  """
+  @spec get_sub_sitemaps(module(), keyword()) :: [{String.t(), [UrlEntry.t()]}] | nil
+  def get_sub_sitemaps(source_module, opts \\ []) do
+    if function_exported?(source_module, :sub_sitemaps, 1) do
+      source_module.sub_sitemaps(opts)
+    else
+      nil
+    end
+  end
+
+  @doc """
   Safely collects entries from a source, handling errors gracefully.
   """
   @spec safe_collect(module(), keyword()) :: [UrlEntry.t()]
   def safe_collect(source_module, opts \\ []) do
-    if valid_source?(source_module) and source_module.enabled?() do
+    force = Keyword.get(opts, :force, false)
+
+    if valid_source?(source_module) and (force or source_module.enabled?()) do
       source_module.collect(opts)
     else
       []

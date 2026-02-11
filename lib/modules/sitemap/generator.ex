@@ -2,57 +2,34 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   @moduledoc """
   Main sitemap generator for PhoenixKit.
 
-  Generates XML and HTML sitemaps by collecting URL entries from all enabled
-  sources (Entities, Publishing, Pages, etc.) and formatting them according to
-  sitemaps.org protocol.
+  Generates a `<sitemapindex>` at `/sitemap.xml` referencing per-module
+  sitemap files at `/sitemaps/sitemap-{source}.xml`.
 
-  ## Features
+  ## Architecture
 
-  - **XML Sitemap** - Standards-compliant XML sitemap for search engines
-  - **HTML Sitemap** - Human-readable sitemap with 3 display styles
-  - **Sitemap Index** - Automatic splitting for large sitemaps (>50,000 URLs)
-  - **Caching** - ETS-based caching for fast repeated access
-  - **Multi-source** - Collects from all enabled PhoenixKit modules
+  - `/sitemap.xml` - Always a `<sitemapindex>` referencing per-module files
+  - `/sitemaps/sitemap-static.xml` - Static pages
+  - `/sitemaps/sitemap-routes.xml` - Router discovery
+  - `/sitemaps/sitemap-publishing.xml` - Publishing posts (or per-blog files)
+  - `/sitemaps/sitemap-shop.xml` - Shop products (auto-split at 50k)
+  - `/sitemaps/sitemap-entities.xml` - Entities (or per-type files)
 
   ## Usage
 
-      # Generate XML sitemap
+      # Generate all sitemaps (index + per-module files)
+      {:ok, result} = Generator.generate_all(base_url: "https://example.com")
+
+      # Generate HTML sitemap (collects from all sources)
+      {:ok, html} = Generator.generate_html(base_url: "https://example.com")
+
+      # Backward compatible: generate_xml returns the sitemapindex
       {:ok, xml} = Generator.generate_xml(base_url: "https://example.com")
-
-      # Generate HTML sitemap (hierarchical style)
-      {:ok, html} = Generator.generate_html(
-        base_url: "https://example.com",
-        style: "hierarchical"
-      )
-
-      # Clear cache when content changes
-      Generator.invalidate_cache()
-
-  ## HTML Styles
-
-  - `"hierarchical"` - Tree structure with categories and nested lists
-  - `"grouped"` - Sections grouped by source/category with headers
-  - `"flat"` - Simple list of all URLs
-
-  ## Sitemap Index
-
-  When a sitemap exceeds 50,000 URLs or 50MB, it's automatically split into
-  multiple part files with a sitemap index file pointing to them.
-
-  ## Configuration
-
-      config :phoenix_kit, :sitemap,
-        cache_enabled: true,
-        max_urls_per_file: 50_000,
-        sources: [
-          PhoenixKit.Modules.Sitemap.Sources.Static,
-          PhoenixKit.Modules.Sitemap.Sources.Publishing
-        ]
   """
 
   require Logger
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Sitemap
   alias PhoenixKit.Modules.Sitemap.Cache
   alias PhoenixKit.Modules.Sitemap.FileStorage
   alias PhoenixKit.Modules.Sitemap.SchedulerWorker
@@ -61,167 +38,270 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
   @max_urls_per_file 50_000
   @xml_declaration ~s(<?xml version="1.0" encoding="UTF-8"?>)
-  # Include xhtml namespace for hreflang alternate links
   @urlset_open ~s(<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">)
   @urlset_close "</urlset>"
   @sitemapindex_open ~s(<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">)
   @sitemapindex_close "</sitemapindex>"
 
-  # Valid XSL styles
-  @valid_xsl_styles ["table", "cards", "minimal"]
+  @valid_xsl_styles ["table", "minimal"]
+
+  # ── Main entry point ───────────────────────────────────────────────
 
   @doc """
-  Generates XML sitemap from all enabled sources.
-
-  Returns either a single sitemap or a sitemap index if URLs exceed limit.
+  Generates all sitemaps: per-module files and the sitemapindex.
 
   ## Options
 
   - `:base_url` - Base URL for building full URLs (required)
-  - `:language` - Preferred language for content (optional)
-  - `:cache` - Enable/disable caching (default: true)
-  - `:xsl_style` - XSL stylesheet style: "table", "cards", or "minimal" (optional)
-  - `:xsl_enabled` - Enable XSL stylesheet reference in XML (default: true)
-
-  ## XSL Stylesheets
-
-  When `xsl_enabled` is true (default), the generated XML includes an XSL stylesheet
-  reference that allows browsers to render the sitemap as a styled HTML page.
-
-  Available styles:
-  - `"table"` - Clean table layout similar to Yoast SEO
-  - `"cards"` - Cards grouped by category
-  - `"minimal"` - Simple list of links
+  - `:xsl_style` - XSL stylesheet style: "table" or "minimal" (default: "table")
+  - `:xsl_enabled` - Enable XSL stylesheet reference (default: true)
 
   ## Returns
 
-  - `{:ok, xml_string}` - Generated sitemap XML
-  - `{:ok, xml_string, parts}` - Sitemap index with parts list
-  - `{:error, reason}` - Generation failed
+      {:ok, %{
+        index_xml: "<?xml ...sitemapindex...",
+        modules: [
+          %{filename: "sitemap-static", url_count: 3, lastmod: ~U[...]}
+        ],
+        total_urls: 150
+      }}
+  """
+  @spec generate_all(keyword()) :: {:ok, map()} | {:error, any()}
+  def generate_all(opts \\ []) do
+    base_url = Keyword.get(opts, :base_url)
 
-  ## Examples
+    if is_nil(base_url) do
+      {:error, :base_url_required}
+    else
+      do_generate_all(base_url, opts)
+    end
+  end
 
-      {:ok, xml} = Generator.generate_xml(base_url: "https://example.com")
+  defp do_generate_all(base_url, opts) do
+    xsl_style = Keyword.get(opts, :xsl_style, "table")
+    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
+    sources = get_sources()
 
-      {:ok, xml} = Generator.generate_xml(
-        base_url: "https://example.com",
-        xsl_style: "cards"
+    if Sitemap.flat_mode?() do
+      do_generate_flat(base_url, opts, sources, xsl_style, xsl_enabled)
+    else
+      do_generate_index(base_url, opts, sources, xsl_style, xsl_enabled)
+    end
+  end
+
+  defp do_generate_index(base_url, opts, sources, xsl_style, xsl_enabled) do
+    Logger.info("Sitemap: Generating sitemapindex from #{length(sources)} sources")
+
+    # Generate per-module files
+    module_infos =
+      sources
+      |> Enum.flat_map(fn source_module ->
+        generate_module(source_module, opts)
+      end)
+
+    # Build and save sitemapindex
+    index_xml = generate_index(module_infos, base_url, xsl_style, xsl_enabled)
+    FileStorage.save_index(index_xml)
+
+    # Clean up stale module files from disabled sources
+    cleanup_stale_modules(module_infos)
+
+    total_urls = Enum.reduce(module_infos, 0, fn info, acc -> acc + info.url_count end)
+
+    Logger.info(
+      "Sitemap: Generated #{length(module_infos)} module files, #{total_urls} total URLs"
+    )
+
+    {:ok,
+     %{
+       index_xml: index_xml,
+       modules: module_infos,
+       total_urls: total_urls
+     }}
+  end
+
+  defp do_generate_flat(_base_url, opts, sources, xsl_style, xsl_enabled) do
+    Logger.info("Sitemap: Generating flat sitemap from #{length(sources)} sources")
+
+    flat_opts = Keyword.put(opts, :force, true)
+    entries = collect_all_entries(flat_opts, sources)
+    xml = build_urlset_xml(entries, xsl_style, xsl_enabled)
+    FileStorage.save_index(xml)
+
+    # Clean up any leftover per-module files
+    FileStorage.delete_all_modules()
+
+    total_urls = length(entries)
+
+    Logger.info("Sitemap: Generated flat sitemap with #{total_urls} URLs")
+
+    {:ok,
+     %{
+       index_xml: xml,
+       modules: [%{filename: "flat", url_count: total_urls, lastmod: DateTime.utc_now()}],
+       total_urls: total_urls
+     }}
+  end
+
+  # ── Per-module generation ──────────────────────────────────────────
+
+  @doc """
+  Generates sitemap file(s) for a single source module.
+
+  Returns a list of module_info maps (one per file generated).
+  Empty sources produce no files and return [].
+  """
+  @spec generate_module(module(), keyword()) :: [map()]
+  def generate_module(source_module, opts \\ []) do
+    if Source.valid_source?(source_module) and source_module.enabled?() do
+      do_generate_module(source_module, opts)
+    else
+      []
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "Sitemap: Failed to generate module #{inspect(source_module)}: #{inspect(error)}"
       )
 
-      {:ok, index_xml, parts} = Generator.generate_xml(
-        base_url: "https://example.com",
-        cache: false
-      )
+      []
+  end
+
+  defp do_generate_module(source_module, opts) do
+    xsl_style = Keyword.get(opts, :xsl_style, "table")
+    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
+    base_filename = Source.get_sitemap_filename(source_module)
+
+    # Check for sub-sitemaps (per-group splitting)
+    case Source.get_sub_sitemaps(source_module, opts) do
+      nil ->
+        # Single file: collect all entries for this source
+        entries = collect_source_entries(source_module, opts)
+        build_and_save_module_files(entries, base_filename, xsl_style, xsl_enabled)
+
+      sub_maps when is_list(sub_maps) ->
+        # Per-group files
+        sub_maps
+        |> Enum.flat_map(fn {group_name, entries} ->
+          filename = "#{base_filename}-#{group_name}"
+          build_and_save_module_files(entries, filename, xsl_style, xsl_enabled)
+        end)
+    end
+  end
+
+  # Collect entries for a single source using multilingual collection
+  defp collect_source_entries(source_module, opts) do
+    languages = get_languages()
+    multilingual_enabled = length(languages) > 1
+
+    if multilingual_enabled do
+      collect_multilingual_entries(opts, [source_module], languages)
+    else
+      collect_single_language_entries(opts, [source_module])
+    end
+  end
+
+  # Build urlset XML, auto-split at 50k, save files, return module_info list
+  defp build_and_save_module_files(entries, filename, xsl_style, xsl_enabled) do
+    if entries == [] do
+      # Clean up any existing file for empty source
+      FileStorage.delete_module(filename)
+      []
+    else
+      if length(entries) > @max_urls_per_file do
+        # Auto-split into numbered files
+        entries
+        |> Enum.chunk_every(@max_urls_per_file)
+        |> Enum.with_index(1)
+        |> Enum.map(fn {chunk, index} ->
+          numbered_filename = "#{filename}-#{index}"
+          xml = build_urlset_xml(chunk, xsl_style, xsl_enabled)
+          FileStorage.save_module(numbered_filename, xml)
+          Cache.put_module(numbered_filename, xml)
+
+          %{
+            filename: numbered_filename,
+            url_count: length(chunk),
+            lastmod: latest_lastmod(chunk)
+          }
+        end)
+      else
+        xml = build_urlset_xml(entries, xsl_style, xsl_enabled)
+        FileStorage.save_module(filename, xml)
+        Cache.put_module(filename, xml)
+
+        [
+          %{
+            filename: filename,
+            url_count: length(entries),
+            lastmod: latest_lastmod(entries)
+          }
+        ]
+      end
+    end
+  end
+
+  # ── Sitemapindex generation ────────────────────────────────────────
+
+  @doc """
+  Builds `<sitemapindex>` XML from a list of module_info maps.
+  """
+  @spec generate_index([map()], String.t(), String.t(), boolean()) :: String.t()
+  def generate_index(module_infos, base_url, xsl_style \\ "table", xsl_enabled \\ true) do
+    xsl_line = build_index_xsl_line(xsl_style, xsl_enabled)
+    normalized_base = String.trim_trailing(base_url, "/")
+    prefix = PhoenixKit.Config.get_url_prefix()
+    normalized_prefix = if prefix == "/", do: "", else: prefix
+
+    sitemap_entries =
+      module_infos
+      |> Enum.map(fn info ->
+        loc = "#{normalized_base}#{normalized_prefix}/sitemaps/#{info.filename}.xml"
+        lastmod_str = format_lastmod(info[:lastmod])
+
+        """
+          <sitemap>
+            <loc>#{UrlEntry.escape_xml(loc)}</loc>
+            <lastmod>#{lastmod_str}</lastmod>
+          </sitemap>
+        """
+      end)
+
+    [
+      @xml_declaration,
+      xsl_line,
+      @sitemapindex_open,
+      Enum.join(sitemap_entries, "\n"),
+      @sitemapindex_close
+    ]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n")
+  end
+
+  # ── Backward-compatible public API ─────────────────────────────────
+
+  @doc """
+  Generates XML sitemap. Returns the sitemapindex XML.
+
+  Delegates to `generate_all/1` and returns the index XML for backward compatibility.
   """
   @spec generate_xml(keyword()) ::
           {:ok, String.t()} | {:ok, String.t(), [map()]} | {:error, any()}
   def generate_xml(opts \\ []) do
     base_url = Keyword.get(opts, :base_url)
-    cache_enabled = Keyword.get(opts, :cache, true)
-    xsl_style = Keyword.get(opts, :xsl_style, "table")
-    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
 
-    cond do
-      is_nil(base_url) ->
-        {:error, :base_url_required}
+    if is_nil(base_url) do
+      {:error, :base_url_required}
+    else
+      case generate_all(opts) do
+        {:ok, %{index_xml: xml, modules: modules}} ->
+          {:ok, xml, modules}
 
-      cache_enabled ->
-        generate_xml_cached(base_url, xsl_style, xsl_enabled, opts)
-
-      true ->
-        generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts)
-    end
-  end
-
-  # Generate XML with caching support
-  defp generate_xml_cached(base_url, xsl_style, xsl_enabled, opts) do
-    xml_cache_key = :"xml_#{xsl_style}"
-
-    case Cache.get(xml_cache_key) do
-      {:ok, cached_xml} ->
-        Logger.debug("Sitemap: Using cached XML (#{xsl_style})")
-        {:ok, cached_xml}
-
-      :error ->
-        generate_and_cache_xml(base_url, xsl_style, xsl_enabled, opts, xml_cache_key)
-    end
-  end
-
-  # Generate fresh XML and cache if successful
-  defp generate_and_cache_xml(base_url, xsl_style, xsl_enabled, opts, cache_key) do
-    Logger.debug("Sitemap: XML cache miss (#{xsl_style}), generating...")
-    result = generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts)
-
-    # Cache only single sitemap results (not sitemap index with parts)
-    case result do
-      {:ok, xml} ->
-        # Save to ETS cache for background regeneration
-        Cache.put(cache_key, xml)
-        # Save to file (primary storage, used by controller)
-        FileStorage.save(xml)
-        result
-
-      _ ->
-        result
-    end
-  end
-
-  # Generate XML without caching (fresh generation)
-  defp generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts) do
-    entries = get_or_collect_entries(opts)
-    build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts)
-  end
-
-  # Get entries from cache or collect fresh
-  defp get_or_collect_entries(opts) do
-    cache_enabled = Keyword.get(opts, :cache, true)
-
-    if cache_enabled do
-      case Cache.get(:entries) do
-        {:ok, cached_entries} ->
-          Logger.debug("Sitemap: Using cached entries (#{length(cached_entries)} URLs)")
-          cached_entries
-
-        :error ->
-          Logger.debug("Sitemap: Entries cache miss, collecting...")
-          new_entries = collect_all_entries(opts)
-          Cache.put(:entries, new_entries)
-          new_entries
+        {:error, _} = error ->
+          error
       end
-    else
-      collect_all_entries(opts)
     end
   end
-
-  # Build XML from entries with specific XSL style
-  defp build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts) do
-    if length(entries) > @max_urls_per_file do
-      generate_sitemap_index(entries, base_url, opts)
-    else
-      xml_urls = Enum.map(entries, &UrlEntry.to_xml/1)
-      xsl_line = build_xsl_line(xsl_style, xsl_enabled)
-
-      xml =
-        [@xml_declaration, xsl_line, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
-        |> Enum.reject(&(&1 == ""))
-        |> Enum.join("\n")
-
-      {:ok, xml}
-    end
-  end
-
-  # Build XSL stylesheet reference line with cache-busting version
-  defp build_xsl_line(xsl_style, true) when xsl_style in @valid_xsl_styles do
-    prefix = PhoenixKit.Config.get_url_prefix()
-    # Normalize prefix: "/" becomes "" to avoid "//assets/..." (protocol-relative URL)
-    normalized_prefix = if prefix == "/", do: "", else: prefix
-    # Add timestamp for cache-busting when style changes
-    version = DateTime.utc_now() |> DateTime.to_unix()
-
-    ~s(<?xml-stylesheet type="text/xsl" href="#{normalized_prefix}/assets/sitemap/#{xsl_style}?v=#{version}"?>)
-  end
-
-  defp build_xsl_line(_, _), do: ""
 
   @doc """
   Generates HTML sitemap from all enabled sources.
@@ -230,22 +310,8 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
   - `:base_url` - Base URL for building full URLs (required)
   - `:style` - Display style: "hierarchical", "grouped", or "flat" (default: "hierarchical")
-  - `:language` - Preferred language for content (optional)
   - `:cache` - Enable/disable caching (default: true)
   - `:title` - Page title (default: "Sitemap")
-
-  ## Examples
-
-      {:ok, html} = Generator.generate_html(
-        base_url: "https://example.com",
-        style: "hierarchical"
-      )
-
-      {:ok, html} = Generator.generate_html(
-        base_url: "https://example.com",
-        style: "grouped",
-        title: "Site Navigation"
-      )
   """
   @spec generate_html(keyword()) :: {:ok, String.t()} | {:error, any()}
   def generate_html(opts \\ []) do
@@ -263,7 +329,6 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       true ->
         cache_key = :"html_#{style}"
 
-        # Check cache first
         if cache_enabled do
           case Cache.get(cache_key) do
             {:ok, cached} ->
@@ -283,19 +348,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   Collects URL entries from all enabled sources.
 
   When the Languages module is enabled, automatically collects entries for all
-  enabled languages and adds hreflang alternate links between language versions.
-
-  ## Options
-
-  - `:base_url` - Base URL for building full URLs (required)
-  - `:language` - Preferred language for content (optional, auto-detected if Languages enabled)
-  - `:sources` - List of source modules to collect from (optional)
-  - `:multilingual` - Enable multilingual collection (default: auto-detect from Languages module)
-
-  ## Examples
-
-      entries = Generator.collect_all_entries(base_url: "https://example.com")
-      length(entries)  # => 1234
+  enabled languages and adds hreflang alternate links.
   """
   @spec collect_all_entries(keyword(), [module()]) :: [UrlEntry.t()]
   def collect_all_entries(opts \\ [], sources \\ get_sources()) do
@@ -314,26 +367,82 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     end
   end
 
-  # Collect entries for a single language (legacy behavior)
+  @doc """
+  Invalidates all cached sitemaps.
+  """
+  @spec invalidate_cache() :: :ok
+  def invalidate_cache do
+    Logger.debug("Sitemap: Invalidating cache")
+    Cache.invalidate()
+  end
+
+  @doc """
+  Invalidates cache AND triggers async regeneration.
+  """
+  @spec invalidate_and_regenerate() :: {:ok, Oban.Job.t()} | {:error, term()}
+  def invalidate_and_regenerate do
+    Logger.info("Sitemap: Invalidating cache and triggering regeneration")
+    Cache.invalidate()
+    SchedulerWorker.regenerate_now()
+  end
+
+  @doc """
+  Gets a specific sitemap part by index (1-based).
+
+  Legacy function for backward compatibility with old numbered sitemap parts.
+  """
+  @spec get_sitemap_part(integer()) :: {:ok, String.t()} | {:error, :not_found}
+  def get_sitemap_part(index) when is_integer(index) and index > 0 do
+    case Cache.get(:parts) do
+      {:ok, parts} when is_list(parts) ->
+        case Enum.find(parts, fn part -> part.index == index end) do
+          nil -> {:error, :not_found}
+          %{xml: xml} -> {:ok, xml}
+        end
+
+      _ ->
+        {:error, :not_found}
+    end
+  end
+
+  def get_sitemap_part(_), do: {:error, :not_found}
+
+  # ── Internal: source list ──────────────────────────────────────────
+
+  @doc false
+  def get_sources do
+    Application.get_env(:phoenix_kit, :sitemap, [])
+    |> Keyword.get(:sources, default_sources())
+  end
+
+  defp default_sources do
+    [
+      PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery,
+      PhoenixKit.Modules.Sitemap.Sources.Static,
+      PhoenixKit.Modules.Sitemap.Sources.Publishing,
+      PhoenixKit.Modules.Sitemap.Sources.Entities,
+      PhoenixKit.Modules.Sitemap.Sources.Posts,
+      PhoenixKit.Modules.Sitemap.Sources.Shop
+    ]
+  end
+
+  # ── Internal: entry collection ─────────────────────────────────────
+
   defp collect_single_language_entries(opts, sources) do
     sources
     |> Enum.flat_map(fn source_module ->
       entries = Source.safe_collect(source_module, opts)
-
       Logger.debug("Sitemap: Collected #{length(entries)} entries from #{inspect(source_module)}")
-
       entries
     end)
     |> Enum.uniq_by(& &1.loc)
     |> Enum.sort_by(& &1.loc)
   end
 
-  # Collect entries for all languages and add hreflang alternates
   defp collect_multilingual_entries(opts, sources, languages) do
     base_url = Keyword.get(opts, :base_url)
     all_language_codes = Enum.map(languages, & &1.code)
 
-    # Collect entries for each language IN PARALLEL
     entries_by_language =
       languages
       |> Task.async_stream(
@@ -367,25 +476,20 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
           acc
       end)
 
-    # Group entries by canonical_path and add hreflang alternates
     all_entries =
       entries_by_language
       |> Enum.flat_map(fn {_lang, entries} -> entries end)
 
-    # Get non-default language codes for default entry detection
     non_default_codes =
       languages
       |> Enum.reject(& &1.is_default)
       |> Enum.map(& &1.code)
 
-    # Build alternates map by canonical_path
     alternates_by_canonical =
       all_entries
       |> Enum.filter(& &1.canonical_path)
       |> Enum.group_by(& &1.canonical_path)
       |> Enum.map(fn {canonical_path, entries} ->
-        # Find default language entry for x-default
-        # Entry from default language has no language prefix in loc
         default_entry =
           Enum.find(entries, fn e ->
             not Enum.any?(non_default_codes, fn code ->
@@ -396,12 +500,10 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         alternates =
           entries
           |> Enum.map(fn entry ->
-            # Extract language from entry (stored during collection)
             lang_code = extract_language_from_entry(entry, base_url)
             %{hreflang: lang_code, href: entry.loc}
           end)
 
-        # Add x-default pointing to default language
         alternates =
           if default_entry do
             alternates ++ [%{hreflang: "x-default", href: default_entry.loc}]
@@ -413,7 +515,6 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       end)
       |> Map.new()
 
-    # Add alternates to each entry
     all_entries
     |> Enum.map(fn entry ->
       if entry.canonical_path do
@@ -427,9 +528,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     |> Enum.sort_by(& &1.loc)
   end
 
-  # Extract language code from entry URL
   defp extract_language_from_entry(entry, base_url) do
-    # Try to extract language from URL path
     path =
       if base_url do
         String.replace(entry.loc, base_url, "")
@@ -437,85 +536,44 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         entry.loc
       end
 
-    # Check for language prefix pattern like /en/, /et/, /fr/
     case Regex.run(~r/^\/([a-z]{2})(?:\/|$)/, path) do
       [_, lang] -> lang
-      # Default to English if no prefix found
       _ -> "en"
     end
   end
 
-  @doc """
-  Invalidates all cached sitemaps.
+  # ── Internal: XML building ─────────────────────────────────────────
 
-  Should be called when content changes (new pages, updated content, etc).
+  defp build_urlset_xml(entries, xsl_style, xsl_enabled) do
+    xml_urls = Enum.map(entries, &UrlEntry.to_xml/1)
+    xsl_line = build_xsl_line(xsl_style, xsl_enabled)
 
-  ## Examples
-
-      Generator.invalidate_cache()
-  """
-  @spec invalidate_cache() :: :ok
-  def invalidate_cache do
-    Logger.debug("Sitemap: Invalidating cache")
-    Cache.invalidate()
+    [@xml_declaration, xsl_line, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n")
   end
 
-  @doc """
-  Invalidates cache AND triggers async regeneration.
+  defp build_xsl_line(xsl_style, true) when xsl_style in @valid_xsl_styles do
+    prefix = PhoenixKit.Config.get_url_prefix()
+    normalized_prefix = if prefix == "/", do: "", else: prefix
+    version = DateTime.utc_now() |> DateTime.to_unix()
 
-  This is the preferred method for clearing cache from Admin UI,
-  as it immediately starts background regeneration via Oban.
-  File-based fallback ensures users still get content during regeneration.
-
-  ## Returns
-
-  - `{:ok, job}` - Regeneration job scheduled
-  - `{:error, reason}` - Failed to schedule job
-
-  ## Examples
-
-      case Generator.invalidate_and_regenerate() do
-        {:ok, _job} -> flash(:info, "Regenerating...")
-        {:error, reason} -> flash(:error, reason)
-      end
-  """
-  @spec invalidate_and_regenerate() :: {:ok, Oban.Job.t()} | {:error, term()}
-  def invalidate_and_regenerate do
-    Logger.info("Sitemap: Invalidating cache and triggering regeneration")
-    Cache.invalidate()
-    SchedulerWorker.regenerate_now()
+    ~s(<?xml-stylesheet type="text/xsl" href="#{normalized_prefix}/assets/sitemap/#{xsl_style}?v=#{version}"?>)
   end
 
-  @doc """
-  Gets a specific sitemap part by index (1-based).
+  defp build_xsl_line(_, _), do: ""
 
-  Used when sitemap is split into multiple files due to size limits.
+  defp build_index_xsl_line(xsl_style, true) when xsl_style in @valid_xsl_styles do
+    prefix = PhoenixKit.Config.get_url_prefix()
+    normalized_prefix = if prefix == "/", do: "", else: prefix
+    version = DateTime.utc_now() |> DateTime.to_unix()
 
-  ## Examples
-
-      {:ok, xml} = Generator.get_sitemap_part(1)
-      {:error, :not_found} = Generator.get_sitemap_part(999)
-  """
-  @spec get_sitemap_part(integer()) :: {:ok, String.t()} | {:error, :not_found}
-  def get_sitemap_part(index) when is_integer(index) and index > 0 do
-    case Cache.get(:parts) do
-      {:ok, parts} when is_list(parts) ->
-        case Enum.find(parts, fn part -> part.index == index end) do
-          nil -> {:error, :not_found}
-          %{xml: xml} -> {:ok, xml}
-        end
-
-      :error ->
-        {:error, :not_found}
-
-      _ ->
-        {:error, :not_found}
-    end
+    ~s(<?xml-stylesheet type="text/xsl" href="#{normalized_prefix}/assets/sitemap-index/#{xsl_style}?v=#{version}"?>)
   end
 
-  def get_sitemap_part(_), do: {:error, :not_found}
+  defp build_index_xsl_line(_, _), do: ""
 
-  # Private functions
+  # ── Internal: HTML generation ──────────────────────────────────────
 
   defp generate_and_cache_html(opts, cache_key, cache_opts \\ []) do
     entries = collect_all_entries(opts)
@@ -532,93 +590,14 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
     result = {:ok, html}
 
-    # Cache result (ETS + file)
     if cache_enabled do
       Cache.put(cache_key, html)
-      # Also save to file for fallback after restart
       FileStorage.save("html_#{style}", html)
     end
 
     result
   end
 
-  defp generate_sitemap_index(entries, base_url, opts) do
-    # Split entries into chunks
-    chunks = Enum.chunk_every(entries, @max_urls_per_file)
-    xsl_style = Keyword.get(opts, :xsl_style, "table")
-    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
-    xsl_line = build_xsl_line(xsl_style, xsl_enabled)
-
-    # Generate part files metadata
-    parts =
-      chunks
-      |> Enum.with_index(1)
-      |> Enum.map(fn {chunk, index} ->
-        part_urls = Enum.map(chunk, &UrlEntry.to_xml/1)
-
-        part_xml =
-          [@xml_declaration, @urlset_open, Enum.join(part_urls, "\n"), @urlset_close]
-          |> Enum.join("\n")
-
-        lastmod =
-          chunk
-          |> Enum.map(& &1.lastmod)
-          |> Enum.reject(&is_nil/1)
-          |> case do
-            [] ->
-              DateTime.utc_now()
-
-            dates ->
-              dates
-              |> Enum.map(&normalize_to_datetime/1)
-              |> Enum.max(DateTime)
-          end
-
-        %{
-          index: index,
-          loc: "#{base_url}/sitemap-#{index}.xml",
-          lastmod: lastmod,
-          xml: part_xml,
-          url_count: length(chunk)
-        }
-      end)
-
-    # Generate sitemap index
-    sitemap_entries =
-      Enum.map(parts, fn part ->
-        lastmod_str =
-          case part.lastmod do
-            %DateTime{} = dt -> DateTime.to_iso8601(dt)
-            %NaiveDateTime{} = ndt -> NaiveDateTime.to_iso8601(ndt)
-            %Date{} = d -> Date.to_iso8601(d)
-            _ -> DateTime.utc_now() |> DateTime.to_iso8601()
-          end
-
-        """
-          <sitemap>
-            <loc>#{UrlEntry.escape_xml(part.loc)}</loc>
-            <lastmod>#{lastmod_str}</lastmod>
-          </sitemap>
-        """
-      end)
-
-    # XML declaration MUST be first, then XSL stylesheet PI, then content
-    index_xml =
-      [
-        @xml_declaration,
-        xsl_line,
-        @sitemapindex_open,
-        Enum.join(sitemap_entries, "\n"),
-        @sitemapindex_close
-      ]
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.join("\n")
-
-    {:ok, index_xml, parts}
-  end
-
-  # Generate HTML head section with pure inline CSS (no external dependencies)
-  # This ensures iframe preview works without CDN/JavaScript issues
   defp html_head(title) do
     """
         <meta charset="UTF-8">
@@ -702,7 +681,6 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   end
 
   defp generate_hierarchical_html(entries, title) do
-    # Group by category, then by first letter
     grouped =
       entries
       |> Enum.group_by(fn entry -> entry.category || "Other" end)
@@ -710,12 +688,11 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
     category_sections =
       Enum.map_join(grouped, "\n", fn {category, category_entries} ->
-        # Group by first letter
         letter_groups =
           category_entries
           |> Enum.group_by(fn entry ->
-            title = entry.title || entry.loc
-            String.upcase(String.at(title, 0) || "")
+            t = entry.title || entry.loc
+            String.upcase(String.at(t, 0) || "")
           end)
           |> Enum.sort_by(fn {letter, _} -> letter end)
 
@@ -770,7 +747,6 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   end
 
   defp generate_grouped_html(entries, title) do
-    # Group by source or category
     grouped =
       entries
       |> Enum.group_by(fn entry ->
@@ -851,28 +827,8 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     """
   end
 
-  defp get_sources do
-    # Get configured sources or use default list
-    Application.get_env(:phoenix_kit, :sitemap, [])
-    |> Keyword.get(:sources, default_sources())
-  end
+  # ── Internal: helpers ──────────────────────────────────────────────
 
-  defp default_sources do
-    # List of default source modules
-    # RouterDiscovery first to auto-discover all GET routes from parent router
-    # Note: Pages content is now handled by Entities source (universal entity support)
-    [
-      PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery,
-      PhoenixKit.Modules.Sitemap.Sources.Static,
-      PhoenixKit.Modules.Sitemap.Sources.Publishing,
-      PhoenixKit.Modules.Sitemap.Sources.Entities,
-      PhoenixKit.Modules.Sitemap.Sources.Posts,
-      PhoenixKit.Modules.Sitemap.Sources.Shop
-    ]
-  end
-
-  # Get list of enabled languages from Languages module
-  # Returns list of maps with :code and :is_default keys
   defp get_languages do
     if Languages.enabled?() do
       case Languages.get_enabled_languages() do
@@ -892,12 +848,25 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       [%{code: "en", is_default: true}]
     end
   rescue
-    _ ->
-      # Languages module not available or error
-      [%{code: "en", is_default: true}]
+    _ -> [%{code: "en", is_default: true}]
   end
 
-  # Helper to normalize dates to DateTime for comparison
+  defp latest_lastmod(entries) do
+    entries
+    |> Enum.map(& &1.lastmod)
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> DateTime.utc_now()
+      dates -> dates |> Enum.map(&normalize_to_datetime/1) |> Enum.max(DateTime)
+    end
+  end
+
+  defp format_lastmod(nil), do: DateTime.utc_now() |> DateTime.to_iso8601()
+  defp format_lastmod(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp format_lastmod(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_iso8601(ndt)
+  defp format_lastmod(%Date{} = d), do: Date.to_iso8601(d)
+  defp format_lastmod(_), do: DateTime.utc_now() |> DateTime.to_iso8601()
+
   defp normalize_to_datetime(%DateTime{} = dt), do: dt
 
   defp normalize_to_datetime(%NaiveDateTime{} = ndt) do
@@ -909,4 +878,17 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   end
 
   defp normalize_to_datetime(_), do: DateTime.utc_now()
+
+  # Remove module files that are no longer generated by any enabled source
+  defp cleanup_stale_modules(current_module_infos) do
+    current_filenames = MapSet.new(Enum.map(current_module_infos, & &1.filename))
+    existing_files = FileStorage.list_module_files()
+
+    Enum.each(existing_files, fn file ->
+      unless MapSet.member?(current_filenames, file) do
+        Logger.debug("Sitemap: Cleaning up stale module file: #{file}.xml")
+        FileStorage.delete_module(file)
+      end
+    end)
+  end
 end

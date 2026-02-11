@@ -4,16 +4,18 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   Provides admin interface for:
   - Enabling/disabling sitemap module
-  - Configuring data sources (entities, blogs, pages, static)
-  - Setting HTML sitemap style
-  - Manual sitemap regeneration
-  - Viewing generation statistics
+  - Per-module sitemap cards with stats and regeneration
+  - Auth pages configuration (login excluded, registration toggle)
+  - Publishing split by group toggle
+  - XSL styling configuration
+  - Scheduled generation
   """
 
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Sitemap
+  alias PhoenixKit.Modules.Sitemap.FileStorage
   alias PhoenixKit.Modules.Sitemap.Generator
   alias PhoenixKit.Modules.Sitemap.SchedulerWorker
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
@@ -23,7 +25,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   @impl true
   def mount(params, _session, socket) do
-    # Subscribe to sitemap updates for real-time UI refresh
     if connected?(socket) do
       PubSubManager.subscribe("sitemap:updates")
       PubSubManager.subscribe("sitemap:settings")
@@ -33,9 +34,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     project_title = Settings.get_project_title()
     site_url = Settings.get_setting("site_url", "")
     config = Sitemap.get_config()
-
-    # Generate sitemap version from last_generated or current time
     sitemap_version = get_sitemap_version(config)
+    module_stats = Sitemap.get_module_stats()
+    module_files = FileStorage.list_module_files()
 
     socket =
       socket
@@ -46,10 +47,16 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       |> assign(:config, config)
       |> assign(:site_url, site_url)
       |> assign(:generating, false)
+      |> assign(:regenerating_module, nil)
       |> assign(:preview_mode, nil)
       |> assign(:preview_content, nil)
       |> assign(:show_preview, false)
       |> assign(:sitemap_version, sitemap_version)
+      |> assign(:module_stats, module_stats)
+      |> assign(:module_files, module_files)
+      |> assign(:include_registration, Sitemap.include_registration?())
+      |> assign(:publishing_split_by_group, Sitemap.publishing_split_by_group?())
+      |> assign(:module_enabled, get_module_enabled_status())
 
     {:ok, socket}
   end
@@ -75,8 +82,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
         config = Sitemap.get_config()
         message = if new_enabled, do: "Sitemap enabled", else: "Sitemap disabled"
         new_version = DateTime.utc_now() |> DateTime.to_unix()
-
-        # Broadcast to all admin sessions
         broadcast_settings_change(:sitemap_toggled, %{enabled: new_enabled, version: new_version})
 
         {:noreply,
@@ -90,9 +95,51 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     end
   end
 
+  # Router Discovery toggle = mode switch (flat vs index)
+  @impl true
+  def handle_event("toggle_source", %{"source" => "router_discovery"}, socket) do
+    key = "sitemap_router_discovery_enabled"
+    current = Settings.get_boolean_setting(key, false)
+    new_value = !current
+
+    case Settings.update_boolean_setting(key, new_value) do
+      {:ok, _} ->
+        Generator.invalidate_cache()
+
+        # Transitioning to flat mode: clean up per-module files
+        if new_value, do: FileStorage.delete_all_modules()
+
+        config = Sitemap.get_config()
+        new_version = DateTime.utc_now() |> DateTime.to_unix()
+
+        broadcast_settings_change(:source_changed, %{
+          source: "router_discovery",
+          version: new_version
+        })
+
+        module_stats = if new_value, do: [], else: Sitemap.get_module_stats()
+        module_files = if new_value, do: [], else: FileStorage.list_module_files()
+
+        message =
+          if new_value,
+            do: "Router Discovery enabled — flat sitemap mode active",
+            else: "Router Discovery disabled — per-module sitemap mode"
+
+        {:noreply,
+         socket
+         |> assign(:config, config)
+         |> assign(:sitemap_version, new_version)
+         |> assign(:module_stats, module_stats)
+         |> assign(:module_files, module_files)
+         |> put_flash(:info, message)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update source setting")}
+    end
+  end
+
   @impl true
   def handle_event("toggle_source", %{"source" => source}, socket) do
-    # Router discovery uses different key pattern
     key =
       if source == "router_discovery" do
         "sitemap_router_discovery_enabled"
@@ -104,12 +151,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
     case Settings.update_boolean_setting(key, !current) do
       {:ok, _} ->
-        # Invalidate cache when sources change
         Generator.invalidate_cache()
         config = Sitemap.get_config()
         new_version = DateTime.utc_now() |> DateTime.to_unix()
-
-        # Broadcast to all admin sessions
         broadcast_settings_change(:source_changed, %{source: source, version: new_version})
 
         {:noreply,
@@ -123,17 +167,60 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   end
 
   @impl true
+  def handle_event("toggle_registration", _params, socket) do
+    new_value = !socket.assigns.include_registration
+
+    case Settings.update_boolean_setting("sitemap_include_registration", new_value) do
+      {:ok, _} ->
+        Generator.invalidate_cache()
+        new_version = DateTime.utc_now() |> DateTime.to_unix()
+
+        {:noreply,
+         socket
+         |> assign(:include_registration, new_value)
+         |> assign(:sitemap_version, new_version)
+         |> put_flash(
+           :info,
+           "Registration page #{if new_value, do: "included", else: "excluded"}"
+         )}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update registration setting")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_publishing_split", _params, socket) do
+    new_value = !socket.assigns.publishing_split_by_group
+
+    case Settings.update_boolean_setting("sitemap_publishing_split_by_group", new_value) do
+      {:ok, _} ->
+        Generator.invalidate_cache()
+        new_version = DateTime.utc_now() |> DateTime.to_unix()
+
+        {:noreply,
+         socket
+         |> assign(:publishing_split_by_group, new_value)
+         |> assign(:sitemap_version, new_version)
+         |> put_flash(
+           :info,
+           "Publishing #{if new_value, do: "split by blog", else: "combined into one file"}"
+         )}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update publishing split setting")}
+    end
+  end
+
+  @impl true
   def handle_event("toggle_html", _params, socket) do
     current = socket.assigns.config.html_enabled
 
     case Settings.update_boolean_setting("sitemap_html_enabled", !current) do
       {:ok, _} ->
-        # Invalidate cache when XSL enabled/disabled
         Generator.invalidate_cache()
         config = Sitemap.get_config()
         new_version = DateTime.utc_now() |> DateTime.to_unix()
-
-        # Broadcast to all admin sessions
         broadcast_settings_change(:html_changed, %{enabled: !current, version: new_version})
 
         {:noreply,
@@ -148,21 +235,16 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   @impl true
   def handle_event("toggle_schedule", _params, socket) do
-    alias PhoenixKit.Modules.Sitemap.SchedulerWorker
-
     current = socket.assigns.config.schedule_enabled
 
     case Settings.update_boolean_setting("sitemap_schedule_enabled", !current) do
       {:ok, _} ->
-        # Cancel scheduled jobs when disabling
         unless current == false do
           SchedulerWorker.cancel_scheduled()
         end
 
         config = Sitemap.get_config()
         new_version = DateTime.utc_now() |> DateTime.to_unix()
-
-        # Broadcast to all admin sessions
         broadcast_settings_change(:schedule_changed, %{enabled: !current, version: new_version})
 
         {:noreply,
@@ -179,14 +261,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   def handle_event("update_style", %{"style" => style}, socket) do
     case Settings.update_setting("sitemap_html_style", style) do
       {:ok, _} ->
-        # Invalidate cache so sitemap.xml regenerates with new XSL style
         Generator.invalidate_cache()
         config = Sitemap.get_config()
-
-        # Update version to force iframe reload
         new_version = DateTime.utc_now() |> DateTime.to_unix()
-
-        # Broadcast style change to all admin sessions
         broadcast_settings_change(:style_changed, %{style: style, version: new_version})
 
         {:noreply,
@@ -209,7 +286,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
             config = Sitemap.get_config()
             new_version = DateTime.utc_now() |> DateTime.to_unix()
 
-            # Broadcast to all admin sessions
             broadcast_settings_change(:interval_changed, %{
               interval: interval,
               version: new_version
@@ -231,11 +307,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   @impl true
   def handle_event("regenerate", _params, socket) do
-    # Get base URL for generation
     base_url = Sitemap.get_base_url()
 
     if base_url != "" do
-      # Use Oban worker for async generation (non-blocking UI)
       case SchedulerWorker.regenerate_now() do
         {:ok, _job} ->
           {:noreply,
@@ -256,21 +330,39 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   end
 
   @impl true
+  def handle_event("regenerate_module", %{"source" => source_name}, socket) do
+    base_url = Sitemap.get_base_url()
+
+    if base_url != "" do
+      case SchedulerWorker.regenerate_module_now(source_name) do
+        {:ok, _job} ->
+          {:noreply,
+           socket
+           |> assign(:regenerating_module, source_name)
+           |> put_flash(:info, "Regenerating #{source_name} sitemap...")}
+
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Please configure Base URL first")}
+    end
+  end
+
+  @impl true
   def handle_event("preview", %{"type" => _type}, socket) do
     base_url = Sitemap.get_base_url()
     xsl_style = get_xsl_style(socket.assigns.config.html_style)
 
     opts = [
       base_url: base_url,
-      cache: false,
       xsl_style: xsl_style,
       xsl_enabled: socket.assigns.config.html_enabled
     ]
 
     content =
-      case Generator.generate_xml(opts) do
-        {:ok, xml} -> xml
-        {:ok, xml, _parts} -> xml
+      case Generator.generate_all(opts) do
+        {:ok, %{index_xml: xml}} -> xml
         _ -> "Error generating XML preview"
       end
 
@@ -292,16 +384,17 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   @impl true
   def handle_event("invalidate_cache", _params, socket) do
-    # Clear cache AND trigger async regeneration via Oban
     case Generator.invalidate_and_regenerate() do
       {:ok, _job} ->
-        # Update version to force iframe reload after cache clear
         new_version = DateTime.utc_now() |> DateTime.to_unix()
 
         {:noreply,
          socket
          |> assign(:sitemap_version, new_version)
-         |> put_flash(:info, "Cache cleared. Sitemap regeneration started...")}
+         |> assign(:generating, true)
+         |> assign(:module_stats, [])
+         |> assign(:module_files, [])
+         |> put_flash(:info, "All sitemaps cleared. Regeneration started...")}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")}
@@ -311,24 +404,24 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   # Handle PubSub message when sitemap generation completes
   @impl true
   def handle_info({:sitemap_generated, %{url_count: count}}, socket) do
-    # Refresh config to get updated stats
     config = Sitemap.get_config()
-
-    # Update sitemap version to force iframe reload
     sitemap_version = get_sitemap_version(config)
+    module_stats = Sitemap.get_module_stats()
+    module_files = FileStorage.list_module_files()
 
     {:noreply,
      socket
      |> assign(:generating, false)
+     |> assign(:regenerating_module, nil)
      |> assign(:config, config)
      |> assign(:sitemap_version, sitemap_version)
+     |> assign(:module_stats, module_stats)
+     |> assign(:module_files, module_files)
      |> put_flash(:info, "Sitemap generated successfully (#{count} URLs)")}
   end
 
-  # Handle PubSub message when settings change (style, sources, etc.)
   @impl true
   def handle_info({:sitemap_settings_changed, %{type: :style_changed, version: version}}, socket) do
-    # Refresh config to get updated style
     config = Sitemap.get_config()
 
     {:noreply,
@@ -339,7 +432,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   @impl true
   def handle_info({:sitemap_settings_changed, %{type: type}}, socket) do
-    # Handle other settings changes (sources, schedule, etc.)
     config = Sitemap.get_config()
     new_version = DateTime.utc_now() |> DateTime.to_unix()
 
@@ -357,36 +449,52 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   defp maybe_flash_for_setting(socket, :sitemap_toggled), do: socket
   defp maybe_flash_for_setting(socket, _), do: socket
 
-  # Broadcast settings change to all connected admin sessions
   defp broadcast_settings_change(type, data) do
     PubSubManager.broadcast(
       "sitemap:settings",
       {:sitemap_settings_changed, Map.put(data, :type, type)}
     )
   rescue
-    # PubSub may not be available in all environments
     _ -> :ok
   end
 
   # Maps old HTML style names to new XSL style names
-  # hierarchical -> cards, grouped -> table, flat -> minimal
   def get_xsl_style(html_style) do
     case html_style do
-      "hierarchical" -> "cards"
       "grouped" -> "table"
       "flat" -> "minimal"
-      style when style in ["table", "cards", "minimal"] -> style
+      style when style in ["table", "minimal"] -> style
       _ -> "table"
     end
   end
 
-  # Format ISO8601 timestamp string to human-readable format with system timezone
+  # Helper: find stats for a specific module filename
+  def find_module_stat(module_stats, filename) do
+    Enum.find(module_stats, fn stat ->
+      stat["filename"] == filename or
+        String.starts_with?(stat["filename"] || "", filename)
+    end)
+  end
+
+  # Helper: count URLs for a source prefix across all module stats
+  def count_source_urls(module_stats, source_prefix) do
+    module_stats
+    |> Enum.filter(fn stat ->
+      String.starts_with?(stat["filename"] || "", source_prefix)
+    end)
+    |> Enum.reduce(0, fn stat, acc -> acc + (stat["url_count"] || 0) end)
+  end
+
+  # Helper: list files for a source prefix
+  def source_files(module_files, source_prefix) do
+    Enum.filter(module_files, &String.starts_with?(&1, source_prefix))
+  end
+
   def format_timestamp(nil), do: "Never"
 
   def format_timestamp(iso_string) when is_binary(iso_string) do
     case DateTime.from_iso8601(iso_string) do
       {:ok, dt, _} ->
-        # Use fake user with nil timezone to get system timezone from Settings
         fake_user = %{user_timezone: nil}
         date_str = UtilsDate.format_date_with_user_timezone(dt, fake_user)
         time_str = UtilsDate.format_time_with_user_timezone(dt, fake_user)
@@ -399,12 +507,25 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   def format_timestamp(_), do: "Never"
 
-  # Generate sitemap version string for cache busting
-  # Uses last_generated timestamp or current time
+  # Check which parent modules are actually enabled (not just sitemap toggles)
+  defp get_module_enabled_status do
+    %{
+      entities: safe_module_enabled?(PhoenixKit.Modules.Entities),
+      publishing: safe_module_enabled?(PhoenixKit.Modules.Publishing),
+      shop: safe_module_enabled?(PhoenixKit.Modules.Shop),
+      posts: safe_module_enabled?(PhoenixKit.Modules.Posts)
+    }
+  end
+
+  defp safe_module_enabled?(module) do
+    module.enabled?()
+  rescue
+    _ -> false
+  end
+
   defp get_sitemap_version(config) do
     case config.last_generated do
       nil ->
-        # No sitemap generated yet, use current timestamp
         DateTime.utc_now() |> DateTime.to_unix()
 
       iso_string when is_binary(iso_string) ->
