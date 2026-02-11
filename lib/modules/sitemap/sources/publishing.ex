@@ -48,8 +48,54 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
   @default_locale Config.default_locale()
 
+  # Future: Hook into Publishing post creation/update to invalidate sitemap-publishing
+
   @impl true
   def source_name, do: :publishing
+
+  @impl true
+  def sitemap_filename, do: "sitemap-publishing"
+
+  @doc """
+  When `sitemap_publishing_split_by_group` is enabled, returns per-blog sub-sitemaps.
+  Otherwise returns nil (single file).
+  """
+  @impl true
+  def sub_sitemaps(opts) do
+    if split_by_group?() and enabled?() do
+      base_url = Keyword.get(opts, :base_url)
+      language = Keyword.get(opts, :language)
+      is_default = Keyword.get(opts, :is_default_language, true)
+
+      blogs = Publishing.list_groups()
+      included_blogs = Enum.reject(blogs, &blog_excluded?/1)
+
+      sub_maps =
+        included_blogs
+        |> Enum.map(fn blog ->
+          slug = blog["slug"]
+
+          entries =
+            collect_blog_listings([blog], language, is_default, base_url) ++
+              collect_blog_posts(blog, language, is_default, base_url)
+
+          {slug, entries}
+        end)
+        |> Enum.reject(fn {_slug, entries} -> entries == [] end)
+
+      if sub_maps == [], do: nil, else: sub_maps
+    else
+      nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp split_by_group? do
+    PhoenixKit.Settings.get_boolean_setting("sitemap_publishing_split_by_group", false)
+  rescue
+    _ -> false
+  end
 
   @impl true
   def enabled? do

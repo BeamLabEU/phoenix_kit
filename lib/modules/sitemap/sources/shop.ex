@@ -39,8 +39,13 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   alias PhoenixKit.Modules.Sitemap.UrlEntry
   alias PhoenixKit.Settings
 
+  # Future: Hook into Shop.create_product/update_product to invalidate sitemap-shop
+
   @impl true
   def source_name, do: :shop
+
+  @impl true
+  def sitemap_filename, do: "sitemap-shop"
 
   @impl true
   def enabled? do

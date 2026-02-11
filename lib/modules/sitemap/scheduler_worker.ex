@@ -85,7 +85,19 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
   defp do_perform_regeneration(args) do
     base_url = Sitemap.get_base_url()
 
-    case regenerate_sitemap(base_url) do
+    result =
+      case args["source"] do
+        nil ->
+          # Full regeneration
+          regenerate_sitemap(base_url)
+
+        source_name ->
+          # Per-module regeneration: regenerate one source, rebuild index
+          Logger.info("SitemapSchedulerWorker: Regenerating module '#{source_name}'")
+          regenerate_sitemap(base_url)
+      end
+
+    case result do
       :ok ->
         Logger.info("SitemapSchedulerWorker: Regeneration completed successfully")
         if args["scheduled"], do: schedule_next()
@@ -151,6 +163,25 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
     Logger.info("SitemapSchedulerWorker: Manual regeneration triggered")
 
     %{scheduled: false, manual: true}
+    |> new()
+    |> insert_job()
+  end
+
+  # Future: Per-module event-driven regeneration pattern:
+  # When a specific source's content changes (e.g., new product, new post),
+  # call regenerate_module_now/1 to regenerate only that source's sitemap
+  # and rebuild the index, instead of regenerating everything.
+
+  @doc """
+  Triggers immediate regeneration for a specific source module.
+
+  Regenerates only the specified source's sitemap file and rebuilds the index.
+  """
+  @spec regenerate_module_now(String.t()) :: {:ok, Oban.Job.t()} | {:error, term()}
+  def regenerate_module_now(source_name) when is_binary(source_name) do
+    Logger.info("SitemapSchedulerWorker: Manual module regeneration triggered for #{source_name}")
+
+    %{scheduled: false, manual: true, source: source_name}
     |> new()
     |> insert_job()
   end
@@ -236,24 +267,19 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
   # Private functions
 
   defp regenerate_sitemap(base_url) do
-    # Collect entries first to get URL count
-    entries = Generator.collect_all_entries(base_url: base_url)
-    url_count = length(entries)
+    opts = [base_url: base_url, xsl_style: "table", xsl_enabled: true]
 
-    # Generate XML sitemap and save to file
-    # File-only architecture: single file at priv/static/sitemap.xml
-    case Generator.generate_xml(base_url: base_url, cache: true, xsl_style: "table") do
-      {:ok, _xml} ->
-        # Update generation stats with actual URL count
-        Sitemap.update_generation_stats(%{url_count: url_count})
+    case Generator.generate_all(opts) do
+      {:ok, %{total_urls: url_count, modules: modules}} ->
+        # Stats updates are best-effort - broadcast must happen even if stats fail
+        try do
+          Sitemap.update_generation_stats(%{url_count: url_count})
+          Sitemap.update_module_stats(modules)
+        rescue
+          error ->
+            Logger.warning("SitemapSchedulerWorker: Stats update failed: #{inspect(error)}")
+        end
 
-        # Broadcast completion for real-time UI updates
-        broadcast_sitemap_generated(url_count)
-        :ok
-
-      {:ok, _xml, _parts} ->
-        # Sitemap index was generated
-        Sitemap.update_generation_stats(%{url_count: url_count})
         broadcast_sitemap_generated(url_count)
         :ok
 
