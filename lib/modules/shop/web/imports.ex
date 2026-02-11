@@ -847,6 +847,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   enabled_languages={@enabled_languages}
                   current_language={@current_language}
                   download_images={@download_images}
+                  skip_empty_categories={@skip_empty_categories}
                   import_configs={@import_configs}
                   selected_config={@selected_config}
                   selected_config_id={@selected_config_id}
@@ -865,6 +866,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   uploaded_filename={@uploaded_filename}
                   confirm_product_count={@confirm_product_count}
                   download_images={@download_images}
+                  skip_empty_categories={@skip_empty_categories}
                 />
               <% :importing -> %>
                 <.render_importing_step
