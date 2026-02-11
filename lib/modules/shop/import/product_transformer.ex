@@ -20,6 +20,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
 
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Import.{Filter, OptionBuilder}
+  alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
 
   require Logger
@@ -144,6 +145,10 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   end
 
   defp create_new_category(slug, language) do
+    # Normalize language to dialect format (e.g., "en" -> "en-US")
+    # to match how SlugResolver queries slug JSONB fields
+    normalized_lang = SlugResolver.normalize_language_public(language)
+
     # Generate name from slug: "vases-planters" -> "Vases Planters"
     name =
       slug
@@ -151,24 +156,32 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
       |> String.split(" ")
       |> Enum.map_join(" ", &String.capitalize/1)
 
-    # Create localized attributes
+    # Create localized attributes with normalized language key
     attrs = %{
-      name: %{language => name},
-      slug: %{language => slug},
+      name: %{normalized_lang => name},
+      slug: %{normalized_lang => slug},
       status: "active"
     }
 
     case Shop.create_category(attrs) do
       {:ok, category} ->
         Logger.info(
-          "Auto-created category: #{slug} (id: #{category.id}) with language: #{language}"
+          "Auto-created category: #{slug} (id: #{category.id}) with language: #{normalized_lang}"
         )
 
         category.id
 
-      {:error, changeset} ->
-        Logger.warning("Failed to create category #{slug}: #{inspect(changeset.errors)}")
-        nil
+      {:error, _changeset} ->
+        # Unique constraint hit - category was created by concurrent process, fetch it
+        case Shop.get_category_by_slug_localized(slug, language) do
+          {:ok, %{id: id}} ->
+            Logger.info("Category #{slug} already exists (id: #{id}), using existing")
+            id
+
+          {:error, :not_found} ->
+            Logger.warning("Failed to create or find category: #{slug}")
+            nil
+        end
     end
   end
 

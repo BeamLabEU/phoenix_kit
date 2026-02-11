@@ -695,6 +695,27 @@ defmodule PhoenixKit.Modules.Shop.Options do
     merge_discovered_specs(schema_specs, discovered_specs)
   end
 
+  @doc """
+  Gets all selectable options for admin product detail view.
+
+  Unlike `get_selectable_specs_for_product/1`, this does NOT filter schema options
+  by product's `_option_values`. Shows all schema options (global + category) plus
+  discovered options from metadata, giving admins the full picture.
+  """
+  def get_all_selectable_specs_for_admin(product) do
+    # All schema selectable specs WITHOUT filtering by _option_values
+    schema_specs =
+      product
+      |> get_option_schema_for_product()
+      |> get_selectable_specs()
+
+    # Discover additional options from product metadata
+    discovered_specs = discover_selectable_options_from_metadata(product)
+
+    # Merge: schema specs take priority over discovered
+    merge_discovered_specs(schema_specs, discovered_specs)
+  end
+
   # Discovers selectable options from product metadata.
   # Creates "virtual" option specs for keys found in _option_values.
   # Unlike discover_options_from_metadata/1, this doesn't require _price_modifiers.
@@ -777,10 +798,10 @@ defmodule PhoenixKit.Modules.Shop.Options do
             true
 
           _ ->
-            # Keep schema specs that have image mappings AND their own options
+            # Keep schema specs that have their own defined options or image mappings
             has_image_mappings = is_map(image_mappings[key]) and image_mappings[key] != %{}
             has_own_options = is_list(spec["options"]) and spec["options"] != []
-            has_image_mappings and has_own_options
+            has_own_options or has_image_mappings
         end
       end)
     else

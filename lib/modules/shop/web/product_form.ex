@@ -1062,16 +1062,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           # 2. Options from _option_values (imported) that are NOT already in schema
           schema_keys_with_values = Enum.map(schema_options, & &1["key"])
 
+          option_slots = @metadata["_option_slots"] || []
+
           imported_options =
             all_known_values
             |> Enum.reject(fn {key, _} -> key in schema_keys_with_values end)
             |> Enum.map(fn {key, values} ->
               # Find option in schema (may exist but with empty options list)
               schema_opt = Enum.find(@option_schema, &(&1["key"] == key))
+              # Find label from _option_slots (e.g. "Liquid Color" for slot "liquid_color")
+              slot_label = Enum.find_value(option_slots, fn slot ->
+                if slot["slot"] == key, do: slot["label"]
+              end)
 
               %{
                 "key" => key,
-                "label" => (schema_opt && schema_opt["label"]) || String.capitalize(key),
+                "label" => (schema_opt && schema_opt["label"]) || slot_label || humanize_key(key),
                 "type" => (schema_opt && schema_opt["type"]) || "select",
                 "options" => values,
                 "imported" => true
@@ -2400,6 +2406,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   defp humanize_key(key) do
     key
     |> String.replace("_", " ")
-    |> String.capitalize()
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 end
