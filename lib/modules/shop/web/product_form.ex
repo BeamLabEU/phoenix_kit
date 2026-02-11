@@ -1071,9 +1071,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
               # Find option in schema (may exist but with empty options list)
               schema_opt = Enum.find(@option_schema, &(&1["key"] == key))
               # Find label from _option_slots (e.g. "Liquid Color" for slot "liquid_color")
-              slot_label = Enum.find_value(option_slots, fn slot ->
-                if slot["slot"] == key, do: slot["label"]
-              end)
+              slot_label =
+                Enum.find_value(option_slots, fn slot ->
+                  if slot["slot"] == key, do: slot["label"]
+                end)
 
               %{
                 "key" => key,

@@ -268,7 +268,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                         <span class="font-medium min-w-24">{attr["label"]}:</span>
                         <%= for value <- get_option_values(@product, attr) do %>
                           <% has_image = get_in(image_mappings, [attr["key"], value]) not in [nil, ""] %>
-                          <% price_mod = affects_price && get_price_modifier(@product, attr["key"], value) %>
+                          <% price_mod =
+                            affects_price && get_price_modifier(@product, attr["key"], value) %>
                           <button
                             type="button"
                             phx-click="select_option"
