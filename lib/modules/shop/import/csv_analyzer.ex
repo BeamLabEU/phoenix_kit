@@ -19,6 +19,7 @@ defmodule PhoenixKit.Modules.Shop.Import.CSVAnalyzer do
   """
 
   alias PhoenixKit.Modules.Shop.Import.CSVParser
+  alias PhoenixKit.Modules.Shop.Import.Filter
 
   @max_options 10
 
@@ -43,13 +44,26 @@ defmodule PhoenixKit.Modules.Shop.Import.CSVAnalyzer do
       #   total_variants: 200
       # }
   """
-  def analyze_options(file_path) do
+  def analyze_options(file_path, config \\ nil) do
     grouped = CSVParser.parse_and_group(file_path)
+
+    # Apply import config filter if provided and not skipped
+    {filtered, skipped_count} =
+      if config && !config.skip_filter do
+        filtered =
+          grouped
+          |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows, config) end)
+          |> Map.new()
+
+        {filtered, map_size(grouped) - map_size(filtered)}
+      else
+        {grouped, 0}
+      end
 
     # Group options by NAME instead of position
     # This handles cases where different products use Option1 for different purposes
     {option_data, total_variants} =
-      Enum.reduce(grouped, {%{}, 0}, fn {_handle, rows}, {acc, variant_count} ->
+      Enum.reduce(filtered, {%{}, 0}, fn {_handle, rows}, {acc, variant_count} ->
         # Get option names and values from all rows
         first_row = List.first(rows)
         variant_rows = Enum.filter(rows, &has_price?/1)
@@ -75,8 +89,9 @@ defmodule PhoenixKit.Modules.Shop.Import.CSVAnalyzer do
 
     %{
       options: options,
-      total_products: map_size(grouped),
-      total_variants: total_variants
+      total_products: map_size(filtered),
+      total_variants: total_variants,
+      total_skipped: skipped_count
     }
   end
 
