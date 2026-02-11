@@ -787,6 +787,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
+                    <%= if PhoenixKit.Modules.Comments.enabled?() and module_accessible?(@scope, "comments") do %>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/comments")}
+                        icon="hero-chat-bubble-left-right"
+                        label={gettext("Comments")}
+                        current_path={@current_path || ""}
+                      />
+                    <% end %>
+
                     <%= if Publishing.enabled?() and module_accessible?(@scope, "publishing") do %>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/publishing")}
@@ -938,6 +947,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                               href={Routes.locale_aware_path(assigns, "/admin/settings/tickets")}
                               icon="hero-ticket"
                               label={gettext("Tickets")}
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
+                          <% end %>
+
+                          <%= if PhoenixKit.Modules.Comments.enabled?() and module_accessible?(@scope, "comments") do %>
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/comments")}
+                              icon="hero-chat-bubble-left-right"
+                              label={gettext("Comments")}
                               current_path={@current_path || ""}
                               nested={true}
                             />

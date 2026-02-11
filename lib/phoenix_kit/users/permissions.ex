@@ -9,8 +9,8 @@ defmodule PhoenixKit.Users.Permissions do
   ## Permission Keys
 
   Core sections: dashboard, users, media, settings, modules
-  Feature modules: billing, shop, emails, entities, tickets, posts, ai,
-    sync, publishing, referrals, sitemap, seo, maintenance, storage,
+  Feature modules: billing, shop, emails, entities, tickets, posts, comments,
+    ai, sync, publishing, referrals, sitemap, seo, maintenance, storage,
     languages, connections, legal, db, jobs
 
   ## Constants & Metadata
@@ -57,7 +57,7 @@ defmodule PhoenixKit.Users.Permissions do
 
   @core_section_keys ~w(dashboard users media settings modules)
   @feature_module_keys ~w(
-    billing shop emails entities tickets posts ai
+    billing shop emails entities tickets posts comments ai
     sync publishing referrals sitemap seo maintenance
     storage languages connections legal db jobs
   )
@@ -71,6 +71,7 @@ defmodule PhoenixKit.Users.Permissions do
     "entities" => {PhoenixKit.Modules.Entities, :enabled?},
     "tickets" => {PhoenixKit.Modules.Tickets, :enabled?},
     "posts" => {PhoenixKit.Modules.Posts, :enabled?},
+    "comments" => {PhoenixKit.Modules.Comments, :enabled?},
     "ai" => {PhoenixKit.Modules.AI, :enabled?},
     "sync" => {PhoenixKit.Modules.Sync, :enabled?},
     "publishing" => {PhoenixKit.Modules.Publishing, :enabled?},
@@ -88,7 +89,7 @@ defmodule PhoenixKit.Users.Permissions do
 
   # --- Constants ---
 
-  @doc "Returns all 24 permission keys."
+  @doc "Returns all 25 permission keys."
   @spec all_module_keys() :: [String.t()]
   def all_module_keys, do: @all_module_keys
 
@@ -96,7 +97,7 @@ defmodule PhoenixKit.Users.Permissions do
   @spec core_section_keys() :: [String.t()]
   def core_section_keys, do: @core_section_keys
 
-  @doc "Returns the 19 feature module keys."
+  @doc "Returns the 20 feature module keys."
   @spec feature_module_keys() :: [String.t()]
   def feature_module_keys, do: @feature_module_keys
 
@@ -153,6 +154,7 @@ defmodule PhoenixKit.Users.Permissions do
     "entities" => "Entities",
     "tickets" => "Tickets",
     "posts" => "Posts",
+    "comments" => "Comments",
     "ai" => "AI",
     "sync" => "Sync",
     "publishing" => "Publishing",
@@ -184,6 +186,7 @@ defmodule PhoenixKit.Users.Permissions do
     "entities" => "hero-cube-transparent",
     "tickets" => "hero-ticket",
     "posts" => "hero-document-text",
+    "comments" => "hero-chat-bubble-left-right",
     "ai" => "hero-sparkles",
     "sync" => "hero-arrow-path",
     "publishing" => "hero-document-duplicate",
@@ -215,6 +218,7 @@ defmodule PhoenixKit.Users.Permissions do
     "entities" => "Dynamic content types and custom data structures",
     "tickets" => "Support ticket management and customer communication",
     "posts" => "Blog posts, categories, and content publishing",
+    "comments" => "Comment moderation, threading, and reactions across all content types",
     "ai" => "AI endpoints, prompts, and usage tracking",
     "sync" => "Peer-to-peer data synchronization and replication",
     "publishing" => "Filesystem-based CMS pages and multi-language content",

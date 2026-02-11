@@ -1,8 +1,8 @@
-defmodule PhoenixKit.Modules.Posts.CommentLike do
+defmodule PhoenixKit.Modules.Comments.CommentLike do
   @moduledoc """
-  Legacy schema for comment likes.
+  Schema for comment likes in the standalone Comments module.
 
-  New comment likes should use `PhoenixKit.Modules.Comments.CommentLike` instead.
+  Tracks which users have liked which comments. Enforces one like per user per comment.
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -13,14 +13,14 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
           id: UUIDv7.t() | nil,
           comment_id: UUIDv7.t(),
           user_id: integer(),
-          comment: PhoenixKit.Modules.Posts.PostComment.t() | Ecto.Association.NotLoaded.t(),
+          comment: PhoenixKit.Modules.Comments.Comment.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
 
-  schema "phoenix_kit_comment_likes" do
-    belongs_to :comment, PhoenixKit.Modules.Posts.PostComment, type: UUIDv7
+  schema "phoenix_kit_comments_likes" do
+    belongs_to :comment, PhoenixKit.Modules.Comments.Comment, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
 
     timestamps(type: :naive_datetime)
@@ -29,14 +29,7 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
   @doc """
   Changeset for creating a comment like.
 
-  ## Required Fields
-
-  - `comment_id` - Reference to comment
-  - `user_id` - Reference to user
-
-  ## Validation Rules
-
-  - Unique constraint on (comment_id, user_id) - one like per user per comment
+  Unique constraint on (comment_id, user_id) — one like per user per comment.
   """
   def changeset(like, attrs) do
     like
@@ -45,7 +38,7 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
     |> foreign_key_constraint(:comment_id)
     |> foreign_key_constraint(:user_id)
     |> unique_constraint([:comment_id, :user_id],
-      name: :phoenix_kit_comment_likes_comment_id_user_id_index,
+      name: :uq_comments_likes_comment_user,
       message: "you have already liked this comment"
     )
   end

@@ -1,21 +1,8 @@
 defmodule PhoenixKit.Modules.Posts.CommentDislike do
   @moduledoc """
-  Schema for comment dislikes.
+  Legacy schema for comment dislikes.
 
-  Tracks which users have disliked which comments. Enforces one dislike per user per comment.
-
-  ## Fields
-
-  - `comment_id` - Reference to the comment
-  - `user_id` - Reference to the user who disliked
-
-  ## Examples
-
-      # User dislikes a comment
-      %CommentDislike{
-        comment_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42
-      }
+  New comment dislikes should use `PhoenixKit.Modules.Comments.CommentDislike` instead.
   """
   use Ecto.Schema
   import Ecto.Changeset

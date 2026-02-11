@@ -2377,7 +2377,16 @@ defmodule PhoenixKit.Users.Auth do
 
   # Anonymize comments by setting user_id to NULL and marking deleted author
   defp anonymize_user_comments(user_id) do
-    # PostComment is the actual schema name in Posts module
+    # Anonymize legacy PostComments (Posts module)
+    legacy_count = anonymize_legacy_post_comments(user_id)
+
+    # Anonymize standalone Comments module
+    standalone_count = anonymize_standalone_comments(user_id)
+
+    legacy_count + standalone_count
+  end
+
+  defp anonymize_legacy_post_comments(user_id) do
     module = Module.concat([PhoenixKit, Modules, Posts, PostComment])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
@@ -2391,6 +2400,22 @@ defmodule PhoenixKit.Users.Auth do
           anonymized_at: DateTime.utc_now()
         ]
       )
+      |> elem(0)
+    else
+      0
+    end
+  rescue
+    _ -> 0
+  end
+
+  defp anonymize_standalone_comments(user_id) do
+    module = Module.concat([PhoenixKit, Modules, Comments, Comment])
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
+      dynamic_query = dynamic([c], c.user_id == ^user_id)
+
+      from(c in module, where: ^dynamic_query)
+      |> Repo.repo().update_all(set: [user_id: nil])
       |> elem(0)
     else
       0

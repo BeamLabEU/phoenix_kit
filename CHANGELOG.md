@@ -1,3 +1,28 @@
+## 1.7.34 - 2026-02-11
+- Extract Comments into standalone reusable module (V55 migration)
+  - New `PhoenixKit.Modules.Comments` context with polymorphic `resource_type` + `resource_id` associations
+  - New tables: `phoenix_kit_comments`, `phoenix_kit_comments_likes`, `phoenix_kit_comments_dislikes`
+  - Reusable `CommentsComponent` LiveComponent that can be embedded in any resource detail page
+  - Threaded comments with configurable max depth and content length
+  - Like/dislike system with atomic counter cache
+  - Moderation admin UI at `{prefix}/admin/comments` with filters, search, and bulk actions
+  - Module settings page at `{prefix}/admin/settings/comments`
+  - Resource handler callback system for notifying parent modules (e.g., Posts) of comment changes
+  - "comments" permission key added (25 total permission keys, 20 feature modules)
+  - Posts module refactored to consume Comments module API instead of inline implementation
+  - Legacy `phoenix_kit_post_comments` tables preserved for backward compatibility
+- Add shop enhancements, sitemap sources, and admin navigation fix
+  - Shop module improvements: product options toggle, import configs, drag-and-drop reordering, catalog language redirects
+  - Sitemap module: shop source (categories, products, catalog), data source toggles in settings UI
+  - Admin sidebar seamless navigation (consolidate live_sessions)
+  - Migration fixes and V54 addition
+- Fix preview-to-editor round-trip state and data loss bugs
+  - Fix 8 bugs in the preview_token handle_params path that had diverged from the other editor entry points as features were added over time
+  - Merge disk metadata into preview post to prevent silent data loss when saving after a preview round-trip
+  - Add error logging to enrich_from_disk for observability
+- Add module-level permission system for role-based admin access control
+  - Custom roles can now be granted granular access to specific admin sections and feature modules. Permissions are managed through a new interactive matrix UI, enforced at both route and sidebar level, and update in real-time across all admin tabs via PubSub.
+
 ## 1.7.33 - 2026-02-04
 - Add module-level permission system (V53 migration)
   - `phoenix_kit_role_permissions` table with allowlist model (row present = granted)

@@ -155,12 +155,34 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
       {:ok, data} ->
+        old_form_key = socket.assigns[:form_key]
+        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
+
         socket =
           socket
           |> Preview.apply_preview_payload(data)
           |> assign(:preview_token, token)
           |> assign(:current_path, Preview.preview_editor_path(socket, data, token, params))
-          |> push_event("changes-status", %{has_changes: true})
+
+        form_key =
+          PublishingPubSub.generate_form_key(
+            socket.assigns.blog_slug,
+            socket.assigns.post,
+            if(socket.assigns.is_new_post, do: :new, else: :edit)
+          )
+
+        socket = assign(socket, :form_key, form_key)
+
+        socket =
+          Collaborative.setup_collaborative_editing(socket, form_key,
+            old_form_key: old_form_key,
+            old_post_slug: old_post_slug
+          )
+
+        socket =
+          push_event(socket, "changes-status", %{
+            has_changes: socket.assigns.has_pending_changes
+          })
 
         {:noreply, socket}
 
