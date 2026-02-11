@@ -12,12 +12,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   # Data URI placeholder for broken images - works without external file serving
@@ -229,6 +231,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   # Build category subtabs for existing dashboard_shop tab
   defp build_category_subtabs(categories, current_category) do
     default_lang = Translations.default_language()
+    icon_mode = Settings.get_setting_cached("shop_category_icon_mode", "none")
 
     categories
     |> Enum.with_index()
@@ -236,22 +239,39 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       # Get localized name
       cat_name = Translations.get(cat, :name, default_lang)
 
+      # Determine icon based on settings
+      {icon, icon_metadata} = category_icon(icon_mode, cat)
+
       tab =
         Tab.new!(
           id: String.to_atom("shop_cat_#{cat.id}"),
           label: cat_name,
-          icon: "hero-folder",
+          icon: icon,
           path: Shop.category_url(cat, default_lang),
           priority: 301 + idx,
           parent: :dashboard_shop,
           group: :shop,
-          match: :prefix
+          match: :prefix,
+          subtab_indent: "pl-2",
+          metadata: icon_metadata
         )
 
       is_active = current_category && current_category.id == cat.id
       Map.put(tab, :active, is_active)
     end)
   end
+
+  # Returns {icon, metadata} tuple based on icon mode setting
+  defp category_icon("folder", _cat), do: {"hero-folder", %{}}
+
+  defp category_icon("category", cat) do
+    case Category.get_image_url(cat, size: "thumbnail") do
+      nil -> {nil, %{}}
+      url -> {nil, %{icon_image_url: url}}
+    end
+  end
+
+  defp category_icon(_mode, _cat), do: {nil, %{}}
 
   @impl true
   def handle_event("set_quantity", %{"quantity" => quantity}, socket) do
