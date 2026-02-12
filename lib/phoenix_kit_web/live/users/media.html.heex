@@ -87,36 +87,27 @@
                 navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{file.file_id}")}
                 class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
               >
-                <% image_url =
-                  cond do
-                    file.file_type == "video" ->
-                      file.urls["video_thumbnail"]
-
-                    file.file_type == "image" ->
-                      file.urls["medium"] || file.urls["thumbnail"] || file.urls["original"]
-
-                    true ->
-                      file.urls["thumbnail"] || file.urls["small"] || file.urls["medium"]
-                  end %>
-                <%= if image_url do %>
-                  <img
-                    src={image_url}
-                    alt={file.filename}
-                    class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
-                    onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
-                  />
-                  <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
-                    <div class="flex flex-col items-center justify-center">
-                      <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
-                      <p class="text-xs font-semibold">Image Missing</p>
+                <.thumbnail_url :let={url} file={file} size={:medium}>
+                  <%= if url do %>
+                    <img
+                      src={url}
+                      alt={file.filename}
+                      class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
+                      onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
+                    />
+                    <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
+                      <div class="flex flex-col items-center justify-center">
+                        <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
+                        <p class="text-xs font-semibold">Image Missing</p>
+                      </div>
                     </div>
-                  </div>
-                <% else %>
-                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50 group-hover:bg-base-200 transition-colors">
-                    <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
-                    <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
-                  </div>
-                <% end %>
+                  <% else %>
+                    <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50 group-hover:bg-base-200 transition-colors">
+                      <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
+                      <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
+                    </div>
+                  <% end %>
+                </.thumbnail_url>
 
                 <%!-- Video indicator icon --%>
                 <%= if file.file_type == "video" do %>
