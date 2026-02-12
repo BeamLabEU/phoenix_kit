@@ -6,7 +6,10 @@ config :phoenix_kit,
   # Required for standalone development - ensures Storage.root_path() resolves correctly
   parent_app_name: :phoenix_kit,
   parent_module: PhoenixKit,
-  url_prefix: "/phoenix_kit"
+  url_prefix: "/phoenix_kit",
+  comment_resource_handlers: %{
+    "post" => PhoenixKit.Modules.Posts
+  }
 
 # Configure password requirements (optional - these are the defaults)
 # Uncomment and modify to enforce specific password strength requirements

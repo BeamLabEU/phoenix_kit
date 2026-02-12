@@ -355,6 +355,49 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   # ============================================================================
+  # Resource Resolution (for admin UI)
+  # ============================================================================
+
+  @doc """
+  Resolves resource context (title and admin path) for a list of comments.
+
+  Returns a map of `{resource_type, resource_id} => %{title: ..., path: ...}`
+  by delegating to registered `comment_resource_handlers` that implement
+  `resolve_comment_resources/1`.
+  """
+  def resolve_resource_context(comments) do
+    comments
+    |> Enum.group_by(& &1.resource_type, & &1.resource_id)
+    |> Enum.reduce(%{}, fn {resource_type, ids}, acc ->
+      resolved = resolve_for_type(resource_type, Enum.uniq(ids))
+
+      Enum.reduce(resolved, acc, fn {id, info}, inner ->
+        Map.put(inner, {resource_type, id}, info)
+      end)
+    end)
+  end
+
+  defp resolve_for_type(resource_type, resource_ids) do
+    handlers = Application.get_env(:phoenix_kit, :comment_resource_handlers, %{})
+
+    case Map.get(handlers, resource_type) do
+      nil ->
+        %{}
+
+      mod ->
+        if Code.ensure_loaded?(mod) and function_exported?(mod, :resolve_comment_resources, 1) do
+          mod.resolve_comment_resources(resource_ids)
+        else
+          %{}
+        end
+    end
+  rescue
+    e ->
+      Logger.warning("Comment resource resolver error: #{inspect(e)}")
+      %{}
+  end
+
+  # ============================================================================
   # Like Operations
   # ============================================================================
 
