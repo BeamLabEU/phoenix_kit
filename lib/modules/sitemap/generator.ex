@@ -35,6 +35,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   alias PhoenixKit.Modules.Sitemap.SchedulerWorker
   alias PhoenixKit.Modules.Sitemap.Sources.Source
   alias PhoenixKit.Modules.Sitemap.UrlEntry
+  alias PhoenixKit.Utils.Routes
 
   @max_urls_per_file 50_000
   @xml_declaration ~s(<?xml version="1.0" encoding="UTF-8"?>)
@@ -538,7 +539,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
 
     case Regex.run(~r/^\/([a-z]{2})(?:\/|$)/, path) do
       [_, lang] -> lang
-      _ -> "en"
+      _ -> Routes.get_default_admin_locale()
     end
   end
 

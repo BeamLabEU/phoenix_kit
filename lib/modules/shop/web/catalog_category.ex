@@ -649,16 +649,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   end
 
   # Build a localized URL path, adding language prefix for non-default languages.
-  # Uses locale: :none to bypass Routes.path default-language logic.
+  # Delegates to Routes.path which handles default vs non-default consistently.
   defp build_lang_url(path, lang) do
     base = DialectMapper.extract_base(lang)
-    default_base = DialectMapper.extract_base(Translations.default_language())
-
-    if base == default_base do
-      Routes.path(path, locale: :none)
-    else
-      Routes.path("/#{base}#{path}", locale: :none)
-    end
+    Routes.path(path, locale: base)
   end
 
   # Pagination UI component

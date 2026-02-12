@@ -38,6 +38,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Sitemap.UrlEntry
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Routes
 
   # Future: Hook into Shop.create_product/update_product to invalidate sitemap-shop
 
@@ -98,11 +99,22 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   end
 
   # Active category entries (/shop/category/:slug)
+  # Includes categories with fallback slugs from other languages
+  # Excludes categories with no active products (all archived/draft)
   defp category_entries(base_url, language, is_default) do
+    # Pre-compute set of category IDs that have at least one active product
+    categories_with_products = active_product_category_ids()
+
     Shop.list_active_categories()
-    |> Enum.filter(&has_slug?(&1, language))
+    |> Enum.filter(fn cat ->
+      has_any_slug?(cat) and MapSet.member?(categories_with_products, cat.id)
+    end)
     |> Enum.map(fn category ->
-      url = build_url(Shop.category_url(category, language), base_url)
+      # Use current language if slug exists, otherwise fallback to best available
+      effective_lang =
+        if has_slug?(category, language), do: language, else: best_available_language(category)
+
+      url = build_url(Shop.category_url(category, effective_lang), base_url)
       canonical_path = "/shop/category/#{category_canonical_slug(category)}"
 
       UrlEntry.new(%{
@@ -123,11 +135,17 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   end
 
   # Active product entries (/shop/product/:slug)
+  # Includes products with fallback slugs from other languages
+  # Excludes products in hidden categories (inaccessible to users)
   defp product_entries(base_url, language, is_default) do
-    Shop.list_products(status: "active")
-    |> Enum.filter(&has_slug?(&1, language))
+    Shop.list_products(status: "active", exclude_hidden_categories: true)
+    |> Enum.filter(&has_any_slug?/1)
     |> Enum.map(fn product ->
-      url = build_url(Shop.product_url(product, language), base_url)
+      # Use current language if slug exists, otherwise fallback to best available
+      effective_lang =
+        if has_slug?(product, language), do: language, else: best_available_language(product)
+
+      url = build_url(Shop.product_url(product, effective_lang), base_url)
       canonical_path = "/shop/product/#{product_canonical_slug(product)}"
 
       UrlEntry.new(%{
@@ -216,6 +234,39 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
     Map.has_key?(slug_map, language) or
       Map.has_key?(slug_map, base) or
       Map.has_key?(slug_map, dialect)
+  end
+
+  # Check if entity has any slug at all (in any language)
+  defp has_any_slug?(entity) do
+    case entity.slug do
+      %{} = slugs when map_size(slugs) > 0 -> true
+      _ -> false
+    end
+  end
+
+  # Find the best available language for an entity's slug.
+  # Prefers content default, then Routes default, then first available.
+  defp best_available_language(entity) do
+    slug_map = entity.slug || %{}
+    content_default = default_language()
+    routes_default = Routes.get_default_admin_locale()
+    dialect_routes = Languages.DialectMapper.base_to_dialect(routes_default)
+
+    cond do
+      Map.has_key?(slug_map, content_default) -> content_default
+      Map.has_key?(slug_map, routes_default) -> routes_default
+      Map.has_key?(slug_map, dialect_routes) -> dialect_routes
+      true -> slug_map |> Map.keys() |> List.first()
+    end
+  end
+
+  # Returns a MapSet of category IDs that have at least one active product.
+  # Used to exclude empty categories (all products archived/draft) from sitemap.
+  defp active_product_category_ids do
+    Shop.list_products(status: "active", exclude_hidden_categories: true)
+    |> Enum.map(& &1.category_id)
+    |> Enum.reject(&is_nil/1)
+    |> MapSet.new()
   end
 
   defp first_value(map) when map_size(map) > 0 do
