@@ -14,6 +14,8 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   - `/sitemaps/sitemap-shop.xml` - Shop products (auto-split at 50k)
   - `/sitemaps/sitemap-entities.xml` - Entities (or per-type files)
 
+  HTML sitemaps are rendered by `PhoenixKit.Modules.Sitemap.HtmlGenerator`.
+
   ## Usage
 
       # Generate all sitemaps (index + per-module files)
@@ -32,6 +34,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   alias PhoenixKit.Modules.Sitemap
   alias PhoenixKit.Modules.Sitemap.Cache
   alias PhoenixKit.Modules.Sitemap.FileStorage
+  alias PhoenixKit.Modules.Sitemap.HtmlGenerator
   alias PhoenixKit.Modules.Sitemap.SchedulerWorker
   alias PhoenixKit.Modules.Sitemap.Sources.Source
   alias PhoenixKit.Modules.Sitemap.UrlEntry
@@ -307,6 +310,8 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   @doc """
   Generates HTML sitemap from all enabled sources.
 
+  Delegates to `PhoenixKit.Modules.Sitemap.HtmlGenerator`.
+
   ## Options
 
   - `:base_url` - Base URL for building full URLs (required)
@@ -316,33 +321,8 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   """
   @spec generate_html(keyword()) :: {:ok, String.t()} | {:error, any()}
   def generate_html(opts \\ []) do
-    base_url = Keyword.get(opts, :base_url)
-    style = Keyword.get(opts, :style, "hierarchical")
-    cache_enabled = Keyword.get(opts, :cache, true)
-
-    cond do
-      !base_url ->
-        {:error, :base_url_required}
-
-      style not in ["hierarchical", "grouped", "flat"] ->
-        {:error, :invalid_style}
-
-      true ->
-        cache_key = :"html_#{style}"
-
-        if cache_enabled do
-          case Cache.get(cache_key) do
-            {:ok, cached} ->
-              Logger.debug("Sitemap: Using cached HTML sitemap (#{style})")
-              {:ok, cached}
-
-            :error ->
-              generate_and_cache_html(opts, cache_key)
-          end
-        else
-          generate_and_cache_html(opts, cache_key, cache: false)
-        end
-    end
+    entries = collect_all_entries(opts)
+    HtmlGenerator.generate(opts, entries)
   end
 
   @doc """
@@ -573,260 +553,6 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   end
 
   defp build_index_xsl_line(_, _), do: ""
-
-  # ── Internal: HTML generation ──────────────────────────────────────
-
-  defp generate_and_cache_html(opts, cache_key, cache_opts \\ []) do
-    entries = collect_all_entries(opts)
-    style = Keyword.get(opts, :style, "hierarchical")
-    title = Keyword.get(opts, :title, "Sitemap")
-    cache_enabled = Keyword.get(cache_opts, :cache, true)
-
-    html =
-      case style do
-        "hierarchical" -> generate_hierarchical_html(entries, title)
-        "grouped" -> generate_grouped_html(entries, title)
-        "flat" -> generate_flat_html(entries, title)
-      end
-
-    result = {:ok, html}
-
-    if cache_enabled do
-      Cache.put(cache_key, html)
-      FileStorage.save("html_#{style}", html)
-    end
-
-    result
-  end
-
-  defp html_head(title) do
-    """
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>#{UrlEntry.escape_xml(title)}</title>
-        <style>
-          :root {
-            --base-100: #ffffff;
-            --base-200: #f3f4f6;
-            --base-content: #1f2937;
-            --primary: #3b82f6;
-            color-scheme: light dark;
-          }
-          @media (prefers-color-scheme: dark) {
-            :root {
-              --base-100: #1f2937;
-              --base-200: #374151;
-              --base-content: #f3f4f6;
-              --primary: #60a5fa;
-            }
-          }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--base-100);
-            color: var(--base-content);
-            line-height: 1.5;
-          }
-          .container { width: 100%; max-width: 1280px; margin: 0 auto; }
-          .px-4 { padding-left: 1rem; padding-right: 1rem; }
-          .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
-          .max-w-4xl { max-width: 56rem; }
-          .max-w-6xl { max-width: 72rem; }
-          .text-4xl { font-size: 2.25rem; font-weight: 700; }
-          .text-lg { font-size: 1.125rem; }
-          .text-sm { font-size: 0.875rem; }
-          .font-bold { font-weight: 700; }
-          .font-semibold { font-weight: 600; }
-          .text-center { text-align: center; }
-          .mb-2 { margin-bottom: 0.5rem; }
-          .mb-4 { margin-bottom: 1rem; }
-          .mb-6 { margin-bottom: 1.5rem; }
-          .mb-8 { margin-bottom: 2rem; }
-          .mt-2 { margin-top: 0.5rem; }
-          .ml-4 { margin-left: 1rem; }
-          .card {
-            background-color: var(--base-200);
-            border-radius: 0.75rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          }
-          .card-body { padding: 1.5rem; }
-          .card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-          }
-          .grid { display: grid; gap: 1rem; }
-          .gap-4 { gap: 1rem; }
-          @media (min-width: 768px) {
-            .md\\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-            .md\\:columns-2 { column-count: 2; }
-          }
-          @media (min-width: 1024px) {
-            .lg\\:columns-3 { column-count: 3; }
-          }
-          ul { list-style: none; }
-          .list-disc { list-style-type: disc; }
-          .list-inside { list-style-position: inside; }
-          .space-y-1 > * + * { margin-top: 0.25rem; }
-          .space-y-2 > * + * { margin-top: 0.5rem; }
-          a.link {
-            color: var(--primary);
-            text-decoration: none;
-            transition: opacity 0.15s;
-          }
-          a.link:hover { opacity: 0.8; text-decoration: underline; }
-          .text-muted { opacity: 0.7; }
-          .columns-1 { column-count: 1; }
-        </style>
-    """
-  end
-
-  defp generate_hierarchical_html(entries, title) do
-    grouped =
-      entries
-      |> Enum.group_by(fn entry -> entry.category || "Other" end)
-      |> Enum.sort_by(fn {category, _} -> category end)
-
-    category_sections =
-      Enum.map_join(grouped, "\n", fn {category, category_entries} ->
-        letter_groups =
-          category_entries
-          |> Enum.group_by(fn entry ->
-            t = entry.title || entry.loc
-            String.upcase(String.at(t, 0) || "")
-          end)
-          |> Enum.sort_by(fn {letter, _} -> letter end)
-
-        letter_sections =
-          Enum.map_join(letter_groups, "\n", fn {letter, letter_entries} ->
-            links =
-              letter_entries
-              |> Enum.sort_by(fn entry -> entry.title || entry.loc end)
-              |> Enum.map_join("\n          ", fn entry ->
-                display_title = entry.title || entry.loc
-
-                ~s(<li><a href="#{UrlEntry.escape_xml(entry.loc)}" class="link">#{UrlEntry.escape_xml(display_title)}</a></li>)
-              end)
-
-            """
-                  <div class="mb-4">
-                    <h4 class="text-sm font-semibold text-muted mb-2">#{letter}</h4>
-                    <ul class="ml-4 space-y-1">
-                      #{links}
-                    </ul>
-                  </div>
-            """
-          end)
-
-        """
-              <div class="card mb-4">
-                <div class="card-body">
-                  <h3 class="card-title text-lg">#{UrlEntry.escape_xml(category)}</h3>
-                  <div class="mt-2">
-        #{letter_sections}
-                  </div>
-                </div>
-              </div>
-        """
-      end)
-
-    """
-    <!DOCTYPE html>
-    <html>
-      <head>
-    #{html_head(title)}</head>
-      <body>
-        <div class="container px-4 py-8 max-w-6xl">
-          <h1 class="text-4xl font-bold mb-8 text-center">#{UrlEntry.escape_xml(title)}</h1>
-          <div class="grid md:grid-cols-2 gap-4">
-    #{category_sections}
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-  end
-
-  defp generate_grouped_html(entries, title) do
-    grouped =
-      entries
-      |> Enum.group_by(fn entry ->
-        entry.category || (entry.source && to_string(entry.source)) || "Other"
-      end)
-      |> Enum.sort_by(fn {group, _} -> group end)
-
-    sections =
-      Enum.map_join(grouped, "\n", fn {group, group_entries} ->
-        links =
-          group_entries
-          |> Enum.sort_by(fn entry -> entry.title || entry.loc end)
-          |> Enum.map_join("\n          ", fn entry ->
-            display_title = entry.title || entry.loc
-
-            ~s(<li><a href="#{UrlEntry.escape_xml(entry.loc)}" class="link">#{UrlEntry.escape_xml(display_title)}</a></li>)
-          end)
-
-        """
-              <div class="card mb-6">
-                <div class="card-body">
-                  <h2 class="card-title">#{UrlEntry.escape_xml(group)}</h2>
-                  <ul class="list-disc list-inside space-y-2 mt-2">
-        #{links}
-                  </ul>
-                  <div class="text-sm text-muted mt-2">
-                    #{length(group_entries)} page#{if length(group_entries) != 1, do: "s", else: ""}
-                  </div>
-                </div>
-              </div>
-        """
-      end)
-
-    """
-    <!DOCTYPE html>
-    <html>
-      <head>
-    #{html_head(title)}</head>
-      <body>
-        <div class="container px-4 py-8 max-w-4xl">
-          <h1 class="text-4xl font-bold mb-8 text-center">#{UrlEntry.escape_xml(title)}</h1>
-    #{sections}
-        </div>
-      </body>
-    </html>
-    """
-  end
-
-  defp generate_flat_html(entries, title) do
-    links =
-      entries
-      |> Enum.sort_by(fn entry -> entry.title || entry.loc end)
-      |> Enum.map_join("\n          ", fn entry ->
-        display_title = entry.title || entry.loc
-
-        ~s(<li><a href="#{UrlEntry.escape_xml(entry.loc)}" class="link">#{UrlEntry.escape_xml(display_title)}</a></li>)
-      end)
-
-    """
-    <!DOCTYPE html>
-    <html>
-      <head>
-    #{html_head(title)}</head>
-      <body>
-        <div class="container px-4 py-8 max-w-4xl">
-          <h1 class="text-4xl font-bold mb-8 text-center">#{UrlEntry.escape_xml(title)}</h1>
-          <div class="card">
-            <div class="card-body">
-              <p class="text-muted mb-4">Total: #{length(entries)} pages</p>
-              <ul class="list-disc list-inside space-y-2 columns-1 md:columns-2 lg:columns-3">
-    #{links}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-  end
 
   # ── Internal: helpers ──────────────────────────────────────────────
 
