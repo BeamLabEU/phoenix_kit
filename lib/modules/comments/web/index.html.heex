@@ -158,6 +158,23 @@
                     </td>
                     <td>
                       <span class="badge badge-ghost badge-sm">{comment.resource_type}</span>
+                      <%= case resource_info(@resource_context, comment) do %>
+                        <% %{title: title, path: path} -> %>
+                          <.link
+                            navigate={Routes.path(path)}
+                            class="link link-hover text-sm ml-1 truncate max-w-[200px] inline-block align-bottom"
+                            title={title}
+                          >
+                            {String.slice(title, 0..49)}
+                          </.link>
+                        <% _ -> %>
+                          <span
+                            class="text-base-content/40 text-xs ml-1"
+                            title={to_string(comment.resource_id)}
+                          >
+                            (deleted)
+                          </span>
+                      <% end %>
                     </td>
                     <td>
                       <span class={status_badge_class(comment.status)}>

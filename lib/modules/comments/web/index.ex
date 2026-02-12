@@ -28,6 +28,7 @@ defmodule PhoenixKit.Modules.Comments.Web.Index do
         |> assign(:comments, [])
         |> assign(:total, 0)
         |> assign(:total_pages, 1)
+        |> assign(:resource_context, %{})
         |> assign(:stats, Comments.comment_stats())
         |> assign(:selected_ids, [])
         |> assign_filter_defaults()
@@ -203,10 +204,13 @@ defmodule PhoenixKit.Modules.Comments.Web.Index do
         status: socket.assigns.filter_status
       )
 
+    resource_context = Comments.resolve_resource_context(result.comments)
+
     socket
     |> assign(:comments, result.comments)
     |> assign(:total, result.total)
     |> assign(:total_pages, result.total_pages)
+    |> assign(:resource_context, resource_context)
   end
 
   defp reload_stats(socket) do
@@ -243,6 +247,10 @@ defmodule PhoenixKit.Modules.Comments.Web.Index do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(val), do: val
+
+  defp resource_info(resource_context, comment) do
+    Map.get(resource_context, {comment.resource_type, comment.resource_id})
+  end
 
   defp status_badge_class("published"), do: "badge badge-success badge-sm"
   defp status_badge_class("pending"), do: "badge badge-warning badge-sm"

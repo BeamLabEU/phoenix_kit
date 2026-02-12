@@ -895,6 +895,20 @@ defmodule PhoenixKit.Modules.Posts do
 
   def on_comment_deleted(_resource_type, _resource_id, _comment), do: :ok
 
+  @doc """
+  Resolves post titles and admin paths for a list of resource IDs.
+
+  Called by the Comments module to display resource context in the admin UI.
+  Returns a map of `resource_id => %{title: ..., path: ...}`.
+  """
+  def resolve_comment_resources(resource_ids) when is_list(resource_ids) do
+    from(p in Post, where: p.id in ^resource_ids, select: {p.id, p.title})
+    |> repo().all()
+    |> Map.new(fn {id, title} -> {id, %{title: title, path: "/admin/posts/#{id}"}} end)
+  rescue
+    _ -> %{}
+  end
+
   # ============================================================================
   # Tag Operations
   # ============================================================================
