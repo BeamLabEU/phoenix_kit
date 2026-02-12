@@ -88,10 +88,15 @@
                 class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <% image_url =
-                  if file.file_type == "video" do
-                    file.urls["video_thumbnail"]
-                  else
-                    file.urls["medium"] || file.urls["thumbnail"] || file.urls["original"]
+                  cond do
+                    file.file_type == "video" ->
+                      file.urls["video_thumbnail"]
+
+                    file.file_type == "image" ->
+                      file.urls["medium"] || file.urls["thumbnail"] || file.urls["original"]
+
+                    true ->
+                      file.urls["thumbnail"] || file.urls["small"] || file.urls["medium"]
                   end %>
                 <%= if image_url do %>
                   <img
@@ -117,6 +122,13 @@
                 <%= if file.file_type == "video" do %>
                   <div class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center">
                     <.icon name="hero-play-solid" class="w-4 h-4" />
+                  </div>
+                <% end %>
+
+                <%!-- PDF indicator badge --%>
+                <%= if file.mime_type == "application/pdf" do %>
+                  <div class="absolute top-2 left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none">
+                    PDF
                   </div>
                 <% end %>
 

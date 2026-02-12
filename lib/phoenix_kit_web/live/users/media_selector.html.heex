@@ -143,19 +143,26 @@
               >
                 <%!-- Thumbnail --%>
                 <figure class="aspect-square bg-base-300 relative">
-                  <%= if file.file_type == "image" do %>
+                  <% thumbnail_url =
+                    cond do
+                      file.file_type == "image" ->
+                        file.urls["thumbnail"] || file.urls["small"] || file.urls["original"]
+
+                      file.file_type == "video" ->
+                        file.urls["video_thumbnail"]
+
+                      true ->
+                        file.urls["thumbnail"] || file.urls["small"]
+                    end %>
+                  <%= if thumbnail_url do %>
                     <img
-                      src={file.urls["thumbnail"] || file.urls["small"] || file.urls["original"]}
+                      src={thumbnail_url}
                       alt={file.filename}
                       class="object-cover w-full h-full"
                     />
                   <% else %>
                     <div class="flex items-center justify-center w-full h-full">
-                      <%= if file.file_type == "video" do %>
-                        <.icon name="hero-video-camera" class="w-16 h-16 text-base-content/30" />
-                      <% else %>
-                        <.icon name="hero-document" class="w-16 h-16 text-base-content/30" />
-                      <% end %>
+                      <.icon name="hero-document" class="w-16 h-16 text-base-content/30" />
                     </div>
                   <% end %>
 

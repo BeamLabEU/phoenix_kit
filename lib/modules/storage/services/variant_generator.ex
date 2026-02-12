@@ -29,6 +29,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.Manager
+  alias PhoenixKit.Modules.Storage.PdfProcessor
 
   require Logger
 
@@ -249,12 +250,15 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   end
 
   defp should_generate_variants?(file) do
-    file.file_type in ["image", "video"] and
+    (file.file_type in ["image", "video"] or
+       (file.file_type == "document" and file.mime_type == "application/pdf")) and
       Storage.get_auto_generate_variants()
   end
 
   defp get_dimensions_for_generation(file_type, specific_dimensions) do
-    base_query = Storage.list_dimensions_for_type(file_type)
+    # PDFs generate image thumbnails, so use image dimensions
+    query_type = if file_type == "document", do: "image", else: file_type
+    base_query = Storage.list_dimensions_for_type(query_type)
 
     dimensions =
       if Enum.empty?(specific_dimensions) do
@@ -300,7 +304,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         _ -> original_mime
       end
     else
-      original_mime
+      # PDF variants are rendered as JPEG images
+      if original_mime == "application/pdf", do: "image/jpeg", else: original_mime
     end
   end
 
@@ -313,8 +318,9 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         format_override
       end
     else
-      # Return original extension without leading dot
-      String.trim_leading(original_ext, ".")
+      ext = String.trim_leading(original_ext, ".")
+      # PDF variants are rendered as JPEG images
+      if ext == "pdf", do: "jpg", else: ext
     end
   end
 
@@ -326,18 +332,18 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   end
 
   defp process_variant(original_path, variant_path, mime_type, dimension) do
-    case String.starts_with?(mime_type, "image/") do
-      true ->
+    cond do
+      String.starts_with?(mime_type, "image/") ->
         process_image_variant(original_path, variant_path, mime_type, dimension)
 
-      false ->
-        case String.starts_with?(mime_type, "video/") do
-          true ->
-            process_video_variant(original_path, variant_path, mime_type, dimension)
+      String.starts_with?(mime_type, "video/") ->
+        process_video_variant(original_path, variant_path, mime_type, dimension)
 
-          false ->
-            {:error, "Unsupported file type for variant generation"}
-        end
+      mime_type == "application/pdf" ->
+        process_pdf_variant(original_path, variant_path, dimension)
+
+      true ->
+        {:error, "Unsupported file type for variant generation"}
     end
   end
 
@@ -451,6 +457,26 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
   defp get_height_from_file(file_path) do
     ImageProcessor.get_height(file_path)
+  end
+
+  defp process_pdf_variant(input_path, output_path, dimension) do
+    temp_prefix = generate_temp_prefix()
+
+    case PdfProcessor.first_page_to_jpeg(input_path, temp_prefix) do
+      {:ok, jpeg_path} ->
+        result = process_image_variant(jpeg_path, output_path, "image/jpeg", dimension)
+        File.rm(jpeg_path)
+        result
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp generate_temp_prefix do
+    temp_dir = System.tmp_dir!()
+    random_name = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+    Path.join(temp_dir, "phoenix_kit_pdf_#{random_name}")
   end
 
   defp generate_temp_path(extension) do
