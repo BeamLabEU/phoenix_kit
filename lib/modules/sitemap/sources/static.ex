@@ -57,6 +57,8 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Static do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
+  # Login is ALWAYS excluded from sitemap (auth pages shouldn't be indexed).
+  # Registration is conditional via sitemap_include_registration setting.
   @default_static_routes [
     %{
       "path" => "/",
@@ -67,30 +69,26 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Static do
       "prefixed" => false,
       # Don't add language prefix to homepage - it usually doesn't have localized route
       "skip_language_prefix" => true
-    },
-    %{
-      "plug" => "PhoenixKitWeb.Users.Registration",
-      "priority" => 0.7,
-      "changefreq" => "monthly",
-      "title" => "Register",
-      "category" => "Authentication",
-      "prefixed" => true
-    },
-    %{
-      "plug" => "PhoenixKitWeb.Users.Login",
-      "priority" => 0.7,
-      "changefreq" => "monthly",
-      "title" => "Login",
-      "category" => "Authentication",
-      "prefixed" => true
     }
   ]
+
+  @registration_route %{
+    "path" => "/users/register",
+    "priority" => 0.7,
+    "changefreq" => "monthly",
+    "title" => "Register",
+    "category" => "Authentication",
+    "prefixed" => true
+  }
 
   @impl true
   def source_name, do: :static
 
   @impl true
   def enabled?, do: true
+
+  @impl true
+  def sitemap_filename, do: "sitemap-static"
 
   @impl true
   def collect(opts \\ []) do
@@ -128,22 +126,36 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Static do
   end
 
   defp get_static_routes_config do
-    case Settings.get_setting("sitemap_static_routes") do
-      nil ->
-        @default_static_routes
+    base_routes =
+      case Settings.get_setting("sitemap_static_routes") do
+        nil ->
+          @default_static_routes
 
-      json_string when is_binary(json_string) ->
-        case Jason.decode(json_string) do
-          {:ok, routes} when is_list(routes) -> routes
-          _ -> @default_static_routes
-        end
+        json_string when is_binary(json_string) ->
+          case Jason.decode(json_string) do
+            {:ok, routes} when is_list(routes) -> routes
+            _ -> @default_static_routes
+          end
 
-      routes when is_list(routes) ->
-        routes
+        routes when is_list(routes) ->
+          routes
 
-      _ ->
-        @default_static_routes
+        _ ->
+          @default_static_routes
+      end
+
+    # Conditionally include registration page
+    if include_registration?() do
+      base_routes ++ [@registration_route]
+    else
+      base_routes
     end
+  end
+
+  defp include_registration? do
+    Settings.get_boolean_setting("sitemap_include_registration", false)
+  rescue
+    _ -> false
   end
 
   defp get_custom_urls_config do

@@ -97,6 +97,49 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Entities do
   def source_name, do: :entities
 
   @impl true
+  def sitemap_filename, do: "sitemap-entities"
+
+  @doc """
+  Returns per-entity-type sub-sitemaps.
+  Each entity type gets its own sitemap file.
+  """
+  @impl true
+  def sub_sitemaps(opts) do
+    is_default = Keyword.get(opts, :is_default_language, true)
+
+    if enabled?() and is_default do
+      base_url = Keyword.get(opts, :base_url)
+      language = Keyword.get(opts, :language)
+      include_index = Settings.get_boolean_setting("sitemap_entities_include_index", true)
+      routes_cache = build_routes_cache()
+
+      sub_maps =
+        Entities.list_active_entities()
+        |> Enum.filter(&entity_has_public_route?(&1, routes_cache))
+        |> Enum.map(fn entity ->
+          entries =
+            collect_entity_entries(
+              entity,
+              base_url,
+              include_index,
+              language,
+              is_default,
+              routes_cache
+            )
+
+          {entity.name, entries}
+        end)
+        |> Enum.reject(fn {_name, entries} -> entries == [] end)
+
+      if sub_maps == [], do: nil, else: sub_maps
+    else
+      nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  @impl true
   def enabled? do
     Entities.enabled?()
   rescue

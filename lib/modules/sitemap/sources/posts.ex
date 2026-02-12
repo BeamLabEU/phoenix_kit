@@ -55,6 +55,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Posts do
   def source_name, do: :posts
 
   @impl true
+  def sitemap_filename, do: "sitemap-posts"
+
+  @impl true
   def enabled? do
     # Only check if posts module is enabled
     # Route checks moved to do_collect() for caching optimization

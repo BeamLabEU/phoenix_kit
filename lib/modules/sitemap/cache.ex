@@ -2,28 +2,16 @@ defmodule PhoenixKit.Modules.Sitemap.Cache do
   @moduledoc """
   Caching layer for sitemap generation.
 
-  Manages both ETS cache (for entries/HTML) and file storage (for XML).
-  When invalidated, clears both ETS cache and deletes the sitemap file,
-  forcing regeneration on next request.
+  Manages ETS cache for entries, per-module XML, and index XML.
+  When invalidated, clears ETS cache and deletes sitemap files.
 
-  ## Architecture
+  ## Cache Key Scheme
 
-  - **XML Storage**: File-based (`priv/static/sitemap.xml`)
-  - **Entries Cache**: ETS (in-memory, cleared on invalidate)
-  - **HTML Cache**: Generated on-demand, not persisted
-
-  ## Usage
-
-      # Clear cache when content changes (deletes file + clears ETS)
-      Cache.invalidate()
-
-      # Check if ETS cache has entries
-      Cache.has?(:entries)
-
-  ## Cache Keys
-
-  - `:entries` - Collected sitemap entries
-  - `:parts` - Sitemap index parts for large sitemaps
+  - `:index_xml` - The sitemapindex XML content
+  - `{:module_xml, "sitemap-shop"}` - Per-module XML content
+  - `{:module_entries, :shop}` - Per-module collected entries
+  - `:entries` - All collected entries (legacy)
+  - `:parts` - Sitemap index parts (legacy)
   """
 
   alias PhoenixKit.Modules.Sitemap
@@ -34,16 +22,7 @@ defmodule PhoenixKit.Modules.Sitemap.Cache do
   @doc """
   Initializes the ETS cache table.
 
-  Creates a public named table with read concurrency for optimal performance.
   Safe to call multiple times - returns :ok if table already exists.
-
-  ## Examples
-
-      iex> Cache.init()
-      :ok
-
-      iex> Cache.init()
-      :ok  # Idempotent
   """
   @spec init() :: :ok
   def init do
@@ -62,17 +41,9 @@ defmodule PhoenixKit.Modules.Sitemap.Cache do
 
   @doc """
   Retrieves a cached value by key.
-
-  ## Examples
-
-      iex> Cache.get(:xml)
-      {:ok, "<?xml version=..."}
-
-      iex> Cache.get(:nonexistent)
-      :error
   """
-  @spec get(atom()) :: {:ok, any()} | :error
-  def get(key) when is_atom(key) do
+  @spec get(term()) :: {:ok, any()} | :error
+  def get(key) do
     init()
 
     case :ets.lookup(@table_name, key) do
@@ -83,74 +54,19 @@ defmodule PhoenixKit.Modules.Sitemap.Cache do
 
   @doc """
   Stores a value in cache with the given key.
-
-  ## Examples
-
-      iex> Cache.put(:xml, xml_content)
-      :ok
-
-      iex> Cache.put(:html, html_content)
-      :ok
   """
-  @spec put(atom(), any()) :: :ok
-  def put(key, value) when is_atom(key) do
+  @spec put(term(), any()) :: :ok
+  def put(key, value) do
     init()
     :ets.insert(@table_name, {key, value})
     :ok
   end
 
   @doc """
-  Clears all cached data and deletes the sitemap file.
-
-  Should be called when sitemap content changes (new pages, updated content, etc).
-  Next request to sitemap.xml will trigger fresh generation.
-
-  ## Examples
-
-      iex> Cache.invalidate()
-      :ok
-  """
-  @spec invalidate() :: :ok
-  def invalidate do
-    # Delete sitemap file (primary XML storage)
-    FileStorage.delete()
-
-    # Clear generation stats (last_generated, url_count)
-    # This indicates sitemap doesn't exist until regenerated
-    Sitemap.clear_generation_stats()
-
-    # Clear ETS caches
-    if table_exists?() do
-      # Clear entries (primary cache key)
-      :ets.delete(@table_name, :entries)
-      # Clear parts for sitemap index
-      :ets.delete(@table_name, :parts)
-      # Clear legacy keys for backward compatibility
-      :ets.delete(@table_name, :xml)
-      :ets.delete(@table_name, :html_table)
-      :ets.delete(@table_name, :html_cards)
-      :ets.delete(@table_name, :html_minimal)
-      :ets.delete(@table_name, :xml_table)
-      :ets.delete(@table_name, :xml_cards)
-      :ets.delete(@table_name, :xml_minimal)
-    end
-
-    :ok
-  end
-
-  @doc """
   Checks if a cached value exists for the given key.
-
-  ## Examples
-
-      iex> Cache.has?(:xml)
-      true
-
-      iex> Cache.has?(:nonexistent)
-      false
   """
-  @spec has?(atom()) :: boolean()
-  def has?(key) when is_atom(key) do
+  @spec has?(term()) :: boolean()
+  def has?(key) do
     init()
 
     case :ets.lookup(@table_name, key) do
@@ -161,14 +77,9 @@ defmodule PhoenixKit.Modules.Sitemap.Cache do
 
   @doc """
   Deletes a specific cache entry.
-
-  ## Examples
-
-      iex> Cache.delete(:xml)
-      :ok
   """
-  @spec delete(atom()) :: :ok
-  def delete(key) when is_atom(key) do
+  @spec delete(term()) :: :ok
+  def delete(key) do
     if table_exists?() do
       :ets.delete(@table_name, key)
     end
@@ -176,13 +87,65 @@ defmodule PhoenixKit.Modules.Sitemap.Cache do
     :ok
   end
 
+  # ── Per-module cache operations ────────────────────────────────────
+
+  @doc """
+  Caches XML content for a specific module.
+  """
+  @spec put_module(String.t(), String.t()) :: :ok
+  def put_module(filename, xml) when is_binary(filename) and is_binary(xml) do
+    put({:module_xml, filename}, xml)
+  end
+
+  @doc """
+  Gets cached XML content for a specific module.
+  """
+  @spec get_module(String.t()) :: {:ok, String.t()} | :error
+  def get_module(filename) when is_binary(filename) do
+    get({:module_xml, filename})
+  end
+
+  @doc """
+  Invalidates all cache keys for a specific source module.
+  """
+  @spec invalidate_module(String.t()) :: :ok
+  def invalidate_module(filename) when is_binary(filename) do
+    delete({:module_xml, filename})
+    :ok
+  end
+
+  # ── Full invalidation ──────────────────────────────────────────────
+
+  @doc """
+  Clears all cached data and deletes all sitemap files.
+
+  Should be called when sitemap content changes.
+  """
+  @spec invalidate() :: :ok
+  def invalidate do
+    # Delete sitemap files (index + all module files)
+    FileStorage.delete()
+    FileStorage.delete_all_modules()
+
+    # Clear generation stats
+    Sitemap.clear_generation_stats()
+
+    # Clear all ETS entries
+    if table_exists?() do
+      :ets.delete_all_objects(@table_name)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Alias for `invalidate/0`.
+  """
+  @spec invalidate_all() :: :ok
+  def invalidate_all, do: invalidate()
+
   @doc """
   Returns cache statistics.
-
-  ## Examples
-
-      iex> Cache.stats()
-      %{size: 2, memory: 1024}
   """
   @spec stats() :: map()
   def stats do

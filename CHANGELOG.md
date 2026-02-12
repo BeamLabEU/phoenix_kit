@@ -1,3 +1,45 @@
+## 1.7.35 - 2026-02-12
+- Rewrite Sitemap module to sitemapindex architecture with per-module files
+  - `/sitemap.xml` now returns a `<sitemapindex>` referencing per-module files at `/sitemaps/sitemap-{source}.xml`
+  - Dual mode support: "Index mode" (per-module files, default) and "Flat mode" (single urlset when Router Discovery enabled)
+  - New `Source` behaviour callbacks: `sitemap_filename/0` and `sub_sitemaps/1` for per-group file splitting
+  - New `Generator.generate_all/1` and `generate_module/2` with auto-splitting at 50,000 URLs
+  - FileStorage rewrite with `save_module/2`, `load_module/1`, `delete_module/1`, `list_module_files/0`
+  - Cache rewrite supporting `{:module_xml, filename}` and `{:module_entries, source}` keys
+  - Per-module stats stored as JSON in Settings with `get_module_stats/0`
+  - Per-module regeneration via `SchedulerWorker.regenerate_module_now/1` (Oban)
+  - Settings UI overhaul: per-module sitemap cards with stats, regeneration buttons, mode indicators
+  - Publishing source: per-blog sub-sitemaps via `sitemap_publishing_split_by_group` setting
+  - Entities source: per-entity-type sub-sitemaps
+  - Static source: login page excluded, registration conditionally included
+  - Router Discovery default changed to `false` (index mode is new default)
+  - Removed "cards" XSL style; added `sitemap-index-minimal.xsl` and `sitemap-index-table.xsl`
+  - Sitemap routes no longer go through `:browser` pipeline (public XML endpoints)
+- Add PDF support for Storage module
+  - New `PdfProcessor` module using `poppler-utils` (`pdftoppm`, `pdfinfo`)
+  - First page rendered to JPEG thumbnail at configurable DPI
+  - PDF metadata extraction (page count, title, author, creator, creation date)
+  - `VariantGenerator` extended for document/PDF MIME types
+  - Media UI: inline PDF viewer on detail page, PDF badges on thumbnails, metadata display
+  - New system dependency checks for poppler in `Dependencies` module
+- Fix option price display for options with all-zero modifiers
+  - New `has_nonzero_modifiers?/1` filters out option groups where all price modifiers are zero
+  - Price modifiers displayed as badges on option buttons (e.g., "+$5.00")
+  - Cart saves all selected specs including non-price-affecting options (e.g., Color)
+  - `build_cart_display_name/3` includes all selected specs in display name
+- Fix category icons fallback to legacy product images
+  - `Category.get_image_url/2` falls back to `featured_product.featured_image` (legacy URL)
+  - Product detail respects `shop_category_icon_mode` setting for category subtab icons
+  - Guard clauses tightened for Storage vs legacy URL handling
+- Add ImportConfig filtering at CSV preview stage
+  - Config filters applied during CSV analysis/preview, not just during import
+  - Import wizard shows skipped product count with warning badge
+  - Category creation uses language normalization for consistent JSONB slug keys
+  - Imported option labels use `_option_slots` metadata for proper display names
+- Fix admin sidebar full-page reload after upstream merge
+  - Comments and Sync routes merged into main admin `live_session`
+- Add runtime sitemaps directory to gitignore
+
 ## 1.7.34 - 2026-02-11
 - Extract Comments into standalone reusable module (V55 migration)
   - New `PhoenixKit.Modules.Comments` context with polymorphic `resource_type` + `resource_id` associations

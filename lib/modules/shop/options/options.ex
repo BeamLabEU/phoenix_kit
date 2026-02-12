@@ -866,8 +866,6 @@ defmodule PhoenixKit.Modules.Shop.Options do
     end
   end
 
-  defp safe_parse_decimal(_), do: nil
-
   # Converts snake_case key to human-readable label.
   # Example: "main_color" -> "Main Color"
   defp humanize_key(key) do
