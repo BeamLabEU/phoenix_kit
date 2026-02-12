@@ -92,8 +92,9 @@ yarn-error.log*
 /priv/static/cache_manifest.json
 /assets/node_modules/
 
-# Generated sitemap (should be created on production site, not in repo)
+# Generated sitemaps (created at runtime, not in repo)
 /priv/static/sitemap.xml
+/priv/static/sitemaps/
 
 # Ignore personal notes
 NOTES.md
