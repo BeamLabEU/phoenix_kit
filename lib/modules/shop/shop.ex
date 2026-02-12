@@ -745,7 +745,9 @@ defmodule PhoenixKit.Modules.Shop do
     from(p in Product,
       where: p.category_id == ^category_id,
       where: p.status == "active",
-      where: not is_nil(p.featured_image_id),
+      where:
+        not is_nil(p.featured_image_id) or
+          (not is_nil(p.featured_image) and p.featured_image != ""),
       order_by: [asc: p.id],
       limit: 1,
       select: p.id
@@ -763,7 +765,9 @@ defmodule PhoenixKit.Modules.Shop do
     from(p in Product,
       where: p.category_id == ^category_id,
       where: p.status == "active",
-      where: not is_nil(p.featured_image_id),
+      where:
+        not is_nil(p.featured_image_id) or
+          (not is_nil(p.featured_image) and p.featured_image != ""),
       order_by: [asc: p.id],
       select: {p.title, p.id}
     )
