@@ -380,9 +380,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       calculated_price: calculated_price
     } = socket.assigns
 
-    # Add to cart with or without specs
+    # Add to cart with specs if any options were selected
+    has_specs = selected_specs != %{} and map_size(selected_specs) > 0
+
     add_result =
-      if price_affecting_specs != [] do
+      if has_specs do
         Shop.add_to_cart(cart, product, quantity, selected_specs: selected_specs)
       else
         Shop.add_to_cart(cart, product, quantity)
@@ -432,11 +434,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     end
   end
 
-  defp build_cart_display_name(product, price_affecting_specs, selected_specs) do
+  defp build_cart_display_name(product, _price_affecting_specs, selected_specs) do
     # Get localized title (use default language for cart display)
     title = Translations.get(product, :title, Translations.default_language())
 
-    if price_affecting_specs != [] && map_size(selected_specs) > 0 do
+    if map_size(selected_specs) > 0 do
       specs_str = selected_specs |> Map.values() |> Enum.join(", ")
       "#{title} (#{specs_str})"
     else
@@ -453,8 +455,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     "#{display_name} (#{quantity} × #{unit_price_str} = #{line_str}) added to cart.\nCart total: #{cart_total_str}"
   end
 
-  defp find_cart_item_after_add(items, product_id, selected_specs, price_affecting_specs) do
-    if price_affecting_specs != [] do
+  defp find_cart_item_after_add(items, product_id, selected_specs, _price_affecting_specs) do
+    if map_size(selected_specs) > 0 do
       Enum.find(items, &(&1.product_id == product_id && &1.selected_specs == selected_specs))
     else
       Enum.find(items, &(&1.product_id == product_id))
