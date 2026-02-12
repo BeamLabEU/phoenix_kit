@@ -111,17 +111,26 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
   @impl true
   def handle_event("validate", %{"category" => category_params}, socket) do
-    changeset =
-      socket.assigns.category
-      |> Shop.change_category(category_params)
-      |> Map.put(:action, :validate)
-
     # Update translations from form params
     category_translations =
       merge_translation_params(
         socket.assigns[:category_translations] || %{},
         category_params["translations"]
       )
+
+    # Build localized field attrs from main form values and translations
+    category_params =
+      build_localized_params(
+        socket.assigns.category,
+        category_params,
+        category_translations,
+        socket.assigns.default_language
+      )
+
+    changeset =
+      socket.assigns.category
+      |> Shop.change_category(category_params)
+      |> Map.put(:action, :validate)
 
     socket
     |> assign(:changeset, changeset)
