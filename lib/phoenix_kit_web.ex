@@ -63,6 +63,7 @@ defmodule PhoenixKitWeb do
 
       use Gettext, backend: PhoenixKitWeb.Gettext
 
+      unquote(core_components())
       unquote(html_helpers())
     end
   end
@@ -141,6 +142,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.CookieConsent
       import PhoenixKitWeb.Components.Core.PkLink
       import PhoenixKitWeb.Components.Core.Modal
+      import PhoenixKitWeb.Components.Core.MediaThumbnail
     end
   end
 

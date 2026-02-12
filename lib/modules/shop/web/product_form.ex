@@ -139,6 +139,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   @impl true
   def handle_event("validate", %{"product" => product_params} = params, socket) do
+    # Update translations from form params (needed before build_localized_params)
+    product_translations =
+      merge_translation_params(
+        socket.assigns[:product_translations] || %{},
+        product_params["translations"]
+      )
+
+    # Build localized field attrs from main form values and translations
+    product_params =
+      build_localized_params(
+        socket.assigns.product,
+        product_params,
+        product_translations,
+        socket.assigns.default_language
+      )
+
     changeset =
       socket.assigns.product
       |> Shop.change_product(product_params)
@@ -211,13 +227,6 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       else
         socket
       end
-
-    # Update translations from form params
-    product_translations =
-      merge_translation_params(
-        socket.assigns[:product_translations] || %{},
-        product_params["translations"]
-      )
 
     socket
     |> assign(:changeset, changeset)
