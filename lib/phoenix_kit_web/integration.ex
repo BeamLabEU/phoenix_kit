@@ -303,15 +303,17 @@ defmodule PhoenixKitWeb.Integration do
         get "/assets/:file", AssetsController, :serve
       end
 
-      # Sitemap routes - uses PhoenixKit.Modules.Sitemap namespace (no PhoenixKitWeb prefix)
+      # Sitemap routes - public XML/XSL endpoints, no session/CSRF/auto_setup needed
       scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup]
-
         get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :xml
         get "/sitemap.html", PhoenixKit.Modules.Sitemap.Web.Controller, :html
-        get "/sitemaps/:index", PhoenixKit.Modules.Sitemap.Web.Controller, :index_part
+        get "/sitemaps/:filename", PhoenixKit.Modules.Sitemap.Web.Controller, :module_sitemap
         get "/sitemap.xsl", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
         get "/assets/sitemap/:style", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
+
+        get "/assets/sitemap-index/:style",
+            PhoenixKit.Modules.Sitemap.Web.Controller,
+            :xsl_index_stylesheet
       end
 
       # Billing webhook routes - uses PhoenixKit.Modules.Billing namespace (no PhoenixKitWeb prefix)
@@ -432,8 +434,6 @@ defmodule PhoenixKitWeb.Integration do
   # Generates all admin routes
   defmacro phoenix_kit_admin_routes(suffix) do
     session_name = :"phoenix_kit_admin#{suffix}"
-    comments_session_name = :"phoenix_kit_comments#{suffix}"
-    modules_session_name = :"phoenix_kit_modules#{suffix}"
 
     # Get external route module AST outside quote to avoid require/alias inside quote
     emails_admin = EmailsRoutes.admin_routes()
@@ -622,31 +622,14 @@ defmodule PhoenixKitWeb.Integration do
             as: :db_activity
 
           live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
-        end
-      end
 
-      # Comments module routes - uses PhoenixKit.Modules.Comments namespace
-      scope "/", alias: false do
-        pipe_through [:phoenix_kit_admin_only]
-
-        live_session unquote(comments_session_name),
-          on_mount: [
-            {PhoenixKitWeb.Users.Auth, {:phoenix_kit_ensure_module_access, "comments"}}
-          ] do
+          # Comments module routes
           live "/admin/comments", PhoenixKit.Modules.Comments.Web.Index, :index,
             as: :comments_index
 
           live "/admin/settings/comments", PhoenixKit.Modules.Comments.Web.Settings, :settings,
             as: :comments_settings
-        end
-      end
 
-      # Sync module routes - uses PhoenixKit.Modules.Sync namespace (no PhoenixKitWeb prefix)
-      scope "/", alias: false do
-        pipe_through [:phoenix_kit_admin_only]
-
-        live_session unquote(modules_session_name),
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           # Sync module routes
           live "/admin/sync", PhoenixKit.Modules.Sync.Web.Index, :index, as: :sync_index
 

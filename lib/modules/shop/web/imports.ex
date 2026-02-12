@@ -250,10 +250,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_event("select_config", %{"config_id" => ""}, socket) do
-    {:noreply,
-     socket
-     |> assign(:selected_config, nil)
-     |> assign(:selected_config_id, nil)}
+    socket =
+      socket
+      |> assign(:selected_config, nil)
+      |> assign(:selected_config_id, nil)
+      |> maybe_reanalyze_csv()
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -262,10 +265,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       {id, ""} ->
         config = Enum.find(socket.assigns.import_configs, &(&1.id == id))
 
-        {:noreply,
-         socket
-         |> assign(:selected_config, config)
-         |> assign(:selected_config_id, if(config, do: config.id))}
+        socket =
+          socket
+          |> assign(:selected_config, config)
+          |> assign(:selected_config_id, if(config, do: config.id))
+          |> maybe_reanalyze_csv()
+
+        {:noreply, socket}
 
       _ ->
         {:noreply, socket}
@@ -690,7 +696,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   # Handle format that requires option mapping (Shopify)
   defp handle_mapping_format(socket, dest_path, filename, format_mod) do
-    case safe_analyze_csv(dest_path) do
+    case safe_analyze_csv(dest_path, socket.assigns.selected_config) do
       {:ok, analysis} ->
         initial_mappings =
           build_initial_mappings(analysis.options, socket.assigns.global_options)
@@ -734,9 +740,25 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     {:noreply, socket}
   end
 
+  # Re-analyze CSV when config changes during configure step
+  defp maybe_reanalyze_csv(socket) do
+    with :configure <- socket.assigns.import_step,
+         path when is_binary(path) <- socket.assigns[:uploaded_file_path],
+         {:ok, analysis} <- safe_analyze_csv(path, socket.assigns.selected_config) do
+      initial_mappings =
+        build_initial_mappings(analysis.options, socket.assigns.global_options)
+
+      socket
+      |> assign(:csv_analysis, analysis)
+      |> assign(:option_mappings, initial_mappings)
+    else
+      _ -> socket
+    end
+  end
+
   # Safe CSV analysis with error handling
-  defp safe_analyze_csv(path) do
-    CSVAnalyzer.analyze_options(path)
+  defp safe_analyze_csv(path, config) do
+    CSVAnalyzer.analyze_options(path, config)
     |> then(&{:ok, &1})
   rescue
     e in NimbleCSV.ParseError ->
@@ -847,6 +869,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   enabled_languages={@enabled_languages}
                   current_language={@current_language}
                   download_images={@download_images}
+                  skip_empty_categories={@skip_empty_categories}
                   import_configs={@import_configs}
                   selected_config={@selected_config}
                   selected_config_id={@selected_config_id}
@@ -858,6 +881,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   global_options={@global_options}
                   uploaded_filename={@uploaded_filename}
                   format_name={@format_name}
+                  import_configs={@import_configs}
+                  selected_config={@selected_config}
+                  selected_config_id={@selected_config_id}
                 />
               <% :confirm -> %>
                 <.render_confirm_step
@@ -865,6 +891,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   uploaded_filename={@uploaded_filename}
                   confirm_product_count={@confirm_product_count}
                   download_images={@download_images}
+                  skip_empty_categories={@skip_empty_categories}
                 />
               <% :importing -> %>
                 <.render_importing_step
@@ -1289,6 +1316,46 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       <% end %>
     </h2>
 
+    <%!-- Import Config Selector (allows changing filter at configure step) --%>
+    <%= if @import_configs != [] do %>
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text font-medium">
+            <.icon name="hero-funnel" class="w-4 h-4 inline mr-1" /> Import Filter
+          </span>
+        </label>
+        <select
+          class="select select-bordered w-full"
+          phx-change="select_config"
+          name="config_id"
+        >
+          <option value="">No filter (import all products)</option>
+          <%= for config <- @import_configs do %>
+            <option value={config.id} selected={@selected_config_id == config.id}>
+              {config.name}{if config.is_default, do: " (default)"}
+            </option>
+          <% end %>
+        </select>
+        <%= if @selected_config do %>
+          <div class="flex flex-wrap gap-1 mt-2">
+            <%= unless @selected_config.skip_filter do %>
+              <span class="badge badge-sm badge-success badge-outline">
+                {length(@selected_config.include_keywords)} include
+              </span>
+              <span class="badge badge-sm badge-error badge-outline">
+                {length(@selected_config.exclude_keywords)} exclude
+              </span>
+              <span class="badge badge-sm badge-info badge-outline">
+                {length(@selected_config.category_rules)} category rules
+              </span>
+            <% else %>
+              <span class="badge badge-sm badge-warning">Skip filter — all products imported</span>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
     <div class="alert alert-info mb-4">
       <.icon name="hero-information-circle" class="w-5 h-5" />
       <div>
@@ -1296,6 +1363,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         <p class="text-sm">
           Found {@csv_analysis.total_products} products with {@csv_analysis.total_variants} variants
         </p>
+        <%= if @csv_analysis.total_skipped > 0 do %>
+          <p class="text-sm text-warning">
+            {@csv_analysis.total_skipped} products filtered out by import config
+          </p>
+        <% end %>
       </div>
     </div>
 

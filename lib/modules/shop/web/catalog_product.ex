@@ -12,12 +12,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   # Data URI placeholder for broken images - works without external file serving
@@ -229,6 +231,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   # Build category subtabs for existing dashboard_shop tab
   defp build_category_subtabs(categories, current_category) do
     default_lang = Translations.default_language()
+    icon_mode = Settings.get_setting_cached("shop_category_icon_mode", "none")
 
     categories
     |> Enum.with_index()
@@ -236,22 +239,39 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       # Get localized name
       cat_name = Translations.get(cat, :name, default_lang)
 
+      # Determine icon based on settings
+      {icon, icon_metadata} = category_icon(icon_mode, cat)
+
       tab =
         Tab.new!(
           id: String.to_atom("shop_cat_#{cat.id}"),
           label: cat_name,
-          icon: "hero-folder",
+          icon: icon,
           path: Shop.category_url(cat, default_lang),
           priority: 301 + idx,
           parent: :dashboard_shop,
           group: :shop,
-          match: :prefix
+          match: :prefix,
+          subtab_indent: "pl-2",
+          metadata: icon_metadata
         )
 
       is_active = current_category && current_category.id == cat.id
       Map.put(tab, :active, is_active)
     end)
   end
+
+  # Returns {icon, metadata} tuple based on icon mode setting
+  defp category_icon("folder", _cat), do: {"hero-folder", %{}}
+
+  defp category_icon("category", cat) do
+    case Category.get_image_url(cat, size: "thumbnail") do
+      nil -> {nil, %{}}
+      url -> {nil, %{icon_image_url: url}}
+    end
+  end
+
+  defp category_icon(_mode, _cat), do: {nil, %{}}
 
   @impl true
   def handle_event("set_quantity", %{"quantity" => quantity}, socket) do
@@ -360,9 +380,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       calculated_price: calculated_price
     } = socket.assigns
 
-    # Add to cart with or without specs
+    # Add to cart with specs if any options were selected
+    has_specs = selected_specs != %{} and map_size(selected_specs) > 0
+
     add_result =
-      if price_affecting_specs != [] do
+      if has_specs do
         Shop.add_to_cart(cart, product, quantity, selected_specs: selected_specs)
       else
         Shop.add_to_cart(cart, product, quantity)
@@ -412,11 +434,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     end
   end
 
-  defp build_cart_display_name(product, price_affecting_specs, selected_specs) do
+  defp build_cart_display_name(product, _price_affecting_specs, selected_specs) do
     # Get localized title (use default language for cart display)
     title = Translations.get(product, :title, Translations.default_language())
 
-    if price_affecting_specs != [] && map_size(selected_specs) > 0 do
+    if map_size(selected_specs) > 0 do
       specs_str = selected_specs |> Map.values() |> Enum.join(", ")
       "#{title} (#{specs_str})"
     else
@@ -433,8 +455,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     "#{display_name} (#{quantity} × #{unit_price_str} = #{line_str}) added to cart.\nCart total: #{cart_total_str}"
   end
 
-  defp find_cart_item_after_add(items, product_id, selected_specs, price_affecting_specs) do
-    if price_affecting_specs != [] do
+  defp find_cart_item_after_add(items, product_id, selected_specs, _price_affecting_specs) do
+    if map_size(selected_specs) > 0 do
       Enum.find(items, &(&1.product_id == product_id && &1.selected_specs == selected_specs))
     else
       Enum.find(items, &(&1.product_id == product_id))
@@ -1238,16 +1260,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   # Build a localized URL path, adding language prefix for non-default languages.
-  # Uses locale: :none to bypass Routes.path default-language logic.
+  # Delegates to Routes.path which handles default vs non-default consistently.
   defp build_lang_url(path, lang) do
     base = DialectMapper.extract_base(lang)
-    default_base = DialectMapper.extract_base(Translations.default_language())
-
-    if base == default_base do
-      Routes.path(path, locale: :none)
-    else
-      Routes.path("/#{base}#{path}", locale: :none)
-    end
+    Routes.path(path, locale: base)
   end
 
   # PubSub event handlers

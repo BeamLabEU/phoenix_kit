@@ -42,6 +42,29 @@ defmodule PhoenixKit.System.Dependencies do
   end
 
   @doc """
+  Check if Poppler (pdftoppm/pdfinfo) is installed and available.
+
+  Returns:
+  - `{:ok, version}` - Poppler is installed with version string
+  - `{:error, :not_installed}` - Poppler not found
+  - `{:error, reason}` - Other error occurred
+  """
+  def check_poppler do
+    case System.cmd("pdftoppm", ["-v"], stderr_to_stdout: true) do
+      {output, _exit_code} ->
+        version =
+          output
+          |> String.split("\n")
+          |> List.first("")
+          |> String.trim()
+
+        if version != "", do: {:ok, version}, else: {:error, :not_installed}
+    end
+  rescue
+    _error -> {:error, :not_installed}
+  end
+
+  @doc """
   Check if FFmpeg is installed and available.
 
   Returns:
@@ -89,6 +112,23 @@ defmodule PhoenixKit.System.Dependencies do
   end
 
   @doc """
+  Check if Poppler is installed (cached version).
+
+  Returns the cached result if available, otherwise probes system.
+  """
+  def check_poppler_cached do
+    case get_cached("poppler") do
+      nil ->
+        result = check_poppler()
+        cache_result("poppler", result)
+        result
+
+      cached_result ->
+        cached_result
+    end
+  end
+
+  @doc """
   Check if FFmpeg is installed (cached version).
 
   Returns the cached result if available, otherwise probes system.
@@ -113,6 +153,7 @@ defmodule PhoenixKit.System.Dependencies do
   def clear_cache do
     :persistent_term.erase(:phoenix_kit_deps_imagemagick)
     :persistent_term.erase(:phoenix_kit_deps_ffmpeg)
+    :persistent_term.erase(:phoenix_kit_deps_poppler)
     :ok
   end
 

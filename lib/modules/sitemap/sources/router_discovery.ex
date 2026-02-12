@@ -74,8 +74,30 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
     "^/api",
     "^/phoenix_kit",
     "^/dev",
+    "^/sync",
+    "^/test",
+    "^/dashboard",
     ":[a-z_]+",
-    "\\*"
+    "\\*",
+    # Auth pages - should not be indexed by search engines
+    "/users/log-in",
+    "/users/log-out",
+    "/users/register",
+    "/users/reset-password",
+    "/users/confirm",
+    "/users/magic-link",
+    "/users/settings",
+    # Internal/functional pages - not for search engine indexing
+    "/checkout",
+    "/cart",
+    "/health",
+    "/ready",
+    # Infrastructure
+    "/sitemap\\.",
+    "/sitemaps/",
+    "/assets/",
+    # Homepage is handled by Static source
+    "^/$"
   ]
 
   # Default pipelines that require authentication - routes using these should not appear in sitemap
@@ -98,6 +120,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
 
   @impl true
   def source_name, do: :router_discovery
+
+  @impl true
+  def sitemap_filename, do: "sitemap-routes"
 
   @impl true
   def enabled? do

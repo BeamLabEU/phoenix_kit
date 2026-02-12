@@ -44,20 +44,7 @@
       <div class="stats shadow w-full">
         <div class="stat">
           <div class="stat-figure text-primary">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-8 w-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-              />
-            </svg>
+            <.icon name="hero-link" class="w-8 h-8" />
           </div>
           <div class="stat-title">Total URLs</div>
           <div class="stat-value text-primary">{@config.url_count || 0}</div>
@@ -65,23 +52,18 @@
 
         <div class="stat">
           <div class="stat-figure text-secondary">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-8 w-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <.icon name="hero-document-duplicate" class="w-8 h-8" />
+          </div>
+          <div class="stat-title">Sitemap Files</div>
+          <div class="stat-value text-secondary">{length(@module_files)}</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-figure text-info">
+            <.icon name="hero-clock" class="w-8 h-8" />
           </div>
           <div class="stat-title">Last Generated</div>
-          <div class="stat-value text-secondary text-lg">
+          <div class="stat-value text-info text-lg">
             {format_timestamp(@config.last_generated)}
           </div>
         </div>
@@ -93,28 +75,426 @@
               phx-click="regenerate"
               disabled={@generating || !@config.enabled}
             >
-              <svg
-                :if={!@generating}
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+              <.icon :if={!@generating} name="hero-arrow-path" class="w-6 h-6" />
             </button>
           </div>
           <div class="stat-title">Actions</div>
           <div class="stat-value text-lg">
             <button class="btn btn-sm btn-ghost" phx-click="regenerate" disabled={@generating}>
-              Regenerate
+              Regenerate All
             </button>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Router Discovery / Mode Switch --%>
+      <div class="card bg-base-200 shadow-md">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="card-title">
+                <.icon name="hero-map" class="w-5 h-5" /> Router Discovery
+              </h2>
+              <p class="text-sm text-base-content/60 mt-1">
+                When enabled, scans all routes and builds a single flat sitemap.xml
+                with URLs from all content sources (shop, entities, posts, publishing).
+                When disabled, each source generates its own sitemap file.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              checked={@config.router_discovery_enabled}
+              phx-click="toggle_source"
+              phx-value-source="router_discovery"
+            />
+          </div>
+
+          <%!-- Flat mode info (when Router Discovery ON) --%>
+          <div :if={@config.router_discovery_enabled} class="mt-4">
+            <div class="alert alert-info">
+              <.icon name="hero-information-circle" class="w-5 h-5" />
+              <span>
+                Flat mode active — /sitemap.xml contains all URLs in a single &lt;urlset&gt;
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-3">
+              <span class="badge badge-primary">Routes</span>
+              <span class="badge badge-primary">Static</span>
+              <span class={
+                if @module_enabled.publishing,
+                  do: "badge badge-primary",
+                  else: "badge badge-ghost"
+              }>
+                Publishing
+              </span>
+              <span class={
+                if @module_enabled.entities, do: "badge badge-primary", else: "badge badge-ghost"
+              }>
+                Entities
+              </span>
+              <span class={
+                if @module_enabled.posts, do: "badge badge-primary", else: "badge badge-ghost"
+              }>
+                Posts
+              </span>
+              <span class={
+                if @module_enabled.shop, do: "badge badge-primary", else: "badge badge-ghost"
+              }>
+                Shop
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Module Sitemaps (only when Router Discovery OFF = index mode) --%>
+      <div :if={!@config.router_discovery_enabled} class="card bg-base-200 shadow-md">
+        <div class="card-body">
+          <h2 class="card-title">
+            <.icon name="hero-circle-stack" class="w-5 h-5" /> Module Sitemaps
+          </h2>
+          <p class="text-sm text-base-content/60 mb-4">
+            Each source generates its own sitemap file, referenced by the main sitemap index
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <%!-- Static Pages --%>
+            <div class="rounded-lg bg-base-100 p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-document-text" class="w-4 h-4 text-primary" />
+                  <span class="font-medium">Static Pages</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_static}
+                  phx-click="toggle_source"
+                  phx-value-source="static"
+                />
+              </div>
+              <p class="text-xs text-base-content/60 mb-2">Homepage and custom static URLs</p>
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="badge badge-sm badge-outline">
+                    {count_source_urls(@module_stats, "sitemap-static")} URLs
+                  </span>
+                  <span
+                    :for={f <- source_files(@module_files, "sitemap-static")}
+                    class="badge badge-sm badge-ghost"
+                  >
+                    {f}.xml
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button
+                    class={"btn btn-ghost btn-xs #{if @regenerating_module == "static", do: "loading"}"}
+                    phx-click="regenerate_module"
+                    phx-value-source="static"
+                    disabled={@generating || @regenerating_module != nil}
+                  >
+                    <.icon
+                      :if={@regenerating_module != "static"}
+                      name="hero-arrow-path"
+                      class="w-3 h-3"
+                    />
+                  </button>
+                  <.link
+                    :for={f <- source_files(@module_files, "sitemap-static")}
+                    href={Routes.path("/sitemaps/#{f}.xml", locale: :none)}
+                    target="_blank"
+                    class="btn btn-ghost btn-xs"
+                    title="View sitemap"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                  </.link>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Publishing / Blogs --%>
+            <div class={"rounded-lg bg-base-100 p-4 #{unless @module_enabled.publishing, do: "opacity-50"}"}>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-newspaper" class="w-4 h-4 text-primary" />
+                  <span class="font-medium">Publishing</span>
+                  <span :if={!@module_enabled.publishing} class="badge badge-xs badge-warning">
+                    module off
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_blogs}
+                  phx-click="toggle_source"
+                  phx-value-source="blogs"
+                  disabled={!@module_enabled.publishing}
+                />
+              </div>
+              <p class="text-xs text-base-content/60 mb-2">Blog groups and published posts</p>
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="badge badge-sm badge-outline">
+                    {count_source_urls(@module_stats, "sitemap-publishing")} URLs
+                  </span>
+                  <span
+                    :for={f <- source_files(@module_files, "sitemap-publishing")}
+                    class="badge badge-sm badge-ghost"
+                  >
+                    {f}.xml
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button
+                    class={"btn btn-ghost btn-xs #{if @regenerating_module == "blogs", do: "loading"}"}
+                    phx-click="regenerate_module"
+                    phx-value-source="blogs"
+                    disabled={@generating || @regenerating_module != nil}
+                  >
+                    <.icon
+                      :if={@regenerating_module != "blogs"}
+                      name="hero-arrow-path"
+                      class="w-3 h-3"
+                    />
+                  </button>
+                  <.link
+                    :for={f <- source_files(@module_files, "sitemap-publishing")}
+                    href={Routes.path("/sitemaps/#{f}.xml", locale: :none)}
+                    target="_blank"
+                    class="btn btn-ghost btn-xs"
+                    title="View sitemap"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                  </.link>
+                </div>
+              </div>
+              <%!-- Split by blog toggle --%>
+              <label class="flex items-center justify-between cursor-pointer mt-3 pt-3 border-t border-base-300">
+                <span class="text-xs">Split by blog group</span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-xs toggle-secondary"
+                  checked={@publishing_split_by_group}
+                  phx-click="toggle_publishing_split"
+                />
+              </label>
+            </div>
+
+            <%!-- Entities --%>
+            <div class={"rounded-lg bg-base-100 p-4 #{unless @module_enabled.entities, do: "opacity-50"}"}>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-cube" class="w-4 h-4 text-primary" />
+                  <span class="font-medium">Entities</span>
+                  <span :if={!@module_enabled.entities} class="badge badge-xs badge-warning">
+                    module off
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_entities}
+                  phx-click="toggle_source"
+                  phx-value-source="entities"
+                  disabled={!@module_enabled.entities}
+                />
+              </div>
+              <p class="text-xs text-base-content/60 mb-2">
+                Dynamic content types (per-type files)
+              </p>
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="badge badge-sm badge-outline">
+                    {count_source_urls(@module_stats, "sitemap-entities")} URLs
+                  </span>
+                  <span
+                    :for={f <- source_files(@module_files, "sitemap-entities")}
+                    class="badge badge-sm badge-ghost"
+                  >
+                    {f}.xml
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button
+                    class={"btn btn-ghost btn-xs #{if @regenerating_module == "entities", do: "loading"}"}
+                    phx-click="regenerate_module"
+                    phx-value-source="entities"
+                    disabled={@generating || @regenerating_module != nil}
+                  >
+                    <.icon
+                      :if={@regenerating_module != "entities"}
+                      name="hero-arrow-path"
+                      class="w-3 h-3"
+                    />
+                  </button>
+                  <.link
+                    :for={f <- source_files(@module_files, "sitemap-entities")}
+                    href={Routes.path("/sitemaps/#{f}.xml", locale: :none)}
+                    target="_blank"
+                    class="btn btn-ghost btn-xs"
+                    title="View sitemap"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                  </.link>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Posts --%>
+            <div class={"rounded-lg bg-base-100 p-4 #{unless @module_enabled.posts, do: "opacity-50"}"}>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-pencil-square" class="w-4 h-4 text-primary" />
+                  <span class="font-medium">Posts</span>
+                  <span :if={!@module_enabled.posts} class="badge badge-xs badge-warning">
+                    module off
+                  </span>
+                </div>
+              </div>
+              <p class="text-xs text-base-content/60 mb-2">Public posts from Posts module</p>
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="badge badge-sm badge-outline">
+                    {count_source_urls(@module_stats, "sitemap-posts")} URLs
+                  </span>
+                  <span
+                    :for={f <- source_files(@module_files, "sitemap-posts")}
+                    class="badge badge-sm badge-ghost"
+                  >
+                    {f}.xml
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button
+                    class={"btn btn-ghost btn-xs #{if @regenerating_module == "posts", do: "loading"}"}
+                    phx-click="regenerate_module"
+                    phx-value-source="posts"
+                    disabled={@generating || @regenerating_module != nil}
+                  >
+                    <.icon
+                      :if={@regenerating_module != "posts"}
+                      name="hero-arrow-path"
+                      class="w-3 h-3"
+                    />
+                  </button>
+                  <.link
+                    :for={f <- source_files(@module_files, "sitemap-posts")}
+                    href={Routes.path("/sitemaps/#{f}.xml", locale: :none)}
+                    target="_blank"
+                    class="btn btn-ghost btn-xs"
+                    title="View sitemap"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                  </.link>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Shop --%>
+            <div class={"rounded-lg bg-base-100 p-4 #{unless @module_enabled.shop, do: "opacity-50"}"}>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-shopping-bag" class="w-4 h-4 text-primary" />
+                  <span class="font-medium">Shop</span>
+                  <span :if={!@module_enabled.shop} class="badge badge-xs badge-warning">
+                    module off
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_shop}
+                  phx-click="toggle_source"
+                  phx-value-source="shop"
+                  disabled={!@module_enabled.shop}
+                />
+              </div>
+              <p class="text-xs text-base-content/60 mb-2">Products, categories, catalog</p>
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="badge badge-sm badge-outline">
+                    {count_source_urls(@module_stats, "sitemap-shop")} URLs
+                  </span>
+                  <span
+                    :for={f <- source_files(@module_files, "sitemap-shop")}
+                    class="badge badge-sm badge-ghost"
+                  >
+                    {f}.xml
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button
+                    class={"btn btn-ghost btn-xs #{if @regenerating_module == "shop", do: "loading"}"}
+                    phx-click="regenerate_module"
+                    phx-value-source="shop"
+                    disabled={@generating || @regenerating_module != nil}
+                  >
+                    <.icon
+                      :if={@regenerating_module != "shop"}
+                      name="hero-arrow-path"
+                      class="w-3 h-3"
+                    />
+                  </button>
+                  <.link
+                    :for={f <- source_files(@module_files, "sitemap-shop")}
+                    href={Routes.path("/sitemaps/#{f}.xml", locale: :none)}
+                    target="_blank"
+                    class="btn btn-ghost btn-xs"
+                    title="View sitemap"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                  </.link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Auth Pages Section --%>
+      <div class="card bg-base-200 shadow-md">
+        <div class="card-body">
+          <h2 class="card-title">
+            <.icon name="hero-lock-closed" class="w-5 h-5" /> Auth Pages
+          </h2>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+            <%!-- Login - always excluded --%>
+            <div class="flex items-center justify-between p-3 rounded-lg bg-base-100">
+              <div>
+                <span class="label-text font-medium">Login</span>
+                <span class="text-xs text-base-content/60 block">
+                  Always excluded from sitemap
+                </span>
+              </div>
+              <span class="badge badge-sm badge-error badge-outline">Excluded</span>
+            </div>
+
+            <%!-- Logout - always excluded --%>
+            <div class="flex items-center justify-between p-3 rounded-lg bg-base-100">
+              <div>
+                <span class="label-text font-medium">Logout</span>
+                <span class="text-xs text-base-content/60 block">
+                  Always excluded from sitemap
+                </span>
+              </div>
+              <span class="badge badge-sm badge-error badge-outline">Excluded</span>
+            </div>
+
+            <%!-- Registration - toggleable --%>
+            <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
+              <div>
+                <span class="label-text font-medium">Registration</span>
+                <span class="text-xs text-base-content/60 block">Include in static sitemap</span>
+              </div>
+              <input
+                type="checkbox"
+                class="toggle toggle-sm toggle-primary"
+                checked={@include_registration}
+                phx-click="toggle_registration"
+              />
+            </label>
           </div>
         </div>
       </div>
@@ -124,31 +504,11 @@
         <div class="card bg-base-200 shadow-md">
           <div class="card-body">
             <h2 class="card-title">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              Configuration
+              <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Configuration
             </h2>
 
             <div class="space-y-4 mt-4">
-              <%!-- Site URL (read-only, from main Settings) --%>
+              <%!-- Site URL (read-only) --%>
               <div class="form-control">
                 <label class="label">
                   <span class="label-text font-medium">Site URL</span>
@@ -200,9 +560,6 @@
                   <option value="table" selected={@config.html_style in ["table", "grouped"]}>
                     Table (Clean table layout)
                   </option>
-                  <option value="cards" selected={@config.html_style in ["cards", "hierarchical"]}>
-                    Cards (Grouped by category)
-                  </option>
                   <option value="minimal" selected={@config.html_style in ["minimal", "flat"]}>
                     Minimal (Simple list)
                   </option>
@@ -217,21 +574,7 @@
           <div class="card-body">
             <div class="flex items-center justify-between">
               <h2 class="card-title">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Scheduled Generation
+                <.icon name="hero-clock" class="w-5 h-5" /> Scheduled Generation
               </h2>
               <input
                 type="checkbox"
@@ -266,140 +609,74 @@
             </form>
           </div>
         </div>
+      </div>
 
-        <%!-- Data Sources Card --%>
-        <div class="card bg-base-200 shadow-md lg:col-span-2">
-          <div class="card-body">
-            <h2 class="card-title">
-              <.icon name="hero-circle-stack" class="w-5 h-5" /> Data Sources
-            </h2>
-            <p class="text-sm text-base-content/60 mb-2">
-              Choose which data sources are included in the sitemap
-            </p>
+      <%!-- Quick Actions Card --%>
+      <div class="card bg-base-200 shadow-md">
+        <div class="card-body">
+          <h2 class="card-title">
+            <.icon name="hero-bolt" class="w-5 h-5" /> Quick Actions
+          </h2>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-              <%!-- Router Discovery --%>
-              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
-                <div>
-                  <span class="label-text font-medium">Router Discovery</span>
-                  <span class="text-xs text-base-content/60 block">Auto-discover routes</span>
-                </div>
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm toggle-primary"
-                  checked={@config.router_discovery_enabled}
-                  phx-click="toggle_source"
-                  phx-value-source="router_discovery"
-                />
-              </label>
+          <div class="flex flex-wrap gap-3 mt-4">
+            <button class="btn btn-outline btn-sm" phx-click="preview" phx-value-type="xml">
+              <.icon name="hero-code-bracket" class="w-4 h-4 mr-1" /> Preview Sitemap Source
+            </button>
 
-              <%!-- Entities --%>
-              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
-                <div>
-                  <span class="label-text font-medium">Entities</span>
-                  <span class="text-xs text-base-content/60 block">Dynamic content types</span>
-                </div>
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm toggle-primary"
-                  checked={@config.include_entities}
-                  phx-click="toggle_source"
-                  phx-value-source="entities"
-                />
-              </label>
-
-              <%!-- Blog Posts --%>
-              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
-                <div>
-                  <span class="label-text font-medium">Blog Posts</span>
-                  <span class="text-xs text-base-content/60 block">Published blog articles</span>
-                </div>
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm toggle-primary"
-                  checked={@config.include_blogs}
-                  phx-click="toggle_source"
-                  phx-value-source="blogs"
-                />
-              </label>
-
-              <%!-- Static Pages --%>
-              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
-                <div>
-                  <span class="label-text font-medium">Static Pages</span>
-                  <span class="text-xs text-base-content/60 block">Manually added URLs</span>
-                </div>
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm toggle-primary"
-                  checked={@config.include_static}
-                  phx-click="toggle_source"
-                  phx-value-source="static"
-                />
-              </label>
-
-              <%!-- Shop --%>
-              <label class="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-base-100">
-                <div>
-                  <span class="label-text font-medium">Shop</span>
-                  <span class="text-xs text-base-content/60 block">Products and categories</span>
-                </div>
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm toggle-primary"
-                  checked={@config.include_shop}
-                  phx-click="toggle_source"
-                  phx-value-source="shop"
-                />
-              </label>
-            </div>
+            <button class="btn btn-outline btn-sm btn-warning" phx-click="invalidate_cache">
+              <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Clear All Sitemaps
+            </button>
           </div>
-        </div>
 
-        <%!-- Quick Actions Card (spans full width) --%>
-        <div class="card bg-base-200 shadow-md lg:col-span-2">
-          <div class="card-body">
-            <h2 class="card-title">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              Quick Actions
-            </h2>
-
-            <div class="flex flex-wrap gap-3 mt-4">
-              <button class="btn btn-outline btn-sm" phx-click="preview" phx-value-type="xml">
-                <.icon name="hero-code-bracket" class="w-4 h-4 mr-1" /> Preview Source
-              </button>
-
-              <button class="btn btn-outline btn-sm btn-warning" phx-click="invalidate_cache">
-                <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Clear Sitemap
-              </button>
-
+          <%!-- File links: index mode shows all module files --%>
+          <div
+            :if={!@config.router_discovery_enabled && @module_files != []}
+            class="mt-4 pt-4 border-t border-base-300"
+          >
+            <p class="text-sm font-medium text-base-content mb-3">Generated sitemap files:</p>
+            <div class="flex flex-wrap gap-2">
               <.link
                 href={Routes.path("/sitemap.xml", locale: :none)}
                 target="_blank"
-                class="btn btn-outline btn-sm"
+                class="btn btn-sm btn-primary btn-outline gap-1"
               >
-                <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> Sitemap
+                <.icon name="hero-globe-alt" class="w-4 h-4" /> sitemap.xml (index)
+              </.link>
+              <.link
+                :for={f <- @module_files}
+                href={Routes.path("/sitemaps/#{f}.xml", locale: :none)}
+                target="_blank"
+                class="btn btn-sm btn-outline gap-1"
+              >
+                <.icon name="hero-document" class="w-4 h-4" /> {f}.xml
               </.link>
             </div>
-
-            <p class="text-xs text-base-content/60 mt-3">
-              <.icon name="hero-information-circle" class="w-3 h-3 inline" />
-              The sitemap.xml file is styled with XSL for beautiful browser display
-            </p>
           </div>
+
+          <%!-- File links: flat mode shows only main sitemap.xml --%>
+          <div
+            :if={@config.router_discovery_enabled}
+            class="mt-4 pt-4 border-t border-base-300"
+          >
+            <div class="flex flex-wrap gap-2">
+              <.link
+                href={Routes.path("/sitemap.xml", locale: :none)}
+                target="_blank"
+                class="btn btn-sm btn-primary btn-outline gap-1"
+              >
+                <.icon name="hero-globe-alt" class="w-4 h-4" /> sitemap.xml
+              </.link>
+            </div>
+          </div>
+
+          <p class="text-xs text-base-content/60 mt-3">
+            <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+            <%= if @config.router_discovery_enabled do %>
+              /sitemap.xml contains all URLs in a single &lt;urlset&gt;
+            <% else %>
+              /sitemap.xml is a sitemapindex referencing per-module sitemap files
+            <% end %>
+          </p>
         </div>
       </div>
     </div>
@@ -408,8 +685,10 @@
     <div :if={@show_preview} class="modal modal-open">
       <div class="modal-box max-w-4xl max-h-[80vh]">
         <div class="flex justify-between items-center mb-4">
-          <h3 class="font-bold text-lg">XML Sitemap Source</h3>
-          <button class="btn btn-ghost btn-sm btn-circle" phx-click="close_preview">✕</button>
+          <h3 class="font-bold text-lg">Sitemap Source</h3>
+          <button class="btn btn-ghost btn-sm btn-circle" phx-click="close_preview">
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
         </div>
 
         <div class="overflow-auto max-h-[60vh] bg-base-300 rounded-lg p-4">

@@ -88,6 +88,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
     |> validate_inclusion(:status, @statuses)
     |> maybe_generate_slug()
     |> validate_not_self_parent()
+    |> unique_constraint(:slug, name: "idx_shop_categories_slug_primary")
   end
 
   @doc """
@@ -101,7 +102,8 @@ defmodule PhoenixKit.Modules.Shop.Category do
   Priority:
   1. Storage media (image_id) if available
   2. Featured product's featured_image_id (requires :featured_product preloaded)
-  3. nil if no image
+  3. Featured product's legacy featured_image URL (requires :featured_product preloaded)
+  4. nil if no image
 
   ## Options
   - `:size` - Storage dimension to use (default: "large")
@@ -115,7 +117,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
     URLSigner.signed_url(image_id, size)
   end
 
-  # Priority 2: featured product's image (preloaded)
+  # Priority 2: featured product's Storage image (preloaded)
   def get_image_url(
         %__MODULE__{featured_product: %{featured_image_id: fid}},
         opts
@@ -123,6 +125,15 @@ defmodule PhoenixKit.Modules.Shop.Category do
       when is_binary(fid) and fid != "" do
     size = Keyword.get(opts, :size, "large")
     URLSigner.signed_url(fid, size)
+  end
+
+  # Priority 3: featured product's legacy image URL (preloaded)
+  def get_image_url(
+        %__MODULE__{featured_product: %{featured_image: url}},
+        _opts
+      )
+      when is_binary(url) and url != "" do
+    url
   end
 
   # No image available

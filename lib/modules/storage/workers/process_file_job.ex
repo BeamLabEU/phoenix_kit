@@ -13,6 +13,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.ImageProcessor
+  alias PhoenixKit.Modules.Storage.PdfProcessor
   alias PhoenixKit.Modules.Storage.VariantGenerator
 
   @doc """
@@ -68,7 +69,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
 
       _ ->
         Logger.info("ProcessFileJob: Skipping processing for file type=#{file.file_type}")
-        :ok
+        {:ok, []}
     end
   end
 
@@ -153,13 +154,37 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   end
 
   defp process_document(file) do
-    with {:ok, temp_path, _file} <- Storage.retrieve_file(file.id),
-         {:ok, metadata} <- extract_document_metadata(temp_path, file.mime_type),
-         :ok <- update_file_with_metadata(file, metadata) do
-      File.rm(temp_path)
-      Logger.info("ProcessFileJob: Processed document file_id=#{file.id}")
-      :ok
+    if file.mime_type == "application/pdf" do
+      process_pdf(file)
+    else
+      with {:ok, temp_path, _file} <- Storage.retrieve_file(file.id),
+           {:ok, metadata} <- extract_document_metadata(temp_path, file.mime_type),
+           :ok <- update_file_with_metadata(file, metadata) do
+        File.rm(temp_path)
+        Logger.info("ProcessFileJob: Processed document file_id=#{file.id}")
+        {:ok, []}
+      end
     end
+  end
+
+  defp process_pdf(file) do
+    with {:ok, temp_path} <- retrieve_and_log_file(file.id),
+         {:ok, metadata} <- extract_pdf_metadata(temp_path),
+         :ok <- update_and_log_metadata(file, metadata),
+         {:ok, variants} <- generate_and_log_variants(file) do
+      File.rm(temp_path)
+      {:ok, variants}
+    else
+      {:error, reason} = error ->
+        Logger.error("ProcessFileJob: Failed to process PDF: #{inspect(reason)}")
+        error
+    end
+  end
+
+  defp extract_pdf_metadata(temp_path) do
+    {:ok, metadata} = PdfProcessor.extract_metadata(temp_path)
+    Logger.info("ProcessFileJob: Extracted PDF metadata=#{inspect(metadata)}")
+    {:ok, metadata}
   end
 
   defp extract_image_metadata(file_path) do

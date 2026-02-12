@@ -2,35 +2,20 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
   @moduledoc """
   Controller for serving XML sitemaps with XSL styling.
 
-  Provides public endpoints for sitemap access:
-  - GET /{prefix}/sitemap.xml - XML sitemap with XSL stylesheet reference
+  ## Endpoints
+
+  - GET /{prefix}/sitemap.xml - sitemapindex (always)
   - GET /{prefix}/sitemap.xml?format=html - Server-rendered HTML (for iframe previews)
   - GET /{prefix}/sitemap.html - Redirects to sitemap.xml (deprecated)
-  - GET /{prefix}/sitemap-{n}.xml - Sitemap index parts (for large sites)
-  - GET /{prefix}/assets/sitemap-{style}.xsl - XSL stylesheets
+  - GET /{prefix}/sitemaps/:filename - Per-module sitemap files
+  - GET /{prefix}/assets/sitemap/:style - XSL stylesheets for urlset files
+  - GET /{prefix}/assets/sitemap-index/:style - XSL stylesheets for sitemapindex
 
-  ## Architecture: File-Only Storage
+  ## Architecture
 
-  Sitemaps are stored in `priv/static/sitemap.xml` for:
-  - Direct nginx/CDN serving (bypasses Phoenix entirely)
-  - ETag from file mtime (always reflects actual content)
-  - On-demand generation (first request generates if missing)
-
-  ## How It Works
-
-  The XML sitemap includes an XSL stylesheet reference. When opened in a browser,
-  the browser applies the XSL transformation client-side, rendering a beautiful
-  HTML page. Search engine bots ignore the XSL and read the raw XML.
-
-  For iframe previews (admin panel), use `?format=html` to get server-rendered HTML,
-  since iframes cannot apply XSL transformations.
-
-  ## XSL Styles
-
-  Available styles (configurable in settings):
-  - table - Clean table layout (default)
-  - cards - Cards grouped by category
-  - minimal - Simple list of links
+  `/sitemap.xml` always returns a `<sitemapindex>` referencing per-module
+  sitemap files at `/sitemaps/sitemap-{source}.xml`. Each module file
+  contains a `<urlset>` with URLs from that source.
   """
 
   use PhoenixKitWeb, :controller
@@ -42,34 +27,32 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
   alias PhoenixKit.Modules.Sitemap.Generator
 
   @cache_max_age 3600
-  @valid_xsl_styles ["table", "cards", "minimal"]
+  @valid_xsl_styles ["table", "minimal"]
+  # Only allow safe characters in filenames
+  @filename_pattern ~r/^[a-z0-9-]+$/
 
   @doc """
-  Serves the XML sitemap with XSL stylesheet reference.
+  Serves the sitemapindex XML.
 
+  Always returns a `<sitemapindex>`. Generate on first request if missing.
   Query parameters:
-  - `style` - Override XSL style (table, cards, minimal)
+  - `style` - Override XSL style (table, minimal)
   - `format=html` - Force server-side HTML rendering (for iframe previews)
-
-  Returns 404 if sitemap module is disabled.
-  Generates on first request if file doesn't exist.
   """
   def xml(conn, params) do
     if Sitemap.enabled?() do
       config = Sitemap.get_config()
 
-      # Override style from query param if provided
       xsl_style =
         case Map.get(params, "style") do
           style when style in @valid_xsl_styles -> style
           _ -> get_xsl_style(config)
         end
 
-      # Check if HTML format is requested (for iframe previews)
       if Map.get(params, "format") == "html" do
         serve_html(conn, config, xsl_style)
       else
-        serve_xml(conn, xsl_style)
+        serve_index_xml(conn, xsl_style)
       end
     else
       conn
@@ -78,40 +61,92 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
     end
   end
 
-  # Serve XML from file or generate on first request
-  defp serve_xml(conn, xsl_style) do
-    if FileStorage.exists?() do
-      serve_existing_file(conn)
-    else
-      generate_and_serve(conn, xsl_style)
+  @doc """
+  Serves per-module sitemap files from /sitemaps/:filename.
+
+  Filename is validated to contain only `[a-z0-9-]` characters.
+  The `.xml` extension is appended automatically.
+  """
+  def module_sitemap(conn, %{"filename" => raw_filename}) do
+    cond do
+      !Sitemap.enabled?() ->
+        send_plain_error(conn, 404, "Sitemap not available")
+
+      Sitemap.flat_mode?() ->
+        send_plain_error(
+          conn,
+          404,
+          "Per-module sitemaps not available in flat mode. Use /sitemap.xml"
+        )
+
+      true ->
+        # Strip .xml extension if provided in URL
+        filename = String.trim_trailing(raw_filename, ".xml")
+
+        if Regex.match?(@filename_pattern, filename) do
+          serve_module_file(conn, filename)
+        else
+          send_plain_error(conn, 400, "Invalid filename")
+        end
     end
   end
 
-  # Serve existing file with ETag from mtime
-  defp serve_existing_file(conn) do
-    etag = generate_file_etag()
+  @doc """
+  Redirects to XML sitemap (deprecated).
+  """
+  def html(conn, _params) do
+    prefix = PhoenixKit.Config.get_url_prefix()
+    redirect(conn, to: "#{prefix}/sitemap.xml")
+  end
 
-    if client_has_fresh_cache?(conn, etag) do
-      send_not_modified(conn, etag)
+  @doc """
+  Serves XSL stylesheet files for urlset display.
+
+  Available styles: table, minimal
+  """
+  def xsl_stylesheet(conn, %{"style" => style}) when style in @valid_xsl_styles do
+    serve_xsl_file(conn, "sitemap-#{style}.xsl")
+  end
+
+  def xsl_stylesheet(conn, _params) do
+    serve_xsl_file(conn, "sitemap-table.xsl")
+  end
+
+  @doc """
+  Serves XSL stylesheet files for sitemapindex display.
+  """
+  def xsl_index_stylesheet(conn, %{"style" => style}) when style in @valid_xsl_styles do
+    serve_xsl_file(conn, "sitemap-index-#{style}.xsl")
+  end
+
+  def xsl_index_stylesheet(conn, _params) do
+    serve_xsl_file(conn, "sitemap-index-table.xsl")
+  end
+
+  @doc """
+  Legacy: Serves sitemap index part files.
+
+  Kept for backward compatibility. New architecture uses /sitemaps/:filename.
+  """
+  def index_part(conn, %{"index" => index_str}) do
+    if Sitemap.enabled?() do
+      serve_legacy_index_part(conn, index_str)
     else
-      case FileStorage.load() do
-        {:ok, xml_content} ->
-          conn
-          |> put_resp_content_type("application/xml")
-          |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-          |> put_resp_header("etag", etag)
-          |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
-          |> send_resp(200, xml_content)
-
-        :error ->
-          # File disappeared between exists? and load - regenerate
-          generate_and_serve(conn, "table")
-      end
+      send_plain_error(conn, 404, "Sitemap not available")
     end
   end
 
-  # Generate sitemap on first request, save to file, serve
-  defp generate_and_serve(conn, xsl_style) do
+  # ── Private: Index serving ─────────────────────────────────────────
+
+  defp serve_index_xml(conn, xsl_style) do
+    if FileStorage.index_exists?() do
+      serve_file_with_etag(conn, FileStorage.file_path(), FileStorage.get_file_stat())
+    else
+      generate_and_serve_index(conn, xsl_style)
+    end
+  end
+
+  defp generate_and_serve_index(conn, xsl_style) do
     base_url = Sitemap.get_base_url()
 
     if base_url == "" do
@@ -121,46 +156,20 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
       |> put_resp_content_type("text/plain")
       |> send_resp(503, "Sitemap not configured. Please set base URL in settings.")
     else
-      opts = [
-        base_url: base_url,
-        cache: false,
-        xsl_style: xsl_style,
-        xsl_enabled: true
-      ]
+      opts = [base_url: base_url, xsl_style: xsl_style, xsl_enabled: true]
 
-      case Generator.generate_xml(opts) do
-        {:ok, xml_content} ->
-          # Save to file for subsequent requests
-          FileStorage.save(xml_content)
-
-          # Count URLs from generated XML instead of re-collecting entries
-          url_count = count_urls_in_xml(xml_content)
+      case Generator.generate_all(opts) do
+        {:ok, %{index_xml: xml, total_urls: url_count, modules: modules}} ->
           Sitemap.update_generation_stats(%{url_count: url_count})
-
-          etag = generate_content_etag(xml_content)
+          Sitemap.update_module_stats(modules)
+          etag = generate_content_etag(xml)
 
           conn
           |> put_resp_content_type("application/xml")
           |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
           |> put_resp_header("etag", etag)
           |> put_resp_header("x-sitemap-url-count", to_string(url_count))
-          |> send_resp(200, xml_content)
-
-        {:ok, xml_content, _parts} ->
-          # Sitemap index generated
-          FileStorage.save(xml_content)
-
-          url_count = count_urls_in_xml(xml_content)
-          Sitemap.update_generation_stats(%{url_count: url_count})
-
-          etag = generate_content_etag(xml_content)
-
-          conn
-          |> put_resp_content_type("application/xml")
-          |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-          |> put_resp_header("etag", etag)
-          |> put_resp_header("x-sitemap-url-count", to_string(url_count))
-          |> send_resp(200, xml_content)
+          |> send_resp(200, xml)
 
         {:error, reason} ->
           Logger.error("SitemapController: Generation failed: #{inspect(reason)}")
@@ -172,7 +181,64 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
     end
   end
 
-  # Serve server-rendered HTML (for iframe previews where XSL can't be applied)
+  # ── Private: Module file serving ───────────────────────────────────
+
+  defp serve_module_file(conn, filename) do
+    if FileStorage.module_exists?(filename) do
+      path = FileStorage.module_file_path(filename)
+      stat = FileStorage.get_module_stat(filename)
+      serve_file_with_etag(conn, path, stat)
+    else
+      # Try generating on demand
+      generate_module_on_demand(conn, filename)
+    end
+  end
+
+  defp generate_module_on_demand(conn, _filename) do
+    base_url = Sitemap.get_base_url()
+
+    if base_url == "" do
+      send_plain_error(conn, 503, "Sitemap not configured")
+    else
+      # Trigger full generation, then try serving again
+      opts = [base_url: base_url, xsl_style: "table", xsl_enabled: true]
+
+      case Generator.generate_all(opts) do
+        {:ok, %{total_urls: url_count, modules: modules}} ->
+          Sitemap.update_generation_stats(%{url_count: url_count})
+          Sitemap.update_module_stats(modules)
+          send_plain_error(conn, 404, "Module sitemap not found")
+
+        {:error, _} ->
+          send_plain_error(conn, 500, "Failed to generate sitemap")
+      end
+    end
+  end
+
+  # ── Private: Shared file serving with ETag ─────────────────────────
+
+  defp serve_file_with_etag(conn, path, stat_result) do
+    etag = generate_etag_from_stat(stat_result)
+
+    if client_has_fresh_cache?(conn, etag) do
+      send_not_modified(conn, etag)
+    else
+      case File.read(path) do
+        {:ok, content} ->
+          conn
+          |> put_resp_content_type("application/xml")
+          |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+          |> put_resp_header("etag", etag)
+          |> send_resp(200, content)
+
+        {:error, _} ->
+          send_plain_error(conn, 404, "File not found")
+      end
+    end
+  end
+
+  # ── Private: HTML serving ──────────────────────────────────────────
+
   defp serve_html(conn, _config, xsl_style) do
     base_url = Sitemap.get_base_url()
 
@@ -182,12 +248,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
       |> send_resp(503, "Sitemap not configured. Please set base URL in settings.")
     else
       html_style = xsl_to_html_style(xsl_style)
-
-      opts = [
-        base_url: base_url,
-        cache: false,
-        style: html_style
-      ]
+      opts = [base_url: base_url, cache: false, style: html_style]
 
       case Generator.generate_html(opts) do
         {:ok, html_content} ->
@@ -197,7 +258,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
           |> put_resp_content_type("text/html")
           |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
           |> put_resp_header("etag", etag)
-          |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
           |> send_resp(200, html_content)
 
         {:error, reason} ->
@@ -210,82 +270,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
     end
   end
 
-  # Map XSL styles to HTML styles used by Generator
-  defp xsl_to_html_style("cards"), do: "hierarchical"
-  defp xsl_to_html_style("table"), do: "grouped"
-  defp xsl_to_html_style("minimal"), do: "flat"
-  defp xsl_to_html_style(_), do: "hierarchical"
+  # ── Private: XSL serving ───────────────────────────────────────────
 
-  # Check if client has a fresh cached version via If-None-Match header
-  defp client_has_fresh_cache?(conn, etag) do
-    case get_req_header(conn, "if-none-match") do
-      [client_etag] -> client_etag == etag
-      _ -> false
-    end
-  end
-
-  # Send 304 Not Modified response
-  defp send_not_modified(conn, etag) do
-    conn
-    |> put_resp_header("etag", etag)
-    |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-    |> send_resp(304, "")
-  end
-
-  # Generate ETag from file mtime and size (most reliable)
-  defp generate_file_etag do
-    case FileStorage.get_file_stat() do
-      {:ok, mtime, size} ->
-        hash =
-          :crypto.hash(:md5, "#{inspect(mtime)}-#{size}")
-          |> Base.encode16(case: :lower)
-          |> binary_part(0, 16)
-
-        "\"#{hash}\""
-
-      :error ->
-        "\"default\""
-    end
-  end
-
-  # Generate ETag from content (for freshly generated content)
-  defp generate_content_etag(content) do
-    hash =
-      :crypto.hash(:md5, content)
-      |> Base.encode16(case: :lower)
-      |> binary_part(0, 16)
-
-    "\"#{hash}\""
-  end
-
-  @doc """
-  Redirects to XML sitemap (deprecated).
-
-  HTML sitemap is now served by opening sitemap.xml - browsers apply XSL styling.
-  This endpoint is kept for backward compatibility.
-  """
-  def html(conn, _params) do
-    prefix = PhoenixKit.Config.get_url_prefix()
-    redirect(conn, to: "#{prefix}/sitemap.xml")
-  end
-
-  @doc """
-  Serves XSL stylesheet files for sitemap display.
-
-  Available styles: table, cards, minimal
-  Default style (when accessed via /sitemap.xsl): table
-  """
-  def xsl_stylesheet(conn, %{"style" => style}) when style in @valid_xsl_styles do
-    serve_xsl_stylesheet(conn, style)
-  end
-
-  def xsl_stylesheet(conn, _params) do
-    # Default to "table" style when accessed via /sitemap.xsl without style param
-    serve_xsl_stylesheet(conn, "table")
-  end
-
-  defp serve_xsl_stylesheet(conn, style) do
-    xsl_path = Application.app_dir(:phoenix_kit, "priv/static/assets/sitemap-#{style}.xsl")
+  defp serve_xsl_file(conn, xsl_filename) do
+    xsl_path = Application.app_dir(:phoenix_kit, "priv/static/assets/#{xsl_filename}")
 
     if File.exists?(xsl_path) do
       content = File.read!(xsl_path)
@@ -301,49 +289,73 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
     end
   end
 
-  @doc """
-  Serves sitemap index part files for large sitemaps.
+  # ── Private: Legacy index part ─────────────────────────────────────
 
-  URL format: /sitemap-{index}.xml where index is 1-based.
-  Returns 404 if the index doesn't exist.
-  """
-  def index_part(conn, %{"index" => index_str}) do
-    if Sitemap.enabled?() do
-      serve_index_part(conn, index_str)
+  defp serve_legacy_index_part(conn, index_str) do
+    # Try to serve as a module filename first (new architecture)
+    filename = String.trim_trailing(index_str, ".xml")
+
+    if Regex.match?(@filename_pattern, filename) and FileStorage.module_exists?(filename) do
+      serve_module_file(conn, filename)
     else
-      send_plain_error(conn, 404, "Sitemap not available")
+      # Fall back to legacy numbered parts
+      case Integer.parse(index_str) do
+        {index, ""} when index > 0 ->
+          case Generator.get_sitemap_part(index) do
+            {:ok, xml_content} ->
+              conn
+              |> put_resp_content_type("application/xml")
+              |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+              |> send_resp(200, xml_content)
+
+            {:error, :not_found} ->
+              send_plain_error(conn, 404, "Sitemap part not found")
+          end
+
+        _ ->
+          send_plain_error(conn, 400, "Invalid sitemap index")
+      end
     end
   end
 
-  defp serve_index_part(conn, index_str) do
-    etag = generate_file_etag()
+  # ── Private: Helpers ───────────────────────────────────────────────
 
-    # Check if client already has this version cached
-    if client_has_fresh_cache?(conn, etag) do
-      send_not_modified(conn, etag)
-    else
-      do_serve_index_part(conn, index_str, etag)
+  defp xsl_to_html_style("table"), do: "grouped"
+  defp xsl_to_html_style("minimal"), do: "flat"
+  defp xsl_to_html_style(_), do: "hierarchical"
+
+  defp client_has_fresh_cache?(conn, etag) do
+    case get_req_header(conn, "if-none-match") do
+      [client_etag] -> client_etag == etag
+      _ -> false
     end
   end
 
-  defp do_serve_index_part(conn, index_str, etag) do
-    case Integer.parse(index_str) do
-      {index, ""} when index > 0 ->
-        case Generator.get_sitemap_part(index) do
-          {:ok, xml_content} ->
-            conn
-            |> put_resp_content_type("application/xml")
-            |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-            |> put_resp_header("etag", etag)
-            |> send_resp(200, xml_content)
+  defp send_not_modified(conn, etag) do
+    conn
+    |> put_resp_header("etag", etag)
+    |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+    |> send_resp(304, "")
+  end
 
-          {:error, :not_found} ->
-            send_plain_error(conn, 404, "Sitemap part not found")
-        end
+  defp generate_etag_from_stat({:ok, mtime, size}) do
+    hash =
+      :crypto.hash(:md5, "#{inspect(mtime)}-#{size}")
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 16)
 
-      _ ->
-        send_plain_error(conn, 400, "Invalid sitemap index")
-    end
+    "\"#{hash}\""
+  end
+
+  defp generate_etag_from_stat(_), do: "\"default\""
+
+  defp generate_content_etag(content) do
+    hash =
+      :crypto.hash(:md5, content)
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 16)
+
+    "\"#{hash}\""
   end
 
   defp send_plain_error(conn, status, message) do
@@ -352,35 +364,16 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
     |> send_resp(status, message)
   end
 
-  # Helper Functions
-
-  # Count URLs in generated XML by counting <loc> tags
-  defp count_urls_in_xml(xml) do
-    xml |> String.split("<loc>") |> length() |> Kernel.-(1) |> max(0)
-  end
-
   defp get_xsl_style(config) do
     html_style = Map.get(config, :html_style, "table")
     xsl_style = Map.get(config, :xsl_style)
 
     cond do
-      xsl_style && xsl_style in @valid_xsl_styles ->
-        xsl_style
-
-      html_style == "hierarchical" ->
-        "cards"
-
-      html_style == "grouped" ->
-        "table"
-
-      html_style == "flat" ->
-        "minimal"
-
-      html_style in @valid_xsl_styles ->
-        html_style
-
-      true ->
-        "table"
+      xsl_style && xsl_style in @valid_xsl_styles -> xsl_style
+      html_style == "grouped" -> "table"
+      html_style == "flat" -> "minimal"
+      html_style in @valid_xsl_styles -> html_style
+      true -> "table"
     end
   end
 end

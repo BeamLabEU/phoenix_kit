@@ -48,11 +48,30 @@
                 Your browser does not support the video tag.
               </video>
             <% else %>
-              <div class="flex flex-col items-center justify-center text-base-content/50">
-                <.icon name={file_icon(@file_data.file_type)} class="w-32 h-32 mb-4" />
-                <p class="text-2xl font-semibold">{String.upcase(@file_data.file_type)}</p>
-                <p class="text-sm text-base-content/70 mt-2">{@file_data.mime_type}</p>
-              </div>
+              <%= if @file_data.mime_type == "application/pdf" do %>
+                <iframe
+                  src={@file_data.urls["original"]}
+                  class="w-full h-full rounded border-0"
+                  title={@file_data.filename}
+                >
+                  <p class="text-base-content/70">
+                    Your browser does not support inline PDF viewing.
+                    <a
+                      href={@file_data.urls["original"]}
+                      target="_blank"
+                      class="link link-primary"
+                    >
+                      Download PDF
+                    </a>
+                  </p>
+                </iframe>
+              <% else %>
+                <div class="flex flex-col items-center justify-center text-base-content/50">
+                  <.icon name={file_icon(@file_data.file_type)} class="w-32 h-32 mb-4" />
+                  <p class="text-2xl font-semibold">{String.upcase(@file_data.file_type)}</p>
+                  <p class="text-sm text-base-content/70 mt-2">{@file_data.mime_type}</p>
+                </div>
+              <% end %>
             <% end %>
           <% end %>
         </div>
@@ -226,6 +245,28 @@
                     {@file_data.file_id}
                   </p>
                 </div>
+
+                <%= if @file_data.mime_type == "application/pdf" and is_map(@file_data.metadata) do %>
+                  <% pdf_meta = @file_data.metadata %>
+                  <%= if pdf_meta["page_count"] do %>
+                    <div>
+                      <span class="font-semibold text-base-content/70">Pages:</span>
+                      <p class="text-base-content mt-1">{pdf_meta["page_count"]}</p>
+                    </div>
+                  <% end %>
+                  <%= if pdf_meta["author"] && pdf_meta["author"] != "" do %>
+                    <div>
+                      <span class="font-semibold text-base-content/70">Author:</span>
+                      <p class="text-base-content mt-1">{pdf_meta["author"]}</p>
+                    </div>
+                  <% end %>
+                  <%= if pdf_meta["title"] && pdf_meta["title"] != "" do %>
+                    <div>
+                      <span class="font-semibold text-base-content/70">PDF Title:</span>
+                      <p class="text-base-content mt-1">{pdf_meta["title"]}</p>
+                    </div>
+                  <% end %>
+                <% end %>
               </div>
             </div>
           </div>

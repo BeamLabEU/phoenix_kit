@@ -627,6 +627,14 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
   # Private Helpers
   # ============================================================================
 
+  @doc """
+  Normalizes a language code to dialect format.
+
+  Converts base codes to full dialect (e.g., "en" -> "en-US").
+  Used by import system to ensure consistent language keys in JSONB fields.
+  """
+  def normalize_language_public(lang) when is_binary(lang), do: normalize_language(lang)
+
   # Normalize language code (convert base code to full dialect)
   defp normalize_language(lang) when is_binary(lang) do
     cond do

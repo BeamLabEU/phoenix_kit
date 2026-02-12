@@ -695,6 +695,27 @@ defmodule PhoenixKit.Modules.Shop.Options do
     merge_discovered_specs(schema_specs, discovered_specs)
   end
 
+  @doc """
+  Gets all selectable options for admin product detail view.
+
+  Unlike `get_selectable_specs_for_product/1`, this does NOT filter schema options
+  by product's `_option_values`. Shows all schema options (global + category) plus
+  discovered options from metadata, giving admins the full picture.
+  """
+  def get_all_selectable_specs_for_admin(product) do
+    # All schema selectable specs WITHOUT filtering by _option_values
+    schema_specs =
+      product
+      |> get_option_schema_for_product()
+      |> get_selectable_specs()
+
+    # Discover additional options from product metadata
+    discovered_specs = discover_selectable_options_from_metadata(product)
+
+    # Merge: schema specs take priority over discovered
+    merge_discovered_specs(schema_specs, discovered_specs)
+  end
+
   # Discovers selectable options from product metadata.
   # Creates "virtual" option specs for keys found in _option_values.
   # Unlike discover_options_from_metadata/1, this doesn't require _price_modifiers.
@@ -709,8 +730,9 @@ defmodule PhoenixKit.Modules.Shop.Options do
       is_list(values) and values != []
     end)
     |> Enum.map(fn {key, values} ->
-      # Check if this option has price modifiers
-      has_price = Map.has_key?(price_modifiers, key)
+      # Check if this option has price modifiers with at least one non-zero value
+      key_modifiers = Map.get(price_modifiers, key, %{})
+      has_price = key_modifiers != %{} and has_nonzero_modifiers?(key_modifiers)
 
       base_spec = %{
         "key" => key,
@@ -725,7 +747,7 @@ defmodule PhoenixKit.Modules.Shop.Options do
         |> Map.put("affects_price", true)
         |> Map.put("modifier_type", "fixed")
         |> Map.put("allow_override", true)
-        |> Map.put("price_modifiers", Map.get(price_modifiers, key, %{}))
+        |> Map.put("price_modifiers", key_modifiers)
       else
         base_spec
       end
@@ -777,10 +799,10 @@ defmodule PhoenixKit.Modules.Shop.Options do
             true
 
           _ ->
-            # Keep schema specs that have image mappings AND their own options
+            # Keep schema specs that have their own defined options or image mappings
             has_image_mappings = is_map(image_mappings[key]) and image_mappings[key] != %{}
             has_own_options = is_list(spec["options"]) and spec["options"] != []
-            has_image_mappings and has_own_options
+            has_own_options or has_image_mappings
         end
       end)
     else
@@ -789,18 +811,21 @@ defmodule PhoenixKit.Modules.Shop.Options do
     end
   end
 
-  # Discovers options from product metadata that have price modifiers.
+  # Discovers options from product metadata that have price modifiers with non-zero values.
   # Creates "virtual" option specs for keys found in _option_values that also
-  # have corresponding _price_modifiers entries.
+  # have corresponding _price_modifiers entries with at least one non-zero modifier.
   defp discover_options_from_metadata(product) do
     metadata = product.metadata || %{}
     option_values = Map.get(metadata, "_option_values", %{})
     price_modifiers = Map.get(metadata, "_price_modifiers", %{})
 
-    # For each key in _option_values that has _price_modifiers
+    # For each key in _option_values that has _price_modifiers with non-zero values
     option_values
     |> Enum.filter(fn {key, values} ->
-      is_list(values) and values != [] and Map.has_key?(price_modifiers, key)
+      key_modifiers = Map.get(price_modifiers, key, %{})
+
+      is_list(values) and values != [] and
+        key_modifiers != %{} and has_nonzero_modifiers?(key_modifiers)
     end)
     |> Enum.map(fn {key, values} ->
       %{
@@ -815,6 +840,30 @@ defmodule PhoenixKit.Modules.Shop.Options do
         "_discovered" => true
       }
     end)
+  end
+
+  # Checks if a price modifiers map has at least one non-zero value.
+  # Used to determine if an option group actually affects pricing.
+  defp has_nonzero_modifiers?(modifiers) when is_map(modifiers) do
+    Enum.any?(modifiers, fn {_key, value} ->
+      decimal =
+        case value do
+          %{"value" => v} when is_binary(v) -> safe_parse_decimal(v)
+          v when is_binary(v) -> safe_parse_decimal(v)
+          _ -> nil
+        end
+
+      decimal != nil and Decimal.compare(decimal, Decimal.new("0")) != :eq
+    end)
+  end
+
+  defp has_nonzero_modifiers?(_), do: false
+
+  defp safe_parse_decimal(value) when is_binary(value) do
+    case Decimal.parse(value) do
+      {decimal, ""} -> decimal
+      _ -> nil
+    end
   end
 
   # Converts snake_case key to human-readable label.

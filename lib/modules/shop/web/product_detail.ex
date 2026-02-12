@@ -21,8 +21,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     # Get price-affecting specs for admin view
     price_affecting_specs = Options.get_price_affecting_specs_for_product(product)
 
-    # Get selectable specs (consistent with catalog page)
-    selectable_specs = Options.get_selectable_specs_for_product(product)
+    # Get all selectable specs for admin view (includes all schema options, not filtered)
+    selectable_specs = Options.get_all_selectable_specs_for_admin(product)
 
     {min_price, max_price} =
       Options.get_price_range(price_affecting_specs, product.price, product.metadata)
@@ -263,10 +263,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                   </h2>
                   <div class="space-y-3">
                     <%= for attr <- @selectable_specs do %>
+                      <% affects_price = attr["affects_price"] == true %>
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="font-medium min-w-24">{attr["label"]}:</span>
                         <%= for value <- get_option_values(@product, attr) do %>
                           <% has_image = get_in(image_mappings, [attr["key"], value]) not in [nil, ""] %>
+                          <% price_mod =
+                            affects_price && get_price_modifier(@product, attr["key"], value) %>
                           <button
                             type="button"
                             phx-click="select_option"
@@ -278,13 +281,18 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                                 do: "badge-primary",
                                 else: "badge-outline hover:badge-primary/30"
                               ),
-                              has_image && "gap-1"
+                              (has_image || price_mod) && "gap-1"
                             ]}
                           >
                             <%= if has_image do %>
                               <.icon name="hero-photo" class="w-3 h-3" />
                             <% end %>
                             {value}
+                            <%= if price_mod do %>
+                              <span class="text-xs opacity-70">
+                                {format_price_modifier(price_mod, @currency)}
+                              </span>
+                            <% end %>
                           </button>
                         <% end %>
                       </div>
@@ -610,6 +618,30 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     end
   end
 
+  defp get_price_modifier(product, key, value) do
+    case product.metadata do
+      %{"_price_modifiers" => %{^key => modifiers}} when is_map(modifiers) ->
+        case Map.get(modifiers, value) do
+          mod when is_number(mod) -> Decimal.new("#{mod}")
+          mod when is_binary(mod) -> Decimal.new(mod)
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp format_price_modifier(nil, _currency), do: ""
+
+  defp format_price_modifier(mod, currency) do
+    cond do
+      Decimal.compare(mod, 0) == :gt -> "+#{format_price(mod, currency)}"
+      Decimal.compare(mod, 0) == :lt -> format_price(mod, currency)
+      true -> ""
+    end
+  end
+
   defp status_badge_class("active"), do: "badge badge-success badge-lg"
   defp status_badge_class("draft"), do: "badge badge-warning badge-lg"
   defp status_badge_class("archived"), do: "badge badge-neutral badge-lg"
@@ -625,7 +657,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     "$#{Decimal.round(price, 2)}"
   end
 
-  # Get signed URL for Storage image
+  # Get signed URL for Storage image (skip URLs - they are legacy Shopify images)
+  defp get_storage_image_url("http" <> _ = _url, _variant), do: nil
+
   defp get_storage_image_url(file_id, variant) do
     alias PhoenixKit.Modules.Storage
     alias PhoenixKit.Modules.Storage.URLSigner
@@ -669,8 +703,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   defp get_first_image_id(_), do: nil
 
   # Get image URL by ID (for selected image display)
+  # Storage-based images: featured_image_id is a UUID string
   defp get_image_url_by_id(%{featured_image_id: id} = product, image_id)
-       when is_binary(image_id) do
+       when is_binary(id) and is_binary(image_id) do
     cond do
       id == image_id -> get_storage_image_url(image_id, "small")
       image_id in (product.image_ids || []) -> get_storage_image_url(image_id, "small")
@@ -678,8 +713,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     end
   end
 
-  defp get_image_url_by_id(%{image_ids: ids}, image_id)
-       when is_binary(image_id) and is_list(ids) do
+  defp get_image_url_by_id(%{image_ids: [_ | _] = ids}, image_id)
+       when is_binary(image_id) do
     if image_id in ids do
       get_storage_image_url(image_id, "small")
     else
@@ -711,7 +746,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     |> Enum.reject(fn {_, url} -> is_nil(url) end)
   end
 
-  defp get_all_product_images(%{image_ids: ids}) when is_list(ids) do
+  defp get_all_product_images(%{image_ids: [_ | _] = ids}) do
     Enum.map(ids, fn id ->
       url = get_storage_image_url(id, "thumbnail")
       {id, url}
