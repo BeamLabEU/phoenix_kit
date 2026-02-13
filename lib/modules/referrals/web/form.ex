@@ -138,7 +138,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     # Find the selected user from search results
     selected_user =
       Enum.find(socket.assigns.search_results, fn user ->
-        to_string(user.id) == user_id
+        to_string(user.uuid) == user_id
       end)
 
     # Update the changeset with the selected beneficiary, preserving other changes

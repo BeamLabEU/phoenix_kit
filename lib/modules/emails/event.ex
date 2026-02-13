@@ -198,8 +198,9 @@ defmodule PhoenixKit.Modules.Emails.Event do
   """
   def get_event(id) when is_integer(id) do
     __MODULE__
+    |> where([e], e.id == ^id)
     |> preload([:email_log])
-    |> repo().get(id)
+    |> repo().one()
   end
 
   def get_event(id) when is_binary(id) do

@@ -185,7 +185,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   defp sanitize_rich_text_data(changeset) do
-    entity_id = get_field(changeset, :entity_id)
+    entity_id = get_field(changeset, :entity_id) || get_field(changeset, :entity_uuid)
     data = get_field(changeset, :data)
 
     case {entity_id, data} do
@@ -208,7 +208,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   defp validate_data_against_entity(changeset) do
-    entity_id = get_field(changeset, :entity_id)
+    entity_id = get_field(changeset, :entity_id) || get_field(changeset, :entity_uuid)
     data = get_field(changeset, :data)
 
     case entity_id do

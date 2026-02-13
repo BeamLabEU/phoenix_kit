@@ -59,7 +59,11 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
     # Association
     # legacy
     field :user_id, :integer
-    field :user_uuid, UUIDv7
+
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     timestamps(type: :utc_datetime)
   end

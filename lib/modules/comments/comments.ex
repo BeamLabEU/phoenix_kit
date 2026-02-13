@@ -57,6 +57,7 @@ defmodule PhoenixKit.Modules.Comments do
   alias PhoenixKit.Modules.Comments.CommentDislike
   alias PhoenixKit.Modules.Comments.CommentLike
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
 
   # ============================================================================
   # Module Status
@@ -119,8 +120,15 @@ defmodule PhoenixKit.Modules.Comments do
   """
   def create_comment(resource_type, resource_id, user_id, attrs) when is_binary(user_id) do
     case Integer.parse(user_id) do
-      {int_id, ""} -> create_comment(resource_type, resource_id, int_id, attrs)
-      _ -> {:error, :invalid_user_id}
+      {int_id, ""} ->
+        create_comment(resource_type, resource_id, int_id, attrs)
+
+      _ ->
+        # Try UUID lookup
+        case Auth.get_user(user_id) do
+          %{id: int_id} -> create_comment(resource_type, resource_id, int_id, attrs)
+          nil -> {:error, :invalid_user_id}
+        end
     end
   end
 

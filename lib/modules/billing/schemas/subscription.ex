@@ -42,6 +42,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   import Ecto.Changeset
 
   alias PhoenixKit.Modules.Billing.{BillingProfile, PaymentMethod, SubscriptionPlan}
+  alias PhoenixKit.Users.Auth.User
 
   @statuses ~w(trialing active past_due paused cancelled)
 
@@ -74,7 +75,8 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
     # Associations
     # legacy
     field :user_id, :integer
-    field :user_uuid, UUIDv7
+
+    belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
     # legacy
     field :billing_profile_id, :integer
 

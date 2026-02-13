@@ -334,7 +334,7 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   defp order_count_for_currency(code) do
-    from(o in Order, where: o.currency == ^code, select: count(o.id))
+    from(o in Order, where: o.currency == ^code, select: count(o.uuid))
     |> repo().one()
   end
 
@@ -436,7 +436,7 @@ defmodule PhoenixKit.Modules.Billing do
           )
       end
 
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count, :uuid)
 
     preloads = Keyword.get(opts, :preload, [:user])
 
@@ -655,7 +655,7 @@ defmodule PhoenixKit.Modules.Billing do
           )
       end
 
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count, :uuid)
 
     preloads = Keyword.get(opts, :preload, [:user])
 
@@ -1006,7 +1006,10 @@ defmodule PhoenixKit.Modules.Billing do
 
       id ->
         profile = get_billing_profile!(id)
-        Map.put(attrs, "billing_snapshot", BillingProfile.to_snapshot(profile))
+
+        attrs
+        |> Map.put("billing_snapshot", BillingProfile.to_snapshot(profile))
+        |> Map.put("billing_profile_uuid", profile.uuid)
     end
   end
 
@@ -1032,7 +1035,9 @@ defmodule PhoenixKit.Modules.Billing do
         snapshot_empty? = is_nil(order.billing_snapshot) || order.billing_snapshot == %{}
 
         if profile.uuid != order.billing_profile_uuid || snapshot_empty? do
-          Map.put(attrs, "billing_snapshot", BillingProfile.to_snapshot(profile))
+          attrs
+          |> Map.put("billing_snapshot", BillingProfile.to_snapshot(profile))
+          |> Map.put("billing_profile_uuid", profile.uuid)
         else
           attrs
         end
@@ -1105,7 +1110,7 @@ defmodule PhoenixKit.Modules.Billing do
           )
       end
 
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count, :uuid)
 
     preloads = Keyword.get(opts, :preload, [:user, :order])
 
