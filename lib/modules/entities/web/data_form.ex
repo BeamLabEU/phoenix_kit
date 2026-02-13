@@ -51,7 +51,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
     # Create mode with slug
     entity = Entities.get_entity_by_name(entity_slug)
-    data_record = %EntityData{entity_id: entity.id}
+    data_record = %EntityData{entity_id: entity.id, entity_uuid: entity.uuid}
     changeset = EntityData.change(data_record)
 
     mount_data_form(socket, entity, data_record, changeset, gettext("New Data"), locale)
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
     # Create mode with ID (backwards compat)
     entity = Entities.get_entity!(entity_id)
-    data_record = %EntityData{entity_id: entity.id}
+    data_record = %EntityData{entity_id: entity.id, entity_uuid: entity.uuid}
     changeset = EntityData.change(data_record)
 
     mount_data_form(socket, entity, data_record, changeset, gettext("New Data"), locale)
@@ -206,7 +206,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         if socket.assigns.data_record.id do
           data_params
         else
-          Map.put(data_params, "created_by", socket.assigns.current_user.id)
+          data_params
+          |> Map.put("created_by", socket.assigns.current_user.id)
+          |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
         end
 
       data_params =
@@ -342,7 +344,10 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
           {reloaded_data, EntityData.change(reloaded_data)}
         else
           # Reset to empty new data record
-          empty_data = %EntityData{entity_id: socket.assigns.entity.id}
+          empty_data = %EntityData{
+            entity_id: socket.assigns.entity.id,
+            entity_uuid: socket.assigns.entity.uuid
+          }
 
           changeset =
             empty_data
@@ -636,7 +641,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   defp refresh_entity_assignment(socket, entity) do
     params = extract_changeset_params(socket.assigns.changeset)
 
-    data_record = %{socket.assigns.data_record | entity: entity, entity_id: entity.id}
+    data_record = %{
+      socket.assigns.data_record
+      | entity: entity,
+        entity_id: entity.id,
+        entity_uuid: entity.uuid
+    }
 
     changeset =
       data_record
@@ -671,7 +681,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       params
     else
       # Creating new record - set creator
-      Map.put(params, "created_by", current_user.id)
+      params
+      |> Map.put("created_by", current_user.id)
+      |> Map.put("created_by_uuid", current_user.uuid)
     end
   end
 

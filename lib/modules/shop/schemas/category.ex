@@ -32,8 +32,10 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   @statuses ~w(active unlisted hidden)
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_shop_categories" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
 
     # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
     field :name, :map, default: %{}
@@ -48,14 +50,24 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :option_schema, {:array, :map}, default: []
 
     # Self-referential for nesting
-    belongs_to :parent, __MODULE__
-    has_many :children, __MODULE__, foreign_key: :parent_id
+    # legacy
+    field :parent_id, :integer
+    belongs_to :parent, __MODULE__, foreign_key: :parent_uuid, references: :uuid, type: UUIDv7
+    has_many :children, __MODULE__, foreign_key: :parent_uuid, references: :uuid
 
     # Products in this category
-    has_many :products, PhoenixKit.Modules.Shop.Product
+    has_many :products, PhoenixKit.Modules.Shop.Product,
+      foreign_key: :category_uuid,
+      references: :uuid
 
     # Featured product for fallback image
-    belongs_to :featured_product, PhoenixKit.Modules.Shop.Product
+    # legacy
+    field :featured_product_id, :integer
+
+    belongs_to :featured_product, PhoenixKit.Modules.Shop.Product,
+      foreign_key: :featured_product_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     timestamps()
   end
@@ -76,7 +88,9 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :description,
       :image_id,
       :featured_product_id,
+      :featured_product_uuid,
       :parent_id,
+      :parent_uuid,
       :position,
       :status,
       :metadata,
@@ -142,8 +156,8 @@ defmodule PhoenixKit.Modules.Shop.Category do
   @doc """
   Returns true if category is a root category (no parent).
   """
-  def root?(%__MODULE__{parent_id: nil}), do: true
-  def root?(_), do: false
+  def root?(%__MODULE__{parent_uuid: nil}), do: true
+  def root?(%__MODULE__{}), do: false
 
   @doc """
   Returns true if category has children.
@@ -294,13 +308,21 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   # Prevent category from being its own parent
   defp validate_not_self_parent(changeset) do
+    parent_uuid = get_change(changeset, :parent_uuid)
+    category_uuid = changeset.data.uuid
+
     parent_id = get_change(changeset, :parent_id)
     category_id = changeset.data.id
 
-    if parent_id && parent_id == category_id do
-      add_error(changeset, :parent_id, "cannot be self")
-    else
-      changeset
+    cond do
+      parent_uuid && parent_uuid == category_uuid ->
+        add_error(changeset, :parent_uuid, "cannot be self")
+
+      parent_id && parent_id == category_id ->
+        add_error(changeset, :parent_id, "cannot be self")
+
+      true ->
+        changeset
     end
   end
 

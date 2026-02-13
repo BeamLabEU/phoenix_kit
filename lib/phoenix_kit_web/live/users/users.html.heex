@@ -169,7 +169,7 @@
                         <% column_id == "email" -> %>
                           <.link
                             navigate={
-                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")
+                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
                             }
                             class="flex items-center gap-3 hover:opacity-80 transition-opacity"
                           >
@@ -299,7 +299,7 @@
                             <%!-- View User Details --%>
                             <.link
                               navigate={
-                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")
+                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
                               }
                               class="btn btn-xs btn-outline btn-info"
                               title="View user details"
@@ -309,7 +309,7 @@
                             <%!-- Edit User --%>
                             <.link
                               navigate={
-                                PhoenixKit.Utils.Routes.path("/admin/users/edit/#{user.id}")
+                                PhoenixKit.Utils.Routes.path("/admin/users/edit/#{user.uuid}")
                               }
                               class="btn btn-xs btn-outline btn-secondary"
                               title="Edit user"
@@ -322,7 +322,7 @@
                               <button
                                 class="btn btn-xs btn-outline btn-primary"
                                 phx-click="show_role_management"
-                                phx-value-user_id={user.id}
+                                phx-value-user_id={user.uuid}
                                 title="Manage roles"
                               >
                                 <.icon name="hero-user-group" class="h-4 w-4" />
@@ -334,7 +334,7 @@
                               <button
                                 class="btn btn-xs btn-outline btn-error"
                                 phx-click="request_delete_user"
-                                phx-value-user_id={user.id}
+                                phx-value-user_id={user.uuid}
                                 data-confirm="Are you sure you want to delete this user? This action cannot be undone."
                                 title="Delete user"
                               >
@@ -347,7 +347,7 @@
                               <button
                                 class={"btn btn-xs btn-outline #{if user.confirmed_at, do: "btn-success", else: "btn-warning"}"}
                                 phx-click="request_confirmation_toggle"
-                                phx-value-user_id={user.id}
+                                phx-value-user_id={user.uuid}
                                 phx-value-is_confirmed={to_string(!!user.confirmed_at)}
                                 title={
                                   if user.confirmed_at,
@@ -366,7 +366,7 @@
                               <button
                                 class={"btn btn-xs btn-outline #{if user.is_active, do: "btn-success", else: "btn-warning"}"}
                                 phx-click="request_status_toggle"
-                                phx-value-user_id={user.id}
+                                phx-value-user_id={user.uuid}
                                 phx-value-is_active={to_string(user.is_active)}
                                 title={
                                   if user.is_active, do: "Deactivate user", else: "Activate user"

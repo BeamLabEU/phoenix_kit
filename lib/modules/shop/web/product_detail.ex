@@ -193,7 +193,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             <%!-- Action Buttons --%>
             <div class="flex gap-2">
               <.link
-                navigate={Routes.path("/admin/shop/products/#{@product.id}/edit")}
+                navigate={Routes.path("/admin/shop/products/#{@product.uuid}/edit")}
                 class="btn btn-primary"
               >
                 <.icon name="hero-pencil" class="w-4 h-4 mr-2" /> Edit

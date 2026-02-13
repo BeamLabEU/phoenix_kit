@@ -132,19 +132,19 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   defp count_orders do
-    Order |> repo().aggregate(:count, :id)
+    Order |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
 
   defp count_invoices do
-    Invoice |> repo().aggregate(:count, :id)
+    Invoice |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
 
   defp count_currencies do
-    Currency |> where([c], c.enabled == true) |> repo().aggregate(:count, :id)
+    Currency |> where([c], c.enabled == true) |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Billing do
   defp count_orders_since(date) do
     Order
     |> where([o], o.inserted_at >= ^NaiveDateTime.new!(date, ~T[00:00:00]))
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
@@ -160,7 +160,7 @@ defmodule PhoenixKit.Modules.Billing do
   defp count_invoices_since(date) do
     Invoice
     |> where([i], i.inserted_at >= ^NaiveDateTime.new!(date, ~T[00:00:00]))
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
@@ -168,7 +168,7 @@ defmodule PhoenixKit.Modules.Billing do
   defp count_invoices_by_status(status) do
     Invoice
     |> where([i], i.status == ^status)
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
@@ -246,7 +246,7 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets a currency by ID or UUID.
   """
-  def get_currency(id) when is_integer(id), do: repo().get(Currency, id)
+  def get_currency(id) when is_integer(id), do: repo().get_by(Currency, id: id)
 
   def get_currency(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
@@ -334,7 +334,7 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   defp order_count_for_currency(code) do
-    from(o in Order, where: o.currency == ^code, select: count(o.id))
+    from(o in Order, where: o.currency == ^code, select: count(o.uuid))
     |> repo().one()
   end
 
@@ -364,7 +364,11 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   defp filter_by_user_id(query, nil), do: query
-  defp filter_by_user_id(query, user_id), do: where(query, [bp], bp.user_id == ^user_id)
+
+  defp filter_by_user_id(query, user_id) do
+    user_uuid = extract_user_uuid(user_id)
+    where(query, [bp], bp.user_uuid == ^user_uuid)
+  end
 
   defp filter_by_type(query, nil), do: query
   defp filter_by_type(query, type), do: where(query, [bp], bp.type == ^type)
@@ -432,7 +436,7 @@ defmodule PhoenixKit.Modules.Billing do
           )
       end
 
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count, :uuid)
 
     preloads = Keyword.get(opts, :preload, [:user])
 
@@ -451,15 +455,17 @@ defmodule PhoenixKit.Modules.Billing do
   Gets the default billing profile for a user.
   """
   def get_default_billing_profile(user_id) do
+    user_uuid = extract_user_uuid(user_id)
+
     BillingProfile
-    |> where([bp], bp.user_id == ^user_id and bp.is_default == true)
+    |> where([bp], bp.user_uuid == ^user_uuid and bp.is_default == true)
     |> repo().one()
   end
 
   @doc """
   Gets a billing profile by ID or UUID, returns nil if not found.
   """
-  def get_billing_profile(id) when is_integer(id), do: repo().get(BillingProfile, id)
+  def get_billing_profile(id) when is_integer(id), do: repo().get_by(BillingProfile, id: id)
 
   def get_billing_profile(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
@@ -496,10 +502,15 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def create_billing_profile(user_or_id, attrs) do
     user_id = extract_user_id(user_or_id)
+    user_uuid = extract_user_uuid(user_or_id)
 
     result =
       %BillingProfile{}
-      |> BillingProfile.changeset(Map.put(attrs, "user_id", user_id))
+      |> BillingProfile.changeset(
+        attrs
+        |> Map.put("user_id", user_id)
+        |> Map.put("user_uuid", user_uuid)
+      )
       |> repo().insert()
 
     # If this is the first profile, make it default
@@ -560,7 +571,7 @@ defmodule PhoenixKit.Modules.Billing do
     repo().transaction(fn ->
       # Clear existing default for user
       BillingProfile
-      |> where([bp], bp.user_id == ^profile.user_id and bp.is_default == true)
+      |> where([bp], bp.user_uuid == ^profile.user_uuid and bp.is_default == true)
       |> repo().update_all(set: [is_default: false])
 
       # Set new default
@@ -571,9 +582,11 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   defp count_user_profiles(user_id) do
+    user_uuid = extract_user_uuid(user_id)
+
     BillingProfile
-    |> where([bp], bp.user_id == ^user_id)
-    |> repo().aggregate(:count, :id)
+    |> where([bp], bp.user_uuid == ^user_uuid)
+    |> repo().aggregate(:count)
   end
 
   # ============================================
@@ -595,8 +608,10 @@ defmodule PhoenixKit.Modules.Billing do
   Lists orders for a specific user.
   """
   def list_user_orders(user_id, filters \\ %{}) do
+    user_uuid = extract_user_uuid(user_id)
+
     Order
-    |> where([o], o.user_id == ^user_id)
+    |> where([o], o.user_uuid == ^user_uuid)
     |> apply_order_filters(filters)
     |> order_by([o], desc: o.inserted_at)
     |> repo().all()
@@ -640,7 +655,7 @@ defmodule PhoenixKit.Modules.Billing do
           )
       end
 
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count, :uuid)
 
     preloads = Keyword.get(opts, :preload, [:user])
 
@@ -674,8 +689,9 @@ defmodule PhoenixKit.Modules.Billing do
     preloads = Keyword.get(opts, :preload, [:user, :billing_profile])
 
     Order
+    |> where([o], o.id == ^id)
     |> preload(^preloads)
-    |> repo().get(id)
+    |> repo().one()
   end
 
   def get_order(id, opts) when is_binary(id) do
@@ -724,12 +740,14 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def create_order(user_or_id, attrs) do
     user_id = extract_user_id(user_or_id)
+    user_uuid = extract_user_uuid(user_or_id)
     config = get_config()
 
     # Use string key to match other attrs (avoid mixed keys error)
     attrs =
       attrs
       |> Map.put("user_id", user_id)
+      |> Map.put("user_uuid", user_uuid)
       |> maybe_set_default_currency()
       |> maybe_set_order_number(config)
       |> maybe_set_billing_snapshot()
@@ -755,8 +773,32 @@ defmodule PhoenixKit.Modules.Billing do
   def create_order(attrs) when is_map(attrs) do
     config = get_config()
 
+    # Resolve user_uuid from user_id if not already present
+    user_id = Map.get(attrs, :user_id) || Map.get(attrs, "user_id")
+    user_uuid = Map.get(attrs, :user_uuid) || Map.get(attrs, "user_uuid")
+
+    user_uuid =
+      if user_uuid do
+        user_uuid
+      else
+        cond do
+          is_integer(user_id) ->
+            extract_user_uuid(user_id)
+
+          is_binary(user_id) ->
+            case Integer.parse(user_id) do
+              {int_id, ""} -> extract_user_uuid(int_id)
+              _ -> user_id
+            end
+
+          true ->
+            nil
+        end
+      end
+
     attrs =
       attrs
+      |> Map.put("user_uuid", user_uuid)
       |> maybe_set_default_currency()
       |> maybe_set_order_number(config)
       |> maybe_set_billing_snapshot()
@@ -963,9 +1005,11 @@ defmodule PhoenixKit.Modules.Billing do
         attrs
 
       id ->
-        profile_id = if is_binary(id), do: String.to_integer(id), else: id
-        profile = get_billing_profile!(profile_id)
-        Map.put(attrs, "billing_snapshot", BillingProfile.to_snapshot(profile))
+        profile = get_billing_profile!(id)
+
+        attrs
+        |> Map.put("billing_snapshot", BillingProfile.to_snapshot(profile))
+        |> Map.put("billing_profile_uuid", profile.uuid)
     end
   end
 
@@ -986,16 +1030,14 @@ defmodule PhoenixKit.Modules.Billing do
 
       # Profile ID present - update snapshot if changed or empty
       true ->
-        new_id =
-          if is_binary(new_profile_id),
-            do: String.to_integer(new_profile_id),
-            else: new_profile_id
+        profile = get_billing_profile!(new_profile_id)
 
         snapshot_empty? = is_nil(order.billing_snapshot) || order.billing_snapshot == %{}
 
-        if new_id != order.billing_profile_id || snapshot_empty? do
-          profile = get_billing_profile!(new_id)
-          Map.put(attrs, "billing_snapshot", BillingProfile.to_snapshot(profile))
+        if profile.uuid != order.billing_profile_uuid || snapshot_empty? do
+          attrs
+          |> Map.put("billing_snapshot", BillingProfile.to_snapshot(profile))
+          |> Map.put("billing_profile_uuid", profile.uuid)
         else
           attrs
         end
@@ -1021,8 +1063,10 @@ defmodule PhoenixKit.Modules.Billing do
   Lists invoices for a specific user.
   """
   def list_user_invoices(user_id, filters \\ %{}) do
+    user_uuid = extract_user_uuid(user_id)
+
     Invoice
-    |> where([i], i.user_id == ^user_id)
+    |> where([i], i.user_uuid == ^user_uuid)
     |> apply_invoice_filters(filters)
     |> order_by([i], desc: i.inserted_at)
     |> repo().all()
@@ -1066,7 +1110,7 @@ defmodule PhoenixKit.Modules.Billing do
           )
       end
 
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count, :uuid)
 
     preloads = Keyword.get(opts, :preload, [:user, :order])
 
@@ -1100,8 +1144,9 @@ defmodule PhoenixKit.Modules.Billing do
     preloads = Keyword.get(opts, :preload, [:user, :order])
 
     Invoice
+    |> where([i], i.id == ^id)
     |> preload(^preloads)
-    |> repo().get(id)
+    |> repo().one()
   end
 
   def get_invoice(id, opts) when is_binary(id) do
@@ -1125,7 +1170,14 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Lists invoices for a specific order.
   """
-  def list_invoices_for_order(order_id) do
+  def list_invoices_for_order(order_uuid) when is_binary(order_uuid) do
+    Invoice
+    |> where([i], i.order_uuid == ^order_uuid)
+    |> order_by([i], desc: i.inserted_at)
+    |> repo().all()
+  end
+
+  def list_invoices_for_order(order_id) when is_integer(order_id) do
     Invoice
     |> where([i], i.order_id == ^order_id)
     |> order_by([i], desc: i.inserted_at)
@@ -1177,11 +1229,13 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def create_invoice(user_or_id, attrs) do
     user_id = extract_user_id(user_or_id)
+    user_uuid = extract_user_uuid(user_or_id)
     config = get_config()
 
     attrs =
       attrs
       |> Map.put(:user_id, user_id)
+      |> Map.put(:user_uuid, user_uuid)
       |> Map.put_new(:invoice_number, generate_invoice_number(config.invoice_prefix))
 
     result =
@@ -1312,6 +1366,7 @@ defmodule PhoenixKit.Modules.Billing do
           email,
           variables,
           user_id: user && user.id,
+          user_uuid: user && user.uuid,
           metadata: %{invoice_id: invoice.id, invoice_number: invoice.invoice_number}
         )
     end
@@ -1407,6 +1462,7 @@ defmodule PhoenixKit.Modules.Billing do
           email,
           variables,
           user_id: user && user.id,
+          user_uuid: user && user.uuid,
           metadata: %{
             invoice_id: invoice.id,
             receipt_number: invoice.receipt_number,
@@ -1516,6 +1572,7 @@ defmodule PhoenixKit.Modules.Billing do
           email,
           variables,
           user_id: user && user.id,
+          user_uuid: user && user.uuid,
           metadata: %{
             invoice_id: invoice.id,
             transaction_id: transaction.id,
@@ -1649,6 +1706,7 @@ defmodule PhoenixKit.Modules.Billing do
           email,
           variables,
           user_id: user && user.id,
+          user_uuid: user && user.uuid,
           metadata: %{
             invoice_id: invoice.id,
             transaction_id: transaction.id,
@@ -2043,20 +2101,20 @@ defmodule PhoenixKit.Modules.Billing do
           Order
           |> where([o], fragment("DATE(?)", o.inserted_at) >= ^start_of_year)
           |> where([o], fragment("DATE(?)", o.inserted_at) <= ^end_of_year)
-          |> repo().aggregate(:count, :id)
+          |> repo().aggregate(:count)
 
         "invoice" ->
           Invoice
           |> where([i], fragment("DATE(?)", i.inserted_at) >= ^start_of_year)
           |> where([i], fragment("DATE(?)", i.inserted_at) <= ^end_of_year)
-          |> repo().aggregate(:count, :id)
+          |> repo().aggregate(:count)
 
         "receipt" ->
           Invoice
           |> where([i], not is_nil(i.receipt_number))
           |> where([i], fragment("DATE(?)", i.receipt_generated_at) >= ^start_of_year)
           |> where([i], fragment("DATE(?)", i.receipt_generated_at) <= ^end_of_year)
-          |> repo().aggregate(:count, :id)
+          |> repo().aggregate(:count)
       end
 
     count + 1
@@ -2086,61 +2144,11 @@ defmodule PhoenixKit.Modules.Billing do
       Billing.list_transactions(type: "payment", limit: 10)
   """
   def list_transactions(opts \\ []) do
-    query =
+    transactions =
       Transaction
       |> order_by([t], desc: t.inserted_at)
-
-    query =
-      if invoice_id = opts[:invoice_id] do
-        where(query, [t], t.invoice_id == ^invoice_id)
-      else
-        query
-      end
-
-    query =
-      if user_id = opts[:user_id] do
-        where(query, [t], t.user_id == ^user_id)
-      else
-        query
-      end
-
-    query =
-      if payment_method = opts[:payment_method] do
-        where(query, [t], t.payment_method == ^payment_method)
-      else
-        query
-      end
-
-    query =
-      case opts[:type] do
-        "payment" -> where(query, [t], t.amount > 0)
-        "refund" -> where(query, [t], t.amount < 0)
-        _ -> query
-      end
-
-    query =
-      if search = opts[:search] do
-        search_term = "%#{search}%"
-        where(query, [t], ilike(t.transaction_number, ^search_term))
-      else
-        query
-      end
-
-    query =
-      if limit = opts[:limit] do
-        limit(query, ^limit)
-      else
-        query
-      end
-
-    query =
-      if offset = opts[:offset] do
-        offset(query, ^offset)
-      else
-        query
-      end
-
-    transactions = repo().all(query)
+      |> filter_transactions(opts)
+      |> repo().all()
 
     if preloads = opts[:preload] do
       repo().preload(transactions, preloads)
@@ -2148,6 +2156,60 @@ defmodule PhoenixKit.Modules.Billing do
       transactions
     end
   end
+
+  defp filter_transactions(query, opts) do
+    query
+    |> filter_transactions_by_invoice(opts)
+    |> filter_transactions_by_user(opts[:user_id])
+    |> filter_transactions_by_payment_method(opts[:payment_method])
+    |> filter_transactions_by_type(opts[:type])
+    |> filter_transactions_by_search(opts[:search])
+    |> maybe_limit(opts[:limit])
+    |> maybe_offset(opts[:offset])
+  end
+
+  defp filter_transactions_by_invoice(query, opts) do
+    cond do
+      invoice_uuid = opts[:invoice_uuid] ->
+        where(query, [t], t.invoice_uuid == ^invoice_uuid)
+
+      invoice_id = opts[:invoice_id] ->
+        where(query, [t], t.invoice_id == ^invoice_id)
+
+      true ->
+        query
+    end
+  end
+
+  defp filter_transactions_by_user(query, nil), do: query
+
+  defp filter_transactions_by_user(query, user_id) do
+    user_uuid = extract_user_uuid(user_id)
+    where(query, [t], t.user_uuid == ^user_uuid)
+  end
+
+  defp filter_transactions_by_payment_method(query, nil), do: query
+
+  defp filter_transactions_by_payment_method(query, payment_method) do
+    where(query, [t], t.payment_method == ^payment_method)
+  end
+
+  defp filter_transactions_by_type(query, "payment"), do: where(query, [t], t.amount > 0)
+  defp filter_transactions_by_type(query, "refund"), do: where(query, [t], t.amount < 0)
+  defp filter_transactions_by_type(query, _), do: query
+
+  defp filter_transactions_by_search(query, nil), do: query
+
+  defp filter_transactions_by_search(query, search) do
+    search_term = "%#{search}%"
+    where(query, [t], ilike(t.transaction_number, ^search_term))
+  end
+
+  defp maybe_limit(query, nil), do: query
+  defp maybe_limit(query, limit), do: limit(query, ^limit)
+
+  defp maybe_offset(query, nil), do: query
+  defp maybe_offset(query, offset), do: offset(query, ^offset)
 
   @doc """
   Lists transactions with count for pagination.
@@ -2160,10 +2222,15 @@ defmodule PhoenixKit.Modules.Billing do
       |> select([t], count(t.id))
 
     count_query =
-      if invoice_id = opts[:invoice_id] do
-        where(count_query, [t], t.invoice_id == ^invoice_id)
-      else
-        count_query
+      cond do
+        invoice_uuid = opts[:invoice_uuid] ->
+          where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
+
+        invoice_id = opts[:invoice_id] ->
+          where(count_query, [t], t.invoice_id == ^invoice_id)
+
+        true ->
+          count_query
       end
 
     count_query =
@@ -2196,7 +2263,11 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets transactions for a specific invoice.
   """
-  def list_invoice_transactions(invoice_id) do
+  def list_invoice_transactions(invoice_uuid) when is_binary(invoice_uuid) do
+    list_transactions(invoice_uuid: invoice_uuid, preload: [:user])
+  end
+
+  def list_invoice_transactions(invoice_id) when is_integer(invoice_id) do
     list_transactions(invoice_id: invoice_id, preload: [:user])
   end
 
@@ -2206,7 +2277,7 @@ defmodule PhoenixKit.Modules.Billing do
   def get_transaction(id, opts \\ [])
 
   def get_transaction(id, opts) when is_integer(id) do
-    transaction = repo().get(Transaction, id)
+    transaction = repo().get_by(Transaction, id: id)
 
     if transaction && opts[:preload] do
       repo().preload(transaction, opts[:preload])
@@ -2221,7 +2292,7 @@ defmodule PhoenixKit.Modules.Billing do
         repo().get_by(Transaction, uuid: id)
       else
         case Integer.parse(id) do
-          {int_id, ""} -> repo().get(Transaction, int_id)
+          {int_id, ""} -> repo().get_by(Transaction, id: int_id)
           _ -> nil
         end
       end
@@ -2321,7 +2392,9 @@ defmodule PhoenixKit.Modules.Billing do
       payment_method: attrs[:payment_method] || attrs["payment_method"] || "bank",
       description: attrs[:description] || attrs["description"],
       invoice_id: invoice.id,
-      user_id: extract_user_id(admin_user)
+      invoice_uuid: invoice.uuid,
+      user_id: extract_user_id(admin_user),
+      user_uuid: extract_user_uuid(admin_user)
     }
 
     repo().transaction(fn ->
@@ -2329,14 +2402,14 @@ defmodule PhoenixKit.Modules.Billing do
       case %Transaction{} |> Transaction.changeset(transaction_attrs) |> repo().insert() do
         {:ok, transaction} ->
           # Update invoice paid_amount
-          new_paid_amount = calculate_invoice_paid_amount(invoice.id)
+          new_paid_amount = calculate_invoice_paid_amount(invoice.uuid)
 
           invoice
           |> Invoice.paid_amount_changeset(new_paid_amount)
           |> repo().update!()
 
           # Check if fully paid and update status
-          updated_invoice = get_invoice!(invoice.id)
+          updated_invoice = get_invoice!(invoice.uuid)
 
           if Invoice.fully_paid?(updated_invoice) && updated_invoice.status in ["sent", "overdue"] do
             config = get_config()
@@ -2369,7 +2442,18 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Calculates the total paid amount for an invoice from all transactions.
   """
-  def calculate_invoice_paid_amount(invoice_id) do
+  def calculate_invoice_paid_amount(invoice_uuid) when is_binary(invoice_uuid) do
+    Transaction
+    |> where([t], t.invoice_uuid == ^invoice_uuid)
+    |> select([t], sum(t.amount))
+    |> repo().one()
+    |> case do
+      nil -> Decimal.new(0)
+      amount -> amount
+    end
+  end
+
+  def calculate_invoice_paid_amount(invoice_id) when is_integer(invoice_id) do
     Transaction
     |> where([t], t.invoice_id == ^invoice_id)
     |> select([t], sum(t.amount))
@@ -2384,7 +2468,7 @@ defmodule PhoenixKit.Modules.Billing do
   Updates an invoice's paid_amount based on its transactions.
   """
   def update_invoice_paid_amount(%Invoice{} = invoice) do
-    new_paid_amount = calculate_invoice_paid_amount(invoice.id)
+    new_paid_amount = calculate_invoice_paid_amount(invoice.uuid)
 
     invoice
     |> Invoice.paid_amount_changeset(new_paid_amount)
@@ -2417,7 +2501,7 @@ defmodule PhoenixKit.Modules.Billing do
       Transaction
       |> where([t], fragment("DATE(?)", t.inserted_at) >= ^start_of_year)
       |> where([t], fragment("DATE(?)", t.inserted_at) <= ^end_of_year)
-      |> repo().aggregate(:count, :id)
+      |> repo().aggregate(:count)
 
     count + 1
   end
@@ -2504,10 +2588,11 @@ defmodule PhoenixKit.Modules.Billing do
 
     status = Keyword.get(opts, :status)
     preloads = Keyword.get(opts, :preload, [:plan])
+    user_uuid = extract_user_uuid(user_id)
 
     query =
       from(s in Subscription,
-        where: s.user_id == ^user_id,
+        where: s.user_uuid == ^user_uuid,
         order_by: [desc: s.inserted_at]
       )
 
@@ -2534,7 +2619,7 @@ defmodule PhoenixKit.Modules.Billing do
   def get_subscription(id, opts) when is_integer(id) do
     preloads = Keyword.get(opts, :preload, [])
 
-    case repo().get(Subscription, id) do
+    case repo().get_by(Subscription, id: id) do
       nil -> nil
       subscription -> repo().preload(subscription, preloads)
     end
@@ -2548,7 +2633,7 @@ defmodule PhoenixKit.Modules.Billing do
         repo().get_by(Subscription, uuid: id)
       else
         case Integer.parse(id) do
-          {int_id, ""} -> repo().get(Subscription, int_id)
+          {int_id, ""} -> repo().get_by(Subscription, id: int_id)
           _ -> nil
         end
       end
@@ -2605,11 +2690,25 @@ defmodule PhoenixKit.Modules.Billing do
           {"active", nil, now, datetime_from_date(period_end)}
         end
 
+      billing_profile_id = attrs[:billing_profile_id]
+
+      billing_profile_uuid =
+        attrs[:billing_profile_uuid] || resolve_billing_profile_uuid(billing_profile_id)
+
+      payment_method_id = attrs[:payment_method_id]
+
+      payment_method_uuid =
+        attrs[:payment_method_uuid] || resolve_payment_method_uuid(payment_method_id)
+
       subscription_attrs = %{
         user_id: user_id,
+        user_uuid: extract_user_uuid(user_id),
         plan_id: plan.id,
-        billing_profile_id: attrs[:billing_profile_id],
-        payment_method_id: attrs[:payment_method_id],
+        plan_uuid: plan.uuid,
+        billing_profile_id: billing_profile_id,
+        billing_profile_uuid: billing_profile_uuid,
+        payment_method_id: payment_method_id,
+        payment_method_uuid: payment_method_uuid,
         status: status,
         current_period_start: period_start,
         current_period_end: period_end,
@@ -2691,9 +2790,11 @@ defmodule PhoenixKit.Modules.Billing do
   def change_subscription_plan(%Subscription{} = subscription, new_plan_id, _opts \\ []) do
     old_plan_id = subscription.plan_id
 
+    plan_uuid = resolve_plan_uuid(new_plan_id)
+
     result =
       subscription
-      |> Ecto.Changeset.change(%{plan_id: new_plan_id})
+      |> Ecto.Changeset.change(%{plan_id: new_plan_id, plan_uuid: plan_uuid})
       |> repo().update()
 
     case result do
@@ -2741,7 +2842,7 @@ defmodule PhoenixKit.Modules.Billing do
   Gets a subscription plan by ID or UUID.
   """
   def get_subscription_plan(id) when is_integer(id) do
-    case repo().get(SubscriptionPlan, id) do
+    case repo().get_by(SubscriptionPlan, id: id) do
       nil -> {:error, :plan_not_found}
       plan -> {:ok, plan}
     end
@@ -2753,7 +2854,7 @@ defmodule PhoenixKit.Modules.Billing do
         repo().get_by(SubscriptionPlan, uuid: id)
       else
         case Integer.parse(id) do
-          {int_id, ""} -> repo().get(SubscriptionPlan, int_id)
+          {int_id, ""} -> repo().get_by(SubscriptionPlan, id: int_id)
           _ -> nil
         end
       end
@@ -2804,8 +2905,8 @@ defmodule PhoenixKit.Modules.Billing do
 
     active_count =
       from(s in Subscription,
-        where: s.plan_id == ^plan.id and s.status in ["active", "trialing", "past_due"],
-        select: count(s.id)
+        where: s.plan_uuid == ^plan.uuid and s.status in ["active", "trialing", "past_due"],
+        select: count(s.uuid)
       )
       |> repo().one()
 
@@ -2845,10 +2946,11 @@ defmodule PhoenixKit.Modules.Billing do
     import Ecto.Query
 
     active_only = Keyword.get(opts, :active_only, true)
+    user_uuid = extract_user_uuid(user_id)
 
     query =
       from(pm in PaymentMethod,
-        where: pm.user_id == ^user_id,
+        where: pm.user_uuid == ^user_uuid,
         order_by: [desc: pm.is_default, desc: pm.inserted_at]
       )
 
@@ -2866,7 +2968,7 @@ defmodule PhoenixKit.Modules.Billing do
   Gets a payment method by ID or UUID.
   """
   def get_payment_method(id) when is_integer(id) do
-    repo().get(PaymentMethod, id)
+    repo().get_by(PaymentMethod, id: id)
   end
 
   def get_payment_method(id) when is_binary(id) do
@@ -2888,8 +2990,10 @@ defmodule PhoenixKit.Modules.Billing do
   def get_default_payment_method(user_id) do
     import Ecto.Query
 
+    user_uuid = extract_user_uuid(user_id)
+
     from(pm in PaymentMethod,
-      where: pm.user_id == ^user_id and pm.is_default == true and pm.status == "active",
+      where: pm.user_uuid == ^user_uuid and pm.is_default == true and pm.status == "active",
       limit: 1
     )
     |> repo().one()
@@ -2917,7 +3021,7 @@ defmodule PhoenixKit.Modules.Billing do
     repo().transaction(fn ->
       # Unset current default
       from(pm in PaymentMethod,
-        where: pm.user_id == ^payment_method.user_id and pm.is_default == true
+        where: pm.user_uuid == ^payment_method.user_uuid and pm.is_default == true
       )
       |> repo().update_all(set: [is_default: false])
 
@@ -3032,6 +3136,45 @@ defmodule PhoenixKit.Modules.Billing do
   defp extract_user_id(id) when is_integer(id), do: id
   defp extract_user_id(nil), do: nil
 
+  defp extract_user_uuid(%{user: %{uuid: uuid}}), do: uuid
+  defp extract_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
+
+  defp extract_user_uuid(id) when is_integer(id) do
+    alias PhoenixKit.Users.Auth.User
+    import Ecto.Query, only: [from: 2]
+    from(u in User, where: u.id == ^id, select: u.uuid) |> repo().one()
+  end
+
+  defp extract_user_uuid(_), do: nil
+
+  # Resolves billing profile UUID from integer id (dual-write)
+  defp resolve_billing_profile_uuid(id) when is_integer(id) do
+    from(bp in BillingProfile, where: bp.id == ^id, select: bp.uuid) |> repo().one()
+  end
+
+  defp resolve_billing_profile_uuid(_), do: nil
+
+  # Resolves payment method UUID from integer id (dual-write)
+  defp resolve_payment_method_uuid(id) when is_integer(id) do
+    from(pm in PaymentMethod, where: pm.id == ^id, select: pm.uuid) |> repo().one()
+  end
+
+  defp resolve_payment_method_uuid(_), do: nil
+
+  # Resolves subscription plan UUID from integer id (dual-write)
+  defp resolve_plan_uuid(id) when is_integer(id) do
+    from(sp in SubscriptionPlan, where: sp.id == ^id, select: sp.uuid) |> repo().one()
+  end
+
+  defp resolve_plan_uuid(id) when is_binary(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, _} -> id
+      :error -> nil
+    end
+  end
+
+  defp resolve_plan_uuid(_), do: nil
+
   defp maybe_mark_linked_order_paid(%{order_id: nil}), do: :ok
 
   defp maybe_mark_linked_order_paid(%{order_id: order_id} = invoice) do
@@ -3139,7 +3282,7 @@ defmodule PhoenixKit.Modules.Billing do
   Gets a payment option by ID.
   """
   def get_payment_option(id) when is_integer(id) do
-    repo().get(PaymentOption, id)
+    repo().get_by(PaymentOption, id: id)
   end
 
   def get_payment_option(id) when is_binary(id) do

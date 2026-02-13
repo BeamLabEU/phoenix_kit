@@ -59,12 +59,12 @@ defmodule PhoenixKit.Modules.Billing.Web.Index do
   end
 
   @impl true
-  def handle_event("view_order", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/orders/#{id}"))}
+  def handle_event("view_order", %{"uuid" => uuid}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/orders/#{uuid}"))}
   end
 
   @impl true
-  def handle_event("view_invoice", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/invoices/#{id}"))}
+  def handle_event("view_invoice", %{"uuid" => uuid}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/invoices/#{uuid}"))}
   end
 end

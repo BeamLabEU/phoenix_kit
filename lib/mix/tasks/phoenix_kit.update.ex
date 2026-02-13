@@ -540,6 +540,26 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Handle interactive migration execution
       run_interactive_migration_update(opts)
+
+      # Show deprecation notice for integer id columns
+      show_id_deprecation_notice()
+    end
+
+    defp show_id_deprecation_notice do
+      Mix.shell().info("""
+
+      ⚠️  DEPRECATION NOTICE: Integer `id` columns
+      ─────────────────────────────────────────────
+      PhoenixKit schemas now use UUIDv7 as the primary key.
+      The integer `id` column is deprecated and will be removed
+      in a future major version.
+
+      If your code references `.id` on PhoenixKit schemas, plan to
+      migrate to `.uuid` for all lookups, URLs, and associations.
+
+      See CLAUDE.md "Adding UUID Fields to Existing Schemas" for
+      migration guidance.
+      """)
     end
 
     # Run UUID column repair for upgrades from pre-1.7.0 installations
@@ -566,10 +586,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
              Manual fix (run in psql or your database client):
                ALTER TABLE phoenix_kit_settings
-               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT gen_random_uuid();
+               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7();
 
                ALTER TABLE phoenix_kit_email_templates
-               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT gen_random_uuid();
+               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7();
           """)
       end
     rescue

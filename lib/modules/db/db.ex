@@ -197,8 +197,8 @@ defmodule PhoenixKit.Modules.DB do
 
   defp parse_row_id(id) when is_binary(id) do
     case Integer.parse(id) do
-      {int, ""} -> int
-      _ -> nil
+      {int_id, ""} -> int_id
+      _ -> if match?({:ok, _}, Ecto.UUID.cast(id)), do: id, else: nil
     end
   end
 

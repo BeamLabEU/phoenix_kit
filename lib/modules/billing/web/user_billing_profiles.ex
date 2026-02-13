@@ -45,9 +45,8 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
   end
 
   @impl true
-  def handle_event("set_default", %{"id" => id}, socket) do
-    profile_id = String.to_integer(id)
-    profile = Enum.find(socket.assigns.profiles, &(&1.id == profile_id))
+  def handle_event("set_default", %{"uuid" => uuid}, socket) do
+    profile = Enum.find(socket.assigns.profiles, &(&1.uuid == uuid))
 
     if profile && profile.user_id == socket.assigns.user.id do
       case Billing.set_default_billing_profile(profile) do
@@ -68,9 +67,8 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
-    profile_id = String.to_integer(id)
-    profile = Enum.find(socket.assigns.profiles, &(&1.id == profile_id))
+  def handle_event("delete", %{"uuid" => uuid}, socket) do
+    profile = Enum.find(socket.assigns.profiles, &(&1.uuid == uuid))
 
     if profile && profile.user_id == socket.assigns.user.id do
       case Billing.delete_billing_profile(profile) do
@@ -192,7 +190,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
                     <%!-- Actions --%>
                     <div class="flex flex-wrap gap-2 sm:flex-col">
                       <.link
-                        navigate={Routes.path("/dashboard/billing-profiles/#{profile.id}/edit")}
+                        navigate={Routes.path("/dashboard/billing-profiles/#{profile.uuid}/edit")}
                         class="btn btn-outline btn-sm"
                       >
                         <.icon name="hero-pencil" class="w-4 h-4" /> Edit
@@ -201,7 +199,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
                       <%= if not profile.is_default do %>
                         <button
                           phx-click="set_default"
-                          phx-value-id={profile.id}
+                          phx-value-uuid={profile.uuid}
                           class="btn btn-outline btn-sm"
                         >
                           <.icon name="hero-star" class="w-4 h-4" /> Set Default
@@ -210,7 +208,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
 
                       <button
                         phx-click="delete"
-                        phx-value-id={profile.id}
+                        phx-value-uuid={profile.uuid}
                         data-confirm="Are you sure you want to delete this billing profile?"
                         class="btn btn-outline btn-error btn-sm"
                       >

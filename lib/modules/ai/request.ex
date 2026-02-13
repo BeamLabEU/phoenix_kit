@@ -73,9 +73,7 @@ defmodule PhoenixKit.Modules.AI.Request do
   alias PhoenixKit.Modules.AI.Endpoint
   alias PhoenixKit.Modules.AI.Prompt
   alias PhoenixKit.Users.Auth.User
-
-  # Standard integer primary key
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(success error timeout)
   @valid_request_types ~w(text_completion chat embedding)
 
@@ -104,8 +102,8 @@ defmodule PhoenixKit.Modules.AI.Request do
            ]}
 
   schema "phoenix_kit_ai_requests" do
-    # UUID for external references (URLs, APIs) - DB generates UUIDv7
-    field :uuid, Ecto.UUID, read_after_writes: true
+    # Legacy integer ID - DB generates, Ecto reads back
+    field :id, :integer, read_after_writes: true
 
     # New endpoint system fields
     field :endpoint_name, :string
@@ -129,11 +127,17 @@ defmodule PhoenixKit.Modules.AI.Request do
     field :metadata, :map, default: %{}
 
     # Associations
-    belongs_to :endpoint, Endpoint
-    belongs_to :prompt, Prompt
+    # legacy
+    field :endpoint_id, :integer
+    belongs_to :endpoint, Endpoint, foreign_key: :endpoint_uuid, references: :uuid, type: UUIDv7
+    # legacy
+    field :prompt_id, :integer
+    belongs_to :prompt, Prompt, foreign_key: :prompt_uuid, references: :uuid, type: UUIDv7
     # Legacy account_id field (backward compatibility, no association since Account was removed)
     field :account_id, :integer
-    belongs_to :user, User
+    # legacy
+    field :user_id, :integer
+    belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -145,11 +149,14 @@ defmodule PhoenixKit.Modules.AI.Request do
     request
     |> cast(attrs, [
       :endpoint_id,
+      :endpoint_uuid,
       :endpoint_name,
       :prompt_id,
+      :prompt_uuid,
       :prompt_name,
       :account_id,
       :user_id,
+      :user_uuid,
       :slot_index,
       :model,
       :request_type,
@@ -170,8 +177,8 @@ defmodule PhoenixKit.Modules.AI.Request do
     |> validate_number(:total_tokens, greater_than_or_equal_to: 0)
     |> validate_number(:latency_ms, greater_than_or_equal_to: 0)
     |> calculate_total_tokens()
-    |> foreign_key_constraint(:endpoint_id)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:endpoint_uuid)
+    |> foreign_key_constraint(:user_uuid)
   end
 
   @doc """

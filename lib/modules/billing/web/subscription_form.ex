@@ -93,12 +93,12 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
 
   @impl true
   def handle_event("select_plan", %{"plan_id" => plan_id}, socket) do
-    plan_id = if plan_id == "", do: nil, else: String.to_integer(plan_id)
+    plan_id = if plan_id == "", do: nil, else: plan_id
 
     # Get plan's default trial days
     trial_days =
       if plan_id do
-        case Enum.find(socket.assigns.plans, &(&1.id == plan_id)) do
+        case Enum.find(socket.assigns.plans, &(to_string(&1.id) == plan_id)) do
           %{trial_days: days} when is_integer(days) and days > 0 -> to_string(days)
           _ -> ""
         end
@@ -115,7 +115,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
 
   @impl true
   def handle_event("select_payment_method", %{"payment_method_id" => pm_id}, socket) do
-    pm_id = if pm_id == "", do: nil, else: String.to_integer(pm_id)
+    pm_id = if pm_id == "", do: nil, else: pm_id
     {:noreply, assign(socket, :selected_payment_method_id, pm_id)}
   end
 
@@ -165,7 +165,9 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
             {:noreply,
              socket
              |> put_flash(:info, "Subscription created successfully")
-             |> push_navigate(to: Routes.path("/admin/billing/subscriptions/#{subscription.id}"))}
+             |> push_navigate(
+               to: Routes.path("/admin/billing/subscriptions/#{subscription.uuid}")
+             )}
 
           {:error, %Ecto.Changeset{} = changeset} ->
             error_msg = format_changeset_errors(changeset)

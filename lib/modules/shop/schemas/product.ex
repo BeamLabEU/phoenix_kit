@@ -40,8 +40,10 @@ defmodule PhoenixKit.Modules.Shop.Product do
   @statuses ["draft", "active", "archived"]
   @product_types ["physical", "digital"]
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_shop_products" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
 
     # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
     field :title, :map, default: %{}
@@ -92,8 +94,21 @@ defmodule PhoenixKit.Modules.Shop.Product do
     field :metadata, :map, default: %{}
 
     # Relations
-    belongs_to :category, PhoenixKit.Modules.Shop.Category
-    belongs_to :created_by_user, PhoenixKit.Users.Auth.User, foreign_key: :created_by
+    # legacy
+    field :category_id, :integer
+
+    belongs_to :category, PhoenixKit.Modules.Shop.Category,
+      foreign_key: :category_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    # legacy
+    field :created_by, :integer
+
+    belongs_to :created_by_user, PhoenixKit.Users.Auth.User,
+      foreign_key: :created_by_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     timestamps()
   end
@@ -133,7 +148,9 @@ defmodule PhoenixKit.Modules.Shop.Product do
       :download_expiry_days,
       :metadata,
       :category_id,
-      :created_by
+      :category_uuid,
+      :created_by,
+      :created_by_uuid
     ])
     |> normalize_map_fields(@localized_fields)
     |> validate_required([:price])

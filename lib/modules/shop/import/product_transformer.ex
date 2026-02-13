@@ -52,8 +52,8 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
     title = first_row["Title"] || ""
     category_slug = Filter.categorize(title, config)
 
-    # Get category_id, auto-creating if necessary (with localized name/slug)
-    category_id = resolve_category_id(category_slug, categories_map, language)
+    # Get category_uuid, auto-creating if necessary (with localized name/slug)
+    category_uuid = resolve_category_id(category_slug, categories_map, language)
 
     # Build metadata with option values and price modifiers
     metadata = build_metadata(options)
@@ -82,7 +82,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
       taxable: true,
       featured_image: find_featured_image(rows),
       images: collect_images(rows),
-      category_id: category_id,
+      category_uuid: category_uuid,
       metadata: metadata
     }
   end
@@ -134,9 +134,9 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   defp maybe_create_category(slug, language) when is_binary(slug) and slug != "" do
     # First check if category already exists (using localized slug search)
     case Shop.get_category_by_slug_localized(slug, language) do
-      {:ok, %{id: id}} ->
-        # Category exists, return its id
-        id
+      {:ok, %{uuid: uuid}} ->
+        # Category exists, return its uuid
+        uuid
 
       {:error, :not_found} ->
         # Category doesn't exist - create it
@@ -166,10 +166,10 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
     case Shop.create_category(attrs) do
       {:ok, category} ->
         Logger.info(
-          "Auto-created category: #{slug} (id: #{category.id}) with language: #{normalized_lang}"
+          "Auto-created category: #{slug} (uuid: #{category.uuid}) with language: #{normalized_lang}"
         )
 
-        category.id
+        category.uuid
 
       {:error, _changeset} ->
         # Unique constraint hit - category was created by concurrent process, fetch it
@@ -196,7 +196,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
     else
       case Shop.get_category_by_slug(category_slug) do
         nil -> categories_map
-        category -> Map.put(categories_map, category_slug, category.id)
+        category -> Map.put(categories_map, category_slug, category.uuid)
       end
     end
   end
@@ -236,8 +236,8 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
     title = first_row["Title"] || ""
     category_slug = Filter.categorize(title, config)
 
-    # Get category_id, auto-creating if necessary (with localized name/slug)
-    category_id = resolve_category_id(category_slug, categories_map, language)
+    # Get category_uuid, auto-creating if necessary (with localized name/slug)
+    category_uuid = resolve_category_id(category_slug, categories_map, language)
 
     # Build metadata with slot-based option structure
     metadata = build_metadata_extended(options)
@@ -266,7 +266,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
       taxable: true,
       featured_image: find_featured_image(rows),
       images: collect_images(rows),
-      category_id: category_id,
+      category_uuid: category_uuid,
       metadata: metadata
     }
   end

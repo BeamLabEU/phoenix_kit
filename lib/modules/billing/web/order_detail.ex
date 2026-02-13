@@ -23,13 +23,13 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderDetail do
 
         order ->
           project_title = Settings.get_project_title()
-          invoices = Billing.list_invoices_for_order(order.id)
+          invoices = Billing.list_invoices_for_order(order.uuid)
 
           socket =
             socket
             |> assign(:page_title, "Order #{order.order_number}")
             |> assign(:project_title, project_title)
-            |> assign(:url_path, Routes.path("/admin/billing/orders/#{order.id}"))
+            |> assign(:url_path, Routes.path("/admin/billing/orders/#{order.uuid}"))
             |> assign(:order, order)
             |> assign(:invoices, invoices)
             |> assign(:show_status_modal, false)
@@ -96,7 +96,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderDetail do
   def handle_event("generate_invoice", _params, socket) do
     case Billing.create_invoice_from_order(socket.assigns.order) do
       {:ok, invoice} ->
-        invoices = Billing.list_invoices_for_order(socket.assigns.order.id)
+        invoices = Billing.list_invoices_for_order(socket.assigns.order.uuid)
 
         {:noreply,
          socket
@@ -110,8 +110,8 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderDetail do
   end
 
   @impl true
-  def handle_event("view_invoice", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/invoices/#{id}"))}
+  def handle_event("view_invoice", %{"uuid" => uuid}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/invoices/#{uuid}"))}
   end
 
   defp format_changeset_errors(changeset) do

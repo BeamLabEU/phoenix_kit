@@ -72,28 +72,37 @@ defmodule PhoenixKit.Modules.Referrals do
   alias PhoenixKit.Modules.Referrals.ReferralCodeUsage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
-
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_referral_codes" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :code, :string
     field :description, :string
     field :status, :boolean, default: true
     field :number_of_uses, :integer, default: 0
     field :max_uses, :integer
+    # legacy
     field :created_by, :integer
+    field :created_by_uuid, UUIDv7
+    # legacy
     field :beneficiary, :integer
+    field :beneficiary_uuid, UUIDv7
     field :date_created, :utc_datetime_usec
     field :expiration_date, :utc_datetime_usec
 
-    belongs_to :creator, PhoenixKit.Users.Auth.User, foreign_key: :created_by, define_field: false
+    belongs_to :creator, PhoenixKit.Users.Auth.User,
+      foreign_key: :created_by_uuid,
+      references: :uuid,
+      define_field: false,
+      type: UUIDv7
 
     belongs_to :beneficiary_user, PhoenixKit.Users.Auth.User,
-      foreign_key: :beneficiary,
-      define_field: false
+      foreign_key: :beneficiary_uuid,
+      references: :uuid,
+      define_field: false,
+      type: UUIDv7
 
-    has_many :usage_records, ReferralCodeUsage, foreign_key: :code_id
+    has_many :usage_records, ReferralCodeUsage, foreign_key: :code_uuid, references: :uuid
   end
 
   ## --- Schema Functions ---
@@ -113,7 +122,9 @@ defmodule PhoenixKit.Modules.Referrals do
       :number_of_uses,
       :max_uses,
       :created_by,
+      :created_by_uuid,
       :beneficiary,
+      :beneficiary_uuid,
       :date_created,
       :expiration_date
     ])
@@ -241,7 +252,7 @@ defmodule PhoenixKit.Modules.Referrals do
       nil
   """
   def get_code(id) when is_integer(id) do
-    repo().get(__MODULE__, id)
+    repo().get_by(__MODULE__, id: id)
   end
 
   def get_code(id) when is_binary(id) do
@@ -370,6 +381,13 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.use_code("EXPIRED", user_id)
       {:error, :code_not_found}
   """
+  def use_code(code_string, user_id) when is_binary(code_string) and is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> use_code(code_string, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
+  end
+
   def use_code(code_string, user_id) when is_binary(code_string) and is_integer(user_id) do
     case get_code_by_string(code_string) do
       nil -> {:error, :code_not_found}
@@ -389,9 +407,16 @@ defmodule PhoenixKit.Modules.Referrals do
   end
 
   defp do_record_usage(code, user_id) do
+    user_uuid = resolve_user_uuid(user_id)
+
     usage_result =
       %ReferralCodeUsage{}
-      |> ReferralCodeUsage.changeset(%{code_id: code.id, used_by: user_id})
+      |> ReferralCodeUsage.changeset(%{
+        code_id: code.id,
+        code_uuid: code.uuid,
+        used_by: user_id,
+        used_by_uuid: user_uuid
+      })
       |> repo().insert()
 
     case usage_result do
@@ -425,6 +450,10 @@ defmodule PhoenixKit.Modules.Referrals do
     ReferralCodeUsage.get_usage_stats(code_id)
   end
 
+  def get_usage_stats(code_uuid) when is_binary(code_uuid) do
+    ReferralCodeUsage.get_usage_stats(code_uuid)
+  end
+
   @doc """
   Lists all usage records for a referral code.
 
@@ -438,6 +467,11 @@ defmodule PhoenixKit.Modules.Referrals do
     |> repo().all()
   end
 
+  def list_usage_for_code(code_uuid) when is_binary(code_uuid) do
+    ReferralCodeUsage.for_code(code_uuid)
+    |> repo().all()
+  end
+
   @doc """
   Checks if a user has already used a specific referral code.
 
@@ -448,6 +482,10 @@ defmodule PhoenixKit.Modules.Referrals do
   """
   def user_used_code?(user_id, code_id) when is_integer(user_id) and is_integer(code_id) do
     ReferralCodeUsage.user_used_code?(user_id, code_id)
+  end
+
+  def user_used_code?(user_uuid, code_uuid) when is_binary(user_uuid) and is_binary(code_uuid) do
+    ReferralCodeUsage.user_used_code?(user_uuid, code_uuid)
   end
 
   ## --- System Settings ---
@@ -682,9 +720,9 @@ defmodule PhoenixKit.Modules.Referrals do
 
           existing_code ->
             # Check if this is the same record we're editing
-            current_id = get_field(changeset, :id)
+            current_uuid = get_field(changeset, :uuid)
 
-            if current_id && existing_code.id == current_id do
+            if current_uuid && existing_code.uuid == current_uuid do
               # This is the same record, validation passes
               changeset
             else
@@ -710,9 +748,10 @@ defmodule PhoenixKit.Modules.Referrals do
   end
 
   defp maybe_set_date_created(changeset) do
-    case get_field(changeset, :id) do
-      nil -> put_change(changeset, :date_created, DateTime.utc_now())
-      _id -> changeset
+    if changeset.data.__meta__.state == :built do
+      put_change(changeset, :date_created, DateTime.utc_now())
+    else
+      changeset
     end
   end
 
@@ -757,6 +796,17 @@ defmodule PhoenixKit.Modules.Referrals do
     end
   end
 
+  def validate_user_code_limit(user_uuid) when is_binary(user_uuid) do
+    max_codes = get_max_codes_per_user()
+    current_count = count_user_codes(user_uuid)
+
+    if current_count < max_codes do
+      {:ok, :valid}
+    else
+      {:error, "You have reached the maximum limit of #{max_codes} referral codes"}
+    end
+  end
+
   @doc """
   Counts the total number of referral codes created by a user.
 
@@ -770,10 +820,29 @@ defmodule PhoenixKit.Modules.Referrals do
     |> repo().one()
   end
 
+  def count_user_codes(user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      from(r in __MODULE__, where: r.created_by_uuid == ^user_uuid, select: count(r.uuid))
+      |> repo().one()
+    else
+      case Integer.parse(user_uuid) do
+        {int_id, ""} -> count_user_codes(int_id)
+        _ -> 0
+      end
+    end
+  end
+
   defp maybe_set_default_expiration(changeset) do
     # Respect user's intent to leave expiration empty (nil = no expiration)
     # Only set default expiration for programmatic creation without explicit intent
     changeset
+  end
+
+  # Resolves user UUID from integer user_id (dual-write)
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    import Ecto.Query, only: [from: 2]
+    alias PhoenixKit.Users.Auth.User
+    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
   end
 
   # Gets the configured repository for database operations

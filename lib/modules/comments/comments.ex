@@ -57,6 +57,7 @@ defmodule PhoenixKit.Modules.Comments do
   alias PhoenixKit.Modules.Comments.CommentDislike
   alias PhoenixKit.Modules.Comments.CommentLike
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
 
   # ============================================================================
   # Module Status
@@ -117,13 +118,28 @@ defmodule PhoenixKit.Modules.Comments do
   - `user_id` - User ID of commenter
   - `attrs` - Comment attributes (content, parent_id, etc.)
   """
-  def create_comment(resource_type, resource_id, user_id, attrs) do
+  def create_comment(resource_type, resource_id, user_id, attrs) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} ->
+        create_comment(resource_type, resource_id, int_id, attrs)
+
+      _ ->
+        # Try UUID lookup
+        case Auth.get_user(user_id) do
+          %{id: int_id} -> create_comment(resource_type, resource_id, int_id, attrs)
+          nil -> {:error, :invalid_user_id}
+        end
+    end
+  end
+
+  def create_comment(resource_type, resource_id, user_id, attrs) when is_integer(user_id) do
     repo().transaction(fn ->
       attrs =
         attrs
         |> Map.put(:resource_type, resource_type)
         |> Map.put(:resource_id, resource_id)
         |> Map.put(:user_id, user_id)
+        |> Map.put(:user_uuid, resolve_user_uuid(user_id))
         |> maybe_calculate_depth()
 
       case %Comment{}
@@ -260,7 +276,7 @@ defmodule PhoenixKit.Modules.Comments do
 
     query = if status, do: where(query, [c], c.status == ^status), else: query
 
-    repo().aggregate(query, :count, :id)
+    repo().aggregate(query, :count)
   rescue
     _ -> 0
   end
@@ -316,7 +332,7 @@ defmodule PhoenixKit.Modules.Comments do
       if resource_type, do: where(query, [c], c.resource_type == ^resource_type), else: query
 
     query = if status, do: where(query, [c], c.status == ^status), else: query
-    query = if user_id, do: where(query, [c], c.user_id == ^user_id), else: query
+    query = maybe_filter_by_user(query, user_id)
 
     query =
       if search && search != "" do
@@ -326,7 +342,7 @@ defmodule PhoenixKit.Modules.Comments do
         query
       end
 
-    total = repo().aggregate(query, :count, :id)
+    total = repo().aggregate(query, :count)
 
     comments =
       query
@@ -355,14 +371,68 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   # ============================================================================
+  # Resource Resolution (for admin UI)
+  # ============================================================================
+
+  @doc """
+  Resolves resource context (title and admin path) for a list of comments.
+
+  Returns a map of `{resource_type, resource_id} => %{title: ..., path: ...}`
+  by delegating to registered `comment_resource_handlers` that implement
+  `resolve_comment_resources/1`.
+  """
+  def resolve_resource_context(comments) do
+    comments
+    |> Enum.group_by(& &1.resource_type, & &1.resource_id)
+    |> Enum.reduce(%{}, fn {resource_type, ids}, acc ->
+      resolved = resolve_for_type(resource_type, Enum.uniq(ids))
+
+      Enum.reduce(resolved, acc, fn {id, info}, inner ->
+        Map.put(inner, {resource_type, id}, info)
+      end)
+    end)
+  end
+
+  defp resolve_for_type(resource_type, resource_ids) do
+    handlers = Application.get_env(:phoenix_kit, :comment_resource_handlers, %{})
+
+    case Map.get(handlers, resource_type) do
+      nil ->
+        %{}
+
+      mod ->
+        if Code.ensure_loaded?(mod) and function_exported?(mod, :resolve_comment_resources, 1) do
+          mod.resolve_comment_resources(resource_ids)
+        else
+          %{}
+        end
+    end
+  rescue
+    e ->
+      Logger.warning("Comment resource resolver error: #{inspect(e)}")
+      %{}
+  end
+
+  # ============================================================================
   # Like Operations
   # ============================================================================
 
   @doc "User likes a comment. Creates like record and increments counter."
-  def like_comment(comment_id, user_id) do
+  def like_comment(comment_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> like_comment(comment_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
+  end
+
+  def like_comment(comment_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case %CommentLike{}
-           |> CommentLike.changeset(%{comment_id: comment_id, user_id: user_id})
+           |> CommentLike.changeset(%{
+             comment_id: comment_id,
+             user_id: user_id,
+             user_uuid: resolve_user_uuid(user_id)
+           })
            |> repo().insert() do
         {:ok, like} ->
           increment_comment_like_count(comment_id)
@@ -375,7 +445,14 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "User unlikes a comment. Deletes like record and decrements counter."
-  def unlike_comment(comment_id, user_id) do
+  def unlike_comment(comment_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> unlike_comment(comment_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
+  end
+
+  def unlike_comment(comment_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case repo().get_by(CommentLike, comment_id: comment_id, user_id: user_id) do
         nil ->
@@ -390,10 +467,17 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "Checks if a user has liked a comment."
-  def comment_liked_by?(comment_id, user_id) do
+  def comment_liked_by?(comment_id, user_id) when is_integer(user_id) do
     repo().exists?(
       from(l in CommentLike, where: l.comment_id == ^comment_id and l.user_id == ^user_id)
     )
+  end
+
+  def comment_liked_by?(comment_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> comment_liked_by?(comment_id, int_id)
+      _ -> false
+    end
   end
 
   @doc "Lists all likes for a comment."
@@ -410,10 +494,21 @@ defmodule PhoenixKit.Modules.Comments do
   # ============================================================================
 
   @doc "User dislikes a comment. Creates dislike record and increments counter."
-  def dislike_comment(comment_id, user_id) do
+  def dislike_comment(comment_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> dislike_comment(comment_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
+  end
+
+  def dislike_comment(comment_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case %CommentDislike{}
-           |> CommentDislike.changeset(%{comment_id: comment_id, user_id: user_id})
+           |> CommentDislike.changeset(%{
+             comment_id: comment_id,
+             user_id: user_id,
+             user_uuid: resolve_user_uuid(user_id)
+           })
            |> repo().insert() do
         {:ok, dislike} ->
           increment_comment_dislike_count(comment_id)
@@ -426,7 +521,14 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "User removes dislike from a comment. Deletes dislike record and decrements counter."
-  def undislike_comment(comment_id, user_id) do
+  def undislike_comment(comment_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> undislike_comment(comment_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
+  end
+
+  def undislike_comment(comment_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case repo().get_by(CommentDislike, comment_id: comment_id, user_id: user_id) do
         nil ->
@@ -441,10 +543,17 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "Checks if a user has disliked a comment."
-  def comment_disliked_by?(comment_id, user_id) do
+  def comment_disliked_by?(comment_id, user_id) when is_integer(user_id) do
     repo().exists?(
       from(d in CommentDislike, where: d.comment_id == ^comment_id and d.user_id == ^user_id)
     )
+  end
+
+  def comment_disliked_by?(comment_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> comment_disliked_by?(comment_id, int_id)
+      _ -> false
+    end
   end
 
   @doc "Lists all dislikes for a comment."
@@ -518,9 +627,27 @@ defmodule PhoenixKit.Modules.Comments do
     status = Keyword.get(opts, :status)
     query = from(c in Comment)
     query = if status, do: where(query, [c], c.status == ^status), else: query
-    repo().aggregate(query, :count, :id)
+    repo().aggregate(query, :count)
   rescue
     _ -> 0
+  end
+
+  defp maybe_filter_by_user(query, nil), do: query
+
+  defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
+    where(query, [c], c.user_id == ^user_id)
+  end
+
+  defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> where(query, [c], c.user_id == ^int_id)
+      _ -> where(query, [c], c.user_uuid == ^user_id)
+    end
+  end
+
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
+    |> repo().one()
   end
 
   defp notify_resource_handler(callback, resource_type, resource_id, comment) do

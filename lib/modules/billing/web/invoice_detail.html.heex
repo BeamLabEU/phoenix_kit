@@ -105,7 +105,9 @@
         <% end %>
 
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}/print")}
+          navigate={
+            PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.uuid}/print")
+          }
           class="btn btn-outline btn-sm"
           target="_blank"
         >
@@ -116,7 +118,7 @@
         <%= if @invoice.receipt_number do %>
           <.link
             navigate={
-              PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}/receipt")
+              PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.uuid}/receipt")
             }
             class="btn btn-success btn-sm"
             target="_blank"
@@ -337,7 +339,7 @@
                               <.link
                                 navigate={
                                   PhoenixKit.Utils.Routes.path(
-                                    "/admin/billing/invoices/#{@invoice.id}/credit-note/#{transaction.id}"
+                                    "/admin/billing/invoices/#{@invoice.uuid}/credit-note/#{transaction.uuid}"
                                   )
                                 }
                                 class="btn btn-warning btn-xs"
@@ -348,7 +350,7 @@
                               </.link>
                               <button
                                 phx-click="open_send_credit_note_modal"
-                                phx-value-transaction-id={transaction.id}
+                                phx-value-transaction-id={transaction.uuid}
                                 class="btn btn-warning btn-outline btn-xs"
                                 title="Send Credit Note"
                               >
@@ -359,7 +361,7 @@
                               <.link
                                 navigate={
                                   PhoenixKit.Utils.Routes.path(
-                                    "/admin/billing/invoices/#{@invoice.id}/payment/#{transaction.id}"
+                                    "/admin/billing/invoices/#{@invoice.uuid}/payment/#{transaction.uuid}"
                                   )
                                 }
                                 class="btn btn-success btn-xs"
@@ -370,7 +372,7 @@
                               </.link>
                               <button
                                 phx-click="open_send_payment_confirmation_modal"
-                                phx-value-transaction-id={transaction.id}
+                                phx-value-transaction-id={transaction.uuid}
                                 class="btn btn-success btn-outline btn-xs"
                                 title="Send Payment Confirmation"
                               >
@@ -457,7 +459,7 @@
               <div class="mt-2">
                 <.link
                   navigate={
-                    PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{@invoice.order.id}")
+                    PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{@invoice.order.uuid}")
                   }
                   class="flex items-center gap-3 p-3 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
                 >
@@ -485,7 +487,7 @@
                   <div class="font-medium">{@invoice.user.email}</div>
                   <.link
                     navigate={
-                      PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@invoice.user.id}")
+                      PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@invoice.user.uuid}")
                     }
                     class="text-sm text-primary hover:underline"
                   >

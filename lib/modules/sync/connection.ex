@@ -56,10 +56,9 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   import Ecto.Changeset
 
   alias PhoenixKit.Users.Auth.User
-
   @type t :: %__MODULE__{}
 
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   @valid_directions ~w(sender receiver)
   @valid_statuses ~w(pending active suspended revoked expired)
@@ -67,7 +66,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
   schema "phoenix_kit_sync_connections" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :name, :string
     field :direction, :string
     field :site_url, :string
@@ -121,10 +120,37 @@ defmodule PhoenixKit.Modules.Sync.Connection do
 
     field :metadata, :map, default: %{}
 
-    belongs_to :approved_by_user, User, foreign_key: :approved_by
-    belongs_to :suspended_by_user, User, foreign_key: :suspended_by
-    belongs_to :revoked_by_user, User, foreign_key: :revoked_by
-    belongs_to :created_by_user, User, foreign_key: :created_by
+    # legacy
+    field :approved_by, :integer
+
+    belongs_to :approved_by_user, User,
+      foreign_key: :approved_by_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    # legacy
+    field :suspended_by, :integer
+
+    belongs_to :suspended_by_user, User,
+      foreign_key: :suspended_by_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    # legacy
+    field :revoked_by, :integer
+
+    belongs_to :revoked_by_user, User,
+      foreign_key: :revoked_by_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    # legacy
+    field :created_by, :integer
+
+    belongs_to :created_by_user, User,
+      foreign_key: :created_by_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -160,7 +186,8 @@ defmodule PhoenixKit.Modules.Sync.Connection do
       :auto_sync_tables,
       :auto_sync_interval_minutes,
       :metadata,
-      :created_by
+      :created_by,
+      :created_by_uuid
     ])
     |> validate_required([:name, :direction, :site_url])
     |> validate_inclusion(:direction, @valid_directions)
@@ -190,7 +217,8 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "active",
       approved_at: DateTime.utc_now(),
-      approved_by: admin_user_id
+      approved_by: admin_user_id,
+      approved_by_uuid: resolve_user_uuid(admin_user_id)
     })
   end
 
@@ -203,6 +231,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
       status: "suspended",
       suspended_at: DateTime.utc_now(),
       suspended_by: admin_user_id,
+      suspended_by_uuid: resolve_user_uuid(admin_user_id),
       suspended_reason: reason
     })
   end
@@ -216,6 +245,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
       status: "revoked",
       revoked_at: DateTime.utc_now(),
       revoked_by: admin_user_id,
+      revoked_by_uuid: resolve_user_uuid(admin_user_id),
       revoked_reason: reason
     })
   end
@@ -229,6 +259,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
       status: "active",
       suspended_at: nil,
       suspended_by: nil,
+      suspended_by_uuid: nil,
       suspended_reason: nil
     })
   end
@@ -465,4 +496,13 @@ defmodule PhoenixKit.Modules.Sync.Connection do
 
     not_excluded and allowed_or_empty
   end
+
+  # Resolves user UUID from integer user_id (dual-write)
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    import Ecto.Query, only: [from: 2]
+    alias PhoenixKit.Users.Auth.User
+    from(u in User, where: u.id == ^user_id, select: u.uuid) |> PhoenixKit.RepoHelper.repo().one()
+  end
+
+  defp resolve_user_uuid(_), do: nil
 end

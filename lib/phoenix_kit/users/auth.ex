@@ -243,7 +243,8 @@ defmodule PhoenixKit.Users.Auth do
       nil
 
   """
-  def get_user(id) when is_integer(id), do: Repo.get(User, id)
+  def get_user(id) when is_integer(id), do: Repo.get_by(User, id: id)
+  def get_user(uuid) when is_binary(uuid), do: PhoenixKit.UUID.get(User, uuid)
 
   @doc """
   Gets a single user.
@@ -259,7 +260,19 @@ defmodule PhoenixKit.Users.Auth do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user!(id), do: Repo.get!(User, id)
+  def get_user!(id) when is_integer(id) do
+    case Repo.get_by(User, id: id) do
+      nil -> raise Ecto.NoResultsError, queryable: User
+      user -> user
+    end
+  end
+
+  def get_user!(uuid) when is_binary(uuid) do
+    case Integer.parse(uuid) do
+      {int_id, ""} -> get_user!(int_id)
+      _ -> Repo.get!(User, uuid)
+    end
+  end
 
   @doc """
   Gets users by list of IDs.
@@ -387,6 +400,44 @@ defmodule PhoenixKit.Users.Auth do
     case get_first_user() do
       nil -> nil
       user -> user.id
+    end
+  end
+
+  @doc """
+  Gets the UUID of the first admin user.
+
+  Convenience function that returns just the user UUID, useful for
+  setting `created_by_uuid` fields programmatically.
+
+  ## Examples
+
+      iex> get_first_admin_uuid()
+      "019b5704-3680-7b95-9d82-ef16127f1fd2"
+
+      iex> get_first_admin_uuid()
+      nil  # No admin users exist
+  """
+  def get_first_admin_uuid do
+    case get_first_admin() do
+      nil -> nil
+      user -> user.uuid
+    end
+  end
+
+  @doc """
+  Gets the UUID of the first user in the system.
+
+  Convenience function for getting a user UUID for `created_by_uuid` fields.
+
+  ## Examples
+
+      iex> get_first_user_uuid()
+      "019b5704-3680-7b95-9d82-ef16127f1fd2"
+  """
+  def get_first_user_uuid do
+    case get_first_user() do
+      nil -> nil
+      user -> user.uuid
     end
   end
 
@@ -800,7 +851,9 @@ defmodule PhoenixKit.Users.Auth do
         Ecto.Multi.run(multi, :audit_log, fn _repo, %{user: updated_user} ->
           log_attrs = %{
             target_user_id: updated_user.id,
+            target_user_uuid: updated_user.uuid,
             admin_user_id: admin_user.id,
+            admin_user_uuid: admin_user.uuid,
             action: :admin_password_reset,
             ip_address: Map.get(context, :ip_address),
             user_agent: Map.get(context, :user_agent),
@@ -1822,6 +1875,17 @@ defmodule PhoenixKit.Users.Auth do
     |> Repo.one()
   end
 
+  def get_user_with_roles(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int_id, ""} ->
+        get_user_with_roles(int_id)
+
+      _ ->
+        from(u in User, where: u.uuid == ^id, preload: [:roles, :role_assignments])
+        |> Repo.one()
+    end
+  end
+
   @doc """
   Lists users with pagination and optional role filtering.
 
@@ -1846,7 +1910,7 @@ defmodule PhoenixKit.Users.Auth do
       |> maybe_filter_by_role(role_filter)
       |> maybe_filter_by_search(search_query)
 
-    total_count = PhoenixKit.RepoHelper.aggregate(query, :count, :id)
+    total_count = PhoenixKit.RepoHelper.aggregate(query, :count, :uuid)
     total_pages = div(total_count + page_size - 1, page_size)
 
     users =
@@ -1920,6 +1984,7 @@ defmodule PhoenixKit.Users.Auth do
           limit: 10,
           select: %{
             id: u.id,
+            uuid: u.uuid,
             email: u.email,
             username: u.username,
             first_name: u.first_name,
@@ -1952,6 +2017,7 @@ defmodule PhoenixKit.Users.Auth do
       where: u.id == ^user_id,
       select: %{
         id: u.id,
+        uuid: u.uuid,
         email: u.email,
         username: u.username,
         first_name: u.first_name,
@@ -1959,6 +2025,27 @@ defmodule PhoenixKit.Users.Auth do
       }
     )
     |> Repo.one()
+  end
+
+  def get_user_for_selection(user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} ->
+        get_user_for_selection(int_id)
+
+      _ ->
+        from(u in User,
+          where: u.uuid == ^user_id,
+          select: %{
+            id: u.id,
+            uuid: u.uuid,
+            email: u.email,
+            username: u.username,
+            first_name: u.first_name,
+            last_name: u.last_name
+          }
+        )
+        |> Repo.one()
+    end
   end
 
   # Safe atom conversion - only succeeds if atom already exists
@@ -1987,7 +2074,7 @@ defmodule PhoenixKit.Users.Auth do
   """
   def list_admin_notes(%User{} = user) do
     from(n in AdminNote,
-      where: n.user_id == ^user.id,
+      where: n.user_uuid == ^user.uuid,
       order_by: [desc: n.inserted_at],
       preload: [:author]
     )
@@ -2016,6 +2103,20 @@ defmodule PhoenixKit.Users.Auth do
     |> Repo.one()
   end
 
+  def get_admin_note(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int_id, ""} ->
+        get_admin_note(int_id)
+
+      _ ->
+        from(n in AdminNote,
+          where: n.uuid == ^id,
+          preload: [:author]
+        )
+        |> Repo.one()
+    end
+  end
+
   @doc """
   Creates an admin note about a user.
 
@@ -2038,7 +2139,9 @@ defmodule PhoenixKit.Users.Auth do
     attrs =
       attrs
       |> Map.put("user_id", user.id)
+      |> Map.put("user_uuid", user.uuid)
       |> Map.put("author_id", author.id)
+      |> Map.put("author_uuid", author.uuid)
 
     %AdminNote{}
     |> AdminNote.changeset(attrs)
@@ -2195,11 +2298,11 @@ defmodule PhoenixKit.Users.Auth do
   defp validate_can_delete_user(%User{} = user, %User{} = current_user) do
     cond do
       # Rule 1: Cannot delete self
-      user.id == current_user.id ->
+      user.uuid == current_user.uuid ->
         {:error, :cannot_delete_self}
 
       # Rule 2: Cannot delete last Owner
-      Roles.user_has_role_owner?(user) and count_remaining_owners(user.id) < 1 ->
+      Roles.user_has_role_owner?(user) and count_remaining_owners(user.uuid) < 1 ->
         {:error, :cannot_delete_last_owner}
 
       # Rule 3: Only Owner can delete Admin users
@@ -2217,7 +2320,7 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   # Count remaining active owners excluding the given user
-  defp count_remaining_owners(excluding_user_id) do
+  defp count_remaining_owners(excluding_user_uuid) do
     roles = Role.system_roles()
 
     from(u in User,
@@ -2225,7 +2328,7 @@ defmodule PhoenixKit.Users.Auth do
       join: role in assoc(assignment, :role),
       where: role.name == ^roles.owner,
       where: u.is_active == true,
-      where: u.id != ^excluding_user_id,
+      where: u.uuid != ^excluding_user_uuid,
       select: count(u.id)
     )
     |> Repo.one() || 0
@@ -2264,41 +2367,41 @@ defmodule PhoenixKit.Users.Auth do
   # Delete related data that should be fully removed
   defp delete_cascade_data(%User{} = user) do
     # Delete OAuth providers
-    delete_user_oauth_providers(user.id)
+    delete_user_oauth_providers(user.uuid)
 
     # Delete billing profiles
-    delete_user_billing_profiles(user.id)
+    delete_user_billing_profiles(user.uuid)
 
     # Delete shop carts
-    delete_user_shop_carts(user.id)
+    delete_user_shop_carts(user.uuid)
 
     # Delete admin notes about this user
-    delete_user_admin_notes(user.id)
+    delete_user_admin_notes(user.uuid)
 
     :ok
   end
 
-  # Delete OAuth providers for a user
-  defp delete_user_oauth_providers(user_id) do
-    from(op in PhoenixKit.Users.OAuthProvider, where: op.user_id == ^user_id)
+  # Delete OAuth providers for a user (uses user_uuid for safety)
+  defp delete_user_oauth_providers(user_uuid) do
+    from(op in PhoenixKit.Users.OAuthProvider, where: op.user_uuid == ^user_uuid)
     |> Repo.repo().delete_all()
   end
 
-  # Delete billing profiles for a user
-  defp delete_user_billing_profiles(user_id) do
-    from(bp in PhoenixKit.Modules.Billing.BillingProfile, where: bp.user_id == ^user_id)
+  # Delete billing profiles for a user (uses user_uuid for safety)
+  defp delete_user_billing_profiles(user_uuid) do
+    from(bp in PhoenixKit.Modules.Billing.BillingProfile, where: bp.user_uuid == ^user_uuid)
     |> Repo.repo().delete_all()
   end
 
-  # Delete shop carts for a user
-  defp delete_user_shop_carts(user_id) do
-    from(c in PhoenixKit.Modules.Shop.Cart, where: c.user_id == ^user_id)
+  # Delete shop carts for a user (uses user_uuid for safety)
+  defp delete_user_shop_carts(user_uuid) do
+    from(c in PhoenixKit.Modules.Shop.Cart, where: c.user_uuid == ^user_uuid)
     |> Repo.repo().delete_all()
   end
 
-  # Delete admin notes for a user
-  defp delete_user_admin_notes(user_id) do
-    from(an in AdminNote, where: an.user_id == ^user_id)
+  # Delete admin notes for a user (uses user_uuid for safety)
+  defp delete_user_admin_notes(user_uuid) do
+    from(an in AdminNote, where: an.user_uuid == ^user_uuid)
     |> Repo.repo().delete_all()
   end
 
@@ -2307,22 +2410,22 @@ defmodule PhoenixKit.Users.Auth do
     anonymized_count = 0
 
     # Anonymize orders - set user_id to NULL
-    orders_count = anonymize_user_orders(user.id)
+    orders_count = anonymize_user_orders(user.uuid)
 
     # Anonymize posts - set user_id to NULL, mark as deleted author
-    posts_count = anonymize_user_posts(user.id)
+    posts_count = anonymize_user_posts(user.uuid)
 
     # Anonymize comments - set user_id to NULL, mark as deleted author
-    comments_count = anonymize_user_comments(user.id)
+    comments_count = anonymize_user_comments(user.uuid)
 
     # Anonymize tickets - preserve for support history
-    tickets_count = anonymize_user_tickets(user.id)
+    tickets_count = anonymize_user_tickets(user.uuid)
 
     # Anonymize email logs - retain for compliance
-    email_logs_count = anonymize_user_email_logs(user.id)
+    email_logs_count = anonymize_user_email_logs(user.uuid)
 
     # Anonymize files - remove ownership
-    files_count = anonymize_user_files(user.id)
+    files_count = anonymize_user_files(user.uuid)
 
     anonymized_count +
       orders_count +
@@ -2334,16 +2437,18 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   # Anonymize orders by setting user_id to NULL
-  defp anonymize_user_orders(user_id) do
+  defp anonymize_user_orders(user_uuid) do
     # Check if Orders module exists and has the schema
     # Note: Order schema doesn't exist in Shop module yet - this is for future compatibility
     module = Module.concat([PhoenixKit, Modules, Shop, Order])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
-      dynamic_query = dynamic([o], o.user_id == ^user_id)
+      dynamic_query = dynamic([o], o.user_uuid == ^user_uuid)
 
       from(o in module, where: ^dynamic_query)
-      |> Repo.repo().update_all(set: [user_id: nil, anonymized_at: DateTime.utc_now()])
+      |> Repo.repo().update_all(
+        set: [user_id: nil, user_uuid: nil, anonymized_at: DateTime.utc_now()]
+      )
       |> elem(0)
     else
       0
@@ -2353,16 +2458,17 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   # Anonymize posts by setting user_id to NULL and marking deleted author
-  defp anonymize_user_posts(user_id) do
+  defp anonymize_user_posts(user_uuid) do
     module = Module.concat([PhoenixKit, Modules, Posts, Post])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
-      dynamic_query = dynamic([p], p.user_id == ^user_id)
+      dynamic_query = dynamic([p], p.user_uuid == ^user_uuid)
 
       from(p in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
           user_id: nil,
+          user_uuid: nil,
           author_deleted: true,
           anonymized_at: DateTime.utc_now()
         ]
@@ -2376,26 +2482,27 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   # Anonymize comments by setting user_id to NULL and marking deleted author
-  defp anonymize_user_comments(user_id) do
+  defp anonymize_user_comments(user_uuid) do
     # Anonymize legacy PostComments (Posts module)
-    legacy_count = anonymize_legacy_post_comments(user_id)
+    legacy_count = anonymize_legacy_post_comments(user_uuid)
 
     # Anonymize standalone Comments module
-    standalone_count = anonymize_standalone_comments(user_id)
+    standalone_count = anonymize_standalone_comments(user_uuid)
 
     legacy_count + standalone_count
   end
 
-  defp anonymize_legacy_post_comments(user_id) do
+  defp anonymize_legacy_post_comments(user_uuid) do
     module = Module.concat([PhoenixKit, Modules, Posts, PostComment])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
-      dynamic_query = dynamic([c], c.user_id == ^user_id)
+      dynamic_query = dynamic([c], c.user_uuid == ^user_uuid)
 
       from(c in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
           user_id: nil,
+          user_uuid: nil,
           author_deleted: true,
           anonymized_at: DateTime.utc_now()
         ]
@@ -2408,14 +2515,14 @@ defmodule PhoenixKit.Users.Auth do
     _ -> 0
   end
 
-  defp anonymize_standalone_comments(user_id) do
+  defp anonymize_standalone_comments(user_uuid) do
     module = Module.concat([PhoenixKit, Modules, Comments, Comment])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
-      dynamic_query = dynamic([c], c.user_id == ^user_id)
+      dynamic_query = dynamic([c], c.user_uuid == ^user_uuid)
 
       from(c in module, where: ^dynamic_query)
-      |> Repo.repo().update_all(set: [user_id: nil])
+      |> Repo.repo().update_all(set: [user_id: nil, user_uuid: nil])
       |> elem(0)
     else
       0
@@ -2425,16 +2532,17 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   # Anonymize tickets for support history
-  defp anonymize_user_tickets(user_id) do
+  defp anonymize_user_tickets(user_uuid) do
     module = Module.concat([PhoenixKit, Modules, Tickets, Ticket])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
-      dynamic_query = dynamic([t], t.user_id == ^user_id)
+      dynamic_query = dynamic([t], t.user_uuid == ^user_uuid)
 
       from(t in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
           user_id: nil,
+          user_uuid: nil,
           anonymized_at: DateTime.utc_now(),
           original_user_email: nil
         ]
@@ -2448,17 +2556,18 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   # Anonymize email logs - retain for compliance but remove PII
-  defp anonymize_user_email_logs(user_id) do
+  defp anonymize_user_email_logs(user_uuid) do
     # Emails.Log is in PhoenixKit.Modules.Emails namespace
     module = Module.concat([PhoenixKit, Modules, Emails, Log])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
-      dynamic_query = dynamic([el], el.user_id == ^user_id)
+      dynamic_query = dynamic([el], el.user_uuid == ^user_uuid)
 
       from(el in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
           user_id: nil,
+          user_uuid: nil,
           anonymized_at: DateTime.utc_now()
         ]
       )
@@ -2471,16 +2580,17 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   # Anonymize files - remove ownership
-  defp anonymize_user_files(user_id) do
+  defp anonymize_user_files(user_uuid) do
     module = Module.concat([PhoenixKit, Modules, Storage, File])
 
     if Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
-      dynamic_query = dynamic([f], f.user_id == ^user_id)
+      dynamic_query = dynamic([f], f.user_uuid == ^user_uuid)
 
       from(f in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
           user_id: nil,
+          user_uuid: nil,
           anonymized_at: DateTime.utc_now()
         ]
       )
@@ -2511,7 +2621,9 @@ defmodule PhoenixKit.Users.Auth do
          function_exported?(audit_module, :create_log_entry, 1) do
       log_attrs = %{
         target_user_id: user.id,
+        target_user_uuid: user.uuid,
         admin_user_id: current_user && current_user.id,
+        admin_user_uuid: current_user && current_user.uuid,
         action: :user_deleted,
         ip_address: ip_address,
         user_agent: user_agent,

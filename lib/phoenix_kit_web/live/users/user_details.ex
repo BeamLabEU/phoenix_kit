@@ -23,13 +23,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   def mount(%{"id" => user_id}, _session, socket) do
     project_title = Settings.get_project_title()
 
-    user_id_int =
-      case Integer.parse(user_id) do
-        {id, _} -> id
-        :error -> nil
-      end
-
-    user = if user_id_int, do: Auth.get_user_with_roles(user_id_int), else: nil
+    user = Auth.get_user_with_roles(user_id)
 
     case user do
       nil ->
@@ -157,9 +151,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   end
 
   @impl true
-  def handle_event("edit_note", %{"id" => note_id}, socket) do
-    note_id = String.to_integer(note_id)
-    note = Enum.find(socket.assigns.admin_notes, &(&1.id == note_id))
+  def handle_event("edit_note", %{"uuid" => note_id}, socket) do
+    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_id))
 
     if note do
       changeset = Auth.change_admin_note(note)
@@ -184,7 +177,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   @impl true
   def handle_event("update_note", %{"admin_note" => note_params}, socket) do
     note_id = socket.assigns.editing_note_id
-    note = Enum.find(socket.assigns.admin_notes, &(&1.id == note_id))
+    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_id))
 
     if note do
       case Auth.update_admin_note(note, note_params) do
@@ -207,9 +200,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   end
 
   @impl true
-  def handle_event("delete_note", %{"id" => note_id}, socket) do
-    note_id = String.to_integer(note_id)
-    note = Enum.find(socket.assigns.admin_notes, &(&1.id == note_id))
+  def handle_event("delete_note", %{"uuid" => note_id}, socket) do
+    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_id))
 
     if note do
       case Auth.delete_admin_note(note) do

@@ -1037,6 +1037,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "delivery",
         event_data: delivery_data,
         occurred_at: parse_timestamp(get_in(delivery_data, ["timestamp"]))
@@ -1058,6 +1059,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
 
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "bounce",
         event_data: bounce_data,
         occurred_at: parse_timestamp(get_in(bounce_data, ["timestamp"])),
@@ -1082,6 +1084,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "complaint",
         event_data: complaint_data,
         occurred_at: parse_timestamp(get_in(complaint_data, ["timestamp"])),
@@ -1100,6 +1103,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "open",
         event_data: open_data,
         occurred_at: parse_timestamp(timestamp),
@@ -1120,6 +1124,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "click",
         event_data: click_data,
         occurred_at: parse_timestamp(timestamp),
@@ -1140,6 +1145,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "reject",
         event_data: reject_data,
         occurred_at: parse_timestamp(get_in(reject_data, ["timestamp"])),
@@ -1158,6 +1164,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "delivery_delay",
         event_data: delay_data,
         occurred_at: parse_timestamp(get_in(delay_data, ["timestamp"])),
@@ -1176,6 +1183,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "subscription",
         event_data: subscription_data,
         occurred_at: parse_timestamp(get_in(subscription_data, ["timestamp"])),
@@ -1194,6 +1202,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     else
       event_attrs = %{
         email_log_id: log.id,
+        email_log_uuid: log.uuid,
         event_type: "rendering_failure",
         event_data: failure_data,
         occurred_at: parse_timestamp(get_in(failure_data, ["timestamp"])),

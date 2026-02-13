@@ -43,8 +43,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlans do
   end
 
   @impl true
-  def handle_event("toggle_active", %{"id" => id}, socket) do
-    plan = Enum.find(socket.assigns.plans, &(to_string(&1.id) == id))
+  def handle_event("toggle_active", %{"uuid" => uuid}, socket) do
+    plan = Enum.find(socket.assigns.plans, &(&1.uuid == uuid))
 
     if plan do
       case Billing.update_subscription_plan(plan, %{active: !plan.active}) do
@@ -63,8 +63,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlans do
   end
 
   @impl true
-  def handle_event("delete_plan", %{"id" => id}, socket) do
-    plan = Enum.find(socket.assigns.plans, &(to_string(&1.id) == id))
+  def handle_event("delete_plan", %{"uuid" => uuid}, socket) do
+    plan = Enum.find(socket.assigns.plans, &(&1.uuid == uuid))
 
     if plan do
       case Billing.delete_subscription_plan(plan) do

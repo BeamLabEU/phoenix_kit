@@ -38,11 +38,16 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     # Extract referrals params (matches form name from changeset)
     code_params = Map.get(params, "referrals", %{})
 
-    # Add beneficiary if selected
+    # Add beneficiary if selected (dual-write both integer and UUID)
     updated_params =
       case socket.assigns.selected_beneficiary do
-        nil -> code_params
-        beneficiary -> Map.put(code_params, "beneficiary", beneficiary.id)
+        nil ->
+          code_params
+
+        beneficiary ->
+          code_params
+          |> Map.put("beneficiary", beneficiary.id)
+          |> Map.put("beneficiary_uuid", beneficiary.uuid)
       end
 
     # Create changeset for validation
@@ -64,11 +69,16 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     # Extract referrals params (matches form name from changeset)
     code_params = Map.get(params, "referrals", %{})
 
-    # Ensure beneficiary is included if selected
+    # Ensure beneficiary is included if selected (dual-write both integer and UUID)
     updated_code_params =
       case socket.assigns.selected_beneficiary do
-        nil -> code_params
-        beneficiary -> Map.put(code_params, "beneficiary", beneficiary.id)
+        nil ->
+          code_params
+
+        beneficiary ->
+          code_params
+          |> Map.put("beneficiary", beneficiary.id)
+          |> Map.put("beneficiary_uuid", beneficiary.uuid)
       end
 
     case socket.assigns.mode do
@@ -87,8 +97,13 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     # Add beneficiary if selected
     final_changes =
       case socket.assigns.selected_beneficiary do
-        nil -> updated_changes
-        beneficiary -> Map.put(updated_changes, :beneficiary, beneficiary.id)
+        nil ->
+          updated_changes
+
+        beneficiary ->
+          updated_changes
+          |> Map.put(:beneficiary, beneficiary.id)
+          |> Map.put(:beneficiary_uuid, beneficiary.uuid)
       end
 
     changeset =
@@ -123,12 +138,16 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     # Find the selected user from search results
     selected_user =
       Enum.find(socket.assigns.search_results, fn user ->
-        to_string(user.id) == user_id
+        to_string(user.uuid) == user_id
       end)
 
     # Update the changeset with the selected beneficiary, preserving other changes
     current_changes = socket.assigns.changeset.changes
-    updated_changes = Map.put(current_changes, :beneficiary, String.to_integer(user_id))
+
+    updated_changes =
+      current_changes
+      |> Map.put(:beneficiary, user_id)
+      |> Map.put(:beneficiary_uuid, if(selected_user, do: selected_user.uuid))
 
     changeset =
       case socket.assigns.mode do
@@ -225,7 +244,12 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
   defp extract_user_info(socket, code_params) do
     case socket.assigns.phoenix_kit_current_user do
       user when not is_nil(user) ->
-        {Map.put(code_params, "created_by", user.id), user.id}
+        params =
+          code_params
+          |> Map.put("created_by", user.id)
+          |> Map.put("created_by_uuid", user.uuid)
+
+        {params, user.id}
 
       _ ->
         extract_user_from_scope(socket, code_params)
@@ -234,8 +258,15 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
   defp extract_user_from_scope(socket, code_params) do
     case socket.assigns do
-      %{phoenix_kit_current_scope: %{user_id: user_id}} when not is_nil(user_id) ->
-        {Map.put(code_params, "created_by", user_id), user_id}
+      %{phoenix_kit_current_scope: %{user_id: user_id} = scope} when not is_nil(user_id) ->
+        user_uuid = Map.get(scope, :user_uuid)
+
+        params =
+          code_params
+          |> Map.put("created_by", user_id)
+          |> Map.put("created_by_uuid", user_uuid)
+
+        {params, user_id}
 
       _ ->
         Logger.warning("Socket assigns when current_user is nil: #{inspect(socket.assigns)}")

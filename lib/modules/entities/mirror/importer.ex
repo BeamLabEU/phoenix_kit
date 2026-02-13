@@ -124,7 +124,8 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
       status: definition["status"] || "published",
       fields_definition: definition["fields_definition"] || [],
       settings: definition["settings"] || %{},
-      created_by: get_default_user_id()
+      created_by: get_default_user_id(),
+      created_by_uuid: get_default_user_uuid()
     }
 
     case Entities.create_entity(attrs) do
@@ -203,12 +204,14 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
 
     attrs = %{
       entity_id: entity.id,
+      entity_uuid: entity.uuid,
       title: record_data["title"],
       slug: slug,
       status: record_data["status"] || "published",
       data: record_data["data"] || %{},
       metadata: record_data["metadata"] || %{},
-      created_by: get_default_user_id()
+      created_by: get_default_user_id(),
+      created_by_uuid: get_default_user_uuid()
     }
 
     case EntityData.create(attrs) do
@@ -668,15 +671,23 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   # ============================================================================
 
   defp get_default_user_id do
-    case Auth.get_first_admin() do
-      nil ->
-        case Auth.get_first_user() do
-          nil -> nil
-          user -> user.id
-        end
+    case get_default_user() do
+      nil -> nil
+      user -> user.id
+    end
+  end
 
-      admin ->
-        admin.id
+  defp get_default_user_uuid do
+    case get_default_user() do
+      nil -> nil
+      user -> user.uuid
+    end
+  end
+
+  defp get_default_user do
+    case Auth.get_first_admin() do
+      nil -> Auth.get_first_user()
+      admin -> admin
     end
   end
 

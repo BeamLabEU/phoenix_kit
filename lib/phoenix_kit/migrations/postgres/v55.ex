@@ -128,7 +128,7 @@ defmodule PhoenixKit.Migrations.Postgres.V55 do
     seed_admin_comments_permission(prefix_str, schema_name)
 
     # Record migration version
-    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '54'"
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '55'"
   end
 
   def down(%{prefix: prefix} = _opts) do
@@ -150,7 +150,7 @@ defmodule PhoenixKit.Migrations.Postgres.V55 do
     """
 
     # Record migration version
-    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '53'"
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '54'"
   end
 
   defp seed_admin_comments_permission(prefix_str, schema_name) do

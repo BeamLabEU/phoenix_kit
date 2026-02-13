@@ -21,6 +21,8 @@ defmodule PhoenixKit.Modules.Connections.BlockHistory do
   schema "phoenix_kit_user_blocks_history" do
     belongs_to :blocker, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :blocked, PhoenixKit.Users.Auth.User, type: :integer
+    field :blocker_uuid, UUIDv7
+    field :blocked_uuid, UUIDv7
 
     field :action, :string
     field :reason, :string
@@ -34,7 +36,7 @@ defmodule PhoenixKit.Modules.Connections.BlockHistory do
   """
   def changeset(history, attrs) do
     history
-    |> cast(attrs, [:blocker_id, :blocked_id, :action, :reason])
+    |> cast(attrs, [:blocker_id, :blocked_id, :blocker_uuid, :blocked_uuid, :action, :reason])
     |> validate_required([:blocker_id, :blocked_id, :action])
     |> validate_inclusion(:action, @actions)
     |> put_timestamp()

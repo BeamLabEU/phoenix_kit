@@ -30,8 +30,8 @@ defmodule PhoenixKit.Users.Auth.User do
   @excluded_fields ~w(password current_password hashed_password __meta__ __struct__)a
 
   @type t :: %__MODULE__{
+          uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          uuid: Ecto.UUID.t() | nil,
           email: String.t(),
           username: String.t() | nil,
           password: String.t() | nil,
@@ -51,8 +51,10 @@ defmodule PhoenixKit.Users.Auth.User do
           updated_at: NaiveDateTime.t()
         }
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_users" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :email, :string
     field :username, :string
     field :password, :string, virtual: true, redact: true
@@ -69,8 +71,13 @@ defmodule PhoenixKit.Users.Auth.User do
     field :registration_city, :string
     field :custom_fields, :map, default: %{}
 
-    has_many :role_assignments, PhoenixKit.Users.RoleAssignment
-    many_to_many :roles, PhoenixKit.Users.Role, join_through: PhoenixKit.Users.RoleAssignment
+    has_many :role_assignments, PhoenixKit.Users.RoleAssignment,
+      foreign_key: :user_uuid,
+      references: :uuid
+
+    many_to_many :roles, PhoenixKit.Users.Role,
+      join_through: PhoenixKit.Users.RoleAssignment,
+      join_keys: [user_uuid: :uuid, role_uuid: :uuid]
 
     timestamps()
   end

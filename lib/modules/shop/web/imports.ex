@@ -443,12 +443,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   end
 
   # Parse ID from phx-value (comes as string from the template)
+  # Supports both integer IDs and UUID strings
   defp parse_id(id) when is_integer(id), do: {:ok, id}
 
   defp parse_id(id) when is_binary(id) do
     case Integer.parse(id) do
       {int, ""} -> {:ok, int}
-      _ -> :error
+      _ -> if match?({:ok, _}, Ecto.UUID.cast(id)), do: {:ok, id}, else: :error
     end
   end
 
@@ -540,6 +541,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
            filename: filename,
            file_path: dest_path,
            user_id: user.id,
+           user_uuid: user.uuid,
            options: %{"option_mappings" => worker_mappings, "config_id" => config_id}
          }) do
       {:ok, import_log} ->
@@ -1078,7 +1080,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                             <%= if import.status == "failed" do %>
                               <button
                                 phx-click="retry_import"
-                                phx-value-id={import.id}
+                                phx-value-id={import.uuid}
                                 class="btn btn-xs btn-ghost text-warning"
                                 title="Retry"
                               >
@@ -1088,7 +1090,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                             <%= if import.status in ["completed", "failed"] do %>
                               <button
                                 phx-click="delete_import"
-                                phx-value-id={import.id}
+                                phx-value-id={import.uuid}
                                 class="btn btn-xs btn-ghost text-error"
                                 title="Delete"
                                 data-confirm="Are you sure you want to delete this import log?"

@@ -82,7 +82,7 @@
                         <button
                           type="button"
                           phx-click="select_user"
-                          phx-value-id={user.id}
+                          phx-value-id={user.uuid}
                           class="w-full px-4 py-3 text-left hover:bg-base-200 flex items-center gap-3 border-b border-base-200 last:border-b-0"
                         >
                           <.user_avatar user={user} size="sm" />
@@ -123,7 +123,10 @@
               >
                 <option value="">Choose a plan...</option>
                 <%= for plan <- @plans do %>
-                  <option value={plan.id} selected={@selected_plan_id == plan.id}>
+                  <option
+                    value={plan.id}
+                    selected={to_string(@selected_plan_id) == to_string(plan.id)}
+                  >
                     {plan.name} -
                     <.currency_compact amount={plan.price} currency={plan.currency} />
                     / {format_interval(plan.interval, plan.interval_count)}
@@ -189,7 +192,10 @@
                 >
                   <option value="">No payment method</option>
                   <%= for pm <- @payment_methods do %>
-                    <option value={pm.id} selected={@selected_payment_method_id == pm.id}>
+                    <option
+                      value={pm.id}
+                      selected={to_string(@selected_payment_method_id) == to_string(pm.id)}
+                    >
                       {format_payment_method(pm)}
                       <%= if pm.is_default do %>
                         (Default)
@@ -249,7 +255,7 @@
             <div class="space-y-1">
               <div class="text-sm text-base-content/60">Plan</div>
               <%= if @selected_plan_id do %>
-                <% plan = Enum.find(@plans, &(&1.id == @selected_plan_id)) %>
+                <% plan = Enum.find(@plans, &(to_string(&1.id) == to_string(@selected_plan_id))) %>
                 <%= if plan do %>
                   <div class="font-medium">{plan.name}</div>
                   <div class="text-2xl font-bold mt-1">
@@ -276,7 +282,11 @@
               <div class="divider my-2"></div>
               <div class="space-y-1">
                 <div class="text-sm text-base-content/60">Payment Method</div>
-                <% pm = Enum.find(@payment_methods, &(&1.id == @selected_payment_method_id)) %>
+                <% pm =
+                  Enum.find(
+                    @payment_methods,
+                    &(to_string(&1.id) == to_string(@selected_payment_method_id))
+                  ) %>
                 <%= if pm do %>
                   <div class="font-medium">{format_payment_method(pm)}</div>
                 <% end %>

@@ -73,6 +73,8 @@ defmodule PhoenixKit.Modules.Connections.Connection do
   schema "phoenix_kit_user_connections" do
     belongs_to :requester, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :recipient, PhoenixKit.Users.Auth.User, type: :integer
+    field :requester_uuid, UUIDv7
+    field :recipient_uuid, UUIDv7
 
     field :status, :string, default: "pending"
     field :requested_at, :naive_datetime
@@ -102,7 +104,15 @@ defmodule PhoenixKit.Modules.Connections.Connection do
   """
   def changeset(connection, attrs) do
     connection
-    |> cast(attrs, [:requester_id, :recipient_id, :status, :requested_at, :responded_at])
+    |> cast(attrs, [
+      :requester_id,
+      :recipient_id,
+      :requester_uuid,
+      :recipient_uuid,
+      :status,
+      :requested_at,
+      :responded_at
+    ])
     |> validate_required([:requester_id, :recipient_id])
     |> validate_inclusion(:status, @statuses)
     |> validate_not_self_connection()

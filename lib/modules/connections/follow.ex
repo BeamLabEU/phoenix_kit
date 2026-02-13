@@ -44,6 +44,8 @@ defmodule PhoenixKit.Modules.Connections.Follow do
   schema "phoenix_kit_user_follows" do
     belongs_to :follower, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :followed, PhoenixKit.Users.Auth.User, type: :integer
+    field :follower_uuid, UUIDv7
+    field :followed_uuid, UUIDv7
 
     field :inserted_at, :naive_datetime
   end
@@ -64,7 +66,7 @@ defmodule PhoenixKit.Modules.Connections.Follow do
   """
   def changeset(follow, attrs) do
     follow
-    |> cast(attrs, [:follower_id, :followed_id])
+    |> cast(attrs, [:follower_id, :followed_id, :follower_uuid, :followed_uuid])
     |> validate_required([:follower_id, :followed_id])
     |> validate_not_self_follow()
     |> put_inserted_at()

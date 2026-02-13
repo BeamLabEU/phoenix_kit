@@ -125,6 +125,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
     field :metadata, :map, default: %{}
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
 
     has_many :media, PhoenixKit.Modules.Posts.PostMedia
     has_many :likes, PhoenixKit.Modules.Posts.PostLike
@@ -167,6 +168,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
     post
     |> cast(attrs, [
       :user_id,
+      :user_uuid,
       :title,
       :sub_title,
       :content,

@@ -242,7 +242,7 @@
                       <%!-- Edit Button --%>
                       <button
                         phx-click="edit_template"
-                        phx-value-id={template.id}
+                        phx-value-uuid={template.uuid}
                         class="btn btn-xs btn-outline btn-primary"
                         title="Edit Template"
                       >
@@ -252,7 +252,7 @@
                       <%!-- Clone Button --%>
                       <button
                         phx-click="show_clone_modal"
-                        phx-value-id={template.id}
+                        phx-value-uuid={template.uuid}
                         class="btn btn-xs btn-outline"
                         title="Clone Template"
                       >
@@ -264,7 +264,7 @@
                         <%= if template.status == "active" do %>
                           <button
                             phx-click="archive_template"
-                            phx-value-id={template.id}
+                            phx-value-uuid={template.uuid}
                             class="btn btn-xs btn-outline"
                             title="Archive Template"
                           >
@@ -273,7 +273,7 @@
                         <% else %>
                           <button
                             phx-click="activate_template"
-                            phx-value-id={template.id}
+                            phx-value-uuid={template.uuid}
                             class="btn btn-xs btn-outline btn-success"
                             title="Activate Template"
                           >
@@ -284,7 +284,7 @@
                         <%!-- Delete Button --%>
                         <button
                           phx-click="request_delete"
-                          phx-value-id={template.id}
+                          phx-value-uuid={template.uuid}
                           phx-value-name={template.name}
                           class="btn btn-xs btn-outline text-error hover:btn-error"
                           title="Delete Template"
@@ -429,7 +429,7 @@
               class="btn btn-error"
               phx-click="confirm_action"
               phx-value-action={@confirmation_modal.action}
-              phx-value-id={@confirmation_modal.id}
+              phx-value-uuid={@confirmation_modal.uuid}
             >
               {@confirmation_modal.button_text}
             </button>

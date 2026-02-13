@@ -129,8 +129,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Transactions do
   end
 
   @impl true
-  def handle_event("view_invoice", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/invoices/#{id}"))}
+  def handle_event("view_invoice", %{"uuid" => uuid}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/billing/invoices/#{uuid}"))}
   end
 
   @impl true

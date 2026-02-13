@@ -42,8 +42,10 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionPlan do
 
   @intervals ~w(day week month year)
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_subscription_plans" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :name, :string
     field :slug, :string
     field :description, :string

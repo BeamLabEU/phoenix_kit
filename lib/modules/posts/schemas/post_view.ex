@@ -63,6 +63,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
 
     belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
 
     timestamps(type: :naive_datetime)
   end
@@ -81,7 +82,15 @@ defmodule PhoenixKit.Modules.Posts.PostView do
   """
   def changeset(view, attrs) do
     view
-    |> cast(attrs, [:post_id, :user_id, :ip_address, :user_agent_hash, :session_id, :viewed_at])
+    |> cast(attrs, [
+      :post_id,
+      :user_id,
+      :user_uuid,
+      :ip_address,
+      :user_agent_hash,
+      :session_id,
+      :viewed_at
+    ])
     |> validate_required([:post_id, :viewed_at])
     |> validate_viewed_at_not_future()
     |> foreign_key_constraint(:post_id)

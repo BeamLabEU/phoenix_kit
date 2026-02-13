@@ -85,9 +85,9 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
         line_items: line_items,
         success_url: Keyword.fetch!(opts, :success_url),
         cancel_url: Keyword.fetch!(opts, :cancel_url),
-        client_reference_id: to_string(invoice.id),
+        client_reference_id: to_string(invoice.uuid),
         metadata: %{
-          invoice_id: to_string(invoice.id),
+          invoice_id: to_string(invoice.uuid),
           invoice_number: invoice.invoice_number
         }
       }
@@ -106,7 +106,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
              url: url,
              provider: :stripe,
              expires_at: DateTime.from_unix!(expires_at),
-             metadata: %{invoice_id: invoice.id}
+             metadata: %{invoice_id: invoice.uuid}
            }}
 
         {:error, reason} ->
@@ -141,7 +141,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
         cancel_url: Keyword.fetch!(opts, :cancel_url),
         payment_method_types: ["card"],
         metadata: %{
-          user_id: to_string(user.id)
+          user_id: to_string(user.uuid)
         }
       }
 
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
              id: id,
              url: url,
              provider: :stripe,
-             metadata: %{user_id: user.id, customer_id: customer_id}
+             metadata: %{user_id: user.uuid, customer_id: customer_id}
            }}
 
         {:error, reason} ->
@@ -195,7 +195,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
         description: Keyword.get(opts, :description, "PhoenixKit subscription payment"),
         metadata:
           %{
-            payment_method_id: to_string(payment_method.id)
+            payment_method_id: to_string(payment_method.uuid)
           }
           |> maybe_merge_invoice_metadata(opts)
       }
@@ -607,13 +607,13 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
 
   defp ensure_customer(user, config) do
     # Check if user already has a Stripe customer ID from saved payment methods
-    case get_stripe_customer_id_for_user(user.id) do
+    case get_stripe_customer_id_for_user(user.uuid) do
       nil ->
         # Create new customer
         params = %{
           email: user.email,
           metadata: %{
-            user_id: to_string(user.id)
+            user_id: to_string(user.uuid)
           }
         }
 
@@ -630,12 +630,12 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
     end
   end
 
-  defp get_stripe_customer_id_for_user(user_id) do
+  defp get_stripe_customer_id_for_user(user_uuid) do
     import Ecto.Query
 
     query =
       from pm in PhoenixKit.Modules.Billing.PaymentMethod,
-        where: pm.user_id == ^user_id,
+        where: pm.user_uuid == ^user_uuid,
         where: pm.provider == "stripe",
         where: not is_nil(pm.provider_customer_id),
         where: pm.status == "active",

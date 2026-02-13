@@ -25,8 +25,10 @@ defmodule PhoenixKit.Modules.Billing.WebhookEvent do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_webhook_events" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :provider, :string
     field :event_id, :string
     field :event_type, :string

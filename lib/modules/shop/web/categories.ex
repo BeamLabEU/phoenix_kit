@@ -30,8 +30,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
-    category = Shop.get_category!(id)
+  def handle_event("delete", %{"uuid" => uuid}, socket) do
+    category = Shop.get_category!(uuid)
 
     case Shop.delete_category(category) do
       {:ok, _} ->
@@ -168,14 +168,14 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                       <td class="text-right">
                         <div class="flex flex-wrap gap-1 justify-end">
                           <.link
-                            navigate={Routes.path("/admin/shop/categories/#{category.id}/edit")}
+                            navigate={Routes.path("/admin/shop/categories/#{category.uuid}/edit")}
                             class="btn btn-xs btn-outline btn-secondary"
                           >
                             <.icon name="hero-pencil" class="h-4 w-4" />
                           </.link>
                           <button
                             phx-click="delete"
-                            phx-value-id={category.id}
+                            phx-value-uuid={category.uuid}
                             data-confirm="Delete this category?"
                             class="btn btn-xs btn-outline btn-error"
                           >

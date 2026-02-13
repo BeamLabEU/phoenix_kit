@@ -73,6 +73,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
     field :from_status, :string
     field :to_status, :string
     field :reason, :string
+    field :changed_by_uuid, UUIDv7
 
     belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, type: UUIDv7
     belongs_to :changed_by, PhoenixKit.Users.Auth.User, type: :integer
@@ -93,7 +94,14 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
   """
   def changeset(history, attrs) do
     history
-    |> cast(attrs, [:ticket_id, :changed_by_id, :from_status, :to_status, :reason])
+    |> cast(attrs, [
+      :ticket_id,
+      :changed_by_id,
+      :changed_by_uuid,
+      :from_status,
+      :to_status,
+      :reason
+    ])
     |> validate_required([:ticket_id, :changed_by_id, :to_status])
     |> validate_length(:reason, max: 1000)
     |> foreign_key_constraint(:ticket_id)

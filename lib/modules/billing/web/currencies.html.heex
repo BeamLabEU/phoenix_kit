@@ -131,7 +131,7 @@
                             class="toggle toggle-success toggle-sm"
                             checked={currency.enabled}
                             phx-click="toggle_enabled"
-                            phx-value-id={currency.id}
+                            phx-value-uuid={currency.uuid}
                           />
                         </label>
                       </td>
@@ -141,7 +141,7 @@
                         <% else %>
                           <button
                             phx-click="set_default"
-                            phx-value-id={currency.id}
+                            phx-value-uuid={currency.uuid}
                             class="btn btn-ghost btn-xs"
                           >
                             Set Default
@@ -160,13 +160,13 @@
                             <li>
                               <button
                                 phx-click="show_edit_form"
-                                phx-value-id={currency.id}
+                                phx-value-uuid={currency.uuid}
                               >
                                 <.icon name="hero-pencil-square" class="w-4 h-4" /> Edit
                               </button>
                             </li>
                             <li>
-                              <button phx-click="toggle_enabled" phx-value-id={currency.id}>
+                              <button phx-click="toggle_enabled" phx-value-uuid={currency.uuid}>
                                 <%= if currency.enabled do %>
                                   <.icon name="hero-x-circle" class="w-4 h-4" /> Disable
                                 <% else %>
@@ -176,7 +176,7 @@
                             </li>
                             <%= unless currency.is_default do %>
                               <li>
-                                <button phx-click="set_default" phx-value-id={currency.id}>
+                                <button phx-click="set_default" phx-value-uuid={currency.uuid}>
                                   <.icon name="hero-star" class="w-4 h-4" /> Set as Default
                                 </button>
                               </li>
@@ -185,7 +185,7 @@
                               <li>
                                 <button
                                   phx-click="delete_currency"
-                                  phx-value-id={currency.id}
+                                  phx-value-uuid={currency.uuid}
                                   data-confirm={"Delete #{currency.code}? This cannot be undone."}
                                   class="text-error"
                                 >

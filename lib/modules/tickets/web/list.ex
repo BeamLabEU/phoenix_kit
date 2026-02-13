@@ -259,7 +259,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
           Keyword.put(opts, :assigned_to_id, nil)
 
         handler_id ->
-          Keyword.put(opts, :assigned_to_id, String.to_integer(handler_id))
+          Keyword.put(opts, :assigned_to_id, handler_id)
       end
 
     case socket.assigns.search_query do
@@ -316,7 +316,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
   defp matches_assigned?(ticket, "unassigned"), do: is_nil(ticket.assigned_to_id)
 
   defp matches_assigned?(ticket, handler_id),
-    do: ticket.assigned_to_id == String.to_integer(handler_id)
+    do: to_string(ticket.assigned_to_id) == handler_id
 
   defp matches_search?(_ticket, nil), do: true
   defp matches_search?(_ticket, ""), do: true

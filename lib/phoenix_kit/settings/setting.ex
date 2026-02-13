@@ -80,10 +80,10 @@ defmodule PhoenixKit.Settings.Setting do
     "oauth_facebook_app_secret"
   ]
 
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_settings" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :key, :string
     field :value, :string
     field :value_json, :map
@@ -127,7 +127,7 @@ defmodule PhoenixKit.Settings.Setting do
 
   # Private helper to set timestamps on new records
   defp maybe_set_timestamps(changeset) do
-    case get_field(changeset, :id) do
+    case changeset.data.uuid do
       nil ->
         now = DateTime.utc_now()
 
@@ -135,7 +135,7 @@ defmodule PhoenixKit.Settings.Setting do
         |> put_change(:date_added, now)
         |> put_change(:date_updated, now)
 
-      _id ->
+      _uuid ->
         put_change(changeset, :date_updated, DateTime.utc_now())
     end
   end
@@ -190,7 +190,7 @@ defmodule PhoenixKit.Settings.Setting do
 
       # Both are nil/empty - require at least one for new records
       true ->
-        if is_nil(changeset.data.id) do
+        if is_nil(changeset.data.uuid) do
           add_error(changeset, :value, "must provide either value or value_json")
         else
           changeset

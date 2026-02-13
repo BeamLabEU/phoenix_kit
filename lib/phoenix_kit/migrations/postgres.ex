@@ -413,13 +413,34 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Unique constraint on (role_id, module_key) prevents duplicates
   - 24 permission keys: 5 core sections + 19 feature modules
 
-  ### V54 - Category Featured Product + Import Config fix ⚡ LATEST
+  ### V54 - Category Featured Product + Import Config fix
   - Replaces image_url with featured_product_id FK to products
   - Auto-populates featured_product_id from first active product with image
   - Creates index on featured_product_id
   - Drops image_url column from categories
   - Image priority: image_id (Storage) → featured_product's featured_image_id
   - Adds download_images BOOLEAN to import_configs (schema field was missing from DB)
+
+  ### V55 - Standalone Comments Module
+  - Creates polymorphic phoenix_kit_comments table (resource_type + resource_id)
+  - Creates phoenix_kit_comments_likes and phoenix_kit_comments_dislikes tables
+  - Self-referencing parent_id for unlimited threading depth
+  - Counter caches for like_count and dislike_count
+  - Seeds default comments settings and Admin role permission
+
+  ### V56 - UUID Column Consistency Fix + UUID FK Columns ⚡ LATEST
+  - Adds missing uuid column to phoenix_kit_consent_logs (V43 schema expected it)
+  - Switches 17 tables from gen_random_uuid() (v4) to uuid_generate_v7() (v7)
+  - Fixes V55 Comments tables UUID PK defaults (gen_random_uuid → uuid_generate_v7)
+  - Adds NOT NULL constraint to 11 tables (V43, V46, V53, and uuid_repair.ex core tables)
+  - Adds missing unique indexes on uuid for 13 tables (V43, V45 Shop + uuid_repair.ex core)
+  - Fixes uuid_repair.ex upgrade path where V40 skipped core tables already having uuid column
+  - Adds ~80 UUID FK columns alongside integer FKs across ~40 tables
+  - Backfills UUID FK values via JOIN from source tables (batched for large tables)
+  - Creates indexes on all new UUID FK columns
+  - Prepares for UUID primary key switch in Ecto schemas
+  - All operations idempotent — safe on fresh installs and all upgrade paths
+  - Existing non-NULL UUID values unchanged
 
   ## Migration Paths
 
@@ -479,7 +500,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 55
+  @current_version 56
   @default_prefix "public"
 
   @doc false

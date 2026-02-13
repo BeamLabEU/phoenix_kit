@@ -40,7 +40,10 @@
               >
                 <option value="">Select a customer...</option>
                 <%= for user <- @users do %>
-                  <option value={user.id} selected={@selected_user_id == user.id}>
+                  <option
+                    value={user.id}
+                    selected={to_string(@selected_user_id) == to_string(user.id)}
+                  >
                     {user.email}
                   </option>
                 <% end %>
@@ -64,7 +67,9 @@
                     <%= for profile <- @billing_profiles do %>
                       <option
                         value={profile.id}
-                        selected={@selected_billing_profile_id == profile.id}
+                        selected={
+                          to_string(@selected_billing_profile_id) == to_string(profile.id)
+                        }
                       >
                         <%= if profile.type == "company" do %>
                           {profile.company_name}

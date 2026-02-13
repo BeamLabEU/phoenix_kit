@@ -108,8 +108,8 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
     {:noreply, push_patch(socket, to: path)}
   end
 
-  def handle_event("show_approval_modal", %{"id" => id}, socket) do
-    transfer = Transfers.get_transfer_with_preloads(String.to_integer(id), preload: [:connection])
+  def handle_event("show_approval_modal", %{"uuid" => uuid}, socket) do
+    transfer = Transfers.get_transfer_with_preloads(uuid, preload: [:connection])
 
     socket =
       socket
@@ -128,8 +128,8 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
     {:noreply, socket}
   end
 
-  def handle_event("approve_transfer", %{"id" => id}, socket) do
-    transfer = Transfers.get_transfer!(String.to_integer(id))
+  def handle_event("approve_transfer", %{"uuid" => uuid}, socket) do
+    transfer = Transfers.get_transfer!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
     case Transfers.approve_transfer(transfer, current_user.id) do
@@ -149,7 +149,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
   end
 
   def handle_event("deny_transfer", %{"transfer_id" => id, "reason" => reason}, socket) do
-    transfer = Transfers.get_transfer!(String.to_integer(id))
+    transfer = Transfers.get_transfer!(id)
     current_user = socket.assigns.phoenix_kit_current_scope.user
     reason = if reason == "", do: nil, else: reason
 
@@ -358,7 +358,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
                           <button
                             type="button"
                             phx-click="show_approval_modal"
-                            phx-value-id={transfer.id}
+                            phx-value-uuid={transfer.uuid}
                             class="btn btn-primary btn-xs"
                           >
                             Review
@@ -367,7 +367,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
                           <button
                             type="button"
                             phx-click="show_approval_modal"
-                            phx-value-id={transfer.id}
+                            phx-value-uuid={transfer.uuid}
                             class="btn btn-ghost btn-xs"
                           >
                             Details
@@ -620,7 +620,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
         <div class="modal-action">
           <%= if @transfer.status == "pending_approval" do %>
             <form phx-submit="deny_transfer" class="flex gap-2 items-end">
-              <input type="hidden" name="transfer_id" value={@transfer.id} />
+              <input type="hidden" name="transfer_id" value={@transfer.uuid} />
               <div class="form-control">
                 <input
                   type="text"
@@ -636,7 +636,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
             <button
               type="button"
               phx-click="approve_transfer"
-              phx-value-id={@transfer.id}
+              phx-value-uuid={@transfer.uuid}
               class="btn btn-success btn-sm"
             >
               Approve

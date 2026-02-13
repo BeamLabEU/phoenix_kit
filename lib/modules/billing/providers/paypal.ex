@@ -80,7 +80,8 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
   @impl true
   def create_setup_session(user, opts) do
     # Add user_id to opts
-    merged_opts = Keyword.put(opts, :user_id, user[:id] || user["id"])
+    merged_opts =
+      Keyword.put(opts, :user_id, user[:uuid] || user["uuid"] || user[:id] || user["id"])
 
     with {:ok, token} <- get_access_token(),
          {:ok, setup_token} <- create_setup_token(token, merged_opts) do
@@ -593,7 +594,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
       currency: invoice[:currency] || invoice["currency"] || "EUR",
       description: "Invoice #{invoice[:invoice_number] || invoice["invoice_number"]}",
       metadata: %{
-        invoice_id: invoice[:id] || invoice["id"],
+        invoice_id: invoice[:uuid] || invoice["uuid"] || invoice[:id] || invoice["id"],
         invoice_number: invoice[:invoice_number] || invoice["invoice_number"]
       }
     ]

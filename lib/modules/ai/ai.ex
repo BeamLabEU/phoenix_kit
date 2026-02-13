@@ -235,7 +235,7 @@ defmodule PhoenixKit.Modules.AI do
       end
 
     # Count on base query BEFORE applying sorting (which may add group_by)
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count)
 
     # Now apply sorting (may add group_by for usage/tokens/cost/last_used)
     query = apply_endpoint_sorting(base_query, sort_by, sort_dir)
@@ -262,14 +262,14 @@ defmodule PhoenixKit.Modules.AI do
     # Sort by total request count using a subquery to avoid GROUP BY issues
     stats_subquery =
       from(r in Request,
-        where: not is_nil(r.endpoint_id),
-        group_by: r.endpoint_id,
-        select: %{endpoint_id: r.endpoint_id, count: count(r.id)}
+        where: not is_nil(r.endpoint_uuid),
+        group_by: r.endpoint_uuid,
+        select: %{endpoint_uuid: r.endpoint_uuid, count: count()}
       )
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.id,
+      on: s.endpoint_uuid == e.uuid,
       order_by: [{^dir, coalesce(s.count, 0)}]
     )
   end
@@ -278,14 +278,14 @@ defmodule PhoenixKit.Modules.AI do
     # Sort by total tokens used
     stats_subquery =
       from(r in Request,
-        where: not is_nil(r.endpoint_id),
-        group_by: r.endpoint_id,
-        select: %{endpoint_id: r.endpoint_id, total: coalesce(sum(r.total_tokens), 0)}
+        where: not is_nil(r.endpoint_uuid),
+        group_by: r.endpoint_uuid,
+        select: %{endpoint_uuid: r.endpoint_uuid, total: coalesce(sum(r.total_tokens), 0)}
       )
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.id,
+      on: s.endpoint_uuid == e.uuid,
       order_by: [{^dir, coalesce(s.total, 0)}]
     )
   end
@@ -294,14 +294,14 @@ defmodule PhoenixKit.Modules.AI do
     # Sort by total cost
     stats_subquery =
       from(r in Request,
-        where: not is_nil(r.endpoint_id),
-        group_by: r.endpoint_id,
-        select: %{endpoint_id: r.endpoint_id, total: coalesce(sum(r.cost_cents), 0)}
+        where: not is_nil(r.endpoint_uuid),
+        group_by: r.endpoint_uuid,
+        select: %{endpoint_uuid: r.endpoint_uuid, total: coalesce(sum(r.cost_cents), 0)}
       )
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.id,
+      on: s.endpoint_uuid == e.uuid,
       order_by: [{^dir, coalesce(s.total, 0)}]
     )
   end
@@ -310,14 +310,14 @@ defmodule PhoenixKit.Modules.AI do
     # Sort by most recent request time
     stats_subquery =
       from(r in Request,
-        where: not is_nil(r.endpoint_id),
-        group_by: r.endpoint_id,
-        select: %{endpoint_id: r.endpoint_id, last_used: max(r.inserted_at)}
+        where: not is_nil(r.endpoint_uuid),
+        group_by: r.endpoint_uuid,
+        select: %{endpoint_uuid: r.endpoint_uuid, last_used: max(r.inserted_at)}
       )
 
     from(e in query,
       left_join: s in subquery(stats_subquery),
-      on: s.endpoint_id == e.id,
+      on: s.endpoint_uuid == e.uuid,
       order_by: [{^dir, s.last_used}]
     )
   end
@@ -340,12 +340,12 @@ defmodule PhoenixKit.Modules.AI do
   def get_endpoint_usage_stats do
     query =
       from(r in Request,
-        where: not is_nil(r.endpoint_id),
-        group_by: r.endpoint_id,
+        where: not is_nil(r.endpoint_uuid),
+        group_by: r.endpoint_uuid,
         select: {
-          r.endpoint_id,
+          r.endpoint_uuid,
           %{
-            request_count: count(r.id),
+            request_count: count(),
             total_tokens: coalesce(sum(r.total_tokens), 0),
             total_cost: coalesce(sum(r.cost_cents), 0),
             last_used_at: max(r.inserted_at)
@@ -381,7 +381,7 @@ defmodule PhoenixKit.Modules.AI do
   Returns `nil` if the endpoint does not exist.
   """
   def get_endpoint(id) when is_integer(id) do
-    repo().get(Endpoint, id)
+    repo().get_by(Endpoint, id: id)
   end
 
   def get_endpoint(id) when is_binary(id) do
@@ -391,7 +391,7 @@ defmodule PhoenixKit.Modules.AI do
     else
       # Try parsing as integer
       case Integer.parse(id) do
-        {int_id, ""} -> repo().get(Endpoint, int_id)
+        {int_id, ""} -> repo().get_by(Endpoint, id: int_id)
         _ -> nil
       end
     end
@@ -483,7 +483,7 @@ defmodule PhoenixKit.Modules.AI do
   Counts the total number of endpoints.
   """
   def count_endpoints do
-    repo().aggregate(Endpoint, :count, :id)
+    repo().aggregate(Endpoint, :count)
   end
 
   @doc """
@@ -491,7 +491,7 @@ defmodule PhoenixKit.Modules.AI do
   """
   def count_enabled_endpoints do
     query = from(e in Endpoint, where: e.enabled == true)
-    repo().aggregate(query, :count, :id)
+    repo().aggregate(query, :count)
   end
 
   # ===========================================
@@ -530,7 +530,7 @@ defmodule PhoenixKit.Modules.AI do
 
     # If page is provided, return paginated results with total count
     if page do
-      total = repo().aggregate(query, :count, :id)
+      total = repo().aggregate(query, :count)
       offset = (page - 1) * page_size
 
       prompts =
@@ -582,7 +582,7 @@ defmodule PhoenixKit.Modules.AI do
   Returns `nil` if the prompt does not exist.
   """
   def get_prompt(id) when is_integer(id) do
-    repo().get(Prompt, id)
+    repo().get_by(Prompt, id: id)
   end
 
   def get_prompt(id) when is_binary(id) do
@@ -592,7 +592,7 @@ defmodule PhoenixKit.Modules.AI do
     else
       # Try parsing as integer
       case Integer.parse(id) do
-        {int_id, ""} -> repo().get(Prompt, int_id)
+        {int_id, ""} -> repo().get_by(Prompt, id: int_id)
         _ -> nil
       end
     end
@@ -664,7 +664,7 @@ defmodule PhoenixKit.Modules.AI do
   Counts the total number of prompts.
   """
   def count_prompts do
-    repo().aggregate(Prompt, :count, :id)
+    repo().aggregate(Prompt, :count)
   end
 
   @doc """
@@ -672,7 +672,7 @@ defmodule PhoenixKit.Modules.AI do
   """
   def count_enabled_prompts do
     query = from(p in Prompt, where: p.enabled == true)
-    repo().aggregate(query, :count, :id)
+    repo().aggregate(query, :count)
   end
 
   @doc """
@@ -757,6 +757,7 @@ defmodule PhoenixKit.Modules.AI do
       opts_with_prompt =
         opts
         |> Keyword.put(:prompt_id, prompt.id)
+        |> Keyword.put(:prompt_uuid, prompt.uuid)
         |> Keyword.put(:prompt_name, prompt.name)
 
       case ask(endpoint_id, rendered, opts_with_prompt) do
@@ -791,6 +792,7 @@ defmodule PhoenixKit.Modules.AI do
       opts_with_prompt =
         opts
         |> Keyword.put(:prompt_id, prompt.id)
+        |> Keyword.put(:prompt_uuid, prompt.uuid)
         |> Keyword.put(:prompt_name, prompt.name)
 
       case complete(endpoint_id, messages, opts_with_prompt) do
@@ -1046,7 +1048,7 @@ defmodule PhoenixKit.Modules.AI do
     base_query = apply_request_filters(base_query, opts)
     base_query = apply_request_sorting(base_query, sort_by, sort_dir)
 
-    total = repo().aggregate(base_query, :count, :id)
+    total = repo().aggregate(base_query, :count)
 
     query =
       base_query
@@ -1102,7 +1104,7 @@ defmodule PhoenixKit.Modules.AI do
   Returns `nil` if the request does not exist.
   """
   def get_request(id) when is_integer(id) do
-    repo().get(Request, id)
+    repo().get_by(Request, id: id)
   end
 
   def get_request(id) when is_binary(id) do
@@ -1112,7 +1114,7 @@ defmodule PhoenixKit.Modules.AI do
     else
       # Try parsing as integer
       case Integer.parse(id) do
-        {int_id, ""} -> repo().get(Request, int_id)
+        {int_id, ""} -> repo().get_by(Request, id: int_id)
         _ -> nil
       end
     end
@@ -1136,7 +1138,7 @@ defmodule PhoenixKit.Modules.AI do
   Counts the total number of requests.
   """
   def count_requests do
-    repo().aggregate(Request, :count, :id)
+    repo().aggregate(Request, :count)
   end
 
   @doc """
@@ -1157,8 +1159,29 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   defp maybe_filter_by(query, _field, nil), do: query
-  defp maybe_filter_by(query, :endpoint_id, id), do: where(query, [r], r.endpoint_id == ^id)
-  defp maybe_filter_by(query, :user_id, id), do: where(query, [r], r.user_id == ^id)
+
+  defp maybe_filter_by(query, :endpoint_id, id) when is_integer(id) do
+    where(query, [r], r.endpoint_id == ^id)
+  end
+
+  defp maybe_filter_by(query, :endpoint_id, id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int_id, ""} -> where(query, [r], r.endpoint_id == ^int_id)
+      _ -> where(query, [r], r.endpoint_uuid == ^id)
+    end
+  end
+
+  defp maybe_filter_by(query, :user_id, id) when is_integer(id) do
+    where(query, [r], r.user_id == ^id)
+  end
+
+  defp maybe_filter_by(query, :user_id, id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int_id, ""} -> where(query, [r], r.user_id == ^int_id)
+      _ -> where(query, [r], r.user_uuid == ^id)
+    end
+  end
+
   defp maybe_filter_by(query, :status, status), do: where(query, [r], r.status == ^status)
   defp maybe_filter_by(query, :model, model), do: where(query, [r], r.model == ^model)
 
@@ -1174,9 +1197,9 @@ defmodule PhoenixKit.Modules.AI do
   def get_request_filter_options do
     endpoints_query =
       from(r in Request,
-        where: not is_nil(r.endpoint_id) and not is_nil(r.endpoint_name),
+        where: not is_nil(r.endpoint_uuid) and not is_nil(r.endpoint_name),
         distinct: true,
-        select: {r.endpoint_id, r.endpoint_name},
+        select: {r.endpoint_uuid, r.endpoint_name},
         order_by: r.endpoint_name
       )
 
@@ -1224,13 +1247,13 @@ defmodule PhoenixKit.Modules.AI do
     base_query = from(r in Request)
     base_query = apply_request_filters(base_query, opts)
 
-    total_requests = repo().aggregate(base_query, :count, :id)
+    total_requests = repo().aggregate(base_query, :count)
     total_tokens = repo().aggregate(base_query, :sum, :total_tokens) || 0
     total_cost = repo().aggregate(base_query, :sum, :cost_cents) || 0
     avg_latency = repo().aggregate(base_query, :avg, :latency_ms)
 
     success_query = where(base_query, [r], r.status == "success")
-    success_count = repo().aggregate(success_query, :count, :id)
+    success_count = repo().aggregate(success_query, :count)
 
     success_rate =
       if total_requests > 0 do
@@ -1295,7 +1318,7 @@ defmodule PhoenixKit.Modules.AI do
         select: %{
           model: r.model,
           total_tokens: sum(r.total_tokens),
-          request_count: count(r.id)
+          request_count: count()
         },
         order_by: [desc: sum(r.total_tokens)]
 
@@ -1314,7 +1337,7 @@ defmodule PhoenixKit.Modules.AI do
         group_by: fragment("DATE(?)", r.inserted_at),
         select: %{
           date: fragment("DATE(?)", r.inserted_at),
-          count: count(r.id),
+          count: count(),
           tokens: sum(r.total_tokens)
         },
         order_by: [asc: fragment("DATE(?)", r.inserted_at)]
@@ -1381,6 +1404,7 @@ defmodule PhoenixKit.Modules.AI do
       # Extract prompt info if present (from ask_with_prompt, complete_with_system_prompt)
       prompt_info = %{
         prompt_id: Keyword.get(opts, :prompt_id),
+        prompt_uuid: Keyword.get(opts, :prompt_uuid),
         prompt_name: Keyword.get(opts, :prompt_name)
       }
 
@@ -1690,8 +1714,10 @@ defmodule PhoenixKit.Modules.AI do
 
     create_request(%{
       endpoint_id: endpoint.id,
+      endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
       prompt_id: prompt_info[:prompt_id],
+      prompt_uuid: prompt_info[:prompt_uuid],
       prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
       request_type: "chat",
@@ -1727,8 +1753,10 @@ defmodule PhoenixKit.Modules.AI do
        ) do
     create_request(%{
       endpoint_id: endpoint.id,
+      endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
       prompt_id: prompt_info[:prompt_id],
+      prompt_uuid: prompt_info[:prompt_uuid],
       prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
       request_type: "chat",
@@ -1760,6 +1788,7 @@ defmodule PhoenixKit.Modules.AI do
 
     create_request(%{
       endpoint_id: endpoint.id,
+      endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
       model: endpoint.model,
       request_type: "embedding",
@@ -1782,6 +1811,7 @@ defmodule PhoenixKit.Modules.AI do
   defp log_failed_embedding_request(endpoint, reason, source, stacktrace, caller_context) do
     create_request(%{
       endpoint_id: endpoint.id,
+      endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
       model: endpoint.model,
       request_type: "embedding",

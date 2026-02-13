@@ -35,15 +35,18 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   import Ecto.Query
 
   alias PhoenixKit.Modules.Referrals
-
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_referral_code_usage" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
+    # legacy
     field :used_by, :integer
+    field :used_by_uuid, UUIDv7
     field :date_used, :utc_datetime_usec
 
-    belongs_to :referral_code, Referrals, foreign_key: :code_id
+    # legacy
+    field :code_id, :integer
+    belongs_to :referral_code, Referrals, foreign_key: :code_uuid, references: :uuid, type: UUIDv7
   end
 
   @doc """
@@ -54,10 +57,9 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   """
   def changeset(usage_record, attrs) do
     usage_record
-    |> cast(attrs, [:code_id, :used_by, :date_used])
-    |> validate_required([:code_id, :used_by])
-    |> foreign_key_constraint(:code_id)
-    |> validate_number(:used_by, greater_than: 0)
+    |> cast(attrs, [:code_id, :code_uuid, :used_by, :used_by_uuid, :date_used])
+    |> validate_required([:code_uuid, :used_by_uuid])
+    |> foreign_key_constraint(:code_uuid)
     |> maybe_set_date_used()
   end
 
@@ -71,9 +73,15 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       iex> ReferralCodeUsage.for_code(code_id) |> Repo.all()
       [%ReferralCodeUsage{}, ...]
   """
-  def for_code(code_id) do
+  def for_code(code_id) when is_integer(code_id) do
     from u in __MODULE__,
       where: u.code_id == ^code_id,
+      order_by: [desc: u.date_used]
+  end
+
+  def for_code(code_uuid) when is_binary(code_uuid) do
+    from u in __MODULE__,
+      where: u.code_uuid == ^code_uuid,
       order_by: [desc: u.date_used]
   end
 
@@ -87,9 +95,15 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       iex> ReferralCodeUsage.for_user(user_id) |> Repo.all()
       [%ReferralCodeUsage{}, ...]
   """
-  def for_user(user_id) do
+  def for_user(user_id) when is_integer(user_id) do
     from u in __MODULE__,
       where: u.used_by == ^user_id,
+      order_by: [desc: u.date_used]
+  end
+
+  def for_user(user_uuid) when is_binary(user_uuid) do
+    from u in __MODULE__,
+      where: u.used_by_uuid == ^user_uuid,
       order_by: [desc: u.date_used]
   end
 
@@ -103,10 +117,19 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       iex> ReferralCodeUsage.user_used_code?(user_id, code_id)
       false
   """
-  def user_used_code?(user_id, code_id) do
+  def user_used_code?(user_id, code_id) when is_integer(user_id) and is_integer(code_id) do
     query =
       from u in __MODULE__,
         where: u.used_by == ^user_id and u.code_id == ^code_id,
+        limit: 1
+
+    PhoenixKit.RepoHelper.repo().exists?(query)
+  end
+
+  def user_used_code?(user_uuid, code_uuid) when is_binary(user_uuid) and is_binary(code_uuid) do
+    query =
+      from u in __MODULE__,
+        where: u.used_by_uuid == ^user_uuid and u.code_uuid == ^code_uuid,
         limit: 1
 
     PhoenixKit.RepoHelper.repo().exists?(query)
@@ -127,7 +150,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
         recent_users: [user_id1, user_id2]
       }
   """
-  def get_usage_stats(code_id) do
+  def get_usage_stats(code_id) when is_integer(code_id) do
     repo = PhoenixKit.RepoHelper.repo()
 
     base_query = from u in __MODULE__, where: u.code_id == ^code_id
@@ -159,11 +182,44 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
     }
   end
 
+  def get_usage_stats(code_uuid) when is_binary(code_uuid) do
+    repo = PhoenixKit.RepoHelper.repo()
+
+    base_query = from u in __MODULE__, where: u.code_uuid == ^code_uuid
+
+    total_uses = repo.aggregate(base_query, :count)
+    unique_users = repo.aggregate(base_query, :count, :used_by_uuid, distinct: true)
+
+    last_used_query =
+      from u in base_query,
+        order_by: [desc: u.date_used],
+        limit: 1,
+        select: u.date_used
+
+    last_used = repo.one(last_used_query)
+
+    recent_users_query =
+      from u in base_query,
+        order_by: [desc: u.date_used],
+        limit: 5,
+        select: u.used_by_uuid
+
+    recent_users = repo.all(recent_users_query)
+
+    %{
+      total_uses: total_uses,
+      unique_users: unique_users,
+      last_used: last_used,
+      recent_users: recent_users
+    }
+  end
+
   # Private helper to set date_used on new records
   defp maybe_set_date_used(changeset) do
-    case get_field(changeset, :id) do
-      nil -> put_change(changeset, :date_used, DateTime.utc_now())
-      _id -> changeset
+    if changeset.data.__meta__.state == :built do
+      put_change(changeset, :date_used, DateTime.utc_now())
+    else
+      changeset
     end
   end
 end

@@ -67,6 +67,7 @@ defmodule PhoenixKit.Modules.Connections do
   alias PhoenixKit.Modules.Connections.Follow
   alias PhoenixKit.Modules.Connections.FollowHistory
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
 
   # ===== MODULE STATUS =====
 
@@ -198,9 +199,17 @@ defmodule PhoenixKit.Modules.Connections do
         {:error, :already_following}
 
       true ->
+        follower_uuid = resolve_user_uuid(follower_id)
+        followed_uuid = resolve_user_uuid(followed_id)
+
         repo().transaction(fn ->
           case %Follow{}
-               |> Follow.changeset(%{follower_id: follower_id, followed_id: followed_id})
+               |> Follow.changeset(%{
+                 follower_id: follower_id,
+                 followed_id: followed_id,
+                 follower_uuid: follower_uuid,
+                 followed_uuid: followed_uuid
+               })
                |> repo().insert() do
             {:ok, follow} ->
               log_follow_history(follower_id, followed_id, "follow")
@@ -338,7 +347,7 @@ defmodule PhoenixKit.Modules.Connections do
 
     Follow
     |> where([f], f.followed_id == ^user_id)
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   @doc """
@@ -354,7 +363,7 @@ defmodule PhoenixKit.Modules.Connections do
 
     Follow
     |> where([f], f.follower_id == ^user_id)
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   # ===== CONNECTIONS =====
@@ -436,7 +445,7 @@ defmodule PhoenixKit.Modules.Connections do
   def accept_connection(%Connection{}), do: {:error, :not_pending}
 
   def accept_connection(connection_id) when is_binary(connection_id) do
-    case repo().get(Connection, connection_id) do
+    case PhoenixKit.UUID.get(Connection, connection_id) do
       nil -> {:error, :not_found}
       connection -> accept_connection(connection)
     end
@@ -500,7 +509,7 @@ defmodule PhoenixKit.Modules.Connections do
   def reject_connection(%Connection{}), do: {:error, :not_pending}
 
   def reject_connection(connection_id) when is_binary(connection_id) do
-    case repo().get(Connection, connection_id) do
+    case PhoenixKit.UUID.get(Connection, connection_id) do
       nil -> {:error, :not_found}
       connection -> reject_connection(connection)
     end
@@ -664,7 +673,7 @@ defmodule PhoenixKit.Modules.Connections do
     Connection
     |> where([c], c.status == "accepted")
     |> where([c], c.requester_id == ^user_id or c.recipient_id == ^user_id)
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   @doc """
@@ -680,7 +689,7 @@ defmodule PhoenixKit.Modules.Connections do
 
     Connection
     |> where([c], c.recipient_id == ^user_id and c.status == "pending")
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   # ===== BLOCKS =====
@@ -714,6 +723,9 @@ defmodule PhoenixKit.Modules.Connections do
         {:error, :already_blocked}
 
       true ->
+        blocker_uuid = resolve_user_uuid(blocker_id)
+        blocked_uuid = resolve_user_uuid(blocked_id)
+
         repo().transaction(fn ->
           # Remove any existing follows (both directions) - log history for each
           remove_follows_between_with_history(blocker_id, blocked_id)
@@ -722,7 +734,13 @@ defmodule PhoenixKit.Modules.Connections do
           remove_connections_between_with_history(blocker_id, blocked_id)
 
           # Create the block
-          attrs = %{blocker_id: blocker_id, blocked_id: blocked_id, reason: reason}
+          attrs = %{
+            blocker_id: blocker_id,
+            blocked_id: blocked_id,
+            blocker_uuid: blocker_uuid,
+            blocked_uuid: blocked_uuid,
+            reason: reason
+          }
 
           case %Block{} |> Block.changeset(attrs) |> repo().insert() do
             {:ok, block} ->
@@ -894,7 +912,30 @@ defmodule PhoenixKit.Modules.Connections do
 
   defp get_user_id(%{id: id}), do: id
   defp get_user_id(id) when is_integer(id), do: id
-  defp get_user_id(id) when is_binary(id), do: String.to_integer(id)
+
+  defp get_user_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int_id, ""} ->
+        int_id
+
+      _ ->
+        # UUID string - resolve to integer user ID
+        case Auth.get_user(id) do
+          %{id: int_id} -> int_id
+          nil -> nil
+        end
+    end
+  end
+
+  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
+
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    import Ecto.Query, only: [from: 2]
+
+    repo().one(from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid))
+  end
+
+  defp resolve_user_uuid(_), do: nil
 
   defp get_follow(follower_id, followed_id) do
     Follow
@@ -957,24 +998,24 @@ defmodule PhoenixKit.Modules.Connections do
   # Total counts for statistics
   defp get_total_follows_count do
     Follow
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   defp get_total_connections_count do
     Connection
     |> where([c], c.status == "accepted")
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   defp get_total_pending_count do
     Connection
     |> where([c], c.status == "pending")
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   defp get_total_blocks_count do
     Block
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   # ===== HISTORY LOGGING =====
@@ -984,6 +1025,8 @@ defmodule PhoenixKit.Modules.Connections do
     |> FollowHistory.changeset(%{
       follower_id: follower_id,
       followed_id: followed_id,
+      follower_uuid: resolve_user_uuid(follower_id),
+      followed_uuid: resolve_user_uuid(followed_id),
       action: action
     })
     |> repo().insert!()
@@ -995,6 +1038,9 @@ defmodule PhoenixKit.Modules.Connections do
       user_a_id: user_a_id,
       user_b_id: user_b_id,
       actor_id: actor_id,
+      user_a_uuid: resolve_user_uuid(user_a_id),
+      user_b_uuid: resolve_user_uuid(user_b_id),
+      actor_uuid: resolve_user_uuid(actor_id),
       action: action
     })
     |> repo().insert!()
@@ -1002,11 +1048,16 @@ defmodule PhoenixKit.Modules.Connections do
 
   # Create a new pending connection request with history logging
   defp create_pending_connection(requester_id, recipient_id) do
+    requester_uuid = resolve_user_uuid(requester_id)
+    recipient_uuid = resolve_user_uuid(recipient_id)
+
     repo().transaction(fn ->
       case %Connection{}
            |> Connection.changeset(%{
              requester_id: requester_id,
-             recipient_id: recipient_id
+             recipient_id: recipient_id,
+             requester_uuid: requester_uuid,
+             recipient_uuid: recipient_uuid
            })
            |> repo().insert() do
         {:ok, connection} ->
@@ -1024,6 +1075,8 @@ defmodule PhoenixKit.Modules.Connections do
     |> BlockHistory.changeset(%{
       blocker_id: blocker_id,
       blocked_id: blocked_id,
+      blocker_uuid: resolve_user_uuid(blocker_id),
+      blocked_uuid: resolve_user_uuid(blocked_id),
       action: action,
       reason: reason
     })

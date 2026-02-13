@@ -492,7 +492,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
       currency: invoice[:currency] || invoice["currency"] || "INR",
       description: "Invoice #{invoice[:invoice_number] || invoice["invoice_number"]}",
       metadata: %{
-        invoice_id: invoice[:id] || invoice["id"],
+        invoice_id: invoice[:uuid] || invoice["uuid"] || invoice[:id] || invoice["id"],
         invoice_number: invoice[:invoice_number] || invoice["invoice_number"]
       }
     ]

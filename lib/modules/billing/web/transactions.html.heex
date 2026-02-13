@@ -118,7 +118,7 @@
                     <tr
                       class="hover cursor-pointer"
                       phx-click="view_invoice"
-                      phx-value-id={transaction.invoice_id}
+                      phx-value-uuid={transaction.invoice_uuid}
                     >
                       <td class="font-mono text-sm">{transaction.transaction_number}</td>
                       <td>
@@ -126,7 +126,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/billing/invoices/#{transaction.invoice_id}"
+                                "/admin/billing/invoices/#{transaction.invoice_uuid}"
                               )
                             }
                             class="link link-hover font-mono text-sm"
@@ -176,7 +176,7 @@
                         <.link
                           navigate={
                             PhoenixKit.Utils.Routes.path(
-                              "/admin/billing/invoices/#{transaction.invoice_id}"
+                              "/admin/billing/invoices/#{transaction.invoice_uuid}"
                             )
                           }
                           class="btn btn-ghost btn-xs"

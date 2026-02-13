@@ -24,8 +24,10 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_shop_shipping_methods" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
 
     field :name, :string
     field :slug, :string

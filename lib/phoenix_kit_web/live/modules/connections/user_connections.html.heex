@@ -137,7 +137,7 @@
                     <button
                       class="btn btn-sm btn-outline btn-error"
                       phx-click="unfollow"
-                      phx-value-id={follow.followed_id}
+                      phx-value-uuid={follow.followed.uuid}
                     >
                       Unfollow
                     </button>
@@ -187,7 +187,7 @@
                     <button
                       class="btn btn-sm btn-outline btn-error"
                       phx-click="remove_connection"
-                      phx-value-id={other_user.id}
+                      phx-value-uuid={other_user.uuid}
                     >
                       Remove
                     </button>
@@ -333,7 +333,7 @@
                     <button
                       class="btn btn-sm btn-outline"
                       phx-click="unblock"
-                      phx-value-id={block.blocked_id}
+                      phx-value-uuid={block.blocked.uuid}
                     >
                       Unblock
                     </button>

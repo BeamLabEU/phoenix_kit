@@ -40,9 +40,9 @@ defmodule PhoenixKit.Users.Sessions do
       iex> list_active_sessions()
       [
         %{
-          token_id: 123,
+          token_id: "019b5704-3680-7b95-...",
           token_preview: "abc12345",
-          user: %User{id: 1, email: "user@example.com"},
+          user: %User{uuid: "019b5704-...", email: "user@example.com"},
           created_at: ~N[2024-01-01 12:00:00],
           expires_at: ~N[2024-03-02 12:00:00],
           is_current: false
@@ -55,11 +55,11 @@ defmodule PhoenixKit.Users.Sessions do
       where: token.context == "session",
       where: token.inserted_at > ago(@session_validity_in_days, "day"),
       join: user in User,
-      on: token.user_id == user.id,
+      on: token.user_uuid == user.uuid,
       select: %{
-        token_id: token.id,
+        token_id: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
-        user_id: user.id,
+        user_uuid: user.uuid,
         user_email: user.email,
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
@@ -77,21 +77,21 @@ defmodule PhoenixKit.Users.Sessions do
 
   ## Examples
 
-      iex> list_user_sessions(%User{id: 1})
-      [%{token_id: 123, user: %User{}, created_at: ~N[...], ...}]
+      iex> list_user_sessions(%User{uuid: "019b5704-..."})
+      [%{token_id: "019b5704-...", user: %User{}, created_at: ~N[...], ...}]
 
   """
-  def list_user_sessions(%User{id: user_id}) do
+  def list_user_sessions(%User{uuid: user_uuid}) do
     from(token in UserToken,
       where: token.context == "session",
-      where: token.user_id == ^user_id,
+      where: token.user_uuid == ^user_uuid,
       where: token.inserted_at > ago(@session_validity_in_days, "day"),
       join: user in User,
-      on: token.user_id == user.id,
+      on: token.user_uuid == user.uuid,
       select: %{
-        token_id: token.id,
+        token_id: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
-        user_id: user.id,
+        user_uuid: user.uuid,
         user_email: user.email,
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
@@ -109,24 +109,24 @@ defmodule PhoenixKit.Users.Sessions do
 
   ## Examples
 
-      iex> get_session_info(123)
-      %{token_id: 123, user: %User{}, created_at: ~N[...], ...}
+      iex> get_session_info("019b5704-3680-7b95-...")
+      %{token_id: "019b5704-...", user: %User{}, created_at: ~N[...], ...}
 
-      iex> get_session_info(999)
+      iex> get_session_info("019b5704-0000-0000-...")
       nil
 
   """
-  def get_session_info(token_id) when is_integer(token_id) do
+  def get_session_info(token_uuid) when is_binary(token_uuid) do
     from(token in UserToken,
-      where: token.id == ^token_id,
+      where: token.uuid == ^token_uuid,
       where: token.context == "session",
       where: token.inserted_at > ago(@session_validity_in_days, "day"),
       join: user in User,
-      on: token.user_id == user.id,
+      on: token.user_uuid == user.uuid,
       select: %{
-        token_id: token.id,
+        token_id: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
-        user_id: user.id,
+        user_uuid: user.uuid,
         user_email: user.email,
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
@@ -148,20 +148,22 @@ defmodule PhoenixKit.Users.Sessions do
 
   ## Examples
 
-      iex> revoke_session(123)
+      iex> revoke_session("019b5704-3680-7b95-...")
       :ok
 
-      iex> revoke_session(999)
+      iex> revoke_session("019b5704-0000-0000-...")
       {:error, :not_found}
 
   """
-  def revoke_session(token_id) when is_integer(token_id) do
+  def revoke_session(token_uuid) when is_binary(token_uuid) do
     case Repo.delete_all(
-           from(token in UserToken, where: token.id == ^token_id and token.context == "session")
+           from(token in UserToken,
+             where: token.uuid == ^token_uuid and token.context == "session"
+           )
          ) do
       {1, _} ->
         # Broadcast session revocation event
-        Events.broadcast_session_revoked(token_id)
+        Events.broadcast_session_revoked(token_uuid)
         :ok
 
       {0, _} ->
@@ -176,21 +178,21 @@ defmodule PhoenixKit.Users.Sessions do
 
   ## Examples
 
-      iex> revoke_user_sessions(%User{id: 1})
+      iex> revoke_user_sessions(%User{uuid: "019b5704-..."})
       3
 
   """
-  def revoke_user_sessions(%User{id: user_id}) do
+  def revoke_user_sessions(%User{uuid: user_uuid}) do
     {count, _} =
       Repo.delete_all(
         from(token in UserToken,
-          where: token.user_id == ^user_id and token.context == "session"
+          where: token.user_uuid == ^user_uuid and token.context == "session"
         )
       )
 
     # Broadcast user sessions revocation event
     if count > 0 do
-      Events.broadcast_user_sessions_revoked(user_id, count)
+      Events.broadcast_user_sessions_revoked(user_uuid, count)
     end
 
     count
@@ -209,7 +211,7 @@ defmodule PhoenixKit.Users.Sessions do
     from(token in UserToken,
       where: token.context == "session",
       where: token.inserted_at > ago(@session_validity_in_days, "day"),
-      select: count(token.id)
+      select: count(token.uuid)
     )
     |> Repo.one()
   end
@@ -239,15 +241,15 @@ defmodule PhoenixKit.Users.Sessions do
         where: token.inserted_at > ago(@session_validity_in_days, "day")
       )
 
-    total_active = Repo.aggregate(active_query, :count, :id)
-    unique_users = Repo.aggregate(active_query, :count, :user_id, distinct: true)
+    total_active = Repo.aggregate(active_query, :count, :uuid)
+    unique_users = Repo.aggregate(active_query, :count, :user_uuid, distinct: true)
 
     # Sessions created today
     sessions_today =
       from(token in UserToken,
         where: token.context == "session",
         where: token.inserted_at >= ^today_start,
-        select: count(token.id)
+        select: count(token.uuid)
       )
       |> Repo.one()
 
@@ -256,7 +258,7 @@ defmodule PhoenixKit.Users.Sessions do
       from(token in UserToken,
         where: token.context == "session",
         where: token.inserted_at <= ago(@session_validity_in_days, "day"),
-        select: count(token.id)
+        select: count(token.uuid)
       )
       |> Repo.one()
 
@@ -273,7 +275,7 @@ defmodule PhoenixKit.Users.Sessions do
     %{
       token_id: session_data.token_id,
       token_preview: session_data.token_preview,
-      user_id: session_data.user_id,
+      user_uuid: session_data.user_uuid,
       user_email: session_data.user_email,
       user_is_active: session_data.user_is_active,
       user_confirmed_at: session_data.user_confirmed_at,

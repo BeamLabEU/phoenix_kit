@@ -300,7 +300,9 @@
                       <.icon name="hero-arrow-right" class="w-4 h-4" />
                     </.link>
                     <.link
-                      navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.id}/edit")}
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.uuid}/edit")
+                      }
                       class="btn btn-ghost btn-xs"
                       title={gettext("Edit")}
                     >
@@ -310,7 +312,7 @@
                       <button
                         class="btn btn-ghost btn-xs text-success"
                         phx-click="restore_entity"
-                        phx-value-id={entity.id}
+                        phx-value-uuid={entity.uuid}
                         title={gettext("Restore")}
                       >
                         <.icon name="hero-arrow-path" class="w-4 h-4" />
@@ -319,7 +321,7 @@
                       <button
                         class="btn btn-ghost btn-xs text-error"
                         phx-click="archive_entity"
-                        phx-value-id={entity.id}
+                        phx-value-uuid={entity.uuid}
                         title={gettext("Archive")}
                       >
                         <.icon name="hero-trash" class="w-4 h-4" />
@@ -398,7 +400,7 @@
                     <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" /> {gettext("Go to Data")}
                   </.link>
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.id}/edit")}
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.uuid}/edit")}
                     class="btn btn-primary btn-sm"
                   >
                     <.icon name="hero-pencil" class="w-4 h-4 mr-1" /> {gettext("Edit")}
@@ -409,7 +411,7 @@
                     <button
                       class="btn btn-success btn-sm"
                       phx-click="restore_entity"
-                      phx-value-id={entity.id}
+                      phx-value-uuid={entity.uuid}
                       title={gettext("Restore entity")}
                     >
                       <.icon name="hero-arrow-path" class="w-4 h-4" />
@@ -418,7 +420,7 @@
                     <button
                       class="btn btn-error btn-sm"
                       phx-click="archive_entity"
-                      phx-value-id={entity.id}
+                      phx-value-uuid={entity.uuid}
                       title={gettext("Archive entity")}
                     >
                       <.icon name="hero-trash" class="w-4 h-4" />
