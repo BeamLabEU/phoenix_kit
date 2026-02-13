@@ -11,56 +11,24 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
   They are NOT written to disk (unlike XML sitemaps).
   """
 
-  require Logger
-
   alias PhoenixKit.Modules.Sitemap.Cache
   alias PhoenixKit.Modules.Sitemap.UrlEntry
 
-  @valid_styles ["hierarchical", "grouped", "flat"]
-
   @doc """
-  Generates an HTML sitemap from collected URL entries.
+  Renders an HTML sitemap from pre-collected URL entries.
 
-  ## Options
+  Validation and cache lookup are handled by the caller (`Generator.generate_html/1`).
+  This function only renders HTML and optionally caches the result.
 
-  - `:base_url` - Base URL (required, used for entry collection upstream)
-  - `:style` - Display style: "hierarchical", "grouped", or "flat" (default: "hierarchical")
-  - `:cache` - Enable/disable caching (default: true)
-  - `:title` - Page title (default: "Sitemap")
+  ## Parameters
+
+  - `opts` - Options (`:style`, `:title`)
+  - `entries` - Pre-collected URL entries
+  - `cache_key` - Atom key for ETS cache storage
+  - `cache_opts` - Optional: `[cache: false]` to skip caching
   """
-  @spec generate(keyword(), [UrlEntry.t()]) :: {:ok, String.t()} | {:error, any()}
-  def generate(opts, entries) when is_list(entries) do
-    style = Keyword.get(opts, :style, "hierarchical")
-    cache_enabled = Keyword.get(opts, :cache, true)
-
-    cond do
-      !Keyword.has_key?(opts, :base_url) ->
-        {:error, :base_url_required}
-
-      style not in @valid_styles ->
-        {:error, :invalid_style}
-
-      true ->
-        cache_key = :"html_#{style}"
-
-        if cache_enabled do
-          case Cache.get(cache_key) do
-            {:ok, cached} ->
-              Logger.debug("Sitemap: Using cached HTML sitemap (#{style})")
-              {:ok, cached}
-
-            :error ->
-              do_generate(opts, entries, cache_key)
-          end
-        else
-          do_generate(opts, entries, cache_key, cache: false)
-        end
-    end
-  end
-
-  # ── Internal: rendering ───────────────────────────────────────────
-
-  defp do_generate(opts, entries, cache_key, cache_opts \\ []) do
+  @spec generate(keyword(), [UrlEntry.t()], atom(), keyword()) :: {:ok, String.t()}
+  def generate(opts, entries, cache_key, cache_opts \\ []) when is_list(entries) do
     style = Keyword.get(opts, :style, "hierarchical")
     title = Keyword.get(opts, :title, "Sitemap")
     cache_enabled = Keyword.get(cache_opts, :cache, true)
@@ -76,6 +44,8 @@ defmodule PhoenixKit.Modules.Sitemap.HtmlGenerator do
 
     {:ok, html}
   end
+
+  # ── Internal: rendering ───────────────────────────────────────────
 
   defp render_hierarchical(entries, title) do
     grouped =
