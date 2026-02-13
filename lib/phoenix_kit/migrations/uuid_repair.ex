@@ -14,6 +14,10 @@ defmodule PhoenixKit.Migrations.UUIDRepair do
   This module detects the condition and adds UUID columns BEFORE running
   migrations, ensuring V31+ can use Ecto schemas without errors.
 
+  Creates the `uuid_generate_v7()` PostgreSQL function (same as V40) and uses
+  it for all UUID column defaults and backfills, ensuring UUIDv7 consistency
+  from the start. V40 later runs `CREATE OR REPLACE` which is a safe no-op.
+
   ## When It Runs
 
   Called automatically by `mix phoenix_kit.update` when:
@@ -142,6 +146,9 @@ defmodule PhoenixKit.Migrations.UUIDRepair do
     # First ensure pgcrypto extension exists
     ensure_pgcrypto(repo)
 
+    # Ensure uuid_generate_v7() function exists (V40 creates it, but we run before V40)
+    ensure_uuid_generate_v7(repo)
+
     # Repair each table that needs it
     results =
       Enum.map(@tables_needing_repair, fn table ->
@@ -163,6 +170,26 @@ defmodule PhoenixKit.Migrations.UUIDRepair do
     repo.query("CREATE EXTENSION IF NOT EXISTS pgcrypto", [], log: false)
   end
 
+  defp ensure_uuid_generate_v7(repo) do
+    query = """
+    CREATE OR REPLACE FUNCTION uuid_generate_v7()
+    RETURNS uuid AS $$
+    DECLARE
+      unix_ts_ms bytea;
+      uuid_bytes bytea;
+    BEGIN
+      unix_ts_ms := substring(int8send(floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint) FROM 3);
+      uuid_bytes := unix_ts_ms || gen_random_bytes(10);
+      uuid_bytes := set_byte(uuid_bytes, 6, (get_byte(uuid_bytes, 6) & 15) | 112);
+      uuid_bytes := set_byte(uuid_bytes, 8, (get_byte(uuid_bytes, 8) & 63) | 128);
+      RETURN encode(uuid_bytes, 'hex')::uuid;
+    END
+    $$ LANGUAGE plpgsql VOLATILE;
+    """
+
+    repo.query(query, [], log: false)
+  end
+
   defp repair_table(repo, table, prefix) do
     table_name = prefix_table_name(Atom.to_string(table), prefix)
 
@@ -181,12 +208,12 @@ defmodule PhoenixKit.Migrations.UUIDRepair do
 
         add_uuid_query = """
         ALTER TABLE #{table_name}
-        ADD COLUMN uuid UUID DEFAULT gen_random_uuid()
+        ADD COLUMN uuid UUID DEFAULT uuid_generate_v7()
         """
 
         backfill_query = """
         UPDATE #{table_name}
-        SET uuid = gen_random_uuid()
+        SET uuid = uuid_generate_v7()
         WHERE uuid IS NULL
         """
 

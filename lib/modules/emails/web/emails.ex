@@ -136,10 +136,10 @@ defmodule PhoenixKit.Modules.Emails.Web.Emails do
   end
 
   @impl true
-  def handle_event("view_details", %{"id" => log_id}, socket) do
+  def handle_event("view_details", %{"uuid" => log_uuid}, socket) do
     {:noreply,
      socket
-     |> push_navigate(to: Routes.path("/admin/emails/email/#{log_id}"))}
+     |> push_navigate(to: Routes.path("/admin/emails/email/#{log_uuid}"))}
   end
 
   @impl true

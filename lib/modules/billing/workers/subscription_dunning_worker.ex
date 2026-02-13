@@ -140,7 +140,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
       currency: plan.currency,
       description: "Subscription renewal (dunning retry)",
       metadata: %{
-        subscription_id: subscription.id,
+        subscription_id: subscription.uuid,
         retry_attempt: subscription.renewal_attempts + 1
       }
     )
@@ -178,7 +178,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
 
     if subscription.renewal_attempts < max_attempts do
       # Schedule next retry in 24 hours
-      %{subscription_id: subscription.id}
+      %{subscription_id: subscription.uuid}
       |> __MODULE__.new(schedule_in: 86_400)
       |> Oban.insert()
     end
@@ -188,11 +188,21 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   # Queries & Helpers
   # ============================================
 
-  defp get_subscription_with_preloads(id) do
+  defp get_subscription_with_preloads(id) when is_integer(id) do
     import Ecto.Query
 
     from(s in Subscription,
       where: s.id == ^id,
+      preload: [:plan, :payment_method]
+    )
+    |> RepoHelper.repo().one()
+  end
+
+  defp get_subscription_with_preloads(id) when is_binary(id) do
+    import Ecto.Query
+
+    from(s in Subscription,
+      where: s.uuid == ^id,
       preload: [:plan, :payment_method]
     )
     |> RepoHelper.repo().one()

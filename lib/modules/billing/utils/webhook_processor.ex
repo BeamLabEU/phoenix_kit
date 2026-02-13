@@ -348,7 +348,7 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
     end
   end
 
-  defp parse_id(id) when is_binary(id), do: String.to_integer(id)
+  defp parse_id(id) when is_binary(id), do: id
   defp parse_id(id) when is_integer(id), do: id
   defp parse_id(_), do: nil
 end

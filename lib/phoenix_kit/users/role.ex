@@ -29,8 +29,8 @@ defmodule PhoenixKit.Users.Role do
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
+          uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          uuid: Ecto.UUID.t() | nil,
           name: String.t(),
           description: String.t() | nil,
           is_system_role: boolean(),
@@ -44,14 +44,21 @@ defmodule PhoenixKit.Users.Role do
     user: "User"
   }
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_user_roles" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :name, :string
     field :description, :string
     field :is_system_role, :boolean, default: false
 
-    has_many :role_assignments, PhoenixKit.Users.RoleAssignment
-    many_to_many :users, PhoenixKit.Users.Auth.User, join_through: PhoenixKit.Users.RoleAssignment
+    has_many :role_assignments, PhoenixKit.Users.RoleAssignment,
+      foreign_key: :role_uuid,
+      references: :uuid
+
+    many_to_many :users, PhoenixKit.Users.Auth.User,
+      join_through: PhoenixKit.Users.RoleAssignment,
+      join_keys: [role_uuid: :uuid, user_uuid: :uuid]
 
     timestamps()
   end

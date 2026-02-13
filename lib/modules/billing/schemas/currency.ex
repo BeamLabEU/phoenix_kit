@@ -32,10 +32,10 @@ defmodule PhoenixKit.Modules.Billing.Currency do
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_currencies" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :code, :string
     field :name, :string
     field :symbol, :string

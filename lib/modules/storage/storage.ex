@@ -535,7 +535,11 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Gets a single file by ID.
   """
-  def get_file(id), do: repo().get(PhoenixKit.Modules.Storage.File, id)
+  def get_file(id) when is_integer(id),
+    do: repo().get_by(PhoenixKit.Modules.Storage.File, id: id)
+
+  def get_file(id) when is_binary(id),
+    do: repo().get(PhoenixKit.Modules.Storage.File, id)
 
   @doc """
   Calculates user-specific file checksum (salted with user_id).
@@ -1183,7 +1187,8 @@ defmodule PhoenixKit.Modules.Storage do
       user_file_checksum: user_file_checksum,
       size: get_file_size(source_path),
       status: "processing",
-      user_id: user_id
+      user_id: user_id,
+      user_uuid: resolve_user_uuid(user_id)
     }
 
     case create_file(file_attrs) do
@@ -1455,6 +1460,19 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
+  # ===== USER UUID RESOLUTION =====
+
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    import Ecto.Query, only: [from: 2]
+
+    PhoenixKit.RepoHelper.repo().one(
+      from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
+    )
+  end
+
+  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
+  defp resolve_user_uuid(_), do: nil
+
   # ===== REPO HELPERS =====
 
   defp repo do
@@ -1550,7 +1568,8 @@ defmodule PhoenixKit.Modules.Storage do
       size_mb: size_bytes / (1024 * 1024),
       status: "active",
       metadata: metadata,
-      user_id: user_id
+      user_id: user_id,
+      user_uuid: resolve_user_uuid(user_id)
     }
   end
 

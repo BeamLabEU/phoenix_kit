@@ -518,103 +518,22 @@ PhoenixKit.Entities.create_entity(%{name: "products", ...})
 - **Mix.Tasks.PhoenixKit.Gen.Migration** - Custom migration generator
 - **Mix.Tasks.PhoenixKit.MigrateToDaisyui5** - Migration tool for daisyUI 5 upgrade
 
-### Adding UUID Fields to Existing Schemas
+### UUIDv7 Migration
 
-When adding UUID fields to schemas that use integer primary keys, follow this pattern:
+**Full documentation:** See `dev_docs/uuid_migration_instructions_v3.md` for comprehensive UUID migration guide including schema patterns, dual-write rules, lookup patterns, query filters, template conventions, migration SQL patterns, and common pitfalls.
 
-**Why UUIDv7?**
+**Quick rules:**
+- Integer `id` column is **deprecated** (V56+) — use `.uuid` for all new code
+- All `belongs_to` with UUID FKs **MUST** include `references: :uuid` (Ecto defaults to `:id`)
+- SQL migrations use `uuid_generate_v7()`, never `gen_random_uuid()`
+- Elixir code uses `UUIDv7.generate()`, never `Ecto.UUID.generate()`
 
-PhoenixKit uses **UUIDv7** (RFC 9562, finalized 2024) exclusively for all UUID generation:
-
-| Feature | UUIDv4 | UUIDv7 |
-|---------|--------|--------|
-| Format | Random 128-bit | Time-ordered (48-bit timestamp + random) |
-| Index Performance | Poor (random inserts) | Excellent (sequential inserts) |
-| Sortable | No | Yes (chronologically) |
-| Example | `a1b2c3d4-e5f6-4210-a1b2-c3d4e5f6a1b2` | `019b5704-3680-7b95-9d82-ef16127f1fd2` |
-
-UUIDv7 provides better database index locality than random UUIDv4 because the first 48 bits are a Unix timestamp, making inserts sequential and indexes more efficient.
-
-**Schema Definition:**
 ```elixir
-schema "my_table" do
-  # Add UUID field for external references (URLs, APIs)
-  # DB generates UUIDv7, Ecto reads it back after insert
-  field :uuid, Ecto.UUID, read_after_writes: true
+# CORRECT belongs_to pattern
+belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
-  # ... other fields
-end
-```
-
-**For Native UUID Primary Keys:**
-```elixir
-@primary_key {:id, UUIDv7, autogenerate: true}
-@foreign_key_type UUIDv7
-
-schema "my_table" do
-  # id is now a UUIDv7, not an integer
-  # ... other fields
-end
-```
-
-**ID System Rules:**
-| Use Case | Field | Example |
-|----------|-------|---------|
-| URLs and external APIs | `.uuid` | `/items/#{item.uuid}/edit` |
-| Foreign keys | `.id` | `parent_id: item.id` |
-| Database queries | `.id` | `repo.get(Item, id)` |
-| Stats map keys | `.id` | `Map.get(stats, item.id)` |
-| Event handlers (phx-value) | `.id` | `phx-value-id={item.id}` |
-
-**Lookup Functions Pattern:**
-```elixir
-# Support both integer ID and UUID lookups
-def get_item(id) when is_integer(id) do
-  repo().get(Item, id)
-end
-
-def get_item(id) when is_binary(id) do
-  if uuid_string?(id) do
-    repo().get_by(Item, uuid: id)
-  else
-    case Integer.parse(id) do
-      {int_id, ""} -> repo().get(Item, int_id)
-      _ -> nil
-    end
-  end
-end
-
-# Use Ecto.UUID.cast for robust UUID validation
-defp uuid_string?(string) when is_binary(string) do
-  match?({:ok, _}, Ecto.UUID.cast(string))
-end
-```
-
-**Template Usage:**
-```heex
-<%!-- URLs use UUID (stable, non-enumerable) --%>
-<.link navigate={~p"/items/#{item.uuid}/edit"}>
-  {item.name}
-</.link>
-```
-
-**Important:** Avoid displaying IDs in the UI. Use meaningful attributes like names, titles, or slugs instead.
-
-**External Integration Check:**
-Other modules consuming your schema may have `String.to_integer()` calls expecting integer IDs. Search and fix:
-
-```bash
-# Find String.to_integer that might be parsing these IDs
-rg "String\.to_integer.*item_id" lib/
-```
-
-**Fix pattern:**
-```elixir
-# BEFORE (breaks with UUIDs)
-item_id = String.to_integer(params["item_id"])
-
-# AFTER (works with both)
-item_id = params["item_id"]  # Let the lookup function handle it
+# WRONG — causes bigint = uuid type mismatch
+belongs_to :user, User, foreign_key: :user_uuid, type: UUIDv7
 ```
 
 ### Key Design Principles

@@ -221,7 +221,9 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
         if socket.assigns.entity.id do
           entity_params
         else
-          Map.put(entity_params, "created_by", socket.assigns.current_user.id)
+          entity_params
+          |> Map.put("created_by", socket.assigns.current_user.id)
+          |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
         end
 
       changeset =
@@ -250,7 +252,9 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
         if socket.assigns.entity.id do
           entity_params
         else
-          Map.put(entity_params, "created_by", socket.assigns.current_user.id)
+          entity_params
+          |> Map.put("created_by", socket.assigns.current_user.id)
+          |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
         end
 
       case save_entity(socket, entity_params) do
@@ -1240,7 +1244,9 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       if socket.assigns.entity.id do
         entity_params
       else
-        Map.put(entity_params, "created_by", socket.assigns.current_user.id)
+        entity_params
+        |> Map.put("created_by", socket.assigns.current_user.id)
+        |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
       end
 
     socket.assigns.entity

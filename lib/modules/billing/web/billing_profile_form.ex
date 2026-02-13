@@ -61,7 +61,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
 
         socket
         |> assign(:page_title, "Edit Billing Profile")
-        |> assign(:url_path, Routes.path("/admin/billing/profiles/#{profile.id}/edit"))
+        |> assign(:url_path, Routes.path("/admin/billing/profiles/#{profile.uuid}/edit"))
         |> assign(:profile, profile)
         |> assign(:form, to_form(changeset))
         |> assign(:selected_user_id, profile.user_id)
@@ -77,7 +77,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
 
   @impl true
   def handle_event("select_user", %{"user_id" => user_id}, socket) do
-    user_id = if user_id == "", do: nil, else: String.to_integer(user_id)
+    user_id = if user_id == "", do: nil, else: user_id
     {:noreply, assign(socket, :selected_user_id, user_id)}
   end
 

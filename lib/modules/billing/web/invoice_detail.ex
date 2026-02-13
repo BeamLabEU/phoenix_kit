@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
             socket
             |> assign(:page_title, "Invoice #{invoice.invoice_number}")
             |> assign(:project_title, project_title)
-            |> assign(:url_path, Routes.path("/admin/billing/invoices/#{invoice.id}"))
+            |> assign(:url_path, Routes.path("/admin/billing/invoices/#{invoice.uuid}"))
             |> assign(:invoice, invoice)
             |> assign(:transactions, transactions)
             |> assign(:available_providers, available_providers)
@@ -219,8 +219,8 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
     invoice = socket.assigns.invoice
 
     # Build success/cancel URLs
-    success_url = Routes.url("/admin/billing/invoices/#{invoice.id}?payment=success")
-    cancel_url = Routes.url("/admin/billing/invoices/#{invoice.id}?payment=cancelled")
+    success_url = Routes.url("/admin/billing/invoices/#{invoice.uuid}?payment=success")
+    cancel_url = Routes.url("/admin/billing/invoices/#{invoice.uuid}?payment=cancelled")
 
     opts = [
       success_url: success_url,
@@ -305,7 +305,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
   def handle_event("send_invoice", _params, socket) do
     invoice = socket.assigns.invoice
     email = socket.assigns.send_email
-    invoice_url = Routes.url("/admin/billing/invoices/#{invoice.id}/print")
+    invoice_url = Routes.url("/admin/billing/invoices/#{invoice.uuid}/print")
 
     case Billing.send_invoice(invoice, invoice_url: invoice_url, to_email: email) do
       {:ok, updated_invoice} ->
@@ -343,7 +343,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
   def handle_event("send_receipt", _params, socket) do
     invoice = socket.assigns.invoice
     email = socket.assigns.send_receipt_email
-    receipt_url = Routes.url("/admin/billing/invoices/#{invoice.id}/receipt")
+    receipt_url = Routes.url("/admin/billing/invoices/#{invoice.uuid}/receipt")
 
     case Billing.send_receipt(invoice, receipt_url: receipt_url, to_email: email) do
       {:ok, updated_invoice} ->
@@ -392,11 +392,10 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
     invoice = socket.assigns.invoice
     email = socket.assigns.send_credit_note_email
     transaction_id_str = socket.assigns.send_credit_note_transaction_id
-    transaction_id = parse_transaction_id(transaction_id_str)
-    transaction = Enum.find(socket.assigns.transactions, &(&1.id == transaction_id))
+    transaction = Enum.find(socket.assigns.transactions, &(&1.uuid == transaction_id_str))
 
     credit_note_url =
-      Routes.url("/admin/billing/invoices/#{invoice.id}/credit-note/#{transaction_id}")
+      Routes.url("/admin/billing/invoices/#{invoice.uuid}/credit-note/#{transaction_id_str}")
 
     with %{} <- transaction,
          {:ok, updated_transaction} <-
@@ -460,11 +459,10 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
     invoice = socket.assigns.invoice
     email = socket.assigns.send_payment_confirmation_email
     transaction_id_str = socket.assigns.send_payment_confirmation_transaction_id
-    transaction_id = parse_transaction_id(transaction_id_str)
-    transaction = Enum.find(socket.assigns.transactions, &(&1.id == transaction_id))
+    transaction = Enum.find(socket.assigns.transactions, &(&1.uuid == transaction_id_str))
 
     payment_url =
-      Routes.url("/admin/billing/invoices/#{invoice.id}/payment/#{transaction_id}")
+      Routes.url("/admin/billing/invoices/#{invoice.uuid}/payment/#{transaction_id_str}")
 
     with %{} <- transaction,
          {:ok, updated_transaction} <-
@@ -708,16 +706,9 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
       Decimal.gte?(total_refunded, invoice.total)
   end
 
-  defp parse_transaction_id(id_str) do
-    case Integer.parse(id_str || "") do
-      {id, _} -> id
-      :error -> nil
-    end
-  end
-
   defp update_transaction_in_list(transactions, updated_transaction) do
     Enum.map(transactions, fn t ->
-      if t.id == updated_transaction.id, do: updated_transaction, else: t
+      if t.uuid == updated_transaction.uuid, do: updated_transaction, else: t
     end)
   end
 

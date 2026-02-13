@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
 
     invoice_attrs = %{
       billing_profile_id: subscription.billing_profile_id,
-      subscription_id: subscription.id,
+      billing_profile_uuid: subscription.billing_profile_uuid,
       currency: plan.currency,
       status: "sent",
       due_date: Date.utc_today(),
@@ -214,7 +214,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
       |> RepoHelper.repo().update()
 
     # Schedule dunning job
-    schedule_dunning(subscription.id)
+    schedule_dunning(subscription.uuid)
 
     result
   end
@@ -247,8 +247,12 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     |> RepoHelper.repo().all()
   end
 
-  defp get_subscription(id) do
-    RepoHelper.repo().get(Subscription, id)
+  defp get_subscription(id) when is_binary(id) do
+    RepoHelper.repo().get_by(Subscription, uuid: id)
+  end
+
+  defp get_subscription(id) when is_integer(id) do
+    RepoHelper.repo().get_by(Subscription, id: id)
   end
 
   defp datetime_from_date(date) do

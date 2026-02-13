@@ -95,7 +95,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
       case params["user_id"] do
         nil -> current_user.id
         "" -> current_user.id
-        id -> String.to_integer(id)
+        id -> id
       end
 
     # Merge the determined user_id into params

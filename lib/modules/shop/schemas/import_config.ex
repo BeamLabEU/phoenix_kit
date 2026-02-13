@@ -53,8 +53,10 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
 
   @default_required_columns ["Handle", "Title", "Variant Price"]
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_shop_import_configs" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :name, :string
 
     # Filtering keywords (PostgreSQL TEXT[] arrays)

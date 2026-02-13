@@ -566,7 +566,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Entities do
 
   defp build_path(pattern, record) do
     pattern
-    |> String.replace(":slug", record.slug || to_string(record.id))
+    |> String.replace(":slug", record.slug || to_string(record.uuid))
     |> String.replace(":id", to_string(record.id))
   end
 

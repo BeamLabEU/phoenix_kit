@@ -132,6 +132,7 @@ defmodule PhoenixKit.Modules.Storage.File do
     field :metadata, :map
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
     has_many :instances, PhoenixKit.Modules.Storage.FileInstance
 
     timestamps(type: :naive_datetime)
@@ -177,7 +178,8 @@ defmodule PhoenixKit.Modules.Storage.File do
       :duration,
       :status,
       :metadata,
-      :user_id
+      :user_id,
+      :user_uuid
     ])
     |> validate_required([
       :original_file_name,

@@ -192,7 +192,7 @@ defmodule PhoenixKit.Users.MagicLink do
   def revoke_magic_links(%User{} = user) do
     query =
       from t in UserToken,
-        where: t.user_id == ^user.id and t.context == ^@magic_link_context
+        where: t.user_uuid == ^user.uuid and t.context == ^@magic_link_context
 
     repo().delete_all(query)
     :ok
@@ -229,7 +229,7 @@ defmodule PhoenixKit.Users.MagicLink do
     query =
       from t in UserToken,
         where:
-          t.user_id == ^user.id and
+          t.user_uuid == ^user.uuid and
             t.context == ^@magic_link_context and
             t.inserted_at > ago(^expiry_minutes, "minute")
 

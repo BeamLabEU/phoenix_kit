@@ -29,8 +29,8 @@ defmodule PhoenixKit.Modules.Referrals.Web.List do
     {:ok, socket}
   end
 
-  def handle_event("delete_code", %{"id" => id}, socket) do
-    code = Referrals.get_code!(id)
+  def handle_event("delete_code", %{"uuid" => uuid}, socket) do
+    code = Referrals.get_code!(uuid)
 
     case Referrals.delete_code(code) do
       {:ok, _code} ->
@@ -48,8 +48,8 @@ defmodule PhoenixKit.Modules.Referrals.Web.List do
     end
   end
 
-  def handle_event("toggle_code_status", %{"id" => id}, socket) do
-    code = Referrals.get_code!(id)
+  def handle_event("toggle_code_status", %{"uuid" => uuid}, socket) do
+    code = Referrals.get_code!(uuid)
     new_status = !code.status
 
     case Referrals.update_code(code, %{status: new_status}) do

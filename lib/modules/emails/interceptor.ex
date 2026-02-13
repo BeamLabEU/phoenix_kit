@@ -368,6 +368,9 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
   # Extract comprehensive data from Swoosh.Email
   defp extract_email_data(%Email{} = email, opts) do
+    user_id = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid) || resolve_user_uuid(user_id)
+
     %{
       message_id: generate_message_id(email, opts),
       to: extract_primary_recipient(email.to),
@@ -380,7 +383,8 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
       size_bytes: estimate_email_size(email),
       template_name: Keyword.get(opts, :template_name),
       campaign_id: Keyword.get(opts, :campaign_id),
-      user_id: Keyword.get(opts, :user_id),
+      user_id: user_id,
+      user_uuid: user_uuid,
       provider: detect_provider(email, opts),
       configuration_set: get_configuration_set(opts),
       message_tags: build_message_tags(email, opts)
@@ -848,4 +852,13 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   defp type_of(value) when is_atom(value), do: "atom"
   defp type_of(value) when is_integer(value), do: "integer"
   defp type_of(_), do: "other"
+
+  # Resolves user UUID from integer user_id (dual-write)
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    import Ecto.Query, only: [from: 2]
+    alias PhoenixKit.Users.Auth.User
+    from(u in User, where: u.id == ^user_id, select: u.uuid) |> PhoenixKit.RepoHelper.repo().one()
+  end
+
+  defp resolve_user_uuid(_), do: nil
 end

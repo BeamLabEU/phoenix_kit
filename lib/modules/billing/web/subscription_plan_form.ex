@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm do
         url_path =
           case mode do
             :new -> Routes.path("/admin/billing/plans/new")
-            :edit -> Routes.path("/admin/billing/plans/#{plan.id}/edit")
+            :edit -> Routes.path("/admin/billing/plans/#{plan.uuid}/edit")
             _ -> Routes.path("/admin/billing/plans")
           end
 

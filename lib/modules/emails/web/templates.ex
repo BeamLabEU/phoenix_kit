@@ -130,8 +130,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
   end
 
   @impl true
-  def handle_event("show_clone_modal", %{"id" => template_id}, socket) do
-    case Templates.get_template(String.to_integer(template_id)) do
+  def handle_event("show_clone_modal", %{"uuid" => template_uuid}, socket) do
+    case Templates.get_template(template_uuid) do
       nil ->
         {:noreply,
          socket
@@ -189,7 +189,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
            |> assign(:clone_template, nil)
            |> put_flash(:info, "Template cloned successfully as '#{new_template.name}'")
            |> push_navigate(
-             to: Routes.path("/admin/modules/emails/templates/#{new_template.id}/edit")
+             to: Routes.path("/admin/modules/emails/templates/#{new_template.uuid}/edit")
            )}
 
         {:error, _changeset} ->
@@ -210,15 +210,15 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
   end
 
   @impl true
-  def handle_event("edit_template", %{"id" => template_id}, socket) do
+  def handle_event("edit_template", %{"uuid" => template_uuid}, socket) do
     {:noreply,
      socket
-     |> push_navigate(to: Routes.path("/admin/modules/emails/templates/#{template_id}/edit"))}
+     |> push_navigate(to: Routes.path("/admin/modules/emails/templates/#{template_uuid}/edit"))}
   end
 
   @impl true
-  def handle_event("archive_template", %{"id" => template_id}, socket) do
-    case Templates.get_template(String.to_integer(template_id)) do
+  def handle_event("archive_template", %{"uuid" => template_uuid}, socket) do
+    case Templates.get_template(template_uuid) do
       nil ->
         {:noreply,
          socket
@@ -247,8 +247,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
   end
 
   @impl true
-  def handle_event("activate_template", %{"id" => template_id}, socket) do
-    case Templates.get_template(String.to_integer(template_id)) do
+  def handle_event("activate_template", %{"uuid" => template_uuid}, socket) do
+    case Templates.get_template(template_uuid) do
       nil ->
         {:noreply,
          socket
@@ -272,7 +272,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
   end
 
   @impl true
-  def handle_event("request_delete", %{"id" => id, "name" => name}, socket) do
+  def handle_event("request_delete", %{"uuid" => uuid, "name" => name}, socket) do
     modal = %{
       show: true,
       title: "Confirm Delete",
@@ -280,7 +280,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
         "Are you sure you want to delete template '#{name}'? This action cannot be undone.",
       button_text: "Delete Template",
       action: "delete_template",
-      id: id
+      uuid: uuid
     }
 
     {:noreply, assign(socket, :confirmation_modal, modal)}
@@ -292,14 +292,14 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
   end
 
   @impl true
-  def handle_event("confirm_action", %{"action" => "delete_template", "id" => id}, socket) do
+  def handle_event("confirm_action", %{"action" => "delete_template", "uuid" => uuid}, socket) do
     socket = assign(socket, :confirmation_modal, %{show: false})
-    handle_event("delete_template", %{"id" => id}, socket)
+    handle_event("delete_template", %{"uuid" => uuid}, socket)
   end
 
   @impl true
-  def handle_event("delete_template", %{"id" => template_id}, socket) do
-    case Templates.get_template(String.to_integer(template_id)) do
+  def handle_event("delete_template", %{"uuid" => template_uuid}, socket) do
+    case Templates.get_template(template_uuid) do
       nil ->
         {:noreply,
          socket

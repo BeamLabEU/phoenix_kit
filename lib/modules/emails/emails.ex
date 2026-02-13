@@ -1564,6 +1564,14 @@ defmodule PhoenixKit.Modules.Emails do
     end
   end
 
+  def list_events_for_log(email_log_uuid) when is_binary(email_log_uuid) do
+    if enabled?() do
+      Event.for_email_log(email_log_uuid)
+    else
+      []
+    end
+  end
+
   @doc """
   Processes an incoming webhook event (typically from AWS SES).
 

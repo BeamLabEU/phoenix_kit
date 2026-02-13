@@ -33,8 +33,10 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
   @types ~w(card bank_account wallet paypal)
   @statuses ~w(active expired removed failed)
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_payment_methods" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :provider, :string
     field :provider_payment_method_id, :string
     field :provider_customer_id, :string
@@ -55,7 +57,9 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
     field :metadata, :map, default: %{}
 
     # Association
+    # legacy
     field :user_id, :integer
+    field :user_uuid, UUIDv7
 
     timestamps(type: :utc_datetime)
   end
@@ -78,14 +82,15 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
       :status,
       :label,
       :metadata,
-      :user_id
+      :user_id,
+      :user_uuid
     ])
-    |> validate_required([:provider, :provider_payment_method_id, :user_id])
+    |> validate_required([:provider, :provider_payment_method_id, :user_uuid])
     |> validate_inclusion(:type, @types)
     |> validate_inclusion(:status, @statuses)
     |> validate_number(:exp_month, greater_than: 0, less_than_or_equal_to: 12)
     |> validate_number(:exp_year, greater_than_or_equal_to: 2020)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
     |> unique_constraint([:provider, :provider_payment_method_id],
       name: :phoenix_kit_payment_methods_provider_pm_id_index
     )

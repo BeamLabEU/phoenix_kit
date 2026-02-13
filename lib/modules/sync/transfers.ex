@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   @spec get_transfer(integer() | String.t()) :: Transfer.t() | nil
   def get_transfer(id) when is_integer(id) do
     repo = RepoHelper.repo()
-    repo.get(Transfer, id)
+    repo.get_by(Transfer, id: id)
   end
 
   def get_transfer(id) when is_binary(id) do
@@ -153,14 +153,12 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
       transfer = Transfers.get_transfer_with_preloads(123, [:connection])
   """
-  @spec get_transfer_with_preloads(integer(), keyword()) :: Transfer.t() | nil
+  @spec get_transfer_with_preloads(integer() | String.t(), keyword()) :: Transfer.t() | nil
   def get_transfer_with_preloads(id, opts \\ []) do
     repo = RepoHelper.repo()
     preloads = Keyword.get(opts, :preload, [])
 
-    Transfer
-    |> repo.get(id)
-    |> case do
+    case get_transfer(id) do
       nil -> nil
       transfer -> repo.preload(transfer, preloads)
     end
@@ -229,7 +227,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
     |> filter_by_table(opts[:table_name])
     |> filter_by_approval_requirement(opts[:requires_approval])
     |> filter_by_date_range(opts[:from], opts[:to])
-    |> repo.aggregate(:count, :id)
+    |> repo.aggregate(:count)
   end
 
   @doc """
@@ -506,15 +504,30 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
       stats = Transfers.connection_stats(123)
       # => %{total_transfers: 50, completed: 48, failed: 2, ...}
   """
-  @spec connection_stats(integer()) :: map()
-  def connection_stats(connection_id) do
+  @spec connection_stats(integer() | String.t()) :: map()
+  def connection_stats(connection_id) when is_integer(connection_id) do
+    do_connection_stats(dynamic([t], t.connection_id == ^connection_id))
+  end
+
+  def connection_stats(connection_uuid) when is_binary(connection_uuid) do
+    if UUIDUtils.valid?(connection_uuid) do
+      do_connection_stats(dynamic([t], t.connection_uuid == ^connection_uuid))
+    else
+      case Integer.parse(connection_uuid) do
+        {int_id, ""} -> connection_stats(int_id)
+        _ -> %{total_transfers: 0, completed: 0, failed: 0, total_records: 0, total_bytes: 0}
+      end
+    end
+  end
+
+  defp do_connection_stats(filter) do
     repo = RepoHelper.repo()
 
     query =
       from t in Transfer,
-        where: t.connection_id == ^connection_id,
+        where: ^filter,
         select: %{
-          total_transfers: count(t.id),
+          total_transfers: count(t.uuid),
           completed: sum(fragment("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")),
           failed: sum(fragment("CASE WHEN status = 'failed' THEN 1 ELSE 0 END")),
           total_records:
@@ -564,11 +577,11 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
     |> group_by([t], t.table_name)
     |> select([t], %{
       table_name: t.table_name,
-      count: count(t.id),
+      count: count(t.uuid),
       records: sum(fragment("COALESCE(records_created, 0) + COALESCE(records_updated, 0)")),
       bytes: sum(t.bytes_transferred)
     })
-    |> order_by([t], desc: count(t.id))
+    |> order_by([t], desc: count(t.uuid))
     |> repo.all()
   end
 
@@ -616,8 +629,19 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   defp filter_by_connection(query, nil), do: query
 
-  defp filter_by_connection(query, connection_id),
+  defp filter_by_connection(query, connection_id) when is_integer(connection_id),
     do: where(query, [t], t.connection_id == ^connection_id)
+
+  defp filter_by_connection(query, connection_uuid) when is_binary(connection_uuid) do
+    if UUIDUtils.valid?(connection_uuid) do
+      where(query, [t], t.connection_uuid == ^connection_uuid)
+    else
+      case Integer.parse(connection_uuid) do
+        {int_id, ""} -> where(query, [t], t.connection_id == ^int_id)
+        _ -> where(query, [t], false)
+      end
+    end
+  end
 
   defp filter_by_table(query, nil), do: query
   defp filter_by_table(query, table_name), do: where(query, [t], t.table_name == ^table_name)

@@ -364,7 +364,10 @@
             <option value="">Choose a plan...</option>
             <%= for plan <- @plans do %>
               <%= if plan.id != @subscription.plan_id do %>
-                <option value={plan.id} selected={@selected_new_plan_id == plan.id}>
+                <option
+                  value={plan.id}
+                  selected={to_string(@selected_new_plan_id) == to_string(plan.id)}
+                >
                   {plan.name} - <.currency_compact amount={plan.price} currency={plan.currency} />
                   / {format_interval(plan.interval, plan.interval_count)}
                 </option>

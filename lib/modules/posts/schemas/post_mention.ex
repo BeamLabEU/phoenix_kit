@@ -53,6 +53,7 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
 
     belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
 
     timestamps(type: :naive_datetime)
   end
@@ -73,7 +74,7 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
   """
   def changeset(mention, attrs) do
     mention
-    |> cast(attrs, [:post_id, :user_id, :mention_type])
+    |> cast(attrs, [:post_id, :user_id, :user_uuid, :mention_type])
     |> validate_required([:post_id, :user_id, :mention_type])
     |> validate_inclusion(:mention_type, ["contributor", "mention"])
     |> foreign_key_constraint(:post_id)

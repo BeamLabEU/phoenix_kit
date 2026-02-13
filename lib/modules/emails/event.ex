@@ -65,11 +65,10 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   alias PhoenixKit.Modules.Emails.Log
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
-
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_email_events" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :event_type, :string
     field :event_data, :map, default: %{}
     field :occurred_at, :utc_datetime_usec
@@ -85,7 +84,9 @@ defmodule PhoenixKit.Modules.Emails.Event do
     field :failure_reason, :string
 
     # Associations
-    belongs_to :email_log, Log, foreign_key: :email_log_id
+    # legacy
+    field :email_log_id, :integer
+    belongs_to :email_log, Log, foreign_key: :email_log_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -102,6 +103,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
     email_event
     |> cast(attrs, [
       :email_log_id,
+      :email_log_uuid,
       :event_type,
       :event_data,
       :occurred_at,
@@ -116,7 +118,8 @@ defmodule PhoenixKit.Modules.Emails.Event do
       :subscription_type,
       :failure_reason
     ])
-    |> validate_required([:email_log_id, :event_type])
+    |> validate_required([:event_type])
+    |> validate_email_log_reference()
     |> validate_inclusion(:event_type, [
       "queued",
       "send",
@@ -134,7 +137,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
     |> validate_bounce_type_consistency()
     |> validate_complaint_type_consistency()
     |> validate_click_event_consistency()
-    |> foreign_key_constraint(:email_log_id)
+    |> foreign_key_constraint(:email_log_uuid)
     |> maybe_set_occurred_at()
     |> validate_ip_address_format()
   end
@@ -156,6 +159,8 @@ defmodule PhoenixKit.Modules.Emails.Event do
       {:error, %Ecto.Changeset{}}
   """
   def create_event(attrs \\ %{}) do
+    attrs = maybe_resolve_email_log_uuid(attrs)
+
     %__MODULE__{}
     |> changeset(attrs)
     |> repo().insert()
@@ -249,6 +254,14 @@ defmodule PhoenixKit.Modules.Emails.Event do
     |> repo().all()
   end
 
+  def for_email_log(email_log_uuid) when is_binary(email_log_uuid) do
+    from(e in __MODULE__,
+      where: e.email_log_uuid == ^email_log_uuid,
+      order_by: [desc: e.occurred_at]
+    )
+    |> repo().all()
+  end
+
   @doc """
   Gets events of a specific type for an email log.
 
@@ -261,6 +274,15 @@ defmodule PhoenixKit.Modules.Emails.Event do
       when is_integer(email_log_id) and is_binary(event_type) do
     from(e in __MODULE__,
       where: e.email_log_id == ^email_log_id and e.event_type == ^event_type,
+      order_by: [desc: e.occurred_at]
+    )
+    |> repo().all()
+  end
+
+  def for_email_log_by_type(email_log_uuid, event_type)
+      when is_binary(email_log_uuid) and is_binary(event_type) do
+    from(e in __MODULE__,
+      where: e.email_log_uuid == ^email_log_uuid and e.event_type == ^event_type,
       order_by: [desc: e.occurred_at]
     )
     |> repo().all()
@@ -284,6 +306,15 @@ defmodule PhoenixKit.Modules.Emails.Event do
       when is_integer(email_log_id) and is_binary(event_type) do
     from(e in __MODULE__,
       where: e.email_log_id == ^email_log_id and e.event_type == ^event_type,
+      limit: 1
+    )
+    |> repo().exists?()
+  end
+
+  def event_exists?(email_log_uuid, event_type)
+      when is_binary(email_log_uuid) and is_binary(event_type) do
+    from(e in __MODULE__,
+      where: e.email_log_uuid == ^email_log_uuid and e.event_type == ^event_type,
       limit: 1
     )
     |> repo().exists?()
@@ -327,6 +358,17 @@ defmodule PhoenixKit.Modules.Emails.Event do
     repo().exists?(query)
   end
 
+  def has_event_type?(email_log_uuid, event_type)
+      when is_binary(email_log_uuid) and is_binary(event_type) do
+    query =
+      from(e in __MODULE__,
+        where: e.email_log_uuid == ^email_log_uuid and e.event_type == ^event_type,
+        limit: 1
+      )
+
+    repo().exists?(query)
+  end
+
   @doc """
   Gets the most recent event of a specific type for an email log.
 
@@ -339,6 +381,16 @@ defmodule PhoenixKit.Modules.Emails.Event do
       when is_integer(email_log_id) and is_binary(event_type) do
     from(e in __MODULE__,
       where: e.email_log_id == ^email_log_id and e.event_type == ^event_type,
+      order_by: [desc: e.occurred_at],
+      limit: 1
+    )
+    |> repo().one()
+  end
+
+  def get_latest_event_by_type(email_log_uuid, event_type)
+      when is_binary(email_log_uuid) and is_binary(event_type) do
+    from(e in __MODULE__,
+      where: e.email_log_uuid == ^email_log_uuid and e.event_type == ^event_type,
       order_by: [desc: e.occurred_at],
       limit: 1
     )
@@ -361,7 +413,9 @@ defmodule PhoenixKit.Modules.Emails.Event do
   def create_from_ses_webhook(%Log{} = email_log, webhook_data) when is_map(webhook_data) do
     event_attrs = parse_ses_webhook_data(webhook_data)
 
-    create_event(Map.merge(event_attrs, %{email_log_id: email_log.id}))
+    create_event(
+      Map.merge(event_attrs, %{email_log_id: email_log.id, email_log_uuid: email_log.uuid})
+    )
   end
 
   @doc """
@@ -373,9 +427,25 @@ defmodule PhoenixKit.Modules.Emails.Event do
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_bounce_event(email_log_id, bounce_type, reason \\ nil)
+
+  def create_bounce_event(email_log_id, bounce_type, reason)
       when is_integer(email_log_id) do
     create_event(%{
       email_log_id: email_log_id,
+      event_type: "bounce",
+      bounce_type: bounce_type,
+      event_data: %{
+        bounce_type: bounce_type,
+        reason: reason,
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
+  def create_bounce_event(email_log_uuid, bounce_type, reason)
+      when is_binary(email_log_uuid) do
+    create_event(%{
+      email_log_uuid: email_log_uuid,
       event_type: "bounce",
       bounce_type: bounce_type,
       event_data: %{
@@ -395,9 +465,25 @@ defmodule PhoenixKit.Modules.Emails.Event do
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_complaint_event(email_log_id, complaint_type \\ "abuse", feedback_id \\ nil)
+
+  def create_complaint_event(email_log_id, complaint_type, feedback_id)
       when is_integer(email_log_id) do
     create_event(%{
       email_log_id: email_log_id,
+      event_type: "complaint",
+      complaint_type: complaint_type,
+      event_data: %{
+        complaint_type: complaint_type,
+        feedback_id: feedback_id,
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
+  def create_complaint_event(email_log_uuid, complaint_type, feedback_id)
+      when is_binary(email_log_uuid) do
+    create_event(%{
+      email_log_uuid: email_log_uuid,
       event_type: "complaint",
       complaint_type: complaint_type,
       event_data: %{
@@ -417,9 +503,27 @@ defmodule PhoenixKit.Modules.Emails.Event do
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_open_event(email_log_id, ip_address \\ nil, user_agent \\ nil, geo_data \\ %{})
+
+  def create_open_event(email_log_id, ip_address, user_agent, geo_data)
       when is_integer(email_log_id) do
     create_event(%{
       email_log_id: email_log_id,
+      event_type: "open",
+      ip_address: ip_address,
+      user_agent: user_agent,
+      geo_location: geo_data,
+      event_data: %{
+        ip_address: ip_address,
+        user_agent: user_agent,
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
+  def create_open_event(email_log_uuid, ip_address, user_agent, geo_data)
+      when is_binary(email_log_uuid) do
+    create_event(%{
+      email_log_uuid: email_log_uuid,
       event_type: "open",
       ip_address: ip_address,
       user_agent: user_agent,
@@ -447,9 +551,29 @@ defmodule PhoenixKit.Modules.Emails.Event do
         user_agent \\ nil,
         geo_data \\ %{}
       )
+
+  def create_click_event(email_log_id, link_url, ip_address, user_agent, geo_data)
       when is_integer(email_log_id) do
     create_event(%{
       email_log_id: email_log_id,
+      event_type: "click",
+      link_url: link_url,
+      ip_address: ip_address,
+      user_agent: user_agent,
+      geo_location: geo_data,
+      event_data: %{
+        link_url: link_url,
+        ip_address: ip_address,
+        user_agent: user_agent,
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
+  def create_click_event(email_log_uuid, link_url, ip_address, user_agent, geo_data)
+      when is_binary(email_log_uuid) do
+    create_event(%{
+      email_log_uuid: email_log_uuid,
       event_type: "click",
       link_url: link_url,
       ip_address: ip_address,
@@ -482,6 +606,16 @@ defmodule PhoenixKit.Modules.Emails.Event do
     })
   end
 
+  def create_queued_event(email_log_uuid) when is_binary(email_log_uuid) do
+    create_event(%{
+      email_log_uuid: email_log_uuid,
+      event_type: "queued",
+      event_data: %{
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
   @doc """
   Creates a send event when email is successfully sent to provider.
 
@@ -490,9 +624,23 @@ defmodule PhoenixKit.Modules.Emails.Event do
       iex> PhoenixKit.Modules.Emails.Event.create_send_event(log_id)
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
-  def create_send_event(email_log_id, provider \\ nil) when is_integer(email_log_id) do
+  def create_send_event(email_log_id, provider \\ nil)
+
+  def create_send_event(email_log_id, provider) when is_integer(email_log_id) do
     create_event(%{
       email_log_id: email_log_id,
+      event_type: "send",
+      event_data: %{
+        provider: provider,
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
+  def create_send_event(email_log_uuid, provider)
+      when is_binary(email_log_uuid) do
+    create_event(%{
+      email_log_uuid: email_log_uuid,
       event_type: "send",
       event_data: %{
         provider: provider,
@@ -513,7 +661,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
     from(e in __MODULE__,
       where: e.occurred_at >= ^start_date and e.occurred_at <= ^end_date,
       group_by: e.event_type,
-      select: %{event_type: e.event_type, count: count(e.id)}
+      select: %{event_type: e.event_type, count: count(e.uuid)}
     )
     |> repo().all()
     |> Enum.into(%{}, fn %{event_type: type, count: count} -> {String.to_atom(type), count} end)
@@ -536,9 +684,9 @@ defmodule PhoenixKit.Modules.Emails.Event do
       group_by: fragment("?->>'country'", e.geo_location),
       select: %{
         country: fragment("?->>'country'", e.geo_location),
-        count: count(e.id)
+        count: count(e.uuid)
       },
-      order_by: [desc: count(e.id)]
+      order_by: [desc: count(e.uuid)]
     )
     |> repo().all()
     |> Enum.into(%{}, fn %{country: country, count: count} -> {country, count} end)
@@ -558,8 +706,8 @@ defmodule PhoenixKit.Modules.Emails.Event do
         e.event_type == "click" and e.occurred_at >= ^start_date and e.occurred_at <= ^end_date,
       where: not is_nil(e.link_url),
       group_by: e.link_url,
-      select: %{url: e.link_url, clicks: count(e.id)},
-      order_by: [desc: count(e.id)],
+      select: %{url: e.link_url, clicks: count(e.uuid)},
+      order_by: [desc: count(e.uuid)],
       limit: ^limit
     )
     |> repo().all()
@@ -590,6 +738,22 @@ defmodule PhoenixKit.Modules.Emails.Event do
   end
 
   ## --- Private Helper Functions ---
+
+  # Validate at least one email log reference is present
+  defp validate_email_log_reference(changeset) do
+    log_id = get_field(changeset, :email_log_id)
+    log_uuid = get_field(changeset, :email_log_uuid)
+
+    if is_nil(log_id) and is_nil(log_uuid) do
+      add_error(
+        changeset,
+        :email_log_uuid,
+        "either email_log_id or email_log_uuid must be present"
+      )
+    else
+      changeset
+    end
+  end
 
   # Set occurred_at if not provided
   defp maybe_set_occurred_at(changeset) do
@@ -765,6 +929,21 @@ defmodule PhoenixKit.Modules.Emails.Event do
   # Determine complaint type from AWS SES data
   defp determine_complaint_type(%{"complaintFeedbackType" => type}) when is_binary(type), do: type
   defp determine_complaint_type(_), do: "abuse"
+
+  # Resolves email_log_uuid from email_log_id when not already provided (dual-write)
+  defp maybe_resolve_email_log_uuid(%{email_log_uuid: uuid} = attrs) when not is_nil(uuid),
+    do: attrs
+
+  defp maybe_resolve_email_log_uuid(%{email_log_id: log_id} = attrs) when is_integer(log_id) do
+    import Ecto.Query, only: [from: 2]
+
+    case from(l in Log, where: l.id == ^log_id, select: l.uuid) |> repo().one() do
+      nil -> attrs
+      uuid -> Map.put(attrs, :email_log_uuid, uuid)
+    end
+  end
+
+  defp maybe_resolve_email_log_uuid(attrs), do: attrs
 
   # Gets the configured repository for database operations
   defp repo do

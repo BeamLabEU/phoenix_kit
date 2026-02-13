@@ -101,8 +101,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   end
 
   defp maybe_auto_select_payment(cart, payment_options) do
-    if length(payment_options) == 1 and is_nil(cart.payment_option_id) do
-      case Shop.set_cart_payment_option(cart, hd(payment_options).id) do
+    if length(payment_options) == 1 and is_nil(cart.payment_option_uuid) do
+      case Shop.set_cart_payment_option(cart, hd(payment_options)) do
         {:ok, updated_cart} -> updated_cart
         _ -> cart
       end
@@ -149,8 +149,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   defp select_payment_option(options, cart) do
     # Check if cart already has a payment option selected
     selected =
-      if cart.payment_option_id do
-        Enum.find(options, &(&1.id == cart.payment_option_id))
+      if cart.payment_option_uuid do
+        Enum.find(options, &(&1.uuid == cart.payment_option_uuid))
       end
 
     cond do
@@ -241,12 +241,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   end
 
   @impl true
-  def handle_event("select_payment_option", %{"option_id" => option_id}, socket) do
-    option_id = String.to_integer(option_id)
-    option = Enum.find(socket.assigns.payment_options, &(&1.id == option_id))
+  def handle_event("select_payment_option", %{"option_uuid" => option_uuid}, socket) do
+    option = Enum.find(socket.assigns.payment_options, &(&1.uuid == option_uuid))
 
     if option do
-      case Shop.set_cart_payment_option(socket.assigns.cart, option_id) do
+      case Shop.set_cart_payment_option(socket.assigns.cart, option) do
         {:ok, updated_cart} ->
           # Update needs_billing based on new payment option
           needs_billing =
@@ -286,8 +285,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
   @impl true
   def handle_event("select_profile", %{"profile_id" => profile_id}, socket) do
-    profile_id = String.to_integer(profile_id)
-
     {:noreply,
      socket
      |> assign(:selected_profile_id, profile_id)
@@ -300,7 +297,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     billing_data =
       case Enum.find(
              socket.assigns.billing_profiles,
-             &(&1.id == socket.assigns.selected_profile_id)
+             &(to_string(&1.id) == to_string(socket.assigns.selected_profile_id))
            ) do
         nil -> socket.assigns.billing_data
         profile -> profile_to_billing_data(profile, socket.assigns.cart)
@@ -504,7 +501,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   @impl true
   def handle_info({:payment_selected, cart}, socket) do
     # Also update selected_payment_option if it changed
-    selected = Enum.find(socket.assigns.payment_options, &(&1.id == cart.payment_option_id))
+    selected = Enum.find(socket.assigns.payment_options, &(&1.uuid == cart.payment_option_uuid))
 
     {:noreply,
      socket
@@ -642,7 +639,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           <%= for option <- @payment_options do %>
             <label class={[
               "flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors",
-              if(@selected_payment_option && @selected_payment_option.id == option.id,
+              if(@selected_payment_option && @selected_payment_option.uuid == option.uuid,
                 do: "border-primary bg-primary/5",
                 else: "border-base-300 hover:border-primary/50"
               )
@@ -650,10 +647,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
               <input
                 type="radio"
                 name="payment_option"
-                value={option.id}
-                checked={@selected_payment_option && @selected_payment_option.id == option.id}
+                value={option.uuid}
+                checked={@selected_payment_option && @selected_payment_option.uuid == option.uuid}
                 phx-click="select_payment_option"
-                phx-value-option_id={option.id}
+                phx-value-option_uuid={option.uuid}
                 class="radio radio-primary"
               />
               <.icon name={PaymentOption.icon_name(option)} class="w-6 h-6 text-base-content/70" />
@@ -747,7 +744,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       <%= for profile <- @billing_profiles do %>
         <div class={[
           "flex items-start gap-4 p-4 border rounded-lg transition-colors",
-          if(@selected_profile_id == profile.id,
+          if(to_string(@selected_profile_id) == to_string(profile.id),
             do: "border-primary bg-primary/5",
             else: "border-base-300 hover:border-primary/50"
           )
@@ -757,7 +754,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
               type="radio"
               name="profile"
               value={profile.id}
-              checked={@selected_profile_id == profile.id}
+              checked={to_string(@selected_profile_id) == to_string(profile.id)}
               phx-click="select_profile"
               phx-value-profile_id={profile.id}
               class="radio radio-primary mt-1"
@@ -780,10 +777,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
             </div>
           </label>
           <%!-- Edit button for selected profile --%>
-          <%= if @selected_profile_id == profile.id do %>
+          <%= if to_string(@selected_profile_id) == to_string(profile.id) do %>
             <.link
               navigate={
-                Routes.path("/dashboard/billing-profiles/#{profile.id}/edit?return_to=/checkout")
+                Routes.path("/dashboard/billing-profiles/#{profile.uuid}/edit?return_to=/checkout")
               }
               class="btn btn-ghost btn-sm"
             >
@@ -935,7 +932,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       if assigns.use_new_profile do
         nil
       else
-        Enum.find(assigns.billing_profiles, &(&1.id == assigns.selected_profile_id))
+        Enum.find(
+          assigns.billing_profiles,
+          &(to_string(&1.id) == to_string(assigns.selected_profile_id))
+        )
       end
 
     assigns = assign(assigns, :selected_profile, selected_profile)

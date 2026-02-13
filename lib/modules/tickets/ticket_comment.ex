@@ -79,6 +79,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
     field :content, :string
     field :is_internal, :boolean, default: false
     field :depth, :integer, default: 0
+    field :user_uuid, UUIDv7
 
     belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
@@ -107,7 +108,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
   """
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:ticket_id, :user_id, :parent_id, :content, :is_internal, :depth])
+    |> cast(attrs, [:ticket_id, :user_id, :user_uuid, :parent_id, :content, :is_internal, :depth])
     |> validate_required([:ticket_id, :user_id, :content])
     |> validate_length(:content, min: 1, max: 10_000)
     |> foreign_key_constraint(:ticket_id)

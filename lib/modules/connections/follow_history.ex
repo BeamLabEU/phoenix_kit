@@ -21,6 +21,8 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
   schema "phoenix_kit_user_follows_history" do
     belongs_to :follower, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :followed, PhoenixKit.Users.Auth.User, type: :integer
+    field :follower_uuid, UUIDv7
+    field :followed_uuid, UUIDv7
 
     field :action, :string
     field :inserted_at, :naive_datetime
@@ -33,7 +35,7 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
   """
   def changeset(history, attrs) do
     history
-    |> cast(attrs, [:follower_id, :followed_id, :action])
+    |> cast(attrs, [:follower_id, :followed_id, :follower_uuid, :followed_uuid, :action])
     |> validate_required([:follower_id, :followed_id, :action])
     |> validate_inclusion(:action, @actions)
     |> put_timestamp()

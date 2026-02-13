@@ -110,6 +110,8 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
     field :metadata, :map, default: %{}
     field :resolved_at, :utc_datetime_usec
     field :closed_at, :utc_datetime_usec
+    field :user_uuid, UUIDv7
+    field :assigned_to_uuid, UUIDv7
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
 
@@ -144,7 +146,9 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
     ticket
     |> cast(attrs, [
       :user_id,
+      :user_uuid,
       :assigned_to_id,
+      :assigned_to_uuid,
       :title,
       :description,
       :status,

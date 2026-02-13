@@ -24,8 +24,10 @@ defmodule PhoenixKit.Modules.Billing.PaymentOption do
   @types ~w(offline online)
   @codes ~w(cod bank_transfer stripe paypal razorpay)
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_payment_options" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
 
     # Identity
     field :name, :string

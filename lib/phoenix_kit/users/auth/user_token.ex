@@ -37,14 +37,21 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   # Magic links expire in 15 minutes for security (actual verification in MagicLink module)
   @magic_link_validity_in_minutes 15
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_users_tokens" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :token, :binary
     field :context, :string
     field :sent_to, :string
     field :ip_address, :string
     field :user_agent_hash, :string
-    belongs_to :user, PhoenixKit.Users.Auth.User
+    field :user_id, :integer
+
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     timestamps(updated_at: false)
   end
@@ -96,6 +103,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
       token: token,
       context: "session",
       user_id: user.id,
+      user_uuid: user.uuid,
       ip_address: fingerprint && fingerprint[:ip_address],
       user_agent_hash: fingerprint && fingerprint[:user_agent_hash]
     }
@@ -159,7 +167,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
        token: hashed_token,
        context: context,
        sent_to: email,
-       user_id: nil
+       user_uuid: nil
      }}
   end
 
@@ -172,7 +180,8 @@ defmodule PhoenixKit.Users.Auth.UserToken do
        token: hashed_token,
        context: context,
        sent_to: sent_to,
-       user_id: user.id
+       user_id: user.id,
+       user_uuid: user.uuid
      }}
   end
 
@@ -254,10 +263,10 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   Gets all tokens for the given user for the given contexts.
   """
   def by_user_and_contexts_query(user, :all) do
-    from t in UserToken, where: t.user_id == ^user.id
+    from t in UserToken, where: t.user_uuid == ^user.uuid
   end
 
   def by_user_and_contexts_query(user, [_ | _] = contexts) do
-    from t in UserToken, where: t.user_id == ^user.id and t.context in ^contexts
+    from t in UserToken, where: t.user_uuid == ^user.uuid and t.context in ^contexts
   end
 end

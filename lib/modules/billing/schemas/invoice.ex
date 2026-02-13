@@ -62,11 +62,11 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   alias PhoenixKit.Modules.Billing.Transaction
   alias PhoenixKit.Users.Auth.User
 
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(draft sent paid void overdue)
 
   schema "phoenix_kit_invoices" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :invoice_number, :string
     field :status, :string, default: "draft"
 
@@ -98,9 +98,13 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
     field :paid_at, :utc_datetime_usec
     field :voided_at, :utc_datetime_usec
 
-    belongs_to :user, User
-    belongs_to :order, Order
-    has_many :transactions, Transaction
+    # legacy
+    field :user_id, :integer
+    belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
+    # legacy
+    field :order_id, :integer
+    belongs_to :order, Order, foreign_key: :order_uuid, references: :uuid, type: UUIDv7
+    has_many :transactions, Transaction, foreign_key: :invoice_uuid, references: :uuid
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -112,7 +116,9 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
     invoice
     |> cast(attrs, [
       :user_id,
+      :user_uuid,
       :order_id,
+      :order_uuid,
       :invoice_number,
       :status,
       :subtotal,
@@ -135,14 +141,14 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
       :paid_at,
       :voided_at
     ])
-    |> validate_required([:user_id, :total, :currency])
+    |> validate_required([:user_uuid, :total, :currency])
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_length(:currency, is: 3)
     |> validate_number(:total, greater_than_or_equal_to: 0)
     |> validate_number(:paid_amount, greater_than_or_equal_to: 0)
     |> unique_constraint(:invoice_number)
-    |> foreign_key_constraint(:user_id)
-    |> foreign_key_constraint(:order_id)
+    |> foreign_key_constraint(:user_uuid)
+    |> foreign_key_constraint(:order_uuid)
   end
 
   @doc """
@@ -212,7 +218,9 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
 
     %__MODULE__{
       user_id: order.user_id,
+      user_uuid: order.user_uuid,
       order_id: order.id,
+      order_uuid: order.uuid,
       invoice_number: invoice_number,
       status: "draft",
       subtotal: order.subtotal,

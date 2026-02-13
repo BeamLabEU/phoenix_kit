@@ -181,7 +181,7 @@
                       </.link>
                     </li>
                     <li>
-                      <button phx-click="toggle_prompt" phx-value-id={prompt.id}>
+                      <button phx-click="toggle_prompt" phx-value-uuid={prompt.uuid}>
                         <.icon
                           name={if prompt.enabled, do: "hero-pause", else: "hero-play"}
                           class="w-4 h-4"
@@ -193,7 +193,7 @@
                     <li>
                       <button
                         phx-click="delete_prompt"
-                        phx-value-id={prompt.id}
+                        phx-value-uuid={prompt.uuid}
                         data-confirm="Are you sure you want to delete this prompt?"
                         class="text-error"
                       >

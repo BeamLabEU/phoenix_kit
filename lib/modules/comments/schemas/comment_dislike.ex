@@ -22,6 +22,7 @@ defmodule PhoenixKit.Modules.Comments.CommentDislike do
   schema "phoenix_kit_comments_dislikes" do
     belongs_to :comment, PhoenixKit.Modules.Comments.Comment, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
 
     timestamps(type: :naive_datetime)
   end
@@ -33,7 +34,7 @@ defmodule PhoenixKit.Modules.Comments.CommentDislike do
   """
   def changeset(dislike, attrs) do
     dislike
-    |> cast(attrs, [:comment_id, :user_id])
+    |> cast(attrs, [:comment_id, :user_id, :user_uuid])
     |> validate_required([:comment_id, :user_id])
     |> foreign_key_constraint(:comment_id)
     |> foreign_key_constraint(:user_id)

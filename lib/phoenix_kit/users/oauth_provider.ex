@@ -13,9 +13,12 @@ defmodule PhoenixKit.Users.OAuthProvider do
 
   @supported_providers ~w(google apple github facebook twitter microsoft)
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_user_oauth_providers" do
-    field :uuid, Ecto.UUID, read_after_writes: true
-    belongs_to :user, User, foreign_key: :user_id
+    field :id, :integer, read_after_writes: true
+    field :user_id, :integer
+    belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     field :provider, :string
     field :provider_uid, :string
@@ -35,6 +38,7 @@ defmodule PhoenixKit.Users.OAuthProvider do
     oauth_provider
     |> cast(attrs, [
       :user_id,
+      :user_uuid,
       :provider,
       :provider_uid,
       :provider_email,
@@ -43,12 +47,12 @@ defmodule PhoenixKit.Users.OAuthProvider do
       :token_expires_at,
       :raw_data
     ])
-    |> validate_required([:user_id, :provider, :provider_uid])
+    |> validate_required([:user_uuid, :provider, :provider_uid])
     |> validate_provider()
     |> validate_length(:provider_uid, min: 1, max: 255)
-    |> foreign_key_constraint(:user_id)
-    |> unique_constraint([:user_id, :provider],
-      name: :phoenix_kit_oauth_providers_user_provider_idx
+    |> foreign_key_constraint(:user_uuid)
+    |> unique_constraint([:user_uuid, :provider],
+      name: :phoenix_kit_oauth_providers_user_uuid_provider_idx
     )
     |> unique_constraint([:provider, :provider_uid],
       name: :phoenix_kit_oauth_providers_provider_uid_idx

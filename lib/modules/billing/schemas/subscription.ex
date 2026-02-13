@@ -45,8 +45,10 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
 
   @statuses ~w(trialing active past_due paused cancelled)
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_subscriptions" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :status, :string, default: "active"
 
     # Billing period
@@ -70,10 +72,27 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
     field :metadata, :map, default: %{}
 
     # Associations
+    # legacy
     field :user_id, :integer
-    belongs_to :billing_profile, BillingProfile
-    belongs_to :plan, SubscriptionPlan
-    belongs_to :payment_method, PaymentMethod
+    field :user_uuid, UUIDv7
+    # legacy
+    field :billing_profile_id, :integer
+
+    belongs_to :billing_profile, BillingProfile,
+      foreign_key: :billing_profile_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    # legacy
+    field :plan_id, :integer
+    belongs_to :plan, SubscriptionPlan, foreign_key: :plan_uuid, references: :uuid, type: UUIDv7
+    # legacy
+    field :payment_method_id, :integer
+
+    belongs_to :payment_method, PaymentMethod,
+      foreign_key: :payment_method_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     timestamps(type: :utc_datetime)
   end
@@ -96,16 +115,20 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       :last_renewal_attempt_at,
       :metadata,
       :user_id,
+      :user_uuid,
       :billing_profile_id,
+      :billing_profile_uuid,
       :plan_id,
-      :payment_method_id
+      :plan_uuid,
+      :payment_method_id,
+      :payment_method_uuid
     ])
-    |> validate_required([:user_id, :plan_id, :current_period_start, :current_period_end])
+    |> validate_required([:user_uuid, :plan_uuid, :current_period_start, :current_period_end])
     |> validate_inclusion(:status, @statuses)
-    |> foreign_key_constraint(:user_id)
-    |> foreign_key_constraint(:billing_profile_id)
-    |> foreign_key_constraint(:plan_id)
-    |> foreign_key_constraint(:payment_method_id)
+    |> foreign_key_constraint(:user_uuid)
+    |> foreign_key_constraint(:billing_profile_uuid)
+    |> foreign_key_constraint(:plan_uuid)
+    |> foreign_key_constraint(:payment_method_uuid)
   end
 
   @doc """

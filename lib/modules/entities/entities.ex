@@ -96,8 +96,7 @@ defmodule PhoenixKit.Modules.Entities do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
-
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(draft published archived)
 
   @derive {Jason.Encoder,
@@ -117,8 +116,8 @@ defmodule PhoenixKit.Modules.Entities do
            ]}
 
   schema "phoenix_kit_entities" do
-    # UUID for external references (URLs, APIs) - DB generates UUIDv7
-    field :uuid, Ecto.UUID, read_after_writes: true
+    # Legacy integer ID - DB generates, Ecto reads back
+    field :id, :integer, read_after_writes: true
     field :name, :string
     field :display_name, :string
     field :display_name_plural, :string
@@ -127,12 +126,21 @@ defmodule PhoenixKit.Modules.Entities do
     field :status, :string, default: "published"
     field :fields_definition, {:array, :map}
     field :settings, :map
+    # legacy
     field :created_by, :integer
+    field :created_by_uuid, UUIDv7
     field :date_created, :utc_datetime_usec
     field :date_updated, :utc_datetime_usec
 
-    belongs_to :creator, User, foreign_key: :created_by, define_field: false
-    has_many :entity_data, PhoenixKit.Modules.Entities.EntityData, foreign_key: :entity_id
+    belongs_to :creator, User,
+      foreign_key: :created_by_uuid,
+      references: :uuid,
+      define_field: false,
+      type: UUIDv7
+
+    has_many :entity_data, PhoenixKit.Modules.Entities.EntityData,
+      foreign_key: :entity_uuid,
+      references: :uuid
   end
 
   @doc """
@@ -153,10 +161,12 @@ defmodule PhoenixKit.Modules.Entities do
       :fields_definition,
       :settings,
       :created_by,
+      :created_by_uuid,
       :date_created,
       :date_updated
     ])
-    |> validate_required([:name, :display_name, :display_name_plural, :created_by])
+    |> validate_required([:name, :display_name, :display_name_plural])
+    |> validate_creator_reference()
     |> validate_length(:name, min: 2, max: 50)
     |> validate_length(:display_name, min: 2, max: 100)
     |> validate_length(:display_name_plural, min: 2, max: 100)
@@ -170,6 +180,21 @@ defmodule PhoenixKit.Modules.Entities do
     |> validate_fields_definition()
     |> unique_constraint(:name)
     |> maybe_set_timestamps()
+  end
+
+  defp validate_creator_reference(changeset) do
+    created_by = get_field(changeset, :created_by)
+    created_by_uuid = get_field(changeset, :created_by_uuid)
+
+    if is_nil(created_by) and is_nil(created_by_uuid) do
+      add_error(
+        changeset,
+        :created_by_uuid,
+        "either created_by or created_by_uuid must be present"
+      )
+    else
+      changeset
+    end
   end
 
   defp validate_name_uniqueness(changeset) do
@@ -186,9 +211,9 @@ defmodule PhoenixKit.Modules.Entities do
             changeset
 
           existing_entity ->
-            current_id = get_field(changeset, :id)
+            current_uuid = get_field(changeset, :uuid)
 
-            if current_id && existing_entity.id == current_id do
+            if current_uuid && existing_entity.uuid == current_uuid do
               changeset
             else
               add_error(changeset, :name, "has already been taken")
@@ -251,16 +276,20 @@ defmodule PhoenixKit.Modules.Entities do
   end
 
   defp maybe_set_timestamps(changeset) do
-    case get_field(changeset, :id) do
-      nil ->
-        now = DateTime.utc_now()
+    case changeset.data.__meta__.state do
+      :built ->
+        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
         changeset
         |> put_change(:date_created, now)
         |> put_change(:date_updated, now)
 
-      _id ->
-        put_change(changeset, :date_updated, DateTime.utc_now())
+      :loaded ->
+        put_change(
+          changeset,
+          :date_updated,
+          NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        )
     end
   end
 
@@ -355,7 +384,7 @@ defmodule PhoenixKit.Modules.Entities do
       nil
   """
   def get_entity(id) when is_integer(id) do
-    case repo().get(__MODULE__, id) do
+    case repo().get_by(__MODULE__, id: id) do
       nil -> nil
       entity -> repo().preload(entity, :creator)
     end
@@ -444,21 +473,49 @@ defmodule PhoenixKit.Modules.Entities do
       Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
 
     if has_created_by do
-      attrs
+      # Ensure created_by_uuid is also set when created_by is present
+      has_uuid = Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
+
+      if has_uuid do
+        attrs
+      else
+        created_by_val = attrs[:created_by] || attrs["created_by"]
+        uuid = resolve_user_uuid(created_by_val)
+
+        if is_map(attrs) and Map.has_key?(attrs, :created_by) do
+          Map.put(attrs, :created_by_uuid, uuid)
+        else
+          Map.put(attrs, "created_by_uuid", uuid)
+        end
+      end
     else
       case Auth.get_first_admin_id() do
         nil ->
           # Fall back to first user if no admin exists
           case Auth.get_first_user_id() do
-            nil -> attrs
-            user_id -> Map.put(attrs, :created_by, user_id)
+            nil ->
+              attrs
+
+            user_id ->
+              attrs
+              |> Map.put(:created_by, user_id)
+              |> Map.put(:created_by_uuid, resolve_user_uuid(user_id))
           end
 
         admin_id ->
-          Map.put(attrs, :created_by, admin_id)
+          attrs
+          |> Map.put(:created_by, admin_id)
+          |> Map.put(:created_by_uuid, resolve_user_uuid(admin_id))
       end
     end
   end
+
+  # Resolves user UUID from integer user_id (dual-write)
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
+  end
+
+  defp resolve_user_uuid(_), do: nil
 
   @doc """
   Updates an entity.
@@ -545,6 +602,11 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.count_user_entities(1)
       5
   """
+  def count_user_entities(user_uuid) when is_binary(user_uuid) do
+    from(e in __MODULE__, where: e.created_by_uuid == ^user_uuid, select: count(e.id))
+    |> repo().one()
+  end
+
   def count_user_entities(user_id) when is_integer(user_id) do
     from(e in __MODULE__, where: e.created_by == ^user_id, select: count(e.id))
     |> repo().one()
@@ -590,6 +652,17 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.validate_user_entity_limit(1)
       {:error, "You have reached the maximum limit of 100 entities"}
   """
+  def validate_user_entity_limit(user_uuid) when is_binary(user_uuid) do
+    max_entities = get_max_per_user()
+    current_count = count_user_entities(user_uuid)
+
+    if current_count < max_entities do
+      {:ok, :valid}
+    else
+      {:error, "You have reached the maximum limit of #{max_entities} entities"}
+    end
+  end
+
   def validate_user_entity_limit(user_id) when is_integer(user_id) do
     max_entities = get_max_per_user()
     current_count = count_user_entities(user_id)
@@ -768,6 +841,7 @@ defmodule PhoenixKit.Modules.Entities do
 
       %{
         id: entity.id,
+        uuid: entity.uuid,
         name: entity.name,
         display_name: entity.display_name,
         data_count: data_count,

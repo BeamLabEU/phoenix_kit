@@ -34,6 +34,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
           resource_type: String.t(),
           resource_id: Ecto.UUID.t(),
           user_id: integer() | nil,
+          user_uuid: Ecto.UUID.t() | nil,
           parent_id: UUIDv7.t() | nil,
           content: String.t(),
           status: String.t(),
@@ -57,6 +58,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
     field :dislike_count, :integer, default: 0
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
     belongs_to :parent, __MODULE__, type: UUIDv7
 
     has_many :children, __MODULE__, foreign_key: :parent_id
@@ -76,7 +78,16 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   """
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:resource_type, :resource_id, :user_id, :parent_id, :content, :status, :depth])
+    |> cast(attrs, [
+      :resource_type,
+      :resource_id,
+      :user_id,
+      :user_uuid,
+      :parent_id,
+      :content,
+      :status,
+      :depth
+    ])
     |> validate_required([:resource_type, :resource_id, :user_id, :content])
     |> validate_inclusion(:status, ["published", "hidden", "deleted", "pending"])
     |> validate_length(:content, min: 1, max: 10_000)

@@ -22,6 +22,7 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
   schema "phoenix_kit_comment_likes" do
     belongs_to :comment, PhoenixKit.Modules.Posts.PostComment, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
 
     timestamps(type: :naive_datetime)
   end
@@ -40,7 +41,7 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
   """
   def changeset(like, attrs) do
     like
-    |> cast(attrs, [:comment_id, :user_id])
+    |> cast(attrs, [:comment_id, :user_id, :user_uuid])
     |> validate_required([:comment_id, :user_id])
     |> foreign_key_constraint(:comment_id)
     |> foreign_key_constraint(:user_id)

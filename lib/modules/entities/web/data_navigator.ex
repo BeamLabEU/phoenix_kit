@@ -237,8 +237,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     {:noreply, socket}
   end
 
-  def handle_event("archive_data", %{"id" => id}, socket) do
-    data_record = EntityData.get!(id)
+  def handle_event("archive_data", %{"uuid" => uuid}, socket) do
+    data_record = EntityData.get!(uuid)
 
     case EntityData.update_data(data_record, %{status: "archived"}) do
       {:ok, _data} ->
@@ -255,8 +255,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  def handle_event("restore_data", %{"id" => id}, socket) do
-    data_record = EntityData.get!(id)
+  def handle_event("restore_data", %{"uuid" => uuid}, socket) do
+    data_record = EntityData.get!(uuid)
 
     case EntityData.update_data(data_record, %{status: "published"}) do
       {:ok, _data} ->
@@ -273,8 +273,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  def handle_event("toggle_status", %{"id" => id}, socket) do
-    data_record = EntityData.get!(id)
+  def handle_event("toggle_status", %{"uuid" => uuid}, socket) do
+    data_record = EntityData.get!(uuid)
 
     new_status =
       case data_record.status do

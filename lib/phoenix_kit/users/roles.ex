@@ -100,8 +100,11 @@ defmodule PhoenixKit.Users.Roles do
       role ->
         attrs = %{
           user_id: user.id,
+          user_uuid: user.uuid,
           role_id: role.id,
-          assigned_by: assigned_by && assigned_by.id
+          role_uuid: role.uuid,
+          assigned_by: assigned_by && assigned_by.id,
+          assigned_by_uuid: assigned_by && assigned_by.uuid
         }
 
         # Use upsert with ON CONFLICT DO NOTHING for idempotency
@@ -110,7 +113,7 @@ defmodule PhoenixKit.Users.Roles do
         |> RoleAssignment.changeset(attrs)
         |> repo.insert(
           on_conflict: :nothing,
-          conflict_target: [:user_id, :role_id]
+          conflict_target: [:user_uuid, :role_uuid]
         )
         |> case do
           {:ok, assignment} ->
@@ -149,7 +152,7 @@ defmodule PhoenixKit.Users.Roles do
     repo = RepoHelper.repo()
     broadcast? = Keyword.get(opts, :broadcast, true)
 
-    case get_assignment(user.id, role_name) do
+    case get_assignment(user.uuid, role_name) do
       nil ->
         {:error, :assignment_not_found}
 
@@ -193,7 +196,7 @@ defmodule PhoenixKit.Users.Roles do
     query =
       from assignment in RoleAssignment,
         join: role in assoc(assignment, :role),
-        where: assignment.user_id == ^user.id,
+        where: assignment.user_uuid == ^user.uuid,
         where: role.name == ^role_name
 
     repo.exists?(query)
@@ -254,7 +257,7 @@ defmodule PhoenixKit.Users.Roles do
     query =
       from assignment in RoleAssignment,
         join: role in assoc(assignment, :role),
-        where: assignment.user_id == ^user.id,
+        where: assignment.user_uuid == ^user.uuid,
         select: role.name,
         order_by: role.name
 
@@ -423,19 +426,19 @@ defmodule PhoenixKit.Users.Roles do
       COALESCE((
         SELECT COUNT(*)
         FROM phoenix_kit_user_role_assignments ra
-        JOIN phoenix_kit_user_roles r ON r.id = ra.role_id
+        JOIN phoenix_kit_user_roles r ON r.uuid = ra.role_uuid
         WHERE r.name = $1
       ), 0) as owner_count,
       COALESCE((
         SELECT COUNT(*)
         FROM phoenix_kit_user_role_assignments ra
-        JOIN phoenix_kit_user_roles r ON r.id = ra.role_id
+        JOIN phoenix_kit_user_roles r ON r.uuid = ra.role_uuid
         WHERE r.name = $2
       ), 0) as admin_count,
       COALESCE((
         SELECT COUNT(*)
         FROM phoenix_kit_user_role_assignments ra
-        JOIN phoenix_kit_user_roles r ON r.id = ra.role_id
+        JOIN phoenix_kit_user_roles r ON r.uuid = ra.role_uuid
         WHERE r.name = $3
       ), 0) as user_count
     FROM phoenix_kit_users;
@@ -726,8 +729,8 @@ defmodule PhoenixKit.Users.Roles do
         repo.one(
           from assignment in RoleAssignment,
             join: u in User,
-            on: assignment.user_id == u.id and u.is_active == true,
-            where: assignment.role_id == ^owner_role.id,
+            on: assignment.user_uuid == u.uuid and u.is_active == true,
+            where: assignment.role_uuid == ^owner_role.uuid,
             select: count(u.id)
         )
 
@@ -814,7 +817,7 @@ defmodule PhoenixKit.Users.Roles do
     repo = RepoHelper.repo()
 
     repo.transaction(fn ->
-      remaining_owners = count_remaining_owners(repo, user.id)
+      remaining_owners = count_remaining_owners(repo, user.uuid)
 
       if remaining_owners < 1 do
         repo.rollback(:cannot_remove_last_owner)
@@ -877,7 +880,7 @@ defmodule PhoenixKit.Users.Roles do
         join: role in assoc(assignment, :role),
         where: role.name == ^roles.owner,
         where: u.is_active == true,
-        where: u.id != ^excluding_user_id,
+        where: u.uuid != ^excluding_user_id,
         select: count(u.id)
     ) || 0
   end
@@ -1044,18 +1047,18 @@ defmodule PhoenixKit.Users.Roles do
 
     query =
       from assignment in RoleAssignment,
-        where: assignment.role_id == ^role.id
+        where: assignment.role_uuid == ^role.uuid
 
     repo.exists?(query)
   end
 
-  defp get_assignment(user_id, role_name) do
+  defp get_assignment(user_uuid, role_name) when is_binary(user_uuid) do
     repo = RepoHelper.repo()
 
     query =
       from assignment in RoleAssignment,
         join: role in assoc(assignment, :role),
-        where: assignment.user_id == ^user_id,
+        where: assignment.user_uuid == ^user_uuid,
         where: role.name == ^role_name
 
     repo.one(query)

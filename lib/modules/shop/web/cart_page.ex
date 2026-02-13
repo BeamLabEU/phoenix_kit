@@ -26,9 +26,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     # Get current user if logged in
     user = get_current_user(socket)
     user_id = if user, do: user.id, else: nil
+    user_uuid = if user, do: user.uuid, else: nil
 
     # Get or create cart
-    {:ok, cart} = Shop.get_or_create_cart(user_id: user_id, session_id: session_id)
+    {:ok, cart} =
+      Shop.get_or_create_cart(user_id: user_id, user_uuid: user_uuid, session_id: session_id)
 
     # Subscribe to cart events for real-time sync across tabs
     if connected?(socket) do
@@ -62,7 +64,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
   @impl true
   def handle_event("update_quantity", %{"item_id" => item_id, "quantity" => quantity}, socket) do
-    item_id = String.to_integer(item_id)
     quantity = max(1, String.to_integer(quantity))
 
     update_item_quantity(socket, item_id, quantity)
@@ -70,8 +71,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
   @impl true
   def handle_event("remove_item", %{"item_id" => item_id}, socket) do
-    item_id = String.to_integer(item_id)
-    item = Enum.find(socket.assigns.cart.items, &(&1.id == item_id))
+    item = Enum.find(socket.assigns.cart.items, &(&1.uuid == item_id))
 
     if item do
       case Shop.remove_from_cart(item) do
@@ -93,9 +93,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   end
 
   @impl true
-  def handle_event("select_shipping", %{"method_id" => method_id}, socket) do
-    method_id = String.to_integer(method_id)
-    method = Enum.find(socket.assigns.shipping_methods, &(&1.id == method_id))
+  def handle_event("select_shipping", %{"method_uuid" => method_uuid}, socket) do
+    method = Enum.find(socket.assigns.shipping_methods, &(&1.uuid == method_uuid))
     cart = socket.assigns.cart
 
     if method do
@@ -129,7 +128,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   end
 
   defp update_item_quantity(socket, item_id, quantity) do
-    item = Enum.find(socket.assigns.cart.items, &(&1.id == item_id))
+    item = Enum.find(socket.assigns.cart.items, &(&1.uuid == item_id))
 
     if item do
       case Shop.update_cart_item(item, quantity) do
@@ -309,7 +308,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                             </td>
                             <td class="text-center">
                               <form phx-change="update_quantity" class="inline">
-                                <input type="hidden" name="item_id" value={item.id} />
+                                <input type="hidden" name="item_id" value={item.uuid} />
                                 <input
                                   type="number"
                                   name="quantity"
@@ -330,7 +329,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                             <td>
                               <button
                                 phx-click="remove_item"
-                                phx-value-item_id={item.id}
+                                phx-value-item_id={item.uuid}
                                 class="btn btn-ghost btn-sm text-error"
                               >
                                 <.icon name="hero-trash" class="w-4 h-4" />
@@ -361,7 +360,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                       <%= for method <- @shipping_methods do %>
                         <label class={[
                           "flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors",
-                          if(@cart.shipping_method_id == method.id,
+                          if(@cart.shipping_method_uuid == method.uuid,
                             do: "border-primary bg-primary/5",
                             else: "border-base-300 hover:border-primary/50"
                           )
@@ -369,10 +368,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                           <input
                             type="radio"
                             name="shipping_method"
-                            value={method.id}
-                            checked={@cart.shipping_method_id == method.id}
+                            value={method.uuid}
+                            checked={@cart.shipping_method_uuid == method.uuid}
                             phx-click="select_shipping"
-                            phx-value-method_id={method.id}
+                            phx-value-method_uuid={method.uuid}
                             class="radio radio-primary"
                           />
                           <div class="flex-1">

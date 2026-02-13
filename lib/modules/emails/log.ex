@@ -171,11 +171,10 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
   alias PhoenixKit.Modules.Emails.Event
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
-
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_email_logs" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :message_id, :string
     field :aws_message_id, :string
     field :to, :string
@@ -204,11 +203,21 @@ defmodule PhoenixKit.Modules.Emails.Log do
     field :configuration_set, :string
     field :message_tags, :map, default: %{}
     field :provider, :string, default: "unknown"
+    # legacy
     field :user_id, :integer
+    field :user_uuid, UUIDv7
 
     # Associations
-    belongs_to :user, PhoenixKit.Users.Auth.User, foreign_key: :user_id, define_field: false
-    has_many :events, Event, foreign_key: :email_log_id, on_delete: :delete_all
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      define_field: false,
+      type: UUIDv7
+
+    has_many :events, Event,
+      foreign_key: :email_log_uuid,
+      references: :uuid,
+      on_delete: :delete_all
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -252,7 +261,8 @@ defmodule PhoenixKit.Modules.Emails.Log do
       :configuration_set,
       :message_tags,
       :provider,
-      :user_id
+      :user_id,
+      :user_uuid
     ])
     |> validate_required([:message_id, :to, :from, :provider])
     |> validate_email_format(:to)
@@ -354,7 +364,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
   def count_logs(filters \\ %{}) do
     base_query()
     |> apply_filters(filters)
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   end
 
   @doc """
@@ -375,8 +385,9 @@ defmodule PhoenixKit.Modules.Emails.Log do
   """
   def get_log(id) when is_integer(id) do
     __MODULE__
+    |> where([l], l.id == ^id)
     |> preload([:user, :events])
-    |> repo().get(id)
+    |> repo().one()
   end
 
   def get_log(id) when is_binary(id) do
@@ -584,6 +595,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       # Create bounce event
       Event.create_event(%{
         email_log_id: updated_log.id,
+        email_log_uuid: updated_log.uuid,
         event_type: "bounce",
         event_data: %{
           bounce_type: bounce_type,
@@ -615,6 +627,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       # Create open event
       Event.create_event(%{
         email_log_id: updated_log.id,
+        email_log_uuid: updated_log.uuid,
         event_type: "open",
         occurred_at: opened_at || DateTime.utc_now()
       })
@@ -639,6 +652,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       # Create click event
       Event.create_event(%{
         email_log_id: updated_log.id,
+        email_log_uuid: updated_log.uuid,
         event_type: "click",
         occurred_at: clicked_at || DateTime.utc_now(),
         link_url: link_url
@@ -723,6 +737,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       # Create failed event
       Event.create_event(%{
         email_log_id: updated_log.id,
+        email_log_uuid: updated_log.uuid,
         event_type: "failed",
         event_data: %{
           reason: reason
@@ -1127,6 +1142,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       template_name: Keyword.get(opts, :template_name),
       campaign_id: Keyword.get(opts, :campaign_id),
       user_id: Keyword.get(opts, :user_id),
+      user_uuid: Keyword.get(opts, :user_uuid),
       configuration_set: Keyword.get(opts, :configuration_set),
       message_tags: Keyword.get(opts, :message_tags, %{}),
       sent_at: DateTime.utc_now()

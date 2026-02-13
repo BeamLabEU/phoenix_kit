@@ -125,7 +125,7 @@
                     <tr
                       class="hover cursor-pointer"
                       phx-click="view_order"
-                      phx-value-id={order.id}
+                      phx-value-uuid={order.uuid}
                     >
                       <td class="font-mono">{order.order_number}</td>
                       <td>
@@ -159,7 +159,7 @@
                       <td>
                         <.link
                           navigate={
-                            PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{order.id}")
+                            PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{order.uuid}")
                           }
                           class="btn btn-ghost btn-xs"
                         >

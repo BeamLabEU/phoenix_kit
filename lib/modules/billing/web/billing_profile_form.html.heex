@@ -46,7 +46,10 @@
             >
               <option value="">Select a user...</option>
               <%= for user <- @users do %>
-                <option value={user.id} selected={@selected_user_id == user.id}>
+                <option
+                  value={user.id}
+                  selected={to_string(@selected_user_id) == to_string(user.id)}
+                >
                   {user.email}
                   <%= if user.first_name do %>
                     ({user.first_name} {user.last_name})

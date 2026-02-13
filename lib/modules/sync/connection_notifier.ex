@@ -477,17 +477,40 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   def pull_table_data(connection, table_name, opts \\ []) do
     with {:ok, site_url, auth_token_hash} <- extract_connection_info(connection) do
       connection_id = Map.get(connection, :id)
-      do_pull_table_data(site_url, auth_token_hash, connection_id, table_name, opts)
+      connection_uuid = Map.get(connection, :uuid)
+
+      do_pull_table_data(
+        site_url,
+        auth_token_hash,
+        connection_id,
+        connection_uuid,
+        table_name,
+        opts
+      )
     end
   end
 
-  defp do_pull_table_data(site_url, auth_token_hash, connection_id, table_name, opts) do
+  defp do_pull_table_data(
+         site_url,
+         auth_token_hash,
+         connection_id,
+         connection_uuid,
+         table_name,
+         opts
+       ) do
     timeout = Keyword.get(opts, :timeout, 60_000)
     conflict_strategy = Keyword.get(opts, :conflict_strategy, "skip")
 
     Logger.info("Sync: Pulling data for table #{table_name}", %{sender_url: site_url})
 
-    {:ok, transfer} = create_pull_transfer(connection_id, table_name, site_url, conflict_strategy)
+    {:ok, transfer} =
+      create_pull_transfer(
+        connection_id,
+        connection_uuid,
+        table_name,
+        site_url,
+        conflict_strategy
+      )
 
     api_url = build_pull_data_url(site_url)
 
@@ -501,10 +524,17 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     handle_pull_response(result, transfer, table_name, conflict_strategy)
   end
 
-  defp create_pull_transfer(connection_id, table_name, site_url, conflict_strategy) do
+  defp create_pull_transfer(
+         connection_id,
+         connection_uuid,
+         table_name,
+         site_url,
+         conflict_strategy
+       ) do
     Transfers.create_transfer(%{
       direction: "receive",
       connection_id: connection_id,
+      connection_uuid: connection_uuid,
       table_name: table_name,
       remote_site_url: site_url,
       conflict_strategy: conflict_strategy,
@@ -1012,7 +1042,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   defp update_connection_metadata(connection, result) do
     # Only update metadata for actual database structs (have :id field)
     # Skip for temp maps passed before connection is saved
-    case Map.get(connection, :id) do
+    case Map.get(connection, :uuid) do
       nil ->
         # Temp map, nothing to update
         :ok

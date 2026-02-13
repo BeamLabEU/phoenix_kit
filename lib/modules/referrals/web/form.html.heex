@@ -100,11 +100,16 @@
                   <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4" />
                 </button>
               </div>
-              <%!-- Hidden field to store the beneficiary ID --%>
+              <%!-- Hidden fields to store the beneficiary ID and UUID --%>
               <input
                 type="hidden"
                 name="referrals[beneficiary]"
                 value={@selected_beneficiary.id}
+              />
+              <input
+                type="hidden"
+                name="referrals[beneficiary_uuid]"
+                value={@selected_beneficiary.uuid}
               />
             <% else %>
               <%!-- Search Input --%>

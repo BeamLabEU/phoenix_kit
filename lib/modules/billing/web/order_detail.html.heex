@@ -35,7 +35,7 @@
               <.icon name="hero-document-text" class="w-4 h-4" /> Generate Invoice
             </button>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{@order.id}/edit")}
+              navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{@order.uuid}/edit")}
               class="btn btn-outline btn-sm"
             >
               <.icon name="hero-pencil" class="w-4 h-4" /> Edit
@@ -213,7 +213,7 @@
                       <tr
                         class="hover cursor-pointer"
                         phx-click="view_invoice"
-                        phx-value-id={invoice.id}
+                        phx-value-uuid={invoice.uuid}
                       >
                         <td class="font-mono">{invoice.invoice_number}</td>
                         <td><.invoice_status_badge status={invoice.status} /></td>
@@ -231,7 +231,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/billing/invoices/#{invoice.id}"
+                                "/admin/billing/invoices/#{invoice.uuid}"
                               )
                             }
                             class="btn btn-ghost btn-xs"

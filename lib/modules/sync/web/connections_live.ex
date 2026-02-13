@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   end
 
   defp handle_connection_action(socket, id, mode) do
-    case Connections.get_connection(String.to_integer(id)) do
+    case Connections.get_connection(id) do
       nil ->
         socket
         |> put_flash(:error, "Connection not found")
@@ -117,7 +117,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   end
 
   defp handle_sync_action(socket, id) do
-    case Connections.get_connection(String.to_integer(id)) do
+    case Connections.get_connection(id) do
       nil ->
         socket
         |> put_flash(:error, "Connection not found")
@@ -187,16 +187,16 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
       Task.start(fn ->
         case ConnectionNotifier.query_sender_status(conn) do
           {:ok, status} when is_binary(status) ->
-            send(pid, {:sender_status_fetched, conn.id, status})
+            send(pid, {:sender_status_fetched, conn.uuid, status})
 
           {:ok, :offline} ->
-            send(pid, {:sender_status_fetched, conn.id, "offline"})
+            send(pid, {:sender_status_fetched, conn.uuid, "offline"})
 
           {:ok, :not_found} ->
-            send(pid, {:sender_status_fetched, conn.id, "not_found"})
+            send(pid, {:sender_status_fetched, conn.uuid, "not_found"})
 
           {:error, _reason} ->
-            send(pid, {:sender_status_fetched, conn.id, "error"})
+            send(pid, {:sender_status_fetched, conn.uuid, "error"})
         end
       end)
     end)
@@ -243,13 +243,13 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     {:noreply, push_patch(socket, to: path)}
   end
 
-  def handle_event("show_connection", %{"id" => id}, socket) do
-    path = path_with_params("/admin/sync/connections", %{action: "show", id: id})
+  def handle_event("show_connection", %{"uuid" => uuid}, socket) do
+    path = path_with_params("/admin/sync/connections", %{action: "show", id: uuid})
     {:noreply, push_patch(socket, to: path)}
   end
 
-  def handle_event("edit_connection", %{"id" => id}, socket) do
-    path = path_with_params("/admin/sync/connections", %{action: "edit", id: id})
+  def handle_event("edit_connection", %{"uuid" => uuid}, socket) do
+    path = path_with_params("/admin/sync/connections", %{action: "edit", id: uuid})
     {:noreply, push_patch(socket, to: path)}
   end
 
@@ -282,8 +282,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     end
   end
 
-  def handle_event("approve_connection", %{"id" => id}, socket) do
-    connection = Connections.get_connection!(String.to_integer(id))
+  def handle_event("approve_connection", %{"uuid" => uuid}, socket) do
+    connection = Connections.get_connection!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
     case Connections.approve_connection(connection, current_user.id) do
@@ -305,8 +305,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     end
   end
 
-  def handle_event("suspend_connection", %{"id" => id}, socket) do
-    connection = Connections.get_connection!(String.to_integer(id))
+  def handle_event("suspend_connection", %{"uuid" => uuid}, socket) do
+    connection = Connections.get_connection!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
     case Connections.suspend_connection(connection, current_user.id) do
@@ -328,8 +328,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     end
   end
 
-  def handle_event("reactivate_connection", %{"id" => id}, socket) do
-    connection = Connections.get_connection!(String.to_integer(id))
+  def handle_event("reactivate_connection", %{"uuid" => uuid}, socket) do
+    connection = Connections.get_connection!(uuid)
 
     case Connections.reactivate_connection(connection) do
       {:ok, updated_connection} ->
@@ -350,8 +350,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     end
   end
 
-  def handle_event("revoke_connection", %{"id" => id}, socket) do
-    connection = Connections.get_connection!(String.to_integer(id))
+  def handle_event("revoke_connection", %{"uuid" => uuid}, socket) do
+    connection = Connections.get_connection!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
     case Connections.revoke_connection(connection, current_user.id, "Revoked by admin") do
@@ -373,8 +373,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     end
   end
 
-  def handle_event("regenerate_token", %{"id" => id}, socket) do
-    connection = Connections.get_connection!(String.to_integer(id))
+  def handle_event("regenerate_token", %{"uuid" => uuid}, socket) do
+    connection = Connections.get_connection!(uuid)
 
     case Connections.regenerate_token(connection) do
       {:ok, _connection, _new_token} ->
@@ -390,8 +390,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     end
   end
 
-  def handle_event("delete_connection", %{"id" => id}, socket) do
-    connection = Connections.get_connection!(String.to_integer(id))
+  def handle_event("delete_connection", %{"uuid" => uuid}, socket) do
+    connection = Connections.get_connection!(uuid)
 
     # If receiver is severing, notify the sender first
     if connection.direction == "receiver" do
@@ -420,8 +420,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     end
   end
 
-  def handle_event("start_sync", %{"id" => id}, socket) do
-    path = path_with_params("/admin/sync/connections", %{action: "sync", id: id})
+  def handle_event("start_sync", %{"uuid" => uuid}, socket) do
+    path = path_with_params("/admin/sync/connections", %{action: "sync", id: uuid})
     {:noreply, push_patch(socket, to: path)}
   end
 
@@ -939,6 +939,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   defp do_create_connection(socket, params) do
     current_user = socket.assigns.phoenix_kit_current_scope.user
     params = Map.put(params, "created_by", current_user.id)
+    params = Map.put(params, "created_by_uuid", current_user.uuid)
 
     case Connections.create_connection(params) do
       {:ok, connection, token} ->
@@ -1164,12 +1165,12 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                       <tr>
                         <td class="text-sm font-mono">{conn.site_url}</td>
                         <td>
-                          <.status_badge status={Map.get(@sender_statuses, conn.id, "loading")} />
+                          <.status_badge status={Map.get(@sender_statuses, conn.uuid, "loading")} />
                         </td>
                         <td>
                           <.connection_actions
                             connection={conn}
-                            sender_status={Map.get(@sender_statuses, conn.id)}
+                            sender_status={Map.get(@sender_statuses, conn.uuid)}
                           />
                         </td>
                       </tr>
@@ -1196,7 +1197,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         <button
           type="button"
           phx-click="start_sync"
-          phx-value-id={@connection.id}
+          phx-value-uuid={@connection.uuid}
           class="btn btn-primary btn-xs"
           title="Sync data"
         >
@@ -1206,7 +1207,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
       <button
         type="button"
         phx-click="show_connection"
-        phx-value-id={@connection.id}
+        phx-value-uuid={@connection.uuid}
         class="btn btn-ghost btn-xs"
         title="View details"
       >
@@ -1217,7 +1218,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         <button
           type="button"
           phx-click="edit_connection"
-          phx-value-id={@connection.id}
+          phx-value-uuid={@connection.uuid}
           class="btn btn-ghost btn-xs"
           title="Edit"
         >
@@ -1228,7 +1229,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
       <button
         type="button"
         phx-click="delete_connection"
-        phx-value-id={@connection.id}
+        phx-value-uuid={@connection.uuid}
         class="btn btn-error btn-xs"
         title={
           if @connection.direction == "receiver", do: "Sever connection", else: "Delete connection"
@@ -1243,7 +1244,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           <button
             type="button"
             phx-click="suspend_connection"
-            phx-value-id={@connection.id}
+            phx-value-uuid={@connection.uuid}
             class="btn btn-warning btn-xs"
             title="Suspend"
           >
@@ -1254,7 +1255,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           <button
             type="button"
             phx-click="reactivate_connection"
-            phx-value-id={@connection.id}
+            phx-value-uuid={@connection.uuid}
             class="btn btn-info btn-xs"
             title="Reactivate"
           >
@@ -1422,7 +1423,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             <button
               type="button"
               phx-click="edit_connection"
-              phx-value-id={@connection.id}
+              phx-value-uuid={@connection.uuid}
               class="btn btn-ghost btn-sm"
             >
               <.icon name="hero-pencil" class="w-4 h-4" /> Edit
@@ -1517,7 +1518,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
               <button
                 type="button"
                 phx-click="suspend_connection"
-                phx-value-id={@connection.id}
+                phx-value-uuid={@connection.uuid}
                 class="btn btn-warning btn-sm"
               >
                 <.icon name="hero-pause" class="w-4 h-4" /> Suspend
@@ -1528,7 +1529,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
               <button
                 type="button"
                 phx-click="reactivate_connection"
-                phx-value-id={@connection.id}
+                phx-value-uuid={@connection.uuid}
                 class="btn btn-info btn-sm"
               >
                 <.icon name="hero-play" class="w-4 h-4" /> Reactivate
@@ -1540,7 +1541,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             <button
               type="button"
               phx-click="regenerate_token"
-              phx-value-id={@connection.id}
+              phx-value-uuid={@connection.uuid}
               class="btn btn-outline btn-sm"
             >
               <.icon name="hero-key" class="w-4 h-4" /> Regenerate Token
@@ -1549,7 +1550,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             <button
               type="button"
               phx-click="revoke_connection"
-              phx-value-id={@connection.id}
+              phx-value-uuid={@connection.uuid}
               class="btn btn-error btn-sm"
               data-confirm="Are you sure you want to revoke this connection?"
             >
@@ -1560,7 +1561,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           <button
             type="button"
             phx-click="delete_connection"
-            phx-value-id={@connection.id}
+            phx-value-uuid={@connection.uuid}
             class="btn btn-ghost btn-sm text-error"
             data-confirm="Are you sure you want to delete this connection?"
           >

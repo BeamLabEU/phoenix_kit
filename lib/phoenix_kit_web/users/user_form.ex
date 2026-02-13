@@ -22,6 +22,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
     user_id = params["id"]
     mode = if user_id, do: :edit, else: :new
 
+    # Extract IP during mount (connect_info is only available here)
+    registration_ip = IpAddress.extract_from_socket(socket)
+
     # Load custom field definitions
     field_definitions = CustomFields.list_enabled_field_definitions()
 
@@ -51,6 +54,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:show_media_selector, false)
       |> assign(:pending_avatar_file_id, nil)
       |> assign(:avatar_changed, false)
+      |> assign(:registration_ip, registration_ip)
       |> load_user_data(mode, user_id)
       |> load_form_data()
 
@@ -298,7 +302,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp create_user(socket, user_params) do
-    ip_address = IpAddress.extract_from_socket(socket)
+    ip_address = socket.assigns.registration_ip
 
     case Auth.register_user(user_params, ip_address) do
       {:ok, user} ->
