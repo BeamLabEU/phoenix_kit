@@ -845,8 +845,6 @@ defmodule PhoenixKit.Modules.Referrals do
     from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
   end
 
-  defp resolve_user_uuid(_), do: nil
-
   # Gets the configured repository for database operations
   defp repo do
     PhoenixKit.RepoHelper.repo()

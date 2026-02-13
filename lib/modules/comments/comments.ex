@@ -642,9 +642,6 @@ defmodule PhoenixKit.Modules.Comments do
     |> repo().one()
   end
 
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-  defp resolve_user_uuid(_), do: nil
-
   defp notify_resource_handler(callback, resource_type, resource_id, comment) do
     handlers = Application.get_env(:phoenix_kit, :comment_resource_handlers, %{})
 

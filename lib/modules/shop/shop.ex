@@ -368,7 +368,7 @@ defmodule PhoenixKit.Modules.Shop do
   def bulk_update_product_category(ids, category_id) when is_list(ids) do
     {cat_int_id, cat_uuid} =
       if category_id do
-        case PhoenixKit.UUID.get(repo(), Category, category_id) do
+        case PhoenixKit.UUID.get(Category, category_id) do
           nil -> {nil, nil}
           cat -> {cat.id, cat.uuid}
         end

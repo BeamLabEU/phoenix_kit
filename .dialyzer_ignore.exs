@@ -138,5 +138,9 @@
   # Shop catalog_product - false positive guard_fail warning
   # Case statement already handles nil in earlier branch, Dialyzer incorrectly warns
   # that remaining branch comparing binary() to nil can never succeed
-  {"lib/modules/shop/web/catalog_product.ex", :guard_fail}
+  {"lib/modules/shop/web/catalog_product.ex", :guard_fail},
+
+  # Entities enabled?/0 - Dialyzer infers Settings.get_boolean_setting always returns true
+  # Pre-existing false positive unrelated to UUID migration
+  {"lib/modules/entities/entities.ex", :pattern_match}
 ]

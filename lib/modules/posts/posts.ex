@@ -1790,9 +1790,6 @@ defmodule PhoenixKit.Modules.Posts do
     end
   end
 
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-  defp resolve_user_uuid(_), do: nil
-
   # Get repository based on configuration (for tests and apps with custom repos)
   defp repo do
     PhoenixKit.RepoHelper.repo()
