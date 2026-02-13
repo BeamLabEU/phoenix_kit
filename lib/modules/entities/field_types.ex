@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
 
   @type field_type :: String.t()
   @type field_category ::
-          :basic | :numeric | :boolean | :datetime | :choice
+          :basic | :numeric | :boolean | :datetime | :choice | :advanced
 
   @field_types %{
     "text" => %{
@@ -172,6 +172,19 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
       default_props: %{
         "allow_multiple" => true
       }
+    },
+    "file" => %{
+      name: "file",
+      label: "File Upload",
+      description: "File upload field with configurable constraints",
+      category: :advanced,
+      icon: "hero-document-arrow-up",
+      requires_options: false,
+      default_props: %{
+        "max_entries" => 5,
+        "max_file_size" => 15_728_640,
+        "accept" => [".pdf", ".jpg", ".jpeg", ".png"]
+      }
     }
   }
 
@@ -281,7 +294,8 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
       {:numeric, "Numeric"},
       {:boolean, "Boolean"},
       {:datetime, "Date & Time"},
-      {:choice, "Choice"}
+      {:choice, "Choice"},
+      {:advanced, "Advanced"}
     ]
   end
 
@@ -576,4 +590,30 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
   def rich_text_field(key, label, opts \\ []) do
     new_field("rich_text", key, label, opts)
   end
+
+  @doc """
+  Helper to create a file upload field.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.FieldTypes.file_field("attachments", "Attachments")
+      %{"type" => "file", "key" => "attachments", "label" => "Attachments", ...}
+
+      iex> PhoenixKit.Modules.Entities.FieldTypes.file_field("docs", "Documents",
+           max_entries: 10, max_file_size: 52428800, accept: [".pdf", ".docx"])
+      %{"type" => "file", "key" => "docs", "label" => "Documents",
+        "max_entries" => 10, "max_file_size" => 52428800, "accept" => [".pdf", ".docx"], ...}
+  """
+  def file_field(key, label, opts \\ []) do
+    base_field = new_field("file", key, label, opts)
+
+    # Override with specific max_entries, max_file_size, accept if provided
+    base_field
+    |> maybe_put("max_entries", Keyword.get(opts, :max_entries))
+    |> maybe_put("max_file_size", Keyword.get(opts, :max_file_size))
+    |> maybe_put("accept", Keyword.get(opts, :accept))
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end

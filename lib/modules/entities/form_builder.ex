@@ -445,22 +445,80 @@ defmodule PhoenixKit.Modules.Entities.FormBuilder do
     """
   end
 
-  # File Upload (placeholder - not yet implemented)
+  # File Upload (admin entity forms - requires LiveView upload configuration)
   def build_field(%{"type" => "file"} = field, changeset, opts) do
-    assigns = %{field: field, changeset: changeset, opts: opts}
+    # Get current value from changeset (array of file metadata)
+    current_files = get_field_value(changeset, field["key"]) || []
+
+    # Extract upload configuration
+    max_entries = field["max_entries"] || 5
+    max_file_size_mb = Float.round((field["max_file_size"] || 15_728_640) / 1_048_576, 1)
+    accept_list = field["accept"] || [".pdf", ".jpg", ".jpeg", ".png"]
+
+    accept_display =
+      Enum.map_join(accept_list, ", ", fn ext ->
+        ext |> String.replace_prefix(".", "") |> String.upcase()
+      end)
+
+    assigns = %{
+      field: field,
+      changeset: changeset,
+      opts: opts,
+      current_files: current_files,
+      max_entries: max_entries,
+      max_file_size_mb: max_file_size_mb,
+      accept_display: accept_display
+    }
 
     ~H"""
     <div>
       <.label>{@field["label"]}{if @field["required"], do: " *"}</.label>
+
+      <%!-- Display current files if any --%>
+      <%= if @current_files != [] and is_list(@current_files) do %>
+        <div class="mb-3 space-y-2">
+          <p class="text-sm font-semibold text-base-content/70">
+            {gettext("Current files:")}
+          </p>
+          <%= for file <- @current_files do %>
+            <div class="flex items-center gap-2 p-2 bg-base-200 rounded text-sm">
+              <.icon name="hero-document" class="w-4 h-4 text-base-content/60" />
+              <span class="flex-1 truncate">{file["filename"] || gettext("Unknown file")}</span>
+              <%= if file["size"] do %>
+                <span class="text-xs text-base-content/60">
+                  {format_bytes(file["size"])}
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%!-- File upload placeholder for admin forms --%>
       <div class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center bg-base-200/50">
         <.icon name="hero-document-arrow-up" class="w-12 h-12 mx-auto text-base-content/40 mb-3" />
         <p class="text-base-content/60 text-sm mb-2">
-          {gettext("File upload coming soon")}
+          {gettext("File upload in admin forms requires LiveView upload configuration")}
         </p>
-        <p class="text-base-content/40 text-xs">
-          {gettext("This feature is not yet available")}
+        <p class="text-base-content/40 text-xs mb-3">
+          {gettext("File uploads work in public forms (contact forms, etc.)")}
         </p>
+
+        <%!-- Show field configuration --%>
+        <div class="text-left mt-4 p-3 bg-base-100 rounded text-xs space-y-1">
+          <p class="font-semibold text-base-content/70">{gettext("Field Configuration:")}</p>
+          <p class="text-base-content/60">
+            • {gettext("Accepted types:")} {@accept_display}
+          </p>
+          <p class="text-base-content/60">
+            • {gettext("Max files:")} {@max_entries}
+          </p>
+          <p class="text-base-content/60">
+            • {gettext("Max size:")} {@max_file_size_mb} MB {gettext("per file")}
+          </p>
+        </div>
       </div>
+
       <%= if @field["description"] do %>
         <.label class="label">
           <span class="label-text-alt">{@field["description"]}</span>
@@ -505,6 +563,17 @@ defmodule PhoenixKit.Modules.Entities.FormBuilder do
       <span>{gettext("Unknown field type: %{type}", type: @field["type"])}</span>
     </div>
     """
+  end
+
+  # Helper function to format file sizes
+  defp format_bytes(bytes) when bytes < 1024, do: "#{bytes} B"
+
+  defp format_bytes(bytes) when bytes < 1_048_576 do
+    "#{Float.round(bytes / 1024, 1)} KB"
+  end
+
+  defp format_bytes(bytes) do
+    "#{Float.round(bytes / 1_048_576, 1)} MB"
   end
 
   @doc """

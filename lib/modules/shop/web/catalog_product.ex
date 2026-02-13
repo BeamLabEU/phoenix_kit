@@ -7,16 +7,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
-  alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar
+  alias PhoenixKit.Modules.Shop.Web.Components.FilterHelpers
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     case Shop.get_product_by_slug_localized(slug, current_language, preload: [:category]) do
       {:error, :not_found} ->
         # Slug not found in current language - try cross-language lookup
-        handle_cross_language_redirect(slug, current_language, session, socket)
+        handle_cross_language_redirect(slug, current_language, params, socket)
 
       # Hide product if its category is hidden
       {:ok, %{category: %{status: "hidden"}}} ->
@@ -77,21 +77,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         # Calculate missing required specs for UI (check all selectable specs, not just price-affecting)
         missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
 
-        # Build dashboard tabs with shop categories for authenticated users
-        dashboard_tabs =
-          if authenticated do
-            categories = Shop.list_menu_categories()
-            current_category = product.category
+        all_categories = Shop.list_active_categories(preload: [:featured_product])
 
-            build_dashboard_tabs_with_shop(
-              categories,
-              current_category,
-              socket.assigns[:url_path] || "/shop",
-              socket.assigns[:phoenix_kit_current_scope]
-            )
-          else
-            nil
-          end
+        # Parse filter context from URL for navigation back-links
+        category_id = if product.category, do: product.category.id, else: nil
+        {enabled_filters, _fv} = FilterHelpers.load_filter_data(category_id: category_id)
+        active_filters = FilterHelpers.parse_filter_params(params, enabled_filters)
+        filter_qs = FilterHelpers.build_query_string(active_filters, enabled_filters)
 
         # Get localized content
         localized_title = Translations.get(product, :title, current_language)
@@ -129,8 +121,17 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           |> assign(:selected_specs, selected_specs)
           |> assign(:calculated_price, calculated_price)
           |> assign(:missing_required_specs, missing_required_specs)
-          |> assign(:dashboard_tabs, dashboard_tabs)
           |> assign(:current_path, current_path)
+          |> assign(:categories, all_categories)
+          |> assign(:filter_qs, filter_qs)
+          |> assign(
+            :category_name_wrap,
+            Settings.get_setting_cached("shop_category_name_display", "truncate") == "wrap"
+          )
+          |> assign(
+            :category_icon_mode,
+            Settings.get_setting_cached("shop_category_icon_mode", "none")
+          )
 
         {:ok, socket}
     end
@@ -138,7 +139,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   # Handle cross-language slug redirect
   # When user visits with a slug from a different language, redirect to correct localized URL
-  defp handle_cross_language_redirect(slug, current_language, _session, socket) do
+  defp handle_cross_language_redirect(slug, current_language, params, socket) do
     case Shop.get_product_by_any_slug(slug, preload: [:category]) do
       {:error, :not_found} ->
         # Product truly not found
@@ -155,15 +156,29 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
          |> push_navigate(to: Shop.catalog_url(current_language))}
 
       {:ok, product, _matched_lang} ->
-        # Found product - redirect to best enabled language that has a slug
-        case best_redirect_language(product.slug || %{}) do
-          nil ->
+        # Found product in different language
+        # Check if we need to redirect or can just use the product
+        redirect_lang = best_redirect_language(product.slug || %{})
+
+        # Normalize both languages to compare (e.g., "en" <-> "en-US")
+        current_base = DialectMapper.extract_base(current_language)
+        redirect_base = redirect_lang && DialectMapper.extract_base(redirect_lang)
+
+        cond do
+          # No valid redirect language found
+          is_nil(redirect_lang) ->
             {:ok,
              socket
              |> put_flash(:error, "Product not found")
              |> push_navigate(to: Shop.catalog_url(current_language))}
 
-          redirect_lang ->
+          # Same base language (e.g., "en" vs "en-US") - use product without redirect
+          current_base == redirect_base ->
+            # Re-run mount with found product to avoid redirect loop
+            mount_with_product(product, current_language, params, socket)
+
+          # Different language - redirect to correct URL
+          true ->
             slug = SlugResolver.product_slug(product, redirect_lang)
 
             {:ok,
@@ -172,106 +187,83 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     end
   end
 
-  # Build dashboard tabs including shop categories as subtabs
-  defp build_dashboard_tabs_with_shop(categories, current_category, current_path, scope) do
-    # Get existing dashboard tabs from registry
-    base_tabs = Registry.get_tabs_with_active(current_path, scope: scope)
+  # Mount product page using already-found product (avoids redirect loop)
+  # Used when cross-language lookup finds a product with same base language
+  defp mount_with_product(product, current_language, params, socket) do
+    # Note: We don't have session here, so we'll generate new session_id if needed
+    # This is acceptable since this path is only hit on first mount, not during LiveView lifecycle
+    session_id = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+    user = get_current_user(socket)
+    user_id = if user, do: user.id, else: nil
 
-    # Find existing shop tab and update it, or create new one if not found
-    {updated_tabs, shop_exists?} = update_existing_shop_tab(base_tabs)
+    currency = Shop.get_default_currency()
+    authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
 
-    # Create category subtabs
-    category_tabs = build_category_subtabs(categories, current_category)
+    # Build specifications
+    specifications = build_specifications(product)
+    price_affecting_specs = Shop.get_price_affecting_specs(product)
+    selectable_specs = Shop.get_selectable_specs(product)
+    selected_specs = build_default_specs(selectable_specs, product.metadata || %{})
+    calculated_price = Shop.calculate_product_price(product, selected_specs)
+    cart_item = find_cart_item_with_specs(user_id, session_id, product.id, selected_specs)
+    missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
 
-    if shop_exists? do
-      # Shop tab exists - just append category subtabs
-      updated_tabs ++ category_tabs
-    else
-      # No shop tab in registry - create one with categories
-      shop_tab = create_shop_parent_tab(current_category)
-      updated_tabs ++ [shop_tab | category_tabs]
+    all_categories = Shop.list_active_categories(preload: [:featured_product])
+
+    # Compute filter_qs from URL params (preserves filters across cross-language redirect)
+    category_id = if product.category, do: product.category.id, else: nil
+    {enabled_filters, _fv} = FilterHelpers.load_filter_data(category_id: category_id)
+    active_filters = FilterHelpers.parse_filter_params(params, enabled_filters)
+    filter_qs = FilterHelpers.build_query_string(active_filters, enabled_filters)
+
+    # Get localized content
+    localized_title = Translations.get(product, :title, current_language)
+    localized_description = Translations.get(product, :description, current_language)
+    localized_body = Translations.get(product, :body_html, current_language)
+    current_path = socket.assigns[:url_path] || Shop.product_url(product, current_language)
+
+    # Subscribe to updates
+    if connected?(socket) do
+      Events.subscribe_product(product.id)
+      Events.subscribe_inventory()
     end
-  end
 
-  # Update existing dashboard_shop tab to show subtabs always
-  defp update_existing_shop_tab(tabs) do
-    shop_exists? = Enum.any?(tabs, &(&1.id == :dashboard_shop))
-
-    updated_tabs =
-      Enum.map(tabs, fn tab ->
-        if tab.id == :dashboard_shop do
-          %{tab | subtab_display: :always}
-        else
-          tab
-        end
-      end)
-
-    {updated_tabs, shop_exists?}
-  end
-
-  # Create shop parent tab (only if not in registry)
-  defp create_shop_parent_tab(current_category) do
-    default_lang = Translations.default_language()
-
-    tab =
-      Tab.new!(
-        id: :dashboard_shop,
-        label: "Shop",
-        icon: "hero-building-storefront",
-        path: Shop.catalog_url(default_lang),
-        priority: 300,
-        group: :shop,
-        match: :prefix,
-        subtab_display: :always
+    socket =
+      socket
+      |> assign(:page_title, localized_title)
+      |> assign(:product, product)
+      |> assign(:current_language, current_language)
+      |> assign(:localized_title, localized_title)
+      |> assign(:localized_description, localized_description)
+      |> assign(:localized_body, localized_body)
+      |> assign(:currency, currency)
+      |> assign(:quantity, 1)
+      |> assign(:session_id, session_id)
+      |> assign(:user_id, user_id)
+      |> assign(:selected_image, first_image(product))
+      |> assign(:adding_to_cart, false)
+      |> assign(:authenticated, authenticated)
+      |> assign(:cart_item, cart_item)
+      |> assign(:specifications, specifications)
+      |> assign(:price_affecting_specs, price_affecting_specs)
+      |> assign(:selectable_specs, selectable_specs)
+      |> assign(:selected_specs, selected_specs)
+      |> assign(:calculated_price, calculated_price)
+      |> assign(:missing_required_specs, missing_required_specs)
+      |> assign(:current_path, current_path)
+      |> assign(:categories, all_categories)
+      |> assign(:filter_qs, filter_qs)
+      |> assign(
+        :category_name_wrap,
+        Settings.get_setting_cached("shop_category_name_display", "truncate") == "wrap"
+      )
+      |> assign(
+        :category_icon_mode,
+        Settings.get_setting_cached("shop_category_icon_mode", "none")
       )
 
-    Map.put(tab, :active, is_nil(current_category))
+    {:ok, socket}
   end
-
-  # Build category subtabs for existing dashboard_shop tab
-  defp build_category_subtabs(categories, current_category) do
-    default_lang = Translations.default_language()
-    icon_mode = Settings.get_setting_cached("shop_category_icon_mode", "none")
-
-    categories
-    |> Enum.with_index()
-    |> Enum.map(fn {cat, idx} ->
-      # Get localized name
-      cat_name = Translations.get(cat, :name, default_lang)
-
-      # Determine icon based on settings
-      {icon, icon_metadata} = category_icon(icon_mode, cat)
-
-      tab =
-        Tab.new!(
-          id: String.to_atom("shop_cat_#{cat.id}"),
-          label: cat_name,
-          icon: icon,
-          path: Shop.category_url(cat, default_lang),
-          priority: 301 + idx,
-          parent: :dashboard_shop,
-          group: :shop,
-          match: :prefix,
-          subtab_indent: "pl-2",
-          metadata: icon_metadata
-        )
-
-      is_active = current_category && current_category.id == cat.id
-      Map.put(tab, :active, is_active)
-    end)
-  end
-
-  # Returns {icon, metadata} tuple based on icon mode setting
-  defp category_icon("folder", _cat), do: {"hero-folder", %{}}
-
-  defp category_icon("category", cat) do
-    case Category.get_image_url(cat, size: "thumbnail") do
-      nil -> {nil, %{}}
-      url -> {nil, %{icon_image_url: url}}
-    end
-  end
-
-  defp category_icon(_mode, _cat), do: {nil, %{}}
 
   @impl true
   def handle_event("set_quantity", %{"quantity" => quantity}, socket) do
@@ -420,18 +412,96 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
          |> put_flash(:info, message)
          |> push_event("cart_updated", %{})}
 
-      {:error, _reason} ->
-        {:noreply,
-         socket
-         |> assign(:adding_to_cart, false)
-         |> put_flash(:error, "Failed to add to cart")}
+      {:error, reason} ->
+        # Log error for admin monitoring
+        log_cart_error(
+          "Failed to add to cart",
+          reason,
+          socket.assigns.product.id,
+          socket.assigns.user_id
+        )
 
-      {:error, _code, detail} ->
         {:noreply,
          socket
          |> assign(:adding_to_cart, false)
-         |> put_flash(:error, "Failed to add to cart: #{inspect(detail)}")}
+         |> put_flash(
+           :error,
+           "Unable to add this product to cart. Please refresh the page and try again."
+         )}
+
+      {:error, code, detail} ->
+        # Log detailed error for admin monitoring
+        log_cart_error(
+          "Failed to add to cart",
+          {code, detail},
+          socket.assigns.product.id,
+          socket.assigns.user_id
+        )
+
+        # Show user-friendly message based on error code
+        user_message = get_user_friendly_error_message(code, detail)
+
+        {:noreply,
+         socket
+         |> assign(:adding_to_cart, false)
+         |> put_flash(:error, user_message)}
     end
+  end
+
+  # Get user-friendly error message based on error code and details
+  # Keep messages concise for toast display (max ~80 chars per line)
+  defp get_user_friendly_error_message(:invalid_option_value, detail) do
+    option_name = detail[:key] || "option"
+
+    case detail[:value] do
+      nil -> "Selected options are no longer available.\nPlease refresh and select again."
+      val -> "Option \"#{option_name}: #{val}\" is no longer available.\nPlease refresh the page for current options."
+    end
+  end
+
+  defp get_user_friendly_error_message(code, detail) do
+    case code do
+      :unknown_option_key ->
+        option_name = detail[:key] || "option"
+        "Option \"#{option_name}\" does not exist.\nProduct was updated - please reload the page."
+
+      :missing_required_option ->
+        missing_option = if is_binary(detail), do: detail, else: "required option"
+        "Missing required option: #{missing_option}.\nPlease select all required parameters."
+
+      :out_of_stock ->
+        "Product is out of stock.\nPlease try again later or choose another product."
+
+      :insufficient_stock ->
+        available = detail[:available] || 0
+        "Insufficient stock (only #{available} available).\nPlease reduce quantity."
+
+      :price_changed ->
+        "Product price has changed.\nPlease refresh to see current price."
+
+      _ ->
+        # Generic fallback message
+        "Unable to add to cart.\nPlease try again or contact support."
+    end
+  end
+
+  # Log cart errors for admin monitoring and debugging
+  # In production, this could trigger alerts via email, Slack, or error tracking service
+  defp log_cart_error(message, error_details, product_id, user_id) do
+    require Logger
+
+    error_info = %{
+      message: message,
+      error: error_details,
+      product_id: product_id,
+      user_id: user_id,
+      timestamp: DateTime.utc_now()
+    }
+
+    # Log as warning level (not error) since it's gracefully handled
+    Logger.warning("[Shop] Cart operation failed: #{inspect(error_info)}")
+
+    :ok
   end
 
   defp build_cart_display_name(product, _price_affecting_specs, selected_specs) do
@@ -471,11 +541,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         <%!-- Breadcrumbs --%>
         <div class="breadcrumbs text-sm mb-6">
           <ul>
-            <li><.link navigate={Shop.catalog_url(@current_language)}>Shop</.link></li>
+            <li><.link navigate={Shop.catalog_url(@current_language) <> @filter_qs}>Shop</.link></li>
             <%= if @product.category do %>
               <% cat_name = Translations.get(@product.category, :name, @current_language) %>
               <li>
-                <.link navigate={Shop.category_url(@product.category, @current_language)}>
+                <.link navigate={Shop.category_url(@product.category, @current_language) <> @filter_qs}>
                   {cat_name}
                 </.link>
               </li>
@@ -484,7 +554,29 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           </ul>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div class={
+          if @authenticated,
+            do: "grid grid-cols-1 lg:grid-cols-2 gap-12",
+            else: "grid grid-cols-1 lg:grid-cols-[1fr_2fr_2fr] gap-8"
+        }>
+          <%!-- Guest: category navigation only (no filters on product page) --%>
+          <%= if !@authenticated do %>
+            <aside class="hidden lg:block">
+              <div class="card bg-base-100 shadow-lg sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
+                <div class="card-body p-4">
+                  <CatalogSidebar.category_nav
+                    categories={@categories}
+                    current_category={@product.category}
+                    current_language={@current_language}
+                    category_icon_mode={@category_icon_mode}
+                    category_name_wrap={@category_name_wrap}
+                    open={true}
+                    filter_qs={@filter_qs}
+                  />
+                </div>
+              </div>
+            </aside>
+          <% end %>
           <%!-- Product Images --%>
           <div class="space-y-4">
             <%!-- Main Image --%>
@@ -621,7 +713,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                 <div>
                   <span class="text-base-content/60">Category:</span>
                   <.link
-                    navigate={Shop.category_url(@product.category, @current_language)}
+                    navigate={Shop.category_url(@product.category, @current_language) <> @filter_qs}
                     class="ml-2 link link-primary"
                   >
                     {cat_name}
@@ -889,6 +981,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   slot :inner_block, required: true
 
   defp shop_layout(assigns) do
+    # For authenticated users, show category nav in dashboard sidebar
+    assigns =
+      if assigns.authenticated do
+        assign(assigns, :sidebar_after_shop, shop_sidebar(assigns))
+      else
+        assigns
+      end
+
     ~H"""
     <%= if @authenticated do %>
       <PhoenixKitWeb.Layouts.dashboard {assigns}>
@@ -899,6 +999,19 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         {render_slot(@inner_block)}
       </.shop_public_layout>
     <% end %>
+    """
+  end
+
+  defp shop_sidebar(assigns) do
+    ~H"""
+    <CatalogSidebar.category_nav
+      categories={@categories}
+      current_category={@product.category}
+      current_language={@current_language}
+      category_icon_mode={@category_icon_mode}
+      category_name_wrap={@category_name_wrap}
+      filter_qs={@filter_qs}
+    />
     """
   end
 
@@ -1240,8 +1353,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   defp get_language_from_params_or_default(_params) do
-    # Non-localized route - always use default language
-    Translations.default_language()
+    # Non-localized route - use admin default language for consistency with Routes.path
+    Routes.get_default_admin_locale()
   end
 
   # Find the best enabled language that has a slug for this entity.

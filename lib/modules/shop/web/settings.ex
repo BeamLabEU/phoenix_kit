@@ -17,6 +17,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
   def mount(_params, _session, socket) do
     config = Shop.get_config()
 
+    # Load storefront filter configuration
+    storefront_filters = Shop.get_storefront_filters()
+    discovered_options = Shop.discover_filterable_options()
+
     socket =
       socket
       |> assign(:page_title, "E-Commerce Settings")
@@ -25,6 +29,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
       |> assign(:billing_enabled, billing_enabled?())
       |> assign(:category_name_display, get_category_name_display())
       |> assign(:category_icon_mode, get_category_icon_mode())
+      |> assign(:sidebar_show_categories, get_sidebar_show_categories())
+      |> assign(:storefront_filters, storefront_filters)
+      |> assign(:discovered_options, discovered_options)
 
     {:ok, socket}
   end
@@ -35,6 +42,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
 
   defp get_category_icon_mode do
     Settings.get_setting_cached("shop_category_icon_mode", "none")
+  end
+
+  defp get_sidebar_show_categories do
+    Settings.get_setting_cached("shop_sidebar_show_categories", "true") == "true"
   end
 
   @impl true
@@ -111,6 +122,29 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
   end
 
   @impl true
+  def handle_event("toggle_sidebar_categories", _params, socket) do
+    new_value = !socket.assigns.sidebar_show_categories
+    value_str = if(new_value, do: "true", else: "false")
+
+    case Settings.update_setting("shop_sidebar_show_categories", value_str) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:sidebar_show_categories, new_value)
+         |> put_flash(
+           :info,
+           if(new_value,
+             do: "Categories in shop enabled",
+             else: "Categories in shop disabled"
+           )
+         )}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update setting")}
+    end
+  end
+
+  @impl true
   def handle_event("update_category_icon", %{"mode" => mode}, socket) do
     case Settings.update_setting("shop_category_icon_mode", mode) do
       {:ok, _} ->
@@ -121,6 +155,109 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to update category icon setting")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_storefront_filter", %{"key" => key}, socket) do
+    filters =
+      Enum.map(socket.assigns.storefront_filters, fn f ->
+        if f["key"] == key, do: Map.put(f, "enabled", !f["enabled"]), else: f
+      end)
+
+    case Shop.update_storefront_filters(filters) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:storefront_filters, filters)
+         |> put_flash(:info, "Storefront filter updated")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update filter")}
+    end
+  end
+
+  @impl true
+  def handle_event("update_filter_label", %{"key" => key, "label" => label}, socket) do
+    filters =
+      Enum.map(socket.assigns.storefront_filters, fn f ->
+        if f["key"] == key, do: Map.put(f, "label", label), else: f
+      end)
+
+    case Shop.update_storefront_filters(filters) do
+      {:ok, _} ->
+        {:noreply, assign(socket, :storefront_filters, filters)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update filter label")}
+    end
+  end
+
+  @impl true
+  def handle_event("add_metadata_filter", %{"key" => option_key}, socket) do
+    existing_keys = Enum.map(socket.assigns.storefront_filters, & &1["key"])
+
+    if option_key in existing_keys do
+      {:noreply, put_flash(socket, :error, "Filter for '#{option_key}' already exists")}
+    else
+      max_pos =
+        socket.assigns.storefront_filters
+        |> Enum.map(& &1["position"])
+        |> Enum.max(fn -> 0 end)
+
+      new_filter = %{
+        "key" => option_key,
+        "type" => "metadata_option",
+        "option_key" => option_key,
+        "label" => String.capitalize(option_key),
+        "enabled" => true,
+        "position" => max_pos + 1
+      }
+
+      filters = socket.assigns.storefront_filters ++ [new_filter]
+
+      case Shop.update_storefront_filters(filters) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:storefront_filters, filters)
+           |> put_flash(:info, "Filter '#{option_key}' added")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to add filter")}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("remove_filter", %{"key" => key}, socket) do
+    filters = Enum.reject(socket.assigns.storefront_filters, &(&1["key"] == key))
+
+    case Shop.update_storefront_filters(filters) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:storefront_filters, filters)
+         |> put_flash(:info, "Filter removed")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to remove filter")}
+    end
+  end
+
+  @impl true
+  def handle_event("reset_default_filters", _params, socket) do
+    filters = Shop.default_storefront_filters()
+
+    case Shop.update_storefront_filters(filters) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:storefront_filters, filters)
+         |> put_flash(:info, "Filters reset to defaults")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to reset filters")}
     end
   end
 
@@ -283,12 +420,132 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
           </div>
         </div>
 
+        <%!-- Storefront Filters --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="card-title text-xl">
+                <.icon name="hero-funnel" class="w-6 h-6" /> Storefront Filters
+              </h2>
+              <button phx-click="reset_default_filters" class="btn btn-ghost btn-xs">
+                Reset to defaults
+              </button>
+            </div>
+
+            <p class="text-sm text-base-content/70 mb-4">
+              Configure product filters shown on the storefront sidebar.
+              Customers can filter by price, vendor, and product options.
+            </p>
+
+            <%!-- Current Filters Table --%>
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Filter</th>
+                    <th>Type</th>
+                    <th>Label</th>
+                    <th>Enabled</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for filter <- @storefront_filters do %>
+                    <tr>
+                      <td class="font-mono text-sm">{filter["key"]}</td>
+                      <td>
+                        <span class="badge badge-ghost badge-sm">{filter["type"]}</span>
+                      </td>
+                      <td>
+                        <form phx-change="update_filter_label" phx-debounce="500">
+                          <input type="hidden" name="key" value={filter["key"]} />
+                          <input
+                            type="text"
+                            name="label"
+                            value={filter["label"]}
+                            class="input input-bordered input-xs w-32"
+                          />
+                        </form>
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          class="toggle toggle-primary toggle-sm"
+                          checked={filter["enabled"]}
+                          phx-click="toggle_storefront_filter"
+                          phx-value-key={filter["key"]}
+                        />
+                      </td>
+                      <td>
+                        <%= if filter["type"] == "metadata_option" do %>
+                          <button
+                            phx-click="remove_filter"
+                            phx-value-key={filter["key"]}
+                            class="btn btn-ghost btn-xs text-error"
+                            data-confirm="Remove this filter?"
+                          >
+                            <.icon name="hero-trash" class="w-4 h-4" />
+                          </button>
+                        <% end %>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+
+            <%!-- Auto-discovered option keys --%>
+            <%= if @discovered_options != [] do %>
+              <div class="divider">Available Product Options</div>
+              <p class="text-sm text-base-content/70 mb-3">
+                These option keys were found in product metadata. Click to add as a filter.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <% existing_keys = Enum.map(@storefront_filters, & &1["key"]) %>
+                <%= for opt <- @discovered_options do %>
+                  <%= if opt.key not in existing_keys do %>
+                    <button
+                      phx-click="add_metadata_filter"
+                      phx-value-key={opt.key}
+                      class="btn btn-outline btn-sm gap-1"
+                    >
+                      <.icon name="hero-plus" class="w-3 h-3" />
+                      {opt.key}
+                      <span class="badge badge-ghost badge-xs">{opt.count} products</span>
+                    </button>
+                  <% end %>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
         <%!-- Sidebar Display Settings --%>
         <div class="card bg-base-100 shadow-xl mb-6">
           <div class="card-body">
             <h2 class="card-title text-xl mb-6">
               <.icon name="hero-bars-3" class="w-6 h-6" /> Sidebar Display
             </h2>
+
+            <%!-- Show Categories in Shop --%>
+            <div class="form-control mb-6">
+              <label class="label cursor-pointer justify-between">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Show Categories in Shop</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Display category cards above products in the main shop page
+                  </div>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary"
+                  checked={@sidebar_show_categories}
+                  phx-click="toggle_sidebar_categories"
+                />
+              </label>
+            </div>
+
+            <div class="divider"></div>
 
             <%!-- Category Name Display --%>
             <div class="form-control mb-6">

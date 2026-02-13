@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Options.MetadataValidator
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
+  alias PhoenixKit.Modules.Shop.ShopConfig
   alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Settings
@@ -196,6 +197,185 @@ defmodule PhoenixKit.Modules.Shop do
     Product
     |> where([p], p.id in ^ids)
     |> repo().all()
+  end
+
+  # ============================================
+  # STOREFRONT FILTERS
+  # ============================================
+
+  @storefront_filters_key "storefront_filters"
+
+  @doc """
+  Gets storefront filter configuration from shop_config.
+
+  Returns a list of filter definition maps with keys:
+  key, type, label, enabled, position.
+
+  Default: price filter only.
+  """
+  def get_storefront_filters do
+    case repo().get(ShopConfig, @storefront_filters_key) do
+      %ShopConfig{value: %{"filters" => filters}} when is_list(filters) ->
+        filters
+
+      _ ->
+        default_storefront_filters()
+    end
+  end
+
+  @doc """
+  Returns only enabled storefront filters, sorted by position.
+  """
+  def get_enabled_storefront_filters do
+    get_storefront_filters()
+    |> Enum.filter(& &1["enabled"])
+    |> Enum.sort_by(& &1["position"])
+  end
+
+  @doc """
+  Saves storefront filter configuration.
+  """
+  def update_storefront_filters(filters) when is_list(filters) do
+    value = %{"filters" => filters}
+
+    case repo().get(ShopConfig, @storefront_filters_key) do
+      nil ->
+        %ShopConfig{}
+        |> ShopConfig.changeset(%{key: @storefront_filters_key, value: value})
+        |> repo().insert()
+
+      config ->
+        config
+        |> ShopConfig.changeset(%{value: value})
+        |> repo().update()
+    end
+  end
+
+  @doc """
+  Aggregates filter values for sidebar display.
+
+  Returns a map of filter_key => aggregated data.
+  For price_range: %{min: Decimal, max: Decimal}
+  For vendor: [%{value: "Vendor", count: 5}, ...]
+  For metadata_option: [%{value: "8 inches", count: 3}, ...]
+
+  Options:
+  - `:category_id` - Scope aggregation to a specific category
+  """
+  def aggregate_filter_values(opts \\ []) do
+    filters = get_enabled_storefront_filters()
+    category_id = Keyword.get(opts, :category_id)
+
+    Enum.reduce(filters, %{}, fn filter, acc ->
+      Map.put(acc, filter["key"], aggregate_single_filter(filter, category_id))
+    end)
+  end
+
+  defp aggregate_single_filter(%{"type" => "price_range"}, category_id) do
+    query =
+      Product
+      |> where([p], p.status == "active")
+      |> maybe_filter_category(category_id)
+
+    min_price = repo().aggregate(query, :min, :price)
+    max_price = repo().aggregate(query, :max, :price)
+    %{min: min_price, max: max_price}
+  rescue
+    _ -> %{min: nil, max: nil}
+  end
+
+  defp aggregate_single_filter(%{"type" => "vendor"}, category_id) do
+    query =
+      Product
+      |> where([p], p.status == "active" and not is_nil(p.vendor) and p.vendor != "")
+      |> maybe_filter_category(category_id)
+      |> group_by([p], p.vendor)
+      |> select([p], %{value: p.vendor, count: count(p.id)})
+      |> order_by([p], desc: count(p.id))
+
+    repo().all(query)
+  rescue
+    _ -> []
+  end
+
+  defp aggregate_single_filter(%{"type" => "metadata_option", "option_key" => key}, category_id)
+       when is_binary(key) do
+    # Query distinct option values from metadata->'_option_values'->key JSONB array
+    sql = """
+    SELECT val AS value, COUNT(DISTINCT p.id) AS count
+    FROM phoenix_kit_shop_products p,
+         jsonb_array_elements_text(COALESCE(p.metadata->'_option_values'->$1, '[]'::jsonb)) AS val
+    WHERE p.status = 'active'
+    #{if category_id, do: "AND p.category_id = $2", else: ""}
+    GROUP BY val
+    ORDER BY count DESC
+    """
+
+    params = if category_id, do: [key, category_id], else: [key]
+
+    case repo().query(sql, params) do
+      {:ok, %{rows: rows}} ->
+        Enum.map(rows, fn [value, count] -> %{value: value, count: count} end)
+
+      _ ->
+        []
+    end
+  rescue
+    _ -> []
+  end
+
+  defp aggregate_single_filter(_filter, _category_id), do: []
+
+  defp maybe_filter_category(query, nil), do: query
+  defp maybe_filter_category(query, id), do: where(query, [p], p.category_id == ^id)
+
+  @doc """
+  Discovers filterable option keys from product metadata.
+
+  Returns a list of {key, product_count} tuples sorted by count descending.
+  Used by admin UI to auto-suggest available filters.
+  """
+  def discover_filterable_options do
+    sql = """
+    SELECT key, COUNT(DISTINCT p.id) AS product_count
+    FROM phoenix_kit_shop_products p,
+         jsonb_object_keys(COALESCE(p.metadata->'_option_values', '{}'::jsonb)) AS key
+    WHERE p.status = 'active'
+    GROUP BY key
+    ORDER BY product_count DESC
+    """
+
+    case repo().query(sql, []) do
+      {:ok, %{rows: rows}} ->
+        Enum.map(rows, fn [key, count] -> %{key: key, count: count} end)
+
+      _ ->
+        []
+    end
+  rescue
+    _ -> []
+  end
+
+  @doc """
+  Returns the default storefront filter configuration.
+  """
+  def default_storefront_filters do
+    [
+      %{
+        "key" => "price",
+        "type" => "price_range",
+        "label" => "Price",
+        "enabled" => true,
+        "position" => 0
+      },
+      %{
+        "key" => "vendor",
+        "type" => "vendor",
+        "label" => "Vendor",
+        "enabled" => false,
+        "position" => 1
+      }
+    ]
   end
 
   @doc """
@@ -1981,6 +2161,9 @@ defmodule PhoenixKit.Modules.Shop do
     |> filter_by_category(Keyword.get(opts, :category_id))
     |> filter_by_product_search(Keyword.get(opts, :search))
     |> filter_by_visible_categories(Keyword.get(opts, :exclude_hidden_categories, false))
+    |> filter_by_price_range(Keyword.get(opts, :price_min), Keyword.get(opts, :price_max))
+    |> filter_by_vendors(Keyword.get(opts, :vendors))
+    |> filter_by_metadata_options(Keyword.get(opts, :metadata_filters))
   end
 
   defp filter_by_status(query, nil), do: query
@@ -1997,11 +2180,43 @@ defmodule PhoenixKit.Modules.Shop do
   defp filter_by_visible_categories(query, true) do
     # Exclude products from categories with status "hidden"
     # Products from "active" and "unlisted" categories are visible
+    # Use distinct to avoid duplicates from the left_join
     from(p in query,
       left_join: c in Category,
       on: c.id == p.category_id,
-      where: is_nil(c.id) or c.status != "hidden"
+      where: is_nil(c.id) or c.status != "hidden",
+      distinct: p.id
     )
+  end
+
+  defp filter_by_price_range(query, nil, nil), do: query
+  defp filter_by_price_range(query, min, nil), do: where(query, [p], p.price >= ^min)
+  defp filter_by_price_range(query, nil, max), do: where(query, [p], p.price <= ^max)
+
+  defp filter_by_price_range(query, min, max),
+    do: where(query, [p], p.price >= ^min and p.price <= ^max)
+
+  defp filter_by_vendors(query, nil), do: query
+  defp filter_by_vendors(query, []), do: query
+
+  defp filter_by_vendors(query, vendors) when is_list(vendors),
+    do: where(query, [p], p.vendor in ^vendors)
+
+  defp filter_by_metadata_options(query, nil), do: query
+  defp filter_by_metadata_options(query, []), do: query
+
+  defp filter_by_metadata_options(query, filters) when is_list(filters) do
+    Enum.reduce(filters, query, fn %{key: key, values: values}, q ->
+      where(
+        q,
+        [p],
+        fragment(
+          "EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(metadata->'_option_values'->?, '[]'::jsonb)) elem WHERE elem = ANY(?))",
+          ^key,
+          ^values
+        )
+      )
+    end)
   end
 
   defp filter_by_product_search(query, nil), do: query
