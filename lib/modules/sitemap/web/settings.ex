@@ -47,7 +47,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       |> assign(:config, config)
       |> assign(:site_url, site_url)
       |> assign(:generating, false)
-      |> assign(:regenerating_module, nil)
       |> assign(:preview_mode, nil)
       |> assign(:preview_content, nil)
       |> assign(:show_preview, false)
@@ -330,26 +329,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   end
 
   @impl true
-  def handle_event("regenerate_module", %{"source" => source_name}, socket) do
-    base_url = Sitemap.get_base_url()
-
-    if base_url != "" do
-      case SchedulerWorker.regenerate_module_now(source_name) do
-        {:ok, _job} ->
-          {:noreply,
-           socket
-           |> assign(:regenerating_module, source_name)
-           |> put_flash(:info, "Regenerating #{source_name} sitemap...")}
-
-        {:error, reason} ->
-          {:noreply, put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "Please configure Base URL first")}
-    end
-  end
-
-  @impl true
   def handle_event("preview", %{"type" => _type}, socket) do
     base_url = Sitemap.get_base_url()
     xsl_style = get_xsl_style(socket.assigns.config.html_style)
@@ -412,7 +391,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     {:noreply,
      socket
      |> assign(:generating, false)
-     |> assign(:regenerating_module, nil)
      |> assign(:config, config)
      |> assign(:sitemap_version, sitemap_version)
      |> assign(:module_stats, module_stats)

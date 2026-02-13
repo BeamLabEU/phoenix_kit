@@ -50,7 +50,9 @@ defmodule PhoenixKitWeb.LayoutHelpers do
     :current_contexts_map,
     :show_context_selectors_map,
     # Slot content
-    :inner_block
+    :inner_block,
+    # Optional extra sidebar content after shop tabs
+    :sidebar_after_shop
   ]
 
   @doc """

@@ -6,12 +6,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
-  alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar
+  alias PhoenixKit.Modules.Shop.Web.Components.FilterHelpers
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -25,12 +25,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
     per_page = 24
     page = parse_page(params["page"])
 
+    # Load storefront filters
+    {enabled_filters, filter_values} = FilterHelpers.load_filter_data()
+    active_filters = FilterHelpers.parse_filter_params(params, enabled_filters)
+    filter_opts = FilterHelpers.build_query_opts(active_filters, enabled_filters)
+
     {products, total} =
       Shop.list_products_with_count(
-        status: "active",
-        page: 1,
-        per_page: page * per_page,
-        exclude_hidden_categories: true
+        [
+          status: "active",
+          page: 1,
+          per_page: page * per_page,
+          exclude_hidden_categories: true
+        ] ++ filter_opts
       )
 
     total_pages = max(1, ceil(total / per_page))
@@ -40,19 +47,6 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
     # Check if user is authenticated
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
-
-    # Build dashboard tabs with shop categories for authenticated users
-    dashboard_tabs =
-      if authenticated do
-        build_dashboard_tabs_with_shop(
-          categories,
-          nil,
-          socket.assigns[:url_path] || "/shop",
-          socket.assigns[:phoenix_kit_current_scope]
-        )
-      else
-        nil
-      end
 
     # Get current path for language switcher
     current_path = socket.assigns[:url_path] || "/shop"
@@ -69,8 +63,24 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
       |> assign(:currency, currency)
       |> assign(:current_language, current_language)
       |> assign(:authenticated, authenticated)
-      |> assign(:dashboard_tabs, dashboard_tabs)
       |> assign(:current_path, current_path)
+      |> assign(:enabled_filters, enabled_filters)
+      |> assign(:filter_values, filter_values)
+      |> assign(:active_filters, active_filters)
+      |> assign(:filter_qs, FilterHelpers.build_query_string(active_filters, enabled_filters))
+      |> assign(:show_mobile_filters, false)
+      |> assign(
+        :category_name_wrap,
+        PhoenixKit.Settings.get_setting_cached("shop_category_name_display", "truncate") == "wrap"
+      )
+      |> assign(
+        :category_icon_mode,
+        PhoenixKit.Settings.get_setting_cached("shop_category_icon_mode", "none")
+      )
+      |> assign(
+        :show_categories_grid,
+        PhoenixKit.Settings.get_setting_cached("shop_sidebar_show_categories", "true") == "true"
+      )
 
     {:ok, socket}
   end
@@ -78,134 +88,83 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   @impl true
   def handle_params(params, _uri, socket) do
     page = parse_page(params["page"])
-    page = min(page, socket.assigns.total_pages)
+    active_filters = FilterHelpers.parse_filter_params(params, socket.assigns.enabled_filters)
+    filter_opts = FilterHelpers.build_query_opts(active_filters, socket.assigns.enabled_filters)
 
-    if page != socket.assigns.page do
+    filters_changed = active_filters != socket.assigns.active_filters
+    page = min(page, max(1, socket.assigns.total_pages))
+
+    if filters_changed || page != socket.assigns.page do
+      effective_page = if filters_changed, do: 1, else: page
+
       {products, total} =
         Shop.list_products_with_count(
-          status: "active",
-          page: 1,
-          per_page: page * socket.assigns.per_page,
-          exclude_hidden_categories: true
+          [
+            status: "active",
+            page: 1,
+            per_page: effective_page * socket.assigns.per_page,
+            exclude_hidden_categories: true
+          ] ++ filter_opts
         )
+
+      total_pages = max(1, ceil(total / socket.assigns.per_page))
 
       {:noreply,
        socket
-       |> assign(:page, page)
+       |> assign(:page, min(effective_page, total_pages))
        |> assign(:products, products)
-       |> assign(:total_products, total)}
+       |> assign(:total_products, total)
+       |> assign(:total_pages, total_pages)
+       |> assign(:active_filters, active_filters)
+       |> assign(
+         :filter_qs,
+         FilterHelpers.build_query_string(active_filters, socket.assigns.enabled_filters)
+       )}
     else
       {:noreply, socket}
     end
   end
 
   @impl true
-  def handle_event("load_more", _params, socket) do
-    next_page = socket.assigns.page + 1
-    path = build_catalog_path_with_page(socket.assigns, next_page)
+  def handle_event("filter_price", params, socket) do
+    filter_key = params["filter_key"] || "price"
+
+    active_filters =
+      FilterHelpers.update_price_filter(
+        socket.assigns.active_filters,
+        filter_key,
+        params["price_min"],
+        params["price_max"]
+      )
+
+    path = build_filter_path(socket.assigns, active_filters)
     {:noreply, push_patch(socket, to: path)}
   end
 
-  # Build dashboard tabs including shop categories as subtabs
-  defp build_dashboard_tabs_with_shop(categories, current_category, current_path, scope) do
-    # Get existing dashboard tabs from registry
-    base_tabs = Registry.get_tabs_with_active(current_path, scope: scope)
-
-    # Find existing shop tab and update it, or create new one if not found
-    {updated_tabs, shop_exists?} = update_existing_shop_tab(base_tabs)
-
-    # Create category subtabs
-    category_tabs = build_category_subtabs(categories, current_category)
-
-    if shop_exists? do
-      # Shop tab exists - just append category subtabs
-      updated_tabs ++ category_tabs
-    else
-      # No shop tab in registry - create one with categories
-      shop_tab = create_shop_parent_tab(current_category)
-      updated_tabs ++ [shop_tab | category_tabs]
-    end
+  @impl true
+  def handle_event("toggle_filter", %{"key" => key, "val" => value}, socket) do
+    active_filters = FilterHelpers.toggle_filter_value(socket.assigns.active_filters, key, value)
+    path = build_filter_path(socket.assigns, active_filters)
+    {:noreply, push_patch(socket, to: path)}
   end
 
-  # Update existing dashboard_shop tab to show subtabs always
-  defp update_existing_shop_tab(tabs) do
-    shop_exists? = Enum.any?(tabs, &(&1.id == :dashboard_shop))
-
-    updated_tabs =
-      Enum.map(tabs, fn tab ->
-        if tab.id == :dashboard_shop do
-          %{tab | subtab_display: :always}
-        else
-          tab
-        end
-      end)
-
-    {updated_tabs, shop_exists?}
+  @impl true
+  def handle_event("clear_filters", _params, socket) do
+    base_path = Shop.catalog_url(socket.assigns.current_language)
+    {:noreply, push_patch(socket, to: base_path)}
   end
 
-  # Create shop parent tab (only if not in registry)
-  defp create_shop_parent_tab(current_category) do
-    tab =
-      Tab.new!(
-        id: :dashboard_shop,
-        label: "Shop",
-        icon: "hero-building-storefront",
-        path: "/shop",
-        priority: 300,
-        group: :shop,
-        match: :prefix,
-        subtab_display: :always
-      )
-
-    Map.put(tab, :active, is_nil(current_category))
+  @impl true
+  def handle_event("toggle_mobile_filters", _params, socket) do
+    {:noreply, assign(socket, :show_mobile_filters, !socket.assigns.show_mobile_filters)}
   end
 
-  # Build category subtabs for existing dashboard_shop tab
-  defp build_category_subtabs(categories, current_category) do
-    default_lang = Translations.default_language()
-    icon_mode = PhoenixKit.Settings.get_setting_cached("shop_category_icon_mode", "none")
-
-    categories
-    |> Enum.with_index()
-    |> Enum.map(fn {cat, idx} ->
-      # Get localized name
-      cat_name = Translations.get(cat, :name, default_lang)
-
-      # Determine icon based on settings
-      {icon, icon_metadata} = category_icon(icon_mode, cat)
-
-      tab =
-        Tab.new!(
-          id: String.to_atom("shop_cat_#{cat.id}"),
-          label: cat_name,
-          icon: icon,
-          path: Shop.category_url(cat, default_lang),
-          priority: 301 + idx,
-          parent: :dashboard_shop,
-          group: :shop,
-          match: :prefix,
-          subtab_indent: "pl-2",
-          metadata: icon_metadata
-        )
-
-      is_active = current_category && current_category.id == cat.id
-      Map.put(tab, :active, is_active)
-    end)
+  @impl true
+  def handle_event("load_more", _params, socket) do
+    next_page = socket.assigns.page + 1
+    path = build_filter_path(socket.assigns, socket.assigns.active_filters, page: next_page)
+    {:noreply, push_patch(socket, to: path)}
   end
-
-  # Returns {icon, metadata} tuple based on icon mode setting
-  defp category_icon("folder", _cat), do: {"hero-folder", %{}}
-
-  defp category_icon("category", cat) do
-    alias PhoenixKit.Modules.Shop.Category
-
-    case Category.get_image_url(cat, size: "thumbnail") do
-      nil -> {nil, %{}}
-      url -> {nil, %{icon_image_url: url}}
-    end
-  end
-
-  defp category_icon(_mode, _cat), do: {nil, %{}}
 
   @impl true
   def render(assigns) do
@@ -222,79 +181,152 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
           </div>
         </header>
 
-        <%!-- Categories Section --%>
-        <div class="mb-12">
-          <h2 class="text-2xl font-bold mb-6">Browse by Category</h2>
-          <%= if @categories == [] do %>
-            <p class="text-base-content/60">No categories available yet.</p>
-          <% else %>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <%= for category <- @categories do %>
-                <% cat_name = Translations.get(category, :name, @current_language) %>
-                <% cat_desc = Translations.get(category, :description, @current_language) %>
-                <.link
-                  navigate={Shop.category_url(category, @current_language)}
-                  class="card bg-base-100 shadow-md hover:shadow-xl transition-shadow"
-                >
-                  <div class="card-body items-center text-center p-4">
-                    <%= if image_url = Category.get_image_url(category) do %>
-                      <div class="w-16 h-16 rounded-full overflow-hidden mb-2">
-                        <img
-                          src={image_url}
-                          alt={cat_name}
-                          class="w-full h-full object-cover"
-                        />
-                      </div>
-                    <% else %>
-                      <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                        <.icon name="hero-folder" class="w-8 h-8 text-primary" />
-                      </div>
-                    <% end %>
-                    <h3 class="font-semibold">{cat_name}</h3>
-                    <%= if cat_desc do %>
-                      <p class="text-xs text-base-content/60 line-clamp-2">
-                        {cat_desc}
-                      </p>
-                    <% end %>
-                  </div>
-                </.link>
-              <% end %>
-            </div>
-          <% end %>
+        <%!-- Mobile filter toggle --%>
+        <div class="lg:hidden mb-4">
+          <button phx-click="toggle_mobile_filters" class="btn btn-outline btn-sm gap-2">
+            <.icon name="hero-funnel" class="w-4 h-4" />
+            Filters <% filter_count = FilterHelpers.active_filter_count(@active_filters) %>
+            <%= if filter_count > 0 do %>
+              <span class="badge badge-primary badge-xs">{filter_count}</span>
+            <% end %>
+          </button>
         </div>
 
-        <%!-- Products Section --%>
-        <div>
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-2xl font-bold">Products</h2>
-            <.link navigate={Shop.cart_url(@current_language)} class="btn btn-outline btn-sm gap-2">
-              <.icon name="hero-shopping-cart" class="w-4 h-4" /> View Cart
-            </.link>
-          </div>
-
-          <%= if @products == [] do %>
-            <div class="card bg-base-100 shadow-xl">
-              <div class="card-body text-center py-16">
-                <.icon name="hero-cube" class="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <h3 class="text-xl font-medium text-base-content/60">No products available</h3>
-                <p class="text-base-content/50">Check back soon for new arrivals</p>
+        <%!-- Mobile filter drawer (filters only, no categories) --%>
+        <%= if @show_mobile_filters do %>
+          <div class="lg:hidden mb-6">
+            <div class="card bg-base-100 shadow-lg">
+              <div class="card-body p-4">
+                <CatalogSidebar.catalog_sidebar
+                  filters={@enabled_filters}
+                  filter_values={@filter_values}
+                  active_filters={@active_filters}
+                  categories={@categories}
+                  current_category={nil}
+                  current_language={@current_language}
+                  category_icon_mode={@category_icon_mode}
+                  category_name_wrap={@category_name_wrap}
+                  show_categories={false}
+                  filter_qs={@filter_qs}
+                />
               </div>
             </div>
-          <% else %>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              <%= for product <- @products do %>
-                <.product_card product={product} currency={@currency} language={@current_language} />
-              <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Main layout: sidebar + content --%>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <%!-- Sidebar: filters + optional categories --%>
+          <%= if !@authenticated do %>
+            <aside class="lg:col-span-1 hidden lg:block">
+              <div class="card bg-base-100 shadow-lg sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
+                <div class="card-body p-4">
+                  <CatalogSidebar.catalog_sidebar
+                    filters={@enabled_filters}
+                    filter_values={@filter_values}
+                    active_filters={@active_filters}
+                    categories={@categories}
+                    current_category={nil}
+                    current_language={@current_language}
+                    category_icon_mode={@category_icon_mode}
+                    category_name_wrap={@category_name_wrap}
+                    filter_qs={@filter_qs}
+                  />
+                </div>
+              </div>
+            </aside>
+          <% end %>
+
+          <div class={if @authenticated, do: "lg:col-span-4", else: "lg:col-span-3"}>
+            <%!-- Category Grid (controlled by setting) --%>
+            <%= if @show_categories_grid && @categories != [] do %>
+              <div class="mb-8">
+                <h2 class="text-2xl font-bold mb-4">Categories</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <%= for cat <- @categories do %>
+                    <.link
+                      navigate={Shop.category_url(cat, @current_language) <> @filter_qs}
+                      class="card bg-base-100 shadow-md hover:shadow-lg transition-all hover:-translate-y-1"
+                    >
+                      <figure class="h-28 bg-base-200">
+                        <% cat_image = category_image(cat) %>
+                        <%= if cat_image do %>
+                          <img
+                            src={cat_image}
+                            alt={Translations.get(cat, :name, @current_language)}
+                            class="w-full h-full object-cover"
+                          />
+                        <% else %>
+                          <div class="w-full h-full flex items-center justify-center">
+                            <.icon name="hero-folder" class="w-10 h-10 opacity-30" />
+                          </div>
+                        <% end %>
+                      </figure>
+                      <div class="card-body p-3 text-center">
+                        <h3 class="text-sm font-semibold line-clamp-2">
+                          {Translations.get(cat, :name, @current_language)}
+                        </h3>
+                      </div>
+                    </.link>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Products Section --%>
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-2xl font-bold">Products</h2>
+              <.link navigate={Shop.cart_url(@current_language)} class="btn btn-outline btn-sm gap-2">
+                <.icon name="hero-shopping-cart" class="w-4 h-4" /> View Cart
+              </.link>
             </div>
 
-            <.shop_pagination
-              page={@page}
-              total_pages={@total_pages}
-              total_products={@total_products}
-              per_page={@per_page}
-              current_language={@current_language}
-            />
-          <% end %>
+            <%= if @products == [] do %>
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-center py-16">
+                  <.icon name="hero-cube" class="w-16 h-16 mx-auto mb-4 opacity-30" />
+                  <h3 class="text-xl font-medium text-base-content/60">No products available</h3>
+                  <p class="text-base-content/50">
+                    <%= if FilterHelpers.has_active_filters?(@active_filters) do %>
+                      No products match your filters.
+                      <button phx-click="clear_filters" class="link link-primary">
+                        Clear filters
+                      </button>
+                    <% else %>
+                      Check back soon for new arrivals
+                    <% end %>
+                  </p>
+                </div>
+              </div>
+            <% else %>
+              <div class={[
+                "grid gap-6",
+                if(@authenticated,
+                  do: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                  else: "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+                )
+              ]}>
+                <%= for product <- @products do %>
+                  <.product_card
+                    product={product}
+                    currency={@currency}
+                    language={@current_language}
+                    filter_qs={@filter_qs}
+                  />
+                <% end %>
+              </div>
+
+              <.shop_pagination
+                page={@page}
+                total_pages={@total_pages}
+                total_products={@total_products}
+                per_page={@per_page}
+                current_language={@current_language}
+                active_filters={@active_filters}
+                enabled_filters={@enabled_filters}
+              />
+            <% end %>
+          </div>
         </div>
       </div>
     </.shop_layout>
@@ -305,6 +337,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   slot :inner_block, required: true
 
   defp shop_layout(assigns) do
+    # For authenticated users, render filters + categories in dashboard sidebar
+    assigns =
+      if assigns.authenticated do
+        assign(assigns, :sidebar_after_shop, shop_sidebar(assigns))
+      else
+        assigns
+      end
+
     ~H"""
     <%= if @authenticated do %>
       <PhoenixKitWeb.Layouts.dashboard {assigns}>
@@ -315,6 +355,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
         {render_slot(@inner_block)}
       </.shop_public_layout>
     <% end %>
+    """
+  end
+
+  defp shop_sidebar(assigns) do
+    ~H"""
+    <CatalogSidebar.catalog_sidebar
+      filters={@enabled_filters}
+      filter_values={@filter_values}
+      active_filters={@active_filters}
+      categories={@categories}
+      current_category={nil}
+      current_language={@current_language}
+      category_icon_mode={@category_icon_mode}
+      category_name_wrap={@category_name_wrap}
+      filter_qs={@filter_qs}
+    />
     """
   end
 
@@ -364,6 +420,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   attr :product, :map, required: true
   attr :currency, :any, required: true
   attr :language, :string, default: "en"
+  attr :filter_qs, :string, default: ""
 
   defp product_card(assigns) do
     # Get localized values
@@ -381,7 +438,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
     ~H"""
     <.link
-      navigate={@product_url}
+      navigate={@product_url <> @filter_qs}
       class="card bg-base-100 shadow-md hover:shadow-xl transition-all hover:-translate-y-1"
     >
       <figure class="h-48 bg-base-200">
@@ -419,6 +476,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
       </div>
     </.link>
     """
+  end
+
+  defp category_image(category) do
+    Shop.Category.get_image_url(category, size: "small")
   end
 
   # Storage-based images (new format)
@@ -485,14 +546,18 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   attr :total_products, :integer, required: true
   attr :per_page, :integer, required: true
   attr :current_language, :string, required: true
+  attr :active_filters, :map, default: %{}
+  attr :enabled_filters, :list, default: []
 
   defp shop_pagination(assigns) do
     remaining = assigns.total_products - assigns.page * assigns.per_page
+    base_path = Shop.catalog_url(assigns.current_language)
 
     assigns =
       assigns
       |> assign(:remaining, max(0, remaining))
       |> assign(:has_more, assigns.page < assigns.total_pages)
+      |> assign(:base_path, base_path)
 
     ~H"""
     <%= if @total_pages > 1 do %>
@@ -511,7 +576,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
         <nav class="flex flex-wrap justify-center gap-2 text-sm">
           <%= for p <- 1..@total_pages do %>
             <.link
-              patch={Shop.catalog_url(@current_language) <> if(p > 1, do: "?page=#{p}", else: "")}
+              patch={
+                FilterHelpers.build_filter_url(@base_path, @active_filters, @enabled_filters, page: p)
+              }
               class={[
                 "px-3 py-1 rounded transition-colors",
                 if(p <= @page,
@@ -548,9 +615,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   defp parse_page(page) when is_integer(page) and page > 0, do: page
   defp parse_page(_), do: 1
 
-  # Build catalog path with page parameter
-  defp build_catalog_path_with_page(assigns, page) do
+  # Build catalog path with filter params and optional page
+  defp build_filter_path(assigns, active_filters, opts \\ []) do
     base_path = Shop.catalog_url(assigns.current_language)
-    if page > 1, do: "#{base_path}?page=#{page}", else: base_path
+    page = Keyword.get(opts, :page)
+
+    FilterHelpers.build_filter_url(base_path, active_filters, assigns.enabled_filters, page: page)
   end
 end

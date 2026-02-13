@@ -38,6 +38,11 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   V43 created `phoenix_kit_consent_logs` without a uuid column, but the Ecto
   schema (`consent_log.ex`) declares `field :uuid, Ecto.UUID, read_after_writes: true`.
 
+  Additionally, `phoenix_kit_payment_methods`, `phoenix_kit_ai_endpoints`,
+  `phoenix_kit_ai_prompts`, and `phoenix_kit_sync_connections` were created without
+  uuid columns but are referenced as FK source tables in UUIDFKColumns (the backfill
+  SQL does `SET uuid_fk = s.uuid FROM source_table s`).
+
   ### 5. Wrong DEFAULT on UUID primary keys (gen_random_uuid → uuid_generate_v7)
   V55 Comments module tables use UUID as primary key with `gen_random_uuid()`.
   These need the same DEFAULT fix but on the `id` column instead of `uuid`.
@@ -85,8 +90,15 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   alias PhoenixKit.Migrations.UUIDFKColumns
 
   # Tables missing the uuid column entirely (schema expects it, migration never created it)
+  # consent_logs: V43 created without uuid column
+  # payment_methods, ai_endpoints, ai_prompts, sync_connections: created in billing/AI/sync
+  #   migrations without uuid column, but referenced as FK sources in UUIDFKColumns
   @tables_missing_column [
-    :phoenix_kit_consent_logs
+    :phoenix_kit_consent_logs,
+    :phoenix_kit_payment_methods,
+    :phoenix_kit_ai_endpoints,
+    :phoenix_kit_ai_prompts,
+    :phoenix_kit_sync_connections
   ]
 
   # Tables using UUID as primary key with wrong DEFAULT (V55 Comments module)
@@ -100,6 +112,11 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   @all_tables [
     # V43 — Legal (column added by this migration)
     :phoenix_kit_consent_logs,
+    # Billing/AI/Sync — FK source tables (column added by this migration)
+    :phoenix_kit_payment_methods,
+    :phoenix_kit_ai_endpoints,
+    :phoenix_kit_ai_prompts,
+    :phoenix_kit_sync_connections,
     # V45 — Shop Module
     :phoenix_kit_shop_categories,
     :phoenix_kit_shop_products,
@@ -126,6 +143,11 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   @tables_ensure_not_null [
     # V43 table (column added by this migration)
     :phoenix_kit_consent_logs,
+    # Billing/AI/Sync — FK source tables (column added by this migration)
+    :phoenix_kit_payment_methods,
+    :phoenix_kit_ai_endpoints,
+    :phoenix_kit_ai_prompts,
+    :phoenix_kit_sync_connections,
     # V46 tables (created nullable)
     :phoenix_kit_shop_config,
     :phoenix_kit_shop_import_logs,
@@ -145,6 +167,11 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   @tables_ensure_index [
     # V43 table (column added by this migration)
     :phoenix_kit_consent_logs,
+    # Billing/AI/Sync — FK source tables (column added by this migration)
+    :phoenix_kit_payment_methods,
+    :phoenix_kit_ai_endpoints,
+    :phoenix_kit_ai_prompts,
+    :phoenix_kit_sync_connections,
     # V45 tables (no unique index created)
     :phoenix_kit_shop_categories,
     :phoenix_kit_shop_products,

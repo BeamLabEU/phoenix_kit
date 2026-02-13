@@ -321,8 +321,35 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   """
   @spec generate_html(keyword()) :: {:ok, String.t()} | {:error, any()}
   def generate_html(opts \\ []) do
-    entries = collect_all_entries(opts)
-    HtmlGenerator.generate(opts, entries)
+    base_url = Keyword.get(opts, :base_url)
+    style = Keyword.get(opts, :style, "hierarchical")
+    cache_enabled = Keyword.get(opts, :cache, true)
+
+    cond do
+      !base_url ->
+        {:error, :base_url_required}
+
+      style not in ["hierarchical", "grouped", "flat"] ->
+        {:error, :invalid_style}
+
+      true ->
+        cache_key = :"html_#{style}"
+
+        if cache_enabled do
+          case Cache.get(cache_key) do
+            {:ok, cached} ->
+              Logger.debug("Sitemap: Using cached HTML sitemap (#{style})")
+              {:ok, cached}
+
+            :error ->
+              entries = collect_all_entries(opts)
+              HtmlGenerator.generate(opts, entries, cache_key)
+          end
+        else
+          entries = collect_all_entries(opts)
+          HtmlGenerator.generate(opts, entries, cache_key, cache: false)
+        end
+    end
   end
 
   @doc """

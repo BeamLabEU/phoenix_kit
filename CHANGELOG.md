@@ -1,3 +1,26 @@
+## 1.7.36 - 2026-02-13
+- Add storefront sidebar filters, category grid, and dashboard shop integration
+  - New `CatalogSidebar` component: reusable sidebar with collapsible filter sections and category tree navigation
+  - New `FilterHelpers` module: filter data loading, URL query string building, price/vendor/metadata filtering
+  - Storefront filter configuration in admin settings: enable/disable filters, edit labels, add metadata option filters
+  - Auto-discovery of filterable product metadata options (e.g., Size, Color) with one-click filter creation
+  - Price range filter with min/max inputs and range display
+  - Vendor and metadata option filters with checkbox selection and active count badges
+  - Filter state persisted in URL query params for shareable filtered views
+  - "Show Categories in Shop" setting: displays category card grid above products on main shop page
+  - Sidebar category navigation always visible in sidebar (decoupled from grid setting)
+  - Dashboard layout integration: shop filters and categories rendered in dashboard sidebar for authenticated users
+  - `sidebar_after_shop` slot in dashboard layout for injecting custom sidebar content
+  - Product detail page updated to use shared sidebar and filter context for consistent navigation
+  - Mobile filter drawer with toggle button and active filter count badge
+  - Category page filters scoped to category products
+  - Fix `phx-value-value` collision on filter checkboxes: renamed to `phx-value-val` to avoid HTML checkbox `value="on"` overwrite
+  - **Known issue**: metadata option filters (e.g., Size) may not filter correctly in all cases; needs further investigation
+- Add file upload field type to Entities module
+  - New `file` field type with configurable max entries, file size, and accepted formats
+  - `FormBuilder` renders file upload UI with drag-and-drop zone (admin entity forms, placeholder)
+  - New `:advanced` field category
+
 ## 1.7.35 - 2026-02-12
 - Rewrite Sitemap module to sitemapindex architecture with per-module files
   - `/sitemap.xml` now returns a `<sitemapindex>` referencing per-module files at `/sitemaps/sitemap-{source}.xml`

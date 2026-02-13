@@ -435,7 +435,8 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
       table_str = Atom.to_string(table)
 
       if table_exists?(table_str, escaped_prefix) and
-           table_exists?(source_table, escaped_prefix) do
+           table_exists?(source_table, escaped_prefix) and
+           column_exists?(table_str, int_fk, escaped_prefix) do
         add_uuid_fk_column(table_str, uuid_fk, prefix, escaped_prefix)
         backfill_uuid_fk(table_str, int_fk, uuid_fk, source_table, prefix, escaped_prefix)
         create_uuid_fk_index(table_str, uuid_fk, prefix, escaped_prefix)
@@ -448,7 +449,8 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
       table_str = Atom.to_string(table)
 
       if table_exists?(table_str, escaped_prefix) and
-           table_exists?(source_table, escaped_prefix) do
+           table_exists?(source_table, escaped_prefix) and
+           column_exists?(table_str, int_fk, escaped_prefix) do
         add_uuid_fk_column(table_str, uuid_fk, prefix, escaped_prefix)
         backfill_uuid_fk(table_str, int_fk, uuid_fk, source_table, prefix, escaped_prefix)
         create_uuid_fk_index(table_str, uuid_fk, prefix, escaped_prefix)

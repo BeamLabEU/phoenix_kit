@@ -134,7 +134,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   @default_include_blogs true
   @default_include_static true
   @default_include_shop true
-  @default_router_discovery false
+  @default_router_discovery true
   @default_html_enabled true
   @default_html_style "hierarchical"
   @default_changefreq "weekly"
