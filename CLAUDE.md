@@ -143,6 +143,28 @@ mix phoenix_kit.update -y                                 # Skip confirmation pr
 mix phoenix_kit.update --force -y                         # Force update with auto-migration
 ```
 
+### Code Search with ast-grep
+
+**Prefer `ast-grep` over text-based grep for structural code searches.** It understands AST patterns and works with Elixir.
+
+```bash
+# Find all calls to a function
+ast-grep --lang elixir --pattern 'load_filter_data($$$)' lib/
+
+# Find specific variable/field usage
+ast-grep --lang elixir --pattern 'category_id' lib/modules/shop/
+
+# Find function definitions
+ast-grep --lang elixir --pattern 'def $FUNC($$$ARGS) do $$$BODY end' lib/modules/shop/web/components/
+
+# Find pattern matches on a specific key
+ast-grep --lang elixir --pattern 'p.id' lib/modules/shop/shop.ex
+```
+
+**When to use ast-grep vs Grep:**
+- `ast-grep` - structural patterns, function calls, variable references, refactoring checks
+- `Grep` (ripgrep) - text patterns, regex, searching strings/comments/docs
+
 ### Testing & Code Quality
 
 - `mix test` - Run smoke tests (module loading and configuration)
