@@ -26,6 +26,25 @@ This document gives a new AI full context on the UUIDv7 migration: what we're do
 
 PhoenixKit is migrating from integer primary keys to UUIDv7. The end state: **delete all integer `id` columns with minimal disruption**. We're keeping integer columns for now so external tables (in parent apps) don't break, but all PhoenixKit-internal code uses UUIDs.
 
+### Why UUIDv7?
+
+PhoenixKit uses **UUIDv7** (RFC 9562, finalized 2024) exclusively:
+
+| Feature | UUIDv4 | UUIDv7 |
+|---------|--------|--------|
+| Format | Random 128-bit | Time-ordered (48-bit timestamp + random) |
+| Index Performance | Poor (random inserts) | Excellent (sequential inserts) |
+| Sortable | No | Yes (chronologically) |
+| Example | `a1b2c3d4-e5f6-4210-a1b2-c3d4e5f6a1b2` | `019b5704-3680-7b95-9d82-ef16127f1fd2` |
+
+UUIDv7 provides better database index locality because the first 48 bits are a Unix timestamp, making inserts sequential.
+
+| Context | Correct | Wrong |
+|---------|---------|-------|
+| SQL migration DEFAULT | `uuid_generate_v7()` | `gen_random_uuid()` |
+| Elixir code generation | `UUIDv7.generate()` | `Ecto.UUID.generate()` |
+| Schema PK declaration | `@primary_key {:id, UUIDv7, autogenerate: true}` | `@primary_key {:id, :binary_id, autogenerate: true}` |
+
 ## Naming Convention (CRITICAL)
 
 `id` and `uuid` are **separate, distinct concepts** throughout the codebase:
@@ -433,6 +452,34 @@ update_ticket(ticket, %{
   assigned_to_uuid: resolve_user_uuid(new_handler_id)
 })
 ```
+
+---
+
+## Migration SQL Patterns
+
+**All UUID defaults MUST use `uuid_generate_v7()`** (PostgreSQL function created in V40). Never use `gen_random_uuid()`.
+
+### Which pattern for new tables?
+
+| Scenario | Primary Key | UUID Column |
+|----------|-------------|-------------|
+| **New standalone module** | `id UUID PRIMARY KEY DEFAULT uuid_generate_v7()` | Not needed (PK is UUID) |
+| **New table with FK to integer-PK tables** | `id BIGSERIAL PRIMARY KEY` | `uuid UUID DEFAULT uuid_generate_v7() NOT NULL UNIQUE` |
+| **Adding uuid to existing table** | Keep existing PK | `ALTER TABLE ... ADD COLUMN uuid UUID DEFAULT uuid_generate_v7() NOT NULL` |
+
+**Rule of thumb:** New modules that don't heavily FK into legacy integer-PK tables should use **Native UUID PK**.
+
+### Migration checklist
+
+- [ ] Use `uuid_generate_v7()` for DEFAULT (not `gen_random_uuid()`)
+- [ ] Add NOT NULL constraint on uuid columns
+- [ ] Add unique index on secondary uuid columns (not needed for UUID PKs)
+- [ ] For optional module tables, wrap in `IF EXISTS` table checks
+- [ ] Schema uses `read_after_writes: true` for secondary uuid columns
+- [ ] Record correct version in `COMMENT ON TABLE phoenix_kit IS '<version>'`
+
+**Reference migrations:** V40 (function creation), V56 (comprehensive FK columns + backfill)
+**Anti-patterns to avoid:** V45, V46, V53 (used `gen_random_uuid()` — fixed by V56)
 
 ---
 
