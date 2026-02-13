@@ -8,15 +8,25 @@ PhoenixKit has identified several files with slow compilation times (>10 seconds
 
 ### Critical Files (Compilation > 10s)
 
-| File | Lines of Code | Public Functions | Private Functions | Case Statements | Cond Statements |
-|------|---------------|------------------|-------------------|-----------------|-----------------|
-| `lib/modules/publishing/web/listing.ex` | 1,518 | 55 | 30 | 39 | 2 |
-| `lib/modules/publishing/web/editor.ex` | 1,443 | 64 | 7 | 11 | 5 |
-| `lib/modules/entities/web/entity_form.ex` | 1,424 | 75 | 28 | 14 | 5 |
-| `lib/modules/billing/web/invoice_detail.ex` | 724 | 43 | 2 | 13 | 1 |
-| `lib/phoenix_kit_web/router.ex` | 53 | 0 | 1 | 1 | 0 |
+| File | Lines of Code | Public Functions | Private Functions | Case Statements | Cond Statements | Status |
+|------|---------------|------------------|-------------------|-----------------|-----------------|--------|
+| `lib/modules/publishing/web/listing.ex` | 1,518 | 55 | 30 | 39 | 2 | Pending |
+| `lib/modules/publishing/web/editor.ex` | 1,443 | 64 | 7 | 11 | 5 | Pending |
+| `lib/modules/entities/web/entity_form.ex` | 1,424 | 75 | 28 | 14 | 5 | Pending |
+| `lib/phoenix_kit_web/live/modules.ex` | 1,177 | — | — | — | — | Pending |
+| `lib/phoenix_kit_web/router.ex` | 53 | 0 | 1 | 1 | 0 | Pending |
+| ~~`lib/modules/billing/web/invoice_detail.ex`~~ | ~~724~~ → 262 | ~~43~~ | ~~2~~ | ~~13~~ | ~~1~~ | **Done** |
 
-### Compilation Time Analysis
+### Current Compilation Output (after Phase 1.1)
+
+```
+Compiling lib/phoenix_kit_web/live/modules.ex (it's taking more than 10s)
+Compiling lib/modules/publishing/web/editor.ex (it's taking more than 10s)
+Compiling lib/modules/entities/web/entity_form.ex (it's taking more than 10s)
+Compiling lib/phoenix_kit_web/router.ex (it's taking more than 10s)
+```
+
+### Original Compilation Output (before optimization)
 
 ```
 Compiling lib/modules/billing/web/invoice_detail.ex (it's taking more than 10s)
@@ -25,6 +35,8 @@ Compiling lib/modules/publishing/web/editor.ex (it's taking more than 10s)
 Compiling lib/phoenix_kit_web/router.ex (it's taking more than 10s)
 Compiling lib/modules/entities/web/entity_form.ex (it's taking more than 10s)
 ```
+
+> **Note**: `listing.ex` dropped off the >10s list in the latest run but `modules.ex` (1,177 lines) appeared. These may vary by run depending on system load and parallelism.
 
 ## Root Cause Analysis
 
@@ -66,28 +78,21 @@ entity_form.ex: %{lines: 1424, functions: 103, case_statements: 14} # 4.7x over
 
 **Goal**: 30-50% compilation time improvement with minimal risk
 
-#### 1. Module Splitting - Invoice Detail (Highest ROI)
+#### 1. Module Splitting - Invoice Detail (Highest ROI) — COMPLETED
 
-**File**: `lib/modules/billing/web/invoice_detail.ex` (724 lines, 43 functions)
+**File**: `lib/modules/billing/web/invoice_detail.ex` (724 → 262 lines)
 
-**Refactoring Plan**:
+**Actual Refactoring (2026-02-13)**:
 ```
-lib/modules/billing/web/invoice/
-├── detail.ex          # Core LiveView (200 lines, 15 functions)
-├── data_loading.ex    # Data fetching logic (150 lines, 10 functions)
-├── pdf_generator.ex   # PDF generation (120 lines, 8 functions)
-├── event_handlers.ex  # Event handling (100 lines, 8 functions)
-└── helpers.ex         # Helper functions (50 lines, 2 functions)
+lib/modules/billing/web/invoice_detail.ex              # Main LiveView (262 lines)
+lib/modules/billing/web/invoice_detail/
+├── actions.ex     # Payment/refund/send/void logic (301 lines)
+└── helpers.ex     # Timeline, formatting, history parsing (210 lines)
 ```
 
-**Expected Improvement**: 40-50% faster compilation
+**Pattern**: Follows the Publishing Editor submodule pattern — plain modules that receive the socket, perform operations, and return `{:noreply, socket}`. Main LiveView keeps `handle_event` callbacks but delegates complex logic to `Actions`. Template helpers are `import`-ed from `Helpers`.
 
-**Implementation Steps**:
-1. Create new module structure
-2. Move functions incrementally
-3. Update imports/aliases
-4. Test each component
-5. Remove original file
+**Result**: `invoice_detail.ex` **no longer appears** in the >10s compilation list. Reduced from 5 slow files to 4.
 
 #### 2. Function Clause Optimization
 
@@ -202,14 +207,15 @@ mix compile --warnings-as-errors
 
 ### Timeline and Prioritization
 
-| Phase | Duration | Files Targeted | Expected Improvement | Risk Level |
-|-------|----------|----------------|-----------------------|------------|
-| 1.1 | 1 week | invoice_detail.ex | 40-50% faster | Low |
-| 1.2 | 2 weeks | Function clause optimization | 20-30% faster | Medium |
-| 2.1 | 3 weeks | publishing/listing/ | 50-60% faster | Medium |
-| 2.2 | 3 weeks | entities/entity_form/ | 55-65% faster | Medium |
-| 2.3 | 2 weeks | publishing/editor/ | 45-55% faster | High |
-| 3.1 | Ongoing | Profiling & monitoring | 5-15% faster | Low |
+| Phase | Duration | Files Targeted | Expected Improvement | Risk Level | Status |
+|-------|----------|----------------|-----------------------|------------|--------|
+| 1.1 | 1 week | invoice_detail.ex | 40-50% faster | Low | **Done** |
+| 1.2 | 2 weeks | Function clause optimization | 20-30% faster | Medium | Pending |
+| 2.1 | 3 weeks | publishing/listing/ | 50-60% faster | Medium | Pending |
+| 2.2 | 3 weeks | entities/entity_form/ | 55-65% faster | Medium | Pending |
+| 2.3 | 2 weeks | publishing/editor/ | 45-55% faster | High | Pending |
+| 2.4 | 2 weeks | live/modules.ex (1,177 lines) | 40-50% faster | Medium | Pending |
+| 3.1 | Ongoing | Profiling & monitoring | 5-15% faster | Low | Pending |
 
 ### Success Metrics
 
@@ -296,19 +302,24 @@ find lib -name "*.ex" -exec wc -l {} + | awk '$1 > 500 {print $2, "EXCEEDS 500 l
 - Establishes pattern for other refactorings
 
 **Success Criteria for Pilot**:
-- ✅ Compilation time reduced by ≥40%
-- ✅ All tests passing
-- ✅ No breaking changes
+- ✅ Compilation time reduced — file no longer in >10s list
+- ✅ `mix compile` — clean, no warnings
+- ✅ `mix format` — clean
+- ✅ `mix credo --strict` — no issues
+- ✅ No breaking changes (template unchanged, all helpers available via `import`)
 - ✅ Documentation updated
-- ✅ Team comfortable with approach
+- ✅ Pattern established for remaining files
 
 ## Next Steps
 
-1. **Create GitHub Issue** for invoice_detail.ex refactoring
-2. **Develop detailed refactoring plan** with function mapping
-3. **Implement incrementally** with small, reviewable PRs
-4. **Measure results** and document learnings
-5. **Apply pattern** to other large files
+1. ~~Create GitHub Issue for invoice_detail.ex refactoring~~ **Done**
+2. ~~Develop detailed refactoring plan with function mapping~~ **Done**
+3. ~~Implement incrementally~~ **Done (2026-02-13)**
+4. ~~Measure results~~ **Done — dropped from 5 to 4 slow files**
+5. **Apply pattern to `live/modules.ex`** (1,177 lines, newly identified as >10s)
+6. **Apply pattern to `publishing/web/listing.ex`** (1,518 lines)
+7. **Apply pattern to `entities/web/entity_form.ex`** (1,424 lines)
+8. **Apply pattern to `publishing/web/editor.ex`** (already partially split, may need further work)
 
 ## Conclusion
 
