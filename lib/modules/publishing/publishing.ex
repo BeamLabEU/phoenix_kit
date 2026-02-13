@@ -344,21 +344,10 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec enabled?() :: boolean()
   def enabled? do
-    # Check new key first using get_setting (allows nil default)
-    case settings_call(:get_setting, [@publishing_enabled_key, nil]) do
-      nil ->
-        # Fall back to legacy key
-        settings_call(:get_boolean_setting, [@legacy_enabled_key, false])
-
-      "true" ->
-        true
-
-      true ->
-        true
-
-      _ ->
-        false
-    end
+    # Check new key first, then fall back to legacy key
+    # Uses get_boolean_setting (cached) to avoid DB queries on every sidebar render
+    settings_call(:get_boolean_setting, [@publishing_enabled_key, false]) or
+      settings_call(:get_boolean_setting, [@legacy_enabled_key, false])
   end
 
   @doc """

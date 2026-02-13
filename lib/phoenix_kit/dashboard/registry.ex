@@ -60,7 +60,9 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   use GenServer
 
-  alias PhoenixKit.Dashboard.{Badge, Tab}
+  require Logger
+
+  alias PhoenixKit.Dashboard.{AdminTabs, Badge, Tab}
   alias PhoenixKit.PubSubHelper
 
   # Suppress warnings about optional modules (loaded conditionally)
@@ -158,22 +160,66 @@ defmodule PhoenixKit.Dashboard.Registry do
   ## Options
 
   - `:scope` - The current scope (for visibility filtering)
+  - `:level` - Filter by tab level: `:admin`, `:user`, or nil for all
   - `:path` - The current path (for active state detection)
   - `:include_hidden` - Include tabs that would be hidden (default: false)
 
   ## Examples
 
       Registry.get_tabs()
-      Registry.get_tabs(scope: socket.assigns.phoenix_kit_current_scope)
+      Registry.get_tabs(scope: scope, level: :user)
+      Registry.get_tabs(scope: scope, level: :admin)
   """
   @spec get_tabs(keyword()) :: [Tab.t()]
   def get_tabs(opts \\ []) do
     scope = opts[:scope]
+    level = opts[:level]
     include_hidden = opts[:include_hidden] || false
 
     all_tabs()
+    |> maybe_filter_level(level)
+    |> maybe_filter_enabled()
+    |> maybe_filter_permission(scope)
     |> maybe_filter_visibility(scope, include_hidden)
     |> sort_tabs()
+  end
+
+  @doc """
+  Gets admin-level tabs, filtered by permission and module-enabled status.
+
+  ## Options
+
+  - `:scope` - The current scope (for permission and visibility filtering)
+  - `:include_hidden` - Include tabs that would be hidden (default: false)
+  """
+  @spec get_admin_tabs(keyword()) :: [Tab.t()]
+  def get_admin_tabs(opts \\ []) do
+    get_tabs(Keyword.put(opts, :level, :admin))
+  end
+
+  @doc """
+  Gets user-level tabs.
+
+  ## Options
+
+  - `:scope` - The current scope (for visibility filtering)
+  - `:include_hidden` - Include tabs that would be hidden (default: false)
+  """
+  @spec get_user_tabs(keyword()) :: [Tab.t()]
+  def get_user_tabs(opts \\ []) do
+    get_tabs(Keyword.put(opts, :level, :user))
+  end
+
+  @doc """
+  Updates an existing tab's attributes.
+
+  ## Examples
+
+      Registry.update_tab(:admin_dashboard, %{label: "Home", icon: "hero-house"})
+  """
+  @spec update_tab(atom(), map()) :: :ok
+  def update_tab(tab_id, attrs) when is_atom(tab_id) and is_map(attrs) do
+    GenServer.call(__MODULE__, {:update_tab, tab_id, attrs})
   end
 
   @doc """
@@ -401,6 +447,16 @@ defmodule PhoenixKit.Dashboard.Registry do
     GenServer.call(__MODULE__, :load_from_config)
   end
 
+  @doc """
+  Loads admin default tabs.
+
+  Called during initialization.
+  """
+  @spec load_admin_defaults() :: :ok
+  def load_admin_defaults do
+    GenServer.call(__MODULE__, :load_admin_defaults)
+  end
+
   # GenServer Callbacks
 
   @impl true
@@ -408,11 +464,15 @@ defmodule PhoenixKit.Dashboard.Registry do
     # Create ETS table for tab storage
     :ets.new(@ets_table, [:named_table, :set, :public, read_concurrency: true])
 
-    # Load defaults and config
+    # Load user dashboard defaults and config
     load_defaults_internal()
     load_from_config_internal()
 
-    {:ok, %{namespaces: MapSet.new([:phoenix_kit])}}
+    # Load admin dashboard defaults and config
+    load_admin_defaults_internal()
+    load_admin_from_config_internal()
+
+    {:ok, %{namespaces: MapSet.new([:phoenix_kit, :phoenix_kit_admin])}}
   end
 
   @impl true
@@ -501,6 +561,39 @@ defmodule PhoenixKit.Dashboard.Registry do
     {:reply, :ok, state}
   end
 
+  @impl true
+  def handle_call(:load_admin_defaults, _from, state) do
+    load_admin_defaults_internal()
+    broadcast_refresh()
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:update_tab, tab_id, attrs}, _from, state) do
+    case get_tab(tab_id) do
+      nil ->
+        {:reply, :ok, state}
+
+      tab ->
+        updated_tab =
+          Enum.reduce(attrs, tab, fn
+            {:label, v}, acc -> %{acc | label: v}
+            {:icon, v}, acc -> %{acc | icon: v}
+            {:path, v}, acc -> %{acc | path: v}
+            {:priority, v}, acc -> %{acc | priority: v}
+            {:visible, v}, acc -> %{acc | visible: v}
+            {:permission, v}, acc -> %{acc | permission: v}
+            {:group, v}, acc -> %{acc | group: v}
+            {:metadata, v}, acc -> %{acc | metadata: Map.merge(acc.metadata, v)}
+            _, acc -> acc
+          end)
+
+        :ets.insert(@ets_table, {{:tab, tab_id}, updated_tab})
+        broadcast_update(updated_tab)
+        {:reply, :ok, state}
+    end
+  end
+
   # Private helpers
 
   defp all_tabs do
@@ -519,6 +612,60 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   defp sort_tabs(tabs) do
     Enum.sort_by(tabs, & &1.priority)
+  end
+
+  # Filter tabs by level. :admin returns admin+all, :user returns user+all
+  defp maybe_filter_level(tabs, nil), do: tabs
+
+  defp maybe_filter_level(tabs, :admin) do
+    Enum.filter(tabs, fn tab ->
+      level = Map.get(tab, :level, :user)
+      level in [:admin, :all]
+    end)
+  end
+
+  defp maybe_filter_level(tabs, :user) do
+    Enum.filter(tabs, fn tab ->
+      level = Map.get(tab, :level, :user)
+      level in [:user, :all]
+    end)
+  end
+
+  defp maybe_filter_level(tabs, _), do: tabs
+
+  # Filter out tabs whose associated module is disabled.
+  # Precomputes enabled state per unique permission key to avoid
+  # redundant DB queries (e.g., 5 "publishing" tabs = 1 query, not 5).
+  defp maybe_filter_enabled(tabs) do
+    enabled_cache =
+      tabs
+      |> Enum.map(& &1.permission)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> Map.new(fn perm ->
+        enabled =
+          try do
+            PhoenixKit.Users.Permissions.feature_enabled?(perm)
+          rescue
+            _ -> false
+          end
+
+        {perm, enabled}
+      end)
+
+    Enum.filter(tabs, fn tab ->
+      case tab.permission do
+        nil -> true
+        perm -> Map.get(enabled_cache, perm, true)
+      end
+    end)
+  end
+
+  # Filter tabs by permission access
+  defp maybe_filter_permission(tabs, nil), do: tabs
+
+  defp maybe_filter_permission(tabs, scope) do
+    Enum.filter(tabs, &Tab.permission_granted?(&1, scope))
   end
 
   defp clear_namespace_tabs(namespace) do
@@ -760,4 +907,114 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   # credo:disable-for-next-line Credo.Check.Design.AliasUsage
   defp call_shop_enabled, do: PhoenixKit.Modules.Shop.enabled?()
+
+  # --- Admin Tab Loading ---
+
+  defp load_admin_defaults_internal do
+    clear_namespace_tabs(:phoenix_kit_admin)
+
+    tabs = AdminTabs.default_tabs()
+    groups = AdminTabs.default_groups()
+
+    Enum.each(tabs, fn tab ->
+      :ets.insert(@ets_table, {{:tab, tab.id}, tab})
+      :ets.insert(@ets_table, {{:namespace, :phoenix_kit_admin, tab.id}, true})
+    end)
+
+    # Merge admin groups with existing groups
+    existing_groups = get_groups()
+    merged = merge_groups(existing_groups, groups)
+    :ets.insert(@ets_table, {:groups, merged})
+  end
+
+  defp load_admin_from_config_internal do
+    # Load legacy AdminDashboardCategories config and convert to admin-level tabs
+    load_legacy_admin_categories()
+
+    # Load new :admin_dashboard_tabs config (highest precedence)
+    case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
+      nil ->
+        :ok
+
+      tabs when is_list(tabs) ->
+        Enum.each(tabs, fn tab_config ->
+          # Auto-set level to :admin for admin dashboard tabs
+          tab_config = Map.put_new(tab_config, :level, :admin)
+
+          case Tab.new(tab_config) do
+            {:ok, tab} ->
+              :ets.insert(@ets_table, {{:tab, tab.id}, tab})
+              :ets.insert(@ets_table, {{:namespace, :admin_config, tab.id}, true})
+
+            {:error, _reason} ->
+              :ok
+          end
+        end)
+    end
+  end
+
+  # Convert legacy AdminDashboardCategories to admin-level Tab structs
+  defp load_legacy_admin_categories do
+    alias PhoenixKit.Config.AdminDashboardCategories
+
+    categories = AdminDashboardCategories.get_categories()
+
+    if categories != [] do
+      Logger.info(
+        "[PhoenixKit] Legacy :admin_dashboard_categories config detected. " <>
+          "Consider migrating to :admin_dashboard_tabs format."
+      )
+
+      # Convert each category to admin-level tabs
+      categories
+      |> Enum.with_index()
+      |> Enum.each(fn {category, cat_idx} ->
+        # Create parent tab from category
+        cat_id = :"admin_custom_#{cat_idx}"
+
+        first_url =
+          case category.subsections do
+            [first | _] -> Map.get(first, :url, "/admin")
+            _ -> "/admin"
+          end
+
+        parent = %Tab{
+          id: cat_id,
+          label: category.title,
+          icon: category.icon || "hero-folder",
+          path: first_url,
+          priority: 700 + cat_idx * 10,
+          level: :admin,
+          match: :prefix,
+          group: :admin_modules,
+          subtab_display: :when_active,
+          highlight_with_subtabs: false
+        }
+
+        :ets.insert(@ets_table, {{:tab, parent.id}, parent})
+        :ets.insert(@ets_table, {{:namespace, :admin_legacy, parent.id}, true})
+
+        # Create child tabs from subsections
+        category.subsections
+        |> Enum.with_index()
+        |> Enum.each(fn {subsection, sub_idx} ->
+          child_id = :"admin_custom_#{cat_idx}_#{sub_idx}"
+
+          child = %Tab{
+            id: child_id,
+            label: subsection.title,
+            icon: subsection.icon || "hero-document-text",
+            path: subsection.url,
+            priority: 701 + cat_idx * 10 + sub_idx,
+            level: :admin,
+            match: :prefix,
+            parent: cat_id
+          }
+
+          :ets.insert(@ets_table, {{:tab, child.id}, child})
+          :ets.insert(@ets_table, {{:namespace, :admin_legacy, child.id}, true})
+        end)
+      end)
+    end
+  end
 end

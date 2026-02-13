@@ -89,6 +89,8 @@ defmodule PhoenixKit.Dashboard.Tab do
   """
 
   alias PhoenixKit.Dashboard.Badge
+  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Permissions
 
   @type match_type :: :exact | :prefix | :regex | (String.t() -> boolean())
 
@@ -98,6 +100,10 @@ defmodule PhoenixKit.Dashboard.Tab do
 
   @type subtab_animation :: :none | :slide | :fade | :collapse
 
+  @type level :: :user | :admin | :all
+
+  @type dynamic_children_fn :: (map() -> [t()]) | nil
+
   @type t :: %__MODULE__{
           id: atom(),
           label: String.t(),
@@ -106,6 +112,9 @@ defmodule PhoenixKit.Dashboard.Tab do
           priority: integer(),
           group: atom() | nil,
           parent: atom() | nil,
+          level: level(),
+          permission: String.t() | nil,
+          dynamic_children: dynamic_children_fn(),
           subtab_display: subtab_display(),
           subtab_indent: String.t() | nil,
           subtab_icon_size: String.t() | nil,
@@ -139,7 +148,10 @@ defmodule PhoenixKit.Dashboard.Tab do
     :subtab_icon_size,
     :subtab_text_size,
     :subtab_animation,
+    :permission,
+    :dynamic_children,
     priority: 500,
+    level: :user,
     subtab_display: :when_active,
     redirect_to_first_subtab: false,
     highlight_with_subtabs: false,
@@ -207,6 +219,9 @@ defmodule PhoenixKit.Dashboard.Tab do
       priority: get_attr(attrs, :priority) || 500,
       group: get_attr(attrs, :group),
       parent: get_attr(attrs, :parent),
+      level: parse_level(get_attr(attrs, :level)),
+      permission: get_attr(attrs, :permission),
+      dynamic_children: get_attr(attrs, :dynamic_children),
       subtab_display: parse_subtab_display(get_attr(attrs, :subtab_display)),
       subtab_indent: get_attr(attrs, :subtab_indent),
       subtab_icon_size: get_attr(attrs, :subtab_icon_size),
@@ -437,6 +452,57 @@ defmodule PhoenixKit.Dashboard.Tab do
   def visible?(_, _), do: true
 
   @doc """
+  Checks if this is an admin-level tab.
+  """
+  @spec admin?(t()) :: boolean()
+  def admin?(%__MODULE__{level: :admin}), do: true
+  def admin?(_), do: false
+
+  @doc """
+  Checks if this is a user-level tab.
+  """
+  @spec user?(t()) :: boolean()
+  def user?(%__MODULE__{level: :user}), do: true
+  def user?(_), do: false
+
+  @doc """
+  Checks if permission is granted for this tab given a scope.
+
+  Returns true if:
+  - The tab has no permission requirement (permission is nil)
+  - The scope has module access for the tab's permission key
+  """
+  @spec permission_granted?(t(), map()) :: boolean()
+  def permission_granted?(%__MODULE__{permission: nil}, _scope), do: true
+
+  def permission_granted?(%__MODULE__{permission: permission}, scope)
+      when is_binary(permission) do
+    Scope.has_module_access?(scope, permission)
+  rescue
+    _ -> false
+  end
+
+  def permission_granted?(_, _), do: true
+
+  @doc """
+  Checks if the module associated with this tab is enabled.
+
+  Returns true if:
+  - The tab has no permission requirement (permission is nil)
+  - The feature module for the permission key is enabled
+  """
+  @spec module_enabled?(t()) :: boolean()
+  def module_enabled?(%__MODULE__{permission: nil}), do: true
+
+  def module_enabled?(%__MODULE__{permission: permission}) when is_binary(permission) do
+    Permissions.feature_enabled?(permission)
+  rescue
+    _ -> false
+  end
+
+  def module_enabled?(_), do: true
+
+  @doc """
   Updates a tab's badge value.
   """
   @spec update_badge(t(), Badge.t() | map() | nil) :: t()
@@ -515,6 +581,15 @@ defmodule PhoenixKit.Dashboard.Tab do
       _ -> {:error, "Invalid badge configuration"}
     end
   end
+
+  defp parse_level(nil), do: :user
+  defp parse_level(:user), do: :user
+  defp parse_level(:admin), do: :admin
+  defp parse_level(:all), do: :all
+  defp parse_level("user"), do: :user
+  defp parse_level("admin"), do: :admin
+  defp parse_level("all"), do: :all
+  defp parse_level(_), do: :user
 
   defp parse_match(:exact), do: :exact
   defp parse_match(:prefix), do: :prefix

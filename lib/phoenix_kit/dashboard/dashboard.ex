@@ -190,6 +190,75 @@ defmodule PhoenixKit.Dashboard do
   @spec unregister_tab(atom()) :: :ok
   defdelegate unregister_tab(tab_id), to: Registry
 
+  # ============================================================================
+  # Admin Tab Management
+  # ============================================================================
+
+  @doc """
+  Gets all admin-level tabs, filtered by permission and module-enabled status.
+
+  ## Options
+
+  - `:scope` - The current authentication scope for permission filtering
+
+  ## Examples
+
+      tabs = PhoenixKit.Dashboard.get_admin_tabs(scope: scope)
+  """
+  @spec get_admin_tabs(keyword()) :: [Tab.t()]
+  defdelegate get_admin_tabs(opts \\ []), to: Registry
+
+  @doc """
+  Gets all user-level tabs, filtered by visibility and scope.
+
+  ## Options
+
+  - `:scope` - The current authentication scope for visibility filtering
+
+  ## Examples
+
+      tabs = PhoenixKit.Dashboard.get_user_tabs(scope: scope)
+  """
+  @spec get_user_tabs(keyword()) :: [Tab.t()]
+  defdelegate get_user_tabs(opts \\ []), to: Registry
+
+  @doc """
+  Registers admin tabs for an application namespace.
+
+  Automatically sets `level: :admin` on all tabs.
+
+  ## Examples
+
+      PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
+        %{id: :admin_analytics, label: "Analytics", path: "/admin/analytics",
+          icon: "hero-chart-bar", permission: "dashboard"}
+      ])
+  """
+  @spec register_admin_tabs(atom(), [map() | Tab.t()]) :: :ok | {:error, term()}
+  def register_admin_tabs(namespace, tabs) when is_atom(namespace) and is_list(tabs) do
+    admin_tabs = Enum.map(tabs, fn tab -> Map.put(tab, :level, :admin) end)
+    register_tabs(namespace, admin_tabs)
+  end
+
+  @doc """
+  Updates an existing tab's attributes by ID.
+
+  ## Examples
+
+      PhoenixKit.Dashboard.update_tab(:admin_dashboard, %{label: "Home", icon: "hero-home"})
+  """
+  @spec update_tab(atom(), map()) :: :ok | {:error, :not_found}
+  defdelegate update_tab(tab_id, attrs), to: Registry
+
+  @doc """
+  Loads the default admin tabs into the registry.
+
+  Called automatically on Registry startup, but can be called manually
+  to reload defaults after changes.
+  """
+  @spec load_admin_defaults() :: :ok
+  defdelegate load_admin_defaults(), to: Registry
+
   @doc """
   Gets all registered tabs, sorted by priority.
 

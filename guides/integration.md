@@ -471,6 +471,69 @@ Scope.accessible_modules(scope)  # MapSet of granted permission keys
 
 ---
 
+## Custom Admin Pages
+
+Add custom pages to the PhoenixKit admin sidebar with seamless LiveView navigation.
+
+### Step 1: Create the LiveView
+
+```elixir
+# lib/my_app_web/phoenix_kit_live/admin_analytics_live.ex
+defmodule MyAppWeb.PhoenixKitLive.AdminAnalyticsLive do
+  use MyAppWeb, :live_view
+
+  def mount(_params, _session, socket) do
+    {:ok, assign(socket, page_title: "Analytics")}
+  end
+
+  def render(assigns) do
+    ~H"""
+    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
+      flash={@flash}
+      page_title={@page_title}
+      current_path={@url_path}
+      phoenix_kit_current_scope={@phoenix_kit_current_scope}
+      current_locale={assigns[:current_locale]}
+    >
+      <div class="container flex-col mx-auto px-4 py-6">
+        <h1 class="text-2xl font-bold mb-6">Analytics</h1>
+      </div>
+    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    """
+  end
+end
+```
+
+### Step 2: Register the Tab
+
+```elixir
+# config/config.exs
+config :phoenix_kit, :admin_dashboard_tabs, [
+  %{
+    id: :admin_analytics,
+    label: "Analytics",
+    icon: "hero-chart-bar",
+    path: "/admin/analytics",
+    permission: "dashboard",
+    priority: 150,
+    group: :admin_main,
+    live_view: {MyAppWeb.PhoenixKitLive.AdminAnalyticsLive, :index}
+  }
+]
+```
+
+The `live_view` field tells PhoenixKit to auto-generate a route inside the shared admin `live_session`, so navigation from other admin pages is seamless (no full page reload).
+
+**Key rules:**
+- Use `@url_path` for `current_path` (set by PhoenixKit's on_mount hooks)
+- Use `LayoutWrapper.app_layout` for the admin layout (NOT `Layouts.dashboard`)
+- Don't pass `project_title` — the layout has a built-in default
+- Use `assigns[:current_locale]` (bracket access for optional assigns)
+
+See the [Admin Navigation docs](../lib/phoenix_kit/dashboard/ADMIN_README.md) for the full reference.
+
+---
+
 ## Common Tasks
 
 ### Task: Add PhoenixKit Navigation to Your Layout
@@ -881,4 +944,4 @@ records = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
 
 ---
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-14
