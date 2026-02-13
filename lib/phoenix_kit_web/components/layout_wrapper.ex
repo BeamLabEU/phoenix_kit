@@ -403,14 +403,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           submenu_open?(@current_path, [
                             "/admin/emails",
                             "/admin/emails/dashboard",
-                            "/admin/modules/emails/templates",
+                            "/admin/emails/templates",
                             "/admin/emails/queue",
                             "/admin/emails/blocklist"
                           ])
                         }
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/emails", "/admin/emails/dashboard", "/admin/modules/emails/templates", "/admin/emails/queue", "/admin/emails/blocklist"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/emails", "/admin/emails/dashboard", "/admin/emails/templates", "/admin/emails/queue", "/admin/emails/blocklist"]) do %>
                         <%!-- Email submenu items --%>
                         <div class="mt-1">
                           <.admin_nav_item
@@ -430,7 +430,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
 
                           <.admin_nav_item
-                            href={Routes.path("/admin/modules/emails/templates")}
+                            href={Routes.path("/admin/emails/templates")}
                             icon="email"
                             label={gettext("Templates")}
                             current_path={@current_path || ""}
