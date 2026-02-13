@@ -557,14 +557,32 @@ schema "my_table" do
 end
 ```
 
-**ID System Rules:**
+**DEPRECATION NOTICE (V56+):**
+
+> The integer `id` column is **deprecated** and will be removed in a future major version.
+> All schemas now use `@primary_key {:uuid, UUIDv7, autogenerate: true}` with `field :id, :integer, read_after_writes: true` for backward compatibility.
+> The `id` field is kept only for legacy FK relationships during the transition period.
+> **New code should use `.uuid` for all references** — URLs, lookups, associations, and event handlers.
+
+**ID System Rules (current transition period):**
 | Use Case | Field | Example |
 |----------|-------|---------|
 | URLs and external APIs | `.uuid` | `/items/#{item.uuid}/edit` |
-| Foreign keys | `.id` | `parent_id: item.id` |
-| Database queries | `.id` | `repo.get(Item, id)` |
-| Stats map keys | `.id` | `Map.get(stats, item.id)` |
-| Event handlers (phx-value) | `.id` | `phx-value-id={item.id}` |
+| Foreign keys (legacy) | `.id` | `parent_id: item.id` *(deprecated, transitioning to uuid)* |
+| Database queries | `.uuid` | `repo.get_by(Item, uuid: id)` |
+| Event handlers (phx-value) | `.uuid` | `phx-value-uuid={item.uuid}` |
+
+**belongs_to with UUID foreign keys (CRITICAL):**
+
+When a parent schema uses `@primary_key {:uuid, UUIDv7, autogenerate: true}`, you **MUST** add `references: :uuid` to every `belongs_to`. Ecto defaults `references` to `:id`, not the parent's `@primary_key`, causing `bigint = uuid` type mismatch errors.
+
+```elixir
+# CORRECT — explicit references: :uuid
+belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
+
+# WRONG — defaults to references: :id, causes bigint = uuid error
+belongs_to :user, User, foreign_key: :user_uuid, type: UUIDv7
+```
 
 **Lookup Functions Pattern:**
 ```elixir
@@ -655,7 +673,7 @@ Schema:
 @foreign_key_type UUIDv7
 
 schema "phoenix_kit_my_items" do
-  belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+  belongs_to :user, PhoenixKit.Users.Auth.User, references: :uuid, type: :integer
   field :name, :string
   field :status, :string, default: "active"
   timestamps()
