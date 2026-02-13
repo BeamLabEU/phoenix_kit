@@ -261,7 +261,7 @@
                 <div>
                   <div class="font-medium">{@order.user.email}</div>
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/users/#{@order.user.id}")}
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/users/#{@order.user.uuid}")}
                     class="text-sm text-primary hover:underline"
                   >
                     View Profile

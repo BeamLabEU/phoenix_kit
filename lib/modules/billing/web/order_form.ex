@@ -87,9 +87,9 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
         |> assign(:order, order)
         |> assign(:form, to_form(changeset))
         |> assign(:line_items, line_items)
-        |> assign(:selected_user_id, order.user_id)
+        |> assign(:selected_user_id, order.user_uuid)
         |> assign(:billing_profiles, billing_profiles)
-        |> assign(:selected_billing_profile_id, order.billing_profile_id)
+        |> assign(:selected_billing_profile_id, order.billing_profile_uuid)
         |> assign(:country_tax_rate, country_tax_rate)
         |> assign(:country_name, country_name)
         |> assign(:country_vat_percent, country_vat_percent)
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
   @impl true
   def handle_event(
         "select_billing_profile",
-        %{"order" => %{"billing_profile_id" => profile_id}},
+        %{"order" => %{"billing_profile_uuid" => profile_id}},
         socket
       ) do
     handle_billing_profile_selection(profile_id, socket)
@@ -241,8 +241,8 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
       |> Map.put("tax_rate", Decimal.to_string(tax_rate))
       |> Map.put("tax_amount", Decimal.to_string(tax_amount))
       |> Map.put("total", Decimal.to_string(total))
-      |> Map.put("user_id", socket.assigns.selected_user_id)
-      |> Map.put("billing_profile_id", socket.assigns.selected_billing_profile_id)
+      |> Map.put("user_uuid", socket.assigns.selected_user_id)
+      |> Map.put("billing_profile_uuid", socket.assigns.selected_billing_profile_id)
 
     save_order(socket, order_params)
   end

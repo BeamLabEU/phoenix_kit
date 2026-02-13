@@ -425,7 +425,7 @@
                     <div class="space-y-2">
                       <%= for related <- Enum.take(@related_emails, 5) do %>
                         <.link
-                          navigate={Routes.path("/admin/emails/email/#{related.id}")}
+                          navigate={Routes.path("/admin/emails/email/#{related.uuid}")}
                           class="block p-2 rounded hover:bg-base-200 text-sm"
                         >
                           <div class="font-medium truncate">{related.to}</div>

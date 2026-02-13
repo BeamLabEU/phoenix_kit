@@ -98,7 +98,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
     # Get plan's default trial days
     trial_days =
       if plan_id do
-        case Enum.find(socket.assigns.plans, &(to_string(&1.id) == plan_id)) do
+        case Enum.find(socket.assigns.plans, &(to_string(&1.uuid) == plan_id)) do
           %{trial_days: days} when is_integer(days) and days > 0 -> to_string(days)
           _ -> ""
         end
@@ -154,13 +154,13 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
 
       true ->
         attrs = %{
-          plan_id: plan_id,
-          payment_method_id: pm_id,
+          plan_uuid: plan_id,
+          payment_method_uuid: pm_id,
           trial_days:
             if(enable_trial && trial_days != "", do: String.to_integer(trial_days), else: 0)
         }
 
-        case Billing.create_subscription(user.id, attrs) do
+        case Billing.create_subscription(user.uuid, attrs) do
           {:ok, subscription} ->
             {:noreply,
              socket

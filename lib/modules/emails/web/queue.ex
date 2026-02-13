@@ -96,53 +96,37 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
 
   @impl true
   def handle_event("retry_email", %{"email_id" => email_id}, socket) do
-    case Integer.parse(email_id) do
-      {id, _} ->
-        case retry_failed_email(id) do
-          {:ok, _log} ->
-            {:noreply,
-             socket
-             |> put_flash(:info, "Email queued for retry")
-             |> load_queue_data()}
-
-          {:error, reason} ->
-            {:noreply,
-             socket
-             |> put_flash(:error, "Failed to retry email: #{reason}")}
-        end
-
-      _ ->
+    case retry_failed_email(email_id) do
+      {:ok, _log} ->
         {:noreply,
          socket
-         |> put_flash(:error, "Invalid email ID")}
+         |> put_flash(:info, "Email queued for retry")
+         |> load_queue_data()}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to retry email: #{reason}")}
     end
   end
 
   @impl true
   def handle_event("toggle_email_selection", %{"email_id" => email_id}, socket) do
-    case Integer.parse(email_id) do
-      {id, _} ->
-        selected = socket.assigns.selected_emails
+    selected = socket.assigns.selected_emails
 
-        new_selected =
-          if id in selected do
-            List.delete(selected, id)
-          else
-            [id | selected]
-          end
+    new_selected =
+      if email_id in selected do
+        List.delete(selected, email_id)
+      else
+        [email_id | selected]
+      end
 
-        {:noreply,
-         socket
-         |> assign(:selected_emails, new_selected)}
-
-      _ ->
-        {:noreply, socket}
-    end
+    {:noreply, assign(socket, :selected_emails, new_selected)}
   end
 
   @impl true
   def handle_event("select_all_failed", _params, socket) do
-    all_failed_ids = Enum.map(socket.assigns.failed_emails, & &1.id)
+    all_failed_ids = Enum.map(socket.assigns.failed_emails, & &1.uuid)
 
     {:noreply,
      socket

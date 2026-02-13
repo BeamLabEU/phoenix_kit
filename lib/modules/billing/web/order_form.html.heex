@@ -41,8 +41,8 @@
                 <option value="">Select a customer...</option>
                 <%= for user <- @users do %>
                   <option
-                    value={user.id}
-                    selected={to_string(@selected_user_id) == to_string(user.id)}
+                    value={user.uuid}
+                    selected={to_string(@selected_user_id) == to_string(user.uuid)}
                   >
                     {user.email}
                   </option>
@@ -59,16 +59,16 @@
                     </span>
                   </label>
                   <select
-                    name="order[billing_profile_id]"
+                    name="order[billing_profile_uuid]"
                     class="select select-bordered"
                     phx-change="select_billing_profile"
                     required
                   >
                     <%= for profile <- @billing_profiles do %>
                       <option
-                        value={profile.id}
+                        value={profile.uuid}
                         selected={
-                          to_string(@selected_billing_profile_id) == to_string(profile.id)
+                          to_string(@selected_billing_profile_id) == to_string(profile.uuid)
                         }
                       >
                         <%= if profile.type == "company" do %>

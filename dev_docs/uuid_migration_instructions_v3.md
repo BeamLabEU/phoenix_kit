@@ -539,6 +539,51 @@ Cross-referenced every schema against `uuid_fk_columns.ex`. Found and fixed 15 i
 | `dev_docs/uuid_migration_instructions.md` | V1 of this document (detailed reference) |
 | `dev_docs/uuid_migration_instructions_v2.md` | V2 of this document |
 
+## Template & Handler UUID Checklist
+
+When migrating templates from `.id` to `.uuid`, check each usage category:
+
+### Pattern 1 vs Pattern 2 Schemas
+
+- **Pattern 1** (`@primary_key {:uuid, UUIDv7, autogenerate: true}` + `field :id, :integer`):
+  Using `.id` in templates is **WRONG** — use `.uuid`. Includes: User, Role, all Billing,
+  all AI, Emails, Shop, Entities, Referrals, Sync, Settings, AuditLog (**48 schemas**)
+- **Pattern 2** (`@primary_key {:id, UUIDv7, autogenerate: true}`):
+  Using `.id` is **fine** — `.id` IS the UUID. Includes: Tickets, Posts, Comments,
+  Connections, Storage (**27 schemas**)
+
+### What to Check in Templates
+
+| Usage | Priority | Example |
+|-------|----------|---------|
+| URL interpolation | **Critical** | `"/admin/users/#{user.id}"` → `user.uuid` |
+| `phx-value-*` attributes | **High** | `phx-value-id={item.id}` → `item.uuid` |
+| `<option value={..}>` in selects | **High** | `value={user.id}` → `user.uuid` |
+| `selected=` comparisons | **High** | `to_string(x.id) == y` → `to_string(x.uuid) == y` |
+| Display text ("ID: ...") | **Low** | `ID: {user.id}` → `user.uuid` |
+| `checked={x.id in @list}` | **High** | Use `.uuid` and store UUIDs in the list |
+
+### What to Check in Handlers
+
+| Pattern | Fix |
+|---------|-----|
+| `Integer.parse(id_string)` | Remove, pass UUID string directly to context |
+| `to_string(&1.id) == param` | Change to `to_string(&1.uuid) == param` |
+| `Enum.find(list, &(&1.id == id))` | Use `&(to_string(&1.uuid) == id_str)` |
+| `Enum.map(list, & &1.id)` for selection | Use `& &1.uuid` |
+| `Repo.get(Schema, integer_id)` | Use `where([x], x.id == ^id)` for integer lookup |
+
+### Common Mistakes That Slip Through
+
+1. **Helper functions one layer deep** — snapshot builders, validation functions,
+   and notifier helpers that load a record but don't propagate its UUID to attrs
+2. **`Repo.get/2` on UUID-PK schemas** — silently breaks when `@primary_key` changes
+   from `:id` to `:uuid`, since `Repo.get` always queries by the PK field name
+3. **`Integer.parse` in event handlers** — works today with integer `.id` values,
+   crashes when templates switch to `.uuid` strings
+4. **Form select `selected=` comparisons** — `to_string(x.id) == param` won't match
+   when param becomes a UUID string
+
 ## Verification
 
 After any migration-related changes:
@@ -552,3 +597,5 @@ After any migration-related changes:
    WHERE user_id IS NOT NULL AND user_uuid IS NULL;
    ```
 5. `mix test` — smoke tests pass
+6. Grep for remaining `.id}` in `.heex` files — filter out Pattern 2 schemas (tickets,
+   posts, comments, connections, storage) which are safe

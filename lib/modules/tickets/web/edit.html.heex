@@ -43,10 +43,10 @@
               <label class="label">
                 <span class="label-text font-medium">Customer</span>
               </label>
-              <select name="ticket[user_id]" class="select select-bordered w-full">
+              <select name="ticket[user_uuid]" class="select select-bordered w-full">
                 <option value="">Current User (You)</option>
                 <%= for user <- @all_users do %>
-                  <option value={user.id}>{user.email}</option>
+                  <option value={user.uuid}>{user.email}</option>
                 <% end %>
               </select>
               <label class="label">
@@ -107,10 +107,13 @@
               <label class="label">
                 <span class="label-text font-medium">Assigned To</span>
               </label>
-              <select name="ticket[assigned_to_id]" class="select select-bordered w-full">
+              <select name="ticket[assigned_to_uuid]" class="select select-bordered w-full">
                 <option value="">Unassigned</option>
                 <%= for user <- @staff_users do %>
-                  <option value={user.id} selected={@form[:assigned_to_id].value == user.id}>
+                  <option
+                    value={user.uuid}
+                    selected={to_string(@form[:assigned_to_uuid].value) == to_string(user.uuid)}
+                  >
                     {user.email}
                   </option>
                 <% end %>

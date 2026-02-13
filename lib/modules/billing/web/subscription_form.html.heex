@@ -50,7 +50,7 @@
                   <.user_avatar user={@selected_user} size="md" />
                   <div>
                     <div class="font-medium">{@selected_user.email}</div>
-                    <div class="text-sm text-base-content/60">ID: {@selected_user.id}</div>
+                    <div class="text-sm text-base-content/60">ID: {@selected_user.uuid}</div>
                   </div>
                 </div>
                 <button type="button" phx-click="clear_user" class="btn btn-ghost btn-sm">
@@ -88,7 +88,7 @@
                           <.user_avatar user={user} size="sm" />
                           <div>
                             <div class="font-medium">{user.email}</div>
-                            <div class="text-xs text-base-content/60">ID: {user.id}</div>
+                            <div class="text-xs text-base-content/60">ID: {user.uuid}</div>
                           </div>
                         </button>
                       <% end %>
@@ -124,8 +124,8 @@
                 <option value="">Choose a plan...</option>
                 <%= for plan <- @plans do %>
                   <option
-                    value={plan.id}
-                    selected={to_string(@selected_plan_id) == to_string(plan.id)}
+                    value={plan.uuid}
+                    selected={to_string(@selected_plan_id) == to_string(plan.uuid)}
                   >
                     {plan.name} -
                     <.currency_compact amount={plan.price} currency={plan.currency} />
@@ -193,8 +193,8 @@
                   <option value="">No payment method</option>
                   <%= for pm <- @payment_methods do %>
                     <option
-                      value={pm.id}
-                      selected={to_string(@selected_payment_method_id) == to_string(pm.id)}
+                      value={pm.uuid}
+                      selected={to_string(@selected_payment_method_id) == to_string(pm.uuid)}
                     >
                       {format_payment_method(pm)}
                       <%= if pm.is_default do %>
