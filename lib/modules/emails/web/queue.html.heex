@@ -230,9 +230,9 @@
                       <input
                         type="checkbox"
                         class="checkbox checkbox-sm"
-                        checked={email.id in @selected_emails}
+                        checked={email.uuid in @selected_emails}
                         phx-click="toggle_email_selection"
-                        phx-value-email_id={email.id}
+                        phx-value-email_id={email.uuid}
                       />
                     </.table_default_cell>
                     <.table_default_cell class="font-mono text-xs">
@@ -250,7 +250,7 @@
                     <.table_default_cell>
                       <button
                         phx-click="retry_email"
-                        phx-value-email_id={email.id}
+                        phx-value-email_id={email.uuid}
                         class="btn btn-xs btn-outline btn-success"
                       >
                         <.icon name="hero-arrow-path" class="w-3 h-3" /> Retry

@@ -57,7 +57,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
       {:ok, subscription} ->
         {:noreply,
          socket
-         |> assign(:subscription, reload_subscription(subscription.id))
+         |> assign(:subscription, reload_subscription(subscription.uuid))
          |> put_flash(:info, "Subscription cancelled immediately")}
 
       {:error, reason} ->
@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
       {:ok, subscription} ->
         {:noreply,
          socket
-         |> assign(:subscription, reload_subscription(subscription.id))
+         |> assign(:subscription, reload_subscription(subscription.uuid))
          |> put_flash(:info, "Subscription will cancel at period end")}
 
       {:error, reason} ->
@@ -85,7 +85,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
       {:ok, subscription} ->
         {:noreply,
          socket
-         |> assign(:subscription, reload_subscription(subscription.id))
+         |> assign(:subscription, reload_subscription(subscription.uuid))
          |> put_flash(:info, "Subscription resumed")}
 
       {:error, reason} ->
@@ -99,7 +99,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
       {:ok, subscription} ->
         {:noreply,
          socket
-         |> assign(:subscription, reload_subscription(subscription.id))
+         |> assign(:subscription, reload_subscription(subscription.uuid))
          |> put_flash(:info, "Subscription paused")}
 
       {:error, reason} ->
@@ -130,12 +130,12 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
   def handle_event("change_plan", _params, socket) do
     %{subscription: subscription, selected_new_plan_id: new_plan_id} = socket.assigns
 
-    if new_plan_id && to_string(new_plan_id) != to_string(subscription.plan_id) do
+    if new_plan_id && to_string(new_plan_id) != to_string(subscription.plan_uuid) do
       case Billing.change_subscription_plan(subscription, new_plan_id) do
         {:ok, updated_subscription} ->
           {:noreply,
            socket
-           |> assign(:subscription, reload_subscription(updated_subscription.id))
+           |> assign(:subscription, reload_subscription(updated_subscription.uuid))
            |> assign(:show_change_plan_modal, false)
            |> put_flash(:info, "Subscription plan changed successfully")}
 

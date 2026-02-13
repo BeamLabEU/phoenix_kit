@@ -181,7 +181,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         enabled = Permissions.enabled_module_keys()
         # Only show keys that are both grantable AND enabled
         displayable = MapSet.intersection(grantable, enabled)
-        current_keys = Permissions.get_permissions_for_role(role.id) |> MapSet.new()
+        current_keys = Permissions.get_permissions_for_role(role.uuid) |> MapSet.new()
         editable_checked = MapSet.intersection(current_keys, displayable)
         # Preserve: keys outside displayable set (not grantable OR disabled modules)
         preserved = MapSet.difference(current_keys, displayable)
@@ -416,10 +416,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   end
 
   defp find_role_by_id(roles, id_str) when is_binary(id_str) do
-    case Integer.parse(id_str) do
-      {id, ""} -> Enum.find(roles, &(&1.id == id))
-      _ -> nil
-    end
+    Enum.find(roles, &(to_string(&1.uuid) == id_str))
   end
 
   defp close_modals_for_deleted_role(socket, deleted_role) do

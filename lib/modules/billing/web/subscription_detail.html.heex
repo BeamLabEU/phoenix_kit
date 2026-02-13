@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="{@project_title} Subscription #{@subscription.id}"
+  page_title="{@project_title} Subscription #{@subscription.uuid}"
   current_path={@url_path}
   project_title={@project_title}
 >
@@ -17,7 +17,7 @@
         </.link>
         <div>
           <div class="flex items-center gap-3">
-            <h1 class="text-3xl font-bold">Subscription #{@subscription.id}</h1>
+            <h1 class="text-3xl font-bold">Subscription #{@subscription.uuid}</h1>
             <span class={["badge badge-lg", status_badge_class(@subscription.status)]}>
               {@subscription.status}
             </span>
@@ -363,10 +363,10 @@
           >
             <option value="">Choose a plan...</option>
             <%= for plan <- @plans do %>
-              <%= if plan.id != @subscription.plan_id do %>
+              <%= if plan.uuid != @subscription.plan_uuid do %>
                 <option
-                  value={plan.id}
-                  selected={to_string(@selected_new_plan_id) == to_string(plan.id)}
+                  value={plan.uuid}
+                  selected={to_string(@selected_new_plan_id) == to_string(plan.uuid)}
                 >
                   {plan.name} - <.currency_compact amount={plan.price} currency={plan.currency} />
                   / {format_interval(plan.interval, plan.interval_count)}

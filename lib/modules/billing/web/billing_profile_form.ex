@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
         |> assign(:url_path, Routes.path("/admin/billing/profiles/#{profile.uuid}/edit"))
         |> assign(:profile, profile)
         |> assign(:form, to_form(changeset))
-        |> assign(:selected_user_id, profile.user_id)
+        |> assign(:selected_user_id, profile.user_uuid)
         |> assign(:profile_type, profile.type)
         |> assign(:subdivision_label, CountryData.get_subdivision_label(profile.country))
     end
@@ -106,7 +106,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
   def handle_event("save", %{"billing_profile" => params}, socket) do
     params =
       params
-      |> Map.put("user_id", socket.assigns.selected_user_id)
+      |> Map.put("user_uuid", socket.assigns.selected_user_id)
       |> Map.put("type", socket.assigns.profile_type)
 
     save_profile(socket, params)
