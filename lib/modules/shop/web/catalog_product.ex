@@ -456,8 +456,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     option_name = detail[:key] || "option"
 
     case detail[:value] do
-      nil -> "Selected options are no longer available.\nPlease refresh and select again."
-      val -> "Option \"#{option_name}: #{val}\" is no longer available.\nPlease refresh the page for current options."
+      nil ->
+        "Selected options are no longer available.\nPlease refresh and select again."
+
+      val ->
+        "Option \"#{option_name}: #{val}\" is no longer available.\nPlease refresh the page for current options."
     end
   end
 
