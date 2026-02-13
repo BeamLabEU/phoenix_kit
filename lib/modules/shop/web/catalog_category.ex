@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
         # Load storefront filters
         {enabled_filters, filter_values} =
-          FilterHelpers.load_filter_data(category_id: category.id)
+          FilterHelpers.load_filter_data(category_uuid: category.uuid)
 
         active_filters = FilterHelpers.parse_filter_params(params, enabled_filters)
         filter_opts = FilterHelpers.build_query_opts(active_filters, enabled_filters)

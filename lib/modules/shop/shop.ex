@@ -263,22 +263,22 @@ defmodule PhoenixKit.Modules.Shop do
   For metadata_option: [%{value: "8 inches", count: 3}, ...]
 
   Options:
-  - `:category_id` - Scope aggregation to a specific category
+  - `:category_uuid` - Scope aggregation to a specific category by UUID
   """
   def aggregate_filter_values(opts \\ []) do
     filters = get_enabled_storefront_filters()
-    category_id = Keyword.get(opts, :category_id)
+    category_uuid = Keyword.get(opts, :category_uuid)
 
     Enum.reduce(filters, %{}, fn filter, acc ->
-      Map.put(acc, filter["key"], aggregate_single_filter(filter, category_id))
+      Map.put(acc, filter["key"], aggregate_single_filter(filter, category_uuid))
     end)
   end
 
-  defp aggregate_single_filter(%{"type" => "price_range"}, category_id) do
+  defp aggregate_single_filter(%{"type" => "price_range"}, category_uuid) do
     query =
       Product
       |> where([p], p.status == "active")
-      |> maybe_filter_category(category_id)
+      |> maybe_filter_category(category_uuid)
 
     min_price = repo().aggregate(query, :min, :price)
     max_price = repo().aggregate(query, :max, :price)
@@ -287,34 +287,34 @@ defmodule PhoenixKit.Modules.Shop do
     _ -> %{min: nil, max: nil}
   end
 
-  defp aggregate_single_filter(%{"type" => "vendor"}, category_id) do
+  defp aggregate_single_filter(%{"type" => "vendor"}, category_uuid) do
     query =
       Product
       |> where([p], p.status == "active" and not is_nil(p.vendor) and p.vendor != "")
-      |> maybe_filter_category(category_id)
+      |> maybe_filter_category(category_uuid)
       |> group_by([p], p.vendor)
-      |> select([p], %{value: p.vendor, count: count(p.id)})
-      |> order_by([p], desc: count(p.id))
+      |> select([p], %{value: p.vendor, count: count(p.uuid)})
+      |> order_by([p], desc: count(p.uuid))
 
     repo().all(query)
   rescue
     _ -> []
   end
 
-  defp aggregate_single_filter(%{"type" => "metadata_option", "option_key" => key}, category_id)
+  defp aggregate_single_filter(%{"type" => "metadata_option", "option_key" => key}, category_uuid)
        when is_binary(key) do
     # Query distinct option values from metadata->'_option_values'->key JSONB array
     sql = """
-    SELECT val AS value, COUNT(DISTINCT p.id) AS count
+    SELECT val AS value, COUNT(DISTINCT p.uuid) AS count
     FROM phoenix_kit_shop_products p,
          jsonb_array_elements_text(COALESCE(p.metadata->'_option_values'->$1, '[]'::jsonb)) AS val
     WHERE p.status = 'active'
-    #{if category_id, do: "AND p.category_id = $2", else: ""}
+    #{if category_uuid, do: "AND p.category_uuid = $2::uuid", else: ""}
     GROUP BY val
     ORDER BY count DESC
     """
 
-    params = if category_id, do: [key, category_id], else: [key]
+    params = if category_uuid, do: [key, category_uuid], else: [key]
 
     case repo().query(sql, params) do
       {:ok, %{rows: rows}} ->
@@ -327,10 +327,10 @@ defmodule PhoenixKit.Modules.Shop do
     _ -> []
   end
 
-  defp aggregate_single_filter(_filter, _category_id), do: []
+  defp aggregate_single_filter(_filter, _category_uuid), do: []
 
   defp maybe_filter_category(query, nil), do: query
-  defp maybe_filter_category(query, id), do: where(query, [p], p.category_id == ^id)
+  defp maybe_filter_category(query, uuid), do: where(query, [p], p.category_uuid == ^uuid)
 
   @doc """
   Discovers filterable option keys from product metadata.
@@ -340,7 +340,7 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def discover_filterable_options do
     sql = """
-    SELECT key, COUNT(DISTINCT p.id) AS product_count
+    SELECT key, COUNT(DISTINCT p.uuid) AS product_count
     FROM phoenix_kit_shop_products p,
          jsonb_object_keys(COALESCE(p.metadata->'_option_values', '{}'::jsonb)) AS key
     WHERE p.status = 'active'
@@ -2352,7 +2352,7 @@ defmodule PhoenixKit.Modules.Shop do
       left_join: c in Category,
       on: c.uuid == p.category_uuid,
       where: is_nil(c.uuid) or c.status != "hidden",
-      distinct: p.id
+      distinct: p.uuid
     )
   end
 

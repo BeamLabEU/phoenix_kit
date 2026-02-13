@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.FilterHelpers do
   Returns `{filters, filter_values}` tuple.
 
   Options:
-  - `:category_id` - Scope aggregation to a category
+  - `:category_uuid` - Scope aggregation to a category by UUID
   """
   def load_filter_data(opts \\ []) do
     filters = Shop.get_enabled_storefront_filters()

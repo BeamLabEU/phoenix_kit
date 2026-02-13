@@ -80,8 +80,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         all_categories = Shop.list_active_categories(preload: [:featured_product])
 
         # Parse filter context from URL for navigation back-links
-        category_id = if product.category, do: product.category.id, else: nil
-        {enabled_filters, _fv} = FilterHelpers.load_filter_data(category_id: category_id)
+        category_uuid = if product.category, do: product.category.uuid, else: nil
+        {enabled_filters, _fv} = FilterHelpers.load_filter_data(category_uuid: category_uuid)
         active_filters = FilterHelpers.parse_filter_params(params, enabled_filters)
         filter_qs = FilterHelpers.build_query_string(active_filters, enabled_filters)
 
@@ -212,8 +212,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     all_categories = Shop.list_active_categories(preload: [:featured_product])
 
     # Compute filter_qs from URL params (preserves filters across cross-language redirect)
-    category_id = if product.category, do: product.category.id, else: nil
-    {enabled_filters, _fv} = FilterHelpers.load_filter_data(category_id: category_id)
+    category_uuid = if product.category, do: product.category.uuid, else: nil
+    {enabled_filters, _fv} = FilterHelpers.load_filter_data(category_uuid: category_uuid)
     active_filters = FilterHelpers.parse_filter_params(params, enabled_filters)
     filter_qs = FilterHelpers.build_query_string(active_filters, enabled_filters)
 
