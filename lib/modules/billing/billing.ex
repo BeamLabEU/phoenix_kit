@@ -2139,67 +2139,11 @@ defmodule PhoenixKit.Modules.Billing do
       Billing.list_transactions(type: "payment", limit: 10)
   """
   def list_transactions(opts \\ []) do
-    query =
+    transactions =
       Transaction
       |> order_by([t], desc: t.inserted_at)
-
-    query =
-      cond do
-        invoice_uuid = opts[:invoice_uuid] ->
-          where(query, [t], t.invoice_uuid == ^invoice_uuid)
-
-        invoice_id = opts[:invoice_id] ->
-          where(query, [t], t.invoice_id == ^invoice_id)
-
-        true ->
-          query
-      end
-
-    query =
-      if user_id = opts[:user_id] do
-        user_uuid = extract_user_uuid(user_id)
-        where(query, [t], t.user_uuid == ^user_uuid)
-      else
-        query
-      end
-
-    query =
-      if payment_method = opts[:payment_method] do
-        where(query, [t], t.payment_method == ^payment_method)
-      else
-        query
-      end
-
-    query =
-      case opts[:type] do
-        "payment" -> where(query, [t], t.amount > 0)
-        "refund" -> where(query, [t], t.amount < 0)
-        _ -> query
-      end
-
-    query =
-      if search = opts[:search] do
-        search_term = "%#{search}%"
-        where(query, [t], ilike(t.transaction_number, ^search_term))
-      else
-        query
-      end
-
-    query =
-      if limit = opts[:limit] do
-        limit(query, ^limit)
-      else
-        query
-      end
-
-    query =
-      if offset = opts[:offset] do
-        offset(query, ^offset)
-      else
-        query
-      end
-
-    transactions = repo().all(query)
+      |> filter_transactions(opts)
+      |> repo().all()
 
     if preloads = opts[:preload] do
       repo().preload(transactions, preloads)
@@ -2207,6 +2151,60 @@ defmodule PhoenixKit.Modules.Billing do
       transactions
     end
   end
+
+  defp filter_transactions(query, opts) do
+    query
+    |> filter_transactions_by_invoice(opts)
+    |> filter_transactions_by_user(opts[:user_id])
+    |> filter_transactions_by_payment_method(opts[:payment_method])
+    |> filter_transactions_by_type(opts[:type])
+    |> filter_transactions_by_search(opts[:search])
+    |> maybe_limit(opts[:limit])
+    |> maybe_offset(opts[:offset])
+  end
+
+  defp filter_transactions_by_invoice(query, opts) do
+    cond do
+      invoice_uuid = opts[:invoice_uuid] ->
+        where(query, [t], t.invoice_uuid == ^invoice_uuid)
+
+      invoice_id = opts[:invoice_id] ->
+        where(query, [t], t.invoice_id == ^invoice_id)
+
+      true ->
+        query
+    end
+  end
+
+  defp filter_transactions_by_user(query, nil), do: query
+
+  defp filter_transactions_by_user(query, user_id) do
+    user_uuid = extract_user_uuid(user_id)
+    where(query, [t], t.user_uuid == ^user_uuid)
+  end
+
+  defp filter_transactions_by_payment_method(query, nil), do: query
+
+  defp filter_transactions_by_payment_method(query, payment_method) do
+    where(query, [t], t.payment_method == ^payment_method)
+  end
+
+  defp filter_transactions_by_type(query, "payment"), do: where(query, [t], t.amount > 0)
+  defp filter_transactions_by_type(query, "refund"), do: where(query, [t], t.amount < 0)
+  defp filter_transactions_by_type(query, _), do: query
+
+  defp filter_transactions_by_search(query, nil), do: query
+
+  defp filter_transactions_by_search(query, search) do
+    search_term = "%#{search}%"
+    where(query, [t], ilike(t.transaction_number, ^search_term))
+  end
+
+  defp maybe_limit(query, nil), do: query
+  defp maybe_limit(query, limit), do: limit(query, ^limit)
+
+  defp maybe_offset(query, nil), do: query
+  defp maybe_offset(query, offset), do: offset(query, ^offset)
 
   @doc """
   Lists transactions with count for pagination.

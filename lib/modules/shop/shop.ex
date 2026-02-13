@@ -809,33 +809,7 @@ defmodule PhoenixKit.Modules.Shop do
   def list_category_product_options(category_id) do
     default_lang = Translations.default_language()
 
-    query =
-      cond do
-        is_integer(category_id) ->
-          from(p in Product,
-            where: p.category_id == ^category_id,
-            where: p.status == "active",
-            where:
-              not is_nil(p.featured_image_id) or
-                (not is_nil(p.featured_image) and p.featured_image != ""),
-            order_by: [asc: p.id],
-            select: {p.title, p.uuid}
-          )
-
-        is_binary(category_id) && match?({:ok, _}, Ecto.UUID.cast(category_id)) ->
-          from(p in Product,
-            where: p.category_uuid == ^category_id,
-            where: p.status == "active",
-            where:
-              not is_nil(p.featured_image_id) or
-                (not is_nil(p.featured_image) and p.featured_image != ""),
-            order_by: [asc: p.id],
-            select: {p.title, p.uuid}
-          )
-
-        true ->
-          nil
-      end
+    query = category_product_options_query(category_id)
 
     if query do
       query
@@ -853,6 +827,34 @@ defmodule PhoenixKit.Modules.Shop do
       []
     end
   end
+
+  defp category_product_options_query(category_id) when is_integer(category_id) do
+    from(p in Product,
+      where: p.category_id == ^category_id,
+      where: p.status == "active",
+      where:
+        not is_nil(p.featured_image_id) or
+          (not is_nil(p.featured_image) and p.featured_image != ""),
+      order_by: [asc: p.id],
+      select: {p.title, p.uuid}
+    )
+  end
+
+  defp category_product_options_query(category_id) when is_binary(category_id) do
+    if match?({:ok, _}, Ecto.UUID.cast(category_id)) do
+      from(p in Product,
+        where: p.category_uuid == ^category_id,
+        where: p.status == "active",
+        where:
+          not is_nil(p.featured_image_id) or
+            (not is_nil(p.featured_image) and p.featured_image != ""),
+        order_by: [asc: p.id],
+        select: {p.title, p.uuid}
+      )
+    end
+  end
+
+  defp category_product_options_query(_), do: nil
 
   # ============================================
   # SHIPPING METHODS
@@ -2278,32 +2280,7 @@ defmodule PhoenixKit.Modules.Shop do
         acc + i.quantity
       end)
 
-    # Recalculate shipping if method selected
-    shipping_amount =
-      if cart.shipping_method_uuid || cart.shipping_method_id do
-        shipping_method =
-          (cart.shipping_method_uuid &&
-             repo().get_by(ShippingMethod, uuid: cart.shipping_method_uuid)) ||
-            repo().get_by(ShippingMethod, id: cart.shipping_method_id)
-
-        case shipping_method do
-          nil ->
-            Decimal.new("0")
-
-          method ->
-            if ShippingMethod.available_for?(method, %{
-                 weight_grams: total_weight,
-                 subtotal: subtotal,
-                 country: cart.shipping_country
-               }) do
-              ShippingMethod.calculate_cost(method, subtotal)
-            else
-              Decimal.new("0")
-            end
-        end
-      else
-        cart.shipping_amount || Decimal.new("0")
-      end
+    shipping_amount = calculate_shipping(cart, subtotal, total_weight)
 
     # Calculate tax
     tax_rate = get_tax_rate(cart)
@@ -2328,6 +2305,33 @@ defmodule PhoenixKit.Modules.Shop do
     })
     |> repo().update!()
     |> repo().preload([:items, :shipping_method], force: true)
+  end
+
+  defp calculate_shipping(cart, subtotal, total_weight) do
+    if cart.shipping_method_uuid || cart.shipping_method_id do
+      shipping_method =
+        (cart.shipping_method_uuid &&
+           repo().get_by(ShippingMethod, uuid: cart.shipping_method_uuid)) ||
+          repo().get_by(ShippingMethod, id: cart.shipping_method_id)
+
+      case shipping_method do
+        nil ->
+          Decimal.new("0")
+
+        method ->
+          if ShippingMethod.available_for?(method, %{
+               weight_grams: total_weight,
+               subtotal: subtotal,
+               country: cart.shipping_country
+             }) do
+            ShippingMethod.calculate_cost(method, subtotal)
+          else
+            Decimal.new("0")
+          end
+      end
+    else
+      cart.shipping_amount || Decimal.new("0")
+    end
   end
 
   defp get_tax_rate(%Cart{shipping_country: nil}), do: Decimal.new("0")

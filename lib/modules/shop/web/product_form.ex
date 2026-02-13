@@ -178,57 +178,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
         socket
       end
 
-    # Update metadata from form params
-    # Convert final_price inputs to modifier values for proper preview
     base_price = parse_decimal(product_params["price"])
     raw_metadata = product_params["metadata"] || %{}
-
-    # Extract _new_option_value_* fields from root params (not product_params!)
-    new_value_inputs =
-      params
-      |> Enum.filter(fn {k, _v} -> String.starts_with?(k, "_new_option_value_") end)
-      |> Enum.map(fn {k, v} ->
-        key = String.replace_prefix(k, "_new_option_value_", "")
-        {key, v}
-      end)
-      |> Map.new()
-
-    # Merge with existing tracked values (keep old if new is empty)
-    new_value_inputs =
-      Map.merge(socket.assigns[:new_value_inputs] || %{}, new_value_inputs, fn _k, old, new ->
-        if new == "", do: old, else: new
-      end)
-
-    # Extract add_option inputs from root params
+    new_value_inputs = extract_new_value_inputs(params, socket.assigns[:new_value_inputs] || %{})
     add_option_key = params["_add_option_key"] || ""
     add_option_value = params["_add_option_first_value"] || ""
-
     metadata = convert_final_prices_to_modifiers(raw_metadata, base_price)
-
-    # Update price range when price changes
-    socket =
-      if socket.assigns.live_action == :edit do
-        new_price = product_params["price"]
-
-        if new_price && new_price != "" do
-          base_price = Decimal.new(new_price)
-
-          {min_price, max_price} =
-            Options.get_price_range(
-              socket.assigns.price_affecting_options,
-              base_price,
-              metadata
-            )
-
-          socket
-          |> assign(:min_price, min_price)
-          |> assign(:max_price, max_price)
-        else
-          socket
-        end
-      else
-        socket
-      end
+    socket = maybe_update_price_range(socket, product_params, metadata)
 
     socket
     |> assign(:changeset, changeset)
@@ -2205,6 +2161,32 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   defp convert_modifier_data(_, _), do: nil
+
+  defp extract_new_value_inputs(params, existing) do
+    new =
+      params
+      |> Enum.filter(fn {k, _v} -> String.starts_with?(k, "_new_option_value_") end)
+      |> Enum.map(fn {k, v} ->
+        {String.replace_prefix(k, "_new_option_value_", ""), v}
+      end)
+      |> Map.new()
+
+    Map.merge(existing, new, fn _k, old, new -> if new == "", do: old, else: new end)
+  end
+
+  defp maybe_update_price_range(socket, product_params, metadata) do
+    with :edit <- socket.assigns.live_action,
+         new_price when new_price not in [nil, ""] <- product_params["price"] do
+      base_price = Decimal.new(new_price)
+
+      {min_price, max_price} =
+        Options.get_price_range(socket.assigns.price_affecting_options, base_price, metadata)
+
+      socket |> assign(:min_price, min_price) |> assign(:max_price, max_price)
+    else
+      _ -> socket
+    end
+  end
 
   # Parse string to Decimal safely
   defp parse_decimal(nil), do: Decimal.new("0")

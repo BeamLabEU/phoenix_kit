@@ -8,6 +8,7 @@ defmodule PhoenixKit.Users.ScopeNotifier do
   """
 
   alias PhoenixKit.PubSub.Manager
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
   @topic_prefix "phoenix_kit:user_scope:"
@@ -81,7 +82,7 @@ defmodule PhoenixKit.Users.ScopeNotifier do
 
   # Resolve UUID string to integer user ID, then delegate
   defp resolve_and_broadcast(uuid) do
-    case PhoenixKit.Users.Auth.get_user!(uuid) do
+    case Auth.get_user!(uuid) do
       %User{id: int_id} -> broadcast_roles_updated(int_id)
       _ -> :ok
     end
@@ -90,7 +91,7 @@ defmodule PhoenixKit.Users.ScopeNotifier do
   end
 
   defp resolve_and_subscribe(uuid) do
-    case PhoenixKit.Users.Auth.get_user!(uuid) do
+    case Auth.get_user!(uuid) do
       %User{id: int_id} -> subscribe(int_id)
       _ -> :ok
     end
@@ -99,7 +100,7 @@ defmodule PhoenixKit.Users.ScopeNotifier do
   end
 
   defp resolve_and_unsubscribe(uuid) do
-    case PhoenixKit.Users.Auth.get_user!(uuid) do
+    case Auth.get_user!(uuid) do
       %User{id: int_id} -> unsubscribe(int_id)
       _ -> :ok
     end
