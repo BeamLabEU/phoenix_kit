@@ -129,7 +129,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
     # Auto-select default profile if available, otherwise select first profile
     default_profile = Enum.find(billing_profiles, & &1.is_default)
     selected_profile = default_profile || List.first(billing_profiles)
-    selected_profile_id = if selected_profile, do: selected_profile.id, else: nil
+    selected_profile_id = if selected_profile, do: selected_profile.uuid, else: nil
 
     # Get country tax info for selected profile
     {country_tax_rate, country_name, country_vat_percent} =

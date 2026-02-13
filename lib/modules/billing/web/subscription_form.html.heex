@@ -255,7 +255,7 @@
             <div class="space-y-1">
               <div class="text-sm text-base-content/60">Plan</div>
               <%= if @selected_plan_id do %>
-                <% plan = Enum.find(@plans, &(to_string(&1.id) == to_string(@selected_plan_id))) %>
+                <% plan = Enum.find(@plans, &(to_string(&1.uuid) == to_string(@selected_plan_id))) %>
                 <%= if plan do %>
                   <div class="font-medium">{plan.name}</div>
                   <div class="text-2xl font-bold mt-1">
@@ -285,7 +285,7 @@
                 <% pm =
                   Enum.find(
                     @payment_methods,
-                    &(to_string(&1.id) == to_string(@selected_payment_method_id))
+                    &(to_string(&1.uuid) == to_string(@selected_payment_method_id))
                   ) %>
                 <%= if pm do %>
                   <div class="font-medium">{format_payment_method(pm)}</div>
