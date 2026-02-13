@@ -23,20 +23,42 @@ defmodule PhoenixKit.Users.RoleAssignment do
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
+          uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          uuid: Ecto.UUID.t() | nil,
           user_id: integer(),
           role_id: integer(),
           assigned_by: integer() | nil,
+          user_uuid: UUIDv7.t() | nil,
+          role_uuid: UUIDv7.t() | nil,
+          assigned_by_uuid: UUIDv7.t() | nil,
           assigned_at: NaiveDateTime.t(),
           inserted_at: NaiveDateTime.t()
         }
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_user_role_assignments" do
-    field :uuid, Ecto.UUID, read_after_writes: true
-    belongs_to :user, PhoenixKit.Users.Auth.User
-    belongs_to :role, PhoenixKit.Users.Role
-    belongs_to :assigned_by_user, PhoenixKit.Users.Auth.User, foreign_key: :assigned_by
+    field :id, :integer, read_after_writes: true
+    field :user_id, :integer
+
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :role_id, :integer
+
+    belongs_to :role, PhoenixKit.Users.Role,
+      foreign_key: :role_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :assigned_by, :integer
+
+    belongs_to :assigned_by_user, PhoenixKit.Users.Auth.User,
+      foreign_key: :assigned_by_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     field :assigned_at, :naive_datetime
 
@@ -61,16 +83,24 @@ defmodule PhoenixKit.Users.RoleAssignment do
   """
   def changeset(role_assignment, attrs) do
     role_assignment
-    |> cast(attrs, [:user_id, :role_id, :assigned_by, :assigned_at])
-    |> validate_required([:user_id, :role_id])
+    |> cast(attrs, [
+      :user_id,
+      :user_uuid,
+      :role_id,
+      :role_uuid,
+      :assigned_by,
+      :assigned_by_uuid,
+      :assigned_at
+    ])
+    |> validate_required([:user_uuid, :role_uuid])
     |> put_assigned_at()
-    |> unique_constraint([:user_id, :role_id],
-      name: :phoenix_kit_user_role_assignments_user_id_role_id_index,
+    |> unique_constraint([:user_uuid, :role_uuid],
+      name: :phoenix_kit_role_assignments_user_uuid_role_uuid_idx,
       message: "user already has this role"
     )
-    |> foreign_key_constraint(:user_id)
-    |> foreign_key_constraint(:role_id)
-    |> foreign_key_constraint(:assigned_by)
+    |> foreign_key_constraint(:user_uuid)
+    |> foreign_key_constraint(:role_uuid)
+    |> foreign_key_constraint(:assigned_by_uuid)
   end
 
   # Set assigned_at to current time if not provided

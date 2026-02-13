@@ -115,8 +115,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   def handle_event("show_role_management", %{"user_id" => user_id}, socket) do
-    user_id_int = String.to_integer(user_id)
-    user = Auth.get_user!(user_id_int)
+    user = Auth.get_user!(user_id)
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Prevent self-modification for critical operations
@@ -125,7 +124,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       {:noreply, socket}
     else
       # Get fresh user with preloaded roles to ensure accurate state
-      user_with_roles = Auth.get_user_with_roles(user_id_int)
+      user_with_roles = Auth.get_user_with_roles(user.id)
 
       user_roles = Roles.get_user_roles(user_with_roles)
       all_roles = Roles.list_roles()

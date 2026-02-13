@@ -49,6 +49,8 @@ defmodule PhoenixKit.Modules.Connections.Block do
   schema "phoenix_kit_user_blocks" do
     belongs_to :blocker, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :blocked, PhoenixKit.Users.Auth.User, type: :integer
+    field :blocker_uuid, UUIDv7
+    field :blocked_uuid, UUIDv7
 
     field :reason, :string
     field :inserted_at, :naive_datetime
@@ -74,7 +76,7 @@ defmodule PhoenixKit.Modules.Connections.Block do
   """
   def changeset(block, attrs) do
     block
-    |> cast(attrs, [:blocker_id, :blocked_id, :reason])
+    |> cast(attrs, [:blocker_id, :blocked_id, :blocker_uuid, :blocked_uuid, :reason])
     |> validate_required([:blocker_id, :blocked_id])
     |> validate_length(:reason, max: 500)
     |> validate_not_self_block()

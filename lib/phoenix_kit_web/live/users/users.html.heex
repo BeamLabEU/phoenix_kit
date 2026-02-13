@@ -169,7 +169,7 @@
                         <% column_id == "email" -> %>
                           <.link
                             navigate={
-                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")
+                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
                             }
                             class="flex items-center gap-3 hover:opacity-80 transition-opacity"
                           >
@@ -299,7 +299,7 @@
                             <%!-- View User Details --%>
                             <.link
                               navigate={
-                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")
+                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
                               }
                               class="btn btn-xs btn-outline btn-info"
                               title="View user details"
@@ -309,7 +309,7 @@
                             <%!-- Edit User --%>
                             <.link
                               navigate={
-                                PhoenixKit.Utils.Routes.path("/admin/users/edit/#{user.id}")
+                                PhoenixKit.Utils.Routes.path("/admin/users/edit/#{user.uuid}")
                               }
                               class="btn btn-xs btn-outline btn-secondary"
                               title="Edit user"

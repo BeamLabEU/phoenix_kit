@@ -150,11 +150,9 @@ defmodule PhoenixKit.Modules.Emails.Web.ExportController do
   def export_email_details(conn, %{"id" => email_id}) do
     if Emails.enabled?() do
       try do
-        # Convert string ID to integer
-        email_id = String.to_integer(email_id)
         log = Emails.get_log!(email_id)
-        # Get events for this email
-        events = Emails.list_events_for_log(email_id)
+        # Get events for this email - use the log's uuid for Event query
+        events = Emails.list_events_for_log(log.uuid)
 
         filename = "email_#{email_id}_details_#{Date.utc_today()}.csv"
 

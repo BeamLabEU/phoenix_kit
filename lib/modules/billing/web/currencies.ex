@@ -57,8 +57,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Currencies do
   # --- Toggle / Default / Refresh ---
 
   @impl true
-  def handle_event("toggle_enabled", %{"id" => id}, socket) do
-    currency = Enum.find(socket.assigns.currencies, &(&1.id == String.to_integer(id)))
+  def handle_event("toggle_enabled", %{"uuid" => uuid}, socket) do
+    currency = Enum.find(socket.assigns.currencies, &(&1.uuid == uuid))
 
     case Billing.update_currency(currency, %{enabled: !currency.enabled}) do
       {:ok, _currency} ->
@@ -73,8 +73,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Currencies do
   end
 
   @impl true
-  def handle_event("set_default", %{"id" => id}, socket) do
-    currency = Enum.find(socket.assigns.currencies, &(&1.id == String.to_integer(id)))
+  def handle_event("set_default", %{"uuid" => uuid}, socket) do
+    currency = Enum.find(socket.assigns.currencies, &(&1.uuid == uuid))
 
     case Billing.set_default_currency(currency) do
       {:ok, _currency} ->
@@ -107,8 +107,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Currencies do
   end
 
   @impl true
-  def handle_event("show_edit_form", %{"id" => id}, socket) do
-    currency = Enum.find(socket.assigns.currencies, &(&1.id == String.to_integer(id)))
+  def handle_event("show_edit_form", %{"uuid" => uuid}, socket) do
+    currency = Enum.find(socket.assigns.currencies, &(&1.uuid == uuid))
     changeset = Currency.changeset(currency, %{})
 
     {:noreply,
@@ -165,8 +165,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Currencies do
   # --- Delete ---
 
   @impl true
-  def handle_event("delete_currency", %{"id" => id}, socket) do
-    currency = Enum.find(socket.assigns.currencies, &(&1.id == String.to_integer(id)))
+  def handle_event("delete_currency", %{"uuid" => uuid}, socket) do
+    currency = Enum.find(socket.assigns.currencies, &(&1.uuid == uuid))
 
     case Billing.delete_currency(currency) do
       {:ok, _currency} ->

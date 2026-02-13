@@ -99,8 +99,8 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
     {:noreply, socket}
   end
 
-  def handle_event("archive_entity", %{"id" => id}, socket) do
-    entity = Entities.get_entity!(id)
+  def handle_event("archive_entity", %{"uuid" => uuid}, socket) do
+    entity = Entities.get_entity!(uuid)
 
     # Update entity status to archived
     case Entities.update_entity(entity, %{status: "archived"}) do
@@ -127,8 +127,8 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
     end
   end
 
-  def handle_event("restore_entity", %{"id" => id}, socket) do
-    entity = Entities.get_entity!(id)
+  def handle_event("restore_entity", %{"uuid" => uuid}, socket) do
+    entity = Entities.get_entity!(uuid)
 
     # Restore entity status to published
     case Entities.update_entity(entity, %{status: "published"}) do

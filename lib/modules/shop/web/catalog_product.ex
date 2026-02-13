@@ -72,7 +72,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         calculated_price = Shop.calculate_product_price(product, selected_specs)
 
         # Check if product is already in cart
-        cart_item = find_cart_item_with_specs(user_id, session_id, product.id, selected_specs)
+        cart_item = find_cart_item_with_specs(user_id, session_id, product.uuid, selected_specs)
 
         # Calculate missing required specs for UI (check all selectable specs, not just price-affecting)
         missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
@@ -119,6 +119,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           |> assign(:quantity, 1)
           |> assign(:session_id, session_id)
           |> assign(:user_id, user_id)
+          |> assign(:user_uuid, if(user, do: user.uuid))
           |> assign(:selected_image, first_image(product))
           |> assign(:adding_to_cart, false)
           |> assign(:authenticated, authenticated)
@@ -315,7 +316,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       find_cart_item_with_specs(
         socket.assigns.user_id,
         socket.assigns.session_id,
-        product.id,
+        product.uuid,
         selected_specs
       )
 
@@ -368,6 +369,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     {:ok, cart} =
       Shop.get_or_create_cart(
         user_id: socket.assigns.user_id,
+        user_uuid: socket.assigns[:user_uuid],
         session_id: socket.assigns.session_id
       )
 
@@ -407,7 +409,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         updated_cart_item =
           find_cart_item_after_add(
             updated_cart.items,
-            product.id,
+            product.uuid,
             selected_specs,
             price_affecting_specs
           )
@@ -455,11 +457,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     "#{display_name} (#{quantity} × #{unit_price_str} = #{line_str}) added to cart.\nCart total: #{cart_total_str}"
   end
 
-  defp find_cart_item_after_add(items, product_id, selected_specs, _price_affecting_specs) do
+  defp find_cart_item_after_add(items, product_uuid, selected_specs, _price_affecting_specs) do
     if map_size(selected_specs) > 0 do
-      Enum.find(items, &(&1.product_id == product_id && &1.selected_specs == selected_specs))
+      Enum.find(items, &(&1.product_uuid == product_uuid && &1.selected_specs == selected_specs))
     else
-      Enum.find(items, &(&1.product_id == product_id))
+      Enum.find(items, &(&1.product_uuid == product_uuid))
     end
   end
 
@@ -1178,11 +1180,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   # Find cart item matching selected specs
-  defp find_cart_item_with_specs(user_id, session_id, product_id, selected_specs) do
+  defp find_cart_item_with_specs(user_id, session_id, product_uuid, selected_specs) do
     case Shop.find_active_cart(user_id: user_id, session_id: session_id) do
       %{items: items} when is_list(items) ->
         Enum.find(items, fn item ->
-          item.product_id == product_id &&
+          item.product_uuid == product_uuid &&
             specs_match?(item.selected_specs, selected_specs)
         end)
 

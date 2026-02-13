@@ -64,9 +64,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
   import Ecto.Changeset
 
   alias PhoenixKit.Utils.Slug
-
-  # Standard integer primary key
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   # Regex for extracting variable names from content
   @variable_regex ~r/\{\{(\w+)\}\}/
@@ -90,8 +88,8 @@ defmodule PhoenixKit.Modules.AI.Prompt do
            ]}
 
   schema "phoenix_kit_ai_prompts" do
-    # UUID for external references (URLs, APIs) - DB generates UUIDv7
-    field :uuid, Ecto.UUID, read_after_writes: true
+    # Legacy integer ID - DB generates, Ecto reads back
+    field :id, :integer, read_after_writes: true
 
     # Identity
     field :name, :string

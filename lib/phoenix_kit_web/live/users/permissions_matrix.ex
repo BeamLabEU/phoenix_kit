@@ -74,8 +74,8 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
   def handle_event("toggle_permission", %{"role_id" => role_id_str, "key" => key}, socket) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    with {role_id, ""} <- Integer.parse(role_id_str),
-         role when not is_nil(role) <- Enum.find(socket.assigns.roles, &(&1.id == role_id)),
+    with role when not is_nil(role) <-
+           Enum.find(socket.assigns.roles, &(to_string(&1.uuid) == role_id_str)),
          false <- role.name == "Owner",
          true <- scope != nil && Scope.has_module_access?(scope, "users") do
       grantable =
@@ -85,16 +85,17 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
       if MapSet.member?(grantable, key) do
         granted_by_id = Scope.user_id(scope)
-        role_keys = Map.get(socket.assigns.matrix, role_id, MapSet.new())
+        role_uuid = to_string(role.uuid)
+        role_keys = Map.get(socket.assigns.matrix, role_uuid, MapSet.new())
         label = Permissions.module_label(key)
 
         if MapSet.member?(role_keys, key) do
-          Permissions.revoke_permission(role_id, key)
+          Permissions.revoke_permission(role_uuid, key)
 
           {:noreply,
            socket |> put_flash(:info, "Revoked #{label} from #{role.name}") |> refresh_matrix()}
         else
-          Permissions.grant_permission(role_id, key, granted_by_id)
+          Permissions.grant_permission(role_uuid, key, granted_by_id)
 
           {:noreply,
            socket |> put_flash(:info, "Granted #{label} to #{role.name}") |> refresh_matrix()}
@@ -121,7 +122,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
         count =
           if role.name == "Owner",
             do: all_count,
-            else: Map.get(matrix, role.id, MapSet.new()) |> MapSet.size()
+            else: Map.get(matrix, to_string(role.uuid), MapSet.new()) |> MapSet.size()
 
         {role.name != "Owner", -count, role.name}
       end)

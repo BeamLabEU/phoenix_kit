@@ -113,8 +113,10 @@ defmodule PhoenixKit.Modules.Emails.Template do
     "company_name"
   ]
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_email_templates" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :name, :string
     field :slug, :string
     field :display_name, :string
@@ -130,8 +132,12 @@ defmodule PhoenixKit.Modules.Emails.Template do
     field :last_used_at, :utc_datetime_usec
     field :version, :integer, default: 1
     field :is_system, :boolean, default: false
+    # legacy
     field :created_by_user_id, :integer
+    field :created_by_user_uuid, UUIDv7
+    # legacy
     field :updated_by_user_id, :integer
+    field :updated_by_user_uuid, UUIDv7
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -238,7 +244,9 @@ defmodule PhoenixKit.Modules.Emails.Template do
       :metadata,
       :is_system,
       :created_by_user_id,
-      :updated_by_user_id
+      :created_by_user_uuid,
+      :updated_by_user_id,
+      :updated_by_user_uuid
     ])
     |> auto_generate_slug()
     |> validate_required([
@@ -285,7 +293,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
   """
   def version_changeset(template, attrs \\ %{}) do
     template
-    |> cast(attrs, [:version, :updated_by_user_id])
+    |> cast(attrs, [:version, :updated_by_user_id, :updated_by_user_uuid])
     |> validate_number(:version, greater_than: 0)
   end
 

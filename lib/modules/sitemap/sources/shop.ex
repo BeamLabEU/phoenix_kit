@@ -204,10 +204,10 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
         dialect = Languages.DialectMapper.base_to_dialect(default)
 
         Map.get(slugs, default) || Map.get(slugs, dialect) || first_value(slugs) ||
-          to_string(category.id)
+          to_string(category.uuid)
 
       _ ->
-        to_string(category.id)
+        to_string(category.uuid)
     end
   end
 
@@ -218,10 +218,10 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
         dialect = Languages.DialectMapper.base_to_dialect(default)
 
         Map.get(slugs, default) || Map.get(slugs, dialect) || first_value(slugs) ||
-          to_string(product.id)
+          to_string(product.uuid)
 
       _ ->
-        to_string(product.id)
+        to_string(product.uuid)
     end
   end
 

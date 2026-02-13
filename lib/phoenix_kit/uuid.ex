@@ -159,7 +159,7 @@ defmodule PhoenixKit.UUID do
   def get_by_id(schema, id, opts) when is_integer(id) do
     repo = Keyword.get(opts, :repo, RepoHelper.repo())
     query_opts = build_query_opts(opts)
-    repo.get(schema, id, query_opts)
+    repo.get_by(schema, [id: id], query_opts)
   end
 
   def get_by_id(schema, id, opts) when is_binary(id) do
@@ -195,7 +195,7 @@ defmodule PhoenixKit.UUID do
     if valid_uuid?(uuid) do
       repo = Keyword.get(opts, :repo, RepoHelper.repo())
       query_opts = build_query_opts(opts)
-      repo.get_by(schema, [uuid: uuid], query_opts)
+      repo.get(schema, uuid, query_opts)
     else
       nil
     end

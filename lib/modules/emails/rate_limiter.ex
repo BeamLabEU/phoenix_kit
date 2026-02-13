@@ -10,20 +10,22 @@ defmodule PhoenixKit.Modules.Emails.EmailBlocklist do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   schema "phoenix_kit_email_blocklist" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :email, :string
     field :reason, :string
     field :expires_at, :utc_datetime_usec
+    # legacy
     field :user_id, :integer
+    field :user_uuid, UUIDv7
     field :inserted_at, :utc_datetime_usec
     field :updated_at, :utc_datetime_usec
   end
 
   def changeset(blocklist, attrs) do
     blocklist
-    |> cast(attrs, [:email, :reason, :expires_at, :user_id, :inserted_at, :updated_at])
+    |> cast(attrs, [:email, :reason, :expires_at, :user_id, :user_uuid, :inserted_at, :updated_at])
     |> validate_required([:email, :reason])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
     |> unique_constraint(:email)
@@ -271,12 +273,14 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   def add_to_blocklist(email, reason, opts \\ []) when is_binary(email) do
     expires_at = Keyword.get(opts, :expires_at)
     user_id = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid) || resolve_user_uuid(user_id)
 
     blocklist_entry = %{
       email: String.downcase(email),
       reason: reason,
       expires_at: expires_at,
       user_id: user_id,
+      user_uuid: user_uuid,
       inserted_at: DateTime.utc_now(),
       updated_at: DateTime.utc_now()
     }
@@ -473,7 +477,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
     active_blocks =
       from(b in EmailBlocklist, where: is_nil(b.expires_at) or b.expires_at > ^now)
-      |> repo().aggregate(:count, :id)
+      |> repo().aggregate(:count)
 
     expired_today =
       from(b in EmailBlocklist,
@@ -481,7 +485,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
         where: b.expires_at < ^now,
         where: b.expires_at >= ^today_start
       )
-      |> repo().aggregate(:count, :id)
+      |> repo().aggregate(:count)
 
     by_reason =
       from(b in EmailBlocklist,
@@ -603,6 +607,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     get_user_limits(user_id)
   end
 
+  def check_user_limits(user_uuid) when is_binary(user_uuid) do
+    case resolve_user_id(user_uuid) do
+      nil -> nil
+      user_id -> check_user_limits(user_id)
+    end
+  end
+
   @doc """
   Gets comprehensive rate limit status for a specific user.
 
@@ -634,6 +645,30 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       }
   """
   def get_user_limit_status(user_id) when is_integer(user_id) do
+    get_user_limit_status_impl(user_id)
+  end
+
+  def get_user_limit_status(user_uuid) when is_binary(user_uuid) do
+    case resolve_user_id(user_uuid) do
+      nil ->
+        %{
+          user_id: nil,
+          has_custom_limits: false,
+          custom_limits: nil,
+          monitoring: nil,
+          is_blocked: false,
+          default_recipient_limit: get_recipient_limit(),
+          default_sender_limit: get_sender_limit(),
+          active_recipient_limit: get_recipient_limit(),
+          active_sender_limit: get_sender_limit()
+        }
+
+      user_id ->
+        get_user_limit_status_impl(user_id)
+    end
+  end
+
+  defp get_user_limit_status_impl(user_id) when is_integer(user_id) do
     custom_limits = get_user_limits(user_id)
     monitoring = get_user_monitoring(user_id)
 
@@ -694,6 +729,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     clear_user_limits(user_id)
   end
 
+  def clear_user_rate_limits(user_uuid) when is_binary(user_uuid) do
+    case resolve_user_id(user_uuid) do
+      nil -> :ok
+      user_id -> clear_user_limits(user_id)
+    end
+  end
+
   @doc """
   Gets monitoring events for a specific user.
 
@@ -718,6 +760,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   """
   def get_user_monitoring_events(user_id) when is_integer(user_id) do
     get_user_monitoring(user_id)
+  end
+
+  def get_user_monitoring_events(user_uuid) when is_binary(user_uuid) do
+    case resolve_user_id(user_uuid) do
+      nil -> nil
+      user_id -> get_user_monitoring(user_id)
+    end
   end
 
   ## --- Status and Statistics ---
@@ -1111,6 +1160,20 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   end
 
   defp calculate_percentage(_, _), do: 0.0
+
+  # Resolves user UUID from integer user_id (dual-write)
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    alias PhoenixKit.Users.Auth.User
+    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
+  end
+
+  defp resolve_user_uuid(_), do: nil
+
+  # Resolves integer user_id from UUID string
+  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
+    alias PhoenixKit.Users.Auth.User
+    from(u in User, where: u.uuid == ^user_uuid, select: u.id) |> repo().one()
+  end
 
   # Gets the configured repository for database operations
   defp repo do

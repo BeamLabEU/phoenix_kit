@@ -53,6 +53,7 @@ defmodule PhoenixKit.Modules.Tickets do
   import Ecto.Query, warn: false
 
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
 
   alias PhoenixKit.Modules.Tickets.{
     Events,
@@ -145,7 +146,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp count_tickets_by_status(status) do
     from(t in Ticket, where: t.status == ^status)
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
@@ -171,9 +172,12 @@ defmodule PhoenixKit.Modules.Tickets do
       {:error, %Ecto.Changeset{}}
   """
   def create_ticket(user_id, attrs) when is_integer(user_id) do
+    user_uuid = resolve_user_uuid(user_id)
+
     attrs =
       attrs
       |> Map.put("user_id", user_id)
+      |> Map.put("user_uuid", user_uuid)
       |> Map.put("status", "open")
 
     repo().transaction(fn ->
@@ -187,6 +191,42 @@ defmodule PhoenixKit.Modules.Tickets do
           # Broadcast event for real-time updates
           Events.broadcast_ticket_created(ticket)
 
+          ticket
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
+      end
+    end)
+  end
+
+  def create_ticket(user_id, attrs) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> create_ticket(int_id, attrs)
+      _ -> create_ticket_with_uuid(user_id, attrs)
+    end
+  end
+
+  defp create_ticket_with_uuid(user_uuid, attrs) do
+    # Resolve user's integer ID for status history audit trail
+    user_int_id =
+      case Auth.get_user(user_uuid) do
+        %{id: id} -> id
+        _ -> nil
+      end
+
+    attrs =
+      attrs
+      |> Map.put("user_uuid", user_uuid)
+      |> Map.put("user_id", user_int_id)
+      |> Map.put("status", "open")
+
+    repo().transaction(fn ->
+      case %Ticket{}
+           |> Ticket.changeset(attrs)
+           |> repo().insert() do
+        {:ok, ticket} ->
+          create_status_history(ticket.id, user_int_id, nil, "open", nil)
+          Events.broadcast_ticket_created(ticket)
           ticket
 
         {:error, changeset} ->
@@ -356,17 +396,35 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists tickets assigned to a specific handler.
   """
-  def list_tickets_assigned_to(handler_id, opts \\ []) when is_integer(handler_id) do
+  def list_tickets_assigned_to(handler_id, opts \\ [])
+
+  def list_tickets_assigned_to(handler_id, opts) when is_integer(handler_id) do
     opts = Keyword.put(opts, :assigned_to_id, handler_id)
     list_tickets(opts)
+  end
+
+  def list_tickets_assigned_to(handler_id, opts) when is_binary(handler_id) do
+    case Integer.parse(handler_id) do
+      {int_id, ""} -> list_tickets_assigned_to(int_id, opts)
+      _ -> list_tickets(Keyword.put(opts, :assigned_to_id, handler_id))
+    end
   end
 
   @doc """
   Lists tickets created by a specific user.
   """
-  def list_user_tickets(user_id, opts \\ []) when is_integer(user_id) do
+  def list_user_tickets(user_id, opts \\ [])
+
+  def list_user_tickets(user_id, opts) when is_integer(user_id) do
     opts = Keyword.put(opts, :user_id, user_id)
     list_tickets(opts)
+  end
+
+  def list_user_tickets(user_id, opts) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> list_user_tickets(int_id, opts)
+      _ -> list_tickets(Keyword.put(opts, :user_id, user_id))
+    end
   end
 
   # ============================================================================
@@ -392,9 +450,10 @@ defmodule PhoenixKit.Modules.Tickets do
   def assign_ticket(%Ticket{} = ticket, handler_id, changed_by) when is_integer(handler_id) do
     changed_by_id = get_user_id(changed_by)
     old_assignee_id = ticket.assigned_to_id
+    handler_uuid = resolve_user_uuid(handler_id)
 
     repo().transaction(fn ->
-      attrs = %{assigned_to_id: handler_id}
+      attrs = %{assigned_to_id: handler_id, assigned_to_uuid: handler_uuid}
 
       # If ticket is open, move to in_progress
       {attrs, new_status} =
@@ -425,6 +484,20 @@ defmodule PhoenixKit.Modules.Tickets do
           repo().rollback(changeset)
       end
     end)
+  end
+
+  def assign_ticket(%Ticket{} = ticket, handler_id, changed_by) when is_binary(handler_id) do
+    case Integer.parse(handler_id) do
+      {int_id, ""} ->
+        assign_ticket(ticket, int_id, changed_by)
+
+      _ ->
+        # UUID string - resolve to integer user ID
+        case Auth.get_user(handler_id) do
+          %{id: int_id} -> assign_ticket(ticket, int_id, changed_by)
+          nil -> {:error, :invalid_handler_id}
+        end
+    end
   end
 
   @doc """
@@ -541,10 +614,13 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp create_status_history(ticket_id, changed_by_id, from_status, to_status, reason) do
+    changed_by_uuid = if is_integer(changed_by_id), do: resolve_user_uuid(changed_by_id)
+
     %TicketStatusHistory{}
     |> TicketStatusHistory.changeset(%{
       ticket_id: ticket_id,
       changed_by_id: changed_by_id,
+      changed_by_uuid: changed_by_uuid,
       from_status: from_status,
       to_status: to_status,
       reason: reason
@@ -570,12 +646,28 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> create_comment(ticket.id, user_id, %{content: "Thanks for looking into this!"})
       {:ok, %TicketComment{}}
   """
+  def create_comment(ticket_id, user_id, attrs) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} ->
+        create_comment(ticket_id, int_id, attrs)
+
+      _ ->
+        case Auth.get_user(user_id) do
+          %{id: int_id} -> create_comment(ticket_id, int_id, attrs)
+          nil -> {:error, :invalid_user_id}
+        end
+    end
+  end
+
   def create_comment(ticket_id, user_id, attrs) when is_integer(user_id) do
+    user_uuid = resolve_user_uuid(user_id)
+
     attrs =
       attrs
       |> ensure_string_keys()
       |> Map.put("ticket_id", ticket_id)
       |> Map.put("user_id", user_id)
+      |> Map.put("user_uuid", user_uuid)
       |> Map.put("is_internal", false)
 
     attrs = maybe_calculate_depth(attrs)
@@ -615,12 +707,28 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> create_internal_note(ticket.id, staff_id, %{content: "Customer seems frustrated"})
       {:ok, %TicketComment{is_internal: true}}
   """
+  def create_internal_note(ticket_id, user_id, attrs) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} ->
+        create_internal_note(ticket_id, int_id, attrs)
+
+      _ ->
+        case Auth.get_user(user_id) do
+          %{id: int_id} -> create_internal_note(ticket_id, int_id, attrs)
+          nil -> {:error, :invalid_user_id}
+        end
+    end
+  end
+
   def create_internal_note(ticket_id, user_id, attrs) when is_integer(user_id) do
+    user_uuid = resolve_user_uuid(user_id)
+
     attrs =
       attrs
       |> ensure_string_keys()
       |> Map.put("ticket_id", ticket_id)
       |> Map.put("user_id", user_id)
+      |> Map.put("user_uuid", user_uuid)
       |> Map.put("is_internal", true)
 
     attrs = maybe_calculate_depth(attrs)
@@ -896,7 +1004,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp count_unassigned_tickets do
     from(t in Ticket, where: is_nil(t.assigned_to_id) and t.status in ["open", "in_progress"])
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
@@ -907,8 +1015,15 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) do
+  defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
     where(query, [t], t.user_id == ^user_id)
+  end
+
+  defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> where(query, [t], t.user_id == ^int_id)
+      _ -> where(query, [t], t.user_uuid == ^user_id)
+    end
   end
 
   defp maybe_filter_by_assigned_to(query, nil), do: query
@@ -917,8 +1032,15 @@ defmodule PhoenixKit.Modules.Tickets do
     where(query, [t], is_nil(t.assigned_to_id))
   end
 
-  defp maybe_filter_by_assigned_to(query, assigned_to_id) do
+  defp maybe_filter_by_assigned_to(query, assigned_to_id) when is_integer(assigned_to_id) do
     where(query, [t], t.assigned_to_id == ^assigned_to_id)
+  end
+
+  defp maybe_filter_by_assigned_to(query, assigned_to_id) when is_binary(assigned_to_id) do
+    case Integer.parse(assigned_to_id) do
+      {int_id, ""} -> where(query, [t], t.assigned_to_id == ^int_id)
+      _ -> where(query, [t], t.assigned_to_uuid == ^assigned_to_id)
+    end
   end
 
   defp maybe_filter_by_status(query, nil), do: query
@@ -949,6 +1071,33 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp get_user_id(%{id: id}), do: id
   defp get_user_id(id) when is_integer(id), do: id
+
+  defp get_user_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int_id, ""} ->
+        int_id
+
+      _ ->
+        case Auth.get_user(id) do
+          %{id: int_id} -> int_id
+          nil -> nil
+        end
+    end
+  end
+
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    import Ecto.Query, only: [from: 2]
+
+    case PhoenixKit.RepoHelper.repo().one(
+           from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
+         ) do
+      nil -> nil
+      uuid -> uuid
+    end
+  end
+
+  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
+  defp resolve_user_uuid(_), do: nil
 
   defp repo do
     PhoenixKit.RepoHelper.repo()

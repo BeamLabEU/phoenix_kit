@@ -209,7 +209,7 @@
                 <.table_default_cell>
                   <div class="flex flex-col">
                     <span class="font-medium">{session.user_email}</span>
-                    <span class="text-xs text-base-content/70">ID: {session.user_id}</span>
+                    <span class="text-xs text-base-content/70">{session.user_uuid}</span>
                   </div>
                 </.table_default_cell>
 
@@ -270,7 +270,7 @@
                     <%!-- Revoke All User Sessions --%>
                     <button
                       phx-click="show_revoke_user_sessions"
-                      phx-value-user_id={session.user_id}
+                      phx-value-user_id={session.user_uuid}
                       class="btn btn-warning btn-xs"
                       title="Revoke all sessions for this user"
                     >

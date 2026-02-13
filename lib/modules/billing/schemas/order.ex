@@ -84,12 +84,12 @@ defmodule PhoenixKit.Modules.Billing.Order do
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Users.Auth.User
 
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(draft pending confirmed paid cancelled refunded)
   @valid_payment_methods ~w(bank stripe paypal razorpay)
 
   schema "phoenix_kit_orders" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :order_number, :string
     field :status, :string, default: "draft"
     field :payment_method, :string
@@ -120,10 +120,20 @@ defmodule PhoenixKit.Modules.Billing.Order do
     field :paid_at, :utc_datetime_usec
     field :cancelled_at, :utc_datetime_usec
 
-    belongs_to :user, User
-    belongs_to :billing_profile, BillingProfile
+    # legacy
+    field :user_id, :integer
+    belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
+    # legacy
+    field :billing_profile_id, :integer
 
-    has_many :invoices, PhoenixKit.Modules.Billing.Invoice
+    belongs_to :billing_profile, BillingProfile,
+      foreign_key: :billing_profile_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    has_many :invoices, PhoenixKit.Modules.Billing.Invoice,
+      foreign_key: :order_uuid,
+      references: :uuid
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -135,7 +145,9 @@ defmodule PhoenixKit.Modules.Billing.Order do
     order
     |> cast(attrs, [
       :user_id,
+      :user_uuid,
       :billing_profile_id,
+      :billing_profile_uuid,
       :order_number,
       :status,
       :payment_method,
@@ -167,8 +179,8 @@ defmodule PhoenixKit.Modules.Billing.Order do
     |> validate_line_items()
     |> maybe_generate_order_number()
     |> unique_constraint(:order_number)
-    |> foreign_key_constraint(:user_id)
-    |> foreign_key_constraint(:billing_profile_id)
+    |> foreign_key_constraint(:user_uuid)
+    |> foreign_key_constraint(:billing_profile_uuid)
   end
 
   # Guest orders must have billing_snapshot with email when no billing_profile_id

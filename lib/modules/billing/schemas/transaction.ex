@@ -22,8 +22,10 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
 
   @payment_methods ~w(bank stripe paypal razorpay)
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_transactions" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :transaction_number, :string
     field :amount, :decimal
     field :currency, :string, default: "EUR"
@@ -35,8 +37,12 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
     field :provider_transaction_id, :string
     field :provider_data, :map, default: %{}
 
-    belongs_to :invoice, Invoice
-    belongs_to :user, User
+    # legacy
+    field :invoice_id, :integer
+    belongs_to :invoice, Invoice, foreign_key: :invoice_uuid, references: :uuid, type: UUIDv7
+    # legacy
+    field :user_id, :integer
+    belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -56,21 +62,23 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
       :provider_transaction_id,
       :provider_data,
       :invoice_id,
-      :user_id
+      :invoice_uuid,
+      :user_id,
+      :user_uuid
     ])
     |> validate_required([
       :transaction_number,
       :amount,
       :currency,
       :payment_method,
-      :invoice_id,
-      :user_id
+      :invoice_uuid,
+      :user_uuid
     ])
     |> validate_inclusion(:payment_method, @payment_methods)
     |> validate_number(:amount, not_equal_to: 0)
     |> unique_constraint(:transaction_number)
-    |> foreign_key_constraint(:invoice_id)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:invoice_uuid)
+    |> foreign_key_constraint(:user_uuid)
   end
 
   @doc """

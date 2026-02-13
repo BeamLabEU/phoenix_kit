@@ -68,9 +68,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     # Exclude self from parent options
     parent_options =
       Shop.category_options()
-      |> Enum.reject(fn {_name, parent_id} -> parent_id == category.id end)
+      |> Enum.reject(fn {_name, parent_uuid} -> parent_uuid == category.uuid end)
 
-    product_options = Shop.list_category_product_options(category.id)
+    product_options = Shop.list_category_product_options(category.uuid)
 
     socket
     |> assign(
@@ -448,14 +448,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                     <span class="label-text font-medium">Parent Category</span>
                   </label>
                   <select
-                    name="category[parent_id]"
+                    name="category[parent_uuid]"
                     class="select select-bordered w-full focus:select-primary"
                   >
                     <option value="">No parent (root category)</option>
-                    <%= for {name, id} <- @parent_options do %>
+                    <%= for {name, uuid} <- @parent_options do %>
                       <option
-                        value={id}
-                        selected={Ecto.Changeset.get_field(@changeset, :parent_id) == id}
+                        value={uuid}
+                        selected={Ecto.Changeset.get_field(@changeset, :parent_uuid) == uuid}
                       >
                         {name}
                       </option>
@@ -579,17 +579,19 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                       <% end %>
                     </label>
                     <select
-                      name="category[featured_product_id]"
+                      name="category[featured_product_uuid]"
                       class={[
                         "select select-bordered w-full focus:select-primary",
                         @image_id && "opacity-50"
                       ]}
                     >
                       <option value="">Auto-detect (first product with image)</option>
-                      <%= for {name, id} <- @product_options do %>
+                      <%= for {name, uuid} <- @product_options do %>
                         <option
-                          value={id}
-                          selected={Ecto.Changeset.get_field(@changeset, :featured_product_id) == id}
+                          value={uuid}
+                          selected={
+                            Ecto.Changeset.get_field(@changeset, :featured_product_uuid) == uuid
+                          }
                         >
                           {name}
                         </option>

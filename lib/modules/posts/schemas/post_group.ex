@@ -75,6 +75,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
     field :position, :integer, default: 0
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
     belongs_to :cover_image, PhoenixKit.Modules.Storage.File, type: UUIDv7
 
     many_to_many :posts, PhoenixKit.Modules.Posts.Post,
@@ -104,6 +105,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
     group
     |> cast(attrs, [
       :user_id,
+      :user_uuid,
       :name,
       :slug,
       :description,

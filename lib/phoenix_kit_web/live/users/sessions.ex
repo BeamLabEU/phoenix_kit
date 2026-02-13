@@ -88,8 +88,7 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
   end
 
   def handle_event("show_revoke_session", %{"token_id" => token_id}, socket) do
-    token_id_int = String.to_integer(token_id)
-    session_info = Sessions.get_session_info(token_id_int)
+    session_info = Sessions.get_session_info(token_id)
 
     socket =
       socket
@@ -101,8 +100,7 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
   end
 
   def handle_event("show_revoke_user_sessions", %{"user_id" => user_id}, socket) do
-    user_id_int = String.to_integer(user_id)
-    user = Auth.get_user!(user_id_int)
+    user = Auth.get_user!(user_id)
     user_sessions = Sessions.list_user_sessions(user)
 
     socket =

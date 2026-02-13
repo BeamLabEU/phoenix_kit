@@ -104,8 +104,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Subscriptions do
   end
 
   @impl true
-  def handle_event("cancel_subscription", %{"id" => id}, socket) do
-    subscription = Enum.find(socket.assigns.subscriptions, &(to_string(&1.id) == id))
+  def handle_event("cancel_subscription", %{"uuid" => uuid}, socket) do
+    subscription = Enum.find(socket.assigns.subscriptions, &(&1.uuid == uuid))
 
     if subscription do
       case Billing.cancel_subscription(subscription, immediately: false) do

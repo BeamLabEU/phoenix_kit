@@ -80,7 +80,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
   defp fix_single_log(log_id, dry_run) do
     Mix.shell().info("\n=== Checking Log ID #{log_id} ===\n")
 
-    log = repo().get!(Log, log_id) |> repo().preload(:events)
+    log = repo().get_by!(Log, id: log_id) |> repo().preload(:events)
 
     case find_missing_event_type(log) do
       nil ->

@@ -260,8 +260,8 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   # ===========================================
 
   @impl true
-  def handle_event("toggle_endpoint", %{"id" => id}, socket) do
-    endpoint = AI.get_endpoint!(id)
+  def handle_event("toggle_endpoint", %{"uuid" => uuid}, socket) do
+    endpoint = AI.get_endpoint!(uuid)
 
     case AI.update_endpoint(endpoint, %{enabled: !endpoint.enabled}) do
       {:ok, _updated} ->
@@ -276,8 +276,8 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   end
 
   @impl true
-  def handle_event("delete_endpoint", %{"id" => id}, socket) do
-    endpoint = AI.get_endpoint!(id)
+  def handle_event("delete_endpoint", %{"uuid" => uuid}, socket) do
+    endpoint = AI.get_endpoint!(uuid)
 
     case AI.delete_endpoint(endpoint) do
       {:ok, _} ->
@@ -415,10 +415,8 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   end
 
   @impl true
-  def handle_event("show_request_details", %{"id" => id}, socket) do
-    # Convert string ID from phx-value-id to integer for comparison
-    id = if is_binary(id), do: String.to_integer(id), else: id
-    request = Enum.find(socket.assigns.usage_requests, fn r -> r.id == id end)
+  def handle_event("show_request_details", %{"uuid" => uuid}, socket) do
+    request = Enum.find(socket.assigns.usage_requests, fn r -> to_string(r.uuid) == uuid end)
 
     {:noreply, assign(socket, :selected_request, request)}
   end

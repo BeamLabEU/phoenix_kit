@@ -103,13 +103,13 @@
                   >
                     <li>
                       <.link navigate={
-                        PhoenixKit.Utils.Routes.path("/admin/billing/plans/#{plan.id}/edit")
+                        PhoenixKit.Utils.Routes.path("/admin/billing/plans/#{plan.uuid}/edit")
                       }>
                         <.icon name="hero-pencil" class="w-4 h-4" /> Edit
                       </.link>
                     </li>
                     <li>
-                      <button phx-click="toggle_active" phx-value-id={plan.id}>
+                      <button phx-click="toggle_active" phx-value-uuid={plan.uuid}>
                         <%= if plan.active do %>
                           <.icon name="hero-pause" class="w-4 h-4" /> Deactivate
                         <% else %>
@@ -120,7 +120,7 @@
                     <li>
                       <button
                         phx-click="delete_plan"
-                        phx-value-id={plan.id}
+                        phx-value-uuid={plan.uuid}
                         class="text-error"
                         data-confirm="Delete this plan? This cannot be undone."
                       >

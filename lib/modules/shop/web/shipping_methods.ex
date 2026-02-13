@@ -24,8 +24,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
   end
 
   @impl true
-  def handle_event("toggle_active", %{"id" => id}, socket) do
-    method = Shop.get_shipping_method!(id)
+  def handle_event("toggle_active", %{"uuid" => uuid}, socket) do
+    method = Shop.get_shipping_method!(uuid)
     {:ok, updated} = Shop.update_shipping_method(method, %{active: !method.active})
 
     methods =
@@ -37,8 +37,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
-    method = Shop.get_shipping_method!(id)
+  def handle_event("delete", %{"uuid" => uuid}, socket) do
+    method = Shop.get_shipping_method!(uuid)
 
     case Shop.delete_shipping_method(method) do
       {:ok, _} ->
@@ -146,20 +146,20 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
                           class="toggle toggle-success toggle-sm"
                           checked={method.active}
                           phx-click="toggle_active"
-                          phx-value-id={method.id}
+                          phx-value-uuid={method.uuid}
                         />
                       </td>
                       <td class="text-right">
                         <div class="flex justify-end gap-2">
                           <.link
-                            navigate={Routes.path("/admin/shop/shipping/#{method.id}/edit")}
+                            navigate={Routes.path("/admin/shop/shipping/#{method.uuid}/edit")}
                             class="btn btn-ghost btn-sm"
                           >
                             <.icon name="hero-pencil" class="w-4 h-4" />
                           </.link>
                           <button
                             phx-click="delete"
-                            phx-value-id={method.id}
+                            phx-value-uuid={method.uuid}
                             data-confirm="Delete this shipping method?"
                             class="btn btn-ghost btn-sm text-error"
                           >

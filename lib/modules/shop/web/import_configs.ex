@@ -41,8 +41,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
   end
 
   @impl true
-  def handle_event("show_edit_modal", %{"id" => id}, socket) do
-    config = Enum.find(socket.assigns.configs, &(to_string(&1.id) == id))
+  def handle_event("show_edit_modal", %{"uuid" => uuid}, socket) do
+    config = Enum.find(socket.assigns.configs, &(to_string(&1.uuid) == uuid))
 
     if config do
       form_data = %{
@@ -137,8 +137,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
   end
 
   @impl true
-  def handle_event("delete_config", %{"id" => id}, socket) do
-    config = Enum.find(socket.assigns.configs, &(to_string(&1.id) == id))
+  def handle_event("delete_config", %{"uuid" => uuid}, socket) do
+    config = Enum.find(socket.assigns.configs, &(to_string(&1.uuid) == uuid))
 
     if config do
       case Shop.delete_import_config(config) do
@@ -157,8 +157,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
   end
 
   @impl true
-  def handle_event("toggle_active", %{"id" => id}, socket) do
-    config = Enum.find(socket.assigns.configs, &(to_string(&1.id) == id))
+  def handle_event("toggle_active", %{"uuid" => uuid}, socket) do
+    config = Enum.find(socket.assigns.configs, &(to_string(&1.uuid) == uuid))
 
     if config do
       case Shop.update_import_config(config, %{active: !config.active}) do
@@ -177,8 +177,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
   end
 
   @impl true
-  def handle_event("set_default", %{"id" => id}, socket) do
-    config = Enum.find(socket.assigns.configs, &(to_string(&1.id) == id))
+  def handle_event("set_default", %{"uuid" => uuid}, socket) do
+    config = Enum.find(socket.assigns.configs, &(to_string(&1.uuid) == uuid))
 
     if config do
       case Shop.update_import_config(config, %{is_default: true}) do
@@ -356,7 +356,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
                           <button
                             type="button"
                             phx-click="set_default"
-                            phx-value-id={config.id}
+                            phx-value-uuid={config.uuid}
                             class="btn btn-ghost btn-sm"
                             title="Set as default"
                           >
@@ -366,7 +366,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
                         <button
                           type="button"
                           phx-click="toggle_active"
-                          phx-value-id={config.id}
+                          phx-value-uuid={config.uuid}
                           class="btn btn-ghost btn-sm"
                           title={if config.active, do: "Deactivate", else: "Activate"}
                         >
@@ -378,7 +378,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
                         <button
                           type="button"
                           phx-click="show_edit_modal"
-                          phx-value-id={config.id}
+                          phx-value-uuid={config.uuid}
                           class="btn btn-ghost btn-sm"
                         >
                           <.icon name="hero-pencil" class="w-4 h-4" />
@@ -386,7 +386,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
                         <button
                           type="button"
                           phx-click="delete_config"
-                          phx-value-id={config.id}
+                          phx-value-uuid={config.uuid}
                           data-confirm="Delete this configuration?"
                           class="btn btn-ghost btn-sm text-error"
                         >

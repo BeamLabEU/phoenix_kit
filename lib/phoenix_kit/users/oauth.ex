@@ -91,6 +91,7 @@ if Code.ensure_loaded?(Ueberauth) do
     def link_oauth_provider(%User{} = user, oauth_data) when is_map(oauth_data) do
       attrs = %{
         user_id: user.id,
+        user_uuid: user.uuid,
         provider: oauth_data.provider,
         provider_uid: oauth_data.provider_uid,
         provider_email: oauth_data.email,
@@ -103,8 +104,9 @@ if Code.ensure_loaded?(Ueberauth) do
       %OAuthProvider{}
       |> OAuthProvider.changeset(attrs)
       |> Repo.insert(
-        on_conflict: {:replace_all_except, [:id, :user_id, :provider, :inserted_at]},
-        conflict_target: [:user_id, :provider]
+        on_conflict:
+          {:replace_all_except, [:uuid, :user_id, :user_uuid, :provider, :inserted_at]},
+        conflict_target: [:user_uuid, :provider]
       )
     end
 
@@ -112,8 +114,15 @@ if Code.ensure_loaded?(Ueberauth) do
     Gets all OAuth providers for a user.
     """
     def get_user_oauth_providers(user_id) when is_integer(user_id) do
+      case Repo.get_by(User, id: user_id) do
+        nil -> []
+        user -> get_user_oauth_providers(user.uuid)
+      end
+    end
+
+    def get_user_oauth_providers(user_uuid) when is_binary(user_uuid) do
       from(p in OAuthProvider,
-        where: p.user_id == ^user_id,
+        where: p.user_uuid == ^user_uuid,
         order_by: [desc: p.inserted_at]
       )
       |> Repo.all()
@@ -124,7 +133,15 @@ if Code.ensure_loaded?(Ueberauth) do
     """
     def unlink_oauth_provider(user_id, provider)
         when is_integer(user_id) and is_binary(provider) do
-      case from(p in OAuthProvider, where: p.user_id == ^user_id and p.provider == ^provider)
+      case Repo.get_by(User, id: user_id) do
+        nil -> {:error, :not_found}
+        user -> unlink_oauth_provider(user.uuid, provider)
+      end
+    end
+
+    def unlink_oauth_provider(user_uuid, provider)
+        when is_binary(user_uuid) and is_binary(provider) do
+      case from(p in OAuthProvider, where: p.user_uuid == ^user_uuid and p.provider == ^provider)
            |> Repo.one() do
         nil -> {:error, :not_found}
         provider_record -> Repo.delete(provider_record)
@@ -244,6 +261,7 @@ else
 
     import Ecto.Query, warn: false
     alias PhoenixKit.RepoHelper, as: Repo
+    alias PhoenixKit.Users.Auth.User
     alias PhoenixKit.Users.OAuthProvider
 
     @doc """
@@ -257,8 +275,15 @@ else
     Gets all OAuth providers for a user.
     """
     def get_user_oauth_providers(user_id) when is_integer(user_id) do
+      case Repo.get_by(User, id: user_id) do
+        nil -> []
+        user -> get_user_oauth_providers(user.uuid)
+      end
+    end
+
+    def get_user_oauth_providers(user_uuid) when is_binary(user_uuid) do
       from(p in OAuthProvider,
-        where: p.user_id == ^user_id,
+        where: p.user_uuid == ^user_uuid,
         order_by: [desc: p.inserted_at]
       )
       |> Repo.all()
@@ -269,7 +294,15 @@ else
     """
     def unlink_oauth_provider(user_id, provider)
         when is_integer(user_id) and is_binary(provider) do
-      case from(p in OAuthProvider, where: p.user_id == ^user_id and p.provider == ^provider)
+      case Repo.get_by(User, id: user_id) do
+        nil -> {:error, :not_found}
+        user -> unlink_oauth_provider(user.uuid, provider)
+      end
+    end
+
+    def unlink_oauth_provider(user_uuid, provider)
+        when is_binary(user_uuid) and is_binary(provider) do
+      case from(p in OAuthProvider, where: p.user_uuid == ^user_uuid and p.provider == ^provider)
            |> Repo.one() do
         nil -> {:error, :not_found}
         provider_record -> Repo.delete(provider_record)

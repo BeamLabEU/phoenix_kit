@@ -387,7 +387,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
           <.link
             navigate={
               PhoenixKit.Utils.Routes.path(
-                "/admin/entities/#{@entity.name}/data/#{@data_record.id}/edit"
+                "/admin/entities/#{@entity.name}/data/#{@data_record.uuid}/edit"
               )
             }
             class="btn btn-primary"

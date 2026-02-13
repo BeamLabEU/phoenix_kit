@@ -78,8 +78,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
-
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   @derive {Jason.Encoder,
            only: [
@@ -95,18 +94,27 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
            ]}
 
   schema "phoenix_kit_entity_data" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :title, :string
     field :slug, :string
     field :status, :string, default: "published"
     field :data, :map
     field :metadata, :map
+    # legacy
     field :created_by, :integer
+    field :created_by_uuid, UUIDv7
     field :date_created, :utc_datetime_usec
     field :date_updated, :utc_datetime_usec
 
-    belongs_to :entity, Entities, foreign_key: :entity_id, define_field: true
-    belongs_to :creator, User, foreign_key: :created_by, define_field: false
+    # legacy
+    field :entity_id, :integer
+    belongs_to :entity, Entities, foreign_key: :entity_uuid, references: :uuid, type: UUIDv7
+
+    belongs_to :creator, User,
+      foreign_key: :created_by_uuid,
+      references: :uuid,
+      define_field: false,
+      type: UUIDv7
   end
 
   @valid_statuses ~w(draft published archived)
@@ -121,24 +129,38 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     entity_data
     |> cast(attrs, [
       :entity_id,
+      :entity_uuid,
       :title,
       :slug,
       :status,
       :data,
       :metadata,
       :created_by,
+      :created_by_uuid,
       :date_created,
       :date_updated
     ])
-    |> validate_required([:entity_id, :title, :created_by])
+    |> validate_required([:title])
+    |> validate_entity_reference()
     |> validate_length(:title, min: 1, max: 255)
     |> validate_length(:slug, max: 255)
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_slug_format()
     |> sanitize_rich_text_data()
     |> validate_data_against_entity()
-    |> foreign_key_constraint(:entity_id)
+    |> foreign_key_constraint(:entity_uuid)
     |> maybe_set_timestamps()
+  end
+
+  defp validate_entity_reference(changeset) do
+    entity_id = get_field(changeset, :entity_id)
+    entity_uuid = get_field(changeset, :entity_uuid)
+
+    if is_nil(entity_id) and is_nil(entity_uuid) do
+      add_error(changeset, :entity_uuid, "either entity_id or entity_uuid must be present")
+    else
+      changeset
+    end
   end
 
   defp validate_slug_format(changeset) do
@@ -307,16 +329,20 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   defp maybe_set_timestamps(changeset) do
-    case get_field(changeset, :id) do
-      nil ->
-        now = DateTime.utc_now()
+    case changeset.data.__meta__.state do
+      :built ->
+        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
         changeset
         |> put_change(:date_created, now)
         |> put_change(:date_updated, now)
 
-      _id ->
-        put_change(changeset, :date_updated, DateTime.utc_now())
+      :loaded ->
+        put_change(
+          changeset,
+          :date_updated,
+          NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        )
     end
   end
 
@@ -392,6 +418,15 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity(1)
       [%PhoenixKit.Modules.Entities.EntityData{entity_id: 1}, ...]
   """
+  def list_by_entity(entity_uuid) when is_binary(entity_uuid) do
+    from(d in __MODULE__,
+      where: d.entity_uuid == ^entity_uuid,
+      order_by: [desc: d.date_created],
+      preload: [:entity, :creator]
+    )
+    |> repo().all()
+  end
+
   def list_by_entity(entity_id) when is_integer(entity_id) do
     from(d in __MODULE__,
       where: d.entity_id == ^entity_id,
@@ -409,6 +444,16 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity_and_status(1, "published")
       [%PhoenixKit.Modules.Entities.EntityData{entity_id: 1, status: "published"}, ...]
   """
+  def list_by_entity_and_status(entity_uuid, status)
+      when is_binary(entity_uuid) and status in @valid_statuses do
+    from(d in __MODULE__,
+      where: d.entity_uuid == ^entity_uuid and d.status == ^status,
+      order_by: [desc: d.date_created],
+      preload: [:entity, :creator]
+    )
+    |> repo().all()
+  end
+
   def list_by_entity_and_status(entity_id, status)
       when is_integer(entity_id) and status in @valid_statuses do
     from(d in __MODULE__,
@@ -441,7 +486,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       nil
   """
   def get(id) when is_integer(id) do
-    case repo().get(__MODULE__, id) do
+    case repo().get_by(__MODULE__, id: id) do
       nil -> nil
       record -> repo().preload(record, [:entity, :creator])
     end
@@ -504,9 +549,18 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(1, "invalid")
       nil
   """
+  def get_by_slug(entity_uuid, slug) when is_binary(entity_uuid) and is_binary(slug) do
+    case repo().get_by(__MODULE__, entity_uuid: entity_uuid, slug: slug) do
+      nil -> nil
+      record -> repo().preload(record, [:entity, :creator])
+    end
+  end
+
   def get_by_slug(entity_id, slug) when is_integer(entity_id) and is_binary(slug) do
-    repo().get_by(__MODULE__, entity_id: entity_id, slug: slug)
-    |> repo().preload([:entity, :creator])
+    case repo().get_by(__MODULE__, entity_id: entity_id, slug: slug) do
+      nil -> nil
+      record -> repo().preload(record, [:entity, :creator])
+    end
   end
 
   @doc """
@@ -539,20 +593,46 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
 
     if has_created_by do
-      attrs
+      # Ensure created_by_uuid is also set when created_by is present
+      has_uuid = Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
+
+      if has_uuid do
+        attrs
+      else
+        created_by_val = attrs[:created_by] || attrs["created_by"]
+
+        if is_integer(created_by_val) do
+          put_created_by_with_uuid(attrs, created_by_val)
+        else
+          attrs
+        end
+      end
     else
       case Auth.get_first_admin_id() do
         nil ->
           # Fall back to first user if no admin exists
           case Auth.get_first_user_id() do
             nil -> attrs
-            user_id -> Map.put(attrs, :created_by, user_id)
+            user_id -> put_created_by_with_uuid(attrs, user_id)
           end
 
         admin_id ->
-          Map.put(attrs, :created_by, admin_id)
+          put_created_by_with_uuid(attrs, admin_id)
       end
     end
+  end
+
+  defp put_created_by_with_uuid(attrs, user_id) when is_integer(user_id) do
+    import Ecto.Query, only: [from: 2]
+    alias PhoenixKit.Users.Auth.User
+
+    user_uuid =
+      from(u in User, where: u.id == ^user_id, select: u.uuid)
+      |> PhoenixKit.RepoHelper.repo().one()
+
+    attrs
+    |> Map.put(:created_by, user_id)
+    |> Map.put(:created_by_uuid, user_uuid)
   end
 
   @doc """
@@ -620,10 +700,15 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       )
 
     query =
-      if entity_id do
-        from(d in query, where: d.entity_id == ^entity_id)
-      else
-        query
+      case entity_id do
+        nil ->
+          query
+
+        id when is_binary(id) ->
+          from(d in query, where: d.entity_uuid == ^id)
+
+        id when is_integer(id) ->
+          from(d in query, where: d.entity_id == ^id)
       end
 
     repo().all(query)
@@ -637,6 +722,10 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.published_records(1)
       [%PhoenixKit.Modules.Entities.EntityData{status: "published"}, ...]
   """
+  def published_records(entity_uuid) when is_binary(entity_uuid) do
+    list_by_entity_and_status(entity_uuid, "published")
+  end
+
   def published_records(entity_id) when is_integer(entity_id) do
     list_by_entity_and_status(entity_id, "published")
   end
@@ -649,6 +738,11 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.count_by_entity(1)
       42
   """
+  def count_by_entity(entity_uuid) when is_binary(entity_uuid) do
+    from(d in __MODULE__, where: d.entity_uuid == ^entity_uuid, select: count(d.id))
+    |> repo().one()
+  end
+
   def count_by_entity(entity_id) when is_integer(entity_id) do
     from(d in __MODULE__, where: d.entity_id == ^entity_id, select: count(d.id))
     |> repo().one()
@@ -742,10 +836,15 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       )
 
     query =
-      if entity_id do
-        from(d in query, where: d.entity_id == ^entity_id)
-      else
-        query
+      case entity_id do
+        nil ->
+          query
+
+        id when is_binary(id) ->
+          from(d in query, where: d.entity_uuid == ^id)
+
+        id when is_integer(id) ->
+          from(d in query, where: d.entity_id == ^id)
       end
 
     {total, published, draft, archived} = repo().one(query)

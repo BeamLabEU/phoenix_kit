@@ -96,12 +96,26 @@ defmodule PhoenixKit.AuditLog do
       [%Entry{}, ...]
 
   """
-  def list_logs_for_user(user_id) do
+  def list_logs_for_user(user_id) when is_integer(user_id) do
     from(e in Entry,
       where: e.target_user_id == ^user_id or e.admin_user_id == ^user_id,
       order_by: [desc: e.inserted_at]
     )
     |> Repo.all()
+  end
+
+  def list_logs_for_user(user_uuid) when is_binary(user_uuid) do
+    case Integer.parse(user_uuid) do
+      {int_id, ""} ->
+        list_logs_for_user(int_id)
+
+      _ ->
+        from(e in Entry,
+          where: e.target_user_uuid == ^user_uuid or e.admin_user_uuid == ^user_uuid,
+          order_by: [desc: e.inserted_at]
+        )
+        |> Repo.all()
+    end
   end
 
   @doc """
@@ -152,11 +166,17 @@ defmodule PhoenixKit.AuditLog do
         {:action, action}, query ->
           from(e in query, where: e.action == ^to_string(action))
 
-        {:target_user_id, user_id}, query ->
+        {:target_user_id, user_id}, query when is_integer(user_id) ->
           from(e in query, where: e.target_user_id == ^user_id)
 
-        {:admin_user_id, user_id}, query ->
+        {:target_user_id, user_uuid}, query when is_binary(user_uuid) ->
+          from(e in query, where: e.target_user_uuid == ^user_uuid)
+
+        {:admin_user_id, user_id}, query when is_integer(user_id) ->
           from(e in query, where: e.admin_user_id == ^user_id)
+
+        {:admin_user_id, user_uuid}, query when is_binary(user_uuid) ->
+          from(e in query, where: e.admin_user_uuid == ^user_uuid)
 
         {:from_date, date}, query ->
           from(e in query, where: e.inserted_at >= ^date)
@@ -186,8 +206,24 @@ defmodule PhoenixKit.AuditLog do
       ** (Ecto.NoResultsError)
 
   """
-  def get_log!(id) do
-    Repo.get!(Entry, id)
+  def get_log!(id) when is_integer(id) do
+    case Repo.get_by(Entry, id: id) do
+      nil -> raise Ecto.NoResultsError, queryable: Entry
+      entry -> entry
+    end
+  end
+
+  def get_log!(uuid) when is_binary(uuid) do
+    case Ecto.UUID.cast(uuid) do
+      {:ok, _} ->
+        Repo.get!(Entry, uuid)
+
+      :error ->
+        case Integer.parse(uuid) do
+          {int_id, ""} -> get_log!(int_id)
+          _ -> raise Ecto.NoResultsError, queryable: Entry
+        end
+    end
   end
 
   @doc """
@@ -210,11 +246,17 @@ defmodule PhoenixKit.AuditLog do
         {:action, action}, query ->
           from(e in query, where: e.action == ^to_string(action))
 
-        {:target_user_id, user_id}, query ->
+        {:target_user_id, user_id}, query when is_integer(user_id) ->
           from(e in query, where: e.target_user_id == ^user_id)
 
-        {:admin_user_id, user_id}, query ->
+        {:target_user_id, user_uuid}, query when is_binary(user_uuid) ->
+          from(e in query, where: e.target_user_uuid == ^user_uuid)
+
+        {:admin_user_id, user_id}, query when is_integer(user_id) ->
           from(e in query, where: e.admin_user_id == ^user_id)
+
+        {:admin_user_id, user_uuid}, query when is_binary(user_uuid) ->
+          from(e in query, where: e.admin_user_uuid == ^user_uuid)
 
         {:from_date, date}, query ->
           from(e in query, where: e.inserted_at >= ^date)
@@ -226,6 +268,6 @@ defmodule PhoenixKit.AuditLog do
           query
       end)
 
-    Repo.aggregate(query, :count, :id)
+    Repo.aggregate(query, :count, :uuid)
   end
 end

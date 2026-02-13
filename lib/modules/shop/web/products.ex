@@ -145,8 +145,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_event("view_product", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/shop/products/#{id}"))}
+  def handle_event("view_product", %{"uuid" => uuid}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/shop/products/#{uuid}"))}
   end
 
   @impl true
@@ -155,8 +155,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_event("delete_product", %{"id" => id}, socket) do
-    product = Shop.get_product!(id)
+  def handle_event("delete_product", %{"uuid" => uuid}, socket) do
+    product = Shop.get_product!(uuid)
 
     case Shop.delete_product(product) do
       {:ok, _} ->
@@ -180,15 +180,14 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   # Bulk selection events
   @impl true
-  def handle_event("toggle_select", %{"id" => id}, socket) do
-    id = String.to_integer(id)
+  def handle_event("toggle_select", %{"uuid" => uuid}, socket) do
     selected = socket.assigns.selected_ids
 
     selected =
-      if MapSet.member?(selected, id) do
-        MapSet.delete(selected, id)
+      if MapSet.member?(selected, uuid) do
+        MapSet.delete(selected, uuid)
       else
-        MapSet.put(selected, id)
+        MapSet.put(selected, uuid)
       end
 
     {:noreply, assign(socket, :selected_ids, selected)}
@@ -196,14 +195,14 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   @impl true
   def handle_event("select_all", _params, socket) do
-    all_ids = Enum.map(socket.assigns.products, & &1.id) |> MapSet.new()
+    all_uuids = Enum.map(socket.assigns.products, & &1.uuid) |> MapSet.new()
     current = socket.assigns.selected_ids
 
     selected =
-      if MapSet.subset?(all_ids, current) do
-        MapSet.difference(current, all_ids)
+      if MapSet.subset?(all_uuids, current) do
+        MapSet.difference(current, all_uuids)
       else
-        MapSet.union(current, all_ids)
+        MapSet.union(current, all_uuids)
       end
 
     {:noreply, assign(socket, :selected_ids, selected)}
@@ -243,7 +242,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   @impl true
   def handle_event("bulk_change_category", %{"category_id" => category_id}, socket) do
     ids = MapSet.to_list(socket.assigns.selected_ids)
-    category_id = if category_id == "", do: nil, else: String.to_integer(category_id)
+    category_id = if category_id == "", do: nil, else: category_id
     count = Shop.bulk_update_product_category(ids, category_id)
 
     socket = load_products(socket)
@@ -391,7 +390,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                 <select class="select select-bordered w-full focus:select-primary" name="category">
                   <option value="" selected={is_nil(@category_filter)}>All Categories</option>
                   <%= for category <- @categories do %>
-                    <option value={category.id} selected={@category_filter == category.id}>
+                    <option value={category.uuid} selected={@category_filter == category.uuid}>
                       {Translations.get(category, :name, @current_language)}
                     </option>
                   <% end %>
@@ -488,7 +487,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                   <%= for product <- @products do %>
                     <tr class={[
                       "hover",
-                      if(MapSet.member?(@selected_ids, product.id), do: "bg-primary/5", else: "")
+                      if(MapSet.member?(@selected_ids, product.uuid), do: "bg-primary/5", else: "")
                     ]}>
                       <td phx-click="noop">
                         <label class="cursor-pointer">
@@ -496,12 +495,16 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                             type="checkbox"
                             class="checkbox checkbox-sm"
                             phx-click="toggle_select"
-                            phx-value-id={product.id}
-                            checked={MapSet.member?(@selected_ids, product.id)}
+                            phx-value-uuid={product.uuid}
+                            checked={MapSet.member?(@selected_ids, product.uuid)}
                           />
                         </label>
                       </td>
-                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
+                      <td
+                        class="cursor-pointer"
+                        phx-click="view_product"
+                        phx-value-uuid={product.uuid}
+                      >
                         <div class="flex items-center gap-3">
                           <% product_title = Translations.get(product, :title, @current_language) %>
                           <% product_slug = Translations.get(product, :slug, @current_language) %>
@@ -520,17 +523,29 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                           </div>
                         </div>
                       </td>
-                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
+                      <td
+                        class="cursor-pointer"
+                        phx-click="view_product"
+                        phx-value-uuid={product.uuid}
+                      >
                         <span class={status_badge_class(product.status)}>
                           {product.status}
                         </span>
                       </td>
-                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
+                      <td
+                        class="cursor-pointer"
+                        phx-click="view_product"
+                        phx-value-uuid={product.uuid}
+                      >
                         <span class={type_badge_class(product.product_type)}>
                           {product.product_type}
                         </span>
                       </td>
-                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
+                      <td
+                        class="cursor-pointer"
+                        phx-click="view_product"
+                        phx-value-uuid={product.uuid}
+                      >
                         <%= if product.category do %>
                           <span class="badge badge-ghost">
                             {Translations.get(product.category, :name, @current_language)}
@@ -542,27 +557,27 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                       <td
                         class="text-right font-mono cursor-pointer"
                         phx-click="view_product"
-                        phx-value-id={product.id}
+                        phx-value-uuid={product.uuid}
                       >
                         {format_price(product.price, @currency)}
                       </td>
                       <td class="text-right" phx-click="noop">
                         <div class="flex flex-wrap gap-1 justify-end">
                           <.link
-                            navigate={Routes.path("/admin/shop/products/#{product.id}")}
+                            navigate={Routes.path("/admin/shop/products/#{product.uuid}")}
                             class="btn btn-xs btn-outline btn-info"
                           >
                             <.icon name="hero-eye" class="h-4 w-4" />
                           </.link>
                           <.link
-                            navigate={Routes.path("/admin/shop/products/#{product.id}/edit")}
+                            navigate={Routes.path("/admin/shop/products/#{product.uuid}/edit")}
                             class="btn btn-xs btn-outline btn-secondary"
                           >
                             <.icon name="hero-pencil" class="h-4 w-4" />
                           </.link>
                           <button
                             phx-click="delete_product"
-                            phx-value-id={product.id}
+                            phx-value-uuid={product.uuid}
                             data-confirm="Delete this product?"
                             class="btn btn-xs btn-outline btn-error"
                           >
@@ -656,7 +671,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
               <%= for category <- @categories do %>
                 <button
                   phx-click="bulk_change_category"
-                  phx-value-category_id={category.id}
+                  phx-value-category_id={category.uuid}
                   class="btn btn-outline justify-start"
                 >
                   <.icon name="hero-folder" class="w-5 h-5 mr-2" /> {Translations.get(
@@ -700,18 +715,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   defp all_selected?(products, selected_ids) do
     products != [] and
-      Enum.all?(products, fn p -> MapSet.member?(selected_ids, p.id) end)
+      Enum.all?(products, fn p -> MapSet.member?(selected_ids, p.uuid) end)
   end
 
   defp parse_category_id(nil), do: nil
   defp parse_category_id(""), do: nil
-
-  defp parse_category_id(id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int, ""} -> int
-      _ -> nil
-    end
-  end
+  defp parse_category_id(id) when is_binary(id), do: id
 
   defp status_badge_class("active"), do: "badge badge-success"
   defp status_badge_class("draft"), do: "badge badge-warning"

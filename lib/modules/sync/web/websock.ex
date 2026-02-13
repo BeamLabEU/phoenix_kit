@@ -459,6 +459,7 @@ defmodule PhoenixKitWeb.SyncWebsock do
     attrs = %{
       direction: "send",
       connection_id: db_connection.id,
+      connection_uuid: db_connection.uuid,
       table_name: table_name,
       records_requested: records_count,
       records_transferred: records_count,

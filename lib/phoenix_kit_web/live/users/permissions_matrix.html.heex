@@ -66,11 +66,11 @@
                   <% else %>
                     <button
                       phx-click="toggle_permission"
-                      phx-value-role_id={role.id}
+                      phx-value-role_id={role.uuid}
                       phx-value-key={key}
                       class="cursor-pointer hover:opacity-70 transition-opacity"
                     >
-                      <%= if Map.get(@matrix, role.id, MapSet.new()) |> MapSet.member?(key) do %>
+                      <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
                         <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
                       <% else %>
                         <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
@@ -106,11 +106,11 @@
                   <% else %>
                     <button
                       phx-click="toggle_permission"
-                      phx-value-role_id={role.id}
+                      phx-value-role_id={role.uuid}
                       phx-value-key={key}
                       class="cursor-pointer hover:opacity-70 transition-opacity"
                     >
-                      <%= if Map.get(@matrix, role.id, MapSet.new()) |> MapSet.member?(key) do %>
+                      <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
                         <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
                       <% else %>
                         <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
@@ -133,7 +133,7 @@
                     PhoenixKit.Users.Permissions.all_module_keys()
                   )}
                 <% else %>
-                  {Map.get(@matrix, role.id, MapSet.new()) |> MapSet.size()} / {length(
+                  {Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.size()} / {length(
                     PhoenixKit.Users.Permissions.all_module_keys()
                   )}
                 <% end %>

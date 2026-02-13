@@ -236,7 +236,7 @@
                             <button
                               class="btn btn-outline btn-success btn-xs"
                               phx-click="toggle_entity_definitions"
-                              phx-value-id={entity.id}
+                              phx-value-uuid={entity.uuid}
                               title={gettext("Definition sync enabled - click to disable")}
                             >
                               <.icon name="hero-check" class="w-3 h-3" />
@@ -245,7 +245,7 @@
                             <button
                               class="btn btn-outline btn-xs"
                               phx-click="toggle_entity_definitions"
-                              phx-value-id={entity.id}
+                              phx-value-uuid={entity.uuid}
                               title={gettext("Definition sync disabled - click to enable")}
                             >
                               <.icon name="hero-x-mark" class="w-3 h-3" />
@@ -263,7 +263,7 @@
                               <button
                                 class="btn btn-outline btn-success btn-xs"
                                 phx-click="toggle_entity_data"
-                                phx-value-id={entity.id}
+                                phx-value-uuid={entity.uuid}
                                 title={gettext("Records sync enabled - click to disable")}
                               >
                                 <.icon name="hero-check" class="w-3 h-3" />
@@ -272,7 +272,7 @@
                               <button
                                 class="btn btn-outline btn-xs"
                                 phx-click="toggle_entity_data"
-                                phx-value-id={entity.id}
+                                phx-value-uuid={entity.uuid}
                                 title={gettext("Records sync disabled - click to enable")}
                               >
                                 <.icon name="hero-x-mark" class="w-3 h-3" />
@@ -294,7 +294,7 @@
                       <button
                         class="btn btn-ghost btn-xs"
                         phx-click="export_entity_now"
-                        phx-value-id={entity.id}
+                        phx-value-uuid={entity.uuid}
                         title={gettext("Export now")}
                       >
                         <.icon name="hero-arrow-up-tray" class="w-4 h-4" />

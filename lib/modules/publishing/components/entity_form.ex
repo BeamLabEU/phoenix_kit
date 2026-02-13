@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Publishing.Components.EntityForm do
 
   defp build_empty_changeset(entity) do
     # Create an empty EntityData changeset for the form
-    %EntityData{entity_id: entity.id, data: %{}}
+    %EntityData{entity_id: entity.id, entity_uuid: entity.uuid, data: %{}}
     |> EntityData.change()
   end
 end

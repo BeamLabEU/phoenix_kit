@@ -61,11 +61,11 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Users.Auth.User
 
-  @primary_key {:id, :id, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_types ~w(individual company)
 
   schema "phoenix_kit_billing_profiles" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :type, :string, default: "individual"
     field :is_default, :boolean, default: false
     field :name, :string
@@ -93,7 +93,9 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
 
     field :metadata, :map, default: %{}
 
-    belongs_to :user, User
+    # legacy
+    field :user_id, :integer
+    belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -105,6 +107,7 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
     profile
     |> cast(attrs, [
       :user_id,
+      :user_uuid,
       :type,
       :is_default,
       :name,
@@ -125,14 +128,14 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
       :country,
       :metadata
     ])
-    |> validate_required([:user_id, :type])
+    |> validate_required([:user_uuid, :type])
     |> validate_inclusion(:type, @valid_types)
     |> validate_length(:country, is: 2)
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email address")
     |> validate_type_specific_fields()
     |> validate_vat_number()
     |> maybe_set_display_name()
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
   end
 
   defp validate_type_specific_fields(changeset) do
@@ -213,6 +216,7 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   def to_snapshot(%__MODULE__{} = profile) do
     %{
       profile_id: profile.id,
+      profile_uuid: profile.uuid,
       type: profile.type,
       name: profile.name,
       # Individual

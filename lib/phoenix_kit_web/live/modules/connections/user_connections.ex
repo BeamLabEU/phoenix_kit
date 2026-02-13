@@ -67,10 +67,8 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.UserConnections do
   end
 
   @impl true
-  def handle_event("unfollow", %{"id" => user_id}, socket) do
-    target_id = String.to_integer(user_id)
-
-    case Connections.unfollow(socket.assigns.current_user, target_id) do
+  def handle_event("unfollow", %{"uuid" => user_uuid}, socket) do
+    case Connections.unfollow(socket.assigns.current_user, user_uuid) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -84,7 +82,7 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.UserConnections do
   end
 
   @impl true
-  def handle_event("remove_follower", %{"id" => _user_id}, socket) do
+  def handle_event("remove_follower", %{"uuid" => _user_uuid}, socket) do
     # Remove follower by having them unfollow us (via block/unblock or admin action)
     # For now, we just show a message - actual follower removal would need admin rights
     {:noreply, put_flash(socket, :info, "Follower removal requires blocking the user")}
@@ -121,10 +119,8 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.UserConnections do
   end
 
   @impl true
-  def handle_event("remove_connection", %{"id" => user_id}, socket) do
-    target_id = String.to_integer(user_id)
-
-    case Connections.remove_connection(socket.assigns.current_user, target_id) do
+  def handle_event("remove_connection", %{"uuid" => user_uuid}, socket) do
+    case Connections.remove_connection(socket.assigns.current_user, user_uuid) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -138,10 +134,8 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.UserConnections do
   end
 
   @impl true
-  def handle_event("unblock", %{"id" => user_id}, socket) do
-    target_id = String.to_integer(user_id)
-
-    case Connections.unblock(socket.assigns.current_user, target_id) do
+  def handle_event("unblock", %{"uuid" => user_uuid}, socket) do
+    case Connections.unblock(socket.assigns.current_user, user_uuid) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -199,10 +193,11 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.UserConnections do
 
   # Helper to get the other user from a connection
   def get_other_user(connection, current_user_id) do
-    if connection.requester_id == current_user_id do
-      connection.recipient
-    else
-      connection.requester
+    cond do
+      connection.requester_id == current_user_id -> connection.recipient
+      connection.recipient_id == current_user_id -> connection.requester
+      to_string(connection.requester_uuid) == to_string(current_user_id) -> connection.recipient
+      true -> connection.requester
     end
   end
 end

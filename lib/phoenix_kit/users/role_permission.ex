@@ -20,20 +20,26 @@ defmodule PhoenixKit.Users.RolePermission do
   alias PhoenixKit.Users.Role
 
   @type t :: %__MODULE__{
+          uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          uuid: Ecto.UUID.t() | nil,
           role_id: integer(),
+          role_uuid: UUIDv7.t() | nil,
           module_key: String.t(),
           granted_by: integer() | nil,
+          granted_by_uuid: UUIDv7.t() | nil,
           inserted_at: NaiveDateTime.t() | nil
         }
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_role_permissions" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :module_key, :string
     field :granted_by, :integer
+    field :granted_by_uuid, UUIDv7
 
-    belongs_to :role, Role
+    field :role_id, :integer
+    belongs_to :role, Role, foreign_key: :role_uuid, references: :uuid, type: UUIDv7
 
     timestamps(updated_at: false)
   end
@@ -43,13 +49,13 @@ defmodule PhoenixKit.Users.RolePermission do
   """
   def changeset(permission, attrs) do
     permission
-    |> cast(attrs, [:role_id, :module_key, :granted_by])
-    |> validate_required([:role_id, :module_key])
+    |> cast(attrs, [:role_id, :role_uuid, :module_key, :granted_by, :granted_by_uuid])
+    |> validate_required([:role_uuid, :module_key])
     |> validate_inclusion(:module_key, Permissions.all_module_keys())
-    |> unique_constraint([:role_id, :module_key],
-      name: :uq_role_permissions_role_module,
+    |> unique_constraint([:role_uuid, :module_key],
+      name: :phoenix_kit_role_permissions_role_uuid_module_key_idx,
       message: "permission already granted"
     )
-    |> foreign_key_constraint(:role_id)
+    |> foreign_key_constraint(:role_uuid)
   end
 end

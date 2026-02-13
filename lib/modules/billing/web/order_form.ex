@@ -83,7 +83,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
 
         socket
         |> assign(:page_title, "Edit Order #{order.order_number}")
-        |> assign(:url_path, Routes.path("/admin/billing/orders/#{order.id}/edit"))
+        |> assign(:url_path, Routes.path("/admin/billing/orders/#{order.uuid}/edit"))
         |> assign(:order, order)
         |> assign(:form, to_form(changeset))
         |> assign(:line_items, line_items)
@@ -123,7 +123,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
 
   @impl true
   def handle_event("select_user", %{"user_id" => user_id}, socket) do
-    user_id = if user_id == "", do: nil, else: String.to_integer(user_id)
+    user_id = if user_id == "", do: nil, else: user_id
     billing_profiles = if user_id, do: Billing.list_user_billing_profiles(user_id), else: []
 
     # Auto-select default profile if available, otherwise select first profile
@@ -260,7 +260,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
         {:noreply,
          socket
          |> put_flash(:info, "Order saved successfully")
-         |> push_navigate(to: Routes.path("/admin/billing/orders/#{order.id}"))}
+         |> push_navigate(to: Routes.path("/admin/billing/orders/#{order.uuid}"))}
 
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
@@ -268,7 +268,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
   end
 
   defp handle_billing_profile_selection(profile_id, socket) do
-    profile_id = if profile_id == "", do: nil, else: String.to_integer(profile_id)
+    profile_id = if profile_id == "", do: nil, else: profile_id
 
     {country_tax_rate, country_name, country_vat_percent} =
       if profile_id do

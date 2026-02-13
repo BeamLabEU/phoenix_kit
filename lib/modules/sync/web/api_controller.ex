@@ -211,7 +211,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
         Phoenix.PubSub.broadcast(
           pubsub,
           "sync:connections",
-          {:connection_status_changed, connection.id, validated.status}
+          {:connection_status_changed, connection.uuid, validated.status}
         )
       end
 
@@ -442,6 +442,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       Transfers.create_transfer(%{
         direction: "send",
         connection_id: connection.id,
+        connection_uuid: connection.uuid,
         table_name: validated.table_name,
         remote_site_url: connection.site_url,
         conflict_strategy: validated.conflict_strategy,
@@ -624,7 +625,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   defp maybe_activate_pending_connection(%{status: "pending"} = connection) do
     case Connections.update_connection(connection, %{status: "active"}) do
       {:ok, updated} ->
-        broadcast_connection_status_change(connection.id, "active")
+        broadcast_connection_status_change(connection.uuid, "active")
         {updated, "active"}
 
       {:error, _} ->
@@ -818,7 +819,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
           Phoenix.PubSub.broadcast(
             pubsub,
             "sync:connections",
-            {:connection_created, connection.id}
+            {:connection_created, connection.uuid}
           )
         end
 
@@ -826,7 +827,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
          %{
            status: initial_status,
            message: "Connection registered and activated",
-           connection_id: connection.id
+           connection_id: connection.uuid
          }}
 
       {:error, changeset} ->

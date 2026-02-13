@@ -35,6 +35,7 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
   schema "phoenix_kit_post_likes" do
     belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
 
     timestamps(type: :naive_datetime)
   end
@@ -53,7 +54,7 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
   """
   def changeset(like, attrs) do
     like
-    |> cast(attrs, [:post_id, :user_id])
+    |> cast(attrs, [:post_id, :user_id, :user_uuid])
     |> validate_required([:post_id, :user_id])
     |> foreign_key_constraint(:post_id)
     |> foreign_key_constraint(:user_id)

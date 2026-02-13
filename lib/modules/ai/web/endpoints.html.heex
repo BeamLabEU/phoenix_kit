@@ -121,7 +121,7 @@
         <div class="grid gap-4">
           <%= for endpoint <- @endpoints do %>
             <% stats =
-              Map.get(@endpoint_stats, endpoint.id, %{
+              Map.get(@endpoint_stats, endpoint.uuid, %{
                 request_count: 0,
                 total_tokens: 0,
                 total_cost: 0
@@ -216,7 +216,7 @@
                         </.link>
                       </li>
                       <li>
-                        <button phx-click="toggle_endpoint" phx-value-id={endpoint.id}>
+                        <button phx-click="toggle_endpoint" phx-value-uuid={endpoint.uuid}>
                           <.icon
                             name={if endpoint.enabled, do: "hero-pause", else: "hero-play"}
                             class="w-4 h-4"
@@ -228,7 +228,7 @@
                       <li>
                         <button
                           phx-click="delete_endpoint"
-                          phx-value-id={endpoint.id}
+                          phx-value-uuid={endpoint.uuid}
                           data-confirm="Are you sure you want to delete this endpoint?"
                           class="text-error"
                         >
@@ -665,7 +665,7 @@
                         <td>
                           <button
                             phx-click="show_request_details"
-                            phx-value-id={request.id}
+                            phx-value-uuid={request.uuid}
                             class="btn btn-ghost btn-xs"
                           >
                             <.icon name="hero-eye" class="w-4 h-4" />

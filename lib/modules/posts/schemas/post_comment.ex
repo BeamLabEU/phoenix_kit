@@ -40,6 +40,7 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
 
     belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_uuid, UUIDv7
     belongs_to :parent, __MODULE__, type: UUIDv7
 
     has_many :children, __MODULE__, foreign_key: :parent_id
@@ -66,7 +67,7 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
   """
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:post_id, :user_id, :parent_id, :content, :status, :depth])
+    |> cast(attrs, [:post_id, :user_id, :user_uuid, :parent_id, :content, :status, :depth])
     |> validate_required([:post_id, :user_id, :content])
     |> validate_inclusion(:status, ["published", "hidden", "deleted", "pending"])
     |> validate_length(:content, min: 1, max: 10_000)

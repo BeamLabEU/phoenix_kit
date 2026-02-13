@@ -113,7 +113,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   @spec get_connection(integer() | String.t()) :: Connection.t() | nil
   def get_connection(id) when is_integer(id) do
     repo = RepoHelper.repo()
-    repo.get(Connection, id)
+    repo.get_by(Connection, id: id)
   end
 
   def get_connection(id) when is_binary(id) do
@@ -188,7 +188,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
     Connection
     |> filter_by_direction(opts[:direction])
     |> filter_by_status(opts[:status])
-    |> repo.aggregate(:count, :id)
+    |> repo.aggregate(:count)
   end
 
   @doc """

@@ -566,10 +566,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
              Manual fix (run in psql or your database client):
                ALTER TABLE phoenix_kit_settings
-               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT gen_random_uuid();
+               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7();
 
                ALTER TABLE phoenix_kit_email_templates
-               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT gen_random_uuid();
+               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7();
           """)
       end
     rescue

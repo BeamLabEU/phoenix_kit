@@ -19,9 +19,12 @@ defmodule PhoenixKit.AuditLog.Entry do
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
+          uuid: UUIDv7.t() | nil,
           id: integer() | nil,
           target_user_id: integer(),
+          target_user_uuid: UUIDv7.t() | nil,
           admin_user_id: integer(),
+          admin_user_uuid: UUIDv7.t() | nil,
           action: String.t(),
           ip_address: String.t() | nil,
           user_agent: String.t() | nil,
@@ -41,10 +44,14 @@ defmodule PhoenixKit.AuditLog.Entry do
     "role_revoked"
   ]
 
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
+
   schema "phoenix_kit_audit_logs" do
-    field :uuid, Ecto.UUID, read_after_writes: true
+    field :id, :integer, read_after_writes: true
     field :target_user_id, :integer
+    field :target_user_uuid, UUIDv7
     field :admin_user_id, :integer
+    field :admin_user_uuid, UUIDv7
     field :action, :string
     field :ip_address, :string
     field :user_agent, :string
@@ -68,17 +75,18 @@ defmodule PhoenixKit.AuditLog.Entry do
   """
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:target_user_id, :admin_user_id, :action, :ip_address, :user_agent, :metadata])
-    |> validate_required([:target_user_id, :admin_user_id, :action])
+    |> cast(attrs, [
+      :target_user_id,
+      :target_user_uuid,
+      :admin_user_id,
+      :admin_user_uuid,
+      :action,
+      :ip_address,
+      :user_agent,
+      :metadata
+    ])
+    |> validate_required([:target_user_uuid, :admin_user_uuid, :action])
     |> validate_inclusion(:action, @valid_actions)
-    |> validate_user_ids()
-  end
-
-  # Validate that user IDs are positive integers
-  defp validate_user_ids(changeset) do
-    changeset
-    |> validate_number(:target_user_id, greater_than: 0)
-    |> validate_number(:admin_user_id, greater_than: 0)
   end
 
   @doc """

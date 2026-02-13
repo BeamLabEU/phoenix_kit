@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
 
   @impl true
   def handle_params(%{"id" => id}, _url, socket) do
-    case Templates.get_template(String.to_integer(id)) do
+    case Templates.get_template(id) do
       nil ->
         {:noreply,
          socket

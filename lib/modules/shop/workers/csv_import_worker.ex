@@ -117,7 +117,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp load_config(config_id, _import_log) when is_binary(config_id) do
-    load_config_by_id(String.to_integer(config_id))
+    load_config_by_id(config_id)
   end
 
   defp load_config_by_id(config_id) do
@@ -387,7 +387,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       slug = Translations.get(cat, :slug, lang)
 
       if slug && slug != "" do
-        Map.put(acc, slug, cat.id)
+        Map.put(acc, slug, cat.uuid)
       else
         acc
       end

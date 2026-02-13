@@ -403,14 +403,25 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
             ^lang,
             ^slug
           ),
-        select: count(p.id)
+        select: count(p.uuid)
       )
 
     query =
-      if exclude_id do
-        from(p in query, where: p.id != ^exclude_id)
-      else
-        query
+      cond do
+        is_binary(exclude_id) && match?({:ok, _}, Ecto.UUID.cast(exclude_id)) ->
+          from(p in query, where: p.uuid != ^exclude_id)
+
+        is_integer(exclude_id) ->
+          from(p in query, where: p.id != ^exclude_id)
+
+        is_binary(exclude_id) ->
+          case Integer.parse(exclude_id) do
+            {int_id, ""} -> from(p in query, where: p.id != ^int_id)
+            _ -> query
+          end
+
+        true ->
+          query
       end
 
     repo().one(query) > 0
@@ -438,14 +449,25 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
             ^lang,
             ^slug
           ),
-        select: count(c.id)
+        select: count(c.uuid)
       )
 
     query =
-      if exclude_id do
-        from(c in query, where: c.id != ^exclude_id)
-      else
-        query
+      cond do
+        is_binary(exclude_id) && match?({:ok, _}, Ecto.UUID.cast(exclude_id)) ->
+          from(c in query, where: c.uuid != ^exclude_id)
+
+        is_integer(exclude_id) ->
+          from(c in query, where: c.id != ^exclude_id)
+
+        is_binary(exclude_id) ->
+          case Integer.parse(exclude_id) do
+            {int_id, ""} -> from(c in query, where: c.id != ^int_id)
+            _ -> query
+          end
+
+        true ->
+          query
       end
 
     repo().one(query) > 0

@@ -107,7 +107,20 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
   """
   def get_template(id) when is_integer(id) do
-    repo().get(Template, id)
+    repo().get_by(Template, id: id)
+  end
+
+  def get_template(id) when is_binary(id) do
+    alias PhoenixKit.Utils.UUID, as: UUIDUtils
+
+    if UUIDUtils.valid?(id) do
+      repo().get(Template, id)
+    else
+      case Integer.parse(id) do
+        {int_id, ""} -> get_template(int_id)
+        _ -> nil
+      end
+    end
   end
 
   def get_template(_), do: nil
@@ -125,7 +138,10 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
   """
   def get_template!(id) do
-    repo().get!(Template, id)
+    case get_template(id) do
+      nil -> raise Ecto.NoResultsError, queryable: Template
+      template -> template
+    end
   end
 
   @doc """
@@ -213,7 +229,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     |> Template.changeset(attrs)
     |> Template.version_changeset(%{
       version: template.version + 1,
-      updated_by_user_id: attrs[:updated_by_user_id]
+      updated_by_user_id: attrs[:updated_by_user_id],
+      updated_by_user_uuid: attrs[:updated_by_user_uuid]
     })
     |> repo().update()
     |> case do
@@ -270,9 +287,12 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
   """
   def archive_template(%Template{} = template, user_id \\ nil) do
+    user_uuid = resolve_user_uuid(user_id)
+
     update_template(template, %{
       status: "archived",
-      updated_by_user_id: user_id
+      updated_by_user_id: user_id,
+      updated_by_user_uuid: user_uuid
     })
   end
 
@@ -286,9 +306,12 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
   """
   def activate_template(%Template{} = template, user_id \\ nil) do
+    user_uuid = resolve_user_uuid(user_id)
+
     update_template(template, %{
       status: "active",
-      updated_by_user_id: user_id
+      updated_by_user_id: user_id,
+      updated_by_user_uuid: user_uuid
     })
   end
 
@@ -313,9 +336,10 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       category: template.category,
       status: "draft",
       variables: template.variables,
-      metadata: Map.merge(template.metadata, %{"cloned_from" => template.id}),
+      metadata: Map.merge(template.metadata, %{"cloned_from" => template.uuid}),
       is_system: false,
-      created_by_user_id: attrs[:created_by_user_id]
+      created_by_user_id: attrs[:created_by_user_id],
+      created_by_user_uuid: attrs[:created_by_user_uuid]
     }
 
     final_attrs = Map.merge(base_attrs, attrs)
@@ -488,22 +512,22 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     active_templates =
       base_query
       |> where([t], t.status == "active")
-      |> repo().aggregate(:count, :id)
+      |> repo().aggregate(:count)
 
     draft_templates =
       base_query
       |> where([t], t.status == "draft")
-      |> repo().aggregate(:count, :id)
+      |> repo().aggregate(:count)
 
     archived_templates =
       base_query
       |> where([t], t.status == "archived")
-      |> repo().aggregate(:count, :id)
+      |> repo().aggregate(:count)
 
     system_templates =
       base_query
       |> where([t], t.is_system == true)
-      |> repo().aggregate(:count, :id)
+      |> repo().aggregate(:count)
 
     most_used =
       base_query
@@ -1994,4 +2018,12 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     Thank you for your business. If you have any questions, please contact us.
     """
   end
+
+  # Resolves user UUID from integer user_id (dual-write)
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    alias PhoenixKit.Users.Auth.User
+    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
+  end
+
+  defp resolve_user_uuid(_), do: nil
 end

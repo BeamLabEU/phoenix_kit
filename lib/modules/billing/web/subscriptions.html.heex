@@ -216,7 +216,7 @@
                         <.link
                           navigate={
                             PhoenixKit.Utils.Routes.path(
-                              "/admin/billing/subscriptions/#{subscription.id}"
+                              "/admin/billing/subscriptions/#{subscription.uuid}"
                             )
                           }
                           class="btn btn-ghost btn-xs"
@@ -226,7 +226,7 @@
                         <%= if subscription.status in ["active", "trialing"] && !subscription.cancel_at_period_end do %>
                           <button
                             phx-click="cancel_subscription"
-                            phx-value-id={subscription.id}
+                            phx-value-uuid={subscription.uuid}
                             class="btn btn-ghost btn-xs text-error"
                             data-confirm="Cancel this subscription at period end?"
                           >

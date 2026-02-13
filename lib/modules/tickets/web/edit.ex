@@ -139,7 +139,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
       case Map.get(params, "user_id") do
         nil -> current_user.id
         "" -> current_user.id
-        id -> String.to_integer(id)
+        id -> id
       end
 
     case Tickets.create_ticket(user_id, params) do

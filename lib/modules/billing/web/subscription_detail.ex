@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
             socket
             |> assign(:page_title, "Subscription ##{subscription.id}")
             |> assign(:project_title, project_title)
-            |> assign(:url_path, Routes.path("/admin/billing/subscriptions/#{subscription.id}"))
+            |> assign(:url_path, Routes.path("/admin/billing/subscriptions/#{subscription.uuid}"))
             |> assign(:subscription, subscription)
             |> assign(:plans, plans)
             |> assign(:show_change_plan_modal, false)
@@ -122,7 +122,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
 
   @impl true
   def handle_event("select_new_plan", %{"plan_id" => plan_id}, socket) do
-    plan_id = if plan_id == "", do: nil, else: String.to_integer(plan_id)
+    plan_id = if plan_id == "", do: nil, else: plan_id
     {:noreply, assign(socket, :selected_new_plan_id, plan_id)}
   end
 
@@ -130,7 +130,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
   def handle_event("change_plan", _params, socket) do
     %{subscription: subscription, selected_new_plan_id: new_plan_id} = socket.assigns
 
-    if new_plan_id && new_plan_id != subscription.plan_id do
+    if new_plan_id && to_string(new_plan_id) != to_string(subscription.plan_id) do
       case Billing.change_subscription_plan(subscription, new_plan_id) do
         {:ok, updated_subscription} ->
           {:noreply,

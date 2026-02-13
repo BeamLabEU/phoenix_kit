@@ -63,6 +63,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   alias PhoenixKit.ScheduledJobs
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
 
   # ============================================================================
   # Module Status
@@ -130,7 +131,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp count_posts_by_status(status) do
     from(p in Post, where: p.status == ^status)
-    |> repo().aggregate(:count, :id)
+    |> repo().aggregate(:count)
   rescue
     _ -> 0
   end
@@ -157,11 +158,38 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def create_post(user_id, attrs) when is_integer(user_id) do
     # Use string key to match form params (which have string keys)
-    attrs = Map.put(attrs, "user_id", user_id)
+    attrs =
+      attrs
+      |> Map.put("user_id", user_id)
+      |> Map.put("user_uuid", resolve_user_uuid(user_id))
 
     %Post{}
     |> Post.changeset(attrs)
     |> repo().insert()
+  end
+
+  def create_post(user_id, attrs) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> create_post(int_id, attrs)
+      _ -> create_post_with_uuid(user_id, attrs)
+    end
+  end
+
+  defp create_post_with_uuid(user_uuid, attrs) do
+    case Auth.get_user(user_uuid) do
+      %{id: user_id, uuid: uuid} ->
+        attrs =
+          attrs
+          |> Map.put("user_id", user_id)
+          |> Map.put("user_uuid", uuid)
+
+        %Post{}
+        |> Post.changeset(attrs)
+        |> repo().insert()
+
+      nil ->
+        {:error, :user_not_found}
+    end
   end
 
   @doc """
@@ -350,9 +378,18 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_user_posts(42)
       [%Post{}, ...]
   """
-  def list_user_posts(user_id, opts \\ []) when is_integer(user_id) do
+  def list_user_posts(user_id, opts \\ [])
+
+  def list_user_posts(user_id, opts) when is_integer(user_id) do
     opts = Keyword.put(opts, :user_id, user_id)
     list_posts(opts)
+  end
+
+  def list_user_posts(user_id, opts) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> list_user_posts(int_id, opts)
+      _ -> list_posts(Keyword.put(opts, :user_id, user_id))
+    end
   end
 
   @doc """
@@ -660,10 +697,14 @@ defmodule PhoenixKit.Modules.Posts do
       iex> like_post("018e3c4a-...", 42)  # Already liked
       {:error, %Ecto.Changeset{}}
   """
-  def like_post(post_id, user_id) do
+  def like_post(post_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case %PostLike{}
-           |> PostLike.changeset(%{post_id: post_id, user_id: user_id})
+           |> PostLike.changeset(%{
+             post_id: post_id,
+             user_id: user_id,
+             user_uuid: resolve_user_uuid(user_id)
+           })
            |> repo().insert() do
         {:ok, like} ->
           increment_like_count(%Post{id: post_id})
@@ -673,6 +714,13 @@ defmodule PhoenixKit.Modules.Posts do
           repo().rollback(changeset)
       end
     end)
+  end
+
+  def like_post(post_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> like_post(post_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
   end
 
   @doc """
@@ -694,7 +742,7 @@ defmodule PhoenixKit.Modules.Posts do
       iex> unlike_post("018e3c4a-...", 42)  # Not liked
       {:error, :not_found}
   """
-  def unlike_post(post_id, user_id) do
+  def unlike_post(post_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case repo().get_by(PostLike, post_id: post_id, user_id: user_id) do
         nil ->
@@ -706,6 +754,13 @@ defmodule PhoenixKit.Modules.Posts do
           like
       end
     end)
+  end
+
+  def unlike_post(post_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> unlike_post(post_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
   end
 
   @doc """
@@ -724,8 +779,15 @@ defmodule PhoenixKit.Modules.Posts do
       iex> post_liked_by?("018e3c4a-...", 99)
       false
   """
-  def post_liked_by?(post_id, user_id) do
+  def post_liked_by?(post_id, user_id) when is_integer(user_id) do
     repo().exists?(from l in PostLike, where: l.post_id == ^post_id and l.user_id == ^user_id)
+  end
+
+  def post_liked_by?(post_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> post_liked_by?(post_id, int_id)
+      _ -> false
+    end
   end
 
   @doc """
@@ -776,10 +838,14 @@ defmodule PhoenixKit.Modules.Posts do
       iex> dislike_post("018e3c4a-...", 42)  # Already disliked
       {:error, %Ecto.Changeset{}}
   """
-  def dislike_post(post_id, user_id) do
+  def dislike_post(post_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case %PostDislike{}
-           |> PostDislike.changeset(%{post_id: post_id, user_id: user_id})
+           |> PostDislike.changeset(%{
+             post_id: post_id,
+             user_id: user_id,
+             user_uuid: resolve_user_uuid(user_id)
+           })
            |> repo().insert() do
         {:ok, dislike} ->
           increment_dislike_count(%Post{id: post_id})
@@ -789,6 +855,13 @@ defmodule PhoenixKit.Modules.Posts do
           repo().rollback(changeset)
       end
     end)
+  end
+
+  def dislike_post(post_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> dislike_post(post_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
   end
 
   @doc """
@@ -810,7 +883,7 @@ defmodule PhoenixKit.Modules.Posts do
       iex> undislike_post("018e3c4a-...", 42)  # Not disliked
       {:error, :not_found}
   """
-  def undislike_post(post_id, user_id) do
+  def undislike_post(post_id, user_id) when is_integer(user_id) do
     repo().transaction(fn ->
       case repo().get_by(PostDislike, post_id: post_id, user_id: user_id) do
         nil ->
@@ -822,6 +895,13 @@ defmodule PhoenixKit.Modules.Posts do
           dislike
       end
     end)
+  end
+
+  def undislike_post(post_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> undislike_post(post_id, int_id)
+      _ -> {:error, :invalid_user_id}
+    end
   end
 
   @doc """
@@ -840,8 +920,15 @@ defmodule PhoenixKit.Modules.Posts do
       iex> post_disliked_by?("018e3c4a-...", 99)
       false
   """
-  def post_disliked_by?(post_id, user_id) do
+  def post_disliked_by?(post_id, user_id) when is_integer(user_id) do
     repo().exists?(from d in PostDislike, where: d.post_id == ^post_id and d.user_id == ^user_id)
+  end
+
+  def post_disliked_by?(post_id, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> post_disliked_by?(post_id, int_id)
+      _ -> false
+    end
   end
 
   @doc """
@@ -1071,11 +1158,38 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, %PostGroup{}}
   """
   def create_group(user_id, attrs) when is_integer(user_id) do
-    attrs = Map.put(attrs, :user_id, user_id)
+    attrs =
+      attrs
+      |> Map.put(:user_id, user_id)
+      |> Map.put(:user_uuid, resolve_user_uuid(user_id))
 
     %PostGroup{}
     |> PostGroup.changeset(attrs)
     |> repo().insert()
+  end
+
+  def create_group(user_id, attrs) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> create_group(int_id, attrs)
+      _ -> create_group_with_uuid(user_id, attrs)
+    end
+  end
+
+  defp create_group_with_uuid(user_uuid, attrs) do
+    case Auth.get_user(user_uuid) do
+      %{id: user_id, uuid: uuid} ->
+        attrs =
+          attrs
+          |> Map.put(:user_id, user_id)
+          |> Map.put(:user_uuid, uuid)
+
+        %PostGroup{}
+        |> PostGroup.changeset(attrs)
+        |> repo().insert()
+
+      nil ->
+        {:error, :user_not_found}
+    end
   end
 
   @doc """
@@ -1260,10 +1374,27 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_user_groups(42)
       [%PostGroup{}, ...]
   """
-  def list_user_groups(user_id, opts \\ []) when is_integer(user_id) do
+  def list_user_groups(user_id, opts \\ [])
+
+  def list_user_groups(user_id, opts) when is_integer(user_id) do
     preloads = Keyword.get(opts, :preload, [])
 
     from(g in PostGroup, where: g.user_id == ^user_id, order_by: [asc: g.position])
+    |> repo().all()
+    |> repo().preload(preloads)
+  end
+
+  def list_user_groups(user_id, opts) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> list_user_groups(int_id, opts)
+      _ -> list_user_groups_by_uuid(user_id, opts)
+    end
+  end
+
+  defp list_user_groups_by_uuid(user_uuid, opts) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    from(g in PostGroup, where: g.user_uuid == ^user_uuid, order_by: [asc: g.position])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1339,14 +1470,24 @@ defmodule PhoenixKit.Modules.Posts do
       iex> add_mention_to_post("018e3c4a-...", 42, "contributor")
       {:ok, %PostMention{}}
   """
-  def add_mention_to_post(post_id, user_id, mention_type \\ "mention") do
+  def add_mention_to_post(post_id, user_id, mention_type \\ "mention")
+
+  def add_mention_to_post(post_id, user_id, mention_type) when is_integer(user_id) do
     %PostMention{}
     |> PostMention.changeset(%{
       post_id: post_id,
       user_id: user_id,
+      user_uuid: resolve_user_uuid(user_id),
       mention_type: mention_type
     })
     |> repo().insert()
+  end
+
+  def add_mention_to_post(post_id, user_id, mention_type) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> add_mention_to_post(post_id, int_id, mention_type)
+      _ -> {:error, :invalid_user_id}
+    end
   end
 
   @doc """
@@ -1605,8 +1746,15 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) do
+  defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
     where(query, [p], p.user_id == ^user_id)
+  end
+
+  defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
+    case Integer.parse(user_id) do
+      {int_id, ""} -> where(query, [p], p.user_id == ^int_id)
+      _ -> where(query, [p], p.user_uuid == ^user_id)
+    end
   end
 
   defp maybe_filter_by_status(query, nil), do: query
@@ -1632,6 +1780,18 @@ defmodule PhoenixKit.Modules.Posts do
       ilike(p.title, ^search_pattern) or ilike(p.content, ^search_pattern)
     )
   end
+
+  defp resolve_user_uuid(user_id) when is_integer(user_id) do
+    case repo().one(
+           from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
+         ) do
+      nil -> nil
+      uuid -> uuid
+    end
+  end
+
+  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
+  defp resolve_user_uuid(_), do: nil
 
   # Get repository based on configuration (for tests and apps with custom repos)
   defp repo do

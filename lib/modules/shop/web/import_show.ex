@@ -196,14 +196,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportShow do
                         <td>
                           <div class="flex gap-1">
                             <.link
-                              navigate={Routes.path("/admin/shop/products/#{product.id}")}
+                              navigate={Routes.path("/admin/shop/products/#{product.uuid}")}
                               class="btn btn-xs btn-ghost"
                               title="View"
                             >
                               <.icon name="hero-eye" class="w-4 h-4" />
                             </.link>
                             <.link
-                              navigate={Routes.path("/admin/shop/products/#{product.id}/edit")}
+                              navigate={Routes.path("/admin/shop/products/#{product.uuid}/edit")}
                               class="btn btn-xs btn-ghost"
                               title="Edit"
                             >

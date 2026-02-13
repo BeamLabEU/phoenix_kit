@@ -29,6 +29,9 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
     belongs_to :user_a, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :user_b, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :actor, PhoenixKit.Users.Auth.User, type: :integer
+    field :user_a_uuid, UUIDv7
+    field :user_b_uuid, UUIDv7
+    field :actor_uuid, UUIDv7
 
     field :action, :string
     field :inserted_at, :naive_datetime
@@ -46,7 +49,15 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
     attrs = normalize_user_ids(attrs)
 
     history
-    |> cast(attrs, [:user_a_id, :user_b_id, :actor_id, :action])
+    |> cast(attrs, [
+      :user_a_id,
+      :user_b_id,
+      :actor_id,
+      :user_a_uuid,
+      :user_b_uuid,
+      :actor_uuid,
+      :action
+    ])
     |> validate_required([:user_a_id, :user_b_id, :actor_id, :action])
     |> validate_inclusion(:action, @actions)
     |> put_timestamp()
@@ -56,8 +67,11 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
   end
 
   # Normalize user IDs so user_a_id < user_b_id for consistent storage
+  # Also swap UUID fields to keep integer/UUID pairs consistent
   defp normalize_user_ids(%{user_a_id: a, user_b_id: b} = attrs) when a > b do
-    %{attrs | user_a_id: b, user_b_id: a}
+    a_uuid = Map.get(attrs, :user_a_uuid)
+    b_uuid = Map.get(attrs, :user_b_uuid)
+    %{attrs | user_a_id: b, user_b_id: a, user_a_uuid: b_uuid, user_b_uuid: a_uuid}
   end
 
   defp normalize_user_ids(attrs), do: attrs

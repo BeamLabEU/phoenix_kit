@@ -617,6 +617,98 @@ item_id = String.to_integer(params["item_id"])
 item_id = params["item_id"]  # Let the lookup function handle it
 ```
 
+### UUID Generation in Migrations (CRITICAL)
+
+**All UUID defaults in SQL migrations MUST use `uuid_generate_v7()`** (the PostgreSQL function created in V40). Never use `gen_random_uuid()` — that generates UUIDv4, which defeats the purpose of time-ordered UUIDs.
+
+#### Which UUID pattern to use?
+
+| Scenario | Pattern | Primary Key | UUID Column |
+|----------|---------|-------------|-------------|
+| **New standalone module** (comments, notifications, etc.) | Native UUID PK | `id UUID PRIMARY KEY DEFAULT uuid_generate_v7()` | Not needed (PK is the UUID) |
+| **New table with FK to integer-PK tables** (e.g., shop items referencing users) | Integer PK + secondary uuid | `id BIGSERIAL PRIMARY KEY` | `uuid UUID DEFAULT uuid_generate_v7() NOT NULL UNIQUE` |
+| **Adding uuid to existing table** | Secondary uuid column | Keep existing PK | `ALTER TABLE ... ADD COLUMN uuid UUID DEFAULT uuid_generate_v7() NOT NULL` |
+
+**Rule of thumb:** New modules that don't heavily FK into legacy integer-PK tables should use **Native UUID PK**. Tables that need BIGINT FKs to core tables (users, roles, settings) should use **Integer PK + secondary uuid**.
+
+#### Complete CREATE TABLE examples
+
+**Native UUID PK (preferred for new modules):**
+
+Migration SQL:
+```sql
+CREATE TABLE IF NOT EXISTS #{prefix_str}phoenix_kit_my_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+  user_id BIGINT,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_my_items_user
+    FOREIGN KEY (user_id) REFERENCES #{prefix_str}phoenix_kit_users(id) ON DELETE SET NULL
+);
+```
+
+Schema:
+```elixir
+@primary_key {:id, UUIDv7, autogenerate: true}
+@foreign_key_type UUIDv7
+
+schema "phoenix_kit_my_items" do
+  belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+  field :name, :string
+  field :status, :string, default: "active"
+  timestamps()
+end
+```
+
+**Integer PK + secondary uuid (for tables with heavy integer FK relationships):**
+
+Migration SQL:
+```sql
+CREATE TABLE IF NOT EXISTS #{prefix_str}phoenix_kit_my_records (
+  id BIGSERIAL PRIMARY KEY,
+  uuid UUID DEFAULT uuid_generate_v7() NOT NULL,
+  user_id BIGINT NOT NULL REFERENCES #{prefix_str}phoenix_kit_users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_my_records_uuid_idx
+  ON #{prefix_str}phoenix_kit_my_records(uuid);
+```
+
+Schema:
+```elixir
+schema "phoenix_kit_my_records" do
+  field :uuid, Ecto.UUID, read_after_writes: true
+  belongs_to :user, PhoenixKit.Users.Auth.User
+  field :name, :string
+  timestamps()
+end
+```
+
+#### Correct vs Wrong
+
+| Context | Correct | Wrong |
+|---------|---------|-------|
+| SQL migration DEFAULT | `uuid_generate_v7()` | `gen_random_uuid()` |
+| Elixir code generation | `UUIDv7.generate()` | `Ecto.UUID.generate()` |
+| Schema PK declaration | `@primary_key {:id, UUIDv7, autogenerate: true}` | `@primary_key {:id, :binary_id, autogenerate: true}` |
+
+#### Migration checklist for new tables with UUID
+
+- [ ] Use `uuid_generate_v7()` for DEFAULT (not `gen_random_uuid()`)
+- [ ] Add NOT NULL constraint on uuid columns
+- [ ] Add unique index on secondary uuid columns (not needed for UUID PKs — already unique)
+- [ ] For optional module tables, wrap in `IF EXISTS` table checks
+- [ ] Schema uses `read_after_writes: true` for secondary uuid columns
+- [ ] Record correct version number in `COMMENT ON TABLE phoenix_kit IS '<version>'`
+- [ ] Version comment in `up()` records THIS version, `down()` records PREVIOUS version
+
+**Reference migrations:** V40 (function creation + correct pattern), V56 (comprehensive fix)
+**Anti-patterns to avoid:** V45, V46, V53 (used `gen_random_uuid()` — fixed by V56)
+
 ### Key Design Principles
 
 - **No Circular Dependencies** - Optional Phoenix deps prevent import cycles
