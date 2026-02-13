@@ -138,5 +138,10 @@
   # Shop catalog_product - false positive guard_fail warning
   # Case statement already handles nil in earlier branch, Dialyzer incorrectly warns
   # that remaining branch comparing binary() to nil can never succeed
-  {"lib/modules/shop/web/catalog_product.ex", :guard_fail}
+  {"lib/modules/shop/web/catalog_product.ex", :guard_fail},
+
+  # Entity form - defensive catch-all clauses for mb_to_bytes and parse_accept_list
+  # Dialyzer proves previous clauses cover all actual call-site types but
+  # catch-alls are kept intentionally for safety with dynamic form params
+  {"lib/modules/entities/web/entity_form.ex", :pattern_match_cov}
 ]

@@ -194,20 +194,26 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
     end
   end
 
-  defp generate_module_on_demand(conn, _filename) do
+  defp generate_module_on_demand(conn, filename) do
     base_url = Sitemap.get_base_url()
 
     if base_url == "" do
       send_plain_error(conn, 503, "Sitemap not configured")
     else
-      # Trigger full generation, then try serving again
       opts = [base_url: base_url, xsl_style: "table", xsl_enabled: true]
 
       case Generator.generate_all(opts) do
         {:ok, %{total_urls: url_count, modules: modules}} ->
           Sitemap.update_generation_stats(%{url_count: url_count})
           Sitemap.update_module_stats(modules)
-          send_plain_error(conn, 404, "Module sitemap not found")
+
+          if FileStorage.module_exists?(filename) do
+            path = FileStorage.module_file_path(filename)
+            stat = FileStorage.get_module_stat(filename)
+            serve_file_with_etag(conn, path, stat)
+          else
+            send_plain_error(conn, 404, "Module sitemap not found")
+          end
 
         {:error, _} ->
           send_plain_error(conn, 500, "Failed to generate sitemap")

@@ -480,6 +480,9 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       sanitized_options = sanitize_field_options(merged_params)
       merged_params = Map.put(merged_params, "options", sanitized_options)
 
+      # Process file-specific fields
+      merged_params = process_file_upload_settings(merged_params)
+
       with :ok <- validate_field_requirements(merged_params, sanitized_options),
            :ok <-
              validate_unique_field_key(
@@ -1376,6 +1379,103 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
         _ -> nil
       end
   end
+
+  # File upload settings processing
+  defp process_file_upload_settings(%{"type" => "file"} = params) do
+    params
+    |> process_max_entries()
+    |> process_max_file_size()
+    |> process_accept_list()
+  end
+
+  defp process_file_upload_settings(params), do: params
+
+  defp process_max_entries(params) do
+    max_entries =
+      case params["max_entries"] do
+        value when is_integer(value) -> value
+        value when is_binary(value) -> parse_int(value, 5)
+        _ -> 5
+      end
+
+    # Clamp to valid range (1-20)
+    max_entries = max(1, min(20, max_entries))
+    Map.put(params, "max_entries", max_entries)
+  end
+
+  defp process_max_file_size(params) do
+    max_file_size =
+      case params do
+        %{"max_file_size_mb" => mb_value} -> mb_to_bytes(mb_value, 15)
+        %{"max_file_size" => bytes} when is_integer(bytes) -> bytes
+        _ -> 15_728_640
+      end
+
+    # Clamp to valid range (1-100 MB)
+    max_file_size = max(1_048_576, min(104_857_600, max_file_size))
+
+    params
+    |> Map.put("max_file_size", max_file_size)
+    |> Map.delete("max_file_size_mb")
+  end
+
+  defp process_accept_list(params) do
+    accept =
+      case params["accept"] do
+        list when is_list(list) -> list
+        string when is_binary(string) -> parse_accept_list(string)
+        _ -> []
+      end
+
+    Map.put(params, "accept", accept)
+  end
+
+  defp parse_int(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, _} -> int
+      _ -> default
+    end
+  end
+
+  defp parse_int(_, default), do: default
+
+  defp mb_to_bytes(mb_string, default_mb) when is_binary(mb_string) do
+    case Float.parse(mb_string) do
+      {mb, _} -> round(mb * 1_048_576)
+      _ -> default_mb * 1_048_576
+    end
+  end
+
+  defp mb_to_bytes(mb_value, _default_mb) when is_number(mb_value) do
+    round(mb_value * 1_048_576)
+  end
+
+  defp mb_to_bytes(_, default_mb), do: default_mb * 1_048_576
+
+  defp parse_accept_list(accept_string) when is_binary(accept_string) do
+    accept_string
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(fn ext ->
+      if String.starts_with?(ext, "."), do: ext, else: "." <> ext
+    end)
+  end
+
+  defp parse_accept_list(_), do: []
+
+  # Helper functions for the view
+  def bytes_to_mb(bytes) when is_integer(bytes) do
+    Float.round(bytes / 1_048_576, 1)
+  end
+
+  def bytes_to_mb(_), do: 15.0
+
+  def format_accept_list(accept) when is_list(accept) do
+    Enum.join(accept, ", ")
+  end
+
+  def format_accept_list(_), do: ""
 
   defp manual_key_target?(["field", "key"]), do: true
   defp manual_key_target?(_), do: false
