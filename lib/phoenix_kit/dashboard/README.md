@@ -258,7 +258,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
 ]
 ```
 
-> **Note:** Currently only one level of nesting is supported (parent → subtab). Sub-sub-tabs (nested subtabs) are not yet implemented but may be added in a future release.
+> **Note:** The user dashboard supports one level of nesting (parent → subtab). The admin sidebar supports two levels of nesting (parent → subtab → sub-subtab) for cases like Settings > Media > Dimensions.
 
 ### Subtab Display Options
 
@@ -326,7 +326,7 @@ Set these on the **parent tab** to apply to all its subtabs, or on **individual 
   path: "/dashboard/orders",
   subtab_display: :when_active,
   # Style options for subtabs (applied to children)
-  subtab_indent: "pl-12",        # Tailwind padding-left class (default: "pl-9")
+  subtab_indent: "pl-12",        # Tailwind padding-left class (default: "pl-4")
   subtab_icon_size: "w-3 h-3",   # Icon size classes (default: "w-4 h-4")
   subtab_text_size: "text-xs",   # Text size class (default: "text-sm")
   subtab_animation: :slide       # Animation: :none, :slide, :fade, :collapse
@@ -359,7 +359,7 @@ Set global subtab styling defaults in your config:
 ```elixir
 config :phoenix_kit,
   dashboard_subtab_style: [
-    indent: "pl-9",           # Default indent (Tailwind class)
+    indent: "pl-4",           # Default indent (Tailwind class)
     icon_size: "w-4 h-4",     # Default icon size
     text_size: "text-sm",     # Default text size
     animation: :none          # Default animation
@@ -372,7 +372,7 @@ The `indent` option (for `subtab_indent` or `dashboard_subtab_style.indent`) sup
 
 **Tailwind Classes (standard):**
 ```elixir
-indent: "pl-9"      # Default: ~36px / 2.25rem
+indent: "pl-4"      # Default: ~16px / 1rem
 indent: "pl-12"     # 3rem
 indent: "pl-6"      # 1.5rem
 ```
@@ -1030,18 +1030,25 @@ PhoenixKit.Dashboard.visible?(tab, scope)
 ```
 lib/phoenix_kit/dashboard/
 ├── dashboard.ex      # Main public API
-├── tab.ex            # Tab struct and logic
+├── tab.ex            # Tab struct and logic (level, permission, dynamic_children)
 ├── badge.ex          # Badge struct and logic
-├── registry.ex       # Tab registry GenServer
+├── registry.ex       # Tab registry GenServer (shared user + admin)
+├── admin_tabs.ex     # Default admin tab definitions (~50 tabs)
 ├── presence.ex       # Presence tracking
-└── README.md         # This file
+├── README.md         # This file (user dashboard)
+└── ADMIN_README.md   # Admin navigation documentation
 
 lib/phoenix_kit_web/components/dashboard/
-├── sidebar.ex        # Main sidebar component
-├── tab_item.ex       # Individual tab component
+├── sidebar.ex        # User dashboard sidebar component
+├── admin_sidebar.ex  # Admin sidebar component
+├── tab_item.ex       # Shared tab rendering component
 ├── badge.ex          # Badge rendering component
 └── live_tabs.ex      # LiveView integration helpers
 ```
+
+## Admin Navigation
+
+The admin sidebar uses the same registry-driven system with additional features for permissions, module-enabled filtering, and dynamic children. See [ADMIN_README.md](ADMIN_README.md) for full documentation.
 
 ## Default Tabs
 

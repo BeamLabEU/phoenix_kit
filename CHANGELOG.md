@@ -20,6 +20,9 @@
   - New `file` field type with configurable max entries, file size, and accepted formats
   - `FormBuilder` renders file upload UI with drag-and-drop zone (admin entity forms, placeholder)
   - New `:advanced` field category
+- Fix 3 remaining UUID migration bugs in billing forms
+- Fix 8 UUID migration bugs found in PR #330 post-merge review
+- Add UUIDv7 migration V56 with dual-write support
 
 ## 1.7.35 - 2026-02-12
 - Rewrite Sitemap module to sitemapindex architecture with per-module files

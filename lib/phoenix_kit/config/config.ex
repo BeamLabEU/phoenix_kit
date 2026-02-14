@@ -170,7 +170,7 @@ defmodule PhoenixKit.Config do
     dashboard_context_selectors: nil,
     # Subtab styling defaults
     dashboard_subtab_style: [
-      indent: "pl-9",
+      indent: "pl-4",
       icon_size: "w-4 h-4",
       text_size: "text-sm",
       animation: :none

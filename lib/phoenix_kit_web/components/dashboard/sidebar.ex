@@ -94,8 +94,11 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
     # Load tabs if not provided
     tabs =
       case assigns.tabs do
-        nil -> Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope)
-        tabs -> add_active_state(tabs, assigns.current_path)
+        nil ->
+          Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope, level: :user)
+
+        tabs ->
+          add_active_state(tabs, assigns.current_path)
       end
 
     # Group tabs
@@ -381,7 +384,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   def mobile_navigation(assigns) do
     tabs =
-      Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope)
+      Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope, level: :user)
       |> Enum.filter(&Tab.navigable?/1)
       |> Enum.take(assigns.max_tabs)
 
@@ -471,7 +474,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   def mobile_fab_menu(assigns) do
     all_tabs =
-      Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope)
+      Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope, level: :user)
       |> Enum.filter(&Tab.navigable?/1)
 
     # Get only top-level tabs for rendering (subtabs handled separately)
@@ -636,7 +639,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   end
 
   defp get_overflow_tabs(scope, shown_count) do
-    Registry.get_tabs(scope: scope)
+    Registry.get_tabs(scope: scope, level: :user)
     |> Enum.filter(&Tab.navigable?/1)
     |> Enum.drop(shown_count)
   end
