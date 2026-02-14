@@ -749,7 +749,10 @@ defmodule PhoenixKit.Modules.Shop do
     |> repo().all()
     |> Map.new()
   rescue
-    _ -> %{}
+    e ->
+      require Logger
+      Logger.warning("Failed to load product counts by category: #{inspect(e)}")
+      %{}
   end
 
   @doc """
