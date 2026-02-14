@@ -64,6 +64,7 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   alias PhoenixKit.Dashboard.{AdminTabs, Badge, Tab}
   alias PhoenixKit.PubSubHelper
+  alias PhoenixKit.Users.Permissions
 
   # Suppress warnings about optional modules (loaded conditionally)
   @compile {:no_warn_undefined, PhoenixKit.Modules.Tickets}
@@ -645,7 +646,7 @@ defmodule PhoenixKit.Dashboard.Registry do
       |> Map.new(fn perm ->
         enabled =
           try do
-            PhoenixKit.Users.Permissions.feature_enabled?(perm)
+            Permissions.feature_enabled?(perm)
           rescue
             _ -> false
           end
