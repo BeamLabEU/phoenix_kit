@@ -84,7 +84,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Layouts.dashboard {assigns}>
+    <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
       <div class="p-6 max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-6">
           <h1 class="text-2xl font-bold">

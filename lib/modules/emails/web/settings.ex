@@ -38,6 +38,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
   alias PhoenixKit.AWS.InfrastructureSetup
   alias PhoenixKit.Config.AWS
   alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.SQSPollingJob
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -256,8 +257,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
   end
 
   def handle_event("toggle_sqs_polling", _params, socket) do
-    alias PhoenixKit.Modules.Emails.SQSPollingJob
-
     # Toggle SQS polling
     new_sqs_polling = !socket.assigns.sqs_polling_enabled
 

@@ -125,7 +125,7 @@
                 <%= for plan <- @plans do %>
                   <option
                     value={plan.uuid}
-                    selected={to_string(@selected_plan_id) == to_string(plan.uuid)}
+                    selected={to_string(@selected_plan_uuid) == to_string(plan.uuid)}
                   >
                     {plan.name} -
                     <.currency_compact amount={plan.price} currency={plan.currency} />
@@ -194,7 +194,7 @@
                   <%= for pm <- @payment_methods do %>
                     <option
                       value={pm.uuid}
-                      selected={to_string(@selected_payment_method_id) == to_string(pm.uuid)}
+                      selected={to_string(@selected_payment_method_uuid) == to_string(pm.uuid)}
                     >
                       {format_payment_method(pm)}
                       <%= if pm.is_default do %>
@@ -225,7 +225,7 @@
             type="button"
             phx-click="save"
             class="btn btn-primary"
-            disabled={is_nil(@selected_user) || is_nil(@selected_plan_id)}
+            disabled={is_nil(@selected_user) || is_nil(@selected_plan_uuid)}
           >
             <.icon name="hero-plus" class="w-4 h-4" /> Create Subscription
           </button>
@@ -254,8 +254,9 @@
             <%!-- Plan --%>
             <div class="space-y-1">
               <div class="text-sm text-base-content/60">Plan</div>
-              <%= if @selected_plan_id do %>
-                <% plan = Enum.find(@plans, &(to_string(&1.uuid) == to_string(@selected_plan_id))) %>
+              <%= if @selected_plan_uuid do %>
+                <% plan =
+                  Enum.find(@plans, &(to_string(&1.uuid) == to_string(@selected_plan_uuid))) %>
                 <%= if plan do %>
                   <div class="font-medium">{plan.name}</div>
                   <div class="text-2xl font-bold mt-1">
@@ -278,14 +279,14 @@
               </div>
             <% end %>
 
-            <%= if @selected_payment_method_id do %>
+            <%= if @selected_payment_method_uuid do %>
               <div class="divider my-2"></div>
               <div class="space-y-1">
                 <div class="text-sm text-base-content/60">Payment Method</div>
                 <% pm =
                   Enum.find(
                     @payment_methods,
-                    &(to_string(&1.uuid) == to_string(@selected_payment_method_id))
+                    &(to_string(&1.uuid) == to_string(@selected_payment_method_uuid))
                   ) %>
                 <%= if pm do %>
                   <div class="font-medium">{format_payment_method(pm)}</div>

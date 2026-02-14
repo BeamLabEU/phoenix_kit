@@ -478,7 +478,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   defp shop_layout(assigns) do
     ~H"""
     <%= if @authenticated do %>
-      <PhoenixKitWeb.Layouts.dashboard {assigns}>
+      <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
         {render_slot(@inner_block)}
       </PhoenixKitWeb.Layouts.dashboard>
     <% else %>

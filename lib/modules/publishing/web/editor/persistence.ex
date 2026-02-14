@@ -13,6 +13,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
   alias PhoenixKit.Utils.Routes
 
   require Logger
@@ -500,7 +501,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
           Map.put(post, :language_statuses, updated_statuses)
       end
 
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
     form = Forms.post_form_with_primary_status(blog_slug, refreshed_post, current_version)
 
     is_published = form["status"] == "published"
@@ -747,8 +747,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     blog_slug = socket.assigns.blog_slug
     post_path = socket.assigns.post.path
 
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
-
     case Publishing.read_post(blog_slug, post_path) do
       {:ok, updated_post} ->
         current_version = socket.assigns[:current_version]
@@ -799,8 +797,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     blog_slug = socket.assigns.blog_slug
     post_path = socket.assigns.post.path
     current_version = socket.assigns[:current_version]
-
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
 
     case Publishing.read_post(blog_slug, post_path) do
       {:ok, updated_post} ->

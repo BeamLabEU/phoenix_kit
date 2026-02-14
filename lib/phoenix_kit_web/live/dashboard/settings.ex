@@ -653,7 +653,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Layouts.dashboard {assigns}>
+    <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
       <div class="max-w-6xl mx-auto">
         <!-- Development Mode Notice -->
         <div :if={show_dev_notice?()} class="mb-6">
