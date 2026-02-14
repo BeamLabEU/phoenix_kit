@@ -315,7 +315,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     base =
       "flex items-center py-2 text-sm font-medium rounded-lg transition-all duration-200"
 
-    # Subtabs use configurable indent, defaults to "pl-9 pr-3"
+    # Subtabs use configurable indent (default in :dashboard_subtab_style config)
     # Now supports inline CSS values (px, rem, em, %) in addition to Tailwind classes
     {padding_class, inline_style} =
       if is_subtab do
@@ -361,8 +361,9 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   end
 
   # Resolves indent value to either a Tailwind class or inline style
-  # Supports: Tailwind classes ("pl-9"), CSS values ("1.5rem", "24px"), integers (pixels), floats (rem)
-  defp resolve_indent(nil), do: {:class, "pl-9"}
+  # Supports: Tailwind classes ("pl-4"), CSS values ("1.5rem", "24px"), integers (pixels), floats (rem)
+  # Default indent is configured in :dashboard_subtab_style in config.ex
+  defp resolve_indent(nil), do: {:class, "pl-3"}
 
   defp resolve_indent(value) when is_integer(value) do
     {:style, "padding-left: #{value}px"}
@@ -390,7 +391,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     end
   end
 
-  defp resolve_indent(_value), do: {:class, "pl-9"}
+  defp resolve_indent(_value), do: {:class, "pl-3"}
 
   defp icon_classes(_active, attention, is_subtab, subtab_style) do
     # Subtabs use configurable icon size, defaults to "w-4 h-4"
@@ -419,21 +420,19 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     global_style = PhoenixKit.Config.get(:dashboard_subtab_style, [])
 
     %{
-      indent: get_style_value(:subtab_indent, tab, parent_tab, global_style, :indent, "pl-9"),
-      icon_size:
-        get_style_value(:subtab_icon_size, tab, parent_tab, global_style, :icon_size, "w-4 h-4"),
-      text_size:
-        get_style_value(:subtab_text_size, tab, parent_tab, global_style, :text_size, "text-sm"),
-      animation:
-        get_style_value(:subtab_animation, tab, parent_tab, global_style, :animation, :none)
+      # Defaults come from :dashboard_subtab_style in config.ex
+      indent: get_style_value(:subtab_indent, tab, parent_tab, global_style, :indent),
+      icon_size: get_style_value(:subtab_icon_size, tab, parent_tab, global_style, :icon_size),
+      text_size: get_style_value(:subtab_text_size, tab, parent_tab, global_style, :text_size),
+      animation: get_style_value(:subtab_animation, tab, parent_tab, global_style, :animation)
     }
   end
 
-  # Fallback chain: tab -> parent -> global -> default
-  defp get_style_value(tab_key, tab, parent_tab, global_style, global_key, default) do
+  # Fallback chain: tab -> parent -> global config (defaults in config.ex)
+  defp get_style_value(tab_key, tab, parent_tab, global_style, global_key) do
     Map.get(tab, tab_key) ||
       (parent_tab && Map.get(parent_tab, tab_key)) ||
-      Keyword.get(global_style, global_key, default)
+      Keyword.get(global_style, global_key)
   end
 
   defp subtab_animation_class(nil), do: nil

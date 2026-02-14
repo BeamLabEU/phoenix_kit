@@ -435,6 +435,9 @@ defmodule PhoenixKitWeb.Integration do
   defmacro phoenix_kit_admin_routes(suffix) do
     session_name = :"phoenix_kit_admin#{suffix}"
 
+    # Auto-generate routes for custom admin tabs that specify live_view
+    custom_admin_routes = compile_custom_admin_routes()
+
     # Get external route module AST outside quote to avoid require/alias inside quote
     emails_admin = EmailsRoutes.admin_routes()
 
@@ -758,6 +761,11 @@ defmodule PhoenixKitWeb.Integration do
           unquote(tickets_admin)
           unquote(publishing_admin)
           unquote(referrals_admin)
+
+          # Custom admin routes from :admin_dashboard_tabs config
+          # Tabs with live_view: {Module, :action} get auto-generated routes
+          # in the shared admin live_session for seamless navigation
+          unquote_splicing(custom_admin_routes)
         end
       end
     end
@@ -782,6 +790,47 @@ defmodule PhoenixKitWeb.Integration do
                :confirm_email
         end
       end
+    end
+  end
+
+  # Reads :admin_dashboard_tabs config at compile time and generates
+  # `live` route declarations for tabs that specify a `live_view` field.
+  # Returns a list of quoted expressions for use with unquote_splicing.
+  #
+  # ## Tab config example
+  #
+  #     config :phoenix_kit, :admin_dashboard_tabs, [
+  #       %{id: :admin_analytics, label: "Analytics", path: "/admin/analytics",
+  #         live_view: {MyAppWeb.AnalyticsLive, :index}, permission: "dashboard"}
+  #     ]
+  #
+  @doc false
+  def compile_custom_admin_routes do
+    case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
+      tabs when is_list(tabs) ->
+        tabs
+        |> Enum.filter(fn tab ->
+          is_map(tab) and Map.has_key?(tab, :live_view) and
+            match?({module, _action} when is_atom(module), tab.live_view) and
+            match?({:module, _}, Code.ensure_compiled(elem(tab.live_view, 0)))
+        end)
+        |> Enum.map(fn tab ->
+          {module, action} = tab.live_view
+          path = tab[:path] || raise "Tab #{tab[:id]} has :live_view but no :path"
+
+          route_opts =
+            case tab[:id] do
+              nil -> []
+              id -> [as: id]
+            end
+
+          quote do
+            live unquote(path), unquote(module), unquote(action), unquote(route_opts)
+          end
+        end)
+
+      _ ->
+        []
     end
   end
 

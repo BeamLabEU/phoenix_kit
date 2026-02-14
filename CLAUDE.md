@@ -43,6 +43,7 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 ### Quick Reference
 
 - **Tabs & Subtabs** - Configurable navigation with parent/child relationships, custom styling, animations
+- **Admin Navigation** - Registry-driven admin sidebar with permission gating, dynamic children, and parent app customization via `:admin_dashboard_tabs` config (see `ADMIN_README.md`)
 - **Context Selectors** - Organization/team/project switching with dependencies
 - **Theme Switcher** - `dashboard_themes` config, auto-renders in header
 - **Live Badges** - Real-time badge updates via PubSub
@@ -661,6 +662,29 @@ Config: `dashboard_themes: :all` (default) or `["system", "light", "dark", "nord
 See `lib/phoenix_kit/dashboard/README.md` for full documentation. Quick access in LiveViews:
 - Single context: `socket.assigns.current_context`
 - Multi context: `socket.assigns.current_contexts_map[:key]`
+
+### Admin Dashboard Customization
+
+The admin sidebar uses a registry-driven system with permission gating. See `lib/phoenix_kit/dashboard/ADMIN_README.md` for full documentation.
+
+**Add custom admin tabs from parent app:**
+
+```elixir
+config :phoenix_kit, :admin_dashboard_tabs, [
+  %{
+    id: :admin_analytics,
+    label: "Analytics",
+    icon: "hero-chart-bar",
+    path: "/admin/analytics",
+    permission: "dashboard",
+    priority: 150,
+    group: :admin_main,
+    live_view: {MyAppWeb.PhoenixKitLive.AdminAnalyticsLive, :index}
+  }
+]
+```
+
+The `live_view` field auto-generates a route inside PhoenixKit's admin `live_session` for seamless navigation. Custom admin LiveViews must use `LayoutWrapper.app_layout` (not `Layouts.dashboard`) and `@url_path` for the current path. See the ADMIN_README for the full LiveView template pattern.
 
 ### Dashboard Layout Performance (IMPORTANT)
 
