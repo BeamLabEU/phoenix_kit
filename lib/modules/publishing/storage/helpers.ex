@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
   """
 
   alias PhoenixKit.Modules.Publishing.Metadata
+  alias PhoenixKit.Modules.Publishing.Storage.Languages
 
   # ============================================================================
   # Audit Metadata Helpers
@@ -285,8 +286,6 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
   """
   @spec relative_path_with_language(String.t(), Date.t(), Time.t(), String.t()) :: String.t()
   def relative_path_with_language(group_slug, date, time, language_code) do
-    alias PhoenixKit.Modules.Publishing.Storage.Languages
-
     date_part = Date.to_iso8601(date)
     time_part = format_time_folder(time)
 
@@ -304,8 +303,6 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
           String.t()
         ) :: String.t()
   def relative_path_with_language_versioned(group_slug, date, time, version, language_code) do
-    alias PhoenixKit.Modules.Publishing.Storage.Languages
-
     date_part = Date.to_iso8601(date)
     time_part = format_time_folder(time)
 

@@ -52,8 +52,8 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
     |> assign(:order, nil)
     |> assign(:form, to_form(changeset))
     |> assign(:line_items, [%{id: 0, name: "", description: "", quantity: 1, unit_price: "0.00"}])
-    |> assign(:selected_user_id, nil)
-    |> assign(:selected_billing_profile_id, nil)
+    |> assign(:selected_user_uuid, nil)
+    |> assign(:selected_billing_profile_uuid, nil)
     |> assign(:country_tax_rate, nil)
     |> assign(:country_name, nil)
     |> assign(:country_vat_percent, nil)
@@ -87,9 +87,9 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
         |> assign(:order, order)
         |> assign(:form, to_form(changeset))
         |> assign(:line_items, line_items)
-        |> assign(:selected_user_id, order.user_uuid)
+        |> assign(:selected_user_uuid, order.user_uuid)
         |> assign(:billing_profiles, billing_profiles)
-        |> assign(:selected_billing_profile_id, order.billing_profile_uuid)
+        |> assign(:selected_billing_profile_uuid, order.billing_profile_uuid)
         |> assign(:country_tax_rate, country_tax_rate)
         |> assign(:country_name, country_name)
         |> assign(:country_vat_percent, country_vat_percent)
@@ -141,9 +141,9 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
 
     {:noreply,
      socket
-     |> assign(:selected_user_id, user_id)
+     |> assign(:selected_user_uuid, user_id)
      |> assign(:billing_profiles, billing_profiles)
-     |> assign(:selected_billing_profile_id, selected_profile_id)
+     |> assign(:selected_billing_profile_uuid, selected_profile_id)
      |> assign(:country_tax_rate, country_tax_rate)
      |> assign(:country_name, country_name)
      |> assign(:country_vat_percent, country_vat_percent)}
@@ -241,8 +241,8 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
       |> Map.put("tax_rate", Decimal.to_string(tax_rate))
       |> Map.put("tax_amount", Decimal.to_string(tax_amount))
       |> Map.put("total", Decimal.to_string(total))
-      |> Map.put("user_uuid", socket.assigns.selected_user_id)
-      |> Map.put("billing_profile_uuid", socket.assigns.selected_billing_profile_id)
+      |> Map.put("user_uuid", socket.assigns.selected_user_uuid)
+      |> Map.put("billing_profile_uuid", socket.assigns.selected_billing_profile_uuid)
 
     save_order(socket, order_params)
   end
@@ -282,7 +282,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
 
     {:noreply,
      socket
-     |> assign(:selected_billing_profile_id, profile_id)
+     |> assign(:selected_billing_profile_uuid, profile_id)
      |> assign(:country_tax_rate, country_tax_rate)
      |> assign(:country_name, country_name)
      |> assign(:country_vat_percent, country_vat_percent)}

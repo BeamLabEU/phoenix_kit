@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
 
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
+  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Storage.Languages
   alias PhoenixKit.Modules.Publishing.Storage.Paths
   alias PhoenixKit.Modules.Publishing.Storage.Versions
@@ -151,8 +152,6 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
   end
 
   defp read_post_url_slug(group_slug, post_slug, language) do
-    alias PhoenixKit.Modules.Publishing.Storage
-
     case Storage.read_post_slug_mode(group_slug, post_slug, language, nil) do
       {:ok, post} ->
         url_slug = Map.get(post.metadata, :url_slug) || post_slug

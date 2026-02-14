@@ -94,6 +94,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       RateLimiterConfig
     }
 
+    alias PhoenixKit.Migrations.UUIDRepair
     alias PhoenixKit.Utils.Routes
 
     @shortdoc "Updates PhoenixKit to the latest version"
@@ -564,8 +565,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     # Run UUID column repair for upgrades from pre-1.7.0 installations
     defp run_uuid_repair(prefix) do
-      alias PhoenixKit.Migrations.UUIDRepair
-
       case UUIDRepair.maybe_repair(prefix: prefix) do
         {:ok, :not_needed} ->
           # No repair needed, continue silently

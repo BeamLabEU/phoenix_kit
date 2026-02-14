@@ -137,7 +137,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Layouts.dashboard {assigns}>
+    <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
       <div class="p-6 max-w-3xl mx-auto">
         <%!-- Header --%>
         <div class="flex items-center gap-4 mb-8">

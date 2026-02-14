@@ -17,7 +17,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Layouts.dashboard {assigns}>
+    <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
       <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
         <div class="max-w-2xl mx-auto">
           <h2 class="text-4xl font-bold text-base-content mb-4">

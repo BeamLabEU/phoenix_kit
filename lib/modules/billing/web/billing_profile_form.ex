@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
     |> assign(:url_path, Routes.path("/admin/billing/profiles/new"))
     |> assign(:profile, nil)
     |> assign(:form, to_form(changeset))
-    |> assign(:selected_user_id, nil)
+    |> assign(:selected_user_uuid, nil)
     |> assign(:subdivision_label, "Region")
   end
 
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
         |> assign(:url_path, Routes.path("/admin/billing/profiles/#{profile.uuid}/edit"))
         |> assign(:profile, profile)
         |> assign(:form, to_form(changeset))
-        |> assign(:selected_user_id, profile.user_uuid)
+        |> assign(:selected_user_uuid, profile.user_uuid)
         |> assign(:profile_type, profile.type)
         |> assign(:subdivision_label, CountryData.get_subdivision_label(profile.country))
     end
@@ -78,7 +78,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
   @impl true
   def handle_event("select_user", %{"user_id" => user_id}, socket) do
     user_id = if user_id == "", do: nil, else: user_id
-    {:noreply, assign(socket, :selected_user_id, user_id)}
+    {:noreply, assign(socket, :selected_user_uuid, user_id)}
   end
 
   @impl true
@@ -106,7 +106,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
   def handle_event("save", %{"billing_profile" => params}, socket) do
     params =
       params
-      |> Map.put("user_uuid", socket.assigns.selected_user_id)
+      |> Map.put("user_uuid", socket.assigns.selected_user_uuid)
       |> Map.put("type", socket.assigns.profile_type)
 
     save_profile(socket, params)
@@ -117,7 +117,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
       if socket.assigns.profile do
         Billing.update_billing_profile(socket.assigns.profile, params)
       else
-        case socket.assigns.selected_user_id do
+        case socket.assigns.selected_user_uuid do
           nil ->
             {:error, :no_user}
 

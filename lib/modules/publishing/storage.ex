@@ -22,6 +22,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   - `Storage.Helpers` - Shared utilities
   """
 
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Storage.Deletion
   alias PhoenixKit.Modules.Publishing.Storage.Helpers
@@ -966,7 +967,6 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   defp base_code?(_), do: false
 
   defp find_dialect_for_base(available_languages, base_code) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
     base_lower = String.downcase(base_code)
 
     Enum.find(available_languages, fn lang ->

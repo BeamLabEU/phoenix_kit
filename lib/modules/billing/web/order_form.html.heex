@@ -42,7 +42,7 @@
                 <%= for user <- @users do %>
                   <option
                     value={user.uuid}
-                    selected={to_string(@selected_user_id) == to_string(user.uuid)}
+                    selected={to_string(@selected_user_uuid) == to_string(user.uuid)}
                   >
                     {user.email}
                   </option>
@@ -50,7 +50,7 @@
               </select>
             </div>
 
-            <%= if @selected_user_id do %>
+            <%= if @selected_user_uuid do %>
               <%= if length(@billing_profiles) > 0 do %>
                 <div class="form-control">
                   <label class="label">
@@ -68,7 +68,7 @@
                       <option
                         value={profile.uuid}
                         selected={
-                          to_string(@selected_billing_profile_id) == to_string(profile.uuid)
+                          to_string(@selected_billing_profile_uuid) == to_string(profile.uuid)
                         }
                       >
                         <%= if profile.type == "company" do %>
@@ -93,7 +93,7 @@
                         <.link
                           navigate={
                             PhoenixKit.Utils.Routes.path(
-                              "/admin/billing/profiles/new?user_id=#{@selected_user_id}"
+                              "/admin/billing/profiles/new?user_id=#{@selected_user_uuid}"
                             )
                           }
                           class="link font-medium"
@@ -285,7 +285,7 @@
         <button
           type="submit"
           class="btn btn-primary"
-          disabled={@selected_user_id && Enum.empty?(@billing_profiles)}
+          disabled={@selected_user_uuid && Enum.empty?(@billing_profiles)}
         >
           <.icon name="hero-check" class="w-4 h-4" />
           {if @order, do: "Update Order", else: "Create Order"}
