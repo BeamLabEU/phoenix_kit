@@ -39,9 +39,10 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   schema (`consent_log.ex`) declares `field :uuid, Ecto.UUID, read_after_writes: true`.
 
   Additionally, `phoenix_kit_payment_methods`, `phoenix_kit_ai_endpoints`,
-  `phoenix_kit_ai_prompts`, and `phoenix_kit_sync_connections` were created without
-  uuid columns but are referenced as FK source tables in UUIDFKColumns (the backfill
-  SQL does `SET uuid_fk = s.uuid FROM source_table s`).
+  `phoenix_kit_ai_prompts`, `phoenix_kit_sync_connections`, and
+  `phoenix_kit_subscription_plans` were created without uuid columns but are
+  referenced as FK source tables in UUIDFKColumns (the backfill SQL does
+  `SET uuid_fk = s.uuid FROM source_table s`).
 
   ### 5. Wrong DEFAULT on UUID primary keys (gen_random_uuid → uuid_generate_v7)
   V55 Comments module tables use UUID as primary key with `gen_random_uuid()`.
@@ -98,7 +99,8 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
     :phoenix_kit_payment_methods,
     :phoenix_kit_ai_endpoints,
     :phoenix_kit_ai_prompts,
-    :phoenix_kit_sync_connections
+    :phoenix_kit_sync_connections,
+    :phoenix_kit_subscription_plans
   ]
 
   # Tables using UUID as primary key with wrong DEFAULT (V55 Comments module)
@@ -117,6 +119,7 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
     :phoenix_kit_ai_endpoints,
     :phoenix_kit_ai_prompts,
     :phoenix_kit_sync_connections,
+    :phoenix_kit_subscription_plans,
     # V45 — Shop Module
     :phoenix_kit_shop_categories,
     :phoenix_kit_shop_products,
@@ -148,6 +151,7 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
     :phoenix_kit_ai_endpoints,
     :phoenix_kit_ai_prompts,
     :phoenix_kit_sync_connections,
+    :phoenix_kit_subscription_plans,
     # V46 tables (created nullable)
     :phoenix_kit_shop_config,
     :phoenix_kit_shop_import_logs,
@@ -172,6 +176,7 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
     :phoenix_kit_ai_endpoints,
     :phoenix_kit_ai_prompts,
     :phoenix_kit_sync_connections,
+    :phoenix_kit_subscription_plans,
     # V45 tables (no unique index created)
     :phoenix_kit_shop_categories,
     :phoenix_kit_shop_products,
