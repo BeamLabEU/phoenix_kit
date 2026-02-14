@@ -820,8 +820,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   @doc """
   Bulk updates the category of multiple records by UUIDs.
 
-  Since category is stored in the JSONB data column, this requires
-  fetching and updating each record individually.
+  Uses PostgreSQL jsonb_set to update the category field in the JSONB
+  data column in a single query.
 
   Returns a tuple with the count of updated records and nil.
 
@@ -833,15 +833,21 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   def bulk_update_category(uuids, category) when is_list(uuids) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
-    records = from(d in __MODULE__, where: d.uuid in ^uuids) |> repo().all()
-
-    Enum.each(records, fn record ->
-      updated_data = Map.put(record.data || %{}, "category", category)
-      changeset = changeset(record, %{data: updated_data, date_updated: now})
-      repo().update(changeset)
-    end)
-
-    {length(records), nil}
+    from(d in __MODULE__,
+      where: d.uuid in ^uuids,
+      update: [
+        set: [
+          data:
+            fragment(
+              "jsonb_set(COALESCE(?, '{}'::jsonb), '{category}', to_jsonb(?::text))",
+              d.data,
+              ^category
+            ),
+          date_updated: ^now
+        ]
+      ]
+    )
+    |> repo().update_all([])
   end
 
   @doc """

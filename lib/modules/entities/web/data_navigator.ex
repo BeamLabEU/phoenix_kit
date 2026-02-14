@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
@@ -363,53 +364,65 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   def handle_event("bulk_action", %{"action" => "archive"}, socket) do
-    ids = socket.assigns.selected_ids
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      ids = socket.assigns.selected_ids
 
-    if ids == [] do
-      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      if ids == [] do
+        {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      else
+        {count, _} = EntityData.bulk_update_status(ids, "archived")
+
+        {:noreply,
+         socket
+         |> assign(:selected_ids, [])
+         |> refresh_data_stats()
+         |> apply_filters()
+         |> put_flash(:info, gettext("%{count} records archived", count: count))}
+      end
     else
-      {count, _} = EntityData.bulk_update_status(ids, "archived")
-
-      {:noreply,
-       socket
-       |> assign(:selected_ids, [])
-       |> refresh_data_stats()
-       |> apply_filters()
-       |> put_flash(:info, gettext("%{count} records archived", count: count))}
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
   def handle_event("bulk_action", %{"action" => "restore"}, socket) do
-    ids = socket.assigns.selected_ids
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      ids = socket.assigns.selected_ids
 
-    if ids == [] do
-      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      if ids == [] do
+        {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      else
+        {count, _} = EntityData.bulk_update_status(ids, "published")
+
+        {:noreply,
+         socket
+         |> assign(:selected_ids, [])
+         |> refresh_data_stats()
+         |> apply_filters()
+         |> put_flash(:info, gettext("%{count} records restored", count: count))}
+      end
     else
-      {count, _} = EntityData.bulk_update_status(ids, "published")
-
-      {:noreply,
-       socket
-       |> assign(:selected_ids, [])
-       |> refresh_data_stats()
-       |> apply_filters()
-       |> put_flash(:info, gettext("%{count} records restored", count: count))}
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
   def handle_event("bulk_action", %{"action" => "delete"}, socket) do
-    ids = socket.assigns.selected_ids
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      ids = socket.assigns.selected_ids
 
-    if ids == [] do
-      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      if ids == [] do
+        {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      else
+        {count, _} = EntityData.bulk_delete(ids)
+
+        {:noreply,
+         socket
+         |> assign(:selected_ids, [])
+         |> refresh_data_stats()
+         |> apply_filters()
+         |> put_flash(:info, gettext("%{count} records deleted", count: count))}
+      end
     else
-      {count, _} = EntityData.bulk_delete(ids)
-
-      {:noreply,
-       socket
-       |> assign(:selected_ids, [])
-       |> refresh_data_stats()
-       |> apply_filters()
-       |> put_flash(:info, gettext("%{count} records deleted", count: count))}
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
@@ -418,36 +431,44 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
         %{"action" => "change_category", "category" => category},
         socket
       ) do
-    ids = socket.assigns.selected_ids
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      ids = socket.assigns.selected_ids
 
-    if ids == [] do
-      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      if ids == [] do
+        {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      else
+        {count, _} = EntityData.bulk_update_category(ids, category)
+
+        {:noreply,
+         socket
+         |> assign(:selected_ids, [])
+         |> refresh_data_stats()
+         |> apply_filters()
+         |> put_flash(:info, gettext("%{count} records updated", count: count))}
+      end
     else
-      {count, _} = EntityData.bulk_update_category(ids, category)
-
-      {:noreply,
-       socket
-       |> assign(:selected_ids, [])
-       |> refresh_data_stats()
-       |> apply_filters()
-       |> put_flash(:info, gettext("%{count} records updated", count: count))}
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
   def handle_event("bulk_action", %{"action" => "change_status", "status" => status}, socket) do
-    ids = socket.assigns.selected_ids
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      ids = socket.assigns.selected_ids
 
-    if ids == [] do
-      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      if ids == [] do
+        {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+      else
+        {count, _} = EntityData.bulk_update_status(ids, status)
+
+        {:noreply,
+         socket
+         |> assign(:selected_ids, [])
+         |> refresh_data_stats()
+         |> apply_filters()
+         |> put_flash(:info, gettext("%{count} records updated", count: count))}
+      end
     else
-      {count, _} = EntityData.bulk_update_status(ids, status)
-
-      {:noreply,
-       socket
-       |> assign(:selected_ids, [])
-       |> refresh_data_stats()
-       |> apply_filters()
-       |> put_flash(:info, gettext("%{count} records updated", count: count))}
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
@@ -567,16 +588,20 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     category = socket.assigns[:selected_category] || "all"
     search_term = socket.assigns[:search_term] || ""
 
-    # Start with all data and apply filters sequentially
-    entity_data_records =
+    # Apply entity and status filters first
+    pre_category_records =
       EntityData.list_all_data()
       |> filter_by_entity(entity_id)
       |> filter_by_status(status)
+
+    # Extract categories BEFORE category filter so dropdown always shows all options
+    available_categories = EntityData.extract_unique_categories(pre_category_records)
+
+    # Then apply remaining filters
+    entity_data_records =
+      pre_category_records
       |> filter_by_category(category)
       |> filter_by_search(search_term)
-
-    # Extract available categories from filtered results
-    available_categories = EntityData.extract_unique_categories(entity_data_records)
 
     socket
     |> assign(:entity_data_records, entity_data_records)
