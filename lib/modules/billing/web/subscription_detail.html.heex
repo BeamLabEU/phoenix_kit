@@ -366,7 +366,7 @@
               <%= if plan.uuid != @subscription.plan_uuid do %>
                 <option
                   value={plan.uuid}
-                  selected={to_string(@selected_new_plan_id) == to_string(plan.uuid)}
+                  selected={to_string(@selected_new_plan_uuid) == to_string(plan.uuid)}
                 >
                   {plan.name} - <.currency_compact amount={plan.price} currency={plan.currency} />
                   / {format_interval(plan.interval, plan.interval_count)}
@@ -391,7 +391,7 @@
             type="button"
             phx-click="change_plan"
             class="btn btn-primary"
-            disabled={is_nil(@selected_new_plan_id)}
+            disabled={is_nil(@selected_new_plan_uuid)}
           >
             <.icon name="hero-arrow-path" class="w-4 h-4" /> Change Plan
           </button>

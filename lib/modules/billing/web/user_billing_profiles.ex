@@ -109,7 +109,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Layouts.dashboard {assigns}>
+    <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
       <div class="p-6 max-w-4xl mx-auto">
         <%!-- Header --%>
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">

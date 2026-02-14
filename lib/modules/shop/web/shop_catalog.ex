@@ -12,6 +12,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar
   alias PhoenixKit.Modules.Shop.Web.Components.FilterHelpers
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -347,7 +349,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
     ~H"""
     <%= if @authenticated do %>
-      <PhoenixKitWeb.Layouts.dashboard {assigns}>
+      <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
         {render_slot(@inner_block)}
       </PhoenixKitWeb.Layouts.dashboard>
     <% else %>
@@ -498,9 +500,6 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
   # Get signed URL for Storage image
   defp get_storage_image_url(file_id, variant) do
-    alias PhoenixKit.Modules.Storage
-    alias PhoenixKit.Modules.Storage.URLSigner
-
     case Storage.get_file(file_id) do
       %{id: id} ->
         case Storage.get_file_instance_by_name(id, variant) do

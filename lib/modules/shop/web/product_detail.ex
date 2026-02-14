@@ -11,6 +11,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -661,9 +663,6 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   defp get_storage_image_url("http" <> _ = _url, _variant), do: nil
 
   defp get_storage_image_url(file_id, variant) do
-    alias PhoenixKit.Modules.Storage
-    alias PhoenixKit.Modules.Storage.URLSigner
-
     case Storage.get_file(file_id) do
       %{id: id} ->
         case Storage.get_file_instance_by_name(id, variant) do

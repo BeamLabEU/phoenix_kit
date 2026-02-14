@@ -30,9 +30,9 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
         |> assign(:user_search, "")
         |> assign(:user_results, [])
         |> assign(:selected_user, nil)
-        |> assign(:selected_plan_id, nil)
+        |> assign(:selected_plan_uuid, nil)
         |> assign(:payment_methods, [])
-        |> assign(:selected_payment_method_id, nil)
+        |> assign(:selected_payment_method_uuid, nil)
         |> assign(:enable_trial, false)
         |> assign(:trial_days, "")
         |> assign(:error, nil)
@@ -76,7 +76,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
          |> assign(:user_search, user.email)
          |> assign(:user_results, [])
          |> assign(:payment_methods, payment_methods)
-         |> assign(:selected_payment_method_id, nil)}
+         |> assign(:selected_payment_method_uuid, nil)}
     end
   end
 
@@ -88,7 +88,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
      |> assign(:user_search, "")
      |> assign(:user_results, [])
      |> assign(:payment_methods, [])
-     |> assign(:selected_payment_method_id, nil)}
+     |> assign(:selected_payment_method_uuid, nil)}
   end
 
   @impl true
@@ -108,7 +108,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
 
     {:noreply,
      socket
-     |> assign(:selected_plan_id, plan_id)
+     |> assign(:selected_plan_uuid, plan_id)
      |> assign(:trial_days, trial_days)
      |> assign(:enable_trial, trial_days != "")}
   end
@@ -116,7 +116,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   @impl true
   def handle_event("select_payment_method", %{"payment_method_id" => pm_id}, socket) do
     pm_id = if pm_id == "", do: nil, else: pm_id
-    {:noreply, assign(socket, :selected_payment_method_id, pm_id)}
+    {:noreply, assign(socket, :selected_payment_method_uuid, pm_id)}
   end
 
   @impl true
@@ -139,8 +139,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   def handle_event("save", _params, socket) do
     %{
       selected_user: user,
-      selected_plan_id: plan_id,
-      selected_payment_method_id: pm_id,
+      selected_plan_uuid: plan_id,
+      selected_payment_method_uuid: pm_id,
       enable_trial: enable_trial,
       trial_days: trial_days
     } = socket.assigns

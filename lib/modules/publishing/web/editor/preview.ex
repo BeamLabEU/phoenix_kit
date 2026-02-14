@@ -10,6 +10,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Utils.Routes
 
   # ============================================================================
@@ -208,8 +210,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   end
 
   defp build_preview_form(metadata, mode, disk_post) do
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
-
     %{
       "title" => metadata[:title] || "",
       "status" => metadata[:status] || "draft",
@@ -246,9 +246,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
   defp apply_preview_assigns(socket, post, form, blog_slug, mode, data, disk_post) do
     language = post.language
-
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
     has_changes =
       case disk_post do
@@ -364,8 +361,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   end
 
   defp derive_datetime_fields(:timestamp, published_at) do
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
-
     with value when is_binary(value) and value != "" <- published_at,
          {:ok, dt, _offset} <- DateTime.from_iso8601(value) do
       floored = Forms.floor_datetime_to_minute(dt)

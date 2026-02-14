@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
   use Phoenix.Component
 
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Web.Components.FilterHelpers
   alias PhoenixKitWeb.Components.Core.Icon
@@ -353,7 +354,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
   end
 
   def sidebar_cat_icon(%{mode: "category"} = assigns) do
-    alias PhoenixKit.Modules.Shop.Category
     image_url = Category.get_image_url(assigns.category, size: "thumbnail")
     assigns = assign(assigns, :image_url, image_url)
 

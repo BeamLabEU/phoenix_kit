@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Modules.Storage.URLSigner
 
@@ -46,8 +47,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     primary_language_name = get_language_name(primary_language)
     global_primary = Storage.get_primary_language()
     global_primary_language_name = get_language_name(global_primary)
-
-    alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
 
     socket
     |> Phoenix.Component.assign(:current_language, language_code)

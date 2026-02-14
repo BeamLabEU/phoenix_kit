@@ -257,6 +257,10 @@ This ensures consistent code formatting across the project.
 
 **Version updates require:** Update `mix.exs` (@version), `CHANGELOG.md`, and optionally `README.md`. Always run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
+### PR Reviews
+
+PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/AI_REVIEW.md`. See `dev_docs/pull_requests/README.md` for full conventions, naming, and file types.
+
 ### Publishing
 
 - `mix hex.build` - Build package for Hex.pm
