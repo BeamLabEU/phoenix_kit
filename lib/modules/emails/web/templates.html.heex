@@ -26,7 +26,7 @@
     <%!-- Action Buttons --%>
     <div class="flex justify-end gap-2 mb-6">
       <.link
-        navigate={Routes.path("/admin/modules/emails/templates/new")}
+        navigate={Routes.path("/admin/emails/templates/new")}
         class="btn btn-primary btn-sm"
       >
         <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New Template
@@ -316,7 +316,7 @@
           <.pagination
             current_page={@page}
             total_pages={@total_pages}
-            base_path="/admin/modules/emails/templates"
+            base_path="/admin/emails/templates"
             params={
               %{
                 "search" => @filters.search,

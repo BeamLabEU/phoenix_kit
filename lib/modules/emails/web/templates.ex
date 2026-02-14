@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
 
   ## Route
 
-  This LiveView is mounted at `{prefix}/admin/modules/emails/templates` and requires
+  This LiveView is mounted at `{prefix}/admin/emails/templates` and requires
   appropriate admin permissions.
 
   Note: `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
@@ -110,14 +110,14 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
 
     {:noreply,
      socket
-     |> push_patch(to: Routes.path("/admin/modules/emails/templates?#{new_params}"))}
+     |> push_patch(to: Routes.path("/admin/emails/templates?#{new_params}"))}
   end
 
   @impl true
   def handle_event("clear_filters", _params, socket) do
     {:noreply,
      socket
-     |> push_patch(to: Routes.path("/admin/modules/emails/templates"))}
+     |> push_patch(to: Routes.path("/admin/emails/templates"))}
   end
 
   @impl true
@@ -188,9 +188,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
            |> assign(:show_clone_modal, false)
            |> assign(:clone_template, nil)
            |> put_flash(:info, "Template cloned successfully as '#{new_template.name}'")
-           |> push_navigate(
-             to: Routes.path("/admin/modules/emails/templates/#{new_template.uuid}/edit")
-           )}
+           |> push_navigate(to: Routes.path("/admin/emails/templates/#{new_template.uuid}/edit"))}
 
         {:error, _changeset} ->
           {:noreply,
@@ -213,7 +211,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
   def handle_event("edit_template", %{"uuid" => template_uuid}, socket) do
     {:noreply,
      socket
-     |> push_navigate(to: Routes.path("/admin/modules/emails/templates/#{template_uuid}/edit"))}
+     |> push_navigate(to: Routes.path("/admin/emails/templates/#{template_uuid}/edit"))}
   end
 
   @impl true

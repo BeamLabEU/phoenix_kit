@@ -18,6 +18,8 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   attr(:scope, :any, default: nil)
   attr(:current_path, :string, default: "")
   attr(:current_locale, :string, default: "en")
+  attr(:admin_edit_url, :string, default: nil)
+  attr(:admin_edit_label, :string, default: nil)
 
   def user_dropdown(assigns) do
     user = Scope.user(assigns.scope)
@@ -65,6 +67,17 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
                 <span>Admin Panel</span>
               </a>
             </li>
+            <%= if @admin_edit_url do %>
+              <li>
+                <a
+                  href={@admin_edit_url}
+                  class="flex items-center gap-3"
+                >
+                  <.icon name="hero-pencil-square" class="w-4 h-4" />
+                  <span>{@admin_edit_label || "Edit"}</span>
+                </a>
+              </li>
+            <% end %>
           <% end %>
 
           <li>

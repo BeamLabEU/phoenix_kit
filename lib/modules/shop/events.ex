@@ -277,6 +277,27 @@ defmodule PhoenixKit.Modules.Shop.Events do
     broadcast(@categories_topic, {:category_deleted, category_id})
   end
 
+  @doc """
+  Broadcasts bulk category status changed event.
+  """
+  def broadcast_categories_bulk_status_changed(category_ids, status) do
+    broadcast(@categories_topic, {:categories_bulk_status_changed, category_ids, status})
+  end
+
+  @doc """
+  Broadcasts bulk category parent changed event.
+  """
+  def broadcast_categories_bulk_parent_changed(category_ids, parent_uuid) do
+    broadcast(@categories_topic, {:categories_bulk_parent_changed, category_ids, parent_uuid})
+  end
+
+  @doc """
+  Broadcasts bulk category deleted event.
+  """
+  def broadcast_categories_bulk_deleted(category_ids) do
+    broadcast(@categories_topic, {:categories_bulk_deleted, category_ids})
+  end
+
   # ============================================
   # INVENTORY BROADCAST FUNCTIONS
   # ============================================

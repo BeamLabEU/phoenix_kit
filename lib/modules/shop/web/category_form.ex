@@ -570,7 +570,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                 </div>
 
                 <%!-- Featured Product (fallback image source) --%>
-                <%= if @live_action == :edit and @product_options != [] do %>
+                <%= if @live_action == :edit do %>
                   <div class="form-control w-full md:col-span-2">
                     <label class="label">
                       <span class="label-text font-medium">Featured Product (image fallback)</span>
@@ -578,25 +578,32 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                         <span class="label-text-alt text-warning">Storage image has priority</span>
                       <% end %>
                     </label>
-                    <select
-                      name="category[featured_product_uuid]"
-                      class={[
-                        "select select-bordered w-full focus:select-primary",
-                        @image_id && "opacity-50"
-                      ]}
-                    >
-                      <option value="">Auto-detect (first product with image)</option>
-                      <%= for {name, uuid} <- @product_options do %>
-                        <option
-                          value={uuid}
-                          selected={
-                            Ecto.Changeset.get_field(@changeset, :featured_product_uuid) == uuid
-                          }
-                        >
-                          {name}
-                        </option>
-                      <% end %>
-                    </select>
+                    <%= if @product_options != [] do %>
+                      <select
+                        name="category[featured_product_uuid]"
+                        class={[
+                          "select select-bordered w-full focus:select-primary",
+                          @image_id && "opacity-50"
+                        ]}
+                      >
+                        <option value="">Auto-detect (first product with image)</option>
+                        <%= for {name, uuid} <- @product_options do %>
+                          <option
+                            value={uuid}
+                            selected={
+                              Ecto.Changeset.get_field(@changeset, :featured_product_uuid) == uuid
+                            }
+                          >
+                            {name}
+                          </option>
+                        <% end %>
+                      </select>
+                    <% else %>
+                      <div class="text-sm text-base-content/50 py-2">
+                        <.icon name="hero-information-circle" class="w-4 h-4 inline mr-1" />
+                        No products with images in this category. Add product images to enable this option.
+                      </div>
+                    <% end %>
                     <label class="label">
                       <span class="label-text-alt text-base-content/50">
                         Used as category image when no Storage image is selected

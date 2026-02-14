@@ -60,15 +60,15 @@ defmodule PhoenixKitWeb.Routes.EmailsRoutes do
       live "/admin/emails/blocklist", PhoenixKit.Modules.Emails.Web.Blocklist, :index,
         as: :emails_blocklist
 
-      live "/admin/modules/emails/templates", PhoenixKit.Modules.Emails.Web.Templates, :index,
+      live "/admin/emails/templates", PhoenixKit.Modules.Emails.Web.Templates, :index,
         as: :emails_templates
 
-      live "/admin/modules/emails/templates/new",
+      live "/admin/emails/templates/new",
            PhoenixKit.Modules.Emails.Web.TemplateEditor,
            :new,
            as: :emails_template_new
 
-      live "/admin/modules/emails/templates/:id/edit",
+      live "/admin/emails/templates/:id/edit",
            PhoenixKit.Modules.Emails.Web.TemplateEditor,
            :edit,
            as: :emails_template_edit

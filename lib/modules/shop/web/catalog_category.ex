@@ -104,6 +104,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
             :category_icon_mode,
             Settings.get_setting_cached("shop_category_icon_mode", "none")
           )
+          |> assign(:admin_edit_url, Routes.path("/admin/shop/categories/#{category.uuid}/edit"))
+          |> assign(:admin_edit_label, "Edit Category")
 
         {:ok, socket}
     end
