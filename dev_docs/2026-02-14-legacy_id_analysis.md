@@ -1,7 +1,25 @@
 # Legacy ID Field Analysis - PhoenixKit UUIDv7 Migration
 
+**Last updated:** 2026-02-14 (post PR #337 merge)
+
 ## Executive Summary
 Found multiple instances where the codebase still references the legacy `:id` field instead of `:uuid`. This analysis identifies all the problematic areas that need to be updated for complete UUIDv7 migration.
+
+## Progress Update (PR #337 - Merged 2026-02-14)
+
+PR #337 addressed several issues from this analysis and added critical clarification:
+
+### Resolved / Clarified
+- **Connections module `type: :integer`** — After investigation, this is **CORRECT**. The V36 migration created FK columns as BIGINT referencing `phoenix_kit_users(id)`. The `type: :integer` in `belongs_to` accurately reflects the DB schema. See `dev_docs/uuid_naming_convention_report.md` for full analysis.
+- **Billing form assigns** — Renamed `*_id` assigns to `*_uuid` in `order_form.ex`, `subscription_form.ex`, `billing_profile_form.ex` and their templates.
+- **13 LiveViews** — Applied `dashboard_assigns()` instead of passing raw assigns to `Layouts.dashboard`.
+- **16 alias-in-function-body** instances moved to module level across publishing, shop, emails, and update task modules.
+
+### New Finding: Two Primary Key Patterns
+PR #337 added `dev_docs/uuid_naming_convention_report.md` identifying **25 schemas** that use `@primary_key {:id, UUIDv7, ...}` (Pattern 2) where the `id` column is actually a UUID. These are NOT the same issue as schemas with `field :id, :integer`. Decision pending on how to resolve (Options A-D in the report).
+
+### Still Outstanding
+All items below remain unfixed unless marked otherwise.
 
 ## 1. Schemas Still Using :id as Primary Key
 
@@ -38,32 +56,15 @@ The following schemas still define `field :id, :integer` instead of using UUIDv7
 
 ## 2. Relationships Still Referencing Legacy ID Field
 
-### Connections Module - Using `type: :integer`
-These relationships explicitly use `:integer` type instead of UUIDv7:
+### ~~Connections Module - Using `type: :integer`~~ ✅ NOT A BUG (PR #337)
+~~These relationships explicitly use `:integer` type instead of UUIDv7:~~
 
-- `lib/modules/connections/follow.ex:45-46`
-  ```elixir
-  belongs_to :follower, PhoenixKit.Users.Auth.User, type: :integer
-  belongs_to :followed, PhoenixKit.Users.Auth.User, type: :integer
-  ```
+**Clarified by PR #337:** The `type: :integer` declarations are **correct**. The V36 migration created these FK columns as `BIGINT` referencing `phoenix_kit_users(id)`. The integer FKs coexist with dual-write `*_uuid` fields added by V56. These will be migrated to UUID FKs in Phase 4 of the UUID migration.
 
-- `lib/modules/connections/block_history.ex:22-23`
-  ```elixir
-  belongs_to :blocker, PhoenixKit.Users.Auth.User, type: :integer
-  belongs_to :blocked, PhoenixKit.Users.Auth.User, type: :integer
-  ```
-
-- `lib/modules/connections/block.ex:50-51`
-  ```elixir
-  belongs_to :blocker, PhoenixKit.Users.Auth.User, type: :integer
-  belongs_to :blocked, PhoenixKit.Users.Auth.User, type: :integer
-  ```
-
-- `lib/modules/connections/connection_history.ex:29-30`
-  ```elixir
-  belongs_to :user_a, PhoenixKit.Users.Auth.User, type: :integer
-  belongs_to :user_b, PhoenixKit.Users.Auth.User, type: :integer
-  ```
+- `lib/modules/connections/follow.ex:45-46` — `type: :integer` is correct (FK is BIGINT)
+- `lib/modules/connections/block_history.ex:22-23` — `type: :integer` is correct
+- `lib/modules/connections/block.ex:50-51` — `type: :integer` is correct
+- `lib/modules/connections/connection_history.ex:29-30` — `type: :integer` is correct
 
 ### Comments Module - Using `foreign_key: :parent_id`
 - `lib/modules/comments/schemas/comment.ex:64`
@@ -193,20 +194,21 @@ These should include `references: :uuid` to be explicit and avoid potential issu
 ## Critical Files to Update
 
 ### High Priority
-- `lib/modules/connections/*.ex` - All connection schemas
-- `lib/modules/comments/schemas/comment.ex` - Comment relationships
-- `lib/modules/tickets/ticket_comment.ex` - Ticket comment relationships
-- `lib/modules/referrals/referrals.ex` and `lib/modules/referrals/web/form.ex` - Referral code usage
+- ~~`lib/modules/connections/*.ex` - All connection schemas~~ ✅ `type: :integer` is correct (PR #337 clarification)
+- `lib/modules/comments/schemas/comment.ex` - Comment relationships (`foreign_key: :parent_id`)
+- `lib/modules/tickets/ticket_comment.ex` - Ticket comment relationships (`foreign_key: :parent_id`, `:comment_id`)
+- `lib/modules/referrals/referrals.ex` and `lib/modules/referrals/web/form.ex` - Referral code `.id` usage
 
 ### Medium Priority
 - All schema files that still have `field :id, :integer`
 - Email export and verification tasks
 - Shop deduplication task
 - Entities export task
+- ~~Billing form assigns using `*_id`~~ ✅ Fixed in PR #337
 
 ### Low Priority (but should be updated)
 - Admin presence tracking
-- Sync module relationship specifications
+- Sync module relationship specifications (missing `references: :uuid`)
 
 ## Pattern for Correct UUID Relationships
 
@@ -232,3 +234,8 @@ has_many :items, Item,
 - [ ] All Ecto queries updated to use UUID fields
 - [ ] All admin interfaces tested with UUIDs
 - [ ] Data migration scripts created and tested
+- [ ] Decide on Pattern 2 resolution (see `dev_docs/uuid_naming_convention_report.md`, Options A-D)
+- [x] Connections module `type: :integer` — confirmed correct (PR #337)
+- [x] Billing form assigns renamed `*_id` → `*_uuid` (PR #337)
+- [x] Dashboard assigns optimized with `dashboard_assigns()` (PR #337)
+- [x] Alias-in-function-body instances moved to module level (PR #337)
