@@ -55,6 +55,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       |> assign(:selected_entity, entity)
       |> assign(:selected_entity_id, entity_id)
       |> assign(:selected_status, "all")
+      |> assign(:selected_category, "all")
+      |> assign(:selected_ids, [])
+      |> assign(:available_categories, [])
       |> assign(:search_term, "")
       |> assign(:view_mode, "table")
       |> apply_filters()
@@ -75,6 +78,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     # Extract filter params with defaults
     status = params["status"] || "all"
+    category = params["category"] || "all"
     search_term = params["search"] || ""
     view_mode = params["view"] || "table"
 
@@ -83,6 +87,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       |> assign(:selected_entity, entity)
       |> assign(:selected_entity_id, entity_id)
       |> assign(:selected_status, status)
+      |> assign(:selected_category, category)
       |> assign(:search_term, search_term)
       |> assign(:view_mode, view_mode)
       |> apply_filters()
@@ -145,6 +150,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         socket.assigns.selected_entity_id,
         socket.assigns.selected_status,
+        socket.assigns.selected_category,
         socket.assigns.search_term,
         mode
       )
@@ -155,6 +161,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     socket =
       socket
       |> assign(:view_mode, mode)
+      |> assign(:selected_ids, [])
       |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
@@ -175,6 +182,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         entity_id,
         socket.assigns.selected_status,
+        socket.assigns.selected_category,
         socket.assigns.search_term,
         socket.assigns.view_mode
       )
@@ -183,7 +191,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
+      socket
+      |> assign(:selected_ids, [])
+      |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
@@ -193,6 +203,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         socket.assigns.selected_entity_id,
         status,
+        socket.assigns.selected_category,
         socket.assigns.search_term,
         socket.assigns.view_mode
       )
@@ -201,7 +212,30 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
+      socket
+      |> assign(:selected_ids, [])
+      |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
+
+    {:noreply, socket}
+  end
+
+  def handle_event("filter_by_category", %{"category" => category}, socket) do
+    params =
+      build_url_params(
+        socket.assigns.selected_entity_id,
+        socket.assigns.selected_status,
+        category,
+        socket.assigns.search_term,
+        socket.assigns.view_mode
+      )
+
+    path = build_base_path(socket.assigns.selected_entity_id)
+    full_path = if params != "", do: "#{path}?#{params}", else: path
+
+    socket =
+      socket
+      |> assign(:selected_ids, [])
+      |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
@@ -211,6 +245,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         socket.assigns.selected_entity_id,
         socket.assigns.selected_status,
+        socket.assigns.selected_category,
         term,
         socket.assigns.view_mode
       )
@@ -219,20 +254,30 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
+      socket
+      |> assign(:selected_ids, [])
+      |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
 
   def handle_event("clear_filters", _params, socket) do
     params =
-      build_url_params(socket.assigns.selected_entity_id, "all", "", socket.assigns.view_mode)
+      build_url_params(
+        socket.assigns.selected_entity_id,
+        "all",
+        "all",
+        "",
+        socket.assigns.view_mode
+      )
 
     path = build_base_path(socket.assigns.selected_entity_id)
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.locale_aware_path(socket.assigns, full_path))
+      socket
+      |> assign(:selected_ids, [])
+      |> push_patch(to: Routes.locale_aware_path(socket.assigns, full_path))
 
     {:noreply, socket}
   end
@@ -299,6 +344,110 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       {:error, _changeset} ->
         socket = put_flash(socket, :error, gettext("Failed to update status"))
         {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_select", %{"uuid" => uuid}, socket) do
+    selected = socket.assigns.selected_ids
+    selected = if uuid in selected, do: List.delete(selected, uuid), else: [uuid | selected]
+    {:noreply, assign(socket, :selected_ids, selected)}
+  end
+
+  def handle_event("select_all", _params, socket) do
+    all_uuids = Enum.map(socket.assigns.entity_data_records, & &1.uuid)
+    {:noreply, assign(socket, :selected_ids, all_uuids)}
+  end
+
+  def handle_event("deselect_all", _params, socket) do
+    {:noreply, assign(socket, :selected_ids, [])}
+  end
+
+  def handle_event("bulk_action", %{"action" => "archive"}, socket) do
+    ids = socket.assigns.selected_ids
+
+    if ids == [] do
+      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+    else
+      {count, _} = EntityData.bulk_update_status(ids, "archived")
+
+      {:noreply,
+       socket
+       |> assign(:selected_ids, [])
+       |> refresh_data_stats()
+       |> apply_filters()
+       |> put_flash(:info, gettext("%{count} records archived", count: count))}
+    end
+  end
+
+  def handle_event("bulk_action", %{"action" => "restore"}, socket) do
+    ids = socket.assigns.selected_ids
+
+    if ids == [] do
+      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+    else
+      {count, _} = EntityData.bulk_update_status(ids, "published")
+
+      {:noreply,
+       socket
+       |> assign(:selected_ids, [])
+       |> refresh_data_stats()
+       |> apply_filters()
+       |> put_flash(:info, gettext("%{count} records restored", count: count))}
+    end
+  end
+
+  def handle_event("bulk_action", %{"action" => "delete"}, socket) do
+    ids = socket.assigns.selected_ids
+
+    if ids == [] do
+      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+    else
+      {count, _} = EntityData.bulk_delete(ids)
+
+      {:noreply,
+       socket
+       |> assign(:selected_ids, [])
+       |> refresh_data_stats()
+       |> apply_filters()
+       |> put_flash(:info, gettext("%{count} records deleted", count: count))}
+    end
+  end
+
+  def handle_event(
+        "bulk_action",
+        %{"action" => "change_category", "category" => category},
+        socket
+      ) do
+    ids = socket.assigns.selected_ids
+
+    if ids == [] do
+      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+    else
+      {count, _} = EntityData.bulk_update_category(ids, category)
+
+      {:noreply,
+       socket
+       |> assign(:selected_ids, [])
+       |> refresh_data_stats()
+       |> apply_filters()
+       |> put_flash(:info, gettext("%{count} records updated", count: count))}
+    end
+  end
+
+  def handle_event("bulk_action", %{"action" => "change_status", "status" => status}, socket) do
+    ids = socket.assigns.selected_ids
+
+    if ids == [] do
+      {:noreply, put_flash(socket, :error, gettext("No records selected"))}
+    else
+      {count, _} = EntityData.bulk_update_status(ids, status)
+
+      {:noreply,
+       socket
+       |> assign(:selected_ids, [])
+       |> refresh_data_stats()
+       |> apply_filters()
+       |> put_flash(:info, gettext("%{count} records updated", count: count))}
     end
   end
 
@@ -376,7 +525,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  defp build_url_params(_entity_id, status, search_term, view_mode) do
+  defp build_url_params(_entity_id, status, category, search_term, view_mode) do
     params = []
 
     # Don't include entity_id in query params since it's in the path
@@ -384,6 +533,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     params =
       if status && status != "all" do
         [{"status", status} | params]
+      else
+        params
+      end
+
+    params =
+      if category && category != "all" do
+        [{"category", category} | params]
       else
         params
       end
@@ -408,42 +564,69 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   defp apply_filters(socket) do
     entity_id = socket.assigns[:selected_entity_id]
     status = socket.assigns[:selected_status] || "all"
+    category = socket.assigns[:selected_category] || "all"
     search_term = socket.assigns[:search_term] || ""
 
-    # Start with all data
-    entity_data_records = EntityData.list_all_data()
-
-    # Apply entity filter
+    # Start with all data and apply filters sequentially
     entity_data_records =
-      if entity_id do
-        Enum.filter(entity_data_records, fn record -> record.entity_id == entity_id end)
-      else
-        entity_data_records
-      end
+      EntityData.list_all_data()
+      |> filter_by_entity(entity_id)
+      |> filter_by_status(status)
+      |> filter_by_category(category)
+      |> filter_by_search(search_term)
 
-    # Apply status filter
-    entity_data_records =
-      if status != "all" do
-        Enum.filter(entity_data_records, fn record -> record.status == status end)
-      else
-        entity_data_records
-      end
+    # Extract available categories from filtered results
+    available_categories = EntityData.extract_unique_categories(entity_data_records)
 
-    # Apply search filter
-    entity_data_records =
-      if String.trim(search_term) != "" do
-        search_term_lower = String.downcase(search_term)
+    socket
+    |> assign(:entity_data_records, entity_data_records)
+    |> assign(:available_categories, available_categories)
+  end
 
-        Enum.filter(entity_data_records, fn record ->
-          title_match = String.contains?(String.downcase(record.title || ""), search_term_lower)
-          slug_match = String.contains?(String.downcase(record.slug || ""), search_term_lower)
-          title_match || slug_match
-        end)
-      else
-        entity_data_records
-      end
+  defp filter_by_entity(records, nil), do: records
 
-    assign(socket, :entity_data_records, entity_data_records)
+  defp filter_by_entity(records, entity_id) do
+    Enum.filter(records, fn record -> record.entity_id == entity_id end)
+  end
+
+  defp filter_by_status(records, "all"), do: records
+
+  defp filter_by_status(records, status) do
+    Enum.filter(records, fn record -> record.status == status end)
+  end
+
+  defp filter_by_category(records, "all"), do: records
+
+  defp filter_by_category(records, "uncategorized") do
+    Enum.filter(records, fn record ->
+      cat = get_in(record.data, ["category"])
+      is_nil(cat) || cat == ""
+    end)
+  end
+
+  defp filter_by_category(records, category) do
+    Enum.filter(records, fn record ->
+      get_in(record.data, ["category"]) == category
+    end)
+  end
+
+  defp filter_by_search(records, ""), do: records
+
+  defp filter_by_search(records, search_term) do
+    search_term_lower = String.downcase(String.trim(search_term))
+
+    Enum.filter(records, fn record ->
+      title_match = String.contains?(String.downcase(record.title || ""), search_term_lower)
+      slug_match = String.contains?(String.downcase(record.slug || ""), search_term_lower)
+
+      category_match =
+        case get_in(record.data, ["category"]) do
+          nil -> false
+          cat -> String.contains?(String.downcase(cat), search_term_lower)
+        end
+
+      title_match || slug_match || category_match
+    end)
   end
 
   defp refresh_data_stats(socket) do

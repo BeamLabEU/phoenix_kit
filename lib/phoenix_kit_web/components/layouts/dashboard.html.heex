@@ -244,6 +244,8 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
               scope={assigns[:phoenix_kit_current_scope]}
               current_path={assigns[:url_path] || "/dashboard"}
               current_locale={assigns[:current_locale]}
+              admin_edit_url={assigns[:admin_edit_url]}
+              admin_edit_label={assigns[:admin_edit_label]}
             />
           </div>
         </div>

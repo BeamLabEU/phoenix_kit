@@ -309,12 +309,18 @@ defmodule PhoenixKit.Modules.Shop do
     FROM phoenix_kit_shop_products p,
          jsonb_array_elements_text(COALESCE(p.metadata->'_option_values'->$1, '[]'::jsonb)) AS val
     WHERE p.status = 'active'
-    #{if category_uuid, do: "AND p.category_uuid = $2::uuid", else: ""}
+    #{if category_uuid, do: "AND p.category_uuid = $2", else: ""}
     GROUP BY val
     ORDER BY count DESC
     """
 
-    params = if category_uuid, do: [key, category_uuid], else: [key]
+    params =
+      if category_uuid do
+        {:ok, uuid_bin} = Ecto.UUID.dump(category_uuid)
+        [key, uuid_bin]
+      else
+        [key]
+      end
 
     case repo().query(sql, params) do
       {:ok, %{rows: rows}} ->
@@ -733,6 +739,20 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Returns a map of category_id => product_count for all categories.
+  """
+  def product_counts_by_category do
+    Product
+    |> where([p], not is_nil(p.category_id))
+    |> group_by([p], p.category_id)
+    |> select([p], {p.category_id, count(p.id)})
+    |> repo().all()
+    |> Map.new()
+  rescue
+    _ -> %{}
+  end
+
+  @doc """
   Lists root categories (no parent).
   """
   def list_root_categories(opts \\ []) do
@@ -927,6 +947,112 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Bulk update category status.
+  Returns count of updated categories.
+  """
+  def bulk_update_category_status(ids, status) when is_list(ids) and is_binary(status) do
+    query =
+      if ids_are_uuids?(ids) do
+        Category |> where([c], c.uuid in ^ids)
+      else
+        Category |> where([c], c.id in ^ids)
+      end
+
+    {count, _} =
+      query
+      |> repo().update_all(set: [status: status, updated_at: DateTime.utc_now()])
+
+    if count > 0 do
+      Events.broadcast_categories_bulk_status_changed(ids, status)
+    end
+
+    count
+  end
+
+  @doc """
+  Bulk update category parent.
+  Returns count of updated categories. Excludes the target parent from the update set
+  to prevent self-reference. Uses a single UPDATE with subquery to resolve parent_id.
+  """
+  def bulk_update_category_parent(ids, parent_uuid) when is_list(ids) do
+    # Exclude the target parent from update set to prevent self-reference
+    ids_to_update = if parent_uuid, do: Enum.reject(ids, &(&1 == parent_uuid)), else: ids
+
+    if ids_to_update == [] do
+      0
+    else
+      now = DateTime.utc_now()
+
+      {count, _} =
+        if is_nil(parent_uuid) do
+          # Make root — set both to nil
+          Category
+          |> where([c], c.uuid in ^ids_to_update)
+          |> repo().update_all(set: [parent_id: nil, parent_uuid: nil, updated_at: now])
+        else
+          # Resolve parent_id in one query, then bulk update
+          parent =
+            Category
+            |> where([c], c.uuid == ^parent_uuid)
+            |> select([c], %{id: c.id})
+            |> repo().one()
+
+          if parent do
+            Category
+            |> where([c], c.uuid in ^ids_to_update)
+            |> repo().update_all(
+              set: [parent_id: parent.id, parent_uuid: parent_uuid, updated_at: now]
+            )
+          else
+            {0, nil}
+          end
+        end
+
+      if count > 0 do
+        Events.broadcast_categories_bulk_parent_changed(ids_to_update, parent_uuid)
+      end
+
+      count
+    end
+  end
+
+  @doc """
+  Bulk delete categories.
+  Returns count of deleted categories. Nullifies category references on orphaned products.
+  """
+  def bulk_delete_categories(ids) when is_list(ids) do
+    uuid_ids? = ids_are_uuids?(ids)
+
+    # Nullify category references on products to prevent orphans
+    orphan_query =
+      if uuid_ids? do
+        Product |> where([p], p.category_uuid in ^ids)
+      else
+        Product |> where([p], p.category_id in ^ids)
+      end
+
+    repo().update_all(orphan_query,
+      set: [category_id: nil, category_uuid: nil, updated_at: DateTime.utc_now()]
+    )
+
+    # Delete categories
+    category_query =
+      if uuid_ids? do
+        Category |> where([c], c.uuid in ^ids)
+      else
+        Category |> where([c], c.id in ^ids)
+      end
+
+    {count, _} = repo().delete_all(category_query)
+
+    if count > 0 do
+      Events.broadcast_categories_bulk_deleted(ids)
+    end
+
+    count
+  end
+
+  @doc """
   Returns categories as options for select input.
   Returns list of {localized_name, id} tuples.
   """
@@ -1011,7 +1137,6 @@ defmodule PhoenixKit.Modules.Shop do
   defp category_product_options_query(category_id) when is_integer(category_id) do
     from(p in Product,
       where: p.category_id == ^category_id,
-      where: p.status == "active",
       where:
         not is_nil(p.featured_image_id) or
           (not is_nil(p.featured_image) and p.featured_image != ""),
@@ -1024,7 +1149,6 @@ defmodule PhoenixKit.Modules.Shop do
     if match?({:ok, _}, Ecto.UUID.cast(category_id)) do
       from(p in Product,
         where: p.category_uuid == ^category_id,
-        where: p.status == "active",
         where:
           not is_nil(p.featured_image_id) or
             (not is_nil(p.featured_image) and p.featured_image != ""),
@@ -2378,7 +2502,8 @@ defmodule PhoenixKit.Modules.Shop do
         q,
         [p],
         fragment(
-          "EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(metadata->'_option_values'->?, '[]'::jsonb)) elem WHERE elem = ANY(?))",
+          "EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(?->'_option_values'->?, '[]'::jsonb)) elem WHERE elem = ANY(?))",
+          p.metadata,
           ^key,
           ^values
         )
@@ -2413,6 +2538,7 @@ defmodule PhoenixKit.Modules.Shop do
   defp apply_category_filters(query, opts) do
     query
     |> filter_by_parent(Keyword.get(opts, :parent_id, :skip))
+    |> filter_by_parent_uuid(Keyword.get(opts, :parent_uuid, :skip))
     |> filter_by_category_status(Keyword.get(opts, :status, :skip))
     |> filter_by_category_search(Keyword.get(opts, :search))
   end
@@ -2421,7 +2547,12 @@ defmodule PhoenixKit.Modules.Shop do
   defp filter_by_parent(query, nil), do: where(query, [c], is_nil(c.parent_id))
   defp filter_by_parent(query, id), do: where(query, [c], c.parent_id == ^id)
 
+  defp filter_by_parent_uuid(query, :skip), do: query
+  defp filter_by_parent_uuid(query, nil), do: where(query, [c], is_nil(c.parent_uuid))
+  defp filter_by_parent_uuid(query, uuid), do: where(query, [c], c.parent_uuid == ^uuid)
+
   defp filter_by_category_status(query, :skip), do: query
+  defp filter_by_category_status(query, nil), do: query
 
   defp filter_by_category_status(query, status) when is_binary(status) do
     where(query, [c], c.status == ^status)

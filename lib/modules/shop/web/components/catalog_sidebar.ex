@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
         <%!-- Active filters summary + clear button --%>
         <%= if @has_active do %>
           <div class="mb-3">
-            <button phx-click="clear_filters" class="btn btn-ghost btn-xs w-full gap-1">
+            <button phx-click="clear_filters" class="btn btn-outline btn-error btn-xs w-full gap-1">
               <.icon name="hero-x-mark" class="w-3 h-3" /> Clear all filters
             </button>
           </div>
@@ -326,7 +326,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
     ~H"""
     <div class="space-y-1">
       <%= if @has_active do %>
-        <button phx-click="clear_filters" class="btn btn-ghost btn-xs w-full gap-1 mb-1">
+        <button phx-click="clear_filters" class="btn btn-outline btn-error btn-xs w-full gap-1 mb-1">
           <.icon name="hero-x-mark" class="w-3 h-3" /> Clear filters
         </button>
       <% end %>

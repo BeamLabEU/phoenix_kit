@@ -188,17 +188,14 @@
           <.icon name="hero-funnel" class="w-5 h-5" /> {gettext("Filters & Search")}
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <%!-- Status Filter --%>
           <div>
             <label class="label">
               <span class="label-text">{gettext("Filter by Status")}</span>
             </label>
             <.form for={%{}} phx-change="filter_by_status">
-              <select
-                class="select select-bordered w-full"
-                name="status"
-              >
+              <select class="select select-bordered w-full" name="status">
                 <option value="all" selected={@selected_status == "all"}>
                   {gettext("All Statuses")}
                 </option>
@@ -215,6 +212,28 @@
             </.form>
           </div>
 
+          <%!-- Category Filter --%>
+          <div>
+            <label class="label">
+              <span class="label-text">{gettext("Filter by Category")}</span>
+            </label>
+            <.form for={%{}} phx-change="filter_by_category">
+              <select class="select select-bordered w-full" name="category">
+                <option value="all" selected={@selected_category == "all"}>
+                  {gettext("All Categories")}
+                </option>
+                <option value="uncategorized" selected={@selected_category == "uncategorized"}>
+                  {gettext("Uncategorized")}
+                </option>
+                <%= for category <- @available_categories do %>
+                  <option value={category} selected={@selected_category == category}>
+                    {category}
+                  </option>
+                <% end %>
+              </select>
+            </.form>
+          </div>
+
           <%!-- Search --%>
           <div>
             <label class="label">
@@ -225,7 +244,7 @@
                 type="text"
                 name="search[term]"
                 value={@search_term}
-                placeholder={gettext("Search by title...")}
+                placeholder={gettext("Search by title, slug, or category...")}
                 class="input input-bordered join-item flex-1"
               />
               <button type="submit" class="btn btn-primary join-item">
@@ -234,8 +253,132 @@
             </.form>
           </div>
         </div>
+
+        <%!-- Clear Filters --%>
+        <%= if @selected_status != "all" || @selected_category != "all" || @search_term != "" do %>
+          <div class="flex justify-end mt-4">
+            <button phx-click="clear_filters" class="btn btn-outline btn-sm">
+              <.icon name="hero-x-mark" class="w-4 h-4 mr-2" /> {gettext("Clear All Filters")}
+            </button>
+          </div>
+        <% end %>
       </div>
     </div>
+
+    <%!-- Bulk Actions Bar --%>
+    <%= if length(@selected_ids) > 0 do %>
+      <div class="card bg-base-200 shadow-xl mb-6">
+        <div class="card-body p-4">
+          <div class="flex flex-wrap gap-3 items-center">
+            <span class="text-sm font-semibold">
+              {length(@selected_ids)} {gettext("selected")}
+            </span>
+            <div class="divider divider-horizontal mx-0"></div>
+            <%!-- Quick Actions --%>
+            <button
+              phx-click="bulk_action"
+              phx-value-action="archive"
+              class="btn btn-warning btn-sm"
+            >
+              <.icon name="hero-archive-box" class="w-4 h-4" /> {gettext("Archive")}
+            </button>
+            <button
+              phx-click="bulk_action"
+              phx-value-action="restore"
+              class="btn btn-success btn-sm"
+            >
+              <.icon name="hero-arrow-path" class="w-4 h-4" /> {gettext("Restore")}
+            </button>
+            <button
+              phx-click="bulk_action"
+              phx-value-action="delete"
+              class="btn btn-error btn-sm"
+              data-confirm={
+                gettext("Are you sure you want to delete %{count} records?",
+                  count: length(@selected_ids)
+                )
+              }
+            >
+              <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete")}
+            </button>
+
+            <div class="divider divider-horizontal mx-0"></div>
+
+            <%!-- Change Status Dropdown --%>
+            <div class="dropdown">
+              <label tabindex="0" class="btn btn-ghost btn-sm">
+                <.icon name="hero-arrow-path-rounded-square" class="w-4 h-4" />
+                {gettext("Change Status")}
+                <.icon name="hero-chevron-down" class="w-4 h-4" />
+              </label>
+              <ul
+                tabindex="0"
+                class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52"
+              >
+                <li>
+                  <a
+                    phx-click="bulk_action"
+                    phx-value-action="change_status"
+                    phx-value-status="published"
+                  >
+                    {gettext("Published")}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    phx-click="bulk_action"
+                    phx-value-action="change_status"
+                    phx-value-status="draft"
+                  >
+                    {gettext("Draft")}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    phx-click="bulk_action"
+                    phx-value-action="change_status"
+                    phx-value-status="archived"
+                  >
+                    {gettext("Archived")}
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <%!-- Change Category Dropdown --%>
+            <%= if length(@available_categories) > 0 do %>
+              <div class="dropdown">
+                <label tabindex="0" class="btn btn-ghost btn-sm">
+                  <.icon name="hero-tag" class="w-4 h-4" />
+                  {gettext("Change Category")}
+                  <.icon name="hero-chevron-down" class="w-4 h-4" />
+                </label>
+                <ul
+                  tabindex="0"
+                  class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52 max-h-64 overflow-y-auto"
+                >
+                  <%= for category <- @available_categories do %>
+                    <li>
+                      <a
+                        phx-click="bulk_action"
+                        phx-value-action="change_category"
+                        phx-value-category={category}
+                      >
+                        {category}
+                      </a>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+
+            <div class="flex-1"></div>
+            <button phx-click="deselect_all" class="btn btn-ghost btn-sm">
+              <.icon name="hero-x-mark" class="w-4 h-4" /> {gettext("Clear")}
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
 
     <%!-- Results Section --%>
     <%= if Enum.empty?(@entity_data_records) do %>
@@ -347,10 +490,29 @@
         <.table_default variant="zebra" size="sm">
           <.table_default_header>
             <.table_default_row>
+              <.table_default_header_cell class="w-12">
+                <%= if length(@entity_data_records) > 0 do %>
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-sm"
+                    checked={
+                      length(@selected_ids) == length(@entity_data_records) &&
+                        length(@entity_data_records) > 0
+                    }
+                    phx-click={
+                      if length(@selected_ids) == length(@entity_data_records),
+                        do: "deselect_all",
+                        else: "select_all"
+                    }
+                    title={gettext("Select all")}
+                  />
+                <% end %>
+              </.table_default_header_cell>
               <.table_default_header_cell>{gettext("Title")}</.table_default_header_cell>
               <%= if !@selected_entity do %>
                 <.table_default_header_cell>{gettext("Entity")}</.table_default_header_cell>
               <% end %>
+              <.table_default_header_cell>{gettext("Category")}</.table_default_header_cell>
               <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
               <.table_default_header_cell>{gettext("Created")}</.table_default_header_cell>
               <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
@@ -359,6 +521,15 @@
           <.table_default_body>
             <%= for data_record <- @entity_data_records do %>
               <.table_default_row>
+                <.table_default_cell>
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-sm"
+                    phx-click="toggle_select"
+                    phx-value-uuid={data_record.uuid}
+                    checked={data_record.uuid in @selected_ids}
+                  />
+                </.table_default_cell>
                 <.table_default_cell>
                   <.link
                     navigate={
@@ -384,6 +555,23 @@
                     </span>
                   </.table_default_cell>
                 <% end %>
+                <.table_default_cell>
+                  <%= case get_in(data_record.data, ["category"]) do %>
+                    <% nil -> %>
+                      <span class="badge badge-ghost badge-sm text-base-content/40">
+                        {gettext("Uncategorized")}
+                      </span>
+                    <% "" -> %>
+                      <span class="badge badge-ghost badge-sm text-base-content/40">
+                        {gettext("Uncategorized")}
+                      </span>
+                    <% category -> %>
+                      <span class="badge badge-primary badge-outline badge-sm">
+                        <.icon name="hero-tag" class="w-3 h-3 mr-1" />
+                        {category}
+                      </span>
+                  <% end %>
+                </.table_default_cell>
                 <.table_default_cell>
                   <span class={"badge #{status_badge_class(data_record.status)} badge-sm"}>
                     <.icon name={status_icon(data_record.status)} class="w-3 h-3 mr-1" />
@@ -455,82 +643,112 @@
           <%= for data_record <- @entity_data_records do %>
             <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
               <div class="card-body">
-                <div class="flex items-start justify-between mb-4">
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path(
-                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}"
-                      )
-                    }
-                    class="flex-1 hover:text-primary transition-colors cursor-pointer"
-                  >
-                    <%!-- Title and Entity Info --%>
-                    <div class="flex items-center mb-2">
-                      <h3 class="card-title text-lg mr-3">{data_record.title}</h3>
-                      <%= if !@selected_entity do %>
-                        <span class="badge badge-outline">
-                          {get_entity_name(@entities, data_record.entity_id)}
+                <div class="flex items-start gap-3 mb-4">
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-md mt-1"
+                    phx-click="toggle_select"
+                    phx-value-uuid={data_record.uuid}
+                    checked={data_record.uuid in @selected_ids}
+                  />
+                  <div class="flex-1">
+                    <div class="flex items-start justify-between mb-2">
+                      <.link
+                        navigate={
+                          PhoenixKit.Utils.Routes.path(
+                            "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}"
+                          )
+                        }
+                        class="flex-1 hover:text-primary transition-colors cursor-pointer"
+                      >
+                        <%!-- Title and Entity Info --%>
+                        <div class="flex items-center mb-2">
+                          <h3 class="card-title text-lg mr-3">{data_record.title}</h3>
+                          <%= if !@selected_entity do %>
+                            <span class="badge badge-outline">
+                              {get_entity_name(@entities, data_record.entity_id)}
+                            </span>
+                          <% end %>
+                        </div>
+
+                        <%!-- Slug --%>
+                        <%= if data_record.slug do %>
+                          <p class="text-sm text-base-content/60 mb-2">
+                            <.icon name="hero-link" class="w-4 h-4 inline mr-1" />
+                            {data_record.slug}
+                          </p>
+                        <% end %>
+
+                        <%!-- Category --%>
+                        <%= case get_in(data_record.data, ["category"]) do %>
+                          <% nil -> %>
+                            <span class="badge badge-ghost badge-sm text-base-content/40 mb-2">
+                              <.icon name="hero-tag" class="w-3 h-3 mr-1" />
+                              {gettext("Uncategorized")}
+                            </span>
+                          <% "" -> %>
+                            <span class="badge badge-ghost badge-sm text-base-content/40 mb-2">
+                              <.icon name="hero-tag" class="w-3 h-3 mr-1" />
+                              {gettext("Uncategorized")}
+                            </span>
+                          <% category -> %>
+                            <span class="badge badge-primary badge-outline badge-sm mb-2">
+                              <.icon name="hero-tag" class="w-3 h-3 mr-1" />
+                              {category}
+                            </span>
+                        <% end %>
+
+                        <%!-- Data Preview --%>
+                        <%= if data_record.data && map_size(data_record.data) > 0 do %>
+                          <p class="text-sm text-base-content/70 mb-3">
+                            {format_data_preview(data_record.data)}
+                          </p>
+                        <% end %>
+                      </.link>
+
+                      <%!-- Status Badge --%>
+                      <div class="flex flex-col items-end">
+                        <span class={"badge #{status_badge_class(data_record.status)} mb-2"}>
+                          <.icon name={status_icon(data_record.status)} class="w-3 h-3 mr-1" />
+                          {status_label(data_record.status)}
+                        </span>
+
+                        <%!-- Status Toggle Button --%>
+                        <button
+                          class="btn btn-ghost btn-xs"
+                          phx-click="toggle_status"
+                          phx-value-uuid={data_record.uuid}
+                          title={gettext("Cycle status")}
+                        >
+                          <.icon name="hero-arrow-path" class="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <%!-- Metadata Row --%>
+                    <div class="flex flex-wrap items-center gap-4 text-xs text-base-content/50 mb-4">
+                      <%= if data_record.creator do %>
+                        <span>
+                          <.icon name="hero-user" class="w-3 h-3 inline mr-1" />
+                          {data_record.creator.email}
+                        </span>
+                      <% end %>
+                      <span>
+                        <.icon name="hero-calendar" class="w-3 h-3 inline mr-1" />
+                        {gettext("Created")} {PhoenixKit.Utils.Date.format_date_with_user_format(
+                          data_record.date_created
+                        )}
+                      </span>
+                      <%= if data_record.date_updated != data_record.date_created do %>
+                        <span>
+                          <.icon name="hero-clock" class="w-3 h-3 inline mr-1" />
+                          {gettext("Updated")} {PhoenixKit.Utils.Date.format_date_with_user_format(
+                            data_record.date_updated
+                          )}
                         </span>
                       <% end %>
                     </div>
-
-                    <%!-- Slug --%>
-                    <%= if data_record.slug do %>
-                      <p class="text-sm text-base-content/60 mb-2">
-                        <.icon name="hero-link" class="w-4 h-4 inline mr-1" />
-                        {data_record.slug}
-                      </p>
-                    <% end %>
-
-                    <%!-- Data Preview --%>
-                    <%= if data_record.data && map_size(data_record.data) > 0 do %>
-                      <p class="text-sm text-base-content/70 mb-3">
-                        {format_data_preview(data_record.data)}
-                      </p>
-                    <% end %>
-                  </.link>
-
-                  <%!-- Status Badge --%>
-                  <div class="flex flex-col items-end">
-                    <span class={"badge #{status_badge_class(data_record.status)} mb-2"}>
-                      <.icon name={status_icon(data_record.status)} class="w-3 h-3 mr-1" />
-                      {status_label(data_record.status)}
-                    </span>
-
-                    <%!-- Status Toggle Button --%>
-                    <button
-                      class="btn btn-ghost btn-xs"
-                      phx-click="toggle_status"
-                      phx-value-uuid={data_record.uuid}
-                      title={gettext("Cycle status")}
-                    >
-                      <.icon name="hero-arrow-path" class="w-3 h-3" />
-                    </button>
                   </div>
-                </div>
-
-                <%!-- Metadata Row --%>
-                <div class="flex flex-wrap items-center gap-4 text-xs text-base-content/50 mb-4">
-                  <%= if data_record.creator do %>
-                    <span>
-                      <.icon name="hero-user" class="w-3 h-3 inline mr-1" />
-                      {data_record.creator.email}
-                    </span>
-                  <% end %>
-                  <span>
-                    <.icon name="hero-calendar" class="w-3 h-3 inline mr-1" />
-                    {gettext("Created")} {PhoenixKit.Utils.Date.format_date_with_user_format(
-                      data_record.date_created
-                    )}
-                  </span>
-                  <%= if data_record.date_updated != data_record.date_created do %>
-                    <span>
-                      <.icon name="hero-clock" class="w-3 h-3 inline mr-1" />
-                      {gettext("Updated")} {PhoenixKit.Utils.Date.format_date_with_user_format(
-                        data_record.date_updated
-                      )}
-                    </span>
-                  <% end %>
                 </div>
 
                 <%!-- Actions --%>

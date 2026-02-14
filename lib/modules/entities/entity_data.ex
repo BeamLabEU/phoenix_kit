@@ -801,6 +801,83 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   def update_data(entity_data, attrs), do: __MODULE__.update(entity_data, attrs)
 
   @doc """
+  Bulk updates the status of multiple records by UUIDs.
+
+  Returns a tuple with the count of updated records and nil.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.EntityData.bulk_update_status(["uuid1", "uuid2"], "archived")
+      {2, nil}
+  """
+  def bulk_update_status(uuids, status) when is_list(uuids) and status in @valid_statuses do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+    from(d in __MODULE__, where: d.uuid in ^uuids)
+    |> repo().update_all(set: [status: status, date_updated: now])
+  end
+
+  @doc """
+  Bulk updates the category of multiple records by UUIDs.
+
+  Since category is stored in the JSONB data column, this requires
+  fetching and updating each record individually.
+
+  Returns a tuple with the count of updated records and nil.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.EntityData.bulk_update_category(["uuid1", "uuid2"], "New Category")
+      {2, nil}
+  """
+  def bulk_update_category(uuids, category) when is_list(uuids) do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+    records = from(d in __MODULE__, where: d.uuid in ^uuids) |> repo().all()
+
+    Enum.each(records, fn record ->
+      updated_data = Map.put(record.data || %{}, "category", category)
+      changeset = changeset(record, %{data: updated_data, date_updated: now})
+      repo().update(changeset)
+    end)
+
+    {length(records), nil}
+  end
+
+  @doc """
+  Bulk deletes multiple records by UUIDs.
+
+  Returns a tuple with the count of deleted records and nil.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.EntityData.bulk_delete(["uuid1", "uuid2"])
+      {2, nil}
+  """
+  def bulk_delete(uuids) when is_list(uuids) do
+    from(d in __MODULE__, where: d.uuid in ^uuids)
+    |> repo().delete_all()
+  end
+
+  @doc """
+  Extracts unique categories from a list of entity data records.
+
+  Returns a sorted list of unique category values, excluding nil and empty strings.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.EntityData.extract_unique_categories(records)
+      ["Category A", "Category B", "Category C"]
+  """
+  def extract_unique_categories(entity_data_records) when is_list(entity_data_records) do
+    entity_data_records
+    |> Enum.map(fn r -> get_in(r.data, ["category"]) end)
+    |> Enum.reject(&(&1 == nil || &1 == ""))
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  @doc """
   Gets statistical data about entity data records.
 
   Returns statistics about total records, published, draft, and archived counts.
