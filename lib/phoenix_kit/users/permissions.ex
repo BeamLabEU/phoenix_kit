@@ -51,9 +51,11 @@ defmodule PhoenixKit.Users.Permissions do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.RolePermission
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.ScopeNotifier
 
   @core_section_keys ~w(dashboard users media settings modules)
@@ -71,6 +73,7 @@ defmodule PhoenixKit.Users.Permissions do
   @max_key_length 50
   @max_custom_keys 50
   @max_label_length 100
+  @max_icon_length 60
   @max_description_length 255
 
   # Maps feature module keys to their {Module, :enabled_function} for checking enabled status
@@ -159,7 +162,8 @@ defmodule PhoenixKit.Users.Permissions do
       icon:
         opts
         |> Keyword.get(:icon)
-        |> coerce_string("hero-squares-2x2"),
+        |> coerce_string("hero-squares-2x2")
+        |> String.slice(0, @max_icon_length),
       description:
         opts
         |> Keyword.get(:description)
@@ -168,6 +172,11 @@ defmodule PhoenixKit.Users.Permissions do
     }
 
     :persistent_term.put(@custom_keys_pterm, Map.put(current, key, meta))
+
+    # Auto-grant custom keys to Admin role so they have access by default.
+    # Uses a settings flag to avoid re-granting after Owner explicitly revokes.
+    auto_grant_to_admin_roles(key)
+
     :ok
   end
 
@@ -190,6 +199,9 @@ defmodule PhoenixKit.Users.Permissions do
     if map_size(cleaned) != map_size(views) do
       :persistent_term.put(@custom_views_pterm, cleaned)
     end
+
+    # Clear auto-grant flag so re-registering the key will auto-grant again
+    clear_auto_grant_flag(key)
 
     :ok
   end
@@ -843,6 +855,52 @@ defmodule PhoenixKit.Users.Permissions do
   rescue
     e ->
       Logger.warning("Permissions.notify_affected_users failed: #{inspect(e)}")
+      :ok
+  end
+
+  # Clears the auto-grant settings flag for a custom key so that
+  # re-registering it will trigger a fresh auto-grant to Admin.
+  defp clear_auto_grant_flag(key) do
+    Settings.update_setting("auto_granted_perm:#{key}", nil)
+  rescue
+    _ -> :ok
+  end
+
+  # Auto-grants a custom permission key to the Admin system role.
+  # Stores a flag in phoenix_kit_settings so that if Owner later revokes
+  # the key, it won't be re-granted on next application restart.
+  defp auto_grant_to_admin_roles(key) do
+    flag_key = "auto_granted_perm:#{key}"
+
+    # If already auto-granted before, respect any manual changes
+    if Settings.get_setting(flag_key) == "true" do
+      :ok
+    else
+      case Roles.get_role_by_name(Role.system_roles().admin) do
+        %{uuid: admin_uuid} when not is_nil(admin_uuid) ->
+          case grant_permission(admin_uuid, key, nil) do
+            {:ok, _} ->
+              Settings.update_setting(flag_key, "true")
+
+            {:error, _} ->
+              Logger.warning(
+                "[Permissions] grant_permission failed for Admin role on key #{inspect(key)}, will retry next boot"
+              )
+          end
+
+          :ok
+
+        _ ->
+          # Admin role not found (pre-V53 or missing), skip
+          :ok
+      end
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[Permissions] Failed to auto-grant #{inspect(key)} to Admin role: #{Exception.message(error)}"
+      )
+
       :ok
   end
 
