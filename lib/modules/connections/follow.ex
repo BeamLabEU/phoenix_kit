@@ -32,10 +32,10 @@ defmodule PhoenixKit.Modules.Connections.Follow do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           follower_uuid: UUIDv7.t(),
           followed_uuid: UUIDv7.t(),
           follower_id: integer() | nil,

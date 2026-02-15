@@ -23,8 +23,8 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
-  @foreign_key_type :id
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @foreign_key_type UUIDv7
 
   schema "phoenix_kit_user_connections_history" do
     belongs_to :user_a, PhoenixKit.Users.Auth.User,

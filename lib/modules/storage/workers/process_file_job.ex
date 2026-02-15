@@ -74,9 +74,9 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   end
 
   defp process_image(file) do
-    Logger.info("ProcessFileJob: process_image/1 called for file_id=#{file.id}")
+    Logger.info("ProcessFileJob: process_image/1 called for file_id=#{file.uuid}")
 
-    with {:ok, temp_path} <- retrieve_and_log_file(file.id),
+    with {:ok, temp_path} <- retrieve_and_log_file(file.uuid),
          {:ok, metadata} <- extract_and_log_image_metadata(temp_path),
          :ok <- update_and_log_metadata(file, metadata),
          :ok <- log_dimensions_info(),
@@ -137,7 +137,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   end
 
   defp process_video(file) do
-    with {:ok, temp_path, _file} <- Storage.retrieve_file(file.id),
+    with {:ok, temp_path, _file} <- Storage.retrieve_file(file.uuid),
          {:ok, metadata} <- extract_video_metadata(temp_path),
          :ok <- update_file_with_metadata(file, metadata) do
       # Generate variants
@@ -157,18 +157,18 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     if file.mime_type == "application/pdf" do
       process_pdf(file)
     else
-      with {:ok, temp_path, _file} <- Storage.retrieve_file(file.id),
+      with {:ok, temp_path, _file} <- Storage.retrieve_file(file.uuid),
            {:ok, metadata} <- extract_document_metadata(temp_path, file.mime_type),
            :ok <- update_file_with_metadata(file, metadata) do
         File.rm(temp_path)
-        Logger.info("ProcessFileJob: Processed document file_id=#{file.id}")
+        Logger.info("ProcessFileJob: Processed document file_id=#{file.uuid}")
         {:ok, []}
       end
     end
   end
 
   defp process_pdf(file) do
-    with {:ok, temp_path} <- retrieve_and_log_file(file.id),
+    with {:ok, temp_path} <- retrieve_and_log_file(file.uuid),
          {:ok, metadata} <- extract_pdf_metadata(temp_path),
          :ok <- update_and_log_metadata(file, metadata),
          {:ok, variants} <- generate_and_log_variants(file) do

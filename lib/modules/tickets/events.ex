@@ -150,7 +150,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   def broadcast_ticket_created(ticket) do
     broadcast(@all_topic, {:ticket_created, ticket})
     broadcast(user_topic(ticket.user_id), {:ticket_created, ticket})
-    broadcast(ticket_topic(ticket.id), {:ticket_created, ticket})
+    broadcast(ticket_topic(ticket.uuid), {:ticket_created, ticket})
   end
 
   @doc """
@@ -159,7 +159,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   def broadcast_ticket_updated(ticket) do
     broadcast(@all_topic, {:ticket_updated, ticket})
     broadcast(user_topic(ticket.user_id), {:ticket_updated, ticket})
-    broadcast(ticket_topic(ticket.id), {:ticket_updated, ticket})
+    broadcast(ticket_topic(ticket.uuid), {:ticket_updated, ticket})
   end
 
   @doc """
@@ -169,7 +169,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
     message = {:ticket_status_changed, ticket, old_status, new_status}
     broadcast(@all_topic, message)
     broadcast(user_topic(ticket.user_id), message)
-    broadcast(ticket_topic(ticket.id), message)
+    broadcast(ticket_topic(ticket.uuid), message)
   end
 
   @doc """
@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
     message = {:ticket_assigned, ticket, old_assignee_id, new_assignee_id}
     broadcast(@all_topic, message)
     broadcast(user_topic(ticket.user_id), message)
-    broadcast(ticket_topic(ticket.id), message)
+    broadcast(ticket_topic(ticket.uuid), message)
 
     # Also broadcast to the new assignee's topic if assigned
     if new_assignee_id do
@@ -194,7 +194,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
     message = {:ticket_priority_changed, ticket, old_priority, new_priority}
     broadcast(@all_topic, message)
     broadcast(user_topic(ticket.user_id), message)
-    broadcast(ticket_topic(ticket.id), message)
+    broadcast(ticket_topic(ticket.uuid), message)
   end
 
   @doc """
@@ -223,7 +223,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
     message = {:comment_created, comment, ticket}
     broadcast(@all_topic, message)
     broadcast(user_topic(ticket.user_id), message)
-    broadcast(ticket_topic(ticket.id), message)
+    broadcast(ticket_topic(ticket.uuid), message)
   end
 
   @doc """
@@ -234,7 +234,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
     # Internal notes only broadcast to admin topic and ticket topic
     # (not to user's personal topic since they shouldn't see internal notes)
     broadcast(@all_topic, message)
-    broadcast(ticket_topic(ticket.id), message)
+    broadcast(ticket_topic(ticket.uuid), message)
   end
 
   # ============================================================================

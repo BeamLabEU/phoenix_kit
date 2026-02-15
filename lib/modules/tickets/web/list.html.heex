@@ -170,7 +170,7 @@
                   <.table_default_cell>
                     <div class="flex items-center gap-1">
                       <.link
-                        navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.id}")}
+                        navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.uuid}")}
                         class="btn btn-ghost btn-xs"
                         title="View details"
                       >
@@ -178,7 +178,7 @@
                       </.link>
                       <.link
                         navigate={
-                          PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.id}/edit")
+                          PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.uuid}/edit")
                         }
                         class="btn btn-ghost btn-xs"
                         title="Edit ticket"

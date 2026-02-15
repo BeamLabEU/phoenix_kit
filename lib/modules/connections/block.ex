@@ -36,10 +36,10 @@ defmodule PhoenixKit.Modules.Connections.Block do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           blocker_uuid: UUIDv7.t(),
           blocked_uuid: UUIDv7.t(),
           blocker_id: integer() | nil,

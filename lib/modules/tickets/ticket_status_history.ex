@@ -55,10 +55,10 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           ticket_id: UUIDv7.t(),
           changed_by_uuid: UUIDv7.t(),
           changed_by_id: integer() | nil,
@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
     field :from_status, :string
     field :to_status, :string
     field :reason, :string
-    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, type: UUIDv7
+    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, references: :uuid, type: UUIDv7
 
     belongs_to :changed_by, PhoenixKit.Users.Auth.User,
       foreign_key: :changed_by_uuid,

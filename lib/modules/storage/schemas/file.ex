@@ -88,11 +88,11 @@ defmodule PhoenixKit.Modules.Storage.File do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           original_file_name: String.t(),
           file_name: String.t(),
           file_path: String.t() | nil,
@@ -138,7 +138,7 @@ defmodule PhoenixKit.Modules.Storage.File do
       type: UUIDv7
 
     field :user_id, :integer
-    has_many :instances, PhoenixKit.Modules.Storage.FileInstance
+    has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_id
 
     timestamps(type: :naive_datetime)
   end

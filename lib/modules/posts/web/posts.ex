@@ -211,7 +211,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   def handle_event("select_all", %{"value" => value}, socket) do
     selected_posts =
       if value == "on" do
-        Enum.map(socket.assigns.posts, & &1.id)
+        Enum.map(socket.assigns.posts, & &1.uuid)
       else
         []
       end

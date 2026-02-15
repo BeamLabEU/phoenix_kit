@@ -336,14 +336,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
         repo.one(
           from f in Storage.File,
             join: fi in Storage.FileInstance,
-            on: fi.file_id == f.id,
+            on: fi.file_id == f.uuid,
             join: fl in Storage.FileLocation,
-            on: fl.file_instance_id == fi.id,
-            where: fl.bucket_id == ^bucket.id and fl.status == "active",
-            select: count(f.id, :distinct)
+            on: fl.file_instance_id == fi.uuid,
+            where: fl.bucket_id == ^bucket.uuid and fl.status == "active",
+            select: count(f.uuid, :distinct)
         )
 
-      Map.put(acc, bucket.id, count || 0)
+      Map.put(acc, bucket.uuid, count || 0)
     end)
   rescue
     _ -> %{}

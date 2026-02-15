@@ -139,7 +139,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     else
       # Use specified buckets
       Storage.list_enabled_buckets()
-      |> Enum.filter(&(&1.id in priority_buckets))
+      |> Enum.filter(&(&1.uuid in priority_buckets))
       |> Enum.take(redundancy_copies)
     end
   end
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     else
       # Use specified buckets
       get_enabled_buckets()
-      |> Enum.filter(&(&1.id in priority_buckets))
+      |> Enum.filter(&(&1.uuid in priority_buckets))
     end
   end
 
@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
         destination_path: destination_path,
         stored_in: length(buckets),
         successful_storages: successful_storages,
-        bucket_ids: Enum.map(buckets, & &1.id)
+        bucket_ids: Enum.map(buckets, & &1.uuid)
       }
 
       {:ok, file_info}

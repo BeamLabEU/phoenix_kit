@@ -303,7 +303,7 @@ defmodule PhoenixKit.Modules.Comments do
   @doc "Bulk-updates status for multiple comment IDs."
   def bulk_update_status(comment_ids, status)
       when is_list(comment_ids) and status in ["published", "hidden", "deleted", "pending"] do
-    from(c in Comment, where: c.id in ^comment_ids)
+    from(c in Comment, where: c.uuid in ^comment_ids)
     |> repo().update_all(set: [status: status, updated_at: NaiveDateTime.utc_now()])
   end
 
@@ -631,7 +631,7 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   defp build_comment_tree(comments) do
-    comment_map = Map.new(comments, &{&1.id, &1})
+    comment_map = Map.new(comments, &{&1.uuid, &1})
 
     comments
     |> Enum.filter(&(&1.parent_id == nil))
@@ -642,29 +642,29 @@ defmodule PhoenixKit.Modules.Comments do
     children =
       comment_map
       |> Map.values()
-      |> Enum.filter(&(&1.parent_id == comment.id))
+      |> Enum.filter(&(&1.parent_id == comment.uuid))
       |> Enum.map(&add_children(&1, comment_map))
 
     Map.put(comment, :children, children)
   end
 
   defp increment_comment_like_count(comment_id) do
-    from(c in Comment, where: c.id == ^comment_id)
+    from(c in Comment, where: c.uuid == ^comment_id)
     |> repo().update_all(inc: [like_count: 1])
   end
 
   defp decrement_comment_like_count(comment_id) do
-    from(c in Comment, where: c.id == ^comment_id and c.like_count > 0)
+    from(c in Comment, where: c.uuid == ^comment_id and c.like_count > 0)
     |> repo().update_all(inc: [like_count: -1])
   end
 
   defp increment_comment_dislike_count(comment_id) do
-    from(c in Comment, where: c.id == ^comment_id)
+    from(c in Comment, where: c.uuid == ^comment_id)
     |> repo().update_all(inc: [dislike_count: 1])
   end
 
   defp decrement_comment_dislike_count(comment_id) do
-    from(c in Comment, where: c.id == ^comment_id and c.dislike_count > 0)
+    from(c in Comment, where: c.uuid == ^comment_id and c.dislike_count > 0)
     |> repo().update_all(inc: [dislike_count: -1])
   end
 

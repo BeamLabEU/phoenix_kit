@@ -72,13 +72,13 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @statuses ["open", "in_progress", "resolved", "closed"]
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           user_uuid: UUIDv7.t(),
           user_id: integer() | nil,
           assigned_to_uuid: UUIDv7.t() | nil,
@@ -126,9 +126,11 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
     field :user_id, :integer
     field :assigned_to_id, :integer
 
-    has_many :comments, PhoenixKit.Modules.Tickets.TicketComment
-    has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment
-    has_many :status_history, PhoenixKit.Modules.Tickets.TicketStatusHistory
+    has_many :comments, PhoenixKit.Modules.Tickets.TicketComment, foreign_key: :ticket_id
+    has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment, foreign_key: :ticket_id
+
+    has_many :status_history, PhoenixKit.Modules.Tickets.TicketStatusHistory,
+      foreign_key: :ticket_id
 
     timestamps(type: :naive_datetime)
   end

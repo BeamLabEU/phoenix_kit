@@ -451,7 +451,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
         where(query, [b], is_nil(b.expires_at) or b.expires_at > ^now)
       end
 
-    repo().aggregate(query, :count, :id)
+    repo().aggregate(query, :count, :uuid)
   end
 
   @doc """
@@ -473,7 +473,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     now = DateTime.utc_now()
     today_start = DateTime.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
 
-    total_blocks = repo().aggregate(EmailBlocklist, :count, :id)
+    total_blocks = repo().aggregate(EmailBlocklist, :count, :uuid)
 
     active_blocks =
       from(b in EmailBlocklist, where: is_nil(b.expires_at) or b.expires_at > ^now)

@@ -107,7 +107,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
         socket =
           socket
-          |> load_file_data(file.id)
+          |> load_file_data(file.uuid)
           |> put_flash(:info, "Regenerated #{count} variants")
 
         {:noreply, socket}
@@ -153,7 +153,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   defp load_original_locations(instances, repo) do
     case Enum.find(instances, &(&1.variant_name == "original")) do
       nil -> []
-      original_instance -> load_file_locations(original_instance.id, repo)
+      original_instance -> load_file_locations(original_instance.uuid, repo)
     end
   end
 
@@ -178,7 +178,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   defp build_file_data(file, urls, locations, {title, description, tags}, user_name) do
     %{
-      file_id: file.id,
+      file_id: file.uuid,
       filename: file.original_file_name || file.file_name || "Unknown",
       original_filename: file.original_file_name,
       file_type: file.file_type,

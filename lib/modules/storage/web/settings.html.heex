@@ -201,7 +201,7 @@
                     <%!-- Files Count --%>
                     <td>
                       <span class="text-sm font-semibold">
-                        {Map.get(@bucket_file_counts, bucket.id, 0)} files
+                        {Map.get(@bucket_file_counts, bucket.uuid, 0)} files
                       </span>
                     </td>
 
@@ -221,7 +221,7 @@
                         <.link
                           navigate={
                             PhoenixKit.Utils.Routes.path(
-                              "/admin/settings/media/buckets/#{bucket.id}/edit"
+                              "/admin/settings/media/buckets/#{bucket.uuid}/edit"
                             )
                           }
                           class="btn btn-xs btn-ghost"
@@ -233,7 +233,7 @@
                         <%!-- Toggle Enable/Disable --%>
                         <button
                           phx-click="toggle_bucket"
-                          phx-value-id={bucket.id}
+                          phx-value-id={bucket.uuid}
                           class="btn btn-xs btn-ghost"
                           title={if bucket.enabled, do: "Disable bucket", else: "Enable bucket"}
                         >
@@ -247,7 +247,7 @@
                         <%!-- Delete Button --%>
                         <button
                           phx-click="delete_bucket"
-                          phx-value-id={bucket.id}
+                          phx-value-id={bucket.uuid}
                           data-confirm="Are you sure you want to delete this bucket? This will remove all location records."
                           class="btn btn-xs btn-ghost text-error"
                           title="Delete bucket"

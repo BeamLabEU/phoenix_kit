@@ -91,7 +91,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         socket
         |> assign(:page_title, "New Post")
         |> assign(:project_title, project_title)
-        |> assign(:post, %{id: nil, user_id: current_user.id})
+        |> assign(:post, %{uuid: nil, user_id: current_user.id})
         |> assign(:form, form)
         |> assign(:content, "")
         |> assign(:current_user, current_user)
@@ -120,7 +120,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     post_params = maybe_generate_slug(post_params)
 
     # Get post_id - handle both struct and map cases
-    post_id = Map.get(socket.assigns.post, :id)
+    post_id = Map.get(socket.assigns.post, :uuid)
 
     save_post(socket, post_id, post_params, tags)
   end
@@ -163,7 +163,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   @impl true
   def handle_event("remove_post_image", %{"id" => media_id}, socket) do
-    post_id = Map.get(socket.assigns.post, :id)
+    post_id = Map.get(socket.assigns.post, :uuid)
 
     if post_id do
       # Existing post - remove from database
@@ -186,7 +186,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   @impl true
   def handle_event("reorder_post_images", %{"ordered_ids" => ordered_ids}, socket) do
-    post_id = Map.get(socket.assigns.post, :id)
+    post_id = Map.get(socket.assigns.post, :uuid)
 
     if post_id do
       # Existing post - update positions in database
@@ -241,7 +241,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
       cond do
         # Post images selection (supports multiple files)
         not Enum.empty?(file_ids) && socket.assigns.selecting_featured_image ->
-          post_id = Map.get(socket.assigns.post, :id)
+          post_id = Map.get(socket.assigns.post, :uuid)
 
           if post_id do
             # Existing post - save all selected images to database
@@ -336,7 +336,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   # Get URL for featured image (used in template)
   def get_featured_image_url(nil), do: nil
 
-  def get_featured_image_url(%{file: %{id: file_id}}) when not is_nil(file_id) do
+  def get_featured_image_url(%{file: %{uuid: file_id}}) when not is_nil(file_id) do
     get_file_url(file_id)
   end
 
@@ -384,13 +384,13 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         pending_ids
         |> Enum.with_index(1)
         |> Enum.each(fn {file_id, position} ->
-          Posts.attach_media(post.id, file_id, position: position)
+          Posts.attach_media(post.uuid, file_id, position: position)
         end)
 
         {:noreply,
          socket
          |> put_flash(:info, "Post created successfully")
-         |> push_navigate(to: Routes.path("/admin/posts/#{post.id}"))}
+         |> push_navigate(to: Routes.path("/admin/posts/#{post.uuid}"))}
 
       {:error, _changeset} ->
         {:noreply,
@@ -447,7 +447,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         {:noreply,
          socket
          |> put_flash(:info, "Post updated successfully")
-         |> push_navigate(to: Routes.path("/admin/posts/#{saved_post.id}"))}
+         |> push_navigate(to: Routes.path("/admin/posts/#{saved_post.uuid}"))}
 
       {:error, _error} ->
         {:noreply,
@@ -463,7 +463,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
     # Load existing tags if editing
     selected_tags =
-      if Map.get(socket.assigns.post, :id) do
+      if Map.get(socket.assigns.post, :uuid) do
         Enum.map(Map.get(socket.assigns.post, :tags, []) || [], & &1.name)
       else
         []
@@ -471,8 +471,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
     # Load existing groups if editing
     selected_groups =
-      if Map.get(socket.assigns.post, :id) do
-        Enum.map(Map.get(socket.assigns.post, :groups, []) || [], & &1.id)
+      if Map.get(socket.assigns.post, :uuid) do
+        Enum.map(Map.get(socket.assigns.post, :groups, []) || [], & &1.uuid)
       else
         []
       end
@@ -514,7 +514,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   end
 
   defp load_post_images(socket) do
-    post_id = Map.get(socket.assigns.post, :id)
+    post_id = Map.get(socket.assigns.post, :uuid)
 
     post_images =
       if post_id do

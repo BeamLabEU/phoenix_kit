@@ -59,7 +59,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
     socket
     |> assign(:page_title, "New Group")
     |> assign(:project_title, project_title)
-    |> assign(:group, %{id: nil, user_id: current_user.id})
+    |> assign(:group, %{uuid: nil, user_id: current_user.id})
     |> assign(:form, form)
     |> assign(:current_user, current_user)
   end
@@ -116,7 +116,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
 
     save_group(
       socket,
-      Map.get(socket.assigns.group, :id) || socket.assigns.group[:id],
+      Map.get(socket.assigns.group, :uuid) || socket.assigns.group[:uuid],
       group_params
     )
   end
@@ -135,7 +135,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
         {:noreply,
          socket
          |> put_flash(:info, "Group created successfully")
-         |> push_navigate(to: Routes.path("/admin/posts/groups/#{group.id}"))}
+         |> push_navigate(to: Routes.path("/admin/posts/groups/#{group.uuid}"))}
 
       {:error, _changeset} ->
         {:noreply,
@@ -152,7 +152,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
         {:noreply,
          socket
          |> put_flash(:info, "Group updated successfully")
-         |> push_navigate(to: Routes.path("/admin/posts/groups/#{group.id}"))}
+         |> push_navigate(to: Routes.path("/admin/posts/groups/#{group.uuid}"))}
 
       {:error, _changeset} ->
         {:noreply,

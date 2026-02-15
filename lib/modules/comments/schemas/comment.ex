@@ -27,10 +27,10 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           resource_type: String.t(),
           resource_id: Ecto.UUID.t(),
           user_id: integer() | nil,
@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
       type: UUIDv7
 
     field :user_id, :integer
-    belongs_to :parent, __MODULE__, type: UUIDv7
+    belongs_to :parent, __MODULE__, references: :uuid, type: UUIDv7
 
     has_many :children, __MODULE__, foreign_key: :parent_id
 

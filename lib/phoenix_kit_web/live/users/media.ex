@@ -202,7 +202,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     repo = PhoenixKit.Config.get_repo()
 
     # Get total count
-    total_count = repo.aggregate(Storage.File, :count, :id)
+    total_count = repo.aggregate(Storage.File, :count, :uuid)
 
     # Calculate offset
     offset = (page - 1) * per_page
@@ -217,7 +217,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> repo.all()
 
     # Batch load ALL file instances in ONE query instead of N queries
-    file_ids = Enum.map(files, & &1.id)
+    file_ids = Enum.map(files, & &1.uuid)
 
     instances_by_file =
       if file_ids != [] do
@@ -234,11 +234,11 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     existing_files =
       Enum.map(files, fn file ->
         # Get pre-loaded instances for this file (no DB query!)
-        instances = Map.get(instances_by_file, file.id, [])
-        urls = generate_urls_from_instances(instances, file.id)
+        instances = Map.get(instances_by_file, file.uuid, [])
+        urls = generate_urls_from_instances(instances, file.uuid)
 
         %{
-          file_id: file.id,
+          file_id: file.uuid,
           filename: file.original_file_name || file.file_name || "Unknown",
           original_filename: file.original_file_name,
           file_type: file.file_type,
@@ -292,7 +292,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   defp build_upload_result(file, entry, file_type, mime_type, file_size, is_duplicate) do
     result = %{
-      file_id: file.id,
+      file_id: file.uuid,
       filename: entry.client_name,
       file_type: file_type,
       mime_type: mime_type,

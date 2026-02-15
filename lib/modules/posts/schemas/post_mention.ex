@@ -35,10 +35,10 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           post_id: UUIDv7.t(),
           user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
   schema "phoenix_kit_post_mentions" do
     field :mention_type, :string, default: "mention"
 
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid, type: UUIDv7
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,

@@ -46,11 +46,11 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           name: String.t(),
@@ -81,10 +81,11 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
       type: UUIDv7
 
     field :user_id, :integer
-    belongs_to :cover_image, PhoenixKit.Modules.Storage.File, type: UUIDv7
+    belongs_to :cover_image, PhoenixKit.Modules.Storage.File, references: :uuid, type: UUIDv7
 
     many_to_many :posts, PhoenixKit.Modules.Posts.Post,
-      join_through: PhoenixKit.Modules.Posts.PostGroupAssignment
+      join_through: PhoenixKit.Modules.Posts.PostGroupAssignment,
+      join_keys: [group_id: :uuid, post_id: :uuid]
 
     timestamps(type: :naive_datetime)
   end

@@ -53,14 +53,14 @@ defmodule PhoenixKit.Modules.Connections.Connection do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @statuses ["pending", "accepted", "rejected"]
 
   @type status :: String.t()
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           requester_uuid: UUIDv7.t(),
           recipient_uuid: UUIDv7.t(),
           requester_id: integer() | nil,

@@ -55,10 +55,10 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           ticket_id: UUIDv7.t(),
           user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
@@ -81,7 +81,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
     field :is_internal, :boolean, default: false
     field :depth, :integer, default: 0
 
-    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, type: UUIDv7
+    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, references: :uuid, type: UUIDv7
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
       type: UUIDv7
 
     field :user_id, :integer
-    belongs_to :parent, __MODULE__, type: UUIDv7
+    belongs_to :parent, __MODULE__, references: :uuid, type: UUIDv7
 
     has_many :children, __MODULE__, foreign_key: :parent_id
     has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment, foreign_key: :comment_id

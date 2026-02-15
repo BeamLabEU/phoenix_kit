@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
         Posts.increment_view_count(post)
 
         # Check if current user liked this post
-        liked_by_user = Posts.post_liked_by?(post.id, current_user.id)
+        liked_by_user = Posts.post_liked_by?(post.uuid, current_user.id)
 
         # Load settings
         comments_enabled = Comments.enabled?()
@@ -81,10 +81,10 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
 
     if socket.assigns.liked_by_user do
       # Unlike
-      Posts.unlike_post(post.id, current_user.id)
+      Posts.unlike_post(post.uuid, current_user.id)
 
       updated_post =
-        Posts.get_post!(post.id, preload: [:user, [media: :file], :tags, :groups, :mentions])
+        Posts.get_post!(post.uuid, preload: [:user, [media: :file], :tags, :groups, :mentions])
 
       {:noreply,
        socket
@@ -92,10 +92,10 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
        |> assign(:liked_by_user, false)}
     else
       # Like
-      Posts.like_post(post.id, current_user.id)
+      Posts.like_post(post.uuid, current_user.id)
 
       updated_post =
-        Posts.get_post!(post.id, preload: [:user, [media: :file], :tags, :groups, :mentions])
+        Posts.get_post!(post.uuid, preload: [:user, [media: :file], :tags, :groups, :mentions])
 
       {:noreply,
        socket
@@ -107,7 +107,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
   @impl true
   def handle_event("edit_post", _params, socket) do
     {:noreply,
-     push_navigate(socket, to: Routes.path("/admin/posts/#{socket.assigns.post.id}/edit"))}
+     push_navigate(socket, to: Routes.path("/admin/posts/#{socket.assigns.post.uuid}/edit"))}
   end
 
   @impl true
@@ -142,7 +142,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
   @impl true
   def handle_info({:comments_updated, _info}, socket) do
     updated_post =
-      Posts.get_post!(socket.assigns.post.id,
+      Posts.get_post!(socket.assigns.post.uuid,
         preload: [:user, [media: :file], :tags, :groups, :mentions]
       )
 
