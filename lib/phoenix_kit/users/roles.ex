@@ -99,11 +99,8 @@ defmodule PhoenixKit.Users.Roles do
 
       role ->
         attrs = %{
-          user_id: user.id,
           user_uuid: user.uuid,
-          role_id: role.id,
           role_uuid: role.uuid,
-          assigned_by: assigned_by && assigned_by.id,
           assigned_by_uuid: assigned_by && assigned_by.uuid
         }
 

@@ -7,9 +7,9 @@ defmodule PhoenixKit.Users.RoleAssignment do
 
   ## Fields
 
-  - `user_id`: Reference to the user who has the role
-  - `role_id`: Reference to the role being assigned
-  - `assigned_by`: Reference to the user who assigned this role (can be nil for system assignments)
+  - `user_uuid`: UUID reference to the user who has the role
+  - `role_uuid`: UUID reference to the role being assigned
+  - `assigned_by_uuid`: UUID reference to the user who assigned this role (can be nil for system assignments)
   - `assigned_at`: Timestamp when the role was assigned
 
   ## Features
@@ -25,9 +25,6 @@ defmodule PhoenixKit.Users.RoleAssignment do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          user_id: integer(),
-          role_id: integer(),
-          assigned_by: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           role_uuid: UUIDv7.t() | nil,
           assigned_by_uuid: UUIDv7.t() | nil,
@@ -39,21 +36,16 @@ defmodule PhoenixKit.Users.RoleAssignment do
 
   schema "phoenix_kit_user_role_assignments" do
     field :id, :integer, read_after_writes: true
-    field :user_id, :integer
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
       references: :uuid,
       type: UUIDv7
 
-    field :role_id, :integer
-
     belongs_to :role, PhoenixKit.Users.Role,
       foreign_key: :role_uuid,
       references: :uuid,
       type: UUIDv7
-
-    field :assigned_by, :integer
 
     belongs_to :assigned_by_user, PhoenixKit.Users.Auth.User,
       foreign_key: :assigned_by_uuid,
@@ -75,7 +67,7 @@ defmodule PhoenixKit.Users.RoleAssignment do
 
   ## Examples
 
-      iex> changeset(%RoleAssignment{}, %{user_id: 1, role_id: 2})
+      iex> changeset(%RoleAssignment{}, %{user_uuid: "...", role_uuid: "..."})
       %Ecto.Changeset{valid?: true}
 
       iex> changeset(%RoleAssignment{}, %{})
@@ -84,11 +76,8 @@ defmodule PhoenixKit.Users.RoleAssignment do
   def changeset(role_assignment, attrs) do
     role_assignment
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
-      :role_id,
       :role_uuid,
-      :assigned_by,
       :assigned_by_uuid,
       :assigned_at
     ])
