@@ -180,7 +180,7 @@ defmodule PhoenixKitWeb.FileController do
           :error
 
         file ->
-          %{file_id: file_id, user_id: file.user_id, filename: original_instance.file_name}
+          %{file_id: file_id, user_uuid: file.user_uuid, filename: original_instance.file_name}
           |> ProcessFileJob.new()
           |> Oban.insert()
       end

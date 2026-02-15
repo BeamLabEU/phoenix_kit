@@ -21,7 +21,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   """
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{"file_id" => file_id, "user_id" => _user_id, "filename" => filename} = _args
+        args: %{"file_id" => file_id, "filename" => filename} = _args
       }) do
     Logger.info("ProcessFileJob: EXECUTING for file_id=#{file_id}, filename=#{filename}")
 
