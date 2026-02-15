@@ -146,7 +146,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
     updated_changes =
       current_changes
-      |> Map.put(:beneficiary, user_id)
+      |> Map.put(:beneficiary, if(selected_user, do: selected_user.id))
       |> Map.put(:beneficiary_uuid, if(selected_user, do: selected_user.uuid))
 
     changeset =
@@ -221,11 +221,11 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
     changeset = Referrals.changeset(code, initial_params)
 
-    # Load selected beneficiary if editing existing code with beneficiary ID
+    # Load selected beneficiary if editing existing code with beneficiary UUID
     selected_beneficiary =
-      case code.beneficiary do
+      case code.beneficiary_uuid do
         nil -> nil
-        beneficiary_id -> Auth.get_user_for_selection(beneficiary_id)
+        beneficiary_uuid -> Auth.get_user_for_selection(beneficiary_uuid)
       end
 
     socket
@@ -249,7 +249,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
           |> Map.put("created_by", user.id)
           |> Map.put("created_by_uuid", user.uuid)
 
-        {params, user.id}
+        {params, user.uuid}
 
       _ ->
         extract_user_from_scope(socket, code_params)
@@ -266,7 +266,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
           |> Map.put("created_by", user_id)
           |> Map.put("created_by_uuid", user_uuid)
 
-        {params, user_id}
+        {params, user_uuid || user_id}
 
       _ ->
         Logger.warning("Socket assigns when current_user is nil: #{inspect(socket.assigns)}")
