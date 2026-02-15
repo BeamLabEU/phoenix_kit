@@ -101,7 +101,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
     |> validate_number(:position, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, @statuses)
     |> maybe_generate_slug()
-    |> validate_not_self_parent()
+    |> validate_no_circular_parent()
     |> unique_constraint(:slug, name: "idx_shop_categories_slug_primary")
   end
 
@@ -306,23 +306,38 @@ defmodule PhoenixKit.Modules.Shop.Category do
     end
   end
 
-  # Prevent category from being its own parent
-  defp validate_not_self_parent(changeset) do
+  # Prevent category from being its own parent or creating circular references
+  defp validate_no_circular_parent(changeset) do
     parent_uuid = get_change(changeset, :parent_uuid)
     category_uuid = changeset.data.uuid
 
-    parent_id = get_change(changeset, :parent_id)
-    category_id = changeset.data.id
-
     cond do
-      parent_uuid && parent_uuid == category_uuid ->
+      is_nil(parent_uuid) ->
+        changeset
+
+      parent_uuid == category_uuid ->
         add_error(changeset, :parent_uuid, "cannot be self")
 
-      parent_id && parent_id == category_id ->
-        add_error(changeset, :parent_id, "cannot be self")
-
       true ->
+        check_ancestor_cycle(changeset, category_uuid, parent_uuid)
+    end
+  end
+
+  defp check_ancestor_cycle(changeset, target_uuid, current_uuid) do
+    repo = PhoenixKit.RepoHelper.repo()
+
+    case repo.get_by(__MODULE__, uuid: current_uuid) do
+      nil ->
         changeset
+
+      %{parent_uuid: nil} ->
+        changeset
+
+      %{parent_uuid: ^target_uuid} ->
+        add_error(changeset, :parent_uuid, "would create a circular reference")
+
+      %{parent_uuid: next_uuid} ->
+        check_ancestor_cycle(changeset, target_uuid, next_uuid)
     end
   end
 

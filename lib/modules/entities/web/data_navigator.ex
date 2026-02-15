@@ -284,67 +284,79 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   def handle_event("archive_data", %{"uuid" => uuid}, socket) do
-    data_record = EntityData.get!(uuid)
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      data_record = EntityData.get!(uuid)
 
-    case EntityData.update_data(data_record, %{status: "archived"}) do
-      {:ok, _data} ->
-        socket =
-          socket
-          |> apply_filters()
-          |> put_flash(:info, gettext("Data record archived successfully"))
+      case EntityData.update_data(data_record, %{status: "archived"}) do
+        {:ok, _data} ->
+          socket =
+            socket
+            |> apply_filters()
+            |> put_flash(:info, gettext("Data record archived successfully"))
 
-        {:noreply, socket}
+          {:noreply, socket}
 
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, gettext("Failed to archive data record"))
-        {:noreply, socket}
+        {:error, _changeset} ->
+          socket = put_flash(socket, :error, gettext("Failed to archive data record"))
+          {:noreply, socket}
+      end
+    else
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
   def handle_event("restore_data", %{"uuid" => uuid}, socket) do
-    data_record = EntityData.get!(uuid)
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      data_record = EntityData.get!(uuid)
 
-    case EntityData.update_data(data_record, %{status: "published"}) do
-      {:ok, _data} ->
-        socket =
-          socket
-          |> apply_filters()
-          |> put_flash(:info, gettext("Data record restored successfully"))
+      case EntityData.update_data(data_record, %{status: "published"}) do
+        {:ok, _data} ->
+          socket =
+            socket
+            |> apply_filters()
+            |> put_flash(:info, gettext("Data record restored successfully"))
 
-        {:noreply, socket}
+          {:noreply, socket}
 
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, gettext("Failed to restore data record"))
-        {:noreply, socket}
+        {:error, _changeset} ->
+          socket = put_flash(socket, :error, gettext("Failed to restore data record"))
+          {:noreply, socket}
+      end
+    else
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
   def handle_event("toggle_status", %{"uuid" => uuid}, socket) do
-    data_record = EntityData.get!(uuid)
+    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
+      data_record = EntityData.get!(uuid)
 
-    new_status =
-      case data_record.status do
-        "draft" -> "published"
-        "published" -> "archived"
-        "archived" -> "draft"
+      new_status =
+        case data_record.status do
+          "draft" -> "published"
+          "published" -> "archived"
+          "archived" -> "draft"
+        end
+
+      case EntityData.update_data(data_record, %{status: new_status}) do
+        {:ok, _updated_data} ->
+          socket =
+            socket
+            |> refresh_data_stats()
+            |> apply_filters()
+            |> put_flash(
+              :info,
+              gettext("Status updated to %{status}", status: status_label(new_status))
+            )
+
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          socket = put_flash(socket, :error, gettext("Failed to update status"))
+          {:noreply, socket}
       end
-
-    case EntityData.update_data(data_record, %{status: new_status}) do
-      {:ok, _updated_data} ->
-        socket =
-          socket
-          |> refresh_data_stats()
-          |> apply_filters()
-          |> put_flash(
-            :info,
-            gettext("Status updated to %{status}", status: status_label(new_status))
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, gettext("Failed to update status"))
-        {:noreply, socket}
+    else
+      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
     end
   end
 
