@@ -278,7 +278,7 @@ defmodule PhoenixKit.Modules.Entities do
   defp maybe_set_timestamps(changeset) do
     case changeset.data.__meta__.state do
       :built ->
-        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        now = DateTime.utc_now()
 
         changeset
         |> put_change(:date_created, now)
@@ -288,7 +288,7 @@ defmodule PhoenixKit.Modules.Entities do
         put_change(
           changeset,
           :date_updated,
-          NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+          DateTime.utc_now()
         )
     end
   end

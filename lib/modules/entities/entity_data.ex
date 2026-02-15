@@ -331,7 +331,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   defp maybe_set_timestamps(changeset) do
     case changeset.data.__meta__.state do
       :built ->
-        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        now = DateTime.utc_now()
 
         changeset
         |> put_change(:date_created, now)
@@ -341,7 +341,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
         put_change(
           changeset,
           :date_updated,
-          NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+          DateTime.utc_now()
         )
     end
   end
@@ -811,7 +811,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       {2, nil}
   """
   def bulk_update_status(uuids, status) when is_list(uuids) and status in @valid_statuses do
-    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    now = DateTime.utc_now()
 
     from(d in __MODULE__, where: d.uuid in ^uuids)
     |> repo().update_all(set: [status: status, date_updated: now])
@@ -831,7 +831,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       {2, nil}
   """
   def bulk_update_category(uuids, category) when is_list(uuids) do
-    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    now = DateTime.utc_now()
 
     from(d in __MODULE__,
       where: d.uuid in ^uuids,
