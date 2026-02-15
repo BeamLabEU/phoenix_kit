@@ -847,8 +847,6 @@ defmodule PhoenixKit.Modules.Referrals do
   end
 
   # Resolves user UUID from any user identifier
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-
   defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
 
   defp resolve_user_uuid(user_id) when is_integer(user_id) do
@@ -858,7 +856,6 @@ defmodule PhoenixKit.Modules.Referrals do
   end
 
   # Resolves user integer ID for dual-write only
-  defp resolve_user_id(%{id: id}) when is_integer(id), do: id
   defp resolve_user_id(id) when is_integer(id), do: id
 
   defp resolve_user_id(user_uuid) when is_binary(user_uuid) do

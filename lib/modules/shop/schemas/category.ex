@@ -323,8 +323,12 @@ defmodule PhoenixKit.Modules.Shop.Category do
     end
   end
 
-  defp check_ancestor_cycle(changeset, target_uuid, current_uuid, visited \\ MapSet.new()) do
-    if MapSet.member?(visited, current_uuid) do
+  defp check_ancestor_cycle(changeset, target_uuid, current_uuid) do
+    check_ancestor_cycle(changeset, target_uuid, current_uuid, %{})
+  end
+
+  defp check_ancestor_cycle(changeset, target_uuid, current_uuid, visited) do
+    if Map.has_key?(visited, current_uuid) do
       changeset
     else
       repo = PhoenixKit.RepoHelper.repo()
@@ -344,7 +348,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
             changeset,
             target_uuid,
             next_uuid,
-            MapSet.put(visited, current_uuid)
+            Map.put(visited, current_uuid, true)
           )
       end
     end

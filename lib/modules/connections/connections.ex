@@ -999,15 +999,11 @@ defmodule PhoenixKit.Modules.Connections do
     end
   end
 
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-
   defp resolve_user_uuid(user_id) when is_integer(user_id) do
     import Ecto.Query, only: [from: 2]
 
     repo().one(from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid))
   end
-
-  defp resolve_user_uuid(_), do: nil
 
   defp get_follow(follower_uuid, followed_uuid) do
     Follow
