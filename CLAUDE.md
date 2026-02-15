@@ -259,7 +259,7 @@ This ensures consistent code formatting across the project.
 
 ### PR Reviews
 
-PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/AI_REVIEW.md`. See `dev_docs/pull_requests/README.md` for full conventions, naming, and file types.
+PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/CLAUDE_REVIEW.md`. See `dev_docs/pull_requests/README.md` for full conventions, naming, and file types.
 
 ### Publishing
 

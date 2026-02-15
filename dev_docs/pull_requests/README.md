@@ -17,7 +17,8 @@ dev_docs/pull_requests/
 ├── 2026/                     # Year
 │   ├── 311-uuid-ai-module/   # PR #311 - slug for readability
 │   │   ├── README.md         # PR summary (what, why, how)
-│   │   └── AI_REVIEW.md      # Review feedback and clarifications
+│   │   ├── CLAUDE_REVIEW.md  # Claude's review feedback
+│   │   └── KIMI_REVIEW.md    # Kimi's review feedback
 │   └── 312-*/
 ├── 2025/
 │   └── ...
@@ -52,9 +53,25 @@ Directory names follow the pattern: `{pr_number}-{short-slug}/`
 | File | Purpose |
 |------|---------|
 | `README.md` | **Required.** PR summary: goal, changes, implementation details |
-| `AI_REVIEW.md` | Review feedback, clarifications, issues found |
+| `{AGENT}_REVIEW.md` | Review feedback, clarifications, issues found (see naming below) |
 | `FOLLOW_UP.md` | Post-merge issues, discovered bugs, refactor notes |
 | `CONTEXT.md` | Deep dive: alternatives considered, trade-offs |
+
+### Review File Naming Convention
+
+Review files are prefixed with the **agent name** to identify the reviewer:
+
+| File | Agent |
+|------|-------|
+| `CLAUDE_REVIEW.md` | Claude (Anthropic) |
+| `KIMI_REVIEW.md` | Kimi (Moonshot AI) |
+| `MISTRAL_REVIEW.md` | Mistral |
+| `GEMINI_REVIEW.md` | Gemini (Google) |
+| `GPT_REVIEW.md` | ChatGPT / GPT (OpenAI) |
+
+**Pattern:** `{AGENT_NAME}_REVIEW.md` — uppercase, underscores for multi-word names.
+
+Multiple agents can review the same PR, each with their own file.
 
 ## Template
 
@@ -74,6 +91,6 @@ Link between related PRs:
 ## Maintenance
 
 - Keep README.md focused and scannable
-- AI_REVIEW.md should explain *why*, not just *what*
+- Review files (`*_REVIEW.md`) should explain *why*, not just *what*
 - Update FOLLOW_UP.md if issues are discovered later
 - Remove obsolete PR docs when the feature is fully deprecated
