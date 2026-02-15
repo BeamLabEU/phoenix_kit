@@ -1,3 +1,8 @@
+## 1.7.38 - 2026-02-15
+- Fix Ecto.ChangeError in entities by using DateTime instead of NaiveDateTime
+- Fix infinite recursion risk in category circular reference validation
+- Add DateTime inconsistency audit report with phased migration plan
+
 ## 1.7.37 - 2026-02-15
 - Fix UUID PR review issues: aliases, dashboard_assigns, and naming issues
 - Fix V56 migration: add subscription_plans to uuid column setup lists
