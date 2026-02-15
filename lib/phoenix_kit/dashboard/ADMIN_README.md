@@ -235,7 +235,7 @@ When a tab's `permission` points to a feature module:
 
 ### Custom Permission Keys (Auto-Registration)
 
-When a custom admin tab uses a permission key that isn't one of the 25 built-in keys, PhoenixKit **automatically registers it** as a custom permission. The key appears in the permission matrix and roles popup under an **Extensions** section, where it can be granted or revoked per role — just like built-in permissions.
+When a custom admin tab uses a permission key that isn't one of the 25 built-in keys, PhoenixKit **automatically registers it** as a custom permission. The key appears in the permission matrix and roles popup under an **Custom** section, where it can be granted or revoked per role — just like built-in permissions.
 
 ```elixir
 config :phoenix_kit, :admin_dashboard_tabs, [
@@ -253,7 +253,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
 
 **What happens automatically:**
 1. `"analytics"` is registered as a custom permission key with label and icon from the tab config
-2. It appears in the permission matrix and roles popup under **Extensions**
+2. It appears in the permission matrix and roles popup under **Custom**
 3. Owner gets automatic access (Owner always gets all keys, including custom ones)
 4. The tab is treated as "always enabled" (custom keys have no module toggle)
 5. The LiveView module → permission mapping is cached for auth enforcement on mount
@@ -337,7 +337,7 @@ Permissions.set_permissions(role_id, ["dashboard", "users", "analytics"], grante
 Permissions.grant_all_permissions(role_id, granted_by_id)
 ```
 
-Or use the admin UI: navigate to the permission matrix or the role's permission editor — custom keys appear under the **Extensions** section.
+Or use the admin UI: navigate to the permission matrix or the role's permission editor — custom keys appear under the **Custom** section.
 
 ## Navigation Architecture
 

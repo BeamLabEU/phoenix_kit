@@ -109,7 +109,7 @@ defmodule PhoenixKit.Users.Permissions do
   Custom keys extend the built-in 25 permission keys, allowing parent apps
   to define new permission scopes for custom admin tabs. Custom keys are
   always treated as "enabled" (no module toggle) and appear in the
-  permission matrix UI under "Extensions".
+  permission matrix UI under "Custom".
 
   Raises `ArgumentError` if the key collides with a built-in key or has
   an invalid format. Logs a warning on duplicate override.
