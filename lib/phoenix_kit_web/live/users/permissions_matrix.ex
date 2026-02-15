@@ -26,7 +26,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
     socket =
       socket
-      |> assign(:page_title, "Permissions Matrix")
+      |> assign(:page_title, "Permissions")
       |> assign(:project_title, project_title)
       |> load_matrix()
 
