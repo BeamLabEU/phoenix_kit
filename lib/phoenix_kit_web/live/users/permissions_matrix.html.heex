@@ -171,13 +171,9 @@
             <%= for role <- @roles do %>
               <td class="text-center">
                 <%= if role.name == "Owner" do %>
-                  {length(PhoenixKit.Users.Permissions.all_module_keys())} / {length(
-                    PhoenixKit.Users.Permissions.all_module_keys()
-                  )}
+                  {@visible_key_count} / {@visible_key_count}
                 <% else %>
-                  {Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.size()} / {length(
-                    PhoenixKit.Users.Permissions.all_module_keys()
-                  )}
+                  {Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.size()} / {@visible_key_count}
                 <% end %>
               </td>
             <% end %>

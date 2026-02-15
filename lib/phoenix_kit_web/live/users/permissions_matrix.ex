@@ -132,12 +132,17 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     enabled_feature_keys =
       Enum.filter(Permissions.feature_module_keys(), &MapSet.member?(enabled, &1))
 
+    core_keys = Permissions.core_section_keys()
+    custom_keys = Permissions.custom_keys()
+    visible_key_count = length(core_keys) + length(enabled_feature_keys) + length(custom_keys)
+
     socket
     |> assign(:roles, sorted_roles)
     |> assign(:matrix, matrix)
-    |> assign(:core_keys, Permissions.core_section_keys())
+    |> assign(:core_keys, core_keys)
     |> assign(:feature_keys, enabled_feature_keys)
-    |> assign(:custom_keys, Permissions.custom_keys())
+    |> assign(:custom_keys, custom_keys)
+    |> assign(:visible_key_count, visible_key_count)
   end
 
   # Refresh matrix data only, keep existing role order stable
