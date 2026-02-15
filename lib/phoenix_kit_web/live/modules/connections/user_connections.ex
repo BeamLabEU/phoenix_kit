@@ -192,12 +192,11 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.UserConnections do
   defp load_tab_data(socket, _), do: assign(socket, :items, [])
 
   # Helper to get the other user from a connection
-  def get_other_user(connection, current_user_id) do
-    cond do
-      connection.requester_id == current_user_id -> connection.recipient
-      connection.recipient_id == current_user_id -> connection.requester
-      to_string(connection.requester_uuid) == to_string(current_user_id) -> connection.recipient
-      true -> connection.requester
+  def get_other_user(connection, current_user_uuid) do
+    if connection.requester_uuid == current_user_uuid do
+      connection.recipient
+    else
+      connection.requester
     end
   end
 end

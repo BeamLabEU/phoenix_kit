@@ -7,8 +7,10 @@ defmodule PhoenixKit.Modules.Connections.Block do
 
   ## Fields
 
-  - `blocker_id` - User who initiated the block
-  - `blocked_id` - User who is blocked
+  - `blocker_uuid` - UUID of the user who initiated the block
+  - `blocked_uuid` - UUID of the user who is blocked
+  - `blocker_id` - Integer ID (deprecated, dual-write only)
+  - `blocked_id` - Integer ID (deprecated, dual-write only)
   - `reason` - Optional reason for the block (visible to admins)
   - `inserted_at` - When the block was created
 
@@ -17,8 +19,8 @@ defmodule PhoenixKit.Modules.Connections.Block do
       # User A blocks User B
       %Block{
         id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        blocker_id: 1,
-        blocked_id: 2,
+        blocker_uuid: "019abc12-3456-7890-abcd-ef1234567890",
+        blocked_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         reason: "Spam",
         inserted_at: ~N[2025-01-15 10:30:00]
       }
@@ -38,8 +40,10 @@ defmodule PhoenixKit.Modules.Connections.Block do
 
   @type t :: %__MODULE__{
           id: UUIDv7.t() | nil,
-          blocker_id: integer(),
-          blocked_id: integer(),
+          blocker_uuid: UUIDv7.t(),
+          blocked_uuid: UUIDv7.t(),
+          blocker_id: integer() | nil,
+          blocked_id: integer() | nil,
           reason: String.t() | nil,
           blocker: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           blocked: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
@@ -47,10 +51,18 @@ defmodule PhoenixKit.Modules.Connections.Block do
         }
 
   schema "phoenix_kit_user_blocks" do
-    belongs_to :blocker, PhoenixKit.Users.Auth.User, type: :integer
-    belongs_to :blocked, PhoenixKit.Users.Auth.User, type: :integer
-    field :blocker_uuid, UUIDv7
-    field :blocked_uuid, UUIDv7
+    belongs_to :blocker, PhoenixKit.Users.Auth.User,
+      foreign_key: :blocker_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    belongs_to :blocked, PhoenixKit.Users.Auth.User,
+      foreign_key: :blocked_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :blocker_id, :integer
+    field :blocked_id, :integer
 
     field :reason, :string
     field :inserted_at, :naive_datetime
@@ -61,40 +73,42 @@ defmodule PhoenixKit.Modules.Connections.Block do
 
   ## Required Fields
 
-  - `blocker_id` - The user who is blocking
-  - `blocked_id` - The user being blocked
+  - `blocker_uuid` - UUID of the user who is blocking
+  - `blocked_uuid` - UUID of the user being blocked
 
   ## Optional Fields
 
   - `reason` - Why the user was blocked
+  - `blocker_id` - Integer ID (deprecated, dual-write)
+  - `blocked_id` - Integer ID (deprecated, dual-write)
 
   ## Validation Rules
 
-  - Both user IDs are required
+  - Both user UUIDs are required
   - Cannot block yourself
-  - Unique constraint on (blocker_id, blocked_id) pair
+  - Unique constraint on (blocker_uuid, blocked_uuid) pair
   """
   def changeset(block, attrs) do
     block
-    |> cast(attrs, [:blocker_id, :blocked_id, :blocker_uuid, :blocked_uuid, :reason])
-    |> validate_required([:blocker_id, :blocked_id])
+    |> cast(attrs, [:blocker_uuid, :blocked_uuid, :blocker_id, :blocked_id, :reason])
+    |> validate_required([:blocker_uuid, :blocked_uuid])
     |> validate_length(:reason, max: 500)
     |> validate_not_self_block()
     |> put_inserted_at()
-    |> foreign_key_constraint(:blocker_id)
-    |> foreign_key_constraint(:blocked_id)
-    |> unique_constraint([:blocker_id, :blocked_id],
+    |> foreign_key_constraint(:blocker_uuid)
+    |> foreign_key_constraint(:blocked_uuid)
+    |> unique_constraint([:blocker_uuid, :blocked_uuid],
       name: :phoenix_kit_user_blocks_unique_idx,
       message: "user is already blocked"
     )
   end
 
   defp validate_not_self_block(changeset) do
-    blocker_id = get_field(changeset, :blocker_id)
-    blocked_id = get_field(changeset, :blocked_id)
+    blocker_uuid = get_field(changeset, :blocker_uuid)
+    blocked_uuid = get_field(changeset, :blocked_uuid)
 
-    if blocker_id && blocked_id && blocker_id == blocked_id do
-      add_error(changeset, :blocked_id, "cannot block yourself")
+    if blocker_uuid && blocked_uuid && blocker_uuid == blocked_uuid do
+      add_error(changeset, :blocked_uuid, "cannot block yourself")
     else
       changeset
     end
