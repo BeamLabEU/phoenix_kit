@@ -81,7 +81,8 @@ defmodule PhoenixKit.Modules.Posts.Post do
 
   @type t :: %__MODULE__{
           id: UUIDv7.t() | nil,
-          user_id: integer(),
+          user_id: integer() | nil,
+          user_uuid: UUIDv7.t() | nil,
           title: String.t(),
           sub_title: String.t() | nil,
           content: String.t(),
@@ -124,8 +125,12 @@ defmodule PhoenixKit.Modules.Posts.Post do
     field :view_count, :integer, default: 0
     field :metadata, :map, default: %{}
 
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    field :user_uuid, UUIDv7
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :user_id, :integer
 
     has_many :media, PhoenixKit.Modules.Posts.PostMedia
     has_many :likes, PhoenixKit.Modules.Posts.PostLike
@@ -180,14 +185,14 @@ defmodule PhoenixKit.Modules.Posts.Post do
       :slug,
       :metadata
     ])
-    |> validate_required([:user_id, :title, :type, :status])
+    |> validate_required([:user_uuid, :title, :type, :status])
     |> validate_inclusion(:type, ["post", "snippet", "repost"])
     |> validate_inclusion(:status, ["draft", "public", "unlisted", "scheduled"])
     |> validate_length(:title, max: 255)
     |> validate_length(:sub_title, max: 500)
     |> validate_scheduled_at()
     |> maybe_generate_slug()
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
   end
 
   @doc """

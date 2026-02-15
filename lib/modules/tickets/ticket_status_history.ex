@@ -60,7 +60,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
   @type t :: %__MODULE__{
           id: UUIDv7.t() | nil,
           ticket_id: UUIDv7.t(),
-          changed_by_id: integer(),
+          changed_by_uuid: UUIDv7.t(),
+          changed_by_id: integer() | nil,
           from_status: String.t() | nil,
           to_status: String.t(),
           reason: String.t() | nil,
@@ -73,10 +74,14 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
     field :from_status, :string
     field :to_status, :string
     field :reason, :string
-    field :changed_by_uuid, UUIDv7
-
     belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, type: UUIDv7
-    belongs_to :changed_by, PhoenixKit.Users.Auth.User, type: :integer
+
+    belongs_to :changed_by, PhoenixKit.Users.Auth.User,
+      foreign_key: :changed_by_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :changed_by_id, :integer
 
     timestamps(type: :naive_datetime, updated_at: false)
   end
@@ -87,7 +92,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
   ## Required Fields
 
   - `ticket_id` - Reference to ticket
-  - `changed_by_id` - User who made the change
+  - `changed_by_uuid` - User who made the change
   - `to_status` - New status
 
   Note: `from_status` is optional (nil for ticket creation).
@@ -102,10 +107,10 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
       :to_status,
       :reason
     ])
-    |> validate_required([:ticket_id, :changed_by_id, :to_status])
+    |> validate_required([:ticket_id, :changed_by_uuid, :to_status])
     |> validate_length(:reason, max: 1000)
     |> foreign_key_constraint(:ticket_id)
-    |> foreign_key_constraint(:changed_by_id)
+    |> foreign_key_constraint(:changed_by_uuid)
   end
 
   @doc """

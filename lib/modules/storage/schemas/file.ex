@@ -107,6 +107,7 @@ defmodule PhoenixKit.Modules.Storage.File do
           duration: integer() | nil,
           status: String.t(),
           metadata: map() | nil,
+          user_uuid: UUIDv7.t(),
           user_id: integer() | nil,
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           instances:
@@ -131,8 +132,12 @@ defmodule PhoenixKit.Modules.Storage.File do
     field :status, :string, default: "processing"
     field :metadata, :map
 
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    field :user_uuid, UUIDv7
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :user_id, :integer
     has_many :instances, PhoenixKit.Modules.Storage.FileInstance
 
     timestamps(type: :naive_datetime)
@@ -190,7 +195,7 @@ defmodule PhoenixKit.Modules.Storage.File do
       :file_checksum,
       :user_file_checksum,
       :size,
-      :user_id
+      :user_uuid
     ])
     |> validate_inclusion(:file_type, ["image", "video", "document", "archive"])
     |> validate_inclusion(:status, ["processing", "active", "failed"])
@@ -198,7 +203,7 @@ defmodule PhoenixKit.Modules.Storage.File do
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)
     |> validate_number(:duration, greater_than: 0)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
   end
 
   @doc """

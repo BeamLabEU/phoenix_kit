@@ -51,7 +51,8 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
 
   @type t :: %__MODULE__{
           id: UUIDv7.t() | nil,
-          user_id: integer(),
+          user_id: integer() | nil,
+          user_uuid: UUIDv7.t() | nil,
           name: String.t(),
           slug: String.t(),
           description: String.t() | nil,
@@ -74,8 +75,12 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
     field :is_public, :boolean, default: false
     field :position, :integer, default: 0
 
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    field :user_uuid, UUIDv7
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :user_id, :integer
     belongs_to :cover_image, PhoenixKit.Modules.Storage.File, type: UUIDv7
 
     many_to_many :posts, PhoenixKit.Modules.Posts.Post,
@@ -114,7 +119,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
       :position,
       :post_count
     ])
-    |> validate_required([:user_id, :name])
+    |> validate_required([:user_uuid, :name])
     |> validate_length(:name, min: 1, max: 100)
     |> validate_length(:description, max: 1000)
     |> maybe_generate_slug()
@@ -124,7 +129,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
     )
     |> validate_number(:position, greater_than_or_equal_to: 0)
     |> validate_number(:post_count, greater_than_or_equal_to: 0)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
     |> foreign_key_constraint(:cover_image_id)
     |> unique_constraint([:user_id, :slug],
       name: :phoenix_kit_post_groups_user_id_slug_index,

@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
 
   ## Fields
 
-  - `user_id` - Customer who created the ticket
+  - `user_uuid` - Customer who created the ticket
   - `assigned_to_id` - Support staff handling the ticket
   - `title` - Brief description of the issue
   - `description` - Full details of the issue
@@ -79,7 +79,9 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
 
   @type t :: %__MODULE__{
           id: UUIDv7.t() | nil,
-          user_id: integer(),
+          user_uuid: UUIDv7.t(),
+          user_id: integer() | nil,
+          assigned_to_uuid: UUIDv7.t() | nil,
           assigned_to_id: integer() | nil,
           title: String.t(),
           description: String.t(),
@@ -110,14 +112,19 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
     field :metadata, :map, default: %{}
     field :resolved_at, :utc_datetime_usec
     field :closed_at, :utc_datetime_usec
-    field :user_uuid, UUIDv7
-    field :assigned_to_uuid, UUIDv7
 
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     belongs_to :assigned_to, PhoenixKit.Users.Auth.User,
-      type: :integer,
-      foreign_key: :assigned_to_id
+      foreign_key: :assigned_to_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :user_id, :integer
+    field :assigned_to_id, :integer
 
     has_many :comments, PhoenixKit.Modules.Tickets.TicketComment
     has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment
@@ -131,7 +138,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
 
   ## Required Fields
 
-  - `user_id` - Customer who created the ticket
+  - `user_uuid` - Customer who created the ticket
   - `title` - Brief description
   - `description` - Full details
   - `status` - Must be: "open", "in_progress", "resolved", or "closed"
@@ -157,12 +164,12 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
       :resolved_at,
       :closed_at
     ])
-    |> validate_required([:user_id, :title, :description, :status])
+    |> validate_required([:user_uuid, :title, :description, :status])
     |> validate_inclusion(:status, @statuses)
     |> validate_length(:title, max: 255)
     |> maybe_generate_slug()
-    |> foreign_key_constraint(:user_id)
-    |> foreign_key_constraint(:assigned_to_id)
+    |> foreign_key_constraint(:user_uuid)
+    |> foreign_key_constraint(:assigned_to_uuid)
     |> unique_constraint(:slug)
   end
 
