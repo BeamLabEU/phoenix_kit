@@ -24,31 +24,20 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
     end
 
     current_language = Translations.default_language()
-    all_categories = Shop.list_categories(preload: [:parent])
-
-    {categories, total} =
-      Shop.list_categories_with_count(
-        per_page: @per_page,
-        preload: [:parent, :featured_product]
-      )
-
-    product_counts = Shop.product_counts_by_category()
 
     socket =
       socket
       |> assign(:page_title, "Categories")
-      |> assign(:categories, categories)
-      |> assign(:total, total)
       |> assign(:page, 1)
       |> assign(:per_page, @per_page)
       |> assign(:search, "")
       |> assign(:status_filter, nil)
       |> assign(:parent_filter, nil)
-      |> assign(:all_categories, all_categories)
       |> assign(:current_language, current_language)
       |> assign(:selected_ids, MapSet.new())
       |> assign(:show_bulk_modal, nil)
-      |> assign(:product_counts, product_counts)
+      |> load_static_category_data()
+      |> load_filtered_categories()
 
     {:ok, socket}
   end
@@ -63,7 +52,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
       socket
       |> assign(:search, search)
       |> assign(:page, 1)
-      |> load_categories()
+      |> load_filtered_categories()
 
     {:noreply, socket}
   end
@@ -76,7 +65,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
       socket
       |> assign(:status_filter, status)
       |> assign(:page, 1)
-      |> load_categories()
+      |> load_filtered_categories()
 
     {:noreply, socket}
   end
@@ -89,7 +78,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
       socket
       |> assign(:parent_filter, parent)
       |> assign(:page, 1)
-      |> load_categories()
+      |> load_filtered_categories()
 
     {:noreply, socket}
   end
@@ -101,7 +90,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
     socket =
       socket
       |> assign(:page, page)
-      |> load_categories()
+      |> load_filtered_categories()
 
     {:noreply, socket}
   end
@@ -114,17 +103,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
       {:ok, _} ->
         {:noreply,
          socket
-         |> load_categories()
+         |> load_static_category_data()
+         |> load_filtered_categories()
          |> put_flash(:info, "Category deleted")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete category")}
     end
-  end
-
-  @impl true
-  def handle_event("noop", _params, socket) do
-    {:noreply, socket}
   end
 
   # Bulk selection events
@@ -185,7 +170,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
 
       {:noreply,
        socket
-       |> load_categories()
+       |> load_static_category_data()
+       |> load_filtered_categories()
        |> assign(:selected_ids, MapSet.new())
        |> assign(:show_bulk_modal, nil)
        |> put_flash(:info, "#{count} categories updated to #{status}")}
@@ -203,7 +189,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
 
       {:noreply,
        socket
-       |> load_categories()
+       |> load_static_category_data()
+       |> load_filtered_categories()
        |> assign(:selected_ids, MapSet.new())
        |> assign(:show_bulk_modal, nil)
        |> put_flash(:info, "#{count} categories updated")}
@@ -220,7 +207,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
 
       {:noreply,
        socket
-       |> load_categories()
+       |> load_static_category_data()
+       |> load_filtered_categories()
        |> assign(:selected_ids, MapSet.new())
        |> assign(:show_bulk_modal, nil)
        |> put_flash(:info, "#{count} categories deleted")}
@@ -235,39 +223,48 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
 
   @impl true
   def handle_info({:category_created, _category}, socket) do
-    {:noreply, load_categories(socket)}
+    {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
   def handle_info({:category_updated, _category}, socket) do
-    {:noreply, load_categories(socket)}
+    {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
   def handle_info({:category_deleted, _category_id}, socket) do
-    {:noreply, load_categories(socket)}
+    {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
   def handle_info({:categories_bulk_status_changed, _ids, _status}, socket) do
-    {:noreply, load_categories(socket)}
+    {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
   def handle_info({:categories_bulk_parent_changed, _ids, _parent_uuid}, socket) do
-    {:noreply, load_categories(socket)}
+    {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
   def handle_info({:categories_bulk_deleted, _ids}, socket) do
-    {:noreply, load_categories(socket)}
+    {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   # ============================================
   # PRIVATE HELPERS
   # ============================================
 
-  defp load_categories(socket) do
+  defp load_static_category_data(socket) do
+    all_categories = Shop.list_categories(preload: [:parent])
+    product_counts = Shop.product_counts_by_category()
+
+    socket
+    |> assign(:all_categories, all_categories)
+    |> assign(:product_counts, product_counts)
+  end
+
+  defp load_filtered_categories(socket) do
     parent_uuid_opt =
       case socket.assigns.parent_filter do
         nil -> :skip
@@ -285,15 +282,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
     ]
 
     {categories, total} = Shop.list_categories_with_count(opts)
-    all_categories = Shop.list_categories(preload: [:parent])
-
-    product_counts = Shop.product_counts_by_category()
 
     socket
     |> assign(:categories, categories)
     |> assign(:total, total)
-    |> assign(:all_categories, all_categories)
-    |> assign(:product_counts, product_counts)
   end
 
   defp all_selected?(categories, selected_ids) do
@@ -483,7 +475,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                         else: ""
                       )
                     ]}>
-                      <td phx-click="noop">
+                      <td>
                         <label class="cursor-pointer">
                           <input
                             type="checkbox"
@@ -529,7 +521,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                           {Map.get(@product_counts, category.id, 0)}
                         </span>
                       </td>
-                      <td class="text-right" phx-click="noop">
+                      <td class="text-right">
                         <div class="flex flex-wrap gap-1 justify-end">
                           <.link
                             navigate={Routes.path("/admin/shop/categories/#{category.uuid}/edit")}

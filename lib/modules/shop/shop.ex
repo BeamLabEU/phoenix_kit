@@ -29,6 +29,7 @@ defmodule PhoenixKit.Modules.Shop do
   """
 
   import Ecto.Query, warn: false
+  require Logger
 
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.Currency
@@ -750,7 +751,6 @@ defmodule PhoenixKit.Modules.Shop do
     |> Map.new()
   rescue
     e ->
-      require Logger
       Logger.warning("Failed to load product counts by category: #{inspect(e)}")
       %{}
   end
@@ -978,8 +978,15 @@ defmodule PhoenixKit.Modules.Shop do
   to prevent self-reference. Uses a single UPDATE with subquery to resolve parent_id.
   """
   def bulk_update_category_parent(ids, parent_uuid) when is_list(ids) do
-    # Exclude the target parent from update set to prevent self-reference
-    ids_to_update = if parent_uuid, do: Enum.reject(ids, &(&1 == parent_uuid)), else: ids
+    # Exclude the target parent and its ancestors from update set to prevent cycles
+    ids_to_update =
+      if parent_uuid do
+        ancestors = collect_ancestor_uuids(parent_uuid, %{})
+
+        Enum.reject(ids, &(&1 == parent_uuid or Map.has_key?(ancestors, &1)))
+      else
+        ids
+      end
 
     if ids_to_update == [] do
       0
@@ -1016,6 +1023,19 @@ defmodule PhoenixKit.Modules.Shop do
       end
 
       count
+    end
+  end
+
+  defp collect_ancestor_uuids(nil, acc), do: acc
+
+  defp collect_ancestor_uuids(uuid, acc) do
+    if Map.has_key?(acc, uuid) do
+      acc
+    else
+      case repo().get_by(Category, uuid: uuid) do
+        nil -> acc
+        %{parent_uuid: parent} -> collect_ancestor_uuids(parent, Map.put(acc, uuid, true))
+      end
     end
   end
 
@@ -1140,6 +1160,7 @@ defmodule PhoenixKit.Modules.Shop do
   defp category_product_options_query(category_id) when is_integer(category_id) do
     from(p in Product,
       where: p.category_id == ^category_id,
+      where: p.status == "active",
       where:
         not is_nil(p.featured_image_id) or
           (not is_nil(p.featured_image) and p.featured_image != ""),
@@ -1152,6 +1173,7 @@ defmodule PhoenixKit.Modules.Shop do
     if match?({:ok, _}, Ecto.UUID.cast(category_id)) do
       from(p in Product,
         where: p.category_uuid == ^category_id,
+        where: p.status == "active",
         where:
           not is_nil(p.featured_image_id) or
             (not is_nil(p.featured_image) and p.featured_image != ""),
