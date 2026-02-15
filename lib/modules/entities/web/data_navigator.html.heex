@@ -266,12 +266,12 @@
     </div>
 
     <%!-- Bulk Actions Bar --%>
-    <%= if length(@selected_ids) > 0 do %>
+    <%= if MapSet.size(@selected_ids) > 0 do %>
       <div class="card bg-base-200 shadow-xl mb-6">
         <div class="card-body p-4">
           <div class="flex flex-wrap gap-3 items-center">
             <span class="text-sm font-semibold">
-              {length(@selected_ids)} {gettext("selected")}
+              {MapSet.size(@selected_ids)} {gettext("selected")}
             </span>
             <div class="divider divider-horizontal mx-0"></div>
             <%!-- Quick Actions --%>
@@ -295,7 +295,7 @@
               class="btn btn-error btn-sm"
               data-confirm={
                 gettext("Are you sure you want to delete %{count} records?",
-                  count: length(@selected_ids)
+                  count: MapSet.size(@selected_ids)
                 )
               }
             >
@@ -496,11 +496,11 @@
                     type="checkbox"
                     class="checkbox checkbox-sm"
                     checked={
-                      length(@selected_ids) == length(@entity_data_records) &&
+                      MapSet.size(@selected_ids) == length(@entity_data_records) &&
                         length(@entity_data_records) > 0
                     }
                     phx-click={
-                      if length(@selected_ids) == length(@entity_data_records),
+                      if MapSet.size(@selected_ids) == length(@entity_data_records),
                         do: "deselect_all",
                         else: "select_all"
                     }
@@ -527,7 +527,7 @@
                     class="checkbox checkbox-sm"
                     phx-click="toggle_select"
                     phx-value-uuid={data_record.uuid}
-                    checked={data_record.uuid in @selected_ids}
+                    checked={MapSet.member?(@selected_ids, data_record.uuid)}
                   />
                 </.table_default_cell>
                 <.table_default_cell>
@@ -649,7 +649,7 @@
                     class="checkbox checkbox-md mt-1"
                     phx-click="toggle_select"
                     phx-value-uuid={data_record.uuid}
-                    checked={data_record.uuid in @selected_ids}
+                    checked={MapSet.member?(@selected_ids, data_record.uuid)}
                   />
                   <div class="flex-1">
                     <div class="flex items-start justify-between mb-2">
