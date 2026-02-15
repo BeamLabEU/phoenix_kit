@@ -997,24 +997,29 @@ defmodule PhoenixKit.Dashboard.Registry do
   # Registers a custom permission key derived from a tab config map.
   # Only registers if the permission key is NOT one of the built-in keys.
   # Also caches live_view → permission mapping for auth enforcement.
-  defp auto_register_custom_permission(%{permission: perm} = tab_config) when is_binary(perm) do
+  defp auto_register_custom_permission(%{permission: perm} = tab_config)
+       when is_binary(perm) or is_atom(perm) do
+    perm = to_string(perm)
+
     builtin_keys = Permissions.core_section_keys() ++ Permissions.feature_module_keys()
 
-    unless perm in builtin_keys do
+    unless perm == "" or perm in builtin_keys do
       Permissions.register_custom_key(perm,
-        label: Map.get(tab_config, :label, String.capitalize(perm)),
-        icon: Map.get(tab_config, :icon, "hero-squares-2x2"),
-        description: Map.get(tab_config, :description, "")
+        label: Map.get(tab_config, :label),
+        icon: Map.get(tab_config, :icon),
+        description: Map.get(tab_config, :description)
       )
     end
 
     # Cache live_view module → permission mapping regardless of key type
-    case Map.get(tab_config, :live_view) do
-      {view_module, _action} when is_atom(view_module) ->
-        Permissions.cache_custom_view_permission(view_module, perm)
+    if perm != "" do
+      case Map.get(tab_config, :live_view) do
+        {view_module, _action} when is_atom(view_module) ->
+          Permissions.cache_custom_view_permission(view_module, perm)
 
-      _ ->
-        :ok
+        _ ->
+          :ok
+      end
     end
   rescue
     error ->

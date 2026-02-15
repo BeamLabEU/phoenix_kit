@@ -68,6 +68,10 @@ defmodule PhoenixKit.Users.Permissions do
   @custom_keys_pterm {PhoenixKit, :custom_permission_keys}
   @custom_views_pterm {PhoenixKit, :custom_view_permissions}
   @valid_key_pattern ~r/^[a-z][a-z0-9_]*$/
+  @max_key_length 50
+  @max_custom_keys 50
+  @max_label_length 100
+  @max_description_length 255
 
   # Maps feature module keys to their {Module, :enabled_function} for checking enabled status
   @feature_enabled_checks %{
@@ -128,18 +132,39 @@ defmodule PhoenixKit.Users.Permissions do
             "Invalid permission key #{inspect(key)}: must match ~r/^[a-z][a-z0-9_]*$/"
     end
 
+    if String.length(key) > @max_key_length do
+      raise ArgumentError,
+            "Permission key #{inspect(key)} exceeds max length of #{@max_key_length}"
+    end
+
     current = custom_keys_map()
 
     if Map.has_key?(current, key) do
       Logger.warning(
         "[Permissions] Custom permission key #{inspect(key)} re-registered, overriding previous metadata"
       )
+    else
+      if map_size(current) >= @max_custom_keys do
+        raise ArgumentError,
+              "Cannot register more than #{@max_custom_keys} custom permission keys"
+      end
     end
 
     meta = %{
-      label: Keyword.get(opts, :label, String.capitalize(key)),
-      icon: Keyword.get(opts, :icon, "hero-squares-2x2"),
-      description: Keyword.get(opts, :description, "")
+      label:
+        opts
+        |> Keyword.get(:label)
+        |> coerce_string(String.capitalize(key))
+        |> String.slice(0, @max_label_length),
+      icon:
+        opts
+        |> Keyword.get(:icon)
+        |> coerce_string("hero-squares-2x2"),
+      description:
+        opts
+        |> Keyword.get(:description)
+        |> coerce_string("")
+        |> String.slice(0, @max_description_length)
     }
 
     :persistent_term.put(@custom_keys_pterm, Map.put(current, key, meta))
@@ -820,4 +845,10 @@ defmodule PhoenixKit.Users.Permissions do
       Logger.warning("Permissions.notify_affected_users failed: #{inspect(e)}")
       :ok
   end
+
+  # Coerces a value to a string, returning the default for nil.
+  # Handles atoms, integers, and other types gracefully via to_string/1.
+  defp coerce_string(nil, default), do: default
+  defp coerce_string(value, _default) when is_binary(value), do: value
+  defp coerce_string(value, _default), do: to_string(value)
 end
