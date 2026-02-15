@@ -450,9 +450,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   end
 
   defp refresh_permissions_if_editing(socket, role_id) do
-    if socket.assigns.show_permissions_editor &&
-         socket.assigns.permissions_role &&
-         socket.assigns.permissions_role.id == role_id do
+    role = socket.assigns[:permissions_role]
+
+    if socket.assigns.show_permissions_editor && role &&
+         (role.id == role_id or to_string(role.uuid) == to_string(role_id)) do
       reload_permission_editor_data(socket)
     else
       socket

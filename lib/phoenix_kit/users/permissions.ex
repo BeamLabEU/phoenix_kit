@@ -698,21 +698,24 @@ defmodule PhoenixKit.Users.Permissions do
       # Keys to remove
       to_remove = MapSet.difference(current_keys, desired_set)
 
+      # Resolve both integer and UUID forms for dual-write
+      role_int = resolve_role_id(role_id)
       role_uuid = resolve_role_uuid(role_id)
 
       # Bulk insert new permissions
       if MapSet.size(to_add) > 0 do
         now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        granted_by_int = resolve_user_id(granted_by_id)
         granted_by_uuid = resolve_user_uuid(granted_by_id)
 
         entries =
           Enum.map(to_add, fn key ->
             %{
               uuid: UUIDv7.generate(),
-              role_id: role_id,
+              role_id: role_int,
               role_uuid: role_uuid,
               module_key: key,
-              granted_by: granted_by_id,
+              granted_by: granted_by_int,
               granted_by_uuid: granted_by_uuid,
               inserted_at: now
             }
