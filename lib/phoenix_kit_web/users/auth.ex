@@ -917,10 +917,34 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp best_available_admin_path(scope) do
     enabled = Permissions.enabled_module_keys()
 
-    Enum.find_value(@admin_fallback_routes, "/", fn {key, path} ->
+    # Built-in routes first, then custom extension routes from admin tab config
+    all_routes = @admin_fallback_routes ++ custom_admin_fallback_routes()
+
+    Enum.find_value(all_routes, "/", fn {key, path} ->
       if Scope.has_module_access?(scope, key) and MapSet.member?(enabled, key),
         do: Routes.path(path)
     end)
+  end
+
+  # Builds fallback routes from custom admin tabs that have extension permission keys.
+  # Only includes top-level tabs (no parent) with a permission not in the built-in set.
+  defp custom_admin_fallback_routes do
+    builtin = MapSet.new(Enum.map(@admin_fallback_routes, &elem(&1, 0)))
+
+    case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
+      tabs when is_list(tabs) ->
+        tabs
+        |> Enum.filter(fn tab ->
+          is_map(tab) and is_binary(tab[:permission]) and
+            tab[:parent] == nil and
+            not MapSet.member?(builtin, tab[:permission])
+        end)
+        |> Enum.sort_by(& &1[:priority])
+        |> Enum.map(fn tab -> {tab.permission, tab.path} end)
+
+      _ ->
+        []
+    end
   end
 
   # Enforces module-level permission checks for admin views.

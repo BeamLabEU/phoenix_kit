@@ -47,7 +47,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
   def admin_sidebar(assigns) do
     # Get admin tabs, already filtered by level, permission, and module-enabled
     # Expand dynamic children BEFORE active state so dynamic tabs get checked too
-    {tabs, _metadata} =
+    tabs =
       :telemetry.span([:phoenix_kit, :admin_sidebar, :render], %{}, fn ->
         result =
           Registry.get_admin_tabs(scope: assigns.scope)

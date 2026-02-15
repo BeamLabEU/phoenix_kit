@@ -436,7 +436,8 @@ defmodule PhoenixKitWeb.Integration do
     session_name = :"phoenix_kit_admin#{suffix}"
 
     # Auto-generate routes for custom admin tabs that specify live_view
-    custom_admin_routes = compile_custom_admin_routes()
+    # Skip when compiling PhoenixKit's own dev/test router — parent modules don't exist
+    custom_admin_routes = compile_custom_admin_routes(__CALLER__.module)
 
     # Get external route module AST outside quote to avoid require/alias inside quote
     emails_admin = EmailsRoutes.admin_routes()
@@ -805,26 +806,23 @@ defmodule PhoenixKitWeb.Integration do
   #     ]
   #
   @doc false
-  def compile_custom_admin_routes do
+  def compile_custom_admin_routes(caller_module) do
+    # PhoenixKit's own router is only for dev/test — parent app modules
+    # aren't available when it compiles, so skip custom route generation.
+    if caller_module == PhoenixKitWeb.Router do
+      []
+    else
+      compile_custom_admin_routes_internal()
+    end
+  end
+
+  defp compile_custom_admin_routes_internal do
     case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
       tabs when is_list(tabs) ->
         tabs
         |> Enum.filter(fn tab ->
           is_map(tab) and Map.has_key?(tab, :live_view) and
-            match?({module, _action} when is_atom(module), tab.live_view) and
-            case Code.ensure_compiled(elem(tab.live_view, 0)) do
-              {:module, _} ->
-                true
-
-              {:error, reason} ->
-                IO.warn(
-                  "[PhoenixKit] Cannot compile #{inspect(elem(tab.live_view, 0))} " <>
-                    "for admin tab #{inspect(tab[:id])}: #{inspect(reason)}. " <>
-                    "The route for this tab will not be generated."
-                )
-
-                false
-            end
+            match?({module, _action} when is_atom(module), tab.live_view)
         end)
         |> Enum.map(fn tab ->
           {module, action} = tab.live_view

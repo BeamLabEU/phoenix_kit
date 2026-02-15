@@ -54,6 +54,7 @@ defmodule PhoenixKit.Users.Permissions do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.RolePermission
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.ScopeNotifier
@@ -450,7 +451,7 @@ defmodule PhoenixKit.Users.Permissions do
     repo = RepoHelper.repo()
 
     from(rp in RolePermission,
-      join: ra in "phoenix_kit_user_role_assignments",
+      join: ra in RoleAssignment,
       on: ra.role_uuid == rp.role_uuid,
       where: ra.user_uuid == ^user_uuid,
       select: rp.module_key,
@@ -557,7 +558,7 @@ defmodule PhoenixKit.Users.Permissions do
     repo = RepoHelper.repo()
 
     from(rp in RolePermission,
-      join: ra in "phoenix_kit_user_role_assignments",
+      join: ra in RoleAssignment,
       on: ra.role_uuid == rp.role_uuid,
       where: rp.module_key == ^module_key,
       select: ra.user_uuid,
@@ -624,16 +625,18 @@ defmodule PhoenixKit.Users.Permissions do
   def grant_permission(role_id, module_key, granted_by_id \\ nil) do
     repo = RepoHelper.repo()
 
-    # Look up UUIDs from integer IDs for the changeset
+    # Resolve both integer and UUID forms for dual-write
+    role_int = resolve_role_id(role_id)
     role_uuid = resolve_role_uuid(role_id)
+    granted_by_int = resolve_user_id(granted_by_id)
     granted_by_uuid = resolve_user_uuid(granted_by_id)
 
     %RolePermission{}
     |> RolePermission.changeset(%{
-      role_id: role_id,
+      role_id: role_int,
       role_uuid: role_uuid,
       module_key: module_key,
-      granted_by: granted_by_id,
+      granted_by: granted_by_int,
       granted_by_uuid: granted_by_uuid
     })
     |> repo.insert(
@@ -826,6 +829,28 @@ defmodule PhoenixKit.Users.Permissions do
 
   defp resolve_role_uuid(role_id) when is_binary(role_id), do: role_id
 
+  # Resolves a UUID string to the integer role_id for legacy columns
+  defp resolve_role_id(nil), do: nil
+  defp resolve_role_id(role_id) when is_integer(role_id), do: role_id
+
+  defp resolve_role_id(role_uuid) when is_binary(role_uuid) do
+    repo = RepoHelper.repo()
+
+    from(r in Role, where: r.uuid == ^role_uuid, select: r.id)
+    |> repo.one()
+  end
+
+  # Resolves a UUID string to the integer user_id for legacy columns
+  defp resolve_user_id(nil), do: nil
+  defp resolve_user_id(user_id) when is_integer(user_id), do: user_id
+
+  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
+    repo = RepoHelper.repo()
+
+    from(u in User, where: u.uuid == ^user_uuid, select: u.id)
+    |> repo.one()
+  end
+
   # Resolves an integer user_id to its UUID for changeset use
   defp resolve_user_uuid(nil), do: nil
 
@@ -845,7 +870,7 @@ defmodule PhoenixKit.Users.Permissions do
     role_uuid = resolve_role_uuid(role_id)
 
     user_uuids =
-      from(ra in "phoenix_kit_user_role_assignments",
+      from(ra in RoleAssignment,
         where: ra.role_uuid == ^role_uuid,
         select: ra.user_uuid
       )
@@ -877,8 +902,8 @@ defmodule PhoenixKit.Users.Permissions do
       :ok
     else
       case Roles.get_role_by_name(Role.system_roles().admin) do
-        %{uuid: admin_uuid} when not is_nil(admin_uuid) ->
-          case grant_permission(admin_uuid, key, nil) do
+        %{id: admin_id} when not is_nil(admin_id) ->
+          case grant_permission(admin_id, key, nil) do
             {:ok, _} ->
               Settings.update_setting(flag_key, "true")
 
