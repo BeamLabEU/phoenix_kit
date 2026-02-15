@@ -132,7 +132,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         urls = generate_urls_from_instances(instances, file_id)
         locations = load_original_locations(instances, repo)
         {title, description, tags} = extract_metadata_fields(file.metadata)
-        user_name = get_user_name(file.user_id, repo)
+        user_name = get_user_name(file.user_uuid, repo)
 
         file_data =
           build_file_data(file, urls, locations, {title, description, tags}, user_name)
