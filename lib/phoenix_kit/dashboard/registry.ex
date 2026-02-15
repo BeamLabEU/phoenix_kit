@@ -173,16 +173,21 @@ defmodule PhoenixKit.Dashboard.Registry do
   """
   @spec get_tabs(keyword()) :: [Tab.t()]
   def get_tabs(opts \\ []) do
-    scope = opts[:scope]
-    level = opts[:level]
-    include_hidden = opts[:include_hidden] || false
+    if initialized?() do
+      scope = opts[:scope]
+      level = opts[:level]
+      include_hidden = opts[:include_hidden] || false
 
-    all_tabs()
-    |> maybe_filter_level(level)
-    |> maybe_filter_enabled()
-    |> maybe_filter_permission(scope)
-    |> maybe_filter_visibility(scope, include_hidden)
-    |> sort_tabs()
+      all_tabs()
+      |> maybe_filter_level(level)
+      |> maybe_filter_enabled()
+      |> maybe_filter_permission(scope)
+      |> maybe_filter_visibility(scope, include_hidden)
+      |> sort_tabs()
+    else
+      Logger.warning("[Registry] get_tabs/1 called before initialization, returning empty list")
+      []
+    end
   end
 
   @doc """
@@ -390,7 +395,9 @@ defmodule PhoenixKit.Dashboard.Registry do
     Phoenix.PubSub.broadcast(PubSubHelper.pubsub(), @pubsub_topic, {:tab_updated, tab})
     :ok
   rescue
-    _ -> :ok
+    error ->
+      Logger.warning("[Registry] Failed to broadcast tab update: #{Exception.message(error)}")
+      :ok
   end
 
   @doc """
@@ -401,7 +408,9 @@ defmodule PhoenixKit.Dashboard.Registry do
     Phoenix.PubSub.broadcast(PubSubHelper.pubsub(), @pubsub_topic, :tabs_refreshed)
     :ok
   rescue
-    _ -> :ok
+    error ->
+      Logger.warning("[Registry] Failed to broadcast tab refresh: #{Exception.message(error)}")
+      :ok
   end
 
   @doc """
@@ -414,6 +423,10 @@ defmodule PhoenixKit.Dashboard.Registry do
       _ -> true
     end
   end
+
+  @doc false
+  @spec ets_table() :: atom()
+  def ets_table, do: @ets_table
 
   @doc """
   Gets all tabs with their active state for the given path.
@@ -473,6 +486,9 @@ defmodule PhoenixKit.Dashboard.Registry do
     load_admin_defaults_internal()
     load_admin_from_config_internal()
 
+    # Subscribe to entity lifecycle events for cache invalidation
+    subscribe_to_entity_events()
+
     {:ok, %{namespaces: MapSet.new([:phoenix_kit, :phoenix_kit_admin])}}
   end
 
@@ -481,6 +497,15 @@ defmodule PhoenixKit.Dashboard.Registry do
     Enum.each(tabs, fn tab ->
       :ets.insert(@ets_table, {{:tab, tab.id}, tab})
       :ets.insert(@ets_table, {{:namespace, namespace, tab.id}, true})
+
+      # Auto-register custom permission keys for admin tabs
+      if tab.level == :admin and is_binary(tab.permission) do
+        auto_register_custom_permission(%{
+          permission: tab.permission,
+          label: tab.label,
+          icon: tab.icon
+        })
+      end
     end)
 
     broadcast_refresh()
@@ -594,6 +619,18 @@ defmodule PhoenixKit.Dashboard.Registry do
         {:reply, :ok, state}
     end
   end
+
+  # Entity lifecycle events — invalidate the sidebar entity cache
+  @impl true
+  def handle_info({event, _entity_id}, state)
+      when event in [:entity_created, :entity_updated, :entity_deleted] do
+    AdminTabs.invalidate_entities_cache()
+    broadcast_refresh()
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(_msg, state), do: {:noreply, state}
 
   # Private helpers
 
@@ -947,11 +984,65 @@ defmodule PhoenixKit.Dashboard.Registry do
               :ets.insert(@ets_table, {{:tab, tab.id}, tab})
               :ets.insert(@ets_table, {{:namespace, :admin_config, tab.id}, true})
 
+              # Auto-register custom permission key and cache view mapping
+              auto_register_custom_permission(tab_config)
+
             {:error, _reason} ->
               :ok
           end
         end)
     end
+  end
+
+  # Registers a custom permission key derived from a tab config map.
+  # Only registers if the permission key is NOT one of the built-in keys.
+  # Also caches live_view → permission mapping for auth enforcement.
+  defp auto_register_custom_permission(%{permission: perm} = tab_config) when is_binary(perm) do
+    builtin_keys = Permissions.core_section_keys() ++ Permissions.feature_module_keys()
+
+    unless perm in builtin_keys do
+      Permissions.register_custom_key(perm,
+        label: Map.get(tab_config, :label, String.capitalize(perm)),
+        icon: Map.get(tab_config, :icon, "hero-squares-2x2"),
+        description: Map.get(tab_config, :description, "")
+      )
+    end
+
+    # Cache live_view module → permission mapping regardless of key type
+    case Map.get(tab_config, :live_view) do
+      {view_module, _action} when is_atom(view_module) ->
+        Permissions.cache_custom_view_permission(view_module, perm)
+
+      _ ->
+        :ok
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[Registry] Failed to register custom permission #{inspect(perm)}: #{Exception.message(error)}"
+      )
+
+      :ok
+  end
+
+  defp auto_register_custom_permission(_), do: :ok
+
+  # Subscribe to entity definition lifecycle events for sidebar cache invalidation.
+  # Guarded since the Entities module is optional.
+  defp subscribe_to_entity_events do
+    events_mod = PhoenixKit.Modules.Entities.Events
+
+    if Code.ensure_loaded?(events_mod) and
+         function_exported?(events_mod, :subscribe_to_entities, 0) do
+      events_mod.subscribe_to_entities()
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[Registry] Failed to subscribe to entity events: #{Exception.message(error)}"
+      )
+
+      :ok
   end
 
   # Convert legacy AdminDashboardCategories to admin-level Tab structs

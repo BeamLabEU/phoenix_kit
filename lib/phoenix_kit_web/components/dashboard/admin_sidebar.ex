@@ -21,9 +21,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
 
   use Phoenix.Component
 
+  require Logger
+
   alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKitWeb.Components.Dashboard.TabItem
 
+  import PhoenixKit.Dashboard.TabHelpers
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
   @doc """
@@ -44,10 +47,15 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
   def admin_sidebar(assigns) do
     # Get admin tabs, already filtered by level, permission, and module-enabled
     # Expand dynamic children BEFORE active state so dynamic tabs get checked too
-    tabs =
-      Registry.get_admin_tabs(scope: assigns.scope)
-      |> expand_dynamic_children(assigns.scope)
-      |> add_active_state(assigns.current_path)
+    {tabs, _metadata} =
+      :telemetry.span([:phoenix_kit, :admin_sidebar, :render], %{}, fn ->
+        result =
+          Registry.get_admin_tabs(scope: assigns.scope)
+          |> expand_dynamic_children(assigns.scope)
+          |> add_active_state(assigns.current_path)
+
+        {result, %{tab_count: length(result)}}
+      end)
 
     # Group tabs
     grouped_tabs = group_tabs(tabs)
@@ -219,12 +227,6 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
 
   # --- Helpers ---
 
-  defp add_active_state(tabs, current_path) do
-    Enum.map(tabs, fn tab ->
-      Map.put(tab, :active, Tab.matches_path?(tab, current_path))
-    end)
-  end
-
   defp expand_dynamic_children(tabs, scope) do
     # Find tabs with dynamic_children and expand them
     {parents_with_dynamic, other_tabs} =
@@ -238,7 +240,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
           try do
             parent.dynamic_children.(scope)
           rescue
-            _ -> []
+            error ->
+              Logger.warning(
+                "[AdminSidebar] dynamic_children for #{inspect(parent.id)} failed: #{Exception.message(error)}"
+              )
+
+              []
           end
 
         # Ensure children have parent set and correct level
@@ -253,36 +260,24 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
     other_tabs ++ parents_with_dynamic ++ dynamic_children
   end
 
-  defp group_tabs(tabs) do
-    Enum.group_by(tabs, & &1.group)
-  end
+  # Recursively checks if any descendant (children, grandchildren, etc.) is active.
+  # Includes depth limit and cycle detection for safety with parent-app-registered tabs.
+  defp any_descendant_active?(parent_id, all_tabs, depth \\ 0, visited \\ MapSet.new())
 
-  defp sorted_groups(groups, grouped_tabs) do
-    group_ids_with_tabs = Map.keys(grouped_tabs) |> Enum.reject(&is_nil/1)
+  defp any_descendant_active?(_parent_id, _all_tabs, depth, _visited) when depth > 5, do: false
 
-    groups
-    |> Enum.filter(&(&1.id in group_ids_with_tabs))
-    |> Enum.sort_by(& &1.priority)
-  end
+  defp any_descendant_active?(parent_id, all_tabs, depth, visited) do
+    if MapSet.member?(visited, parent_id) do
+      Logger.warning("[AdminSidebar] Circular tab reference detected: #{inspect(parent_id)}")
+      false
+    else
+      children = get_subtabs_for(parent_id, all_tabs)
+      new_visited = MapSet.put(visited, parent_id)
 
-  defp filter_top_level(tabs) do
-    Enum.filter(tabs, &Tab.top_level?/1)
-  end
-
-  defp get_subtabs_for(parent_id, all_tabs) do
-    Enum.filter(all_tabs, fn tab ->
-      tab.parent == parent_id
-    end)
-    |> Enum.sort_by(& &1.priority)
-  end
-
-  # Recursively checks if any descendant (children, grandchildren, etc.) is active
-  defp any_descendant_active?(parent_id, all_tabs) do
-    children = get_subtabs_for(parent_id, all_tabs)
-
-    Enum.any?(children, fn child ->
-      child.active or any_descendant_active?(child.id, all_tabs)
-    end)
+      Enum.any?(children, fn child ->
+        child.active or any_descendant_active?(child.id, all_tabs, depth + 1, new_visited)
+      end)
+    end
   end
 
   defp maybe_redirect_to_first_subtab(%{redirect_to_first_subtab: true} = tab, [

@@ -1011,9 +1011,20 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp permission_key_for_admin_view(view_module) do
     case Map.get(@admin_view_permissions, view_module) do
-      nil -> infer_permission_key_from_module(view_module)
-      key -> key
+      nil ->
+        infer_permission_from_custom_tabs(view_module) ||
+          infer_permission_key_from_module(view_module)
+
+      key ->
+        key
     end
+  end
+
+  # Looks up permission key from cached custom view → permission mapping.
+  # This mapping is populated at Registry init time from :admin_dashboard_tabs config.
+  defp infer_permission_from_custom_tabs(view_module) do
+    Permissions.custom_view_permissions()
+    |> Map.get(view_module)
   end
 
   # Infer permission key from PhoenixKit.Modules.<Name>.Web.* namespace

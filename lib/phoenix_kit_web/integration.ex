@@ -812,7 +812,19 @@ defmodule PhoenixKitWeb.Integration do
         |> Enum.filter(fn tab ->
           is_map(tab) and Map.has_key?(tab, :live_view) and
             match?({module, _action} when is_atom(module), tab.live_view) and
-            match?({:module, _}, Code.ensure_compiled(elem(tab.live_view, 0)))
+            case Code.ensure_compiled(elem(tab.live_view, 0)) do
+              {:module, _} ->
+                true
+
+              {:error, reason} ->
+                IO.warn(
+                  "[PhoenixKit] Cannot compile #{inspect(elem(tab.live_view, 0))} " <>
+                    "for admin tab #{inspect(tab[:id])}: #{inspect(reason)}. " <>
+                    "The route for this tab will not be generated."
+                )
+
+                false
+            end
         end)
         |> Enum.map(fn tab ->
           {module, action} = tab.live_view

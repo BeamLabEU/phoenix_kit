@@ -121,6 +121,48 @@
               <% end %>
             </tr>
           <% end %>
+          <%!-- Extensions (custom permission keys from parent app) --%>
+          <%= if length(@custom_keys) > 0 do %>
+            <tr class="bg-accent/10">
+              <td
+                colspan={length(@roles) + 1}
+                class="sticky left-0 bg-accent/10 z-10 font-semibold text-xs uppercase tracking-wide text-accent py-2"
+              >
+                Extensions
+              </td>
+            </tr>
+            <%= for {key, idx} <- Enum.with_index(@custom_keys) do %>
+              <tr class={if(rem(idx, 2) == 1, do: "bg-base-200", else: "")}>
+                <td class={[
+                  "sticky left-0 z-10 font-medium",
+                  if(rem(idx, 2) == 1, do: "bg-base-200", else: "bg-base-100")
+                ]}>
+                  {PhoenixKit.Users.Permissions.module_label(key)}
+                </td>
+                <%= for role <- @roles do %>
+                  <td class="text-center">
+                    <%= if role.name == "Owner" do %>
+                      <span class="badge badge-sm badge-primary badge-outline">always</span>
+                    <% else %>
+                      <button
+                        phx-click="toggle_permission"
+                        phx-value-role_id={role.uuid}
+                        phx-value-key={key}
+                        class="cursor-pointer hover:opacity-70 transition-opacity"
+                      >
+                        <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
+                          <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                        <% else %>
+                          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                        <% end %>
+                      </button>
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          <% end %>
+
           <%!-- Summary Row --%>
           <tr class="bg-base-300 font-semibold text-base-content">
             <td class="sticky left-0 bg-base-300 z-10">

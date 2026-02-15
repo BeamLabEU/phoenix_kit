@@ -64,6 +64,11 @@ defmodule PhoenixKit.Users.Permissions do
   )
   @all_module_keys @core_section_keys ++ @feature_module_keys
 
+  # Persistent term keys for runtime-registered custom permission keys
+  @custom_keys_pterm {PhoenixKit, :custom_permission_keys}
+  @custom_views_pterm {PhoenixKit, :custom_view_permissions}
+  @valid_key_pattern ~r/^[a-z][a-z0-9_]*$/
+
   # Maps feature module keys to their {Module, :enabled_function} for checking enabled status
   @feature_enabled_checks %{
     "billing" => {PhoenixKit.Modules.Billing, :enabled?},
@@ -88,11 +93,148 @@ defmodule PhoenixKit.Users.Permissions do
     "jobs" => {PhoenixKit.Jobs, :enabled?}
   }
 
+  # --- Custom Permission Keys ---
+
+  @doc """
+  Registers a custom permission key with metadata.
+
+  Custom keys extend the built-in 25 permission keys, allowing parent apps
+  to define new permission scopes for custom admin tabs. Custom keys are
+  always treated as "enabled" (no module toggle) and appear in the
+  permission matrix UI under "Extensions".
+
+  Raises `ArgumentError` if the key collides with a built-in key or has
+  an invalid format. Logs a warning on duplicate override.
+
+  ## Options
+
+  - `:label` - Human-readable label (default: capitalized key)
+  - `:icon` - Heroicon name (default: `"hero-squares-2x2"`)
+  - `:description` - Short description (default: `""`)
+
+  ## Examples
+
+      Permissions.register_custom_key("analytics", label: "Analytics", icon: "hero-chart-bar")
+  """
+  @spec register_custom_key(String.t(), keyword()) :: :ok
+  def register_custom_key(key, opts \\ []) when is_binary(key) do
+    if key in @all_module_keys do
+      raise ArgumentError,
+            "Cannot register custom permission key #{inspect(key)}: conflicts with built-in key"
+    end
+
+    unless Regex.match?(@valid_key_pattern, key) do
+      raise ArgumentError,
+            "Invalid permission key #{inspect(key)}: must match ~r/^[a-z][a-z0-9_]*$/"
+    end
+
+    current = custom_keys_map()
+
+    if Map.has_key?(current, key) do
+      Logger.warning(
+        "[Permissions] Custom permission key #{inspect(key)} re-registered, overriding previous metadata"
+      )
+    end
+
+    meta = %{
+      label: Keyword.get(opts, :label, String.capitalize(key)),
+      icon: Keyword.get(opts, :icon, "hero-squares-2x2"),
+      description: Keyword.get(opts, :description, "")
+    }
+
+    :persistent_term.put(@custom_keys_pterm, Map.put(current, key, meta))
+    :ok
+  end
+
+  @doc """
+  Unregisters a custom permission key. Stale DB rows are harmless.
+  """
+  @spec unregister_custom_key(String.t()) :: :ok
+  def unregister_custom_key(key) when is_binary(key) do
+    current = custom_keys_map()
+    :persistent_term.put(@custom_keys_pterm, Map.delete(current, key))
+
+    # Clean up any view → permission mappings that reference this key
+    views = :persistent_term.get(@custom_views_pterm, %{})
+
+    cleaned =
+      views
+      |> Enum.reject(fn {_mod, perm} -> perm == key end)
+      |> Map.new()
+
+    if map_size(cleaned) != map_size(views) do
+      :persistent_term.put(@custom_views_pterm, cleaned)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Returns the map of registered custom permission keys and their metadata.
+  """
+  @spec custom_keys_map() :: %{String.t() => map()}
+  def custom_keys_map do
+    :persistent_term.get(@custom_keys_pterm, %{})
+  end
+
+  @doc """
+  Returns the list of custom permission key strings.
+  """
+  @spec custom_keys() :: [String.t()]
+  def custom_keys do
+    Map.keys(custom_keys_map())
+  end
+
+  @doc """
+  Clears all custom permission keys. For test isolation.
+  """
+  @spec clear_custom_keys() :: :ok
+  def clear_custom_keys do
+    :persistent_term.put(@custom_keys_pterm, %{})
+    :persistent_term.put(@custom_views_pterm, %{})
+    :ok
+  end
+
+  @doc """
+  Caches a LiveView module → permission key mapping for custom admin tabs.
+  Used by the auth system to enforce permissions on custom admin LiveViews
+  without reading Application config on every mount.
+  """
+  @spec cache_custom_view_permission(module(), String.t()) :: :ok
+  def cache_custom_view_permission(view_module, permission_key)
+      when is_atom(view_module) and is_binary(permission_key) do
+    current = :persistent_term.get(@custom_views_pterm, %{})
+
+    case Map.get(current, view_module) do
+      nil ->
+        :ok
+
+      ^permission_key ->
+        :ok
+
+      old_key ->
+        Logger.warning(
+          "[Permissions] View #{inspect(view_module)} permission changed from #{inspect(old_key)} to #{inspect(permission_key)}"
+        )
+    end
+
+    :persistent_term.put(@custom_views_pterm, Map.put(current, view_module, permission_key))
+    :ok
+  end
+
+  @doc """
+  Returns the cached custom view → permission mapping.
+  """
+  @spec custom_view_permissions() :: %{module() => String.t()}
+  def custom_view_permissions do
+    :persistent_term.get(@custom_views_pterm, %{})
+  end
+
   # --- Constants ---
 
-  @doc "Returns all 25 permission keys."
+  @doc "Returns all built-in and custom permission keys."
   @spec all_module_keys() :: [String.t()]
-  def all_module_keys, do: @all_module_keys
+  def all_module_keys, do: @all_module_keys ++ custom_keys()
 
   @doc "Returns the 5 core section keys."
   @spec core_section_keys() :: [String.t()]
@@ -113,12 +255,14 @@ defmodule PhoenixKit.Users.Permissions do
       @feature_module_keys
       |> Enum.filter(&do_feature_enabled?/1)
 
-    MapSet.new(@core_section_keys ++ enabled_features)
+    MapSet.new(@core_section_keys ++ enabled_features ++ custom_keys())
   end
 
-  @doc "Checks whether `key` is one of the 24 known permission keys."
+  @doc "Checks whether `key` is a known permission key (built-in or custom)."
   @spec valid_module_key?(String.t()) :: boolean()
-  def valid_module_key?(key) when is_binary(key), do: key in @all_module_keys
+  def valid_module_key?(key) when is_binary(key),
+    do: key in @all_module_keys or Map.has_key?(custom_keys_map(), key)
+
   def valid_module_key?(_), do: false
 
   @doc """
@@ -126,6 +270,7 @@ defmodule PhoenixKit.Users.Permissions do
 
   Core section keys always return `true`. Feature module keys return the
   result of calling the module's `enabled?/0` (or equivalent) function.
+  Custom permission keys are always enabled (no module toggle).
   Returns `false` for unknown keys.
   """
   @spec feature_enabled?(String.t()) :: boolean()
@@ -137,7 +282,8 @@ defmodule PhoenixKit.Users.Permissions do
         Code.ensure_loaded?(mod) && apply(mod, fun, [])
 
       nil ->
-        false
+        # Custom keys are always "enabled" (no module toggle)
+        Map.has_key?(custom_keys_map(), key)
     end
   rescue
     _ -> false
@@ -173,7 +319,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Returns a human-readable label for a module key."
   @spec module_label(String.t()) :: String.t()
-  def module_label(key), do: Map.get(@labels, key, String.capitalize(key))
+  def module_label(key) do
+    case Map.get(@labels, key) do
+      nil -> custom_key_metadata(key)[:label] || String.capitalize(key)
+      label -> label
+    end
+  end
 
   @icons %{
     "dashboard" => "hero-home",
@@ -205,7 +356,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Returns a Heroicon name for a module key."
   @spec module_icon(String.t()) :: String.t()
-  def module_icon(key), do: Map.get(@icons, key, "hero-squares-2x2")
+  def module_icon(key) do
+    case Map.get(@icons, key) do
+      nil -> custom_key_metadata(key)[:icon] || "hero-squares-2x2"
+      icon -> icon
+    end
+  end
 
   @descriptions %{
     "dashboard" => "Overview statistics, charts, and system health",
@@ -237,7 +393,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Returns a short description for a module key."
   @spec module_description(String.t()) :: String.t()
-  def module_description(key), do: Map.get(@descriptions, key, "")
+  def module_description(key) do
+    case Map.get(@descriptions, key) do
+      nil -> custom_key_metadata(key)[:description] || ""
+      desc -> desc
+    end
+  end
 
   # --- Query API ---
 
@@ -544,12 +705,12 @@ defmodule PhoenixKit.Users.Permissions do
   end
 
   @doc """
-  Grants all 24 permission keys to a role.
+  Grants all permission keys (built-in + custom) to a role.
   """
   @spec grant_all_permissions(integer() | String.t(), integer() | String.t() | nil) ::
           :ok | {:error, term()}
   def grant_all_permissions(role_id, granted_by_id \\ nil) do
-    set_permissions(role_id, @all_module_keys, granted_by_id)
+    set_permissions(role_id, all_module_keys(), granted_by_id)
   end
 
   @doc """
@@ -587,6 +748,11 @@ defmodule PhoenixKit.Users.Permissions do
   end
 
   # --- Helpers ---
+
+  # Returns metadata for a custom permission key, or nil if not found.
+  defp custom_key_metadata(key) do
+    Map.get(custom_keys_map(), key)
+  end
 
   defp do_feature_enabled?(key) do
     case Map.get(@feature_enabled_checks, key) do

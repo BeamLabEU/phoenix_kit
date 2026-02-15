@@ -137,6 +137,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     |> assign(:matrix, matrix)
     |> assign(:core_keys, Permissions.core_section_keys())
     |> assign(:feature_keys, enabled_feature_keys)
+    |> assign(:custom_keys, Permissions.custom_keys())
   end
 
   # Refresh matrix data only, keep existing role order stable
