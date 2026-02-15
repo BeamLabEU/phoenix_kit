@@ -134,7 +134,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
     core_keys = Permissions.core_section_keys()
     custom_keys = Permissions.custom_keys()
-    visible_key_count = length(core_keys) + length(enabled_feature_keys) + length(custom_keys)
+    visible_keys = MapSet.new(core_keys ++ enabled_feature_keys ++ custom_keys)
 
     socket
     |> assign(:roles, sorted_roles)
@@ -142,7 +142,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     |> assign(:core_keys, core_keys)
     |> assign(:feature_keys, enabled_feature_keys)
     |> assign(:custom_keys, custom_keys)
-    |> assign(:visible_key_count, visible_key_count)
+    |> assign(:visible_keys, visible_keys)
   end
 
   # Refresh matrix data only, keep existing role order stable

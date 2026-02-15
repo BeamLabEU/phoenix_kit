@@ -171,9 +171,11 @@
             <%= for role <- @roles do %>
               <td class="text-center">
                 <%= if role.name == "Owner" do %>
-                  {@visible_key_count} / {@visible_key_count}
+                  {MapSet.size(@visible_keys)} / {MapSet.size(@visible_keys)}
                 <% else %>
-                  {Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.size()} / {@visible_key_count}
+                  {Map.get(@matrix, to_string(role.uuid), MapSet.new())
+                  |> MapSet.intersection(@visible_keys)
+                  |> MapSet.size()} / {MapSet.size(@visible_keys)}
                 <% end %>
               </td>
             <% end %>
