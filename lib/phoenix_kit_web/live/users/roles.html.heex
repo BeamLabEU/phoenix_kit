@@ -164,8 +164,8 @@
                       <span class="badge badge-ghost badge-sm">Protected</span>
                     <% end %>
 
-                    <%!-- Permissions Button (users permission required, not for Owner role) --%>
-                    <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.has_module_access?(assigns[:phoenix_kit_current_scope], "users") && role.name != "Owner" do %>
+                    <%!-- Permissions Button (users permission required, editable roles only) --%>
+                    <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.has_module_access?(assigns[:phoenix_kit_current_scope], "users") && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
                       <button
                         class="btn btn-xs btn-outline btn-secondary"
                         phx-click="show_permissions_editor"

@@ -77,6 +77,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     with role when not is_nil(role) <-
            Enum.find(socket.assigns.roles, &(to_string(&1.uuid) == role_id_str)),
          false <- role.name == "Owner",
+         :ok <- can_edit_role_permissions?(scope, role),
          true <- scope != nil && Scope.has_module_access?(scope, "users") do
       grantable =
         if Scope.owner?(scope),
@@ -104,12 +105,32 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
         {:noreply, put_flash(socket, :error, "You can only manage permissions you have")}
       end
     else
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, reason)}
+
       _ ->
         {:noreply, socket}
     end
   end
 
   # --- Helpers ---
+
+  # Returns :ok if the current user can edit the target role's permissions.
+  # Rules: can't edit your own role, only Owner can edit Admin.
+  defp can_edit_role_permissions?(scope, role) do
+    user_roles = Scope.user_roles(scope)
+
+    cond do
+      role.name in user_roles ->
+        {:error, "You cannot edit permissions for your own role"}
+
+      role.name == "Admin" and not Scope.owner?(scope) ->
+        {:error, "Only the Owner can edit Admin permissions"}
+
+      true ->
+        :ok
+    end
+  end
 
   defp load_matrix(socket) do
     roles = Roles.list_roles()
@@ -136,6 +157,16 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     custom_keys = Permissions.custom_keys()
     visible_keys = MapSet.new(core_keys ++ enabled_feature_keys ++ custom_keys)
 
+    # Determine which roles can't be edited by the current user
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    uneditable_role_uuids =
+      sorted_roles
+      |> Enum.filter(fn role ->
+        role.name == "Owner" or can_edit_role_permissions?(scope, role) != :ok
+      end)
+      |> MapSet.new(fn role -> to_string(role.uuid) end)
+
     socket
     |> assign(:roles, sorted_roles)
     |> assign(:matrix, matrix)
@@ -143,6 +174,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     |> assign(:feature_keys, enabled_feature_keys)
     |> assign(:custom_keys, custom_keys)
     |> assign(:visible_keys, visible_keys)
+    |> assign(:uneditable_role_uuids, uneditable_role_uuids)
   end
 
   # Refresh matrix data only, keep existing role order stable

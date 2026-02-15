@@ -175,8 +175,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   def handle_event("show_permissions_editor", %{"role_id" => role_id_str}, socket) do
     if can_manage_permissions?(socket) do
       role = find_role_by_id(socket.assigns.roles, role_id_str)
+      scope = socket.assigns[:phoenix_kit_current_scope]
 
-      if role do
+      with true <- role != nil,
+           :ok <- can_edit_role_permissions?(scope, role) do
         grantable = grantable_keys(socket)
         enabled = Permissions.enabled_module_keys()
         # Only show keys that are both grantable AND enabled
@@ -196,7 +198,11 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
         {:noreply, socket}
       else
-        {:noreply, put_flash(socket, :error, "Role not found")}
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, reason)}
+
+        false ->
+          {:noreply, put_flash(socket, :error, "Role not found")}
       end
     else
       {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
@@ -263,6 +269,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       !can_manage_permissions?(socket) ->
         {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
 
+      can_edit_role_permissions?(socket.assigns[:phoenix_kit_current_scope], role) != :ok ->
+        {:noreply, put_flash(socket, :error, "You cannot edit permissions for this role")}
+
       true ->
         preserved = socket.assigns.permissions_preserved_keys
         editor_keys = socket.assigns.permissions_role_keys
@@ -322,7 +331,18 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
   defp load_roles(socket) do
     roles = Roles.list_roles()
-    assign(socket, :roles, roles)
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    uneditable_role_uuids =
+      roles
+      |> Enum.filter(fn role ->
+        role.name == "Owner" or can_edit_role_permissions?(scope, role) != :ok
+      end)
+      |> MapSet.new(fn role -> to_string(role.uuid) end)
+
+    socket
+    |> assign(:roles, roles)
+    |> assign(:uneditable_role_uuids, uneditable_role_uuids)
   end
 
   # Load role statistics using optimized extended stats
@@ -403,6 +423,21 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   defp can_manage_permissions?(socket) do
     scope = socket.assigns[:phoenix_kit_current_scope]
     scope && Scope.has_module_access?(scope, "users")
+  end
+
+  defp can_edit_role_permissions?(scope, role) do
+    user_roles = Scope.user_roles(scope)
+
+    cond do
+      role.name in user_roles ->
+        {:error, "You cannot edit permissions for your own role"}
+
+      role.name == "Admin" and not Scope.owner?(scope) ->
+        {:error, "Only the Owner can edit Admin permissions"}
+
+      true ->
+        :ok
+    end
   end
 
   defp grantable_keys(socket) do
