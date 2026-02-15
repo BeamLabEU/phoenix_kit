@@ -215,7 +215,7 @@ PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
 
 ## Permission System
 
-Admin tabs integrate with PhoenixKit's [module-level permissions](../../CLAUDE.md#module-level-permissions-v53):
+Admin tabs integrate with PhoenixKit's module-level permissions (`PhoenixKit.Users.Permissions`):
 
 - **Owner** — Always has full access (hardcoded, no DB rows needed)
 - **Admin** — Gets all 25 permissions by default

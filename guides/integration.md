@@ -530,7 +530,7 @@ The `live_view` field tells PhoenixKit to auto-generate a route inside the share
 - Don't pass `project_title` — the layout has a built-in default
 - Use `assigns[:current_locale]` (bracket access for optional assigns)
 
-See the [Admin Navigation docs](../lib/phoenix_kit/dashboard/ADMIN_README.md) for the full reference.
+See the [Admin Navigation docs](ADMIN_README.md) for the full reference.
 
 ---
 

@@ -173,10 +173,11 @@ defmodule PhoenixKit.MixProject do
         "guides/phk_publishing_format.md",
         "guides/AUTH_HEADER_INTEGRATION.md",
         "guides/draggable_list_component.md",
-        "guides/README.md"
+        "guides/README.md",
+        "lib/phoenix_kit/dashboard/ADMIN_README.md"
       ],
       groups_for_extras: [
-        Guides: ~r/guides\/.*/
+        Guides: ~r/(guides\/.*|ADMIN_README)/
       ],
       groups_for_modules: []
     ]
