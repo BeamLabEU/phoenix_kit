@@ -134,7 +134,7 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Export do
 
       entity ->
         include_data = include_data?(options)
-        data_records = if include_data, do: EntityData.list_data_by_entity(entity.id), else: []
+        data_records = if include_data, do: EntityData.list_data_by_entity(entity.uuid), else: []
 
         content = build_export_content(entity, data_records)
         result = Storage.write_entity(entity.name, content)
@@ -154,7 +154,7 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Export do
     results =
       Entities.list_entities()
       |> Enum.map(fn entity ->
-        data_records = if include_data, do: EntityData.list_data_by_entity(entity.id), else: []
+        data_records = if include_data, do: EntityData.list_data_by_entity(entity.uuid), else: []
         content = build_export_content(entity, data_records)
         result = Storage.write_entity(entity.name, content)
 

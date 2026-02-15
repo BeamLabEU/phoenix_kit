@@ -56,12 +56,12 @@ defmodule PhoenixKit.Admin.SimplePresence do
   Tracks an authenticated user session.
   """
   def track_user(user, metadata \\ %{}) do
-    key = "user:#{user.id}"
+    key = "user:#{user.uuid}"
 
     metadata =
       metadata
       |> Map.put(:type, :authenticated)
-      |> Map.put(:user_id, user.id)
+      |> Map.put(:user_id, user.uuid)
       |> Map.put(:user_email, user.email)
       |> Map.put_new(:connected_at, DateTime.utc_now())
 
