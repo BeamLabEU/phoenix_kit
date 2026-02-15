@@ -323,21 +323,30 @@ defmodule PhoenixKit.Modules.Shop.Category do
     end
   end
 
-  defp check_ancestor_cycle(changeset, target_uuid, current_uuid) do
-    repo = PhoenixKit.RepoHelper.repo()
+  defp check_ancestor_cycle(changeset, target_uuid, current_uuid, visited \\ MapSet.new()) do
+    if MapSet.member?(visited, current_uuid) do
+      changeset
+    else
+      repo = PhoenixKit.RepoHelper.repo()
 
-    case repo.get_by(__MODULE__, uuid: current_uuid) do
-      nil ->
-        changeset
+      case repo.get_by(__MODULE__, uuid: current_uuid) do
+        nil ->
+          changeset
 
-      %{parent_uuid: nil} ->
-        changeset
+        %{parent_uuid: nil} ->
+          changeset
 
-      %{parent_uuid: ^target_uuid} ->
-        add_error(changeset, :parent_uuid, "would create a circular reference")
+        %{parent_uuid: ^target_uuid} ->
+          add_error(changeset, :parent_uuid, "would create a circular reference")
 
-      %{parent_uuid: next_uuid} ->
-        check_ancestor_cycle(changeset, target_uuid, next_uuid)
+        %{parent_uuid: next_uuid} ->
+          check_ancestor_cycle(
+            changeset,
+            target_uuid,
+            next_uuid,
+            MapSet.put(visited, current_uuid)
+          )
+      end
     end
   end
 
