@@ -245,7 +245,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
   end
 
   defp can_delete_comment?(user, comment) do
-    user.id == comment.user_id or user_is_admin?(user)
+    user.uuid == comment.user_uuid or user_is_admin?(user)
   end
 
   defp user_is_admin?(user) do
