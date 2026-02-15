@@ -1,14 +1,16 @@
 # AI Review — PR #338
 
 **Reviewer:** Claude (AI)
-**Date:** 2026-02-14
-**Verdict:** Approve
+**Date:** 2026-02-14 (updated 2026-02-15 after cross-review)
+**Verdict:** Approve with Follow-up Recommendations
 
 ---
 
 ## Summary
 
 A focused follow-up PR that addresses the highest-priority issues from the PR #335 review. All changes are correct and well-implemented. The `bulk_update_category` rewrite is particularly good — instead of just adding error handling to the N individual updates, the developer eliminated the problem entirely by switching to a single SQL query.
+
+**Update:** Cross-review with Kimi and Mistral reviews revealed two significant pre-existing issues in DataNavigator that this review originally missed. These are not regressions from PR #338, but they affect the same files and should be tracked.
 
 ---
 
@@ -100,6 +102,71 @@ The `require Logger` inside the rescue block is functional but unconventional �
 
 ---
 
+## Issues Identified in Cross-Review (Originally Missed)
+
+### 6. Scalability: No Pagination + In-Memory Filtering — Critical (Pre-existing)
+
+**File:** `lib/modules/entities/web/data_navigator.ex:585-609`, `lib/modules/entities/entity_data.ex:405-411`
+
+**Found by:** Kimi review
+
+`apply_filters/1` calls `EntityData.list_all_data()` which loads the **entire table** into memory (with preloaded `:entity` and `:creator` associations), then filters everything in Elixir with `Enum.filter`:
+
+```elixir
+pre_category_records =
+  EntityData.list_all_data()  # ← Loads ALL records + preloads
+  |> filter_by_entity(entity_id)   # ← Enum.filter in memory
+  |> filter_by_status(status)      # ← Enum.filter in memory
+```
+
+There is no pagination despite `@moduledoc` claiming "pagination, search, filtering, and bulk operations." Every filter change, search keystroke, or status toggle re-loads the full table.
+
+**Impact:** At 100 records this is fine. At 10,000+ records this will cause multi-second page loads and significant BEAM memory pressure. At 100,000+ records it risks VM crashes.
+
+**Recommended fix:** Replace in-memory filtering with database-level `WHERE` clauses and add proper pagination with `LIMIT`/`OFFSET`. The shop categories module already demonstrates database-level filtering as a reference pattern.
+
+**Why I missed this:** I focused exclusively on the diff (what PR #338 changed) without examining the surrounding `apply_filters/1` implementation that the category dropdown fix plugged into. The category fix at line 592-598 is correct, but it compounds the scalability problem by adding another full-table pass.
+
+### 7. `selected_ids` Uses List Instead of MapSet — Medium (Pre-existing)
+
+**File:** `lib/modules/entities/web/data_navigator.ex:351-354`
+
+**Found by:** Kimi review
+
+```elixir
+def handle_event("toggle_select", %{"uuid" => uuid}, socket) do
+  selected = socket.assigns.selected_ids  # ← List
+  selected = if uuid in selected,         # ← O(n) lookup
+              do: List.delete(selected, uuid),  # ← O(n) delete
+              else: [uuid | selected]
+  {:noreply, assign(socket, :selected_ids, selected)}
+end
+```
+
+The shop categories module correctly uses `MapSet` for the same pattern (O(1) member check, O(1) insert/delete). With bulk "select all" on hundreds of records, the List operations become noticeably slower.
+
+**Recommended fix:** Initialize as `MapSet.new()` instead of `[]`, use `MapSet.member?/2`, `MapSet.put/2`, `MapSet.delete/2`.
+
+### 8. Single-Record Auth Checks — Low (Pre-existing, Mitigated)
+
+**File:** `lib/modules/entities/web/data_navigator.ex:286-349`
+
+**Noted in original review as "minor observation", upgraded after Mistral flagged it.**
+
+The `archive_data`, `restore_data`, and `toggle_status` single-record handlers lack `Scope.admin?()` checks. Mistral rated this as "High Severity" claiming privilege escalation, but this is **mitigated by route-level guards**: the `phoenix_kit_ensure_admin` on_mount hook (in `integration.ex:459-461`) blocks non-admin users at the LiveView session level. No non-admin user can reach these handlers.
+
+Still worth adding explicit checks for defense-in-depth consistency with the bulk handlers.
+
+### Cross-Review Notes on Mistral's "Critical" Claims
+
+Mistral flagged two items as blocking/critical that deserve context:
+
+1. **"Validation Bypass in bulk_update_category"** — Mistral claims the SQL `jsonb_set` approach bypasses changeset validation. This is technically true but overstated: the original PR #335 code also had no effective validation (it ignored `repo().update/1` return values), and category values are freeform strings in the JSONB `data` column with no schema-level constraints. The new approach doesn't make this worse.
+
+2. **"Authorization Inconsistency"** — Covered in item 8 above. Route-level guards prevent actual exploitation; the inconsistency is a code style issue, not a security bypass.
+
+---
+
 ## Positive Observations
 
 - **Right level of fix** — The `bulk_update_category` rewrite shows good engineering judgment: rather than adding error handling to a flawed approach, the developer chose a fundamentally better solution.
@@ -111,4 +178,14 @@ The `require Logger` inside the rescue block is functional but unconventional �
 
 ## Verdict
 
-**Approve.** All high-priority items from the PR #335 review have been correctly addressed. The remaining unaddressed items are lower severity (performance optimization, edge cases, informational notes) and can be tackled in future work if needed.
+**Approve with follow-up recommendations.** All 5 targeted items from the PR #335 review have been correctly addressed. The PR itself introduces no regressions.
+
+However, cross-review with Kimi and Mistral identified a **critical pre-existing scalability issue** in DataNavigator (no pagination, full-table in-memory filtering) that should be addressed urgently in a follow-up PR before entity data grows beyond trivial sizes. The MapSet and single-record auth items are lower priority but straightforward to fix.
+
+### Follow-up Priority
+
+| # | Issue | Severity | Effort |
+|---|-------|----------|--------|
+| 6 | Add pagination + DB-level filtering to DataNavigator | Critical | 2-3 hours |
+| 7 | Convert `selected_ids` from List to MapSet | Medium | 15 minutes |
+| 8 | Add `Scope.admin?()` to single-record handlers | Low | 30 minutes |

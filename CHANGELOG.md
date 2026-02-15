@@ -1,3 +1,11 @@
+## 1.7.37 - 2026-02-15
+- Fix UUID PR review issues: aliases, dashboard_assigns, and naming issues
+- Fix V56 migration: add subscription_plans to uuid column setup lists
+- Add admin edit buttons and improve shop catalog UX
+- Add registry-driven admin navigation system
+- Fix localized field validation in Shop forms
+- And bunch of bugs and optimizations
+
 ## 1.7.36 - 2026-02-13
 - Add storefront sidebar filters, category grid, and dashboard shop integration
   - New `CatalogSidebar` component: reusable sidebar with collapsible filter sections and category tree navigation
