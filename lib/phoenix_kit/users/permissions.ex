@@ -759,7 +759,7 @@ defmodule PhoenixKit.Users.Permissions do
   @doc """
   Revokes all permissions from a role.
   """
-  @spec revoke_all_permissions(integer() | String.t()) :: :ok
+  @spec revoke_all_permissions(integer() | String.t()) :: :ok | {:error, term()}
   def revoke_all_permissions(role_id) do
     repo = RepoHelper.repo()
 
@@ -771,6 +771,11 @@ defmodule PhoenixKit.Users.Permissions do
     Events.broadcast_permissions_synced(role_id, [])
     notify_affected_users(role_id)
     :ok
+  rescue
+    e ->
+      require Logger
+      Logger.warning("[PhoenixKit.Permissions] revoke_all_permissions failed: #{inspect(e)}")
+      {:error, e}
   end
 
   @doc """

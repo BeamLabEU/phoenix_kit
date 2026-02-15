@@ -91,15 +91,33 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
         label = Permissions.module_label(key)
 
         if MapSet.member?(role_keys, key) do
-          Permissions.revoke_permission(role_uuid, key)
+          case Permissions.revoke_permission(role_uuid, key) do
+            :ok ->
+              {:noreply,
+               socket
+               |> put_flash(:info, "Revoked #{label} from #{role.name}")
+               |> refresh_matrix()}
 
-          {:noreply,
-           socket |> put_flash(:info, "Revoked #{label} from #{role.name}") |> refresh_matrix()}
+            {:error, _reason} ->
+              {:noreply,
+               socket
+               |> put_flash(:error, "Failed to revoke #{label} from #{role.name}")
+               |> refresh_matrix()}
+          end
         else
-          Permissions.grant_permission(role_uuid, key, granted_by_id)
+          case Permissions.grant_permission(role_uuid, key, granted_by_id) do
+            {:ok, _} ->
+              {:noreply,
+               socket
+               |> put_flash(:info, "Granted #{label} to #{role.name}")
+               |> refresh_matrix()}
 
-          {:noreply,
-           socket |> put_flash(:info, "Granted #{label} to #{role.name}") |> refresh_matrix()}
+            {:error, _reason} ->
+              {:noreply,
+               socket
+               |> put_flash(:error, "Failed to grant #{label} to #{role.name}")
+               |> refresh_matrix()}
+          end
         end
       else
         {:noreply, put_flash(socket, :error, "You can only manage permissions you have")}
@@ -108,8 +126,14 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, reason)}
 
-      _ ->
-        {:noreply, socket}
+      nil ->
+        {:noreply, put_flash(socket, :error, "Role not found")}
+
+      false ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+
+      true ->
+        {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
     end
   end
 
@@ -117,6 +141,8 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
   # Returns :ok if the current user can edit the target role's permissions.
   # Rules: can't edit your own role, only Owner can edit Admin.
+  defp can_edit_role_permissions?(nil, _role), do: {:error, "Not authenticated"}
+
   defp can_edit_role_permissions?(scope, role) do
     user_roles = Scope.user_roles(scope)
 

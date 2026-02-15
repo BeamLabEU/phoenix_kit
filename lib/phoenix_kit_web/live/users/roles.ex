@@ -119,20 +119,29 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   def handle_event("update_role", %{"role" => role_params}, socket) do
     editing_role = socket.assigns.editing_role
 
-    case Roles.update_role(editing_role, role_params) do
-      {:ok, _role} ->
-        socket =
-          socket
-          |> put_flash(:info, "Role updated successfully")
-          |> assign(:show_edit_form, false)
-          |> assign(:edit_role_form, nil)
-          |> assign(:editing_role, nil)
-          |> load_roles()
+    if is_nil(editing_role) do
+      {:noreply,
+       socket
+       |> put_flash(:error, "Role no longer exists")
+       |> assign(:show_edit_form, false)
+       |> assign(:edit_role_form, nil)
+       |> assign(:editing_role, nil)}
+    else
+      case Roles.update_role(editing_role, role_params) do
+        {:ok, _role} ->
+          socket =
+            socket
+            |> put_flash(:info, "Role updated successfully")
+            |> assign(:show_edit_form, false)
+            |> assign(:edit_role_form, nil)
+            |> assign(:editing_role, nil)
+            |> load_roles()
 
-        {:noreply, socket}
+          {:noreply, socket}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :edit_role_form, to_form(changeset))}
+        {:error, changeset} ->
+          {:noreply, assign(socket, :edit_role_form, to_form(changeset))}
+      end
     end
   end
 
@@ -156,13 +165,17 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   end
 
   def handle_event("confirm_delete_role", _params, socket) do
-    role_id = socket.assigns.delete_confirmation.role_id
+    role_id = Map.get(socket.assigns.delete_confirmation, :role_id)
 
-    # Close modal first
-    socket = assign(socket, :delete_confirmation, %{show: false})
+    if is_nil(role_id) do
+      {:noreply, assign(socket, :delete_confirmation, %{show: false})}
+    else
+      # Close modal first
+      socket = assign(socket, :delete_confirmation, %{show: false})
 
-    # Execute the deletion
-    handle_delete_role(role_id, socket)
+      # Execute the deletion
+      handle_delete_role(role_id, socket)
+    end
   end
 
   # Keep old handler for backward compatibility
@@ -345,16 +358,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     |> assign(:uneditable_role_uuids, uneditable_role_uuids)
   end
 
-  # Load role statistics using optimized extended stats
+  # Load role statistics: count of users per role name
   defp load_role_statistics do
-    stats = Roles.get_extended_stats()
-
-    # Create lookup map for fast role count access
-    %{
-      "Owner" => stats.owner_count,
-      "Admin" => stats.admin_count,
-      "User" => stats.user_count
-    }
+    Roles.list_roles()
+    |> Map.new(fn role -> {role.name, Roles.count_users_with_role(role.name)} end)
   end
 
   # Optimized function using cached statistics
@@ -424,6 +431,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     scope = socket.assigns[:phoenix_kit_current_scope]
     scope && Scope.has_module_access?(scope, "users")
   end
+
+  defp can_edit_role_permissions?(nil, _role), do: {:error, "Not authenticated"}
 
   defp can_edit_role_permissions?(scope, role) do
     user_roles = Scope.user_roles(scope)

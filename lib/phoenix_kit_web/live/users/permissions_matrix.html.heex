@@ -162,18 +162,27 @@
                     <%= if role.name == "Owner" do %>
                       <span class="badge badge-sm badge-primary badge-outline">always</span>
                     <% else %>
-                      <button
-                        phx-click="toggle_permission"
-                        phx-value-role_id={role.uuid}
-                        phx-value-key={key}
-                        class="cursor-pointer hover:opacity-70 transition-opacity"
-                      >
+                      <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+                        <%!-- Read-only: user's own role or Admin (non-Owner) --%>
                         <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
-                          <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                          <.icon name="hero-check-circle" class="w-5 h-5 text-success/50" />
                         <% else %>
-                          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/10" />
                         <% end %>
-                      </button>
+                      <% else %>
+                        <button
+                          phx-click="toggle_permission"
+                          phx-value-role_id={role.uuid}
+                          phx-value-key={key}
+                          class="cursor-pointer hover:opacity-70 transition-opacity"
+                        >
+                          <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
+                            <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                          <% else %>
+                            <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                          <% end %>
+                        </button>
+                      <% end %>
                     <% end %>
                   </td>
                 <% end %>
