@@ -274,6 +274,10 @@ PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/CLAUDE_R
 **Use EEx comments in .heex templates:** `<%!-- comment --%>` (server-side, not sent to client)
 **Avoid HTML comments:** `<!-- comment -->` (sent to browser)
 
+### Table Row Actions: Inline Buttons, Not Dropdowns
+
+**Use inline icon buttons for table/list row actions**, not dropdown menus. Pattern: `flex gap-1` with `btn btn-xs btn-ghost` icon-only buttons and `title` tooltips. Dropdown menus are OK for selectors (status, format, version pickers) but not for CRUD actions.
+
 ### URL Prefix and Navigation (IMPORTANT)
 
 **NEVER hardcode PhoenixKit paths.** PhoenixKit uses a configurable URL prefix (default: `/phoenix_kit`). Always use the provided helpers to ensure paths work correctly regardless of prefix configuration.

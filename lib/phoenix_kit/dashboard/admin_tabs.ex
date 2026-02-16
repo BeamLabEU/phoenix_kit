@@ -213,7 +213,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         id: :admin_emails_templates,
         label: "Templates",
         icon: "hero-envelope",
-        path: "/admin/modules/emails/templates",
+        path: "/admin/emails/templates",
         priority: 513,
         level: :admin,
         permission: "emails",

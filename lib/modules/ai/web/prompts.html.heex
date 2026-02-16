@@ -167,40 +167,34 @@
                 </div>
 
                 <%!-- Actions --%>
-                <div class="dropdown dropdown-end">
-                  <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
-                    <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
-                  </div>
-                  <ul
-                    tabindex="0"
-                    class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-48"
+                <div class="flex gap-1">
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.uuid}/edit"}
+                    class="btn btn-xs btn-ghost"
+                    title="Edit prompt"
                   >
-                    <li>
-                      <.link navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.uuid}/edit"}>
-                        <.icon name="hero-pencil" class="w-4 h-4" /> Edit
-                      </.link>
-                    </li>
-                    <li>
-                      <button phx-click="toggle_prompt" phx-value-uuid={prompt.uuid}>
-                        <.icon
-                          name={if prompt.enabled, do: "hero-pause", else: "hero-play"}
-                          class="w-4 h-4"
-                        />
-                        {if prompt.enabled, do: "Disable", else: "Enable"}
-                      </button>
-                    </li>
-                    <li class="divider"></li>
-                    <li>
-                      <button
-                        phx-click="delete_prompt"
-                        phx-value-uuid={prompt.uuid}
-                        data-confirm="Are you sure you want to delete this prompt?"
-                        class="text-error"
-                      >
-                        <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                      </button>
-                    </li>
-                  </ul>
+                    <.icon name="hero-pencil" class="w-4 h-4" />
+                  </.link>
+                  <button
+                    phx-click="toggle_prompt"
+                    phx-value-uuid={prompt.uuid}
+                    class="btn btn-xs btn-ghost"
+                    title={if prompt.enabled, do: "Disable prompt", else: "Enable prompt"}
+                  >
+                    <.icon
+                      name={if prompt.enabled, do: "hero-pause", else: "hero-play"}
+                      class="w-4 h-4"
+                    />
+                  </button>
+                  <button
+                    phx-click="delete_prompt"
+                    phx-value-uuid={prompt.uuid}
+                    data-confirm="Are you sure you want to delete this prompt?"
+                    class="btn btn-xs btn-ghost text-error"
+                    title="Delete prompt"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>

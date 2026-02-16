@@ -120,36 +120,33 @@
                     </div>
                   </div>
 
-                  <%!-- Actions Dropdown --%>
-                  <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
-                      <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
-                    </label>
-                    <ul
-                      tabindex="0"
-                      class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52"
+                  <%!-- Actions --%>
+                  <div class="flex gap-1">
+                    <button
+                      phx-click="view_group"
+                      phx-value-id={group.id}
+                      class="btn btn-xs btn-ghost"
+                      title="View group"
                     >
-                      <li>
-                        <button phx-click="view_group" phx-value-id={group.id}>
-                          <.icon name="hero-eye" class="w-4 h-4" /> View
-                        </button>
-                      </li>
-                      <li>
-                        <button phx-click="edit_group" phx-value-id={group.id}>
-                          <.icon name="hero-pencil" class="w-4 h-4" /> Edit
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          phx-click="delete_group"
-                          phx-value-id={group.id}
-                          class="text-error"
-                          data-confirm="Are you sure you want to delete this group? Posts will not be deleted."
-                        >
-                          <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                        </button>
-                      </li>
-                    </ul>
+                      <.icon name="hero-eye" class="w-4 h-4" />
+                    </button>
+                    <button
+                      phx-click="edit_group"
+                      phx-value-id={group.id}
+                      class="btn btn-xs btn-ghost"
+                      title="Edit group"
+                    >
+                      <.icon name="hero-pencil" class="w-4 h-4" />
+                    </button>
+                    <button
+                      phx-click="delete_group"
+                      phx-value-id={group.id}
+                      data-confirm="Are you sure you want to delete this group? Posts will not be deleted."
+                      class="btn btn-xs btn-ghost text-error"
+                      title="Delete group"
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 

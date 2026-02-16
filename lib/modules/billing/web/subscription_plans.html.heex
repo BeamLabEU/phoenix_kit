@@ -93,41 +93,37 @@
                   </h2>
                   <p class="text-sm text-base-content/60">{plan.description}</p>
                 </div>
-                <div class="dropdown dropdown-end">
-                  <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
-                    <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
-                  </label>
-                  <ul
-                    tabindex="0"
-                    class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52 z-10"
+                <div class="flex gap-1">
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/admin/billing/plans/#{plan.uuid}/edit")
+                    }
+                    class="btn btn-xs btn-ghost"
+                    title="Edit plan"
                   >
-                    <li>
-                      <.link navigate={
-                        PhoenixKit.Utils.Routes.path("/admin/billing/plans/#{plan.uuid}/edit")
-                      }>
-                        <.icon name="hero-pencil" class="w-4 h-4" /> Edit
-                      </.link>
-                    </li>
-                    <li>
-                      <button phx-click="toggle_active" phx-value-uuid={plan.uuid}>
-                        <%= if plan.active do %>
-                          <.icon name="hero-pause" class="w-4 h-4" /> Deactivate
-                        <% else %>
-                          <.icon name="hero-play" class="w-4 h-4" /> Activate
-                        <% end %>
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        phx-click="delete_plan"
-                        phx-value-uuid={plan.uuid}
-                        class="text-error"
-                        data-confirm="Delete this plan? This cannot be undone."
-                      >
-                        <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                      </button>
-                    </li>
-                  </ul>
+                    <.icon name="hero-pencil" class="w-4 h-4" />
+                  </.link>
+                  <button
+                    phx-click="toggle_active"
+                    phx-value-uuid={plan.uuid}
+                    class="btn btn-xs btn-ghost"
+                    title={if plan.active, do: "Deactivate plan", else: "Activate plan"}
+                  >
+                    <%= if plan.active do %>
+                      <.icon name="hero-pause" class="w-4 h-4" />
+                    <% else %>
+                      <.icon name="hero-play" class="w-4 h-4" />
+                    <% end %>
+                  </button>
+                  <button
+                    phx-click="delete_plan"
+                    phx-value-uuid={plan.uuid}
+                    data-confirm="Delete this plan? This cannot be undone."
+                    class="btn btn-xs btn-ghost text-error"
+                    title="Delete plan"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
