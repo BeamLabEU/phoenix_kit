@@ -84,40 +84,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
           else: Scope.accessible_modules(scope)
 
       if MapSet.member?(grantable, key) do
-        granted_by_id = Scope.user_id(scope)
-        role_uuid = to_string(role.uuid)
-        role_keys = Map.get(socket.assigns.matrix, role_uuid, MapSet.new())
-        label = Permissions.module_label(key)
-
-        if MapSet.member?(role_keys, key) do
-          case Permissions.revoke_permission(role_uuid, key) do
-            :ok ->
-              {:noreply,
-               socket
-               |> put_flash(:info, "Revoked #{label} from #{role.name}")
-               |> refresh_matrix()}
-
-            {:error, _reason} ->
-              {:noreply,
-               socket
-               |> put_flash(:error, "Failed to revoke #{label} from #{role.name}")
-               |> refresh_matrix()}
-          end
-        else
-          case Permissions.grant_permission(role_uuid, key, granted_by_id) do
-            {:ok, _} ->
-              {:noreply,
-               socket
-               |> put_flash(:info, "Granted #{label} to #{role.name}")
-               |> refresh_matrix()}
-
-            {:error, _reason} ->
-              {:noreply,
-               socket
-               |> put_flash(:error, "Failed to grant #{label} to #{role.name}")
-               |> refresh_matrix()}
-          end
-        end
+        toggle_role_permission(socket, role, key, scope)
       else
         {:noreply, put_flash(socket, :error, "You can only manage permissions you have")}
       end
@@ -134,6 +101,43 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
   end
 
   # --- Helpers ---
+
+  defp toggle_role_permission(socket, role, key, scope) do
+    granted_by_id = Scope.user_id(scope)
+    role_uuid = to_string(role.uuid)
+    role_keys = Map.get(socket.assigns.matrix, role_uuid, MapSet.new())
+    label = Permissions.module_label(key)
+
+    if MapSet.member?(role_keys, key) do
+      case Permissions.revoke_permission(role_uuid, key) do
+        :ok ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Revoked #{label} from #{role.name}")
+           |> refresh_matrix()}
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to revoke #{label} from #{role.name}")
+           |> refresh_matrix()}
+      end
+    else
+      case Permissions.grant_permission(role_uuid, key, granted_by_id) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Granted #{label} to #{role.name}")
+           |> refresh_matrix()}
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to grant #{label} to #{role.name}")
+           |> refresh_matrix()}
+      end
+    end
+  end
 
   defp load_matrix(socket) do
     roles = Roles.list_roles()

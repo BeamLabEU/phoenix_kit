@@ -262,17 +262,17 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
 
   # Recursively checks if any descendant (children, grandchildren, etc.) is active.
   # Includes depth limit and cycle detection for safety with parent-app-registered tabs.
-  defp any_descendant_active?(parent_id, all_tabs, depth \\ 0, visited \\ MapSet.new())
+  defp any_descendant_active?(parent_id, all_tabs, depth \\ 0, visited \\ %{})
 
   defp any_descendant_active?(_parent_id, _all_tabs, depth, _visited) when depth > 5, do: false
 
   defp any_descendant_active?(parent_id, all_tabs, depth, visited) do
-    if MapSet.member?(visited, parent_id) do
+    if Map.has_key?(visited, parent_id) do
       Logger.warning("[AdminSidebar] Circular tab reference detected: #{inspect(parent_id)}")
       false
     else
       children = get_subtabs_for(parent_id, all_tabs)
-      new_visited = MapSet.put(visited, parent_id)
+      new_visited = Map.put(visited, parent_id, true)
 
       Enum.any?(children, fn child ->
         child.active or any_descendant_active?(child.id, all_tabs, depth + 1, new_visited)
