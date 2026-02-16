@@ -148,52 +148,27 @@
                           </button>
                         <% end %>
                       </td>
-                      <td class="text-right">
-                        <div class="dropdown dropdown-end">
-                          <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
-                            <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
-                          </label>
-                          <ul
-                            tabindex="0"
-                            class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
+                      <td>
+                        <div class="flex justify-end gap-1">
+                          <button
+                            phx-click="show_edit_form"
+                            phx-value-uuid={currency.uuid}
+                            class="btn btn-xs btn-ghost"
+                            title="Edit currency"
                           >
-                            <li>
-                              <button
-                                phx-click="show_edit_form"
-                                phx-value-uuid={currency.uuid}
-                              >
-                                <.icon name="hero-pencil-square" class="w-4 h-4" /> Edit
-                              </button>
-                            </li>
-                            <li>
-                              <button phx-click="toggle_enabled" phx-value-uuid={currency.uuid}>
-                                <%= if currency.enabled do %>
-                                  <.icon name="hero-x-circle" class="w-4 h-4" /> Disable
-                                <% else %>
-                                  <.icon name="hero-check-circle" class="w-4 h-4" /> Enable
-                                <% end %>
-                              </button>
-                            </li>
-                            <%= unless currency.is_default do %>
-                              <li>
-                                <button phx-click="set_default" phx-value-uuid={currency.uuid}>
-                                  <.icon name="hero-star" class="w-4 h-4" /> Set as Default
-                                </button>
-                              </li>
-                            <% end %>
-                            <%= unless currency.is_default do %>
-                              <li>
-                                <button
-                                  phx-click="delete_currency"
-                                  phx-value-uuid={currency.uuid}
-                                  data-confirm={"Delete #{currency.code}? This cannot be undone."}
-                                  class="text-error"
-                                >
-                                  <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                                </button>
-                              </li>
-                            <% end %>
-                          </ul>
+                            <.icon name="hero-pencil" class="w-4 h-4" />
+                          </button>
+                          <%= unless currency.is_default do %>
+                            <button
+                              phx-click="delete_currency"
+                              phx-value-uuid={currency.uuid}
+                              data-confirm={"Delete #{currency.code}? This cannot be undone."}
+                              class="btn btn-xs btn-ghost text-error"
+                              title="Delete currency"
+                            >
+                              <.icon name="hero-trash" class="w-4 h-4" />
+                            </button>
+                          <% end %>
                         </div>
                       </td>
                     </tr>

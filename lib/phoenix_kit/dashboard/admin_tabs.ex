@@ -221,7 +221,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_emails_templates,
         "Templates",
         "hero-document-duplicate",
-        "/admin/modules/emails/templates",
+        "/admin/emails/templates",
         513,
         :admin_emails,
         "emails"
