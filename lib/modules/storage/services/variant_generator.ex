@@ -93,7 +93,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   def generate_variant(file, dimension) do
     # Guard: file_path must exist to generate variants
     if is_nil(file.file_path) do
-      Logger.warning("Cannot generate variant for file #{file.id}: file_path is nil")
+      Logger.warning("Cannot generate variant for file #{file.uuid}: file_path is nil")
       {:error, :file_path_missing}
     else
       do_generate_variant(file, dimension)
@@ -102,7 +102,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
   defp do_generate_variant(file, dimension) do
     variant_name = dimension.name
-    Logger.info("Generating variant: #{variant_name} for file: #{file.id}")
+    Logger.info("Generating variant: #{variant_name} for file: #{file.uuid}")
 
     # Generate variant filename using file checksum + variant name for uniqueness
     variant_ext = determine_variant_extension(file.ext, dimension.format)
@@ -124,7 +124,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
            process_variant(original_path, variant_path, file.mime_type, dimension),
          {:ok, file_stats} <- get_variant_file_stats(variant_path),
          {:ok, storage_info} <-
-           store_variant_file(variant_path, variant_name, variant_storage_path, file.id),
+           store_variant_file(variant_path, variant_name, variant_storage_path, file.uuid),
          {:ok, instance} <-
            create_variant_instance(
              file,
@@ -174,7 +174,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         file_id ->
           # Get the original instance's bucket IDs
           case Storage.get_file_instance_by_name(file_id, "original") do
-            %Storage.FileInstance{id: original_instance_id} ->
+            %Storage.FileInstance{uuid: original_instance_id} ->
               bucket_ids = Storage.get_file_instance_bucket_ids(original_instance_id)
 
               if Enum.empty?(bucket_ids) do
@@ -204,7 +204,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
   defp create_variant_instance(file, variant_name, storage_path, mime_type, ext, stats) do
     # Check if variant already exists
-    case Storage.get_file_instance_by_name(file.id, variant_name) do
+    case Storage.get_file_instance_by_name(file.uuid, variant_name) do
       %Storage.FileInstance{} = existing_instance ->
         # Variant already exists, return it
         {:ok, existing_instance}
@@ -221,7 +221,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
           width: stats.width,
           height: stats.height,
           processing_status: "completed",
-          file_id: file.id
+          file_id: file.uuid
         }
 
         Storage.create_file_instance(instance_attrs)
@@ -229,13 +229,13 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   end
 
   defp create_variant_file_locations(instance, bucket_ids, storage_path) do
-    case Storage.create_file_locations_for_instance(instance.id, bucket_ids, storage_path) do
+    case Storage.create_file_locations_for_instance(instance.uuid, bucket_ids, storage_path) do
       {:ok, locations} ->
         {:ok, locations}
 
       {:error, :file_locations_failed, errors} ->
         Logger.error(
-          "Failed to create file locations for instance #{instance.id}: #{inspect(errors)}"
+          "Failed to create file locations for instance #{instance.uuid}: #{inspect(errors)}"
         )
 
         # Rollback: delete the orphaned instance
@@ -325,7 +325,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   end
 
   defp retrieve_original_file(file) do
-    case Storage.retrieve_file(file.id) do
+    case Storage.retrieve_file(file.uuid) do
       {:ok, path, _file} -> {:ok, path}
       error -> error
     end

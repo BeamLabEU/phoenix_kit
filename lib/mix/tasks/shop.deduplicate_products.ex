@@ -90,7 +90,7 @@ defmodule Mix.Tasks.Shop.DeduplicateProducts do
   defp find_duplicates(repo, language) do
     # Find slugs that appear in multiple products
     query = """
-    SELECT slug->>$1 as slug_value, array_agg(id ORDER BY id) as ids
+    SELECT slug->>$1 as slug_value, array_agg(uuid ORDER BY uuid) as ids
     FROM phoenix_kit_shop_products
     WHERE slug->>$1 IS NOT NULL
     GROUP BY slug->>$1
@@ -107,27 +107,27 @@ defmodule Mix.Tasks.Shop.DeduplicateProducts do
     end
   end
 
-  defp process_duplicate_group(repo, slug, ids, _language, dry_run, verbose) do
-    [keep_id | remove_ids] = ids
+  defp process_duplicate_group(repo, slug, uuids, _language, dry_run, verbose) do
+    [keep_uuid | remove_uuids] = uuids
 
     Mix.shell().info("Processing slug: \"#{slug}\"")
-    Mix.shell().info("  Keep: ID #{keep_id}")
-    Mix.shell().info("  Remove: IDs #{inspect(remove_ids)}")
+    Mix.shell().info("  Keep: #{keep_uuid}")
+    Mix.shell().info("  Remove: #{inspect(remove_uuids)}")
 
     if verbose do
       # Show product details
-      products = repo.all(from(p in Product, where: p.id in ^ids))
+      products = repo.all(from(p in Product, where: p.uuid in ^uuids))
 
       Enum.each(products, fn product ->
-        Mix.shell().info("    ID #{product.id}: #{inspect(product.title)}")
+        Mix.shell().info("    #{product.uuid}: #{inspect(product.title)}")
       end)
     end
 
     unless dry_run do
       repo.transaction(fn ->
         # 1. Load all products
-        keep_product = repo.get!(Product, keep_id)
-        remove_products = repo.all(from(p in Product, where: p.id in ^remove_ids))
+        keep_product = repo.get!(Product, keep_uuid)
+        remove_products = repo.all(from(p in Product, where: p.uuid in ^remove_uuids))
 
         # 2. Merge localized fields
         merged_attrs = merge_all_localized_fields(keep_product, remove_products)
@@ -138,15 +138,15 @@ defmodule Mix.Tasks.Shop.DeduplicateProducts do
         |> repo.update!()
 
         # 4. Update cart_items references
-        update_cart_items(repo, keep_id, remove_ids)
+        update_cart_items(repo, keep_uuid, remove_uuids)
 
-        # 5. Update order_items references (if they have product_id)
-        update_order_items(repo, keep_id, remove_ids)
+        # 5. Update order_items references (if they have product_uuid)
+        update_order_items(repo, keep_uuid, remove_uuids)
 
         # 6. Delete duplicate products
-        repo.delete_all(from(p in Product, where: p.id in ^remove_ids))
+        repo.delete_all(from(p in Product, where: p.uuid in ^remove_uuids))
 
-        Mix.shell().info("  ✅ Merged and removed #{length(remove_ids)} duplicate(s)")
+        Mix.shell().info("  ✅ Merged and removed #{length(remove_uuids)} duplicate(s)")
       end)
     end
   end
@@ -174,15 +174,14 @@ defmodule Mix.Tasks.Shop.DeduplicateProducts do
     end)
   end
 
-  defp update_cart_items(repo, keep_id, remove_ids) do
-    # Check if cart_items table exists and has product_id column
+  defp update_cart_items(repo, keep_uuid, remove_uuids) do
     query = """
     UPDATE phoenix_kit_shop_cart_items
-    SET product_id = $1
-    WHERE product_id = ANY($2)
+    SET product_uuid = $1
+    WHERE product_uuid = ANY($2::uuid[])
     """
 
-    case repo.query(query, [keep_id, remove_ids]) do
+    case repo.query(query, [keep_uuid, remove_uuids]) do
       {:ok, %{num_rows: num}} when num > 0 ->
         Mix.shell().info("  Updated #{num} cart item(s)")
 
@@ -197,15 +196,14 @@ defmodule Mix.Tasks.Shop.DeduplicateProducts do
     end
   end
 
-  defp update_order_items(repo, keep_id, remove_ids) do
-    # Order items might store product_id for reference
+  defp update_order_items(repo, keep_uuid, remove_uuids) do
     query = """
     UPDATE phoenix_kit_order_items
-    SET product_id = $1
-    WHERE product_id = ANY($2)
+    SET product_uuid = $1
+    WHERE product_uuid = ANY($2::uuid[])
     """
 
-    case repo.query(query, [keep_id, remove_ids]) do
+    case repo.query(query, [keep_uuid, remove_uuids]) do
       {:ok, %{num_rows: num}} when num > 0 ->
         Mix.shell().info("  Updated #{num} order item(s)")
 

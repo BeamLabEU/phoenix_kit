@@ -230,15 +230,15 @@
                       type="checkbox"
                       class="checkbox checkbox-sm"
                       phx-click="select_post"
-                      phx-value-id={post.id}
-                      phx-value-value={if post.id in @selected_posts, do: "off", else: "on"}
-                      checked={post.id in @selected_posts}
+                      phx-value-id={post.uuid}
+                      phx-value-value={if post.uuid in @selected_posts, do: "off", else: "on"}
+                      checked={post.uuid in @selected_posts}
                     />
                   </.table_default_cell>
                   <.table_default_cell>
                     <div class="flex flex-col">
                       <.link
-                        href={Routes.path("/admin/posts/#{post.id}/edit")}
+                        href={Routes.path("/admin/posts/#{post.uuid}/edit")}
                         class="link link-primary font-semibold"
                       >
                         {post.title}
@@ -278,7 +278,7 @@
                   <.table_default_cell>
                     <div class="flex items-center gap-1">
                       <.link
-                        navigate={Routes.path("/admin/posts/#{post.id}")}
+                        navigate={Routes.path("/admin/posts/#{post.uuid}")}
                         class="btn btn-ghost btn-xs"
                         title="Preview post"
                       >
@@ -291,20 +291,20 @@
                           class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52 z-50"
                         >
                           <li>
-                            <button phx-click="view_post" phx-value-id={post.id}>View</button>
+                            <button phx-click="view_post" phx-value-id={post.uuid}>View</button>
                           </li>
                           <li>
-                            <button phx-click="edit_post" phx-value-id={post.id}>Edit</button>
+                            <button phx-click="edit_post" phx-value-id={post.uuid}>Edit</button>
                           </li>
                           <%= if post.status == "draft" do %>
                             <li>
-                              <button phx-click="publish_post" phx-value-id={post.id}>
+                              <button phx-click="publish_post" phx-value-id={post.uuid}>
                                 Publish
                               </button>
                             </li>
                           <% else %>
                             <li>
-                              <button phx-click="draft_post" phx-value-id={post.id}>
+                              <button phx-click="draft_post" phx-value-id={post.uuid}>
                                 Move to Draft
                               </button>
                             </li>
@@ -312,7 +312,7 @@
                           <li>
                             <button
                               phx-click="delete_post"
-                              phx-value-id={post.id}
+                              phx-value-id={post.uuid}
                               data-confirm="Are you sure you want to delete this post?"
                               class="text-error"
                             >

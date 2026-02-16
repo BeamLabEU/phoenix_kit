@@ -159,7 +159,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/settings/media/dimensions/#{dimension.id}/edit"
+                                "/admin/settings/media/dimensions/#{dimension.uuid}/edit"
                               )
                             }
                             class="btn btn-xs btn-ghost"
@@ -170,7 +170,7 @@
                           <button
                             phx-click="toggle_dimension"
                             phx-debounce="1000"
-                            phx-value-id={dimension.id}
+                            phx-value-id={dimension.uuid}
                             class="btn btn-xs btn-ghost"
                             title={
                               if dimension.enabled,
@@ -187,7 +187,7 @@
                           <button
                             phx-click="delete_dimension"
                             phx-debounce="1000"
-                            phx-value-id={dimension.id}
+                            phx-value-id={dimension.uuid}
                             data-confirm="Are you sure you want to delete this dimension?"
                             class="btn btn-xs btn-ghost text-error"
                             title="Delete dimension"
@@ -281,7 +281,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/settings/media/dimensions/#{dimension.id}/edit"
+                                "/admin/settings/media/dimensions/#{dimension.uuid}/edit"
                               )
                             }
                             class="btn btn-xs btn-ghost"
@@ -292,7 +292,7 @@
                           <button
                             phx-click="toggle_dimension"
                             phx-debounce="1000"
-                            phx-value-id={dimension.id}
+                            phx-value-id={dimension.uuid}
                             class="btn btn-xs btn-ghost"
                             title={
                               if dimension.enabled,
@@ -309,7 +309,7 @@
                           <button
                             phx-click="delete_dimension"
                             phx-debounce="1000"
-                            phx-value-id={dimension.id}
+                            phx-value-id={dimension.uuid}
                             data-confirm="Are you sure you want to delete this dimension?"
                             class="btn btn-xs btn-ghost text-error"
                             title="Delete dimension"

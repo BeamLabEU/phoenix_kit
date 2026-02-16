@@ -20,12 +20,13 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           post_id: UUIDv7.t(),
-          user_id: integer(),
+          user_id: integer() | nil,
+          user_uuid: UUIDv7.t() | nil,
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
@@ -33,9 +34,14 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
         }
 
   schema "phoenix_kit_post_likes" do
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    field :user_uuid, UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid, type: UUIDv7
+
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :user_id, :integer
 
     timestamps(type: :naive_datetime)
   end
@@ -55,9 +61,9 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
   def changeset(like, attrs) do
     like
     |> cast(attrs, [:post_id, :user_id, :user_uuid])
-    |> validate_required([:post_id, :user_id])
+    |> validate_required([:post_id, :user_uuid])
     |> foreign_key_constraint(:post_id)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
     |> unique_constraint([:post_id, :user_id],
       name: :phoenix_kit_post_likes_post_id_user_id_index,
       message: "you have already liked this post"

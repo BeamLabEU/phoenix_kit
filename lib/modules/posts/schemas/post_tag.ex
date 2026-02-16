@@ -31,11 +31,11 @@ defmodule PhoenixKit.Modules.Posts.PostTag do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           name: String.t(),
           slug: String.t(),
           usage_count: integer(),
@@ -49,7 +49,8 @@ defmodule PhoenixKit.Modules.Posts.PostTag do
     field :usage_count, :integer, default: 0
 
     many_to_many :posts, PhoenixKit.Modules.Posts.Post,
-      join_through: PhoenixKit.Modules.Posts.PostTagAssignment
+      join_through: PhoenixKit.Modules.Posts.PostTagAssignment,
+      join_keys: [tag_id: :uuid, post_id: :uuid]
 
     timestamps(type: :naive_datetime)
   end

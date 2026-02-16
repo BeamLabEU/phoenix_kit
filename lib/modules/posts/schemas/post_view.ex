@@ -39,12 +39,13 @@ defmodule PhoenixKit.Modules.Posts.PostView do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           post_id: UUIDv7.t(),
           user_id: integer() | nil,
+          user_uuid: UUIDv7.t() | nil,
           ip_address: String.t() | nil,
           user_agent_hash: String.t() | nil,
           session_id: String.t() | nil,
@@ -61,9 +62,14 @@ defmodule PhoenixKit.Modules.Posts.PostView do
     field :session_id, :string
     field :viewed_at, :utc_datetime_usec
 
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    field :user_uuid, UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid, type: UUIDv7
+
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :user_id, :integer
 
     timestamps(type: :naive_datetime)
   end
@@ -94,7 +100,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
     |> validate_required([:post_id, :viewed_at])
     |> validate_viewed_at_not_future()
     |> foreign_key_constraint(:post_id)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
   end
 
   @doc """

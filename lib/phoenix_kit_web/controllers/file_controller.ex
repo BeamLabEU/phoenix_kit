@@ -129,7 +129,7 @@ defmodule PhoenixKitWeb.FileController do
           end)
 
         json(conn, %{
-          file_id: file.id,
+          file_id: file.uuid,
           original_filename: file.original_file_name,
           mime_type: file.mime_type,
           file_type: file.file_type,
@@ -180,7 +180,7 @@ defmodule PhoenixKitWeb.FileController do
           :error
 
         file ->
-          %{file_id: file_id, user_id: file.user_id, filename: original_instance.file_name}
+          %{file_id: file_id, user_uuid: file.user_uuid, filename: original_instance.file_name}
           |> ProcessFileJob.new()
           |> Oban.insert()
       end
@@ -242,7 +242,7 @@ defmodule PhoenixKitWeb.FileController do
   # Proxy a remote file through the server (for private buckets)
   defp proxy_remote_file(conn, file, instance, file_name) do
     temp_path =
-      Path.join(System.tmp_dir!(), "phoenix_kit_#{instance.id}_#{:rand.uniform(1_000_000)}")
+      Path.join(System.tmp_dir!(), "phoenix_kit_#{instance.uuid}_#{:rand.uniform(1_000_000)}")
 
     case Manager.retrieve_file(file_name, destination_path: temp_path) do
       {:ok, _} ->

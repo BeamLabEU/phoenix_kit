@@ -39,11 +39,11 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           ticket_id: UUIDv7.t() | nil,
           comment_id: UUIDv7.t() | nil,
           file_id: UUIDv7.t(),
@@ -61,9 +61,9 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
     field :position, :integer
     field :caption, :string
 
-    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket
-    belongs_to :comment, PhoenixKit.Modules.Tickets.TicketComment
-    belongs_to :file, PhoenixKit.Modules.Storage.File
+    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, references: :uuid
+    belongs_to :comment, PhoenixKit.Modules.Tickets.TicketComment, references: :uuid
+    belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
 
     timestamps(type: :naive_datetime)
   end

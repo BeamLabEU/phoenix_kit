@@ -45,8 +45,15 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
   schema "phoenix_kit_post_group_assignments" do
     field :position, :integer, default: 0
 
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7, primary_key: true
-    belongs_to :group, PhoenixKit.Modules.Posts.PostGroup, type: UUIDv7, primary_key: true
+    belongs_to :post, PhoenixKit.Modules.Posts.Post,
+      references: :uuid,
+      type: UUIDv7,
+      primary_key: true
+
+    belongs_to :group, PhoenixKit.Modules.Posts.PostGroup,
+      references: :uuid,
+      type: UUIDv7,
+      primary_key: true
 
     timestamps(type: :naive_datetime)
   end

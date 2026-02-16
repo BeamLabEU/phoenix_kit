@@ -67,11 +67,11 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           path: String.t(),
           status: String.t(),
           priority: integer(),
@@ -91,8 +91,8 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
     field :priority, :integer, default: 0
     field :last_verified_at, :naive_datetime
 
-    belongs_to :file_instance, PhoenixKit.Modules.Storage.FileInstance
-    belongs_to :bucket, PhoenixKit.Modules.Storage.Bucket
+    belongs_to :file_instance, PhoenixKit.Modules.Storage.FileInstance, references: :uuid
+    belongs_to :bucket, PhoenixKit.Modules.Storage.Bucket, references: :uuid
 
     timestamps(type: :naive_datetime)
   end

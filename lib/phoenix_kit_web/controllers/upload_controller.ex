@@ -161,7 +161,7 @@ defmodule PhoenixKitWeb.UploadController do
         %StorageFile{} = existing_file ->
           # File already exists for this user, delete temp upload and return existing file
           File.rm(upload.path)
-          {:ok, existing_file.id}
+          {:ok, existing_file.uuid}
 
         nil ->
           # New file for this user, proceed with upload
@@ -195,11 +195,11 @@ defmodule PhoenixKitWeb.UploadController do
     case Storage.store_file_in_buckets(upload.path, file_type, user_id, file_checksum, ext) do
       {:ok, file} ->
         # Queue background job for variant generation
-        %{file_id: file.id, user_id: user_id, filename: upload.filename}
+        %{file_id: file.uuid, user_id: user_id, filename: upload.filename}
         |> ProcessFileJob.new()
         |> Oban.insert()
 
-        {:ok, file.id}
+        {:ok, file.uuid}
 
       {:error, reason} ->
         {:error, reason}

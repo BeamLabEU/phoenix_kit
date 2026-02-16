@@ -27,14 +27,14 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           resource_type: String.t(),
           resource_id: Ecto.UUID.t(),
           user_id: integer() | nil,
-          user_uuid: Ecto.UUID.t() | nil,
+          user_uuid: UUIDv7.t() | nil,
           parent_id: UUIDv7.t() | nil,
           content: String.t(),
           status: String.t(),
@@ -57,9 +57,13 @@ defmodule PhoenixKit.Modules.Comments.Comment do
     field :like_count, :integer, default: 0
     field :dislike_count, :integer, default: 0
 
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    field :user_uuid, UUIDv7
-    belongs_to :parent, __MODULE__, type: UUIDv7
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :user_id, :integer
+    belongs_to :parent, __MODULE__, references: :uuid, type: UUIDv7
 
     has_many :children, __MODULE__, foreign_key: :parent_id
 
@@ -88,11 +92,11 @@ defmodule PhoenixKit.Modules.Comments.Comment do
       :status,
       :depth
     ])
-    |> validate_required([:resource_type, :resource_id, :user_id, :content])
+    |> validate_required([:resource_type, :resource_id, :user_uuid, :content])
     |> validate_inclusion(:status, ["published", "hidden", "deleted", "pending"])
     |> validate_length(:content, min: 1, max: 10_000)
     |> validate_length(:resource_type, max: 50)
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
     |> foreign_key_constraint(:parent_id)
   end
 

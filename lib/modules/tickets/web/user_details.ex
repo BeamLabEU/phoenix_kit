@@ -97,11 +97,11 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
       pending_file_ids = socket.assigns.pending_comment_file_ids
 
       # Users can only add public comments (is_internal is always false)
-      case Tickets.create_comment(ticket.id, current_user.id, %{content: content}) do
+      case Tickets.create_comment(ticket.uuid, current_user.id, %{content: content}) do
         {:ok, comment} ->
           # Attach any pending files to the comment
           Enum.each(pending_file_ids, fn file_id ->
-            Tickets.add_attachment_to_comment(comment.id, file_id)
+            Tickets.add_attachment_to_comment(comment.uuid, file_id)
           end)
 
           {:noreply,
@@ -133,7 +133,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
   @impl true
   def handle_event("remove_pending_comment_file", %{"id" => file_id}, socket) do
     pending_file_ids = Enum.reject(socket.assigns.pending_comment_file_ids, &(&1 == file_id))
-    pending_files = Enum.reject(socket.assigns.pending_comment_files, &(&1.id == file_id))
+    pending_files = Enum.reject(socket.assigns.pending_comment_files, &(&1.uuid == file_id))
 
     {:noreply,
      socket
@@ -146,18 +146,18 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
   defp load_public_comments(socket) do
     ticket = socket.assigns.ticket
     # Only load public comments - exclude internal notes
-    comments = Tickets.list_public_comments(ticket.id, preload: [:user])
+    comments = Tickets.list_public_comments(ticket.uuid, preload: [:user])
     assign(socket, :comments, comments)
   end
 
   defp load_attachments(socket) do
     ticket = socket.assigns.ticket
-    attachments = Tickets.list_ticket_attachments(ticket.id, preload: [:file])
+    attachments = Tickets.list_ticket_attachments(ticket.uuid, preload: [:file])
     assign(socket, :attachments, attachments)
   end
 
   defp reload_ticket(socket) do
-    ticket = Tickets.get_ticket!(socket.assigns.ticket.id, preload: [:user, :assigned_to])
+    ticket = Tickets.get_ticket!(socket.assigns.ticket.uuid, preload: [:user, :assigned_to])
     assign(socket, :ticket, ticket)
   end
 
@@ -191,11 +191,11 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
                entry.client_name
              ) do
           {:ok, file, :duplicate} ->
-            Logger.info("Comment attachment is duplicate with ID: #{file.id}")
+            Logger.info("Comment attachment is duplicate with ID: #{file.uuid}")
             {:ok, file}
 
           {:ok, file} ->
-            Logger.info("Comment attachment stored with ID: #{file.id}")
+            Logger.info("Comment attachment stored with ID: #{file.uuid}")
             {:ok, file}
 
           {:error, reason} ->
@@ -210,7 +210,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
       |> Enum.filter(&match?({:ok, _}, &1))
       |> Enum.map(fn {:ok, file} -> file end)
 
-    new_file_ids = Enum.map(new_files, & &1.id)
+    new_file_ids = Enum.map(new_files, & &1.uuid)
 
     socket
     |> assign(:pending_comment_file_ids, socket.assigns.pending_comment_file_ids ++ new_file_ids)

@@ -578,22 +578,22 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                entry.client_name
              ) do
           {:ok, file, :duplicate} ->
-            Logger.info("Avatar file is duplicate with ID: #{file.id}")
+            Logger.info("Avatar file is duplicate with ID: #{file.uuid}")
 
             {:ok,
              %{
-               file_id: file.id,
+               file_id: file.uuid,
                filename: entry.client_name,
                size: file_size,
                duplicate: true
              }}
 
           {:ok, file} ->
-            Logger.info("Avatar file stored with ID: #{file.id}")
+            Logger.info("Avatar file stored with ID: #{file.uuid}")
 
             {:ok,
              %{
-               file_id: file.id,
+               file_id: file.uuid,
                filename: entry.client_name,
                size: file_size
              }}

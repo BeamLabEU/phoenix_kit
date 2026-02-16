@@ -173,7 +173,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Export do
     if options[:include_events] do
       # Load events for each log
       Enum.map(logs, fn log ->
-        events = Emails.list_events_for_log(log.id)
+        events = Emails.list_events_for_log(log.uuid)
         Map.put(log, :events, events)
       end)
     else
@@ -250,7 +250,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Export do
 
   defp build_csv_row(log, options) do
     base_values = [
-      log.id,
+      log.uuid,
       escape_csv(log.message_id),
       escape_csv(log.to),
       escape_csv(log.from),

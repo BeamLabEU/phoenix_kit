@@ -155,7 +155,7 @@ defmodule PhoenixKit.Modules.Storage do
   def calculate_bucket_usage(bucket_id) do
     from(fl in FileLocation,
       join: fi in FileInstance,
-      on: fl.file_instance_id == fi.id,
+      on: fl.file_instance_id == fi.uuid,
       where: fl.bucket_id == ^bucket_id and fl.status == "active",
       select: fragment("SUM(? / (1024 * 1024))", fi.size)
     )
@@ -173,7 +173,7 @@ defmodule PhoenixKit.Modules.Storage do
   For cloud storage, returns the configured max_size_mb minus usage.
   """
   def calculate_bucket_free_space(%Bucket{} = bucket) do
-    used_mb = calculate_bucket_usage(bucket.id)
+    used_mb = calculate_bucket_usage(bucket.uuid)
 
     case bucket.provider do
       "local" ->
@@ -895,7 +895,7 @@ defmodule PhoenixKit.Modules.Storage do
   def retrieve_file_by_hash(hash) do
     case get_file_by_checksum(hash) do
       %PhoenixKit.Modules.Storage.File{} = file ->
-        retrieve_file(file.id)
+        retrieve_file(file.uuid)
 
       nil ->
         {:error, "File not found"}
@@ -907,7 +907,7 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def delete_file_data(%PhoenixKit.Modules.Storage.File{} = file) do
     # Look up the actual file path from file_instances where "original" variant is stored
-    case get_file_instance_by_name(file.id, "original") do
+    case get_file_instance_by_name(file.uuid, "original") do
       %PhoenixKit.Modules.Storage.FileInstance{file_name: file_path} ->
         case Manager.delete_file(file_path) do
           :ok -> :ok
@@ -924,9 +924,9 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def get_public_url(%PhoenixKit.Modules.Storage.File{} = file) do
     # Look up the actual file path from file_instances where "original" variant is stored
-    case get_file_instance_by_name(file.id, "original") do
+    case get_file_instance_by_name(file.uuid, "original") do
       %PhoenixKit.Modules.Storage.FileInstance{file_name: file_path} ->
-        Manager.public_url(file_path) || signed_file_url(file.id, "original")
+        Manager.public_url(file_path) || signed_file_url(file.uuid, "original")
 
       nil ->
         nil
@@ -951,9 +951,9 @@ defmodule PhoenixKit.Modules.Storage do
 
   """
   def get_public_url_by_variant(%PhoenixKit.Modules.Storage.File{} = file, variant_name) do
-    case get_file_instance_by_name(file.id, variant_name) do
+    case get_file_instance_by_name(file.uuid, variant_name) do
       %PhoenixKit.Modules.Storage.FileInstance{file_name: file_path} ->
-        Manager.public_url(file_path) || signed_file_url(file.id, variant_name)
+        Manager.public_url(file_path) || signed_file_url(file.uuid, variant_name)
 
       nil ->
         # Fallback to original if variant doesn't exist
@@ -1017,7 +1017,7 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def file_exists?(%PhoenixKit.Modules.Storage.File{} = file) do
     # Look up the actual file path from file_instances where "original" variant is stored
-    case get_file_instance_by_name(file.id, "original") do
+    case get_file_instance_by_name(file.uuid, "original") do
       %PhoenixKit.Modules.Storage.FileInstance{file_name: file_path} ->
         Manager.file_exists?(file_path)
 
@@ -1082,11 +1082,11 @@ defmodule PhoenixKit.Modules.Storage do
     case get_file_by_user_checksum(user_file_checksum) do
       %PhoenixKit.Modules.Storage.File{} = existing_file ->
         Logger.info("=== DUPLICATE FILE DETECTED ===")
-        Logger.info("File ID: #{existing_file.id}, Checksum: #{file_checksum}")
+        Logger.info("File ID: #{existing_file.uuid}, Checksum: #{file_checksum}")
         Logger.info("File path: #{existing_file.file_path}")
 
         # File already exists, but check if instances and actual files are healthy
-        case get_file_instance_by_name(existing_file.id, "original") do
+        case get_file_instance_by_name(existing_file.uuid, "original") do
           %FileInstance{file_name: stored_file_path} ->
             Logger.info("Original instance record found: #{stored_file_path}")
 
@@ -1102,7 +1102,7 @@ defmodule PhoenixKit.Modules.Storage do
                 # File record exists but actual file is missing from storage
                 # Need to re-store the file and recreate instances
                 Logger.warning(
-                  "Duplicate file detected but missing from storage: #{existing_file.id}"
+                  "Duplicate file detected but missing from storage: #{existing_file.uuid}"
                 )
 
                 restore_missing_file(
@@ -1118,7 +1118,7 @@ defmodule PhoenixKit.Modules.Storage do
             # File record exists but instance record is missing
             # Need to recreate instances from the stored file
             Logger.warning(
-              "Duplicate file detected but missing instance record: #{existing_file.id}"
+              "Duplicate file detected but missing instance record: #{existing_file.uuid}"
             )
 
             Logger.info("Attempting to recreate instances...")
@@ -1207,17 +1207,17 @@ defmodule PhoenixKit.Modules.Storage do
               checksum: file_checksum,
               size: get_file_size(source_path),
               processing_status: "completed",
-              file_id: file.id
+              file_id: file.uuid
             }
 
             case create_file_instance(original_instance_attrs) do
               {:ok, instance} ->
                 # Create file location records for each bucket where the file was stored
-                _ = create_file_locations(instance.id, storage_info.bucket_ids, original_path)
+                _ = create_file_locations(instance.uuid, storage_info.bucket_ids, original_path)
 
                 # Queue background job for variant processing
                 _ =
-                  %{file_id: file.id, user_id: user_id, filename: orig_filename}
+                  %{file_id: file.uuid, user_id: user_id, filename: orig_filename}
                   |> ProcessFileJob.new()
                   |> Oban.insert()
 
@@ -1245,7 +1245,7 @@ defmodule PhoenixKit.Modules.Storage do
   defp queue_variant_generation(file, user_id, original_filename) do
     # Queue variant generation to ensure all variants exist for this file
     Task.start(fn ->
-      %{file_id: file.id, user_id: user_id, filename: original_filename}
+      %{file_id: file.uuid, user_id: user_id, filename: original_filename}
       |> ProcessFileJob.new()
       |> Oban.insert()
     end)
@@ -1264,16 +1264,16 @@ defmodule PhoenixKit.Modules.Storage do
     # Delete broken instances and recreate them (which will also store the file)
 
     Logger.warning("=== RECOVERING MISSING FILE ===")
-    Logger.warning("File ID: #{existing_file.id}")
+    Logger.warning("File ID: #{existing_file.uuid}")
     Logger.warning("File path: #{existing_file.file_path}")
     Logger.warning("Source path: #{source_path}")
 
     # First, delete all broken instances for this file
-    deleted_count = delete_file_instances_for_file(existing_file.id)
-    Logger.info("Deleted #{deleted_count} broken instances for file: #{existing_file.id}")
+    deleted_count = delete_file_instances_for_file(existing_file.uuid)
+    Logger.info("Deleted #{deleted_count} broken instances for file: #{existing_file.uuid}")
 
     # Recreate instance and store the file (combined in one operation)
-    Logger.info("Recreating instances for file #{existing_file.id}")
+    Logger.info("Recreating instances for file #{existing_file.uuid}")
     recreate_file_instances(existing_file, source_path, file_hash, user_id, original_filename)
   end
 
@@ -1292,7 +1292,7 @@ defmodule PhoenixKit.Modules.Storage do
     # First store the file in buckets, then recreate the instance record
 
     Logger.info(
-      "Starting recreate_file_instances for file: #{file.id}, file_path: #{file.file_path}"
+      "Starting recreate_file_instances for file: #{file.uuid}, file_path: #{file.file_path}"
     )
 
     {:ok, stat} = Elixir.File.stat(source_path)
@@ -1326,18 +1326,18 @@ defmodule PhoenixKit.Modules.Storage do
           checksum: file_checksum,
           size: file_size,
           processing_status: "completed",
-          file_id: file.id
+          file_id: file.uuid
         }
 
         case create_file_instance(original_instance_attrs) do
           {:ok, _instance} ->
             Logger.info(
-              "Recreated original instance for file: #{file.id}, path: #{original_path}"
+              "Recreated original instance for file: #{file.uuid}, path: #{original_path}"
             )
 
             # Delete any remaining broken variant instances BEFORE queuing ProcessFileJob
             # This ensures ProcessFileJob creates fresh instances with correct paths
-            deleted_variants = delete_variant_instances(file.id)
+            deleted_variants = delete_variant_instances(file.uuid)
 
             Logger.info(
               "Deleted #{deleted_variants} broken variant instances before regeneration"
@@ -1351,19 +1351,19 @@ defmodule PhoenixKit.Modules.Storage do
             # Instance creation failed, might be duplicate constraint
             # Try deleting old broken instances and recreating
             Logger.warning(
-              "Instance creation failed for file #{file.id}: #{inspect(reason)}, attempting cleanup and retry"
+              "Instance creation failed for file #{file.uuid}: #{inspect(reason)}, attempting cleanup and retry"
             )
 
-            _ = delete_file_instances_for_file(file.id)
+            _ = delete_file_instances_for_file(file.uuid)
 
             case create_file_instance(original_instance_attrs) do
               {:ok, _instance} ->
                 Logger.info(
-                  "Recreated original instance for file (after cleanup): #{file.id}, path: #{original_path}"
+                  "Recreated original instance for file (after cleanup): #{file.uuid}, path: #{original_path}"
                 )
 
                 # Delete any remaining broken variant instances
-                deleted_variants = delete_variant_instances(file.id)
+                deleted_variants = delete_variant_instances(file.uuid)
 
                 Logger.info(
                   "Deleted #{deleted_variants} broken variant instances before regeneration"
@@ -1374,7 +1374,7 @@ defmodule PhoenixKit.Modules.Storage do
 
               {:error, final_reason} ->
                 Logger.error(
-                  "Failed to recreate instance for file #{file.id}: #{inspect(final_reason)}"
+                  "Failed to recreate instance for file #{file.uuid}: #{inspect(final_reason)}"
                 )
 
                 {:error, final_reason}
@@ -1586,7 +1586,7 @@ defmodule PhoenixKit.Modules.Storage do
       # Will be populated if we can detect dimensions
       height: nil,
       processing_status: "completed",
-      file_id: file.id
+      file_id: file.uuid
     }
 
     case create_file_instance(original_instance_attrs) do

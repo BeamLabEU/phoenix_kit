@@ -54,12 +54,12 @@ defmodule PhoenixKit.Modules.Referrals do
         code: "WELCOME2024",
         description: "Welcome promotion",
         max_uses: 100,
-        created_by: admin_user.id,
+        created_by_uuid: admin_user.uuid,
         expiration_date: ~U[2024-12-31 23:59:59.000000Z]
       })
 
       # Use a referral code during registration
-      case PhoenixKit.Modules.Referrals.use_code("WELCOME2024", user.id) do
+      case PhoenixKit.Modules.Referrals.use_code("WELCOME2024", user_uuid) do
         {:ok, usage} -> # Code used successfully
         {:error, reason} -> # Handle error
       end
@@ -382,9 +382,16 @@ defmodule PhoenixKit.Modules.Referrals do
       {:error, :code_not_found}
   """
   def use_code(code_string, user_id) when is_binary(code_string) and is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> use_code(code_string, int_id)
-      _ -> {:error, :invalid_user_id}
+    if UUIDUtils.valid?(user_id) do
+      case get_code_by_string(code_string) do
+        nil -> {:error, :code_not_found}
+        code -> process_code_usage(code, user_id)
+      end
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> use_code(code_string, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
     end
   end
 
@@ -406,15 +413,16 @@ defmodule PhoenixKit.Modules.Referrals do
     repo().transaction(fn -> do_record_usage(code, user_id) end)
   end
 
-  defp do_record_usage(code, user_id) do
-    user_uuid = resolve_user_uuid(user_id)
+  defp do_record_usage(code, user_identifier) do
+    user_uuid = resolve_user_uuid(user_identifier)
+    user_int_id = resolve_user_id(user_identifier)
 
     usage_result =
       %ReferralCodeUsage{}
       |> ReferralCodeUsage.changeset(%{
         code_id: code.id,
         code_uuid: code.uuid,
-        used_by: user_id,
+        used_by: user_int_id,
         used_by_uuid: user_uuid
       })
       |> repo().insert()
@@ -816,7 +824,7 @@ defmodule PhoenixKit.Modules.Referrals do
       5
   """
   def count_user_codes(user_id) when is_integer(user_id) do
-    from(r in __MODULE__, where: r.created_by == ^user_id, select: count(r.id))
+    from(r in __MODULE__, where: r.created_by == ^user_id, select: count(r.uuid))
     |> repo().one()
   end
 
@@ -838,11 +846,22 @@ defmodule PhoenixKit.Modules.Referrals do
     changeset
   end
 
-  # Resolves user UUID from integer user_id (dual-write)
+  # Resolves user UUID from any user identifier
+  defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
+
   defp resolve_user_uuid(user_id) when is_integer(user_id) do
     import Ecto.Query, only: [from: 2]
     alias PhoenixKit.Users.Auth.User
     from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
+  end
+
+  # Resolves user integer ID for dual-write only
+  defp resolve_user_id(id) when is_integer(id), do: id
+
+  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
+    import Ecto.Query, only: [from: 2]
+    alias PhoenixKit.Users.Auth.User
+    from(u in User, where: u.uuid == ^user_uuid, select: u.id) |> repo().one()
   end
 
   # Gets the configured repository for database operations
