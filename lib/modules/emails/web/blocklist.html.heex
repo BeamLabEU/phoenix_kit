@@ -7,19 +7,19 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full relative mb-6">
+    <header class="w-full mb-6">
       <%!-- Back Button --%>
       <.link
         navigate={Routes.path("/admin/emails")}
-        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+        class="btn btn-outline btn-primary btn-sm"
       >
         <.icon_arrow_left /> Back to Emails
       </.link>
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">Email Blocklist</h1>
-        <p class="text-lg text-base-content">Manage blocked email addresses</p>
+        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Email Blocklist</h1>
+        <p class="text-base sm:text-lg text-base-content">Manage blocked email addresses</p>
       </div>
     </header>
 

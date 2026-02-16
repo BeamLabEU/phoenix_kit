@@ -8,10 +8,10 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full relative mb-6">
+    <header class="w-full mb-6">
       <.link
         navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
-        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+        class="btn btn-outline btn-primary btn-sm"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to DB
       </.link>
@@ -20,9 +20,9 @@
         <div class="flex items-center justify-center gap-3 mb-3">
           <div class={"w-3 h-3 rounded-full #{if @paused, do: "bg-warning", else: "bg-success animate-pulse"}"}>
           </div>
-          <h1 class="text-4xl font-bold text-base-content">Live Database Activity</h1>
+          <h1 class="text-2xl sm:text-4xl font-bold text-base-content">Live Database Activity</h1>
         </div>
-        <p class="text-lg text-base-content">
+        <p class="text-base sm:text-lg text-base-content">
           <%= if @paused do %>
             Paused - {length(@activity_log)} events captured
           <% else %>

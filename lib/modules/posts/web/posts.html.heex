@@ -7,36 +7,40 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full relative mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin")}
-        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
-      >
-        ← Back to Dashboard
-      </.link>
+    <header class="w-full mb-6">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <%!-- Back Button (Left aligned) --%>
+        <.link
+          navigate={Routes.path("/admin")}
+          class="btn btn-outline btn-primary btn-sm"
+        >
+          ← Back to Dashboard
+        </.link>
+
+        <%!-- Right Actions --%>
+        <div class="flex gap-2">
+          <.link
+            navigate={Routes.path("/admin/settings/posts")}
+            class="btn btn-ghost btn-sm"
+            title="Posts Settings"
+          >
+            <.icon name="hero-cog-6-tooth" class="w-5 h-5" />
+          </.link>
+          <.link
+            href={Routes.path("/admin/posts/new")}
+            class="btn btn-primary btn-sm"
+          >
+            + New Post
+          </.link>
+        </div>
+      </div>
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">Posts</h1>
-        <p class="text-lg text-base-content">Manage and organize your social posts</p>
-      </div>
-
-      <%!-- Right Actions --%>
-      <div class="absolute right-0 top-0 -mb-12 flex gap-2">
-        <.link
-          navigate={Routes.path("/admin/settings/posts")}
-          class="btn btn-ghost btn-sm"
-          title="Posts Settings"
-        >
-          <.icon name="hero-cog-6-tooth" class="w-5 h-5" />
-        </.link>
-        <.link
-          href={Routes.path("/admin/posts/new")}
-          class="btn btn-primary btn-sm"
-        >
-          + New Post
-        </.link>
+        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Posts</h1>
+        <p class="text-base sm:text-lg text-base-content">
+          Manage and organize your social posts
+        </p>
       </div>
     </header>
 

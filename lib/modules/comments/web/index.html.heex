@@ -7,26 +7,28 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header --%>
-    <header class="w-full relative mb-6">
-      <.link
-        navigate={Routes.path("/admin")}
-        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back
-      </.link>
+    <header class="w-full mb-6">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <.link
+          navigate={Routes.path("/admin")}
+          class="btn btn-outline btn-primary btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" /> Back
+        </.link>
 
-      <div class="text-center">
-        <h1 class="text-4xl font-bold">Comments</h1>
-        <p class="text-lg text-base-content/70">Moderate comments across all content</p>
-      </div>
-
-      <div class="absolute right-0 top-0">
         <.link
           navigate={Routes.path("/admin/settings/comments")}
           class="btn btn-ghost btn-sm"
         >
           <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> Settings
         </.link>
+      </div>
+
+      <div class="text-center">
+        <h1 class="text-2xl sm:text-4xl font-bold">Comments</h1>
+        <p class="text-base sm:text-lg text-base-content/70">
+          Moderate comments across all content
+        </p>
       </div>
     </header>
 
