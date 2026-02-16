@@ -22,6 +22,19 @@ The PR is well-structured with good defensive programming. No critical blocking 
 
 Several follow-up items are identified below, ranked by severity.
 
+## Fixes Applied
+
+The following issues were fixed post-merge on the `dev` branch:
+
+| # | Issue | Fix | Commit |
+|---|-------|-----|--------|
+| 1 | `can_edit_role_permissions?/2` missing `authenticated?` check | Added `Scope.authenticated?` guard with early return; extracted logic to `can_edit_role_permissions_check/2` | `9cb49c0a` |
+| 2 | `get_permissions_for_user(%User{uuid: nil})` crash | Added `def get_permissions_for_user(%User{uuid: nil}), do: []` clause | `9cb49c0a` |
+| 5 | Missing FOR UPDATE locking in `set_permissions/3` | Replaced `get_permissions_for_role` call with inline `from()` query using `lock: "FOR UPDATE"` on `role_uuid` | `9cb49c0a` |
+| 18* | Admin sidebar wiped when enabling/disabling modules | Added `load_admin_defaults_internal()` and `load_admin_from_config_internal()` calls to Registry `handle_call(:load_defaults, ...)` and `handle_call(:load_from_config, ...)` to match `init/1` pattern | *(this commit)* |
+
+\* Issue #18 was discovered post-review: `Registry.load_defaults()` (called by Tickets, Billing, Shop `enable_system/0` and `disable_system/0`) only called `load_defaults_internal()` which overwrites the `:groups` ETS key with only user groups, deleting admin groups. The `init/1` function correctly called both user and admin loaders, but the reload handler did not.
+
 ---
 
 ## Issues Found
@@ -202,10 +215,11 @@ No-op writes still trigger the global persistent_term GC pass.
 
 All tests are genuinely Level 1 -- no database required. The `auto_grant_to_admin_roles` warnings during tests are noisy but harmless.
 
-## Recommended Follow-Up Priority
+## Remaining Follow-Up Priority
 
-1. **Add `authenticated?` check to `can_edit_role_permissions?/2`** (HIGH, security hardening)
-2. **Add `%User{uuid: nil}` fallback to `get_permissions_for_user/1`** (HIGH, crash prevention)
+1. ~~**Add `authenticated?` check to `can_edit_role_permissions?/2`**~~ (FIXED)
+2. ~~**Add `%User{uuid: nil}` fallback to `get_permissions_for_user/1`**~~ (FIXED)
 3. **Wrap error strings in gettext at call site** (MEDIUM, i18n completeness)
 4. **Fix sorting assertion in test** (LOW, test fragility)
-5. **Align plug with LiveView module-enabled check** (LOW, consistency)
+5. ~~**Add FOR UPDATE locking in `set_permissions/3`**~~ (FIXED)
+6. **Align plug with LiveView module-enabled check** (LOW, consistency)
