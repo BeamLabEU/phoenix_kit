@@ -141,5 +141,10 @@
 
   # Entities enabled?/0 - Dialyzer infers Settings.get_boolean_setting always returns true
   # Pre-existing false positive unrelated to UUID migration
-  {"lib/modules/entities/entities.ex", :pattern_match}
+  {"lib/modules/entities/entities.ex", :pattern_match},
+
+  # ExUnit.CaseTemplate macro generates calls to internal ExUnit functions
+  # that Dialyzer cannot resolve (Elixir 1.18+ internal API changes)
+  {"test/support/conn_case.ex", :unknown_function},
+  {"test/support/data_case.ex", :unknown_function}
 ]
