@@ -9,15 +9,13 @@
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
     <header class="w-full mb-6">
-      <div class="mb-4">
-        <%!-- Back Button --%>
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Modules
-        </.link>
-      </div>
+      <%!-- Back Button --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
+        class="btn btn-outline btn-primary btn-sm"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Modules
+      </.link>
 
       <%!-- Title Section --%>
       <div class="text-center">

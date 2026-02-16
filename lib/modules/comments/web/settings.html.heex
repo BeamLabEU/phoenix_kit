@@ -8,14 +8,12 @@
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header --%>
     <header class="w-full mb-6">
-      <div class="mb-4">
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Settings
-        </.link>
-      </div>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
+        class="btn btn-outline btn-primary btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Settings
+      </.link>
 
       <div class="text-center">
         <h1 class="text-2xl sm:text-4xl font-bold">Comments Settings</h1>
