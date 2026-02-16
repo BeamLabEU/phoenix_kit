@@ -64,6 +64,7 @@ defmodule PhoenixKit.Modules.Posts do
   alias PhoenixKit.ScheduledJobs
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ============================================================================
   # Module Status
@@ -698,12 +699,27 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, %Ecto.Changeset{}}
   """
   def like_post(post_id, user_id) when is_integer(user_id) do
+    do_like_post(post_id, resolve_user_uuid(user_id), user_id)
+  end
+
+  def like_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_like_post(post_id, user_id, resolve_user_id(user_id))
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> like_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_like_post(post_id, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostLike{}
            |> PostLike.changeset(%{
              post_id: post_id,
-             user_id: user_id,
-             user_uuid: resolve_user_uuid(user_id)
+             user_id: user_int_id,
+             user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, like} ->
@@ -714,13 +730,6 @@ defmodule PhoenixKit.Modules.Posts do
           repo().rollback(changeset)
       end
     end)
-  end
-
-  def like_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> like_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -743,8 +752,23 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, :not_found}
   """
   def unlike_post(post_id, user_id) when is_integer(user_id) do
+    do_unlike_post(post_id, resolve_user_uuid(user_id))
+  end
+
+  def unlike_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_unlike_post(post_id, user_id)
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> unlike_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_unlike_post(post_id, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostLike, post_id: post_id, user_id: user_id) do
+      case repo().get_by(PostLike, post_id: post_id, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
@@ -754,13 +778,6 @@ defmodule PhoenixKit.Modules.Posts do
           like
       end
     end)
-  end
-
-  def unlike_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> unlike_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -780,13 +797,19 @@ defmodule PhoenixKit.Modules.Posts do
       false
   """
   def post_liked_by?(post_id, user_id) when is_integer(user_id) do
-    repo().exists?(from l in PostLike, where: l.post_id == ^post_id and l.user_id == ^user_id)
+    post_liked_by?(post_id, resolve_user_uuid(user_id))
   end
 
   def post_liked_by?(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> post_liked_by?(post_id, int_id)
-      _ -> false
+    if UUIDUtils.valid?(user_id) do
+      repo().exists?(
+        from(l in PostLike, where: l.post_id == ^post_id and l.user_uuid == ^user_id)
+      )
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> post_liked_by?(post_id, int_id)
+        _ -> false
+      end
     end
   end
 
@@ -839,12 +862,27 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, %Ecto.Changeset{}}
   """
   def dislike_post(post_id, user_id) when is_integer(user_id) do
+    do_dislike_post(post_id, resolve_user_uuid(user_id), user_id)
+  end
+
+  def dislike_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_dislike_post(post_id, user_id, resolve_user_id(user_id))
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> dislike_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_dislike_post(post_id, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostDislike{}
            |> PostDislike.changeset(%{
              post_id: post_id,
-             user_id: user_id,
-             user_uuid: resolve_user_uuid(user_id)
+             user_id: user_int_id,
+             user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, dislike} ->
@@ -855,13 +893,6 @@ defmodule PhoenixKit.Modules.Posts do
           repo().rollback(changeset)
       end
     end)
-  end
-
-  def dislike_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> dislike_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -884,8 +915,23 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, :not_found}
   """
   def undislike_post(post_id, user_id) when is_integer(user_id) do
+    do_undislike_post(post_id, resolve_user_uuid(user_id))
+  end
+
+  def undislike_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_undislike_post(post_id, user_id)
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> undislike_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_undislike_post(post_id, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostDislike, post_id: post_id, user_id: user_id) do
+      case repo().get_by(PostDislike, post_id: post_id, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
@@ -895,13 +941,6 @@ defmodule PhoenixKit.Modules.Posts do
           dislike
       end
     end)
-  end
-
-  def undislike_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> undislike_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -921,13 +960,19 @@ defmodule PhoenixKit.Modules.Posts do
       false
   """
   def post_disliked_by?(post_id, user_id) when is_integer(user_id) do
-    repo().exists?(from d in PostDislike, where: d.post_id == ^post_id and d.user_id == ^user_id)
+    post_disliked_by?(post_id, resolve_user_uuid(user_id))
   end
 
   def post_disliked_by?(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> post_disliked_by?(post_id, int_id)
-      _ -> false
+    if UUIDUtils.valid?(user_id) do
+      repo().exists?(
+        from(d in PostDislike, where: d.post_id == ^post_id and d.user_uuid == ^user_id)
+      )
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> post_disliked_by?(post_id, int_id)
+        _ -> false
+      end
     end
   end
 
@@ -1484,9 +1529,20 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   def add_mention_to_post(post_id, user_id, mention_type) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> add_mention_to_post(post_id, int_id, mention_type)
-      _ -> {:error, :invalid_user_id}
+    if UUIDUtils.valid?(user_id) do
+      %PostMention{}
+      |> PostMention.changeset(%{
+        post_id: post_id,
+        user_id: resolve_user_id(user_id),
+        user_uuid: user_id,
+        mention_type: mention_type
+      })
+      |> repo().insert()
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> add_mention_to_post(post_id, int_id, mention_type)
+        _ -> {:error, :invalid_user_id}
+      end
     end
   end
 
@@ -1503,8 +1559,23 @@ defmodule PhoenixKit.Modules.Posts do
       iex> remove_mention_from_post("018e3c4a-...", 42)
       {:ok, %PostMention{}}
   """
-  def remove_mention_from_post(post_id, user_id) do
-    case repo().get_by(PostMention, post_id: post_id, user_id: user_id) do
+  def remove_mention_from_post(post_id, user_id) when is_integer(user_id) do
+    do_remove_mention(post_id, resolve_user_uuid(user_id))
+  end
+
+  def remove_mention_from_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_remove_mention(post_id, user_id)
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> remove_mention_from_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_remove_mention(post_id, user_uuid) do
+    case repo().get_by(PostMention, post_id: post_id, user_uuid: user_uuid) do
       nil -> {:error, :not_found}
       mention -> repo().delete(mention)
     end
@@ -1782,12 +1853,13 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    case repo().one(
-           from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
-         ) do
-      nil -> nil
-      uuid -> uuid
-    end
+    from(u in Auth.User, where: u.id == ^user_id, select: u.uuid)
+    |> repo().one()
+  end
+
+  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
+    from(u in Auth.User, where: u.uuid == ^user_uuid, select: u.id)
+    |> repo().one()
   end
 
   # Get repository based on configuration (for tests and apps with custom repos)
