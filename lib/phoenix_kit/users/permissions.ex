@@ -842,10 +842,10 @@ defmodule PhoenixKit.Users.Permissions do
   def can_edit_role_permissions?(nil, _role), do: {:error, "Not authenticated"}
 
   def can_edit_role_permissions?(scope, role) do
-    unless Scope.authenticated?(scope) do
-      {:error, "Not authenticated"}
-    else
+    if Scope.authenticated?(scope) do
       can_edit_role_permissions_check(scope, role)
+    else
+      {:error, "Not authenticated"}
     end
   end
 
