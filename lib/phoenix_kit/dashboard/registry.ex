@@ -576,6 +576,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   @impl true
   def handle_call(:load_defaults, _from, state) do
     load_defaults_internal()
+    load_admin_defaults_internal()
     broadcast_refresh()
     {:reply, :ok, state}
   end
@@ -583,6 +584,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   @impl true
   def handle_call(:load_from_config, _from, state) do
     load_from_config_internal()
+    load_admin_from_config_internal()
     broadcast_refresh()
     {:reply, :ok, state}
   end

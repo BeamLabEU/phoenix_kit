@@ -360,7 +360,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         post_params
       end
 
-    case Posts.create_post(socket.assigns.current_user.id, create_params) do
+    case Posts.create_post(socket.assigns.current_user.uuid, create_params) do
       {:ok, post} ->
         # If scheduling, create the scheduled job
         post =
@@ -459,7 +459,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   defp load_form_data(socket) do
     # Load user's groups for selection
-    user_groups = Posts.list_user_groups(socket.assigns.current_user.id)
+    user_groups = Posts.list_user_groups(socket.assigns.current_user.uuid)
 
     # Load existing tags if editing
     selected_tags =

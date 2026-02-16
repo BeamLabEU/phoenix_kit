@@ -130,7 +130,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
 
   defp save_group(socket, nil, group_params) do
     # Creating new group
-    case Posts.create_group(socket.assigns.current_user.id, group_params) do
+    case Posts.create_group(socket.assigns.current_user.uuid, group_params) do
       {:ok, group} ->
         {:noreply,
          socket

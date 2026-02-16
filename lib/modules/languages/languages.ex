@@ -95,6 +95,7 @@ defmodule PhoenixKit.Modules.Languages do
   """
 
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Languages.Language
   alias PhoenixKit.Settings
 
   @config_key "languages_config"
@@ -118,48 +119,18 @@ defmodule PhoenixKit.Modules.Languages do
 
   # Top 10 most common languages for permanent display in admin
   @top_10_languages [
-    %{
-      "code" => "en-US",
-      "name" => "English (United States)",
-      "is_default" => true,
-      "is_enabled" => true
-    },
-    %{
-      "code" => "es-ES",
-      "name" => "Spanish (Spain)",
-      "is_default" => false,
-      "is_enabled" => true
-    },
-    %{
-      "code" => "fr-FR",
-      "name" => "French (France)",
-      "is_default" => false,
-      "is_enabled" => true
-    },
-    %{
-      "code" => "de-DE",
-      "name" => "German (Germany)",
-      "is_default" => false,
-      "is_enabled" => true
-    },
-    %{"code" => "ja", "name" => "Japanese", "is_default" => false, "is_enabled" => true},
-    %{
-      "code" => "pt-BR",
-      "name" => "Portuguese (Brazil)",
-      "is_default" => false,
-      "is_enabled" => true
-    },
-    %{"code" => "it", "name" => "Italian", "is_default" => false, "is_enabled" => true},
-    %{"code" => "ko", "name" => "Korean", "is_default" => false, "is_enabled" => true},
-    %{"code" => "ru", "name" => "Russian", "is_default" => false, "is_enabled" => true},
-    %{"code" => "nl", "name" => "Dutch", "is_default" => false, "is_enabled" => true},
-    %{
-      "code" => "zh-CN",
-      "name" => "Chinese (Mandarin)",
-      "is_default" => false,
-      "is_enabled" => true
-    },
-    %{"code" => "ar", "name" => "Arabic", "is_default" => false, "is_enabled" => true}
+    %Language{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true},
+    %Language{code: "es-ES", name: "Spanish (Spain)", is_default: false, is_enabled: true},
+    %Language{code: "fr-FR", name: "French (France)", is_default: false, is_enabled: true},
+    %Language{code: "de-DE", name: "German (Germany)", is_default: false, is_enabled: true},
+    %Language{code: "ja", name: "Japanese", is_default: false, is_enabled: true},
+    %Language{code: "pt-BR", name: "Portuguese (Brazil)", is_default: false, is_enabled: true},
+    %Language{code: "it", name: "Italian", is_default: false, is_enabled: true},
+    %Language{code: "ko", name: "Korean", is_default: false, is_enabled: true},
+    %Language{code: "ru", name: "Russian", is_default: false, is_enabled: true},
+    %Language{code: "nl", name: "Dutch", is_default: false, is_enabled: true},
+    %Language{code: "zh-CN", name: "Chinese (Mandarin)", is_default: false, is_enabled: true},
+    %Language{code: "ar", name: "Arabic", is_default: false, is_enabled: true}
   ]
 
   ## --- System Management Functions ---
@@ -246,8 +217,8 @@ defmodule PhoenixKit.Modules.Languages do
   def get_config do
     enabled = enabled?()
     languages = get_languages()
-    enabled_languages = Enum.filter(languages, & &1["is_enabled"])
-    default_language = Enum.find(languages, & &1["is_default"])
+    enabled_languages = Enum.filter(languages, & &1.is_enabled)
+    default_language = Enum.find(languages, & &1.is_default)
 
     %{
       enabled: enabled,
@@ -277,8 +248,11 @@ defmodule PhoenixKit.Modules.Languages do
   def get_languages do
     if enabled?() do
       case Settings.get_json_setting_cached(@config_key, nil) do
-        %{"languages" => languages} when is_list(languages) -> languages
-        _ -> []
+        %{"languages" => languages} when is_list(languages) ->
+          Enum.map(languages, &Language.from_json_map/1)
+
+        _ ->
+          []
       end
     else
       []
@@ -297,8 +271,8 @@ defmodule PhoenixKit.Modules.Languages do
   """
   def get_enabled_languages do
     get_languages()
-    |> Enum.filter(& &1["is_enabled"])
-    |> Enum.sort_by(& &1["position"])
+    |> Enum.filter(& &1.is_enabled)
+    |> Enum.sort_by(& &1.position)
   end
 
   @doc """
@@ -318,7 +292,7 @@ defmodule PhoenixKit.Modules.Languages do
   def get_default_language do
     if enabled?() do
       get_languages()
-      |> Enum.find(& &1["is_default"])
+      |> Enum.find(& &1.is_default)
     else
       nil
     end
@@ -340,7 +314,7 @@ defmodule PhoenixKit.Modules.Languages do
   def get_language(code) when is_binary(code) do
     if enabled?() do
       get_languages()
-      |> Enum.find(&(&1["code"] == code))
+      |> Enum.find(&(&1.code == code))
     else
       nil
     end
@@ -358,7 +332,7 @@ defmodule PhoenixKit.Modules.Languages do
   """
   def get_language_codes do
     get_languages()
-    |> Enum.map(& &1["code"])
+    |> Enum.map(& &1.code)
   end
 
   @doc """
@@ -373,7 +347,7 @@ defmodule PhoenixKit.Modules.Languages do
   """
   def get_enabled_language_codes do
     get_enabled_languages()
-    |> Enum.map(& &1["code"])
+    |> Enum.map(& &1.code)
   end
 
   @doc """
@@ -483,7 +457,7 @@ defmodule PhoenixKit.Modules.Languages do
   def language_enabled?(code) when is_binary(code) do
     enabled?() &&
       case get_language(code) do
-        %{"is_enabled" => true} -> true
+        %Language{is_enabled: true} -> true
         _ -> false
       end
   end
@@ -501,7 +475,7 @@ defmodule PhoenixKit.Modules.Languages do
   """
   def get_default_language_codes do
     @top_10_languages
-    |> Enum.map(& &1["code"])
+    |> Enum.map(& &1.code)
   end
 
   @doc """
@@ -559,7 +533,7 @@ defmodule PhoenixKit.Modules.Languages do
   defp build_available_languages do
     BeamLabCountries.Languages.all_locales()
     |> Enum.map(fn locale ->
-      %{
+      %Language{
         code: locale.code,
         name: locale.name,
         native: locale.native_name,
@@ -584,7 +558,7 @@ defmodule PhoenixKit.Modules.Languages do
     all_languages = get_available_languages()
 
     if enabled?() do
-      current_codes = get_languages() |> Enum.map(& &1["code"])
+      current_codes = get_languages() |> Enum.map(& &1.code)
 
       all_languages
       |> Enum.reject(fn lang -> lang.code in current_codes end)
@@ -612,7 +586,7 @@ defmodule PhoenixKit.Modules.Languages do
         nil
 
       locale ->
-        %{
+        %Language{
           code: locale.code,
           name: locale.name,
           native: locale.native_name,
@@ -861,9 +835,9 @@ defmodule PhoenixKit.Modules.Languages do
   """
   def disable_language(code) when is_binary(code) do
     current_languages = get_languages()
-    language = Enum.find(current_languages, &(&1["code"] == code))
+    language = Enum.find(current_languages, &(&1.code == code))
 
-    if language && language["is_default"] do
+    if language && language.is_default do
       {:error, "Cannot disable default language"}
     else
       update_language(code, %{"is_enabled" => false})

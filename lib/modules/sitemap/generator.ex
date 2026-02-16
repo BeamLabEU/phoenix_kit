@@ -590,8 +590,8 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
           languages
           |> Enum.map(fn lang ->
             %{
-              code: Languages.DialectMapper.extract_base(lang["code"] || lang[:code] || "en"),
-              is_default: lang["is_default"] || lang[:is_default] || false
+              code: Languages.DialectMapper.extract_base(lang.code || "en"),
+              is_default: lang.is_default
             }
           end)
 

@@ -282,7 +282,6 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   defp default_language do
     if Languages.enabled?() do
       case Languages.get_default_language() do
-        %{"code" => code} -> Languages.DialectMapper.extract_base(code)
         %{code: code} -> Languages.DialectMapper.extract_base(code)
         _ -> "en"
       end

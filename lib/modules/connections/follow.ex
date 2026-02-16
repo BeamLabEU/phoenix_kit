@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Connections.Follow do
 
       # User A follows User B
       %Follow{
-        id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         follower_uuid: "019abc12-3456-7890-abcd-ef1234567890",
         followed_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         inserted_at: ~N[2025-01-15 10:30:00]

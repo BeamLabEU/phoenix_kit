@@ -125,7 +125,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Groups do
 
   defp load_groups(socket) do
     opts = [
-      user_id: socket.assigns.current_user.id,
+      user_id: socket.assigns.current_user.uuid,
       preload: [:posts]
     ]
 
@@ -137,7 +137,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Groups do
         opts
       end
 
-    groups = Posts.list_user_groups(socket.assigns.current_user.id, opts)
+    groups = Posts.list_user_groups(socket.assigns.current_user.uuid, opts)
 
     socket
     |> assign(:groups, groups)

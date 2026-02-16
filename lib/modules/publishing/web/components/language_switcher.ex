@@ -405,7 +405,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   # Generate title/tooltip text
   # Only show status in tooltip when show_status is true (admin mode)
   defp language_title(lang, exists, status, show_status, enabled, known) do
-    name = lang[:name] || lang["name"] || format_code(lang[:code])
+    name = lang[:name] || format_code(lang[:code])
 
     if show_status do
       build_admin_title(name, exists, status, enabled, known)

@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Connections.Connection do
 
       # Pending connection request
       %Connection{
-        id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         requester_uuid: "019abc12-3456-7890-abcd-ef1234567890",
         recipient_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         status: "pending",
@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.Connections.Connection do
 
       # Accepted connection
       %Connection{
-        id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         requester_uuid: "019abc12-3456-7890-abcd-ef1234567890",
         recipient_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         status: "accepted",

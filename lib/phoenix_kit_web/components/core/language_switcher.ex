@@ -109,14 +109,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       |> Enum.reject(&is_nil/1)
       |> Enum.filter(&is_map/1)
       |> Enum.map(fn lang ->
-        dialect = lang["code"]
+        dialect = lang.code
         base = DialectMapper.extract_base(dialect)
         flag = get_language_flag(dialect)
 
         %{
           "base_code" => base,
           "dialect" => dialect,
-          "name" => lang["name"] || dialect || "Unknown",
+          "name" => lang.name || dialect || "Unknown",
           "native" => get_native_name(dialect),
           "flag" => flag
         }
@@ -303,14 +303,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       |> Enum.reject(&is_nil/1)
       |> Enum.filter(&is_map/1)
       |> Enum.map(fn lang ->
-        dialect = lang["code"]
+        dialect = lang.code
         base = DialectMapper.extract_base(dialect)
         flag = get_language_flag(dialect)
 
         %{
           "base_code" => base,
           "dialect" => dialect,
-          "name" => lang["name"] || dialect || "Unknown",
+          "name" => lang.name || dialect || "Unknown",
           "flag" => flag
         }
       end)
@@ -417,14 +417,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       |> Enum.reject(&is_nil/1)
       |> Enum.filter(&is_map/1)
       |> Enum.map(fn lang ->
-        dialect = lang["code"]
+        dialect = lang.code
         base = DialectMapper.extract_base(dialect)
         flag = get_language_flag(dialect)
 
         %{
           "base_code" => base,
           "dialect" => dialect,
-          "name" => lang["name"] || dialect || "Unknown",
+          "name" => lang.name || dialect || "Unknown",
           "flag" => flag
         }
       end)

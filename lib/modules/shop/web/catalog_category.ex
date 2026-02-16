@@ -620,10 +620,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
   defp best_redirect_language(slug_map) do
     enabled = Languages.get_enabled_languages()
-    default_first = Enum.sort_by(enabled, fn l -> if l["is_default"], do: 0, else: 1 end)
+    default_first = Enum.sort_by(enabled, fn l -> if l.is_default, do: 0, else: 1 end)
 
     Enum.find_value(default_first, fn lang ->
-      code = lang["code"]
+      code = lang.code
       base = DialectMapper.extract_base(code)
       if Map.has_key?(slug_map, code) or Map.has_key?(slug_map, base), do: code
     end)

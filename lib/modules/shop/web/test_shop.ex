@@ -212,7 +212,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
                           <td>
                             <button
                               phx-click="test_product_price"
-                              phx-value-id={product.id}
+                              phx-value-id={product.uuid}
                               class="btn btn-xs btn-outline"
                             >
                               Test Price

@@ -79,29 +79,29 @@
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
-                <%= for lang <- @languages |> Enum.filter(& &1["is_enabled"]) do %>
+                <%= for lang <- @languages |> Enum.filter(& &1.is_enabled) do %>
                   <div class="dropdown dropdown-hover">
                     <div
                       tabindex="0"
                       role="button"
                       class={[
                         "badge cursor-pointer",
-                        if(lang["code"] == @default_code,
+                        if(lang.code == @default_code,
                           do: "badge-secondary",
                           else: "badge-primary"
                         )
                       ]}
-                      title={lang["code"]}
+                      title={lang.code}
                     >
-                      {lang["name"]}
+                      {lang.name}
                     </div>
                     <ul
                       tabindex="0"
                       class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-40 border border-base-300"
                     >
-                      <%= if lang["code"] != @default_code do %>
+                      <%= if lang.code != @default_code do %>
                         <li>
-                          <button phx-click="set_default" phx-value-code={lang["code"]}>
+                          <button phx-click="set_default" phx-value-code={lang.code}>
                             <PhoenixKitWeb.Components.Core.Icons.icon_star class="w-4 h-4" />
                             Set Default
                           </button>
@@ -109,7 +109,7 @@
                         <li>
                           <button
                             phx-click="toggle_language_availability"
-                            phx-value-code={lang["code"]}
+                            phx-value-code={lang.code}
                             class="text-error"
                           >
                             <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4" /> Disable

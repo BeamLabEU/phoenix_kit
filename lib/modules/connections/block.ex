@@ -18,7 +18,7 @@ defmodule PhoenixKit.Modules.Connections.Block do
 
       # User A blocks User B
       %Block{
-        id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         blocker_uuid: "019abc12-3456-7890-abcd-ef1234567890",
         blocked_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         reason: "Spam",

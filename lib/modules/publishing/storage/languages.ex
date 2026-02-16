@@ -336,7 +336,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Languages do
     configured_languages = Languages.get_languages()
 
     exact_match =
-      Enum.find(configured_languages, fn lang -> lang["code"] == language_code end)
+      Enum.find(configured_languages, fn lang -> lang.code == language_code end)
 
     result =
       if exact_match do
@@ -346,22 +346,22 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Languages do
         default_dialect = DialectMapper.base_to_dialect(base_code)
 
         default_match =
-          Enum.find(configured_languages, fn lang -> lang["code"] == default_dialect end)
+          Enum.find(configured_languages, fn lang -> lang.code == default_dialect end)
 
         if default_match do
           default_match
         else
           Enum.find(configured_languages, fn lang ->
-            DialectMapper.extract_base(lang["code"]) == base_code
+            DialectMapper.extract_base(lang.code) == base_code
           end)
         end
       end
 
     if result do
       %{
-        code: result["code"],
-        name: result["name"] || result["code"],
-        flag: result["flag"] || ""
+        code: result.code,
+        name: result.name || result.code,
+        flag: result.flag || ""
       }
     else
       nil

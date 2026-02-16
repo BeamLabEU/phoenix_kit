@@ -200,20 +200,18 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     # Transform languages: code = base (for URLs), dialect = full (for preferences)
     transformed_languages =
       Enum.map(admin_languages, fn lang ->
-        dialect = lang["code"]
+        dialect = lang.code
         base = DialectMapper.extract_base(dialect)
 
-        lang
-        |> Map.put("code", base)
-        |> Map.put("dialect", dialect)
+        %{code: base, dialect: dialect, name: lang.name, flag: lang.flag, native: lang.native}
       end)
 
     current_language =
-      Enum.find(transformed_languages, &(&1["code"] == current_base)) ||
+      Enum.find(transformed_languages, &(&1.code == current_base)) ||
         %{
-          "code" => current_base,
-          "dialect" => assigns.current_locale,
-          "name" => String.upcase(current_base)
+          code: current_base,
+          dialect: assigns.current_locale,
+          name: String.upcase(current_base)
         }
 
     # Hide dropdown when only 1 language is configured
@@ -242,18 +240,18 @@ defmodule PhoenixKitWeb.Components.AdminNav do
               <button
                 type="button"
                 phx-click="phoenix_kit_set_locale"
-                phx-value-locale={language["dialect"]}
-                phx-value-url={build_locale_url(@current_path, language["code"])}
+                phx-value-locale={language.dialect}
+                phx-value-url={build_locale_url(@current_path, language.code)}
                 class={[
                   "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200 cursor-pointer",
-                  if(language["code"] == @current_base, do: "bg-base-200", else: "")
+                  if(language.code == @current_base, do: "bg-base-200", else: "")
                 ]}
               >
-                <span class="text-lg">{get_language_flag(language["dialect"])}</span>
+                <span class="text-lg">{get_language_flag(language.dialect)}</span>
                 <span class="flex-1 text-left font-medium text-base-content">
-                  {language["name"]}
+                  {language.name}
                 </span>
-                <%= if language["code"] == @current_base do %>
+                <%= if language.code == @current_base do %>
                   <PhoenixKitWeb.Components.Core.Icons.icon_check class="size-4 text-primary" />
                 <% end %>
               </button>
@@ -355,15 +353,15 @@ defmodule PhoenixKitWeb.Components.AdminNav do
             <%= for language <- @admin_languages do %>
               <li>
                 <a
-                  href={generate_language_switch_url(@current_path, language["code"])}
+                  href={generate_language_switch_url(@current_path, language.code)}
                   class={[
                     "flex items-center gap-3",
-                    if(language["code"] == @current_locale, do: "active", else: "")
+                    if(language.code == @current_locale, do: "active", else: "")
                   ]}
                 >
-                  <span class="text-lg">{get_language_flag(language["code"])}</span>
-                  <span>{language["name"]}</span>
-                  <%= if language["code"] == @current_locale do %>
+                  <span class="text-lg">{get_language_flag(language.code)}</span>
+                  <span>{language.name}</span>
+                  <%= if language.code == @current_locale do %>
                     <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
                   <% end %>
                 </a>
@@ -591,22 +589,12 @@ defmodule PhoenixKitWeb.Components.AdminNav do
       admin_language_codes
       |> Enum.map(fn code ->
         case Languages.get_predefined_language(code) do
-          %{name: name, flag: flag, native: native} ->
-            %{
-              "code" => code,
-              "name" => name,
-              "flag" => flag,
-              "native" => native
-            }
+          %{} = lang ->
+            lang
 
           nil ->
             # Fallback for unknown codes
-            %{
-              "code" => code,
-              "name" => code,
-              "flag" => "🌐",
-              "native" => ""
-            }
+            %{code: code, name: code, flag: "🌐", native: ""}
         end
       end)
     else
@@ -629,7 +617,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   defp build_locale_url(current_path, base_code) do
     # Get valid language codes from both admin and frontend systems
     admin_languages = get_admin_languages()
-    admin_language_codes = Enum.map(admin_languages, & &1["code"])
+    admin_language_codes = Enum.map(admin_languages, & &1.code)
     admin_base_codes = Enum.map(admin_language_codes, &DialectMapper.extract_base/1)
 
     # Get frontend language codes from the Language Module
