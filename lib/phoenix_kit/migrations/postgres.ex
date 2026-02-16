@@ -411,7 +411,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Owner role bypasses permissions entirely (hardcoded in code)
   - Admin role gets ALL permissions seeded by default
   - Unique constraint on (role_id, module_key) prevents duplicates
-  - 24 permission keys: 5 core sections + 19 feature modules
+  - 25 permission keys: 5 core sections + 20 feature modules
 
   ### V54 - Category Featured Product + Import Config fix
   - Replaces image_url with featured_product_id FK to products

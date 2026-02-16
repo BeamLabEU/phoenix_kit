@@ -269,7 +269,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   def users_count(assigns) do
     ~H"""
     <span class="font-medium">
-      {Map.get(@stats, @role.id, 0)}
+      {Map.get(@stats, @role.name, 0)}
     </span>
     """
   end

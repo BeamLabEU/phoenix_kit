@@ -81,14 +81,15 @@ defmodule PhoenixKit.Dashboard do
 
   ## Conditional Visibility
 
-  Show tabs based on roles or custom logic:
+  Use `visible` for non-permission conditional logic (feature flags, user data).
+  For access control, use the `permission` field instead.
 
       %{
-        id: :admin_panel,
-        label: "Admin",
-        path: "/dashboard/admin",
+        id: :beta_feature,
+        label: "Beta",
+        path: "/dashboard/beta",
         visible: fn scope ->
-          PhoenixKit.Users.Roles.has_role?(scope.user, "admin")
+          scope.user.features["beta_enabled"] == true
         end
       }
 

@@ -424,14 +424,25 @@ Granular access control for admin sections and feature modules. Uses an allowlis
 - Custom roles start with no permissions; grant via matrix UI or API
 
 **Key modules:**
-- `PhoenixKit.Users.Permissions` - Full context with 19 public functions (queries, mutations, metadata)
+- `PhoenixKit.Users.Permissions` - Full context (queries, mutations, metadata, custom keys)
 - `PhoenixKit.Users.Auth.Scope` - `has_module_access?/2`, `has_any_module_access?/2`, `has_all_module_access?/2`, `system_role?/1`, `permission_count/1`
+- `PhoenixKit.Users.Roles` - Role CRUD, `list_roles/0`, `get_role_by_uuid/1`, `count_users_with_role/1`
 - `PhoenixKit.Users.RolePermission` - Schema for `phoenix_kit_role_permissions` table
 
 **Route enforcement:**
 - `:phoenix_kit_ensure_admin` on_mount - Checks permission + enabled status for mapped admin views
 - `:phoenix_kit_ensure_module_access` on_mount - Checks permission + enabled status for feature module routes
 - Custom roles are fail-closed for unmapped views; Owner/Admin are fail-open
+- Owner/Admin bypass module-enabled checks (can access disabled modules by direct URL)
+- Storage admin views are gated by `media` permission (storage is a sub-feature of Media)
+
+**Custom admin tab permissions:** See `lib/phoenix_kit/dashboard/ADMIN_README.md` for how custom tabs auto-register permission keys and wire view-to-permission mappings via `Permissions.register_custom_key/2`.
+
+**Edit protection:**
+- `Permissions.can_edit_role_permissions?(scope, role)` - Returns `:ok` or `{:error, reason}`
+- Users cannot edit their own role's permissions
+- Only Owner can edit Admin role permissions
+- System roles (Owner/Admin/User) cannot have `is_system_role` flag changed
 
 **Usage:**
 
@@ -444,7 +455,13 @@ Permissions.set_permissions(role_id, ["dashboard", "users", "billing"], granted_
 
 # Copy permissions between roles
 Permissions.copy_permissions(source_role_id, target_role_id)
+
+# Register custom permission keys from parent app
+Permissions.register_custom_key("analytics", label: "Analytics", icon: "hero-chart-bar")
+Permissions.unregister_custom_key("analytics")
 ```
+
+**i18n:** Roles and permissions matrix UI is fully translatable via `gettext()`. All flash messages, labels, buttons, and help text are wrapped. Permission key labels/icons/descriptions in `Permissions` are hardcoded English metadata.
 
 **Admin UI:** Permission matrix at `{prefix}/admin/users/permissions`, inline editor in Roles page.
 

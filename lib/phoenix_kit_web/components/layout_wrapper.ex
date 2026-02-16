@@ -150,9 +150,19 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # Check if current page is an admin page that needs navigation
   defp admin_page?(assigns) do
     case assigns[:current_path] do
-      nil -> false
-      path when is_binary(path) -> String.contains?(path, "/admin")
-      _ -> false
+      nil ->
+        false
+
+      path when is_binary(path) ->
+        prefix = PhoenixKit.Config.get_url_prefix()
+
+        normalized =
+          if prefix == "/", do: path, else: String.replace_prefix(path, prefix, "")
+
+        normalized == "/admin" or String.starts_with?(normalized, "/admin/")
+
+      _ ->
+        false
     end
   end
 

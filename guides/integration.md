@@ -732,6 +732,7 @@ Roles.get_user_roles(user) :: [String.t()]
 Roles.users_with_role(role_name) :: [User.t()]
 Roles.list_roles() :: [Role.t()]
 Roles.get_role_by_name(name) :: Role.t() | nil
+Roles.get_role_by_uuid(uuid) :: Role.t() | nil
 Roles.get_custom_roles() :: [Role.t()]
 Roles.count_users_with_role(role_name) :: non_neg_integer()
 Roles.get_role_stats() :: map()
@@ -757,23 +758,37 @@ Roles.assign_roles_to_existing_users(opts \\ []) :: {:ok, map()} | {:error, term
 
 ```elixir
 # Constants & Metadata
-Permissions.all_module_keys() :: [String.t()]          # All 24 keys
+Permissions.all_module_keys() :: [String.t()]          # All 25 keys (5 core + 20 feature)
 Permissions.core_section_keys() :: [String.t()]        # 5 core keys
-Permissions.feature_module_keys() :: [String.t()]      # 19 feature keys
-Permissions.enabled_module_keys() :: MapSet.t()        # Core + enabled features
+Permissions.feature_module_keys() :: [String.t()]      # 20 feature keys
+Permissions.enabled_module_keys() :: MapSet.t()        # Core + enabled features + custom
 Permissions.valid_module_key?(key) :: boolean()
 Permissions.feature_enabled?(key) :: boolean()
 Permissions.module_label(key) :: String.t()
 Permissions.module_icon(key) :: String.t()
 Permissions.module_description(key) :: String.t()
 
+# Custom Permission Keys (for parent app extensions)
+Permissions.register_custom_key(key, opts \\ []) :: :ok  # opts: label, icon, description
+Permissions.unregister_custom_key(key) :: :ok
+Permissions.custom_keys() :: [String.t()]                # List of registered custom keys
+Permissions.custom_keys_map() :: map()                   # Full metadata map for custom keys
+Permissions.clear_custom_keys() :: :ok
+
+# Custom Admin View Permission Cache
+Permissions.cache_custom_view_permission(view_module, permission_key) :: :ok
+Permissions.custom_view_permissions() :: %{module() => String.t()}
+
+# Access Control
+Permissions.can_edit_role_permissions?(scope, role) :: :ok | {:error, String.t()}
+
 # Query
 Permissions.get_permissions_for_user(user) :: [String.t()]
 Permissions.get_permissions_for_role(role_id) :: [String.t()]
 Permissions.role_has_permission?(role_id, key) :: boolean()
-Permissions.get_permissions_matrix() :: %{integer() => MapSet.t()}
-Permissions.roles_with_permission(key) :: [integer()]
-Permissions.users_with_permission(key) :: [integer()]
+Permissions.get_permissions_matrix() :: %{String.t() => MapSet.t()}
+Permissions.roles_with_permission(key) :: [String.t()]   # Role UUIDs with key
+Permissions.users_with_permission(key) :: [String.t()]   # User UUIDs with key
 Permissions.count_permissions_for_role(role_id) :: non_neg_integer()
 Permissions.diff_permissions(role_a_id, role_b_id) :: map()
 

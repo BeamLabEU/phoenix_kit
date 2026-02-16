@@ -120,7 +120,7 @@ defmodule PhoenixKit.Users.Role do
 
   # Protect system roles from being modified
   defp validate_system_role_protection(changeset) do
-    if get_field(changeset, :is_system_role) &&
+    if changeset.data.is_system_role &&
          get_change(changeset, :is_system_role) == false do
       add_error(changeset, :is_system_role, "system roles cannot be modified")
     else

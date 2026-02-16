@@ -26,7 +26,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
     socket =
       socket
-      |> assign(:page_title, "Permissions Matrix")
+      |> assign(:page_title, gettext("Permissions"))
       |> assign(:project_title, project_title)
       |> load_matrix()
 
@@ -76,7 +76,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
     with role when not is_nil(role) <-
            Enum.find(socket.assigns.roles, &(to_string(&1.uuid) == role_id_str)),
-         false <- role.name == "Owner",
+         :ok <- Permissions.can_edit_role_permissions?(scope, role),
          true <- scope != nil && Scope.has_module_access?(scope, "users") do
       grantable =
         if Scope.owner?(scope),
@@ -84,32 +84,85 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
           else: Scope.accessible_modules(scope)
 
       if MapSet.member?(grantable, key) do
-        granted_by_id = Scope.user_id(scope)
-        role_uuid = to_string(role.uuid)
-        role_keys = Map.get(socket.assigns.matrix, role_uuid, MapSet.new())
-        label = Permissions.module_label(key)
-
-        if MapSet.member?(role_keys, key) do
-          Permissions.revoke_permission(role_uuid, key)
-
-          {:noreply,
-           socket |> put_flash(:info, "Revoked #{label} from #{role.name}") |> refresh_matrix()}
-        else
-          Permissions.grant_permission(role_uuid, key, granted_by_id)
-
-          {:noreply,
-           socket |> put_flash(:info, "Granted #{label} to #{role.name}") |> refresh_matrix()}
-        end
+        toggle_role_permission(socket, role, key, scope)
       else
-        {:noreply, put_flash(socket, :error, "You can only manage permissions you have")}
+        {:noreply, put_flash(socket, :error, gettext("You can only manage permissions you have"))}
       end
     else
-      _ ->
-        {:noreply, socket}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, reason)}
+
+      nil ->
+        {:noreply, put_flash(socket, :error, gettext("Role not found"))}
+
+      false ->
+        {:noreply,
+         put_flash(socket, :error, gettext("You don't have permission to manage permissions"))}
     end
   end
 
   # --- Helpers ---
+
+  defp toggle_role_permission(socket, role, key, scope) do
+    granted_by_id = Scope.user_id(scope)
+    role_uuid = to_string(role.uuid)
+    role_keys = Map.get(socket.assigns.matrix, role_uuid, MapSet.new())
+    label = Permissions.module_label(key)
+
+    if MapSet.member?(role_keys, key) do
+      case Permissions.revoke_permission(role_uuid, key) do
+        :ok ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :info,
+             gettext("Revoked %{label} from %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
+           |> refresh_matrix()}
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :error,
+             gettext("Failed to revoke %{label} from %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
+           |> refresh_matrix()}
+      end
+    else
+      case Permissions.grant_permission(role_uuid, key, granted_by_id) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :info,
+             gettext("Granted %{label} to %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
+           |> refresh_matrix()}
+
+        {:error, _reason} ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :error,
+             gettext("Failed to grant %{label} to %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
+           |> refresh_matrix()}
+      end
+    end
+  end
 
   defp load_matrix(socket) do
     roles = Roles.list_roles()
@@ -132,11 +185,28 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     enabled_feature_keys =
       Enum.filter(Permissions.feature_module_keys(), &MapSet.member?(enabled, &1))
 
+    core_keys = Permissions.core_section_keys()
+    custom_keys = Permissions.custom_keys()
+    visible_keys = MapSet.new(core_keys ++ enabled_feature_keys ++ custom_keys)
+
+    # Determine which roles can't be edited by the current user
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    uneditable_role_uuids =
+      sorted_roles
+      |> Enum.filter(fn role ->
+        role.name == "Owner" or Permissions.can_edit_role_permissions?(scope, role) != :ok
+      end)
+      |> MapSet.new(fn role -> to_string(role.uuid) end)
+
     socket
     |> assign(:roles, sorted_roles)
     |> assign(:matrix, matrix)
-    |> assign(:core_keys, Permissions.core_section_keys())
+    |> assign(:core_keys, core_keys)
     |> assign(:feature_keys, enabled_feature_keys)
+    |> assign(:custom_keys, custom_keys)
+    |> assign(:visible_keys, visible_keys)
+    |> assign(:uneditable_role_uuids, uneditable_role_uuids)
   end
 
   # Refresh matrix data only, keep existing role order stable

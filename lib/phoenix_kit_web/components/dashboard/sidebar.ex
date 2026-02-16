@@ -42,6 +42,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Dashboard.TabItem
 
+  import PhoenixKit.Dashboard.TabHelpers
   # Use the icon component from Core.Icon to avoid circular dependencies
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
@@ -618,26 +619,6 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   # Helper functions
 
-  defp add_active_state(tabs, current_path) do
-    Enum.map(tabs, fn tab ->
-      Map.put(tab, :active, Tab.matches_path?(tab, current_path))
-    end)
-  end
-
-  defp group_tabs(tabs) do
-    Enum.group_by(tabs, & &1.group)
-  end
-
-  defp sorted_groups(groups, grouped_tabs) do
-    # Get groups that have tabs
-    group_ids_with_tabs = Map.keys(grouped_tabs) |> Enum.reject(&is_nil/1)
-
-    # Filter to groups that have tabs and sort by priority
-    groups
-    |> Enum.filter(&(&1.id in group_ids_with_tabs))
-    |> Enum.sort_by(& &1.priority)
-  end
-
   defp get_overflow_tabs(scope, shown_count) do
     Registry.get_tabs(scope: scope, level: :user)
     |> Enum.filter(&Tab.navigable?/1)
@@ -650,19 +631,6 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   defp build_path(path, locale) do
     Routes.path(path, locale: locale)
-  end
-
-  # Filter to only top-level tabs (no parent)
-  defp filter_top_level(tabs) do
-    Enum.filter(tabs, &Tab.top_level?/1)
-  end
-
-  # Get subtabs for a given parent tab ID
-  defp get_subtabs_for(parent_id, all_tabs) do
-    Enum.filter(all_tabs, fn tab ->
-      tab.parent == parent_id
-    end)
-    |> Enum.sort_by(& &1.priority)
   end
 
   # Check if any subtab is currently active

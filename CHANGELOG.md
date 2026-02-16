@@ -2,6 +2,13 @@
 - Fix Ecto.ChangeError in entities by using DateTime instead of NaiveDateTime
 - Fix infinite recursion risk in category circular reference validation
 - Add DateTime inconsistency audit report with phased migration plan
+- Add custom permission key auto-registration for admin tabs
+  - Custom admin tabs with non-built-in permission keys now auto-register with the permission system
+  - Custom keys appear in the permission matrix and roles popup under "Custom" section
+  - Owner role automatically gets access to custom permission keys
+  - Custom LiveView permission enforcement via cached `:persistent_term` mapping
+  - New API: `Permissions.register_custom_key/2`, `unregister_custom_key/1`, `custom_keys/0`, `clear_custom_keys/0`
+  - Key validation: format check (`~r/^[a-z][a-z0-9_]*$/`), `ArgumentError` on built-in key collision
 
 ## 1.7.37 - 2026-02-15
 - Fix UUID PR review issues: aliases, dashboard_assigns, and naming issues
