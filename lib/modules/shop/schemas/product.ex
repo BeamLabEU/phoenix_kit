@@ -297,7 +297,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
     if Code.ensure_loaded?(Languages) and function_exported?(Languages, :enabled?, 0) and
          Languages.enabled?() do
       case Languages.get_default_language() do
-        %{"code" => code} -> code
+        %{code: code} -> code
         _ -> "en"
       end
     else

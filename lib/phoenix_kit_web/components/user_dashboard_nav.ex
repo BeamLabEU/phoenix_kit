@@ -115,15 +115,15 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
               <%= for language <- user_languages do %>
                 <li>
                   <a
-                    href={generate_language_switch_url(@current_path, language["code"])}
+                    href={generate_language_switch_url(@current_path, language.code)}
                     class={[
                       "flex items-center gap-3",
-                      if(language["code"] == @current_locale, do: "active", else: "")
+                      if(language.code == @current_locale, do: "active", else: "")
                     ]}
                   >
-                    <span class="text-lg">{get_language_flag(language["code"])}</span>
-                    <span>{language["name"]}</span>
-                    <%= if language["code"] == @current_locale do %>
+                    <span class="text-lg">{get_language_flag(language.code)}</span>
+                    <span>{language.name}</span>
+                    <%= if language.code == @current_locale do %>
                       <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
                     <% end %>
                   </a>
@@ -166,23 +166,18 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
         Languages.get_enabled_languages()
       else
         # Fallback to English when module is disabled
-        [%{"code" => "en-US", "name" => "English (United States)", "is_enabled" => true}]
+        [%{code: "en-US", name: "English (United States)", is_enabled: true}]
       end
 
-    # Map to expected format
+    # Map to expected format with enriched data from predefined languages
     languages
     |> Enum.map(fn lang ->
-      case Languages.get_predefined_language(lang["code"]) do
+      case Languages.get_predefined_language(lang.code) do
         %{name: name, flag: flag, native: native} ->
-          %{"code" => lang["code"], "name" => name, "flag" => flag, "native" => native}
+          %{code: lang.code, name: name, flag: flag, native: native}
 
         nil ->
-          %{
-            "code" => lang["code"],
-            "name" => String.upcase(lang["code"]),
-            "flag" => "🌐",
-            "native" => ""
-          }
+          %{code: lang.code, name: String.upcase(lang.code), flag: "🌐", native: ""}
       end
     end)
   end

@@ -796,7 +796,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
       enabled ->
         Enum.map(enabled, fn lang ->
-          code = lang["code"]
+          code = lang.code
           base = DialectMapper.extract_base(code)
           predefined = Languages.get_predefined_language(code)
 
@@ -804,7 +804,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             code: code,
             base: base,
             flag: (predefined && predefined.flag) || "🌐",
-            name: lang["name"] || code
+            name: lang.name || code
           }
         end)
     end

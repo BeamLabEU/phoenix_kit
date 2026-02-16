@@ -14,6 +14,11 @@ This document gives a new AI full context on the UUIDv7 migration: what we're do
 > - Integer `id` column is now officially **deprecated** — will be removed in a future major version
 > - All `belongs_to` with UUID foreign keys MUST include `references: :uuid` (Ecto defaults to `:id`)
 > - Deprecation warning added to `mix phoenix_kit.update`
+>
+> **V3.3 corrections (2026-02-16):**
+> - Pattern 2 schemas migrated: all 29 schemas now use `.uuid` as the Elixir field name (legacy DB column name bridged via `source: :id` where needed; the `id` column will be dropped later)
+> - **Parameter naming convention** clarified and enforced: `_uuid` for UUID params, `_id` only for legacy integer params — applies to function parameters, variables, and map keys, not just schema fields
+> - All code examples updated to follow the naming convention
 
 ## Deprecation Notice
 
@@ -43,7 +48,7 @@ UUIDv7 provides better database index locality because the first 48 bits are a U
 |---------|---------|-------|
 | SQL migration DEFAULT | `uuid_generate_v7()` | `gen_random_uuid()` |
 | Elixir code generation | `UUIDv7.generate()` | `Ecto.UUID.generate()` |
-| Schema PK declaration | `@primary_key {:id, UUIDv7, autogenerate: true}` | `@primary_key {:id, :binary_id, autogenerate: true}` |
+| Schema PK declaration | `@primary_key {:uuid, UUIDv7, autogenerate: true}` | `@primary_key {:id, :binary_id, autogenerate: true}` |
 
 ## Naming Convention (CRITICAL)
 
@@ -51,17 +56,48 @@ UUIDv7 provides better database index locality because the first 48 bits are a U
 
 | Concept | Field | Type | Example |
 |---------|-------|------|---------|
-| Legacy integer | `.id` | integer | `user.id` → `42` |
+| Legacy integer (deprecated) | `.id` | integer | `user.id` → `42` |
 | UUID identifier | `.uuid` | UUIDv7 string | `user.uuid` → `"019b5704-..."` |
 
-This distinction applies everywhere:
-- **Schema fields**: `field :id, :integer` vs `field :uuid, UUIDv7` (or `@primary_key {:uuid, UUIDv7, ...}`)
-- **FK columns**: `user_id` (integer FK) vs `user_uuid` (UUID FK)
-- **Template attributes**: `phx-value-id` passes an integer, `phx-value-uuid` passes a UUID
-- **Handler patterns**: `%{"id" => id}` receives an integer string, `%{"uuid" => uuid}` receives a UUID string
-- **Route params**: URLs use `.uuid` values
+This distinction applies **everywhere** — schema fields, DB columns, function parameters, variables, map keys, template attributes:
 
-**Never conflate them.** If a value is a UUID, the variable/key/attribute must say `uuid`, not `id`.
+- **Schema fields**: `field :id, :integer` (deprecated) vs `field :uuid, UUIDv7`
+- **FK columns**: `user_id` (deprecated integer FK) vs `user_uuid` (UUID FK)
+- **Function parameters**: `user_uuid` for UUID values, `user_id` only in legacy helpers that explicitly handle integers
+- **Template attributes**: `phx-value-uuid` passes a UUID (preferred), `phx-value-id` is deprecated
+- **Handler patterns**: `%{"uuid" => uuid}` receives a UUID string
+- **Route params**: URLs use `.uuid` values
+- **Variables and map keys**: `user_uuid` holds a UUID string, `user_id` only for legacy integer values
+
+**Never conflate them.** If a value is a UUID, the variable/key/parameter/attribute must say `uuid`, not `id`.
+
+### Function parameter naming
+
+Public API functions use `_uuid` parameter names. Integer arguments raise `ArgumentError` to catch stale callers:
+
+```elixir
+# Public API — UUID-only, integers are rejected
+def like_post(post_uuid, user_uuid) when is_binary(user_uuid) do
+  if UUIDUtils.valid?(user_uuid) do
+    do_like_post(post_uuid, user_uuid, resolve_user_id(user_uuid))
+  else
+    {:error, :invalid_user_uuid}
+  end
+end
+
+def like_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
+  raise ArgumentError,
+    "like_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+    "Use user.uuid instead of user.id"
+end
+```
+
+Private helpers that resolve between types use the matching name:
+
+```elixir
+defp resolve_user_uuid(user_id) when is_integer(user_id) do ...   # takes integer, returns UUID
+defp resolve_user_id(user_uuid) when is_binary(user_uuid) do ...  # takes UUID, returns integer
+```
 
 ---
 
@@ -102,40 +138,30 @@ belongs_to :user, User, foreign_key: :user_uuid, type: UUIDv7
 
 This applies to ALL `belongs_to` associations where the parent uses Pattern 1.
 
-### Pattern 2: Native UUID PK, no integer (newer modules)
+### Pattern 2: Native UUID PK, no legacy integer (newer modules)
 
 Used by: tickets, posts, comments, connections, storage (files/buckets)
 
+These tables were created after the UUID decision and never had an integer `id` column. The DB column is named `id` (UUID type), but the Elixir field is `:uuid` via `source: :id`:
+
 ```elixir
-@primary_key {:id, UUIDv7, autogenerate: true}
+@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
 schema "phoenix_kit_tickets" do
-  # id IS the UUID — no separate uuid field
-  belongs_to :user, User, type: :integer
-  field :user_uuid, UUIDv7
+  # .uuid is the PK — maps to DB column "id" which holds a UUID
+  # user FKs use dual-write (integer + UUID) during migration
+  belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
+  field :user_id, :integer  # legacy dual-write, will be dropped
   # ...
 end
 ```
 
-- `ticket.id` — IS the UUID (the only PK)
-- No `.uuid` field — `.id` serves that purpose
-- `phx-value-id={ticket.id}` is correct here (`.id` IS the UUID)
+- `ticket.uuid` — the UUID primary key
+- `ticket.id` — does NOT exist (no integer column on these tables)
+- `Repo.get(Ticket, "019b...")` — works (matches UUID PK)
+- `phx-value-uuid={ticket.uuid}` — correct
 
-**`@foreign_key_type` varies across Pattern 2 schemas — don't assume it's always `UUIDv7`.**
-
-| Variant | Schemas | `@foreign_key_type` | Effect |
-|---------|---------|---------------------|--------|
-| Full UUID FKs | Post, PostTag, PostGroup, PostMedia, Ticket, TicketAttachment, File, FileInstance, Bucket, Dimension, FileLocation | `UUIDv7` | `belongs_to` defaults to UUID type |
-| No declaration | Comment, CommentLike, CommentDislike, Connection, Block, Follow, TicketComment, TicketStatusHistory | *(none)* | `belongs_to` defaults to `:id` type; user FKs use explicit `type: :integer` |
-| Explicit `:id` | ConnectionHistory, FollowHistory, BlockHistory | `:id` | Same as no declaration — user FKs use explicit `type: :integer` |
-
-**In practice this doesn't affect the UUID migration pattern.** All Pattern 2 schemas reference users the same way regardless of `@foreign_key_type`:
-```elixir
-belongs_to :user, User, type: :integer   # explicit integer FK to users table
-field :user_uuid, UUIDv7                  # UUID FK for dual-write
-```
-
-The `@foreign_key_type` setting only matters for self-referencing FKs (e.g., `parent_id` on comments, `replied_to` on ticket comments) — those automatically match the schema's own PK type.
+**Note:** The `source: :id` option is a bridge — the DB column is still named `id` on these legacy tables. New tables should name the column `uuid` directly and won't need `source:`.
 
 ### Pattern 3: Integer PK with secondary UUID (being migrated away)
 
@@ -164,16 +190,15 @@ end
 When an operation changes which user/record a FK points to, set both columns:
 
 ```elixir
-# Real example from tickets.ex
-def assign_ticket(ticket, handler_id) do
+def assign_ticket(ticket, handler_uuid) do
   update_ticket(ticket, %{
-    assigned_to_id: handler_id,
-    assigned_to_uuid: resolve_user_uuid(handler_id)
+    assigned_to_uuid: handler_uuid,
+    assigned_to_id: resolve_user_id(handler_uuid)
   })
 end
 ```
 
-If you only set `assigned_to_id`, the `assigned_to_uuid` column goes stale — it keeps the old user's UUID (or NULL). Any code reading `assigned_to_uuid` returns wrong data.
+If you only set one FK column, the other goes stale. Always write both during the dual-write period.
 
 ### Multi-FK pattern — records with multiple user references
 
@@ -224,35 +249,28 @@ Reference: `lib/phoenix_kit/migrations/uuid_fk_columns.ex` has the complete list
 
 ## Lookup Functions
 
-Every lookup function handles both integer and UUID inputs:
+Public lookup functions accept UUID strings. Integer arguments raise to catch stale callers:
 
 ```elixir
-# Integer lookup — use get_by, NOT get (get crashes on UUID-PK schemas)
+def get_thing(uuid) when is_binary(uuid) do
+  PhoenixKit.UUID.get(Thing, uuid)
+end
+
 def get_thing(id) when is_integer(id) do
-  repo().get_by(Thing, id: id)
+  raise ArgumentError,
+    "get_thing/1 expects a UUID string, got integer: #{id}. Use record.uuid instead of record.id"
 end
 
-# Binary lookup — could be UUID string or integer-as-string
-def get_thing(id) when is_binary(id) do
-  case Integer.parse(id) do
-    {int_id, ""} -> get_thing(int_id)
-    _ -> repo().get(Thing, id)  # UUID string — matches UUID PK
-  end
-end
+def get_thing(_), do: nil
 ```
 
-Or use the built-in helper:
-```elixir
-def get_thing(id), do: PhoenixKit.UUID.get(Thing, id)
-```
-
-`PhoenixKit.UUID.get/2` handles integer, integer-string, UUID string, and invalid input automatically.
+`PhoenixKit.UUID.get/2` handles UUID strings, integer-as-strings (backward compat for URL params), and invalid input automatically.
 
 ### Bang variants
 
 ```elixir
-def get_thing!(id) do
-  case get_thing(id) do
+def get_thing!(uuid) do
+  case get_thing(uuid) do
     nil -> raise Ecto.NoResultsError, queryable: Thing
     thing -> thing
   end
@@ -263,24 +281,31 @@ end
 
 ## Query Filters
 
-When filtering by user and the caller might pass either type:
+Filter by user UUID. Query the `user_uuid` column directly:
 
 ```elixir
 defp maybe_filter_by_user(query, nil), do: query
 
-defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
-  where(query, [p], p.user_id == ^user_id)
-end
-
-defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
-  case Integer.parse(user_id) do
-    {int_id, ""} -> where(query, [p], p.user_id == ^int_id)
-    _ -> where(query, [p], p.user_uuid == ^user_id)
-  end
+defp maybe_filter_by_user(query, user_uuid) when is_binary(user_uuid) do
+  where(query, [p], p.user_uuid == ^user_uuid)
 end
 ```
 
-**When integers are dropped**: Delete the integer clause. The binary clause queries `user_uuid` directly.
+If you still need backward compat for integer-as-string from URL params:
+
+```elixir
+defp maybe_filter_by_user(query, user_uuid) when is_binary(user_uuid) do
+  if UUIDUtils.valid?(user_uuid) do
+    where(query, [p], p.user_uuid == ^user_uuid)
+  else
+    # backward compat: integer-as-string from old URL params
+    case Integer.parse(user_uuid) do
+      {int_id, ""} -> where(query, [p], p.user_id == ^int_id)
+      _ -> query
+    end
+  end
+end
+```
 
 ---
 
@@ -288,28 +313,21 @@ end
 
 ### Target convention
 
+All schemas now use `.uuid` — use `phx-value-uuid` everywhere:
+
 ```heex
-<%!-- Passing a UUID value → use phx-value-uuid --%>
+<%!-- CORRECT — always use phx-value-uuid with record.uuid --%>
 <button phx-click="delete" phx-value-uuid={record.uuid}>Delete</button>
 
-<%!-- Passing a native UUID PK (tickets/posts/comments where .id IS the UUID) → phx-value-id is fine --%>
-<button phx-click="delete" phx-value-id={ticket.id}>Delete</button>
+<%!-- WRONG — even if .id is a UUID on Pattern 2 schemas, use .uuid --%>
+<button phx-click="delete" phx-value-id={ticket.id}>Don't do this</button>
 ```
-
-**Current state**: The codebase has been fully migrated to this convention. All modules use `phx-value-uuid={record.uuid}` with corresponding `%{"uuid" => uuid}` handler patterns. The only places using `phx-value-id` are native UUID PK schemas (tickets, posts, comments) where `.id` IS the UUID.
 
 ### Handler pattern
 
 ```elixir
-# Record with .uuid field
 def handle_event("delete", %{"uuid" => uuid}, socket) do
   record = MyModule.get_thing!(uuid)
-  # ...
-end
-
-# Record where .id IS the UUID (native UUID PK schemas)
-def handle_event("delete", %{"id" => id}, socket) do
-  record = MyModule.get_thing!(id)
   # ...
 end
 ```
@@ -334,20 +352,21 @@ class={if to_string(selected_id) == to_string(profile.uuid), do: "selected", els
 
 ## PubSub Topics
 
-Topics must resolve to the **same string** regardless of input type:
+Topics use UUID strings directly:
 
 ```elixir
-# Always normalize to integer for topic consistency
-defp user_topic(id) when is_integer(id), do: "tickets:user:#{id}"
+defp user_topic(user_uuid) when is_binary(user_uuid), do: "tickets:user:#{user_uuid}"
+```
 
-defp user_topic(id) when is_binary(id) do
-  case Integer.parse(id) do
-    {int_id, ""} -> user_topic(int_id)
-    _ ->
-      case Auth.get_user(id) do
-        %{id: int_id} -> user_topic(int_id)
-        nil -> "tickets:user:unknown"
-      end
+If you need backward compat during migration, normalize to UUID:
+
+```elixir
+defp user_topic(user_uuid) when is_binary(user_uuid), do: "tickets:user:#{user_uuid}"
+
+defp user_topic(user_id) when is_integer(user_id) do
+  case resolve_user_uuid(user_id) do
+    nil -> "tickets:user:unknown"
+    uuid -> user_topic(uuid)
   end
 end
 ```
@@ -356,16 +375,18 @@ end
 
 ## Oban Worker Backward Compatibility
 
-Workers may have old jobs queued with integer IDs while new jobs use UUIDs. Handle both:
+Workers may have old jobs queued with integer IDs while new jobs use UUIDs. This is the one place where accepting both types in a private helper is acceptable — old jobs in the queue can't be changed:
 
 ```elixir
-defp get_subscription_with_preloads(id) when is_integer(id) do
-  from(s in Subscription, where: s.id == ^id, preload: [:plan, :payment_method])
+# Private helper — backward compat for queued jobs only
+defp get_subscription_with_preloads(uuid) when is_binary(uuid) do
+  from(s in Subscription, where: s.uuid == ^uuid, preload: [:plan, :payment_method])
   |> repo().one()
 end
 
-defp get_subscription_with_preloads(id) when is_binary(id) do
-  from(s in Subscription, where: s.uuid == ^id, preload: [:plan, :payment_method])
+defp get_subscription_with_preloads(id) when is_integer(id) do
+  # Legacy: old jobs may have integer IDs queued before migration
+  from(s in Subscription, where: s.id == ^id, preload: [:plan, :payment_method])
   |> repo().one()
 end
 ```
@@ -403,21 +424,15 @@ String.to_integer("019b5704-...")  # CRASHES with ArgumentError
 Integer.parse("019b5704-...")      # Returns :error safely
 ```
 
-### 4. Returning UUID from `get_user_id` to an integer FK field
+### 4. Returning UUID from `resolve_user_id` to an integer FK field
 ```elixir
-# WRONG — returns UUID string, caller passes to changed_by_id (integer field)
-defp get_user_id(id) when is_binary(id), do: id
+# WRONG — returns the input as-is, could be UUID string going to integer field
+defp resolve_user_id(user_uuid) when is_binary(user_uuid), do: user_uuid
 
-# CORRECT — always resolve to integer for integer FK fields
-defp get_user_id(id) when is_binary(id) do
-  case Integer.parse(id) do
-    {int_id, ""} -> int_id
-    _ ->
-      case Auth.get_user(id) do
-        %{id: int_id} -> int_id
-        nil -> nil
-      end
-  end
+# CORRECT — look up the integer from the UUID
+defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
+  from(u in Auth.User, where: u.uuid == ^user_uuid, select: u.id)
+  |> repo().one()
 end
 ```
 
@@ -427,30 +442,39 @@ end
 _ -> query
 
 # CORRECT — query the UUID FK column
-_ -> where(query, [p], p.user_uuid == ^user_id)
+_ -> where(query, [p], p.user_uuid == ^user_uuid)
 ```
 
 ### 6. Form params losing UUID fields on submit
 UUID fields set programmatically on a changeset are lost when the HTML form submits (they aren't in form inputs). Re-add them in the save handler:
 ```elixir
 code_params
-|> Map.put("beneficiary", beneficiary.id)
 |> Map.put("beneficiary_uuid", beneficiary.uuid)
+|> Map.put("beneficiary", beneficiary.id)  # legacy dual-write
 ```
 
 ### 7. Inconsistent PubSub topics
-Integer path subscribes to `"user:42"`, UUID path publishes to `"user:019b..."` — messages never arrive. Always normalize to integer for topics (see PubSub section above).
+Integer path subscribes to `"user:42"`, UUID path publishes to `"user:019b..."` — messages never arrive. Always normalize to UUID for topics (see PubSub section above).
 
 ### 8. Forgetting to dual-write on FK updates
 ```elixir
-# WRONG — assigned_to_uuid stays stale
-update_ticket(ticket, %{assigned_to_id: new_handler_id})
+# WRONG — assigned_to_id stays stale
+update_ticket(ticket, %{assigned_to_uuid: handler_uuid})
 
 # CORRECT — update both columns
 update_ticket(ticket, %{
-  assigned_to_id: new_handler_id,
-  assigned_to_uuid: resolve_user_uuid(new_handler_id)
+  assigned_to_uuid: handler_uuid,
+  assigned_to_id: resolve_user_id(handler_uuid)
 })
+```
+
+### 9. Using `_id` parameter names for UUID values
+```elixir
+# WRONG — parameter name says "id" but value is a UUID
+def like_post(post_id, user_id) when is_binary(user_id) do ...
+
+# CORRECT — parameter name matches the type
+def like_post(post_uuid, user_uuid) when is_binary(user_uuid) do ...
 ```
 
 ---
@@ -491,13 +515,12 @@ update_ticket(ticket, %{
 - All existing data backfilled via JOIN queries
 
 ### Elixir Schemas
-- All schemas have UUID PK (`@primary_key {:uuid, UUIDv7, ...}` or `@primary_key {:id, UUIDv7, ...}`)
+- All schemas have UUID PK (`@primary_key {:uuid, UUIDv7, ...}` — Pattern 2 uses `source: :id` for legacy DB column name)
 - UUID FK fields (`user_uuid`, etc.) added to schemas
 - Changesets cast UUID FK fields
 - Dual-write on creates and FK updates (both integer FK and UUID FK populated)
-- Lookup functions handle both integer and UUID inputs
-- Binary overloads added for `when is_integer(id)` functions
-- `resolve_user_uuid` helpers in context modules
+- Lookup functions accept UUID strings; integer arguments raise `ArgumentError`
+- `resolve_user_uuid` and `resolve_user_id` helpers in context modules
 
 ### Web Layer
 - Templates use `.uuid` in routes and links
@@ -543,14 +566,16 @@ Cross-referenced every schema against `uuid_fk_columns.ex`. Found and fixed 15 i
 
 When migrating templates from `.id` to `.uuid`, check each usage category:
 
-### Pattern 1 vs Pattern 2 Schemas
+### All Schemas Use `.uuid`
+
+Both patterns now expose `.uuid` as the primary identifier:
 
 - **Pattern 1** (`@primary_key {:uuid, UUIDv7, autogenerate: true}` + `field :id, :integer`):
-  Using `.id` in templates is **WRONG** — use `.uuid`. Includes: User, Role, all Billing,
-  all AI, Emails, Shop, Entities, Referrals, Sync, Settings, AuditLog (**48 schemas**)
-- **Pattern 2** (`@primary_key {:id, UUIDv7, autogenerate: true}`):
-  Using `.id` is **fine** — `.id` IS the UUID. Includes: Tickets, Posts, Comments,
-  Connections, Storage (**27 schemas**)
+  `.id` is the deprecated integer. Always use `.uuid`.
+- **Pattern 2** (`@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`):
+  `.uuid` is the PK (maps to DB column `id`). There is no `.id` field.
+
+**In both cases:** use `record.uuid` in templates, routes, `phx-value-uuid`, and handler patterns.
 
 ### What to Check in Templates
 
@@ -597,5 +622,5 @@ After any migration-related changes:
    WHERE user_id IS NOT NULL AND user_uuid IS NULL;
    ```
 5. `mix test` — smoke tests pass
-6. Grep for remaining `.id}` in `.heex` files — filter out Pattern 2 schemas (tickets,
-   posts, comments, connections, storage) which are safe
+6. Grep for remaining `.id}` in `.heex` files — ALL should use `.uuid` now (Pattern 2 schemas included)
+7. Grep for `_id)` parameter names in public function signatures — should be `_uuid)` unless it's a `resolve_*` helper

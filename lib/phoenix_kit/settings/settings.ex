@@ -1207,7 +1207,7 @@ defmodule PhoenixKit.Settings do
     # Use the default language from Languages module if enabled
     if Code.ensure_loaded?(Languages) and Languages.enabled?() do
       case Languages.get_default_language() do
-        %{"code" => code} -> code
+        %{code: code} -> code
         nil -> "en"
       end
     else
@@ -1235,11 +1235,11 @@ defmodule PhoenixKit.Settings do
     # Use the default language from Languages module directly
     if Code.ensure_loaded?(Languages) and Languages.enabled?() do
       case Languages.get_default_language() do
-        %{"code" => code, "name" => name} = lang ->
+        %{code: code, name: name} = lang ->
           %{
             code: code,
             name: name,
-            native: lang["native"] || name,
+            native: lang.native || name,
             from_languages_module: true
           }
 

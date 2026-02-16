@@ -50,7 +50,7 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 | Category | Modules | Schemas |
 |----------|---------|---------|
 | ✅ New Standard | 11 | 41 |
-| ✅ Native UUID PK | 4 | 28 |
+| ✅ Native UUID PK (Pattern 2) | 4 | 28 |
 | ❌ No UUID | 0 | 0 |
 | — No schemas | 6 | 0 |
 | **Total** | **21** | **69** |
@@ -97,6 +97,18 @@ end
 
 def get(_), do: nil
 ```
+
+### Native UUID PK Pattern (Pattern 2)
+
+Uses `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}` - the `uuid` field is the primary key, with the database column named `id`.
+
+**Key Characteristics**:
+
+1. **DB-generated UUIDs** - Database generates UUIDv7 via DEFAULT/trigger
+2. **`source: :id`** - Database column is `id`, Elixir field is `uuid`
+3. **`autogenerate: true`** - Database generates the UUID
+4. **Flexible lookups** - `get/1` accepts integer, UUID string, or string-integer
+5. **Shared validation** - Uses `PhoenixKit.Utils.UUID.valid?/1`
 
 ### ID Usage Rules
 
@@ -177,43 +189,43 @@ def get(_), do: nil
 
 ### ✅ Native UUID PK (28 schemas)
 
-Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is a UUID.
+Uses `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}` - the `uuid` field is the primary key, with the database column named `id`.
 
 #### Posts Module (13 schemas)
-- `post.ex` - `phoenix_kit_posts`
-- `post_comment.ex` - `phoenix_kit_post_comments`
-- `post_like.ex` - `phoenix_kit_post_likes`
-- `post_dislike.ex` - `phoenix_kit_post_dislikes`
-- `post_media.ex` - `phoenix_kit_post_media`
-- `post_tag.ex` - `phoenix_kit_post_tags`
-- `post_view.ex` - `phoenix_kit_post_views`
-- `post_group.ex` - `phoenix_kit_post_groups`
-- `post_mention.ex` - `phoenix_kit_post_mentions`
-- `comment_like.ex` - `phoenix_kit_comment_likes`
-- `comment_dislike.ex` - `phoenix_kit_comment_dislikes`
+- `post.ex` - `phoenix_kit_posts` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_comment.ex` - `phoenix_kit_post_comments` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_like.ex` - `phoenix_kit_post_likes` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_dislike.ex` - `phoenix_kit_post_dislikes` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_media.ex` - `phoenix_kit_post_media` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_tag.ex` - `phoenix_kit_post_tags` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_view.ex` - `phoenix_kit_post_views` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_group.ex` - `phoenix_kit_post_groups` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `post_mention.ex` - `phoenix_kit_post_mentions` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `comment_like.ex` - `phoenix_kit_comment_likes` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `comment_dislike.ex` - `phoenix_kit_comment_dislikes` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
 - `post_tag_assignment.ex` - `phoenix_kit_post_tag_assignments` (composite key, no PK)
 - `post_group_assignment.ex` - `phoenix_kit_post_group_assignments` (composite key, no PK)
 
 #### Storage Module (5 schemas)
-- `bucket.ex` - `phoenix_kit_buckets`
-- `dimension.ex` - `phoenix_kit_storage_dimensions`
-- `file.ex` - `phoenix_kit_files`
-- `file_instance.ex` - `phoenix_kit_file_instances`
-- `file_location.ex` - `phoenix_kit_file_locations`
+- `bucket.ex` - `phoenix_kit_buckets` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `dimension.ex` - `phoenix_kit_storage_dimensions` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `file.ex` - `phoenix_kit_files` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `file_instance.ex` - `phoenix_kit_file_instances` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `file_location.ex` - `phoenix_kit_file_locations` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
 
 #### Connections Module (6 schemas)
-- `block.ex` - `phoenix_kit_user_blocks`
-- `block_history.ex` - `phoenix_kit_user_blocks_history`
-- `connection.ex` - `phoenix_kit_user_connections`
-- `connection_history.ex` - `phoenix_kit_user_connections_history`
-- `follow.ex` - `phoenix_kit_user_follows`
-- `follow_history.ex` - `phoenix_kit_user_follows_history`
+- `block.ex` - `phoenix_kit_user_blocks` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `block_history.ex` - `phoenix_kit_user_blocks_history` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `connection.ex` - `phoenix_kit_user_connections` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `connection_history.ex` - `phoenix_kit_user_connections_history` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `follow.ex` - `phoenix_kit_user_follows` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `follow_history.ex` - `phoenix_kit_user_follows_history` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
 
 #### Tickets Module (4 schemas)
-- `ticket.ex` - `phoenix_kit_tickets`
-- `ticket_attachment.ex` - `phoenix_kit_ticket_attachments`
-- `ticket_comment.ex` - `phoenix_kit_ticket_comments`
-- `ticket_status_history.ex` - `phoenix_kit_ticket_status_history`
+- `ticket.ex` - `phoenix_kit_tickets` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `ticket_attachment.ex` - `phoenix_kit_ticket_attachments` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `ticket_comment.ex` - `phoenix_kit_ticket_comments` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
+- `ticket_status_history.ex` - `phoenix_kit_ticket_status_history` - `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`
 
 ### Other
 
@@ -226,10 +238,12 @@ Uses `@primary_key {:id, UUIDv7, autogenerate: true}` - the `id` field itself is
 
 All 69 schemas across the codebase now use the standardized UUID pattern:
 - **41 schemas** using the New Standard (`read_after_writes: true`, DB-generated UUIDs)
-- **28 schemas** using Native UUID PK (`@primary_key {:id, UUIDv7, autogenerate: true}`)
+- **28 schemas** using Native UUID PK Pattern 2 (`@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`)
 - **0 schemas** remaining with old `maybe_generate_uuid` pattern
 
 Zero instances of `maybe_generate_uuid` remain in the codebase.
+
+**Pattern 2 Migration Complete**: All 28 Pattern 2 schemas now use the new format with `source: :id` for consistent `.uuid` field access.
 
 ---
 

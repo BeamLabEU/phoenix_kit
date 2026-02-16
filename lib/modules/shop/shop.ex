@@ -3461,7 +3461,7 @@ defmodule PhoenixKit.Modules.Shop do
   def get_default_language do
     case Languages.get_default_language() do
       nil -> "en"
-      lang -> DialectMapper.extract_base(lang["code"])
+      lang -> DialectMapper.extract_base(lang.code)
     end
   end
 

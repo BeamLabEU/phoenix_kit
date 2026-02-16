@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Posts do
   ## Examples
 
       # Create a post
-      {:ok, post} = Posts.create_post(user_id, %{
+      {:ok, post} = Posts.create_post(user_uuid, %{
         title: "My First Post",
         content: "Hello world!",
         type: "post",
@@ -31,15 +31,15 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, post} = Posts.publish_post(post)
 
       # Like a post
-      {:ok, like} = Posts.like_post(post.uuid, user_id)
+      {:ok, like} = Posts.like_post(post.uuid, user_uuid)
 
       # Add a comment
-      {:ok, comment} = Posts.create_comment(post.uuid, user_id, %{
+      {:ok, comment} = Posts.create_comment(post.uuid, user_uuid, %{
         content: "Great post!"
       })
 
       # Create a group
-      {:ok, group} = Posts.create_group(user_id, %{
+      {:ok, group} = Posts.create_group(user_uuid, %{
         name: "Travel Photos",
         description: "My adventures"
       })
@@ -146,34 +146,25 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `user_id` - Owner of the post
+  - `user_uuid` - Owner UUID (UUIDv7 string)
   - `attrs` - Post attributes (title, content, type, status, etc.)
 
   ## Examples
 
-      iex> create_post(1, %{title: "Test", content: "Content", type: "post"})
+      iex> create_post("019145a1-...", %{title: "Test", content: "Content", type: "post"})
       {:ok, %Post{}}
 
-      iex> create_post(1, %{title: "", content: ""})
+      iex> create_post("019145a1-...", %{title: "", content: ""})
       {:error, %Ecto.Changeset{}}
   """
-  def create_post(user_id, attrs) when is_integer(user_id) do
-    # Use string key to match form params (which have string keys)
-    attrs =
-      attrs
-      |> Map.put("user_id", user_id)
-      |> Map.put("user_uuid", resolve_user_uuid(user_id))
-
-    %Post{}
-    |> Post.changeset(attrs)
-    |> repo().insert()
+  def create_post(user_uuid, attrs) when is_binary(user_uuid) do
+    create_post_with_uuid(user_uuid, attrs)
   end
 
-  def create_post(user_id, attrs) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> create_post(int_id, attrs)
-      _ -> create_post_with_uuid(user_id, attrs)
-    end
+  def create_post(user_uuid, _attrs) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "create_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp create_post_with_uuid(user_uuid, attrs) do
@@ -371,26 +362,24 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `user_id` - User ID
+  - `user_uuid` - User UUID (UUIDv7 string)
   - `opts` - See `list_posts/1` for options
 
   ## Examples
 
-      iex> list_user_posts(42)
+      iex> list_user_posts("019145a1-...")
       [%Post{}, ...]
   """
-  def list_user_posts(user_id, opts \\ [])
+  def list_user_posts(user_uuid, opts \\ [])
 
-  def list_user_posts(user_id, opts) when is_integer(user_id) do
-    opts = Keyword.put(opts, :user_id, user_id)
-    list_posts(opts)
+  def list_user_posts(user_uuid, opts) when is_binary(user_uuid) do
+    list_posts(Keyword.put(opts, :user_id, user_uuid))
   end
 
-  def list_user_posts(user_id, opts) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> list_user_posts(int_id, opts)
-      _ -> list_posts(Keyword.put(opts, :user_id, user_id))
-    end
+  def list_user_posts(user_uuid, _opts) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "list_user_posts/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -687,30 +676,29 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string)
 
   ## Examples
 
-      iex> like_post("018e3c4a-...", 42)
+      iex> like_post("018e3c4a-...", "019145a1-...")
       {:ok, %PostLike{}}
 
-      iex> like_post("018e3c4a-...", 42)  # Already liked
+      iex> like_post("018e3c4a-...", "019145a1-...")  # Already liked
       {:error, %Ecto.Changeset{}}
   """
-  def like_post(post_id, user_id) when is_integer(user_id) do
-    do_like_post(post_id, resolve_user_uuid(user_id), user_id)
+  def like_post(post_uuid, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      do_like_post(post_uuid, user_uuid, resolve_user_id(user_uuid))
+    else
+      {:error, :invalid_user_uuid}
+    end
   end
 
-  def like_post(post_id, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
-      do_like_post(post_id, user_id, resolve_user_id(user_id))
-    else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> like_post(post_id, int_id)
-        _ -> {:error, :invalid_user_id}
-      end
-    end
+  def like_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "like_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp do_like_post(post_id, user_uuid, user_int_id) do
@@ -740,30 +728,29 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string)
 
   ## Examples
 
-      iex> unlike_post("018e3c4a-...", 42)
+      iex> unlike_post("018e3c4a-...", "019145a1-...")
       {:ok, %PostLike{}}
 
-      iex> unlike_post("018e3c4a-...", 42)  # Not liked
+      iex> unlike_post("018e3c4a-...", "019145a1-...")  # Not liked
       {:error, :not_found}
   """
-  def unlike_post(post_id, user_id) when is_integer(user_id) do
-    do_unlike_post(post_id, resolve_user_uuid(user_id))
+  def unlike_post(post_uuid, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      do_unlike_post(post_uuid, user_uuid)
+    else
+      {:error, :invalid_user_uuid}
+    end
   end
 
-  def unlike_post(post_id, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
-      do_unlike_post(post_id, user_id)
-    else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> unlike_post(post_id, int_id)
-        _ -> {:error, :invalid_user_id}
-      end
-    end
+  def unlike_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "unlike_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp do_unlike_post(post_id, user_uuid) do
@@ -785,32 +772,31 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string)
 
   ## Examples
 
-      iex> post_liked_by?("018e3c4a-...", 42)
+      iex> post_liked_by?("018e3c4a-...", "019145a1-...")
       true
 
-      iex> post_liked_by?("018e3c4a-...", 99)
+      iex> post_liked_by?("018e3c4a-...", "019145a2-...")
       false
   """
-  def post_liked_by?(post_id, user_id) when is_integer(user_id) do
-    post_liked_by?(post_id, resolve_user_uuid(user_id))
-  end
-
-  def post_liked_by?(post_id, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
+  def post_liked_by?(post_uuid, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
       repo().exists?(
-        from(l in PostLike, where: l.post_id == ^post_id and l.user_uuid == ^user_id)
+        from(l in PostLike, where: l.post_id == ^post_uuid and l.user_uuid == ^user_uuid)
       )
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> post_liked_by?(post_id, int_id)
-        _ -> false
-      end
+      false
     end
+  end
+
+  def post_liked_by?(_post_uuid, user_uuid) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "post_liked_by?/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -818,7 +804,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
   - `opts` - Options
     - `:preload` - Associations to preload
 
@@ -830,10 +816,10 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_post_likes("018e3c4a-...", preload: [:user])
       [%PostLike{user: %User{}}, ...]
   """
-  def list_post_likes(post_id, opts \\ []) do
+  def list_post_likes(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(l in PostLike, where: l.post_id == ^post_id, order_by: [desc: l.inserted_at])
+    from(l in PostLike, where: l.post_id == ^post_uuid, order_by: [desc: l.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -850,30 +836,29 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string)
 
   ## Examples
 
-      iex> dislike_post("018e3c4a-...", 42)
+      iex> dislike_post("018e3c4a-...", "019145a1-...")
       {:ok, %PostDislike{}}
 
-      iex> dislike_post("018e3c4a-...", 42)  # Already disliked
+      iex> dislike_post("018e3c4a-...", "019145a1-...")  # Already disliked
       {:error, %Ecto.Changeset{}}
   """
-  def dislike_post(post_id, user_id) when is_integer(user_id) do
-    do_dislike_post(post_id, resolve_user_uuid(user_id), user_id)
+  def dislike_post(post_uuid, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      do_dislike_post(post_uuid, user_uuid, resolve_user_id(user_uuid))
+    else
+      {:error, :invalid_user_uuid}
+    end
   end
 
-  def dislike_post(post_id, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
-      do_dislike_post(post_id, user_id, resolve_user_id(user_id))
-    else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> dislike_post(post_id, int_id)
-        _ -> {:error, :invalid_user_id}
-      end
-    end
+  def dislike_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "dislike_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp do_dislike_post(post_id, user_uuid, user_int_id) do
@@ -903,30 +888,29 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string)
 
   ## Examples
 
-      iex> undislike_post("018e3c4a-...", 42)
+      iex> undislike_post("018e3c4a-...", "019145a1-...")
       {:ok, %PostDislike{}}
 
-      iex> undislike_post("018e3c4a-...", 42)  # Not disliked
+      iex> undislike_post("018e3c4a-...", "019145a1-...")  # Not disliked
       {:error, :not_found}
   """
-  def undislike_post(post_id, user_id) when is_integer(user_id) do
-    do_undislike_post(post_id, resolve_user_uuid(user_id))
+  def undislike_post(post_uuid, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      do_undislike_post(post_uuid, user_uuid)
+    else
+      {:error, :invalid_user_uuid}
+    end
   end
 
-  def undislike_post(post_id, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
-      do_undislike_post(post_id, user_id)
-    else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> undislike_post(post_id, int_id)
-        _ -> {:error, :invalid_user_id}
-      end
-    end
+  def undislike_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "undislike_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp do_undislike_post(post_id, user_uuid) do
@@ -948,32 +932,31 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string)
 
   ## Examples
 
-      iex> post_disliked_by?("018e3c4a-...", 42)
+      iex> post_disliked_by?("018e3c4a-...", "019145a1-...")
       true
 
-      iex> post_disliked_by?("018e3c4a-...", 99)
+      iex> post_disliked_by?("018e3c4a-...", "019145a2-...")
       false
   """
-  def post_disliked_by?(post_id, user_id) when is_integer(user_id) do
-    post_disliked_by?(post_id, resolve_user_uuid(user_id))
-  end
-
-  def post_disliked_by?(post_id, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
+  def post_disliked_by?(post_uuid, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
       repo().exists?(
-        from(d in PostDislike, where: d.post_id == ^post_id and d.user_uuid == ^user_id)
+        from(d in PostDislike, where: d.post_id == ^post_uuid and d.user_uuid == ^user_uuid)
       )
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> post_disliked_by?(post_id, int_id)
-        _ -> false
-      end
+      false
     end
+  end
+
+  def post_disliked_by?(_post_uuid, user_uuid) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "post_disliked_by?/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -981,7 +964,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
   - `opts` - Options
     - `:preload` - Associations to preload
 
@@ -993,10 +976,10 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_post_dislikes("018e3c4a-...", preload: [:user])
       [%PostDislike{user: %User{}}, ...]
   """
-  def list_post_dislikes(post_id, opts \\ []) do
+  def list_post_dislikes(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(d in PostDislike, where: d.post_id == ^post_id, order_by: [desc: d.inserted_at])
+    from(d in PostDislike, where: d.post_id == ^post_uuid, order_by: [desc: d.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1142,16 +1125,16 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `tag_id` - Tag ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `tag_uuid` - Tag UUID (UUIDv7 string)
 
   ## Examples
 
       iex> remove_tag_from_post("018e3c4a-...", "018e3c4a-...")
       {:ok, %PostTagAssignment{}}
   """
-  def remove_tag_from_post(post_id, tag_id) do
-    case repo().get_by(PostTagAssignment, post_id: post_id, tag_id: tag_id) do
+  def remove_tag_from_post(post_uuid, tag_uuid) do
+    case repo().get_by(PostTagAssignment, post_id: post_uuid, tag_id: tag_uuid) do
       nil ->
         {:error, :not_found}
 
@@ -1160,7 +1143,7 @@ defmodule PhoenixKit.Modules.Posts do
           repo().delete(assignment)
 
           # Decrement tag usage
-          from(t in PostTag, where: t.uuid == ^tag_id and t.usage_count > 0)
+          from(t in PostTag, where: t.uuid == ^tag_uuid and t.usage_count > 0)
           |> repo().update_all(inc: [usage_count: -1])
 
           assignment
@@ -1194,30 +1177,22 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `user_id` - Owner of the group
+  - `user_uuid` - Owner UUID (UUIDv7 string)
   - `attrs` - Group attributes (name, description, etc.)
 
   ## Examples
 
-      iex> create_group(42, %{name: "Travel Photos"})
+      iex> create_group("019145a1-...", %{name: "Travel Photos"})
       {:ok, %PostGroup{}}
   """
-  def create_group(user_id, attrs) when is_integer(user_id) do
-    attrs =
-      attrs
-      |> Map.put(:user_id, user_id)
-      |> Map.put(:user_uuid, resolve_user_uuid(user_id))
-
-    %PostGroup{}
-    |> PostGroup.changeset(attrs)
-    |> repo().insert()
+  def create_group(user_uuid, attrs) when is_binary(user_uuid) do
+    create_group_with_uuid(user_uuid, attrs)
   end
 
-  def create_group(user_id, attrs) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> create_group(int_id, attrs)
-      _ -> create_group_with_uuid(user_id, attrs)
-    end
+  def create_group(user_uuid, _attrs) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "create_group/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp create_group_with_uuid(user_uuid, attrs) do
@@ -1340,8 +1315,8 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `group_id` - Group ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `group_uuid` - Group UUID (UUIDv7 string)
   - `opts` - Options
     - `:position` - Display position (default: 0)
 
@@ -1350,19 +1325,19 @@ defmodule PhoenixKit.Modules.Posts do
       iex> add_post_to_group("018e3c4a-...", "018e3c4a-...")
       {:ok, %PostGroupAssignment{}}
   """
-  def add_post_to_group(post_id, group_id, opts \\ []) do
+  def add_post_to_group(post_uuid, group_uuid, opts \\ []) do
     position = Keyword.get(opts, :position, 0)
 
     repo().transaction(fn ->
       case %PostGroupAssignment{}
            |> PostGroupAssignment.changeset(%{
-             post_id: post_id,
-             group_id: group_id,
+             post_id: post_uuid,
+             group_id: group_uuid,
              position: position
            })
            |> repo().insert() do
         {:ok, assignment} ->
-          from(g in PostGroup, where: g.uuid == ^group_id)
+          from(g in PostGroup, where: g.uuid == ^group_uuid)
           |> repo().update_all(inc: [post_count: 1])
 
           assignment
@@ -1380,16 +1355,16 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `group_id` - Group ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `group_uuid` - Group UUID (UUIDv7 string)
 
   ## Examples
 
       iex> remove_post_from_group("018e3c4a-...", "018e3c4a-...")
       {:ok, %PostGroupAssignment{}}
   """
-  def remove_post_from_group(post_id, group_id) do
-    case repo().get_by(PostGroupAssignment, post_id: post_id, group_id: group_id) do
+  def remove_post_from_group(post_uuid, group_uuid) do
+    case repo().get_by(PostGroupAssignment, post_id: post_uuid, group_id: group_uuid) do
       nil ->
         {:error, :not_found}
 
@@ -1397,7 +1372,7 @@ defmodule PhoenixKit.Modules.Posts do
         repo().transaction(fn ->
           repo().delete(assignment)
 
-          from(g in PostGroup, where: g.uuid == ^group_id and g.post_count > 0)
+          from(g in PostGroup, where: g.uuid == ^group_uuid and g.post_count > 0)
           |> repo().update_all(inc: [post_count: -1])
 
           assignment
@@ -1410,30 +1385,25 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `user_id` - User ID
+  - `user_uuid` - User UUID (UUIDv7 string)
   - `opts` - Options
     - `:preload` - Associations to preload
 
   ## Examples
 
-      iex> list_user_groups(42)
+      iex> list_user_groups("019145a1-...")
       [%PostGroup{}, ...]
   """
-  def list_user_groups(user_id, opts \\ [])
+  def list_user_groups(user_uuid, opts \\ [])
 
-  def list_user_groups(user_id, opts) when is_integer(user_id) do
-    preloads = Keyword.get(opts, :preload, [])
-
-    from(g in PostGroup, where: g.user_id == ^user_id, order_by: [asc: g.position])
-    |> repo().all()
-    |> repo().preload(preloads)
+  def list_user_groups(user_uuid, opts) when is_binary(user_uuid) do
+    list_user_groups_by_uuid(user_uuid, opts)
   end
 
-  def list_user_groups(user_id, opts) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> list_user_groups(int_id, opts)
-      _ -> list_user_groups_by_uuid(user_id, opts)
-    end
+  def list_user_groups(user_uuid, _opts) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "list_user_groups/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp list_user_groups_by_uuid(user_uuid, opts) do
@@ -1449,7 +1419,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `group_id` - Group ID
+  - `group_uuid` - Group UUID (UUIDv7 string)
   - `opts` - Options
     - `:preload` - Associations to preload
 
@@ -1458,13 +1428,13 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_posts_by_group("018e3c4a-...")
       [%Post{}, ...]
   """
-  def list_posts_by_group(group_id, opts \\ []) do
+  def list_posts_by_group(group_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
     from(p in Post,
       join: ga in PostGroupAssignment,
       on: ga.post_id == p.uuid,
-      where: ga.group_id == ^group_id,
+      where: ga.group_id == ^group_uuid,
       order_by: [asc: ga.position]
     )
     |> repo().all()
@@ -1478,18 +1448,18 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `user_id` - User ID
-  - `group_id_positions` - Map of group_id => position
+  - `user_uuid` - User UUID (UUIDv7 string)
+  - `group_uuid_positions` - Map of group_uuid => position
 
   ## Examples
 
-      iex> reorder_groups(42, %{"group1" => 0, "group2" => 1})
+      iex> reorder_groups("019145a1-...", %{"group1" => 0, "group2" => 1})
       :ok
   """
-  def reorder_groups(user_id, group_id_positions) when is_map(group_id_positions) do
+  def reorder_groups(user_uuid, group_uuid_positions) when is_map(group_uuid_positions) do
     repo().transaction(fn ->
-      Enum.each(group_id_positions, fn {group_id, position} ->
-        from(g in PostGroup, where: g.uuid == ^group_id and g.user_id == ^user_id)
+      Enum.each(group_uuid_positions, fn {group_uuid, position} ->
+        from(g in PostGroup, where: g.uuid == ^group_uuid and g.user_uuid == ^user_uuid)
         |> repo().update_all(set: [position: position])
       end)
     end)
@@ -1506,44 +1476,36 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User to mention
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string) to mention
   - `mention_type` - "contributor" or "mention" (default: "mention")
 
   ## Examples
 
-      iex> add_mention_to_post("018e3c4a-...", 42, "contributor")
+      iex> add_mention_to_post("018e3c4a-...", "019145a1-...", "contributor")
       {:ok, %PostMention{}}
   """
-  def add_mention_to_post(post_id, user_id, mention_type \\ "mention")
+  def add_mention_to_post(post_uuid, user_uuid, mention_type \\ "mention")
 
-  def add_mention_to_post(post_id, user_id, mention_type) when is_integer(user_id) do
-    %PostMention{}
-    |> PostMention.changeset(%{
-      post_id: post_id,
-      user_id: user_id,
-      user_uuid: resolve_user_uuid(user_id),
-      mention_type: mention_type
-    })
-    |> repo().insert()
-  end
-
-  def add_mention_to_post(post_id, user_id, mention_type) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
+  def add_mention_to_post(post_uuid, user_uuid, mention_type) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
       %PostMention{}
       |> PostMention.changeset(%{
-        post_id: post_id,
-        user_id: resolve_user_id(user_id),
-        user_uuid: user_id,
+        post_id: post_uuid,
+        user_id: resolve_user_id(user_uuid),
+        user_uuid: user_uuid,
         mention_type: mention_type
       })
       |> repo().insert()
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> add_mention_to_post(post_id, int_id, mention_type)
-        _ -> {:error, :invalid_user_id}
-      end
+      {:error, :invalid_user_uuid}
     end
+  end
+
+  def add_mention_to_post(_post_uuid, user_uuid, _mention_type) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "add_mention_to_post/3 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -1551,27 +1513,26 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `user_id` - User ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `user_uuid` - User UUID (UUIDv7 string)
 
   ## Examples
 
-      iex> remove_mention_from_post("018e3c4a-...", 42)
+      iex> remove_mention_from_post("018e3c4a-...", "019145a1-...")
       {:ok, %PostMention{}}
   """
-  def remove_mention_from_post(post_id, user_id) when is_integer(user_id) do
-    do_remove_mention(post_id, resolve_user_uuid(user_id))
+  def remove_mention_from_post(post_uuid, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      do_remove_mention(post_uuid, user_uuid)
+    else
+      {:error, :invalid_user_uuid}
+    end
   end
 
-  def remove_mention_from_post(post_id, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
-      do_remove_mention(post_id, user_id)
-    else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> remove_mention_from_post(post_id, int_id)
-        _ -> {:error, :invalid_user_id}
-      end
-    end
+  def remove_mention_from_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
+    raise ArgumentError,
+          "remove_mention_from_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   defp do_remove_mention(post_id, user_uuid) do
@@ -1586,7 +1547,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
   - `opts` - Options
     - `:preload` - Associations to preload
 
@@ -1595,10 +1556,10 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_post_mentions("018e3c4a-...")
       [%PostMention{}, ...]
   """
-  def list_post_mentions(post_id, opts \\ []) do
+  def list_post_mentions(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(m in PostMention, where: m.post_id == ^post_id)
+    from(m in PostMention, where: m.post_id == ^post_uuid)
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1612,8 +1573,8 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `file_id` - File ID (from PhoenixKit.Modules.Storage)
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `file_uuid` - File UUID (UUIDv7 string, from PhoenixKit.Modules.Storage)
   - `opts` - Options
     - `:position` - Display position (default: 1)
     - `:caption` - Image caption
@@ -1623,14 +1584,14 @@ defmodule PhoenixKit.Modules.Posts do
       iex> attach_media("018e3c4a-...", "018e3c4a-...", position: 1)
       {:ok, %PostMedia{}}
   """
-  def attach_media(post_id, file_id, opts \\ []) do
+  def attach_media(post_uuid, file_uuid, opts \\ []) do
     position = Keyword.get(opts, :position, 1)
     caption = Keyword.get(opts, :caption)
 
     %PostMedia{}
     |> PostMedia.changeset(%{
-      post_id: post_id,
-      file_id: file_id,
+      post_id: post_uuid,
+      file_id: file_uuid,
       position: position,
       caption: caption
     })
@@ -1642,16 +1603,16 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `file_id` - File ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `file_uuid` - File UUID (UUIDv7 string)
 
   ## Examples
 
       iex> detach_media("018e3c4a-...", "018e3c4a-...")
       {:ok, %PostMedia{}}
   """
-  def detach_media(post_id, file_id) do
-    case repo().get_by(PostMedia, post_id: post_id, file_id: file_id) do
+  def detach_media(post_uuid, file_uuid) do
+    case repo().get_by(PostMedia, post_id: post_uuid, file_id: file_uuid) do
       nil -> {:error, :not_found}
       media -> repo().delete(media)
     end
@@ -1662,15 +1623,15 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `media_id` - PostMedia record ID
+  - `media_uuid` - PostMedia record UUID (UUIDv7 string)
 
   ## Examples
 
       iex> detach_media_by_id("018e3c4a-...")
       {:ok, %PostMedia{}}
   """
-  def detach_media_by_id(media_id) do
-    case repo().get(PostMedia, media_id) do
+  def detach_media_by_id(media_uuid) do
+    case repo().get(PostMedia, media_uuid) do
       nil -> {:error, :not_found}
       media -> repo().delete(media)
     end
@@ -1681,7 +1642,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
   - `opts` - Options
     - `:preload` - Associations to preload
 
@@ -1690,10 +1651,10 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_post_media("018e3c4a-...")
       [%PostMedia{}, ...]
   """
-  def list_post_media(post_id, opts \\ []) do
+  def list_post_media(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:file])
 
-    from(m in PostMedia, where: m.post_id == ^post_id, order_by: [asc: m.position])
+    from(m in PostMedia, where: m.post_id == ^post_uuid, order_by: [asc: m.position])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1703,26 +1664,26 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `file_id_positions` - Map of file_id => position
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `file_uuid_positions` - Map of file_uuid => position
 
   ## Examples
 
       iex> reorder_media("018e3c4a-...", %{"file1" => 1, "file2" => 2})
       :ok
   """
-  def reorder_media(post_id, file_id_positions) when is_map(file_id_positions) do
+  def reorder_media(post_uuid, file_uuid_positions) when is_map(file_uuid_positions) do
     repo().transaction(fn ->
       # Two-pass approach to avoid unique constraint violations on (post_id, position)
       # Pass 1: Set all positions to negative values (temporary)
-      Enum.each(file_id_positions, fn {file_id, position} ->
-        from(m in PostMedia, where: m.post_id == ^post_id and m.file_id == ^file_id)
+      Enum.each(file_uuid_positions, fn {file_uuid, position} ->
+        from(m in PostMedia, where: m.post_id == ^post_uuid and m.file_id == ^file_uuid)
         |> repo().update_all(set: [position: -position])
       end)
 
       # Pass 2: Set the correct positive positions
-      Enum.each(file_id_positions, fn {file_id, position} ->
-        from(m in PostMedia, where: m.post_id == ^post_id and m.file_id == ^file_id)
+      Enum.each(file_uuid_positions, fn {file_uuid, position} ->
+        from(m in PostMedia, where: m.post_id == ^post_uuid and m.file_id == ^file_uuid)
         |> repo().update_all(set: [position: position])
       end)
     end)
@@ -1737,25 +1698,25 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
-  - `file_id` - File ID (from PhoenixKit.Modules.Storage)
+  - `post_uuid` - Post UUID (UUIDv7 string)
+  - `file_uuid` - File UUID (UUIDv7 string, from PhoenixKit.Modules.Storage)
 
   ## Examples
 
       iex> set_featured_image("018e3c4a-...", "018e3c4a-...")
       {:ok, %PostMedia{position: 1}}
   """
-  def set_featured_image(post_id, file_id) do
+  def set_featured_image(post_uuid, file_uuid) do
     repo().transaction(fn ->
       # Remove existing featured image if present
-      from(m in PostMedia, where: m.post_id == ^post_id and m.position == 1)
+      from(m in PostMedia, where: m.post_id == ^post_uuid and m.position == 1)
       |> repo().delete_all()
 
       # Insert new featured image at position 1
       case %PostMedia{}
            |> PostMedia.changeset(%{
-             post_id: post_id,
-             file_id: file_id,
+             post_id: post_uuid,
+             file_id: file_uuid,
              position: 1
            })
            |> repo().insert() do
@@ -1770,7 +1731,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
 
   ## Examples
 
@@ -1780,9 +1741,9 @@ defmodule PhoenixKit.Modules.Posts do
       iex> get_featured_image("018e3c4a-...")
       nil
   """
-  def get_featured_image(post_id) do
+  def get_featured_image(post_uuid) do
     from(m in PostMedia,
-      where: m.post_id == ^post_id and m.position == 1,
+      where: m.post_id == ^post_uuid and m.position == 1,
       preload: [:file]
     )
     |> repo().one()
@@ -1793,7 +1754,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Parameters
 
-  - `post_id` - Post ID
+  - `post_uuid` - Post UUID (UUIDv7 string)
 
   ## Examples
 
@@ -1803,9 +1764,9 @@ defmodule PhoenixKit.Modules.Posts do
       iex> remove_featured_image("018e3c4a-...")
       {:ok, 0}
   """
-  def remove_featured_image(post_id) do
+  def remove_featured_image(post_uuid) do
     {count, _} =
-      from(m in PostMedia, where: m.post_id == ^post_id and m.position == 1)
+      from(m in PostMedia, where: m.post_id == ^post_uuid and m.position == 1)
       |> repo().delete_all()
 
     {:ok, count}
@@ -1850,11 +1811,6 @@ defmodule PhoenixKit.Modules.Posts do
       [p],
       ilike(p.title, ^search_pattern) or ilike(p.content, ^search_pattern)
     )
-  end
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    from(u in Auth.User, where: u.id == ^user_id, select: u.uuid)
-    |> repo().one()
   end
 
   defp resolve_user_id(user_uuid) when is_binary(user_uuid) do

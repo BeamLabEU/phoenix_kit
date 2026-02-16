@@ -54,11 +54,18 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.TranslationTabs do
 
   def translation_tabs(assigns) do
     # Calculate translation status for each language
+    # Extract fields into plain maps to allow adding :status key
     languages_with_status =
       Enum.map(assigns.languages, fn lang ->
-        code = lang["code"] || lang[:code]
+        code = lang.code
         status = calculate_status(assigns.translations, code, assigns.translatable_fields)
-        Map.put(lang, :status, status)
+
+        %{
+          code: code,
+          name: lang.name,
+          is_default: lang.is_default,
+          status: status
+        }
       end)
 
     assigns = assign(assigns, :languages_with_status, languages_with_status)
@@ -66,10 +73,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.TranslationTabs do
     ~H"""
     <div class={["tabs tabs-bordered", @class]}>
       <%= for lang <- @languages_with_status do %>
-        <% code = lang["code"] || lang[:code] %>
-        <% name = lang["name"] || lang[:name] || code %>
+        <% code = lang.code %>
+        <% name = lang.name || code %>
         <% is_current = code == @current_language %>
-        <% is_default = lang["is_default"] || lang[:is_default] || false %>
+        <% is_default = lang.is_default || false %>
         <button
           type="button"
           phx-click={@on_click}

@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Shop.Translations do
   def default_language do
     if languages_enabled?() do
       case Languages.get_default_language() do
-        %{"code" => code} -> code
+        %{code: code} -> code
         _ -> "en"
       end
     else

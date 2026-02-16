@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
         Posts.increment_view_count(post)
 
         # Check if current user liked this post
-        liked_by_user = Posts.post_liked_by?(post.uuid, current_user.id)
+        liked_by_user = Posts.post_liked_by?(post.uuid, current_user.uuid)
 
         # Load settings
         comments_enabled = Comments.enabled?()
@@ -81,7 +81,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
 
     if socket.assigns.liked_by_user do
       # Unlike
-      Posts.unlike_post(post.uuid, current_user.id)
+      Posts.unlike_post(post.uuid, current_user.uuid)
 
       updated_post =
         Posts.get_post!(post.uuid, preload: [:user, [media: :file], :tags, :groups, :mentions])
@@ -92,7 +92,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
        |> assign(:liked_by_user, false)}
     else
       # Like
-      Posts.like_post(post.uuid, current_user.id)
+      Posts.like_post(post.uuid, current_user.uuid)
 
       updated_post =
         Posts.get_post!(post.uuid, preload: [:user, [media: :file], :tags, :groups, :mentions])

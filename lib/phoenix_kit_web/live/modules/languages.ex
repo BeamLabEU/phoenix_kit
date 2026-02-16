@@ -127,12 +127,12 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   def handle_event("set_default", %{"code" => code}, socket) do
     case Languages.set_default_language(code) do
       {:ok, _config} ->
-        language = Enum.find(socket.assigns.languages, &(&1["code"] == code))
+        language = Enum.find(socket.assigns.languages, &(&1.code == code))
 
         socket =
           socket
           |> reload_display_languages()
-          |> put_flash(:info, "#{language["name"]} set as default language")
+          |> put_flash(:info, "#{language.name} set as default language")
 
         {:noreply, socket}
 
@@ -314,8 +314,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   defp sync_admin_languages(display_languages) do
     enabled_codes =
       display_languages
-      |> Enum.filter(& &1["is_enabled"])
-      |> Enum.map(& &1["code"])
+      |> Enum.filter(& &1.is_enabled)
+      |> Enum.map(& &1.code)
 
     Settings.update_json_setting("admin_languages", enabled_codes)
   end
@@ -338,14 +338,14 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   # Get list of enabled language codes from display languages
   defp get_enabled_codes(display_languages) do
     display_languages
-    |> Enum.filter(& &1["is_enabled"])
-    |> Enum.map(& &1["code"])
+    |> Enum.filter(& &1.is_enabled)
+    |> Enum.map(& &1.code)
   end
 
   # Get the default language code
   defp get_default_code(display_languages) do
-    case Enum.find(display_languages, & &1["is_default"]) do
-      %{"code" => code} -> code
+    case Enum.find(display_languages, & &1.is_default) do
+      %{code: code} -> code
       _ -> nil
     end
   end
