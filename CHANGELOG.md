@@ -1,3 +1,8 @@
+## 1.7.40 - 2026-02-16
+- Remove redundant mb-4 wrapper div around back buttons in 4 admin pages
+- Add V57 migration to repair missing UUID FK columns
+- Update language filter to use languages_official instead of languages_spoken
+
 ## 1.7.39 - 2026-02-16
 - Complete UUID migration (Pattern 2) across all remaining modules
   - Migrate posts, tickets, storage, comments, referrals, and connections schemas to UUID-based user references
