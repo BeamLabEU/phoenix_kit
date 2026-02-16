@@ -1,3 +1,38 @@
+## 1.7.39 - 2026-02-16
+- Complete UUID migration (Pattern 2) across all remaining modules
+  - Migrate posts, tickets, storage, comments, referrals, and connections schemas to UUID-based user references
+  - Migrate posts like/dislike/mention functions to accept UUID user identifiers
+  - Fix stale `.id` access across posts, storage, tickets, email, connections, and image downloader
+  - Fix ProcessFileJob and media_detail to use user_uuid instead of deprecated user_id
+  - Replace legacy `.id` access with `.uuid` across mix tasks and admin presence
+  - Remove legacy integer fields from RoleAssignment schema
+  - Fix 10 Dialyzer warnings across comments, connections, referrals, and shop modules
+- Harden permissions system with security and correctness fixes
+  - Fix security and correctness issues in permissions system
+  - Add permission edit protection for own role and higher-authority roles
+  - Add Owner protection to `can_edit_role_permissions/2` and standardize UUID usage
+  - Fix edge cases, silent failures, and crash risks in permissions and roles
+  - Fix dual-write in `set_permissions/3` and cross-view PubSub refresh
+  - Fix permissions summary to count only visible keys
+  - Fix multiple bugs in custom permission keys and admin routing
+  - Add auto-grant of custom permission keys to Admin role
+  - Add defensive input validation to custom permission key registration
+  - Fix `unless/else` to `if/else` for Credo compliance
+- Add gettext i18n to roles and permissions admin UI
+- Add Level 1 test suite for permissions, roles, and scope (156 tests)
+- Fix responsive header layout across all admin pages
+  - Add responsive text classes (`text-2xl sm:text-4xl` / `text-base sm:text-lg`) to all page headers
+  - Fix missed responsive text classes in storage, media selector, and publishing pages
+- Replace dropdown action menus with inline buttons in table rows
+- Fix require_module_access plug to check feature_enabled like LiveView on_mount
+- Fix admin sidebar wipe when enabling/disabling modules
+- Add `get_role_by_uuid/1` API and update integration guide
+- Restore admin edit button in user dropdown and add product links in cart
+- Fix selected_ids to use MapSet for O(1) lookups
+- Fix Dialyzer CI failure for ExUnit.CaseTemplate test support files
+- Fix Credo nesting and Dialyzer MapSet opaque type warnings
+- Update Permissions Matrix page title and section labels
+
 ## 1.7.38 - 2026-02-15
 - Fix Ecto.ChangeError in entities by using DateTime instead of NaiveDateTime
 - Fix infinite recursion risk in category circular reference validation
