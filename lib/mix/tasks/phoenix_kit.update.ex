@@ -435,13 +435,30 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end
       """
 
-      # Use igniter to create the migration file
-      migration_path = "priv/repo/migrations/#{migration_name}"
+      # Check for existing migration with same version range to prevent duplicates
+      existing_pattern =
+        "phoenix_kit_#{action}_v#{current_version_padded}_to_v#{target_version_padded}.exs"
 
-      igniter
-      |> Igniter.create_new_file(migration_path, migration_content)
-      |> add_migration_created_notice(migration_name, current_version, target_version)
-      |> add_post_igniter_instructions(opts)
+      existing_migration =
+        Path.wildcard("priv/repo/migrations/*#{existing_pattern}")
+        |> List.first()
+
+      if existing_migration do
+        notice = """
+
+        ⚠️  Migration already exists: #{existing_migration}
+           Skipping duplicate creation. To regenerate, delete the existing file first.
+        """
+
+        Igniter.add_notice(igniter, notice)
+      else
+        migration_path = "priv/repo/migrations/#{migration_name}"
+
+        igniter
+        |> Igniter.create_new_file(migration_path, migration_content)
+        |> add_migration_created_notice(migration_name, current_version, target_version)
+        |> add_post_igniter_instructions(opts)
+      end
     end
 
     # Add notices for different scenarios
