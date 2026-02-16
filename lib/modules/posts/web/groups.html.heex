@@ -7,28 +7,30 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full relative mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/posts")}
-        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
-      >
-        ← Back to Posts
-      </.link>
+    <header class="w-full mb-6">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <%!-- Back Button (Left aligned) --%>
+        <.link
+          navigate={Routes.path("/admin/posts")}
+          class="btn btn-outline btn-primary btn-sm"
+        >
+          ← Back to Posts
+        </.link>
+
+        <%!-- Create New Group Button (Right aligned) --%>
+        <.link
+          navigate={Routes.path("/admin/posts/groups/new")}
+          class="btn btn-primary btn-sm"
+        >
+          + New Group
+        </.link>
+      </div>
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">Post Groups</h1>
-        <p class="text-lg text-base-content">Organize your posts into collections</p>
+        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Post Groups</h1>
+        <p class="text-base sm:text-lg text-base-content">Organize your posts into collections</p>
       </div>
-
-      <%!-- Create New Group Button (Right aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/posts/groups/new")}
-        class="btn btn-primary btn-sm absolute right-0 top-0 -mb-12"
-      >
-        + New Group
-      </.link>
     </header>
 
     <%!-- Search Bar --%>
@@ -118,36 +120,33 @@
                     </div>
                   </div>
 
-                  <%!-- Actions Dropdown --%>
-                  <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
-                      <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
-                    </label>
-                    <ul
-                      tabindex="0"
-                      class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52"
+                  <%!-- Actions --%>
+                  <div class="flex gap-1">
+                    <button
+                      phx-click="view_group"
+                      phx-value-id={group.uuid}
+                      class="btn btn-xs btn-ghost"
+                      title="View group"
                     >
-                      <li>
-                        <button phx-click="view_group" phx-value-id={group.uuid}>
-                          <.icon name="hero-eye" class="w-4 h-4" /> View
-                        </button>
-                      </li>
-                      <li>
-                        <button phx-click="edit_group" phx-value-id={group.uuid}>
-                          <.icon name="hero-pencil" class="w-4 h-4" /> Edit
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          phx-click="delete_group"
-                          phx-value-id={group.uuid}
-                          class="text-error"
-                          data-confirm="Are you sure you want to delete this group? Posts will not be deleted."
-                        >
-                          <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                        </button>
-                      </li>
-                    </ul>
+                      <.icon name="hero-eye" class="w-4 h-4" />
+                    </button>
+                    <button
+                      phx-click="edit_group"
+                      phx-value-id={group.uuid}
+                      class="btn btn-xs btn-ghost"
+                      title="Edit group"
+                    >
+                      <.icon name="hero-pencil" class="w-4 h-4" />
+                    </button>
+                    <button
+                      phx-click="delete_group"
+                      phx-value-id={group.uuid}
+                      data-confirm="Are you sure you want to delete this group? Posts will not be deleted."
+                      class="btn btn-xs btn-ghost text-error"
+                      title="Delete group"
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 

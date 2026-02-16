@@ -57,7 +57,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       |> assign(:selected_entity_id, entity_id)
       |> assign(:selected_status, "all")
       |> assign(:selected_category, "all")
-      |> assign(:selected_ids, [])
+      |> assign(:selected_ids, MapSet.new())
       |> assign(:available_categories, [])
       |> assign(:search_term, "")
       |> assign(:view_mode, "table")
@@ -162,7 +162,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     socket =
       socket
       |> assign(:view_mode, mode)
-      |> assign(:selected_ids, [])
+      |> assign(:selected_ids, MapSet.new())
       |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
@@ -193,7 +193,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     socket =
       socket
-      |> assign(:selected_ids, [])
+      |> assign(:selected_ids, MapSet.new())
       |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
@@ -214,7 +214,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     socket =
       socket
-      |> assign(:selected_ids, [])
+      |> assign(:selected_ids, MapSet.new())
       |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
@@ -235,7 +235,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     socket =
       socket
-      |> assign(:selected_ids, [])
+      |> assign(:selected_ids, MapSet.new())
       |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
@@ -256,7 +256,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     socket =
       socket
-      |> assign(:selected_ids, [])
+      |> assign(:selected_ids, MapSet.new())
       |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
@@ -277,7 +277,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     socket =
       socket
-      |> assign(:selected_ids, [])
+      |> assign(:selected_ids, MapSet.new())
       |> push_patch(to: Routes.locale_aware_path(socket.assigns, full_path))
 
     {:noreply, socket}
@@ -362,31 +362,36 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   def handle_event("toggle_select", %{"uuid" => uuid}, socket) do
     selected = socket.assigns.selected_ids
-    selected = if uuid in selected, do: List.delete(selected, uuid), else: [uuid | selected]
+
+    selected =
+      if MapSet.member?(selected, uuid),
+        do: MapSet.delete(selected, uuid),
+        else: MapSet.put(selected, uuid)
+
     {:noreply, assign(socket, :selected_ids, selected)}
   end
 
   def handle_event("select_all", _params, socket) do
-    all_uuids = Enum.map(socket.assigns.entity_data_records, & &1.uuid)
+    all_uuids = socket.assigns.entity_data_records |> Enum.map(& &1.uuid) |> MapSet.new()
     {:noreply, assign(socket, :selected_ids, all_uuids)}
   end
 
   def handle_event("deselect_all", _params, socket) do
-    {:noreply, assign(socket, :selected_ids, [])}
+    {:noreply, assign(socket, :selected_ids, MapSet.new())}
   end
 
   def handle_event("bulk_action", %{"action" => "archive"}, socket) do
     if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
       ids = socket.assigns.selected_ids
 
-      if ids == [] do
+      if MapSet.size(ids) == 0 do
         {:noreply, put_flash(socket, :error, gettext("No records selected"))}
       else
-        {count, _} = EntityData.bulk_update_status(ids, "archived")
+        {count, _} = EntityData.bulk_update_status(MapSet.to_list(ids), "archived")
 
         {:noreply,
          socket
-         |> assign(:selected_ids, [])
+         |> assign(:selected_ids, MapSet.new())
          |> refresh_data_stats()
          |> apply_filters()
          |> put_flash(:info, gettext("%{count} records archived", count: count))}
@@ -400,14 +405,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
       ids = socket.assigns.selected_ids
 
-      if ids == [] do
+      if MapSet.size(ids) == 0 do
         {:noreply, put_flash(socket, :error, gettext("No records selected"))}
       else
-        {count, _} = EntityData.bulk_update_status(ids, "published")
+        {count, _} = EntityData.bulk_update_status(MapSet.to_list(ids), "published")
 
         {:noreply,
          socket
-         |> assign(:selected_ids, [])
+         |> assign(:selected_ids, MapSet.new())
          |> refresh_data_stats()
          |> apply_filters()
          |> put_flash(:info, gettext("%{count} records restored", count: count))}
@@ -421,14 +426,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
       ids = socket.assigns.selected_ids
 
-      if ids == [] do
+      if MapSet.size(ids) == 0 do
         {:noreply, put_flash(socket, :error, gettext("No records selected"))}
       else
-        {count, _} = EntityData.bulk_delete(ids)
+        {count, _} = EntityData.bulk_delete(MapSet.to_list(ids))
 
         {:noreply,
          socket
-         |> assign(:selected_ids, [])
+         |> assign(:selected_ids, MapSet.new())
          |> refresh_data_stats()
          |> apply_filters()
          |> put_flash(:info, gettext("%{count} records deleted", count: count))}
@@ -446,14 +451,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
       ids = socket.assigns.selected_ids
 
-      if ids == [] do
+      if MapSet.size(ids) == 0 do
         {:noreply, put_flash(socket, :error, gettext("No records selected"))}
       else
-        {count, _} = EntityData.bulk_update_category(ids, category)
+        {count, _} = EntityData.bulk_update_category(MapSet.to_list(ids), category)
 
         {:noreply,
          socket
-         |> assign(:selected_ids, [])
+         |> assign(:selected_ids, MapSet.new())
          |> refresh_data_stats()
          |> apply_filters()
          |> put_flash(:info, gettext("%{count} records updated", count: count))}
@@ -467,14 +472,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
       ids = socket.assigns.selected_ids
 
-      if ids == [] do
+      if MapSet.size(ids) == 0 do
         {:noreply, put_flash(socket, :error, gettext("No records selected"))}
       else
-        {count, _} = EntityData.bulk_update_status(ids, status)
+        {count, _} = EntityData.bulk_update_status(MapSet.to_list(ids), status)
 
         {:noreply,
          socket
-         |> assign(:selected_ids, [])
+         |> assign(:selected_ids, MapSet.new())
          |> refresh_data_stats()
          |> apply_filters()
          |> put_flash(:info, gettext("%{count} records updated", count: count))}

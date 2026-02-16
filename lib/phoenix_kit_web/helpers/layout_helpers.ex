@@ -52,7 +52,10 @@ defmodule PhoenixKitWeb.LayoutHelpers do
     # Slot content
     :inner_block,
     # Optional extra sidebar content after shop tabs
-    :sidebar_after_shop
+    :sidebar_after_shop,
+    # Admin quick-edit link shown in user dropdown
+    :admin_edit_url,
+    :admin_edit_label
   ]
 
   @doc """

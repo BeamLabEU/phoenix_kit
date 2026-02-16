@@ -230,11 +230,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   </div>
 
                   <%!-- Project title and Admin label grouped together --%>
-                  <div class="flex items-center gap-1">
-                    <.link href="/" class="font-bold text-base-content hover:opacity-80 transition-opacity">
+                  <div class="flex items-center gap-1 min-w-0">
+                    <.link
+                      href="/"
+                      class="font-bold text-base-content hover:opacity-80 transition-opacity hidden sm:inline truncate"
+                    >
                       {@project_title}
                     </.link>
-                    <span class="font-bold text-base-content">{gettext("Admin")}</span>
+                    <span class="font-bold text-base-content shrink-0">{gettext("Admin")}</span>
                   </div>
                 </div>
 

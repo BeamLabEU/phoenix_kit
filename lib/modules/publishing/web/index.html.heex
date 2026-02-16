@@ -8,27 +8,31 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full relative mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin")}
-        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
-      </.link>
+    <header class="w-full mb-6">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <%!-- Back Button (Left aligned) --%>
+        <.link
+          navigate={Routes.path("/admin")}
+          class="btn btn-outline btn-primary btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
+        </.link>
 
-      <%!-- Create Group Button (Right aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/settings/publishing/new")}
-        class="btn btn-primary btn-sm absolute right-0 top-0 -mb-12"
-      >
-        <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
-      </.link>
+        <%!-- Create Group Button (Right aligned) --%>
+        <.link
+          navigate={Routes.path("/admin/settings/publishing/new")}
+          class="btn btn-primary btn-sm"
+        >
+          <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
+        </.link>
+      </div>
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Publishing")}</h1>
-        <p class="text-lg text-base-content">
+        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
+          {gettext("Publishing")}
+        </h1>
+        <p class="text-base sm:text-lg text-base-content">
           {gettext(
             "Monitor publishing activity, jump into blog workspaces, and guide your team toward new content opportunities."
           )}

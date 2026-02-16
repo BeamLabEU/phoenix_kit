@@ -150,11 +150,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_event("noop", _params, socket) do
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_event("delete_product", %{"uuid" => uuid}, socket) do
     product = Shop.get_product!(uuid)
 
@@ -489,7 +484,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                       "hover",
                       if(MapSet.member?(@selected_ids, product.uuid), do: "bg-primary/5", else: "")
                     ]}>
-                      <td phx-click="noop">
+                      <td>
                         <label class="cursor-pointer">
                           <input
                             type="checkbox"
@@ -561,7 +556,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                       >
                         {format_price(product.price, @currency)}
                       </td>
-                      <td class="text-right" phx-click="noop">
+                      <td class="text-right">
                         <div class="flex flex-wrap gap-1 justify-end">
                           <.link
                             navigate={Routes.path("/admin/shop/products/#{product.uuid}")}

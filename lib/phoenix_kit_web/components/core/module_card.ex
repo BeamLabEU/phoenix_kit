@@ -104,12 +104,12 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
         <div class="divider my-2"></div>
 
         <%!-- Status and Configuration --%>
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex flex-wrap gap-1">
             {render_slot(@status_badges)}
           </div>
 
-          <div class="card-actions">
+          <div class="card-actions relative z-10 grow">
             {render_slot(@action_buttons)}
           </div>
         </div>
