@@ -52,6 +52,7 @@ defmodule PhoenixKit.Users.Permissions do
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.RoleAssignment
@@ -793,6 +794,39 @@ defmodule PhoenixKit.Users.Permissions do
   def copy_permissions(source_role_id, target_role_id, granted_by_id \\ nil) do
     source_keys = get_permissions_for_role(source_role_id)
     set_permissions(target_role_id, source_keys, granted_by_id)
+  end
+
+  # --- Access Control ---
+
+  @doc """
+  Checks if the given scope can edit the target role's permissions.
+
+  Returns `:ok` if allowed, or `{:error, reason}` if not.
+
+  Rules:
+  - Owner role cannot be edited (always has full access)
+  - Users cannot edit their own role (prevents self-lockout)
+  - Only Owner can edit Admin role (prevents privilege escalation)
+  """
+  @spec can_edit_role_permissions?(Scope.t() | nil, Role.t()) :: :ok | {:error, String.t()}
+  def can_edit_role_permissions?(nil, _role), do: {:error, "Not authenticated"}
+
+  def can_edit_role_permissions?(scope, role) do
+    user_roles = Scope.user_roles(scope)
+
+    cond do
+      role.name == "Owner" ->
+        {:error, "Owner role always has full access and cannot be modified"}
+
+      role.name in user_roles ->
+        {:error, "You cannot edit permissions for your own role"}
+
+      role.name == "Admin" and not Scope.owner?(scope) ->
+        {:error, "Only the Owner can edit Admin permissions"}
+
+      true ->
+        :ok
+    end
   end
 
   # --- Helpers ---
