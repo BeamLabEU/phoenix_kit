@@ -26,7 +26,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
     socket =
       socket
-      |> assign(:page_title, "Permissions")
+      |> assign(:page_title, gettext("Permissions"))
       |> assign(:project_title, project_title)
       |> load_matrix()
 
@@ -86,17 +86,18 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
       if MapSet.member?(grantable, key) do
         toggle_role_permission(socket, role, key, scope)
       else
-        {:noreply, put_flash(socket, :error, "You can only manage permissions you have")}
+        {:noreply, put_flash(socket, :error, gettext("You can only manage permissions you have"))}
       end
     else
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, reason)}
 
       nil ->
-        {:noreply, put_flash(socket, :error, "Role not found")}
+        {:noreply, put_flash(socket, :error, gettext("Role not found"))}
 
       false ->
-        {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+        {:noreply,
+         put_flash(socket, :error, gettext("You don't have permission to manage permissions"))}
     end
   end
 
@@ -113,13 +114,25 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
         :ok ->
           {:noreply,
            socket
-           |> put_flash(:info, "Revoked #{label} from #{role.name}")
+           |> put_flash(
+             :info,
+             gettext("Revoked %{label} from %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
            |> refresh_matrix()}
 
         {:error, _reason} ->
           {:noreply,
            socket
-           |> put_flash(:error, "Failed to revoke #{label} from #{role.name}")
+           |> put_flash(
+             :error,
+             gettext("Failed to revoke %{label} from %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
            |> refresh_matrix()}
       end
     else
@@ -127,13 +140,25 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
         {:ok, _} ->
           {:noreply,
            socket
-           |> put_flash(:info, "Granted #{label} to #{role.name}")
+           |> put_flash(
+             :info,
+             gettext("Granted %{label} to %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
            |> refresh_matrix()}
 
         {:error, _reason} ->
           {:noreply,
            socket
-           |> put_flash(:error, "Failed to grant #{label} to #{role.name}")
+           |> put_flash(
+             :error,
+             gettext("Failed to grant %{label} to %{role_name}",
+               label: label,
+               role_name: role.name
+             )
+           )
            |> refresh_matrix()}
       end
     end

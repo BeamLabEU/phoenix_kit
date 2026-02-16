@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Permissions"
+  page_title={gettext("Permissions")}
   current_path={@url_path}
   project_title={@project_title}
   current_locale={@current_locale}
@@ -14,14 +14,14 @@
         navigate={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Roles
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Roles")}
       </.link>
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">Permissions</h1>
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Permissions")}</h1>
         <p class="text-lg text-base-content/70">
-          Overview of role permissions across all modules
+          {gettext("Overview of role permissions across all modules")}
         </p>
       </div>
     </header>
@@ -31,7 +31,7 @@
       <table class="table table-sm">
         <thead>
           <tr class="bg-base-300 text-base-content">
-            <th class="sticky left-0 bg-base-300 z-10 min-w-[180px]">Module</th>
+            <th class="sticky left-0 bg-base-300 z-10 min-w-[180px]">{gettext("Module")}</th>
             <%= for role <- @roles do %>
               <th class="text-center min-w-[100px]">
                 <.pk_link navigate="/admin/users/roles" class="link link-hover">
@@ -48,7 +48,7 @@
               colspan={length(@roles) + 1}
               class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
-              Core Sections
+              {gettext("Core Sections")}
             </td>
           </tr>
           <%= for {key, idx} <- Enum.with_index(@core_keys) do %>
@@ -62,7 +62,9 @@
               <%= for role <- @roles do %>
                 <td class="text-center">
                   <%= if role.name == "Owner" do %>
-                    <span class="badge badge-sm badge-primary badge-outline">always</span>
+                    <span class="badge badge-sm badge-primary badge-outline">
+                      {gettext("always")}
+                    </span>
                   <% else %>
                     <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
                       <%!-- Read-only: user's own role or Admin (non-Owner) --%>
@@ -97,7 +99,7 @@
               colspan={length(@roles) + 1}
               class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
-              Feature Modules
+              {gettext("Feature Modules")}
             </td>
           </tr>
           <%= for {key, idx} <- Enum.with_index(@feature_keys) do %>
@@ -111,7 +113,9 @@
               <%= for role <- @roles do %>
                 <td class="text-center">
                   <%= if role.name == "Owner" do %>
-                    <span class="badge badge-sm badge-primary badge-outline">always</span>
+                    <span class="badge badge-sm badge-primary badge-outline">
+                      {gettext("always")}
+                    </span>
                   <% else %>
                     <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
                       <%!-- Read-only: user's own role or Admin (non-Owner) --%>
@@ -146,7 +150,7 @@
                 colspan={length(@roles) + 1}
                 class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
               >
-                Custom
+                {gettext("Custom")}
               </td>
             </tr>
             <%= for {key, idx} <- Enum.with_index(@custom_keys) do %>
@@ -160,7 +164,9 @@
                 <%= for role <- @roles do %>
                   <td class="text-center">
                     <%= if role.name == "Owner" do %>
-                      <span class="badge badge-sm badge-primary badge-outline">always</span>
+                      <span class="badge badge-sm badge-primary badge-outline">
+                        {gettext("always")}
+                      </span>
                     <% else %>
                       <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
                         <%!-- Read-only: user's own role or Admin (non-Owner) --%>
@@ -193,7 +199,7 @@
           <%!-- Summary Row --%>
           <tr class="bg-base-300 font-semibold text-base-content">
             <td class="sticky left-0 bg-base-300 z-10">
-              Total
+              {gettext("Total")}
             </td>
             <%= for role <- @roles do %>
               <td class="text-center">
@@ -215,12 +221,11 @@
     <div class="alert alert-info mt-6">
       <.icon name="hero-information-circle" class="w-5 h-5" />
       <div>
-        <h3 class="font-bold">About Permissions</h3>
+        <h3 class="font-bold">{gettext("About Permissions")}</h3>
         <p class="text-sm">
-          Click any check or cross icon to toggle a permission for that role.
-          The Owner role always has full access and cannot be modified.
-          You cannot edit permissions for your own role or for roles with higher authority.
-          You can only grant or revoke permissions that your own role has.
+          {gettext(
+            "Click any check or cross icon to toggle a permission for that role. The Owner role always has full access and cannot be modified. You cannot edit permissions for your own role or for roles with higher authority. You can only grant or revoke permissions that your own role has."
+          )}
         </p>
       </div>
     </div>

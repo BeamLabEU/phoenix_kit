@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Role Management"
+  page_title={gettext("Role Management")}
   current_path={@url_path}
   project_title={@project_title}
   current_locale={@current_locale}
@@ -14,13 +14,13 @@
         navigate={PhoenixKit.Utils.Routes.path("/admin")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Dashboard")}
       </.link>
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">Role Management</h1>
-        <p class="text-lg text-base-content">Create and manage user roles</p>
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Role Management")}</h1>
+        <p class="text-lg text-base-content">{gettext("Create and manage user roles")}</p>
       </div>
     </header>
 
@@ -30,69 +30,75 @@
         phx-click="show_create_form"
         class="btn btn-primary btn-lg"
       >
-        <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Create New Role
+        <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Create New Role")}
       </button>
     </div>
 
     <%!-- Create Role Modal --%>
     <.modal show={@show_create_form} on_close="hide_form" max_width="2xl">
-      <:title>Create New Role</:title>
+      <:title>{gettext("Create New Role")}</:title>
       <form id="create-role-form" phx-submit="create_role" class="space-y-4">
         <div class="form-control">
           <.input
             field={@create_role_form[:name]}
-            label="Role Name *"
-            placeholder="Enter role name (e.g., Manager, Editor)"
+            label={gettext("Role Name *")}
+            placeholder={gettext("Enter role name (e.g., Manager, Editor)")}
             maxlength="50"
             required
           />
-          <p class="label mt-1">Must be unique, 1-50 characters.</p>
+          <p class="label mt-1">{gettext("Must be unique, 1-50 characters.")}</p>
         </div>
         <div class="form-control">
           <.textarea
             field={@create_role_form[:description]}
-            label="Description"
-            placeholder="Describe what this role can do (optional)"
+            label={gettext("Description")}
+            placeholder={gettext("Describe what this role can do (optional)")}
             maxlength="500"
           />
-          <p class="label mt-1">Optional, up to 500 characters.</p>
+          <p class="label mt-1">{gettext("Optional, up to 500 characters.")}</p>
         </div>
       </form>
       <:actions>
-        <button type="button" phx-click="hide_form" class="btn btn-outline">Cancel</button>
+        <button type="button" phx-click="hide_form" class="btn btn-outline">
+          {gettext("Cancel")}
+        </button>
         <button type="submit" form="create-role-form" class="btn btn-primary">
-          Create Role
+          {gettext("Create Role")}
         </button>
       </:actions>
     </.modal>
 
     <%!-- Edit Role Modal --%>
     <.modal show={@show_edit_form} on_close="hide_form" max_width="2xl">
-      <:title>Edit Role</:title>
+      <:title>{gettext("Edit Role")}</:title>
       <form id="edit-role-form" phx-submit="update_role" class="space-y-4">
         <div class="form-control">
           <.input
             field={@edit_role_form[:name]}
-            label="Role Name *"
-            placeholder="Enter role name (e.g., Manager, Editor)"
+            label={gettext("Role Name *")}
+            placeholder={gettext("Enter role name (e.g., Manager, Editor)")}
             maxlength="50"
             required
           />
-          <p class="label mt-1">Must be unique, 1-50 characters.</p>
+          <p class="label mt-1">{gettext("Must be unique, 1-50 characters.")}</p>
         </div>
         <div class="form-control">
           <.textarea
             field={@edit_role_form[:description]}
-            label="Description"
-            placeholder="Describe what this role can do (optional)"
+            label={gettext("Description")}
+            placeholder={gettext("Describe what this role can do (optional)")}
             maxlength="500"
           />
-          <p class="label mt-1">Optional, up to 500 characters.</p>
+          <p class="label mt-1">{gettext("Optional, up to 500 characters.")}</p>
         </div>
       </form>
       <:actions>
-        <button type="button" phx-click="hide_form" class="btn btn-outline">Cancel</button>
-        <button type="submit" form="edit-role-form" class="btn btn-primary">Update Role</button>
+        <button type="button" phx-click="hide_form" class="btn btn-outline">
+          {gettext("Cancel")}
+        </button>
+        <button type="submit" form="edit-role-form" class="btn btn-primary">
+          {gettext("Update Role")}
+        </button>
       </:actions>
     </.modal>
 
@@ -102,11 +108,11 @@
         <.table_default variant="zebra">
           <.table_default_header>
             <.table_default_row>
-              <.table_default_header_cell>Role</.table_default_header_cell>
-              <.table_default_header_cell>Type</.table_default_header_cell>
-              <.table_default_header_cell>Description</.table_default_header_cell>
-              <.table_default_header_cell>Users</.table_default_header_cell>
-              <.table_default_header_cell>Actions</.table_default_header_cell>
+              <.table_default_header_cell>{gettext("Role")}</.table_default_header_cell>
+              <.table_default_header_cell>{gettext("Type")}</.table_default_header_cell>
+              <.table_default_header_cell>{gettext("Description")}</.table_default_header_cell>
+              <.table_default_header_cell>{gettext("Users")}</.table_default_header_cell>
+              <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
             </.table_default_row>
           </.table_default_header>
           <.table_default_body>
@@ -119,9 +125,9 @@
                 </.table_default_cell>
                 <.table_default_cell>
                   <%= if role.is_system_role do %>
-                    <span class="badge badge-outline badge-sm">System Role</span>
+                    <span class="badge badge-outline badge-sm">{gettext("System Role")}</span>
                   <% else %>
-                    <span class="badge badge-success badge-sm">Custom Role</span>
+                    <span class="badge badge-success badge-sm">{gettext("Custom Role")}</span>
                   <% end %>
                 </.table_default_cell>
                 <.table_default_cell class="max-w-xs">
@@ -129,14 +135,14 @@
                     <%= if role.description do %>
                       {role.description}
                     <% else %>
-                      <span class="text-base-content/50 italic">No description</span>
+                      <span class="text-base-content/50 italic">{gettext("No description")}</span>
                     <% end %>
                   </div>
                 </.table_default_cell>
                 <.table_default_cell>
                   <div class="flex items-center gap-2">
                     <.users_count role={role} stats={@role_stats} />
-                    <span class="text-sm text-base-content/70">users</span>
+                    <span class="text-sm text-base-content/70">{gettext("users")}</span>
                   </div>
                 </.table_default_cell>
                 <.table_default_cell>
@@ -148,7 +154,7 @@
                         phx-click="show_edit_role"
                         phx-value-role_id={role.uuid}
                       >
-                        <.icon name="hero-pencil" class="h-3 w-3 mr-1" /> Edit
+                        <.icon name="hero-pencil" class="h-3 w-3 mr-1" /> {gettext("Edit")}
                       </button>
 
                       <%!-- Delete Button --%>
@@ -158,10 +164,10 @@
                         phx-value-role_id={role.uuid}
                         phx-value-role_name={role.name}
                       >
-                        <.icon name="hero-trash" class="h-3 w-3 mr-1" /> Delete
+                        <.icon name="hero-trash" class="h-3 w-3 mr-1" /> {gettext("Delete")}
                       </button>
                     <% else %>
-                      <span class="badge badge-ghost badge-sm">Protected</span>
+                      <span class="badge badge-ghost badge-sm">{gettext("Protected")}</span>
                     <% end %>
 
                     <%!-- Permissions Button (users permission required, editable roles only) --%>
@@ -171,7 +177,7 @@
                         phx-click="show_permissions_editor"
                         phx-value-role_id={role.uuid}
                       >
-                        <.icon name="hero-key" class="h-3 w-3 mr-1" /> Permissions
+                        <.icon name="hero-key" class="h-3 w-3 mr-1" /> {gettext("Permissions")}
                       </button>
                     <% end %>
                   </div>
@@ -185,16 +191,16 @@
         <div class="text-center py-12">
           <.icon name="hero-shield-check" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
           <h3 class="text-lg font-medium text-base-content mb-2">
-            No roles found
+            {gettext("No roles found")}
           </h3>
           <p class="text-base-content/70 mb-4">
-            Start by creating your first custom role.
+            {gettext("Start by creating your first custom role.")}
           </p>
           <button
             phx-click="show_create_form"
             class="btn btn-primary"
           >
-            Create First Role
+            {gettext("Create First Role")}
           </button>
         </div>
       <% end %>
@@ -202,7 +208,7 @@
 
     <%!-- Role Statistics --%>
     <div class="mt-8">
-      <h3 class="text-lg font-semibold text-base-content mb-6">Role Statistics</h3>
+      <h3 class="text-lg font-semibold text-base-content mb-6">{gettext("Role Statistics")}</h3>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <%!-- System Roles Count --%>
@@ -210,8 +216,8 @@
           compact={true}
           rounded="xl"
           value={Enum.count(@roles, & &1.is_system_role)}
-          title="System Roles"
-          subtitle="Protected core roles"
+          title={gettext("System Roles")}
+          subtitle={gettext("Protected core roles")}
         >
           <:icon>
             <.icon name="hero-lock-closed" class="w-5 h-5" />
@@ -223,8 +229,8 @@
           compact={true}
           rounded="xl"
           value={Enum.count(@roles, &(!&1.is_system_role))}
-          title="Custom Roles"
-          subtitle="User-defined roles"
+          title={gettext("Custom Roles")}
+          subtitle={gettext("User-defined roles")}
         >
           <:icon>
             <.icon name="hero-cog-6-tooth" class="w-5 h-5" />
@@ -236,8 +242,8 @@
           compact={true}
           rounded="xl"
           value={length(@roles)}
-          title="Total Roles"
-          subtitle="All available roles"
+          title={gettext("Total Roles")}
+          subtitle={gettext("All available roles")}
         >
           <:icon>
             <.icon name="hero-chart-bar" class="w-5 h-5" />
@@ -251,14 +257,17 @@
       show={assigns[:delete_confirmation] && @delete_confirmation.show}
       on_confirm="confirm_delete_role"
       on_cancel="cancel_delete"
-      title="Delete Role"
+      title={gettext("Delete Role")}
       title_icon="hero-trash"
       danger={true}
       messages={[
         {:warning,
-         "Are you sure you want to delete the role \"#{Map.get(@delete_confirmation, :role_name, "")}\"? This action cannot be undone."}
+         gettext(
+           "Are you sure you want to delete the role \"%{role_name}\"? This action cannot be undone.",
+           role_name: Map.get(@delete_confirmation, :role_name, "")
+         )}
       ]}
-      confirm_text="Delete Role"
+      confirm_text={gettext("Delete Role")}
     />
 
     <%!-- Permissions Editor Modal --%>
@@ -268,22 +277,23 @@
       max_width="3xl"
     >
       <:title>
-        Permissions for
+        {gettext("Permissions for")}
         <.role_badge role={@permissions_role || %{name: "", is_system_role: false}} />
       </:title>
 
       <p class="text-sm text-base-content/70 mb-4">
-        Select which sections and modules this role can access.
-        You can only grant permissions that your own role has.
+        {gettext(
+          "Select which sections and modules this role can access. You can only grant permissions that your own role has."
+        )}
       </p>
 
       <%!-- Quick Actions --%>
       <div class="flex gap-2 mb-4">
         <button phx-click="grant_all_permissions" class="btn btn-xs btn-outline btn-success">
-          Grant All
+          {gettext("Grant All")}
         </button>
         <button phx-click="revoke_all_permissions" class="btn btn-xs btn-outline btn-error">
-          Revoke All
+          {gettext("Revoke All")}
         </button>
       </div>
 
@@ -291,7 +301,7 @@
         <%!-- Core Sections --%>
         <div>
           <h4 class="font-semibold text-sm text-base-content/80 mb-3 uppercase tracking-wide">
-            Core Sections
+            {gettext("Core Sections")}
           </h4>
           <div class="space-y-2">
             <%= for key <- PhoenixKit.Users.Permissions.core_section_keys(), MapSet.member?(@permissions_grantable_keys, key) do %>
@@ -312,7 +322,7 @@
         <%!-- Feature Modules --%>
         <div>
           <h4 class="font-semibold text-sm text-base-content/80 mb-3 uppercase tracking-wide">
-            Feature Modules
+            {gettext("Feature Modules")}
           </h4>
           <div class="space-y-2 max-h-80 overflow-y-auto">
             <%= for key <- PhoenixKit.Users.Permissions.feature_module_keys(), MapSet.member?(@permissions_grantable_keys, key) do %>
@@ -335,7 +345,7 @@
       <%= if length(PhoenixKit.Users.Permissions.custom_keys()) > 0 do %>
         <div class="md:col-span-2 mt-4">
           <h4 class="font-semibold text-sm text-accent mb-3 uppercase tracking-wide">
-            Custom
+            {gettext("Custom")}
           </h4>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
             <div class="space-y-2">
@@ -359,21 +369,26 @@
       <%!-- Summary --%>
       <div class="mt-4 p-3 bg-base-200 rounded-lg">
         <span class="text-sm text-base-content/70">
-          {MapSet.size(@permissions_role_keys)} of {MapSet.size(@permissions_grantable_keys)} manageable permissions granted
+          {gettext("%{granted} of %{total} manageable permissions granted",
+            granted: MapSet.size(@permissions_role_keys),
+            total: MapSet.size(@permissions_grantable_keys)
+          )}
         </span>
         <%= if MapSet.size(@permissions_preserved_keys) > 0 do %>
           <span class="text-sm text-base-content/50 ml-2">
-            ({MapSet.size(@permissions_preserved_keys)} for disabled modules, preserved on save)
+            {gettext("(%{count} for disabled modules, preserved on save)",
+              count: MapSet.size(@permissions_preserved_keys)
+            )}
           </span>
         <% end %>
       </div>
 
       <:actions>
         <button type="button" phx-click="hide_permissions_editor" class="btn btn-outline">
-          Cancel
+          {gettext("Cancel")}
         </button>
         <button phx-click="save_permissions" class="btn btn-primary">
-          Save Permissions
+          {gettext("Save Permissions")}
         </button>
       </:actions>
     </.modal>

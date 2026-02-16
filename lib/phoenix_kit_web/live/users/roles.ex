@@ -44,7 +44,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       |> assign(:permissions_role_keys, MapSet.new())
       |> assign(:permissions_grantable_keys, MapSet.new())
       |> assign(:permissions_preserved_keys, MapSet.new())
-      |> assign(:page_title, "Roles")
+      |> assign(:page_title, gettext("Roles"))
       |> assign(:role_stats, role_stats)
       |> assign(:project_title, project_title)
       |> load_roles()
@@ -77,7 +77,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
       {:noreply, socket}
     else
-      socket = put_flash(socket, :error, "System roles cannot be edited")
+      socket = put_flash(socket, :error, gettext("System roles cannot be edited"))
       {:noreply, socket}
     end
   end
@@ -99,8 +99,12 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       {:ok, role} ->
         flash_msg =
           if can_manage_permissions?(socket),
-            do: "Role \"#{role.name}\" created. Click Permissions to configure access.",
-            else: "Role created successfully"
+            do:
+              gettext(
+                "Role \"%{role_name}\" created. Click Permissions to configure access.",
+                role_name: role.name
+              ),
+            else: gettext("Role created successfully")
 
         socket =
           socket
@@ -122,7 +126,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     if is_nil(editing_role) do
       {:noreply,
        socket
-       |> put_flash(:error, "Role no longer exists")
+       |> put_flash(:error, gettext("Role no longer exists"))
        |> assign(:show_edit_form, false)
        |> assign(:edit_role_form, nil)
        |> assign(:editing_role, nil)}
@@ -131,7 +135,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         {:ok, _role} ->
           socket =
             socket
-            |> put_flash(:info, "Role updated successfully")
+            |> put_flash(:info, gettext("Role updated successfully"))
             |> assign(:show_edit_form, false)
             |> assign(:edit_role_form, nil)
             |> assign(:editing_role, nil)
@@ -215,10 +219,11 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
           {:noreply, put_flash(socket, :error, reason)}
 
         false ->
-          {:noreply, put_flash(socket, :error, "Role not found")}
+          {:noreply, put_flash(socket, :error, gettext("Role not found"))}
       end
     else
-      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+      {:noreply,
+       put_flash(socket, :error, gettext("You don't have permission to manage permissions"))}
     end
   end
 
@@ -248,10 +253,11 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
         {:noreply, assign(socket, :permissions_role_keys, new_keys)}
       else
-        {:noreply, put_flash(socket, :error, "You can only manage permissions you have")}
+        {:noreply, put_flash(socket, :error, gettext("You can only manage permissions you have"))}
       end
     else
-      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+      {:noreply,
+       put_flash(socket, :error, gettext("You don't have permission to manage permissions"))}
     end
   end
 
@@ -260,7 +266,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       {:noreply,
        assign(socket, :permissions_role_keys, socket.assigns.permissions_grantable_keys)}
     else
-      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+      {:noreply,
+       put_flash(socket, :error, gettext("You don't have permission to manage permissions"))}
     end
   end
 
@@ -268,7 +275,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     if can_manage_permissions?(socket) do
       {:noreply, assign(socket, :permissions_role_keys, MapSet.new())}
     else
-      {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+      {:noreply,
+       put_flash(socket, :error, gettext("You don't have permission to manage permissions"))}
     end
   end
 
@@ -277,14 +285,16 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
     cond do
       is_nil(role) ->
-        {:noreply, put_flash(socket, :error, "No role selected")}
+        {:noreply, put_flash(socket, :error, gettext("No role selected"))}
 
       !can_manage_permissions?(socket) ->
-        {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
+        {:noreply,
+         put_flash(socket, :error, gettext("You don't have permission to manage permissions"))}
 
       Permissions.can_edit_role_permissions?(socket.assigns[:phoenix_kit_current_scope], role) !=
           :ok ->
-        {:noreply, put_flash(socket, :error, "You cannot edit permissions for this role")}
+        {:noreply,
+         put_flash(socket, :error, gettext("You cannot edit permissions for this role"))}
 
       true ->
         preserved = socket.assigns.permissions_preserved_keys
@@ -298,7 +308,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
           :ok ->
             socket =
               socket
-              |> put_flash(:info, "Permissions updated for #{role.name}")
+              |> put_flash(
+                :info,
+                gettext("Permissions updated for %{role_name}", role_name: role.name)
+              )
               |> assign(:show_permissions_editor, false)
               |> assign(:permissions_role, nil)
               |> assign(:permissions_role_keys, MapSet.new())
@@ -308,7 +321,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
             {:noreply, socket}
 
           {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, "Failed to update permissions")}
+            {:noreply, put_flash(socket, :error, gettext("Failed to update permissions"))}
         end
     end
   end
@@ -322,23 +335,27 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         {:ok, _role} ->
           socket =
             socket
-            |> put_flash(:info, "Role deleted successfully")
+            |> put_flash(:info, gettext("Role deleted successfully"))
             |> load_roles()
 
           {:noreply, socket}
 
         {:error, :role_in_use} ->
           socket =
-            put_flash(socket, :error, "Cannot delete role: it is currently assigned to users")
+            put_flash(
+              socket,
+              :error,
+              gettext("Cannot delete role: it is currently assigned to users")
+            )
 
           {:noreply, socket}
 
         {:error, _changeset} ->
-          socket = put_flash(socket, :error, "Failed to delete role")
+          socket = put_flash(socket, :error, gettext("Failed to delete role"))
           {:noreply, socket}
       end
     else
-      socket = put_flash(socket, :error, "System roles cannot be deleted")
+      socket = put_flash(socket, :error, gettext("System roles cannot be deleted"))
       {:noreply, socket}
     end
   end
@@ -459,7 +476,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         |> assign(:permissions_role_keys, MapSet.new())
         |> assign(:permissions_grantable_keys, MapSet.new())
         |> assign(:permissions_preserved_keys, MapSet.new())
-        |> put_flash(:info, "Role \"#{deleted_role.name}\" was deleted")
+        |> put_flash(
+          :info,
+          gettext("Role \"%{role_name}\" was deleted", role_name: deleted_role.name)
+        )
       else
         s
       end
@@ -470,7 +490,10 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         |> assign(:show_edit_form, false)
         |> assign(:edit_role_form, nil)
         |> assign(:editing_role, nil)
-        |> put_flash(:info, "Role \"#{deleted_role.name}\" was deleted")
+        |> put_flash(
+          :info,
+          gettext("Role \"%{role_name}\" was deleted", role_name: deleted_role.name)
+        )
       else
         s
       end
