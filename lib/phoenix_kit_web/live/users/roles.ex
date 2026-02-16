@@ -293,7 +293,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         scope = socket.assigns[:phoenix_kit_current_scope]
         granted_by_id = if scope, do: Scope.user_id(scope), else: nil
 
-        case Permissions.set_permissions(role.id, final_keys, granted_by_id) do
+        case Permissions.set_permissions(role.uuid, final_keys, granted_by_id) do
           :ok ->
             socket =
               socket
@@ -438,6 +438,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     user_roles = Scope.user_roles(scope)
 
     cond do
+      role.name == "Owner" ->
+        {:error, "Owner role always has full access and cannot be modified"}
+
       role.name in user_roles ->
         {:error, "You cannot edit permissions for your own role"}
 
@@ -468,7 +471,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     |> then(fn s ->
       if s.assigns.show_permissions_editor &&
            s.assigns.permissions_role &&
-           s.assigns.permissions_role.id == deleted_role.id do
+           s.assigns.permissions_role.uuid == deleted_role.uuid do
         s
         |> assign(:show_permissions_editor, false)
         |> assign(:permissions_role, nil)
@@ -481,7 +484,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       end
     end)
     |> then(fn s ->
-      if s.assigns.editing_role && s.assigns.editing_role.id == deleted_role.id do
+      if s.assigns.editing_role && s.assigns.editing_role.uuid == deleted_role.uuid do
         s
         |> assign(:show_edit_form, false)
         |> assign(:edit_role_form, nil)
@@ -517,7 +520,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     grantable = grantable_keys(socket)
     enabled = Permissions.enabled_module_keys()
     displayable = MapSet.intersection(grantable, enabled)
-    current_keys = Permissions.get_permissions_for_role(role.id) |> MapSet.new()
+    current_keys = Permissions.get_permissions_for_role(role.uuid) |> MapSet.new()
     editable_checked = MapSet.intersection(current_keys, displayable)
     preserved = MapSet.difference(current_keys, displayable)
 

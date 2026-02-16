@@ -76,7 +76,6 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
     with role when not is_nil(role) <-
            Enum.find(socket.assigns.roles, &(to_string(&1.uuid) == role_id_str)),
-         false <- role.name == "Owner",
          :ok <- can_edit_role_permissions?(scope, role),
          true <- scope != nil && Scope.has_module_access?(scope, "users") do
       grantable =
@@ -131,9 +130,6 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
       false ->
         {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
-
-      true ->
-        {:noreply, put_flash(socket, :error, "You don't have permission to manage permissions")}
     end
   end
 
@@ -147,6 +143,9 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     user_roles = Scope.user_roles(scope)
 
     cond do
+      role.name == "Owner" ->
+        {:error, "Owner role always has full access and cannot be modified"}
+
       role.name in user_roles ->
         {:error, "You cannot edit permissions for your own role"}
 
