@@ -10,6 +10,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.ShippingMethod
@@ -266,20 +267,53 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                             <td>
                               <div class="flex items-center gap-4">
                                 <%= if item.product_image do %>
-                                  <div class="w-16 h-16 bg-base-200 rounded-lg overflow-hidden flex-shrink-0">
-                                    <img
-                                      src={item.product_image}
-                                      alt={item.product_title}
-                                      class="w-full h-full object-cover"
-                                    />
-                                  </div>
+                                  <%= if item.product_slug do %>
+                                    <.link
+                                      navigate={product_item_url(item, @current_language)}
+                                      class="w-16 h-16 bg-base-200 rounded-lg overflow-hidden flex-shrink-0 block"
+                                    >
+                                      <img
+                                        src={item.product_image}
+                                        alt={item.product_title}
+                                        class="w-full h-full object-cover"
+                                      />
+                                    </.link>
+                                  <% else %>
+                                    <div class="w-16 h-16 bg-base-200 rounded-lg overflow-hidden flex-shrink-0">
+                                      <img
+                                        src={item.product_image}
+                                        alt={item.product_title}
+                                        class="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  <% end %>
                                 <% else %>
-                                  <div class="w-16 h-16 bg-base-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <.icon name="hero-cube" class="w-8 h-8 opacity-30" />
-                                  </div>
+                                  <%= if item.product_slug do %>
+                                    <.link
+                                      navigate={product_item_url(item, @current_language)}
+                                      class="w-16 h-16 bg-base-200 rounded-lg flex items-center justify-center flex-shrink-0 block"
+                                    >
+                                      <.icon name="hero-cube" class="w-8 h-8 opacity-30" />
+                                    </.link>
+                                  <% else %>
+                                    <div class="w-16 h-16 bg-base-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                      <.icon name="hero-cube" class="w-8 h-8 opacity-30" />
+                                    </div>
+                                  <% end %>
                                 <% end %>
                                 <div>
-                                  <div class="font-medium">{item.product_title}</div>
+                                  <div class="font-medium">
+                                    <%= if item.product_slug do %>
+                                      <.link
+                                        navigate={product_item_url(item, @current_language)}
+                                        class="hover:text-primary transition-colors"
+                                      >
+                                        {item.product_title}
+                                      </.link>
+                                    <% else %>
+                                      {item.product_title}
+                                    <% end %>
+                                  </div>
                                   <%= if item.product_sku do %>
                                     <div class="text-xs text-base-content/50">
                                       SKU: {item.product_sku}
@@ -527,4 +561,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   end
 
   defp humanize_key(key), do: to_string(key)
+
+  defp product_item_url(item, language) do
+    base = DialectMapper.extract_base(language)
+    Routes.path("/shop/product/#{item.product_slug}", locale: base)
+  end
 end
