@@ -319,12 +319,12 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
              entry.client_name
            ) do
         {:ok, file, :duplicate} ->
-          Logger.info("Duplicate file uploaded: #{file.id}")
-          {:ok, file.id}
+          Logger.info("Duplicate file uploaded: #{file.uuid}")
+          {:ok, file.uuid}
 
         {:ok, file} ->
-          Logger.info("New file uploaded: #{file.id}")
-          {:ok, file.id}
+          Logger.info("New file uploaded: #{file.uuid}")
+          {:ok, file.uuid}
 
         {:error, reason} ->
           Logger.error("Upload failed: #{inspect(reason)}")
@@ -359,7 +359,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
         query
       end
 
-    total_count = repo.aggregate(query, :count, :id)
+    total_count = repo.aggregate(query, :count, :uuid)
     offset = (page - 1) * per_page
 
     files =
@@ -368,7 +368,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> offset(^offset)
       |> repo.all()
 
-    file_ids = Enum.map(files, & &1.id)
+    file_ids = Enum.map(files, & &1.uuid)
 
     instances_by_file =
       if Enum.any?(file_ids) do
@@ -381,11 +381,11 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
     files_with_urls =
       Enum.map(files, fn file ->
-        instances = Map.get(instances_by_file, file.id, [])
-        urls = generate_urls_from_instances(instances, file.id)
+        instances = Map.get(instances_by_file, file.uuid, [])
+        urls = generate_urls_from_instances(instances, file.uuid)
 
         %{
-          file_id: file.id,
+          file_id: file.uuid,
           filename: file.original_file_name || file.file_name || "Unknown",
           file_type: file.file_type,
           mime_type: file.mime_type,

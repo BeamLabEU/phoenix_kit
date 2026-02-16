@@ -33,11 +33,11 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
+          uuid: UUIDv7.t() | nil,
           post_id: UUIDv7.t(),
           file_id: UUIDv7.t(),
           position: integer(),
@@ -52,8 +52,8 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
     field :position, :integer
     field :caption, :string
 
-    belongs_to :post, PhoenixKit.Modules.Posts.Post
-    belongs_to :file, PhoenixKit.Modules.Storage.File
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid
+    belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
 
     timestamps(type: :naive_datetime)
   end

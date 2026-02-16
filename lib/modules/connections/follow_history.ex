@@ -15,14 +15,22 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
-  @foreign_key_type :id
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @foreign_key_type UUIDv7
 
   schema "phoenix_kit_user_follows_history" do
-    belongs_to :follower, PhoenixKit.Users.Auth.User, type: :integer
-    belongs_to :followed, PhoenixKit.Users.Auth.User, type: :integer
-    field :follower_uuid, UUIDv7
-    field :followed_uuid, UUIDv7
+    belongs_to :follower, PhoenixKit.Users.Auth.User,
+      foreign_key: :follower_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    belongs_to :followed, PhoenixKit.Users.Auth.User,
+      foreign_key: :followed_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :follower_id, :integer
+    field :followed_id, :integer
 
     field :action, :string
     field :inserted_at, :naive_datetime
@@ -35,12 +43,12 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
   """
   def changeset(history, attrs) do
     history
-    |> cast(attrs, [:follower_id, :followed_id, :follower_uuid, :followed_uuid, :action])
-    |> validate_required([:follower_id, :followed_id, :action])
+    |> cast(attrs, [:follower_uuid, :followed_uuid, :follower_id, :followed_id, :action])
+    |> validate_required([:follower_uuid, :followed_uuid, :action])
     |> validate_inclusion(:action, @actions)
     |> put_timestamp()
-    |> foreign_key_constraint(:follower_id)
-    |> foreign_key_constraint(:followed_id)
+    |> foreign_key_constraint(:follower_uuid)
+    |> foreign_key_constraint(:followed_uuid)
   end
 
   defp put_timestamp(changeset) do

@@ -294,7 +294,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.VerifyConfig do
     }
 
     with {:ok, log} <- Emails.create_log(test_log),
-         retrieved_log <- Emails.get_log!(log.id),
+         retrieved_log <- Emails.get_log!(log.uuid),
          _ <- repo().delete!(retrieved_log) do
       :ok
     else

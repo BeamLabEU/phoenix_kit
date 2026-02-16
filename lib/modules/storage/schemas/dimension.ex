@@ -72,7 +72,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   schema "phoenix_kit_storage_dimensions" do

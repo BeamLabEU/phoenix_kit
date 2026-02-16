@@ -7,8 +7,10 @@ defmodule PhoenixKit.Modules.Connections.Follow do
 
   ## Fields
 
-  - `follower_id` - User who is doing the following
-  - `followed_id` - User being followed
+  - `follower_uuid` - UUID of the user who is doing the following
+  - `followed_uuid` - UUID of the user being followed
+  - `follower_id` - Integer ID (deprecated, dual-write only)
+  - `followed_id` - Integer ID (deprecated, dual-write only)
   - `inserted_at` - When the follow was created
 
   ## Examples
@@ -16,8 +18,8 @@ defmodule PhoenixKit.Modules.Connections.Follow do
       # User A follows User B
       %Follow{
         id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        follower_id: 1,
-        followed_id: 2,
+        follower_uuid: "019abc12-3456-7890-abcd-ef1234567890",
+        followed_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         inserted_at: ~N[2025-01-15 10:30:00]
       }
 
@@ -30,22 +32,32 @@ defmodule PhoenixKit.Modules.Connections.Follow do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
-          follower_id: integer(),
-          followed_id: integer(),
+          uuid: UUIDv7.t() | nil,
+          follower_uuid: UUIDv7.t(),
+          followed_uuid: UUIDv7.t(),
+          follower_id: integer() | nil,
+          followed_id: integer() | nil,
           follower: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           followed: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil
         }
 
   schema "phoenix_kit_user_follows" do
-    belongs_to :follower, PhoenixKit.Users.Auth.User, type: :integer
-    belongs_to :followed, PhoenixKit.Users.Auth.User, type: :integer
-    field :follower_uuid, UUIDv7
-    field :followed_uuid, UUIDv7
+    belongs_to :follower, PhoenixKit.Users.Auth.User,
+      foreign_key: :follower_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    belongs_to :followed, PhoenixKit.Users.Auth.User,
+      foreign_key: :followed_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :follower_id, :integer
+    field :followed_id, :integer
 
     field :inserted_at, :naive_datetime
   end
@@ -55,35 +67,40 @@ defmodule PhoenixKit.Modules.Connections.Follow do
 
   ## Required Fields
 
-  - `follower_id` - The user who is following
-  - `followed_id` - The user being followed
+  - `follower_uuid` - UUID of the user who is following
+  - `followed_uuid` - UUID of the user being followed
+
+  ## Optional Fields (dual-write)
+
+  - `follower_id` - Integer ID (deprecated)
+  - `followed_id` - Integer ID (deprecated)
 
   ## Validation Rules
 
-  - Both user IDs are required
-  - Cannot follow yourself (follower_id != followed_id)
-  - Unique constraint on (follower_id, followed_id) pair
+  - Both user UUIDs are required
+  - Cannot follow yourself (follower_uuid != followed_uuid)
+  - Unique constraint on (follower_uuid, followed_uuid) pair
   """
   def changeset(follow, attrs) do
     follow
-    |> cast(attrs, [:follower_id, :followed_id, :follower_uuid, :followed_uuid])
-    |> validate_required([:follower_id, :followed_id])
+    |> cast(attrs, [:follower_uuid, :followed_uuid, :follower_id, :followed_id])
+    |> validate_required([:follower_uuid, :followed_uuid])
     |> validate_not_self_follow()
     |> put_inserted_at()
-    |> foreign_key_constraint(:follower_id)
-    |> foreign_key_constraint(:followed_id)
-    |> unique_constraint([:follower_id, :followed_id],
+    |> foreign_key_constraint(:follower_uuid)
+    |> foreign_key_constraint(:followed_uuid)
+    |> unique_constraint([:follower_uuid, :followed_uuid],
       name: :phoenix_kit_user_follows_unique_idx,
       message: "already following this user"
     )
   end
 
   defp validate_not_self_follow(changeset) do
-    follower_id = get_field(changeset, :follower_id)
-    followed_id = get_field(changeset, :followed_id)
+    follower_uuid = get_field(changeset, :follower_uuid)
+    followed_uuid = get_field(changeset, :followed_uuid)
 
-    if follower_id && followed_id && follower_id == followed_id do
-      add_error(changeset, :followed_id, "cannot follow yourself")
+    if follower_uuid && followed_uuid && follower_uuid == followed_uuid do
+      add_error(changeset, :followed_uuid, "cannot follow yourself")
     else
       changeset
     end

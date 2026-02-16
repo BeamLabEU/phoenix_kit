@@ -13,8 +13,10 @@ defmodule PhoenixKit.Modules.Connections.Connection do
 
   ## Fields
 
-  - `requester_id` - User who initiated the connection request
-  - `recipient_id` - User who received the request
+  - `requester_uuid` - UUID of the user who initiated the connection request
+  - `recipient_uuid` - UUID of the user who received the request
+  - `requester_id` - Integer ID (deprecated, dual-write only)
+  - `recipient_id` - Integer ID (deprecated, dual-write only)
   - `status` - Current status of the connection
   - `requested_at` - When the request was sent
   - `responded_at` - When the recipient responded (nil if pending)
@@ -24,8 +26,8 @@ defmodule PhoenixKit.Modules.Connections.Connection do
       # Pending connection request
       %Connection{
         id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        requester_id: 1,
-        recipient_id: 2,
+        requester_uuid: "019abc12-3456-7890-abcd-ef1234567890",
+        recipient_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         status: "pending",
         requested_at: ~N[2025-01-15 10:30:00],
         responded_at: nil
@@ -34,8 +36,8 @@ defmodule PhoenixKit.Modules.Connections.Connection do
       # Accepted connection
       %Connection{
         id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        requester_id: 1,
-        recipient_id: 2,
+        requester_uuid: "019abc12-3456-7890-abcd-ef1234567890",
+        recipient_uuid: "019abc12-9876-5432-abcd-ef1234567890",
         status: "accepted",
         requested_at: ~N[2025-01-15 10:30:00],
         responded_at: ~N[2025-01-15 11:00:00]
@@ -45,22 +47,24 @@ defmodule PhoenixKit.Modules.Connections.Connection do
 
   - Cannot connect with yourself
   - Cannot connect if blocked (either direction)
-  - If A requests B while B has pending request to A → auto-accept both
+  - If A requests B while B has pending request to A -> auto-accept both
   - Only one active connection per user pair
   """
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @statuses ["pending", "accepted", "rejected"]
 
   @type status :: String.t()
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
-          requester_id: integer(),
-          recipient_id: integer(),
+          uuid: UUIDv7.t() | nil,
+          requester_uuid: UUIDv7.t(),
+          recipient_uuid: UUIDv7.t(),
+          requester_id: integer() | nil,
+          recipient_id: integer() | nil,
           status: status(),
           requested_at: NaiveDateTime.t(),
           responded_at: NaiveDateTime.t() | nil,
@@ -71,10 +75,18 @@ defmodule PhoenixKit.Modules.Connections.Connection do
         }
 
   schema "phoenix_kit_user_connections" do
-    belongs_to :requester, PhoenixKit.Users.Auth.User, type: :integer
-    belongs_to :recipient, PhoenixKit.Users.Auth.User, type: :integer
-    field :requester_uuid, UUIDv7
-    field :recipient_uuid, UUIDv7
+    belongs_to :requester, PhoenixKit.Users.Auth.User,
+      foreign_key: :requester_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    belongs_to :recipient, PhoenixKit.Users.Auth.User,
+      foreign_key: :recipient_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    field :requester_id, :integer
+    field :recipient_id, :integer
 
     field :status, :string, default: "pending"
     field :requested_at, :naive_datetime
@@ -93,32 +105,37 @@ defmodule PhoenixKit.Modules.Connections.Connection do
 
   ## Required Fields
 
-  - `requester_id` - The user sending the request
-  - `recipient_id` - The user receiving the request
+  - `requester_uuid` - UUID of the user sending the request
+  - `recipient_uuid` - UUID of the user receiving the request
+
+  ## Optional Fields (dual-write)
+
+  - `requester_id` - Integer ID (deprecated)
+  - `recipient_id` - Integer ID (deprecated)
 
   ## Validation Rules
 
-  - Both user IDs are required
+  - Both user UUIDs are required
   - Cannot request connection with yourself
   - Status must be valid
   """
   def changeset(connection, attrs) do
     connection
     |> cast(attrs, [
-      :requester_id,
-      :recipient_id,
       :requester_uuid,
       :recipient_uuid,
+      :requester_id,
+      :recipient_id,
       :status,
       :requested_at,
       :responded_at
     ])
-    |> validate_required([:requester_id, :recipient_id])
+    |> validate_required([:requester_uuid, :recipient_uuid])
     |> validate_inclusion(:status, @statuses)
     |> validate_not_self_connection()
     |> put_requested_at()
-    |> foreign_key_constraint(:requester_id)
-    |> foreign_key_constraint(:recipient_id)
+    |> foreign_key_constraint(:requester_uuid)
+    |> foreign_key_constraint(:recipient_uuid)
   end
 
   @doc """
@@ -133,11 +150,11 @@ defmodule PhoenixKit.Modules.Connections.Connection do
   end
 
   defp validate_not_self_connection(changeset) do
-    requester_id = get_field(changeset, :requester_id)
-    recipient_id = get_field(changeset, :recipient_id)
+    requester_uuid = get_field(changeset, :requester_uuid)
+    recipient_uuid = get_field(changeset, :recipient_uuid)
 
-    if requester_id && recipient_id && requester_id == recipient_id do
-      add_error(changeset, :recipient_id, "cannot connect with yourself")
+    if requester_uuid && recipient_uuid && requester_uuid == recipient_uuid do
+      add_error(changeset, :recipient_uuid, "cannot connect with yourself")
     else
       changeset
     end

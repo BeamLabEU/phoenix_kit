@@ -33,8 +33,15 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
         }
 
   schema "phoenix_kit_post_tag_assignments" do
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7, primary_key: true
-    belongs_to :tag, PhoenixKit.Modules.Posts.PostTag, type: UUIDv7, primary_key: true
+    belongs_to :post, PhoenixKit.Modules.Posts.Post,
+      references: :uuid,
+      type: UUIDv7,
+      primary_key: true
+
+    belongs_to :tag, PhoenixKit.Modules.Posts.PostTag,
+      references: :uuid,
+      type: UUIDv7,
+      primary_key: true
 
     timestamps(type: :naive_datetime)
   end

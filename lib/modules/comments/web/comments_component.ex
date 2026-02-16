@@ -6,9 +6,9 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
 
       <.live_component
         module={PhoenixKit.Modules.Comments.Web.CommentsComponent}
-        id={"comments-\#{@post.id}"}
+        id={"comments-\#{@post.uuid}"}
         resource_type="post"
-        resource_id={@post.id}
+        resource_id={@post.uuid}
         current_user={@current_user}
       />
 
@@ -201,7 +201,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
           <div class="flex gap-2">
             <button
               phx-click="reply_to"
-              phx-value-id={@comment.id}
+              phx-value-id={@comment.uuid}
               phx-target={@myself}
               class="btn btn-ghost btn-xs"
             >
@@ -211,7 +211,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
             <%= if can_delete_comment?(@current_user, @comment) do %>
               <button
                 phx-click="delete_comment"
-                phx-value-id={@comment.id}
+                phx-value-id={@comment.uuid}
                 phx-target={@myself}
                 class="btn btn-ghost btn-xs text-error"
                 data-confirm="Are you sure you want to delete this comment?"
@@ -245,7 +245,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
   end
 
   defp can_delete_comment?(user, comment) do
-    user.id == comment.user_id or user_is_admin?(user)
+    user.uuid == comment.user_uuid or user_is_admin?(user)
   end
 
   defp user_is_admin?(user) do

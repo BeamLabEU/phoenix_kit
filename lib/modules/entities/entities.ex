@@ -278,7 +278,7 @@ defmodule PhoenixKit.Modules.Entities do
   defp maybe_set_timestamps(changeset) do
     case changeset.data.__meta__.state do
       :built ->
-        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        now = DateTime.utc_now()
 
         changeset
         |> put_change(:date_created, now)
@@ -288,7 +288,7 @@ defmodule PhoenixKit.Modules.Entities do
         put_change(
           changeset,
           :date_updated,
-          NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+          DateTime.utc_now()
         )
     end
   end
@@ -358,6 +358,26 @@ defmodule PhoenixKit.Modules.Entities do
       where: e.status == "published",
       order_by: [desc: e.date_created],
       preload: [:creator]
+    )
+    |> repo().all()
+  end
+
+  @doc """
+  Returns a lightweight list of published entity summaries for sidebar display.
+
+  Selects only sidebar-relevant fields without preloading associations.
+  """
+  @spec list_entity_summaries() :: [map()]
+  def list_entity_summaries do
+    from(e in __MODULE__,
+      where: e.status == "published",
+      order_by: [desc: e.date_created],
+      select: %{
+        name: e.name,
+        display_name: e.display_name,
+        display_name_plural: e.display_name_plural,
+        icon: e.icon
+      }
     )
     |> repo().all()
   end

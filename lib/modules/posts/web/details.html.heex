@@ -21,7 +21,7 @@
         <%= if can_edit_post?(@current_user, @post) do %>
           <div class="flex gap-2 flex-wrap">
             <.link
-              href={Routes.path("/admin/posts/#{@post.id}/edit")}
+              href={Routes.path("/admin/posts/#{@post.uuid}/edit")}
               class="btn btn-outline btn-sm"
             >
               <.icon name="hero-pencil" class="w-4 h-4" /> Edit
@@ -237,9 +237,9 @@
       <%= if @comments_enabled do %>
         <.live_component
           module={PhoenixKit.Modules.Comments.Web.CommentsComponent}
-          id={"post-comments-#{@post.id}"}
+          id={"post-comments-#{@post.uuid}"}
           resource_type="post"
-          resource_id={@post.id}
+          resource_id={@post.uuid}
           current_user={@current_user}
         />
       <% end %>

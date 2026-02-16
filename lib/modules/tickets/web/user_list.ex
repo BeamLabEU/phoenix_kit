@@ -175,7 +175,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
     # Update ticket in list if present
     tickets =
       Enum.map(socket.assigns.tickets, fn t ->
-        if t.id == ticket.id, do: ticket, else: t
+        if t.uuid == ticket.uuid, do: ticket, else: t
       end)
 
     {:noreply, assign(socket, :tickets, tickets)}
@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
     # Update ticket status in list
     tickets =
       Enum.map(socket.assigns.tickets, fn t ->
-        if t.id == ticket.id, do: ticket, else: t
+        if t.uuid == ticket.uuid, do: ticket, else: t
       end)
 
     {:noreply, assign(socket, :tickets, tickets)}
@@ -197,7 +197,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
     # Update ticket in list
     tickets =
       Enum.map(socket.assigns.tickets, fn t ->
-        if t.id == ticket.id, do: ticket, else: t
+        if t.uuid == ticket.uuid, do: ticket, else: t
       end)
 
     {:noreply, assign(socket, :tickets, tickets)}

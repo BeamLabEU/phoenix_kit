@@ -47,12 +47,15 @@ defmodule PhoenixKit.Dashboard.Tab do
 
   ## Conditional Visibility
 
+  Use `visible` for non-permission conditional logic (feature flags, user data).
+  For access control, use the `permission` field instead.
+
       %Tab{
-        id: :admin_settings,
-        label: "Admin Settings",
-        icon: "hero-cog-6-tooth",
-        path: "/dashboard/admin",
-        visible: fn scope -> PhoenixKit.Users.Roles.has_role?(scope.user, "admin") end
+        id: :beta_feature,
+        label: "Beta",
+        icon: "hero-beaker",
+        path: "/dashboard/beta",
+        visible: fn scope -> scope.user.features["beta_enabled"] == true end
       }
 
   ## Subtabs
@@ -182,7 +185,7 @@ defmodule PhoenixKit.Dashboard.Tab do
   - `:redirect_to_first_subtab` - Navigate to first subtab when clicking parent (default: false)
   - `:highlight_with_subtabs` - Highlight parent when subtab is active (default: false)
   - `:match` - Path matching strategy: :exact, :prefix, :regex, or function (default: :prefix)
-  - `:visible` - Boolean or function(scope) -> boolean for conditional visibility (default: true)
+  - `:visible` - Boolean or function(scope) -> boolean for non-permission conditional visibility, e.g. feature flags (default: true). For access control, use `:permission` instead.
   - `:badge` - Badge struct or map for displaying indicators (optional)
   - `:tooltip` - Hover text for the tab (optional)
   - `:external` - Whether this links to an external site (default: false)
@@ -435,8 +438,8 @@ defmodule PhoenixKit.Dashboard.Tab do
       iex> Tab.visible?(tab, %{})
       true
 
-      iex> tab = %Tab{visible: fn scope -> scope.admin? end}
-      iex> Tab.visible?(tab, %{admin?: true})
+      iex> tab = %Tab{visible: fn scope -> scope.user.beta_enabled end}
+      iex> Tab.visible?(tab, %{user: %{beta_enabled: true}})
       true
   """
   @spec visible?(t(), map()) :: boolean()

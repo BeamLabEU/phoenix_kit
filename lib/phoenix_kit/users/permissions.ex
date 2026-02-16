@@ -15,10 +15,10 @@ defmodule PhoenixKit.Users.Permissions do
 
   ## Constants & Metadata
 
-      Permissions.all_module_keys()        # All 24 keys
+      Permissions.all_module_keys()        # 25 built-in + any custom keys
       Permissions.core_section_keys()      # 5 core keys
-      Permissions.feature_module_keys()    # 19 feature keys
-      Permissions.enabled_module_keys()    # Core + currently enabled features
+      Permissions.feature_module_keys()    # 20 feature keys
+      Permissions.enabled_module_keys()    # Core + enabled features + custom keys
       Permissions.valid_module_key?("ai")  # true
       Permissions.feature_enabled?("ai")   # true/false based on module status
       Permissions.module_label("shop")     # "E-Commerce"
@@ -44,6 +44,25 @@ defmodule PhoenixKit.Users.Permissions do
       Permissions.grant_all_permissions(role_id, granted_by_id)
       Permissions.revoke_all_permissions(role_id)
       Permissions.copy_permissions(source_role_id, target_role_id, granted_by_id)
+
+  ## Custom Keys API
+
+  Parent apps can register custom permission keys for custom admin tabs:
+
+      Permissions.register_custom_key("analytics", label: "Analytics", icon: "hero-chart-bar")
+      Permissions.unregister_custom_key("analytics")
+      Permissions.custom_keys()              # List of registered custom key strings
+      Permissions.custom_view_permissions()   # %{ViewModule => "key"} mapping
+
+  Custom keys are always treated as "enabled" (no module toggle) and appear
+  in the permission matrix UI under a "Custom" group.
+
+  ## Edit Protection
+
+      Permissions.can_edit_role_permissions?(scope, role) :: :ok | {:error, String.t()}
+
+  Enforces: users cannot edit their own role, only Owner can edit Admin,
+  system roles cannot have `is_system_role` changed.
   """
 
   import Ecto.Query, warn: false
@@ -51,9 +70,13 @@ defmodule PhoenixKit.Users.Permissions do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.RolePermission
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.ScopeNotifier
 
   @core_section_keys ~w(dashboard users media settings modules)
@@ -63,6 +86,16 @@ defmodule PhoenixKit.Users.Permissions do
     storage languages connections legal db jobs
   )
   @all_module_keys @core_section_keys ++ @feature_module_keys
+
+  # Persistent term keys for runtime-registered custom permission keys
+  @custom_keys_pterm {PhoenixKit, :custom_permission_keys}
+  @custom_views_pterm {PhoenixKit, :custom_view_permissions}
+  @valid_key_pattern ~r/^[a-z][a-z0-9_]*$/
+  @max_key_length 50
+  @max_custom_keys 50
+  @max_label_length 100
+  @max_icon_length 60
+  @max_description_length 255
 
   # Maps feature module keys to their {Module, :enabled_function} for checking enabled status
   @feature_enabled_checks %{
@@ -88,11 +121,178 @@ defmodule PhoenixKit.Users.Permissions do
     "jobs" => {PhoenixKit.Jobs, :enabled?}
   }
 
+  # --- Custom Permission Keys ---
+
+  @doc """
+  Registers a custom permission key with metadata.
+
+  Custom keys extend the built-in 25 permission keys, allowing parent apps
+  to define new permission scopes for custom admin tabs. Custom keys are
+  always treated as "enabled" (no module toggle) and appear in the
+  permission matrix UI under "Custom".
+
+  Raises `ArgumentError` if the key collides with a built-in key or has
+  an invalid format. Logs a warning on duplicate override.
+
+  ## Options
+
+  - `:label` - Human-readable label (default: capitalized key)
+  - `:icon` - Heroicon name (default: `"hero-squares-2x2"`)
+  - `:description` - Short description (default: `""`)
+
+  ## Examples
+
+      Permissions.register_custom_key("analytics", label: "Analytics", icon: "hero-chart-bar")
+  """
+  @spec register_custom_key(String.t(), keyword()) :: :ok
+  def register_custom_key(key, opts \\ []) when is_binary(key) do
+    if key in @all_module_keys do
+      raise ArgumentError,
+            "Cannot register custom permission key #{inspect(key)}: conflicts with built-in key"
+    end
+
+    unless Regex.match?(@valid_key_pattern, key) do
+      raise ArgumentError,
+            "Invalid permission key #{inspect(key)}: must match ~r/^[a-z][a-z0-9_]*$/"
+    end
+
+    if String.length(key) > @max_key_length do
+      raise ArgumentError,
+            "Permission key #{inspect(key)} exceeds max length of #{@max_key_length}"
+    end
+
+    current = custom_keys_map()
+
+    if Map.has_key?(current, key) do
+      Logger.warning(
+        "[Permissions] Custom permission key #{inspect(key)} re-registered, overriding previous metadata"
+      )
+    else
+      if map_size(current) >= @max_custom_keys do
+        raise ArgumentError,
+              "Cannot register more than #{@max_custom_keys} custom permission keys"
+      end
+    end
+
+    meta = %{
+      label:
+        opts
+        |> Keyword.get(:label)
+        |> coerce_string(String.capitalize(key))
+        |> String.slice(0, @max_label_length),
+      icon:
+        opts
+        |> Keyword.get(:icon)
+        |> coerce_string("hero-squares-2x2")
+        |> String.slice(0, @max_icon_length),
+      description:
+        opts
+        |> Keyword.get(:description)
+        |> coerce_string("")
+        |> String.slice(0, @max_description_length)
+    }
+
+    :persistent_term.put(@custom_keys_pterm, Map.put(current, key, meta))
+
+    # Auto-grant custom keys to Admin role so they have access by default.
+    # Uses a settings flag to avoid re-granting after Owner explicitly revokes.
+    auto_grant_to_admin_roles(key)
+
+    :ok
+  end
+
+  @doc """
+  Unregisters a custom permission key. Stale DB rows are harmless.
+  """
+  @spec unregister_custom_key(String.t()) :: :ok
+  def unregister_custom_key(key) when is_binary(key) do
+    current = custom_keys_map()
+    :persistent_term.put(@custom_keys_pterm, Map.delete(current, key))
+
+    # Clean up any view → permission mappings that reference this key
+    views = :persistent_term.get(@custom_views_pterm, %{})
+
+    cleaned =
+      views
+      |> Enum.reject(fn {_mod, perm} -> perm == key end)
+      |> Map.new()
+
+    if map_size(cleaned) != map_size(views) do
+      :persistent_term.put(@custom_views_pterm, cleaned)
+    end
+
+    # Clear auto-grant flag so re-registering the key will auto-grant again
+    clear_auto_grant_flag(key)
+
+    :ok
+  end
+
+  @doc """
+  Returns the map of registered custom permission keys and their metadata.
+  """
+  @spec custom_keys_map() :: %{String.t() => map()}
+  def custom_keys_map do
+    :persistent_term.get(@custom_keys_pterm, %{})
+  end
+
+  @doc """
+  Returns the list of custom permission key strings.
+  """
+  @spec custom_keys() :: [String.t()]
+  def custom_keys do
+    Map.keys(custom_keys_map())
+  end
+
+  @doc """
+  Clears all custom permission keys. For test isolation.
+  """
+  @spec clear_custom_keys() :: :ok
+  def clear_custom_keys do
+    :persistent_term.put(@custom_keys_pterm, %{})
+    :persistent_term.put(@custom_views_pterm, %{})
+    :ok
+  end
+
+  @doc """
+  Caches a LiveView module → permission key mapping for custom admin tabs.
+  Used by the auth system to enforce permissions on custom admin LiveViews
+  without reading Application config on every mount.
+  """
+  @spec cache_custom_view_permission(module(), String.t()) :: :ok
+  def cache_custom_view_permission(view_module, permission_key)
+      when is_atom(view_module) and is_binary(permission_key) do
+    current = :persistent_term.get(@custom_views_pterm, %{})
+
+    case Map.get(current, view_module) do
+      nil ->
+        :ok
+
+      ^permission_key ->
+        :ok
+
+      old_key ->
+        Logger.warning(
+          "[Permissions] View #{inspect(view_module)} permission changed from #{inspect(old_key)} to #{inspect(permission_key)}"
+        )
+    end
+
+    :persistent_term.put(@custom_views_pterm, Map.put(current, view_module, permission_key))
+    :ok
+  end
+
+  @doc """
+  Returns the cached custom view → permission mapping.
+  """
+  @spec custom_view_permissions() :: %{module() => String.t()}
+  def custom_view_permissions do
+    :persistent_term.get(@custom_views_pterm, %{})
+  end
+
   # --- Constants ---
 
-  @doc "Returns all 25 permission keys."
+  @doc "Returns all built-in and custom permission keys."
   @spec all_module_keys() :: [String.t()]
-  def all_module_keys, do: @all_module_keys
+  def all_module_keys, do: @all_module_keys ++ custom_keys()
 
   @doc "Returns the 5 core section keys."
   @spec core_section_keys() :: [String.t()]
@@ -103,8 +303,8 @@ defmodule PhoenixKit.Users.Permissions do
   def feature_module_keys, do: @feature_module_keys
 
   @doc """
-  Returns module keys that are currently enabled (core sections + enabled feature modules).
-  Core sections are always included. Feature modules are included only if their
+  Returns module keys that are currently enabled (core sections + enabled feature modules + custom keys).
+  Core sections and custom keys are always included. Feature modules are included only if their
   module reports enabled status.
   """
   @spec enabled_module_keys() :: MapSet.t()
@@ -113,12 +313,14 @@ defmodule PhoenixKit.Users.Permissions do
       @feature_module_keys
       |> Enum.filter(&do_feature_enabled?/1)
 
-    MapSet.new(@core_section_keys ++ enabled_features)
+    MapSet.new(@core_section_keys ++ enabled_features ++ custom_keys())
   end
 
-  @doc "Checks whether `key` is one of the 24 known permission keys."
+  @doc "Checks whether `key` is a known permission key (built-in or custom)."
   @spec valid_module_key?(String.t()) :: boolean()
-  def valid_module_key?(key) when is_binary(key), do: key in @all_module_keys
+  def valid_module_key?(key) when is_binary(key),
+    do: key in @all_module_keys or Map.has_key?(custom_keys_map(), key)
+
   def valid_module_key?(_), do: false
 
   @doc """
@@ -126,6 +328,7 @@ defmodule PhoenixKit.Users.Permissions do
 
   Core section keys always return `true`. Feature module keys return the
   result of calling the module's `enabled?/0` (or equivalent) function.
+  Custom permission keys are always enabled (no module toggle).
   Returns `false` for unknown keys.
   """
   @spec feature_enabled?(String.t()) :: boolean()
@@ -137,7 +340,8 @@ defmodule PhoenixKit.Users.Permissions do
         Code.ensure_loaded?(mod) && apply(mod, fun, [])
 
       nil ->
-        false
+        # Custom keys are always "enabled" (no module toggle)
+        Map.has_key?(custom_keys_map(), key)
     end
   rescue
     _ -> false
@@ -173,7 +377,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Returns a human-readable label for a module key."
   @spec module_label(String.t()) :: String.t()
-  def module_label(key), do: Map.get(@labels, key, String.capitalize(key))
+  def module_label(key) do
+    case Map.get(@labels, key) do
+      nil -> custom_key_metadata(key)[:label] || String.capitalize(key)
+      label -> label
+    end
+  end
 
   @icons %{
     "dashboard" => "hero-home",
@@ -205,7 +414,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Returns a Heroicon name for a module key."
   @spec module_icon(String.t()) :: String.t()
-  def module_icon(key), do: Map.get(@icons, key, "hero-squares-2x2")
+  def module_icon(key) do
+    case Map.get(@icons, key) do
+      nil -> custom_key_metadata(key)[:icon] || "hero-squares-2x2"
+      icon -> icon
+    end
+  end
 
   @descriptions %{
     "dashboard" => "Overview statistics, charts, and system health",
@@ -237,7 +451,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Returns a short description for a module key."
   @spec module_description(String.t()) :: String.t()
-  def module_description(key), do: Map.get(@descriptions, key, "")
+  def module_description(key) do
+    case Map.get(@descriptions, key) do
+      nil -> custom_key_metadata(key)[:description] || ""
+      desc -> desc
+    end
+  end
 
   # --- Query API ---
 
@@ -252,7 +471,7 @@ defmodule PhoenixKit.Users.Permissions do
     repo = RepoHelper.repo()
 
     from(rp in RolePermission,
-      join: ra in "phoenix_kit_user_role_assignments",
+      join: ra in RoleAssignment,
       on: ra.role_uuid == rp.role_uuid,
       where: ra.user_uuid == ^user_uuid,
       select: rp.module_key,
@@ -359,7 +578,7 @@ defmodule PhoenixKit.Users.Permissions do
     repo = RepoHelper.repo()
 
     from(rp in RolePermission,
-      join: ra in "phoenix_kit_user_role_assignments",
+      join: ra in RoleAssignment,
       on: ra.role_uuid == rp.role_uuid,
       where: rp.module_key == ^module_key,
       select: ra.user_uuid,
@@ -426,16 +645,18 @@ defmodule PhoenixKit.Users.Permissions do
   def grant_permission(role_id, module_key, granted_by_id \\ nil) do
     repo = RepoHelper.repo()
 
-    # Look up UUIDs from integer IDs for the changeset
+    # Resolve both integer and UUID forms for dual-write
+    role_int = resolve_role_id(role_id)
     role_uuid = resolve_role_uuid(role_id)
+    granted_by_int = resolve_user_id(granted_by_id)
     granted_by_uuid = resolve_user_uuid(granted_by_id)
 
     %RolePermission{}
     |> RolePermission.changeset(%{
-      role_id: role_id,
+      role_id: role_int,
       role_uuid: role_uuid,
       module_key: module_key,
-      granted_by: granted_by_id,
+      granted_by: granted_by_int,
       granted_by_uuid: granted_by_uuid
     })
     |> repo.insert(
@@ -497,21 +718,24 @@ defmodule PhoenixKit.Users.Permissions do
       # Keys to remove
       to_remove = MapSet.difference(current_keys, desired_set)
 
+      # Resolve both integer and UUID forms for dual-write
+      role_int = resolve_role_id(role_id)
       role_uuid = resolve_role_uuid(role_id)
 
       # Bulk insert new permissions
       if MapSet.size(to_add) > 0 do
         now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        granted_by_int = resolve_user_id(granted_by_id)
         granted_by_uuid = resolve_user_uuid(granted_by_id)
 
         entries =
           Enum.map(to_add, fn key ->
             %{
               uuid: UUIDv7.generate(),
-              role_id: role_id,
+              role_id: role_int,
               role_uuid: role_uuid,
               module_key: key,
-              granted_by: granted_by_id,
+              granted_by: granted_by_int,
               granted_by_uuid: granted_by_uuid,
               inserted_at: now
             }
@@ -544,18 +768,18 @@ defmodule PhoenixKit.Users.Permissions do
   end
 
   @doc """
-  Grants all 24 permission keys to a role.
+  Grants all permission keys (built-in + custom) to a role.
   """
   @spec grant_all_permissions(integer() | String.t(), integer() | String.t() | nil) ::
           :ok | {:error, term()}
   def grant_all_permissions(role_id, granted_by_id \\ nil) do
-    set_permissions(role_id, @all_module_keys, granted_by_id)
+    set_permissions(role_id, all_module_keys(), granted_by_id)
   end
 
   @doc """
   Revokes all permissions from a role.
   """
-  @spec revoke_all_permissions(integer() | String.t()) :: :ok
+  @spec revoke_all_permissions(integer() | String.t()) :: :ok | {:error, term()}
   def revoke_all_permissions(role_id) do
     repo = RepoHelper.repo()
 
@@ -567,6 +791,11 @@ defmodule PhoenixKit.Users.Permissions do
     Events.broadcast_permissions_synced(role_id, [])
     notify_affected_users(role_id)
     :ok
+  rescue
+    e ->
+      require Logger
+      Logger.warning("[PhoenixKit.Permissions] revoke_all_permissions failed: #{inspect(e)}")
+      {:error, e}
   end
 
   @doc """
@@ -586,7 +815,45 @@ defmodule PhoenixKit.Users.Permissions do
     set_permissions(target_role_id, source_keys, granted_by_id)
   end
 
+  # --- Access Control ---
+
+  @doc """
+  Checks if the given scope can edit the target role's permissions.
+
+  Returns `:ok` if allowed, or `{:error, reason}` if not.
+
+  Rules:
+  - Owner role cannot be edited (always has full access)
+  - Users cannot edit their own role (prevents self-lockout)
+  - Only Owner can edit Admin role (prevents privilege escalation)
+  """
+  @spec can_edit_role_permissions?(Scope.t() | nil, Role.t()) :: :ok | {:error, String.t()}
+  def can_edit_role_permissions?(nil, _role), do: {:error, "Not authenticated"}
+
+  def can_edit_role_permissions?(scope, role) do
+    user_roles = Scope.user_roles(scope)
+
+    cond do
+      role.name == "Owner" ->
+        {:error, "Owner role always has full access and cannot be modified"}
+
+      role.name in user_roles ->
+        {:error, "You cannot edit permissions for your own role"}
+
+      role.name == "Admin" and not Scope.owner?(scope) ->
+        {:error, "Only the Owner can edit Admin permissions"}
+
+      true ->
+        :ok
+    end
+  end
+
   # --- Helpers ---
+
+  # Returns metadata for a custom permission key, or nil if not found.
+  defp custom_key_metadata(key) do
+    Map.get(custom_keys_map(), key)
+  end
 
   defp do_feature_enabled?(key) do
     case Map.get(@feature_enabled_checks, key) do
@@ -623,6 +890,28 @@ defmodule PhoenixKit.Users.Permissions do
 
   defp resolve_role_uuid(role_id) when is_binary(role_id), do: role_id
 
+  # Resolves a UUID string to the integer role_id for legacy columns
+  defp resolve_role_id(nil), do: nil
+  defp resolve_role_id(role_id) when is_integer(role_id), do: role_id
+
+  defp resolve_role_id(role_uuid) when is_binary(role_uuid) do
+    repo = RepoHelper.repo()
+
+    from(r in Role, where: r.uuid == ^role_uuid, select: r.id)
+    |> repo.one()
+  end
+
+  # Resolves a UUID string to the integer user_id for legacy columns
+  defp resolve_user_id(nil), do: nil
+  defp resolve_user_id(user_id) when is_integer(user_id), do: user_id
+
+  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
+    repo = RepoHelper.repo()
+
+    from(u in User, where: u.uuid == ^user_uuid, select: u.id)
+    |> repo.one()
+  end
+
   # Resolves an integer user_id to its UUID for changeset use
   defp resolve_user_uuid(nil), do: nil
 
@@ -642,7 +931,7 @@ defmodule PhoenixKit.Users.Permissions do
     role_uuid = resolve_role_uuid(role_id)
 
     user_uuids =
-      from(ra in "phoenix_kit_user_role_assignments",
+      from(ra in RoleAssignment,
         where: ra.role_uuid == ^role_uuid,
         select: ra.user_uuid
       )
@@ -654,4 +943,56 @@ defmodule PhoenixKit.Users.Permissions do
       Logger.warning("Permissions.notify_affected_users failed: #{inspect(e)}")
       :ok
   end
+
+  # Clears the auto-grant settings flag for a custom key so that
+  # re-registering it will trigger a fresh auto-grant to Admin.
+  defp clear_auto_grant_flag(key) do
+    Settings.update_setting("auto_granted_perm:#{key}", nil)
+  rescue
+    _ -> :ok
+  end
+
+  # Auto-grants a custom permission key to the Admin system role.
+  # Stores a flag in phoenix_kit_settings so that if Owner later revokes
+  # the key, it won't be re-granted on next application restart.
+  defp auto_grant_to_admin_roles(key) do
+    flag_key = "auto_granted_perm:#{key}"
+
+    # If already auto-granted before, respect any manual changes
+    if Settings.get_setting(flag_key) == "true" do
+      :ok
+    else
+      case Roles.get_role_by_name(Role.system_roles().admin) do
+        %{id: admin_id} when not is_nil(admin_id) ->
+          case grant_permission(admin_id, key, nil) do
+            {:ok, _} ->
+              Settings.update_setting(flag_key, "true")
+
+            {:error, _} ->
+              Logger.warning(
+                "[Permissions] grant_permission failed for Admin role on key #{inspect(key)}, will retry next boot"
+              )
+          end
+
+          :ok
+
+        _ ->
+          # Admin role not found (pre-V53 or missing), skip
+          :ok
+      end
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[Permissions] Failed to auto-grant #{inspect(key)} to Admin role: #{Exception.message(error)}"
+      )
+
+      :ok
+  end
+
+  # Coerces a value to a string, returning the default for nil.
+  # Handles atoms, integers, and other types gracefully via to_string/1.
+  defp coerce_string(nil, default), do: default
+  defp coerce_string(value, _default) when is_binary(value), do: value
+  defp coerce_string(value, _default), do: to_string(value)
 end

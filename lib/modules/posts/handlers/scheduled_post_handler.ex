@@ -11,7 +11,7 @@ defmodule PhoenixKit.Modules.Posts.ScheduledPostHandler do
 
       ScheduledJobs.schedule_job(
         PhoenixKit.Modules.Posts.ScheduledPostHandler,
-        post.id,
+        post.uuid,
         ~U[2025-01-15 10:00:00Z]
       )
 

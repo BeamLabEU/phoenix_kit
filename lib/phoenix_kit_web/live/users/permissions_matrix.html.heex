@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Permissions Matrix"
+  page_title={gettext("Permissions")}
   current_path={@url_path}
   project_title={@project_title}
   current_locale={@current_locale}
@@ -14,14 +14,16 @@
         navigate={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
         class="btn btn-outline btn-primary btn-sm"
       >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Roles
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Roles")}
       </.link>
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Permissions Matrix</h1>
+        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
+          {gettext("Permissions")}
+        </h1>
         <p class="text-base sm:text-lg text-base-content/70">
-          Overview of role permissions across all modules
+          {gettext("Overview of role permissions across all modules")}
         </p>
       </div>
     </header>
@@ -31,7 +33,7 @@
       <table class="table table-sm">
         <thead>
           <tr class="bg-base-300 text-base-content">
-            <th class="sticky left-0 bg-base-300 z-10 min-w-[180px]">Module</th>
+            <th class="sticky left-0 bg-base-300 z-10 min-w-[180px]">{gettext("Module")}</th>
             <%= for role <- @roles do %>
               <th class="text-center min-w-[100px]">
                 <.pk_link navigate="/admin/users/roles" class="link link-hover">
@@ -48,7 +50,7 @@
               colspan={length(@roles) + 1}
               class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
-              Core Sections
+              {gettext("Core Sections")}
             </td>
           </tr>
           <%= for {key, idx} <- Enum.with_index(@core_keys) do %>
@@ -62,20 +64,31 @@
               <%= for role <- @roles do %>
                 <td class="text-center">
                   <%= if role.name == "Owner" do %>
-                    <span class="badge badge-sm badge-primary badge-outline">always</span>
+                    <span class="badge badge-sm badge-primary badge-outline">
+                      {gettext("always")}
+                    </span>
                   <% else %>
-                    <button
-                      phx-click="toggle_permission"
-                      phx-value-role_id={role.uuid}
-                      phx-value-key={key}
-                      class="cursor-pointer hover:opacity-70 transition-opacity"
-                    >
+                    <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+                      <%!-- Read-only: user's own role or Admin (non-Owner) --%>
                       <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
-                        <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                        <.icon name="hero-check-circle" class="w-5 h-5 text-success/50" />
                       <% else %>
-                        <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                        <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/10" />
                       <% end %>
-                    </button>
+                    <% else %>
+                      <button
+                        phx-click="toggle_permission"
+                        phx-value-role_id={role.uuid}
+                        phx-value-key={key}
+                        class="cursor-pointer hover:opacity-70 transition-opacity"
+                      >
+                        <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
+                          <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                        <% else %>
+                          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                        <% end %>
+                      </button>
+                    <% end %>
                   <% end %>
                 </td>
               <% end %>
@@ -88,7 +101,7 @@
               colspan={length(@roles) + 1}
               class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
-              Feature Modules
+              {gettext("Feature Modules")}
             </td>
           </tr>
           <%= for {key, idx} <- Enum.with_index(@feature_keys) do %>
@@ -102,40 +115,102 @@
               <%= for role <- @roles do %>
                 <td class="text-center">
                   <%= if role.name == "Owner" do %>
-                    <span class="badge badge-sm badge-primary badge-outline">always</span>
+                    <span class="badge badge-sm badge-primary badge-outline">
+                      {gettext("always")}
+                    </span>
                   <% else %>
-                    <button
-                      phx-click="toggle_permission"
-                      phx-value-role_id={role.uuid}
-                      phx-value-key={key}
-                      class="cursor-pointer hover:opacity-70 transition-opacity"
-                    >
+                    <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+                      <%!-- Read-only: user's own role or Admin (non-Owner) --%>
                       <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
-                        <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                        <.icon name="hero-check-circle" class="w-5 h-5 text-success/50" />
                       <% else %>
-                        <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                        <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/10" />
                       <% end %>
-                    </button>
+                    <% else %>
+                      <button
+                        phx-click="toggle_permission"
+                        phx-value-role_id={role.uuid}
+                        phx-value-key={key}
+                        class="cursor-pointer hover:opacity-70 transition-opacity"
+                      >
+                        <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
+                          <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                        <% else %>
+                          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                        <% end %>
+                      </button>
+                    <% end %>
                   <% end %>
                 </td>
               <% end %>
             </tr>
           <% end %>
+          <%!-- Custom (permission keys registered by parent app) --%>
+          <%= if length(@custom_keys) > 0 do %>
+            <tr class="bg-primary/10">
+              <td
+                colspan={length(@roles) + 1}
+                class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
+              >
+                {gettext("Custom")}
+              </td>
+            </tr>
+            <%= for {key, idx} <- Enum.with_index(@custom_keys) do %>
+              <tr class={if(rem(idx, 2) == 1, do: "bg-base-200", else: "")}>
+                <td class={[
+                  "sticky left-0 z-10 font-medium",
+                  if(rem(idx, 2) == 1, do: "bg-base-200", else: "bg-base-100")
+                ]}>
+                  {PhoenixKit.Users.Permissions.module_label(key)}
+                </td>
+                <%= for role <- @roles do %>
+                  <td class="text-center">
+                    <%= if role.name == "Owner" do %>
+                      <span class="badge badge-sm badge-primary badge-outline">
+                        {gettext("always")}
+                      </span>
+                    <% else %>
+                      <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+                        <%!-- Read-only: user's own role or Admin (non-Owner) --%>
+                        <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
+                          <.icon name="hero-check-circle" class="w-5 h-5 text-success/50" />
+                        <% else %>
+                          <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/10" />
+                        <% end %>
+                      <% else %>
+                        <button
+                          phx-click="toggle_permission"
+                          phx-value-role_id={role.uuid}
+                          phx-value-key={key}
+                          class="cursor-pointer hover:opacity-70 transition-opacity"
+                        >
+                          <%= if Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key) do %>
+                            <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                          <% else %>
+                            <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+                          <% end %>
+                        </button>
+                      <% end %>
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          <% end %>
+
           <%!-- Summary Row --%>
           <tr class="bg-base-300 font-semibold text-base-content">
             <td class="sticky left-0 bg-base-300 z-10">
-              Total
+              {gettext("Total")}
             </td>
             <%= for role <- @roles do %>
               <td class="text-center">
                 <%= if role.name == "Owner" do %>
-                  {length(PhoenixKit.Users.Permissions.all_module_keys())} / {length(
-                    PhoenixKit.Users.Permissions.all_module_keys()
-                  )}
+                  {MapSet.size(@visible_keys)} / {MapSet.size(@visible_keys)}
                 <% else %>
-                  {Map.get(@matrix, to_string(role.uuid), MapSet.new()) |> MapSet.size()} / {length(
-                    PhoenixKit.Users.Permissions.all_module_keys()
-                  )}
+                  {Map.get(@matrix, to_string(role.uuid), MapSet.new())
+                  |> MapSet.intersection(@visible_keys)
+                  |> MapSet.size()} / {MapSet.size(@visible_keys)}
                 <% end %>
               </td>
             <% end %>
@@ -148,11 +223,11 @@
     <div class="alert alert-info mt-6">
       <.icon name="hero-information-circle" class="w-5 h-5" />
       <div>
-        <h3 class="font-bold">About Permissions</h3>
+        <h3 class="font-bold">{gettext("About Permissions")}</h3>
         <p class="text-sm">
-          Click any check or cross icon to toggle a permission for that role.
-          The Owner role always has full access and cannot be modified.
-          You can only grant or revoke permissions that your own role has.
+          {gettext(
+            "Click any check or cross icon to toggle a permission for that role. The Owner role always has full access and cannot be modified. You cannot edit permissions for your own role or for roles with higher authority. You can only grant or revoke permissions that your own role has."
+          )}
         </p>
       </div>
     </div>

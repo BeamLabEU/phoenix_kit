@@ -40,14 +40,14 @@
               <div>
                 <h1 class="card-title text-2xl">{@ticket.title}</h1>
                 <div class="flex items-center gap-3 mt-2 text-sm text-base-content/70">
-                  <span>#{String.slice(@ticket.id, 0, 8)}</span>
+                  <span>#{String.slice(@ticket.uuid, 0, 8)}</span>
                   <span>•</span>
                   <span>Created {Calendar.strftime(@ticket.inserted_at, "%Y-%m-%d %H:%M")}</span>
                 </div>
               </div>
               <div class="flex gap-2">
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/#{@ticket.id}/edit")}
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/#{@ticket.uuid}/edit")}
                   class="btn btn-outline btn-sm"
                 >
                   Edit
@@ -103,7 +103,7 @@
                         <button
                           type="button"
                           phx-click="remove_attachment"
-                          phx-value-id={attachment.id}
+                          phx-value-id={attachment.uuid}
                           class="absolute top-1 right-1 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
                           data-confirm="Remove this attachment?"
                         >
@@ -148,7 +148,7 @@
                       </div>
                       <button
                         phx-click="delete_comment"
-                        phx-value-id={comment.id}
+                        phx-value-id={comment.uuid}
                         class="btn btn-ghost btn-xs"
                         data-confirm="Are you sure you want to delete this comment?"
                       >
@@ -239,7 +239,7 @@
                         </div>
                         <button
                           phx-click="delete_comment"
-                          phx-value-id={note.id}
+                          phx-value-id={note.uuid}
                           class="btn btn-ghost btn-xs"
                           data-confirm="Are you sure you want to delete this note?"
                         >

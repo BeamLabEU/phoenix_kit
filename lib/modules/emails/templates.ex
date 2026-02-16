@@ -507,7 +507,7 @@ defmodule PhoenixKit.Modules.Emails.Templates do
   def get_template_stats do
     base_query = from(t in Template)
 
-    total_templates = repo().aggregate(base_query, :count, :id)
+    total_templates = repo().aggregate(base_query, :count, :uuid)
 
     active_templates =
       base_query

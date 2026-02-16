@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
         ticket ->
           # Subscribe to events for this specific ticket
-          Events.subscribe_to_ticket(ticket.id)
+          Events.subscribe_to_ticket(ticket.uuid)
 
           project_title = Settings.get_project_title()
 
@@ -87,9 +87,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     else
       result =
         if is_internal do
-          Tickets.create_internal_note(ticket.id, current_user.id, %{content: content})
+          Tickets.create_internal_note(ticket.uuid, current_user.id, %{content: content})
         else
-          Tickets.create_comment(ticket.id, current_user.id, %{content: content})
+          Tickets.create_comment(ticket.uuid, current_user.id, %{content: content})
         end
 
       case result do
@@ -133,7 +133,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
          |> put_flash(:info, "Status updated to #{new_status}")
          |> assign(
            :ticket,
-           Tickets.get_ticket!(updated_ticket.id, preload: [:user, :assigned_to])
+           Tickets.get_ticket!(updated_ticket.uuid, preload: [:user, :assigned_to])
          )
          |> load_status_history()}
 
@@ -160,7 +160,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
          |> put_flash(:info, "Ticket assigned to you")
          |> assign(
            :ticket,
-           Tickets.get_ticket!(updated_ticket.id, preload: [:user, :assigned_to])
+           Tickets.get_ticket!(updated_ticket.uuid, preload: [:user, :assigned_to])
          )
          |> load_status_history()}
 
@@ -219,7 +219,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     ticket = socket.assigns.ticket
 
     Enum.each(file_ids, fn file_id ->
-      Tickets.add_attachment_to_ticket(ticket.id, file_id)
+      Tickets.add_attachment_to_ticket(ticket.uuid, file_id)
     end)
 
     {:noreply,
@@ -232,7 +232,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   @impl true
   def handle_info({:ticket_updated, ticket}, socket) do
     # Only update if it's the same ticket
-    if ticket.id == socket.assigns.ticket.id do
+    if ticket.uuid == socket.assigns.ticket.uuid do
       {:noreply, assign(socket, :ticket, ticket)}
     else
       {:noreply, socket}
@@ -241,7 +241,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   @impl true
   def handle_info({:ticket_status_changed, ticket, _old_status, _new_status}, socket) do
-    if ticket.id == socket.assigns.ticket.id do
+    if ticket.uuid == socket.assigns.ticket.uuid do
       socket =
         socket
         |> assign(:ticket, ticket)
@@ -255,7 +255,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   @impl true
   def handle_info({:ticket_assigned, ticket, _old_assignee, _new_assignee}, socket) do
-    if ticket.id == socket.assigns.ticket.id do
+    if ticket.uuid == socket.assigns.ticket.uuid do
       socket =
         socket
         |> assign(:ticket, ticket)
@@ -269,7 +269,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   @impl true
   def handle_info({:comment_created, _comment, ticket}, socket) do
-    if ticket.id == socket.assigns.ticket.id do
+    if ticket.uuid == socket.assigns.ticket.uuid do
       {:noreply, load_comments(socket)}
     else
       {:noreply, socket}
@@ -279,7 +279,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   @impl true
   def handle_info({:internal_note_created, _comment, ticket}, socket) do
     # Only update if user can view internal notes
-    if ticket.id == socket.assigns.ticket.id and socket.assigns.can_view_internal do
+    if ticket.uuid == socket.assigns.ticket.uuid and socket.assigns.can_view_internal do
       {:noreply, load_comments(socket)}
     else
       {:noreply, socket}
@@ -293,9 +293,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
     comments =
       if socket.assigns.can_view_internal do
-        Tickets.list_all_comments(ticket.id, preload: [:user])
+        Tickets.list_all_comments(ticket.uuid, preload: [:user])
       else
-        Tickets.list_public_comments(ticket.id, preload: [:user])
+        Tickets.list_public_comments(ticket.uuid, preload: [:user])
       end
 
     public_comments = Enum.filter(comments, &(!&1.is_internal))
@@ -308,18 +308,18 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   defp load_attachments(socket) do
     ticket = socket.assigns.ticket
-    attachments = Tickets.list_ticket_attachments(ticket.id, preload: [:file])
+    attachments = Tickets.list_ticket_attachments(ticket.uuid, preload: [:file])
     assign(socket, :attachments, attachments)
   end
 
   defp load_status_history(socket) do
     ticket = socket.assigns.ticket
-    history = Tickets.get_status_history(ticket.id, preload: [:changed_by])
+    history = Tickets.get_status_history(ticket.uuid, preload: [:changed_by])
     assign(socket, :status_history, history)
   end
 
   defp reload_ticket(socket) do
-    ticket = Tickets.get_ticket!(socket.assigns.ticket.id, preload: [:user, :assigned_to])
+    ticket = Tickets.get_ticket!(socket.assigns.ticket.uuid, preload: [:user, :assigned_to])
     assign(socket, :ticket, ticket)
   end
 end

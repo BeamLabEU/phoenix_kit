@@ -105,13 +105,13 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
       {:ok, ticket} ->
         # Attach pending files to the newly created ticket
         Enum.each(pending_file_ids, fn file_id ->
-          Tickets.add_attachment_to_ticket(ticket.id, file_id)
+          Tickets.add_attachment_to_ticket(ticket.uuid, file_id)
         end)
 
         {:noreply,
          socket
          |> put_flash(:info, gettext("Ticket created successfully"))
-         |> push_navigate(to: Routes.path("/admin/tickets/#{ticket.id}"))}
+         |> push_navigate(to: Routes.path("/admin/tickets/#{ticket.uuid}"))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
@@ -126,7 +126,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
   @impl true
   def handle_event("remove_pending_file", %{"id" => file_id}, socket) do
     pending_file_ids = Enum.reject(socket.assigns.pending_file_ids, &(&1 == file_id))
-    pending_files = Enum.reject(socket.assigns.pending_files, &(&1.id == file_id))
+    pending_files = Enum.reject(socket.assigns.pending_files, &(&1.uuid == file_id))
 
     {:noreply,
      socket
@@ -164,11 +164,11 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
                entry.client_name
              ) do
           {:ok, file, :duplicate} ->
-            Logger.info("Ticket attachment is duplicate with ID: #{file.id}")
+            Logger.info("Ticket attachment is duplicate with ID: #{file.uuid}")
             {:ok, file}
 
           {:ok, file} ->
-            Logger.info("Ticket attachment stored with ID: #{file.id}")
+            Logger.info("Ticket attachment stored with ID: #{file.uuid}")
             {:ok, file}
 
           {:error, reason} ->
@@ -183,7 +183,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
       |> Enum.filter(&match?({:ok, _}, &1))
       |> Enum.map(fn {:ok, file} -> file end)
 
-    new_file_ids = Enum.map(new_files, & &1.id)
+    new_file_ids = Enum.map(new_files, & &1.uuid)
 
     socket
     |> assign(:pending_file_ids, socket.assigns.pending_file_ids ++ new_file_ids)

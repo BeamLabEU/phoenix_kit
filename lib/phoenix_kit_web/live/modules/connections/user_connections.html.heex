@@ -168,7 +168,7 @@
                   <% other_user =
                     PhoenixKitWeb.Live.Modules.Connections.UserConnections.get_other_user(
                       connection,
-                      @current_user.id
+                      @current_user.uuid
                     ) %>
                   <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
                     <div class="flex items-center gap-3">
@@ -237,14 +237,14 @@
                         <button
                           class="btn btn-sm btn-success"
                           phx-click="accept_request"
-                          phx-value-id={request.id}
+                          phx-value-id={request.uuid}
                         >
                           Accept
                         </button>
                         <button
                           class="btn btn-sm btn-outline btn-error"
                           phx-click="reject_request"
-                          phx-value-id={request.id}
+                          phx-value-id={request.uuid}
                         >
                           Reject
                         </button>

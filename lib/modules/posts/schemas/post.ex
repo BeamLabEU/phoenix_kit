@@ -76,12 +76,13 @@ defmodule PhoenixKit.Modules.Posts.Post do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
-          id: UUIDv7.t() | nil,
-          user_id: integer(),
+          uuid: UUIDv7.t() | nil,
+          user_id: integer() | nil,
+          user_uuid: UUIDv7.t() | nil,
           title: String.t(),
           sub_title: String.t() | nil,
           content: String.t(),
@@ -124,22 +125,26 @@ defmodule PhoenixKit.Modules.Posts.Post do
     field :view_count, :integer, default: 0
     field :metadata, :map, default: %{}
 
-    belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    field :user_uuid, UUIDv7
+    belongs_to :user, PhoenixKit.Users.Auth.User,
+      foreign_key: :user_uuid,
+      references: :uuid,
+      type: UUIDv7
 
-    has_many :media, PhoenixKit.Modules.Posts.PostMedia
-    has_many :likes, PhoenixKit.Modules.Posts.PostLike
-    has_many :dislikes, PhoenixKit.Modules.Posts.PostDislike
-    has_many :comments, PhoenixKit.Modules.Posts.PostComment
-    has_many :mentions, PhoenixKit.Modules.Posts.PostMention
+    field :user_id, :integer
+
+    has_many :media, PhoenixKit.Modules.Posts.PostMedia, foreign_key: :post_id
+    has_many :likes, PhoenixKit.Modules.Posts.PostLike, foreign_key: :post_id
+    has_many :dislikes, PhoenixKit.Modules.Posts.PostDislike, foreign_key: :post_id
+    has_many :comments, PhoenixKit.Modules.Posts.PostComment, foreign_key: :post_id
+    has_many :mentions, PhoenixKit.Modules.Posts.PostMention, foreign_key: :post_id
 
     many_to_many :tags, PhoenixKit.Modules.Posts.PostTag,
       join_through: PhoenixKit.Modules.Posts.PostTagAssignment,
-      join_keys: [post_id: :id, tag_id: :id]
+      join_keys: [post_id: :uuid, tag_id: :uuid]
 
     many_to_many :groups, PhoenixKit.Modules.Posts.PostGroup,
       join_through: PhoenixKit.Modules.Posts.PostGroupAssignment,
-      join_keys: [post_id: :id, group_id: :id]
+      join_keys: [post_id: :uuid, group_id: :uuid]
 
     timestamps(type: :naive_datetime)
   end
@@ -180,14 +185,14 @@ defmodule PhoenixKit.Modules.Posts.Post do
       :slug,
       :metadata
     ])
-    |> validate_required([:user_id, :title, :type, :status])
+    |> validate_required([:user_uuid, :title, :type, :status])
     |> validate_inclusion(:type, ["post", "snippet", "repost"])
     |> validate_inclusion(:status, ["draft", "public", "unlisted", "scheduled"])
     |> validate_length(:title, max: 255)
     |> validate_length(:sub_title, max: 500)
     |> validate_scheduled_at()
     |> maybe_generate_slug()
-    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:user_uuid)
   end
 
   @doc """

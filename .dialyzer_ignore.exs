@@ -1,8 +1,4 @@
 [
-  # Test support files - ExUnit.CaseTemplate internals not available to Dialyzer
-  {"test/support/conn_case.ex", :unknown_function},
-  {"test/support/data_case.ex", :unknown_function},
-
   # Mix functions are only available during Mix compilation context
   {"lib/mix/tasks/phoenix_kit.install.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},
@@ -89,7 +85,6 @@
   # Publishing module - with-chain type inference false positives
   # Dialyzer incorrectly infers read_post/update_post only return errors in certain contexts
   # The actual functions return both {:ok, post} and {:error, reason} at runtime
-  ~r/lib\/modules\/publishing\/storage\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/storage\/.*\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/storage\/.*\.ex:.*call/,
   ~r/lib\/modules\/publishing\/listing_cache\.ex:.*pattern_match/,
@@ -101,7 +96,6 @@
 
   # Publishing Controller submodules - with-chain type inference false positives
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/,
   ~r/lib\/modules\/publishing\/web\/controller\/.*\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/controller\/.*\.ex:.*unused_fun/,
 
@@ -147,5 +141,10 @@
 
   # Entities enabled?/0 - Dialyzer infers Settings.get_boolean_setting always returns true
   # Pre-existing false positive unrelated to UUID migration
-  {"lib/modules/entities/entities.ex", :pattern_match}
+  {"lib/modules/entities/entities.ex", :pattern_match},
+
+  # ExUnit.CaseTemplate macro generates calls to internal ExUnit functions
+  # that Dialyzer cannot resolve (Elixir 1.18+ internal API changes)
+  {"test/support/conn_case.ex", :unknown_function},
+  {"test/support/data_case.ex", :unknown_function}
 ]

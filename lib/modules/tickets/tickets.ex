@@ -37,12 +37,12 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, ticket} = Tickets.start_progress(ticket, current_user)
 
       # Add a public comment
-      {:ok, comment} = Tickets.create_comment(ticket.id, staff_user_id, %{
+      {:ok, comment} = Tickets.create_comment(ticket.uuid, staff_user_id, %{
         content: "We're looking into this issue."
       })
 
       # Add an internal note (hidden from customer)
-      {:ok, note} = Tickets.create_internal_note(ticket.id, staff_user_id, %{
+      {:ok, note} = Tickets.create_internal_note(ticket.uuid, staff_user_id, %{
         content: "Customer seems frustrated. Need to escalate."
       })
 
@@ -139,7 +139,7 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp count_tickets do
-    repo().aggregate(Ticket, :count, :id)
+    repo().aggregate(Ticket, :count, :uuid)
   rescue
     _ -> 0
   end
@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.Tickets do
            |> repo().insert() do
         {:ok, ticket} ->
           # Record initial status in history
-          create_status_history(ticket.id, user_id, nil, "open", nil)
+          create_status_history(ticket.uuid, user_id, nil, "open", nil)
 
           # Broadcast event for real-time updates
           Events.broadcast_ticket_created(ticket)
@@ -225,7 +225,7 @@ defmodule PhoenixKit.Modules.Tickets do
            |> Ticket.changeset(attrs)
            |> repo().insert() do
         {:ok, ticket} ->
-          create_status_history(ticket.id, user_int_id, nil, "open", nil)
+          create_status_history(ticket.uuid, user_int_id, nil, "open", nil)
           Events.broadcast_ticket_created(ticket)
           ticket
 
@@ -467,7 +467,7 @@ defmodule PhoenixKit.Modules.Tickets do
         {:ok, updated_ticket} ->
           if new_status do
             create_status_history(
-              ticket.id,
+              ticket.uuid,
               changed_by_id,
               ticket.status,
               new_status,
@@ -597,7 +597,7 @@ defmodule PhoenixKit.Modules.Tickets do
              |> Ticket.changeset(attrs)
              |> repo().update() do
           {:ok, updated_ticket} ->
-            create_status_history(ticket.id, changed_by_id, old_status, new_status, reason)
+            create_status_history(ticket.uuid, changed_by_id, old_status, new_status, reason)
 
             # Broadcast status change event
             Events.broadcast_ticket_status_changed(updated_ticket, old_status, new_status)
@@ -643,7 +643,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Examples
 
-      iex> create_comment(ticket.id, user_id, %{content: "Thanks for looking into this!"})
+      iex> create_comment(ticket.uuid, user_id, %{content: "Thanks for looking into this!"})
       {:ok, %TicketComment{}}
   """
   def create_comment(ticket_id, user_id, attrs) when is_binary(user_id) do
@@ -704,7 +704,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Examples
 
-      iex> create_internal_note(ticket.id, staff_id, %{content: "Customer seems frustrated"})
+      iex> create_internal_note(ticket.uuid, staff_id, %{content: "Customer seems frustrated"})
       {:ok, %TicketComment{is_internal: true}}
   """
   def create_internal_note(ticket_id, user_id, attrs) when is_binary(user_id) do
@@ -845,12 +845,12 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp increment_comment_count(ticket_id) do
-    from(t in Ticket, where: t.id == ^ticket_id)
+    from(t in Ticket, where: t.uuid == ^ticket_id)
     |> repo().update_all(inc: [comment_count: 1])
   end
 
   defp decrement_comment_count(ticket_id) do
-    from(t in Ticket, where: t.id == ^ticket_id)
+    from(t in Ticket, where: t.uuid == ^ticket_id)
     |> repo().update_all(inc: [comment_count: -1])
   end
 
@@ -878,7 +878,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Examples
 
-      iex> add_attachment_to_ticket(ticket.id, file.id, caption: "Error screenshot")
+      iex> add_attachment_to_ticket(ticket.uuid, file.uuid, caption: "Error screenshot")
       {:ok, %TicketAttachment{}}
   """
   def add_attachment_to_ticket(ticket_id, file_id, opts \\ []) do

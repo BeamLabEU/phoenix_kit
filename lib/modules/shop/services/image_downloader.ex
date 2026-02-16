@@ -134,8 +134,8 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   end
 
   defp handle_storage_result({:ok, file}) do
-    Logger.info("[ImageDownloader] Successfully stored file with ID: #{file.id}")
-    {:ok, file.id}
+    Logger.info("[ImageDownloader] Successfully stored file with ID: #{file.uuid}")
+    {:ok, file.uuid}
   end
 
   defp handle_storage_result({:error, reason}) do

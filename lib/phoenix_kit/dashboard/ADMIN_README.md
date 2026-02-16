@@ -93,7 +93,7 @@ With `live_view` set, PhoenixKit:
 | `group` | atom | nil | Group ID: `:admin_main`, `:admin_modules`, or `:admin_system` |
 | `parent` | atom | nil | Parent tab ID for subtab relationships |
 | `match` | atom | `:prefix` | Path matching: `:exact`, `:prefix`, or `{:regex, ~r/...}` |
-| `visible` | function | nil | `(scope -> boolean)` for custom visibility logic |
+| `visible` | function | nil | `(scope -> boolean)` for non-permission conditional logic (feature flags, user data). For access control, use `permission` instead. |
 | `live_view` | tuple | nil | `{Module, :action}` to auto-generate a route |
 | `subtab_display` | atom | `:when_active` | `:when_active` or `:always` |
 | `highlight_with_subtabs` | boolean | false | Highlight parent when subtab is active |
@@ -218,12 +218,12 @@ PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
 Admin tabs integrate with PhoenixKit's module-level permissions (`PhoenixKit.Users.Permissions`):
 
 - **Owner** — Always has full access (hardcoded, no DB rows needed)
-- **Admin** — Gets all 25 permissions by default
+- **Admin** — Gets all 25 built-in permissions by default
 - **Custom roles** — Start with no permissions; grant via matrix UI or API
 
-### Permission Keys
+### Built-in Permission Keys
 
-The `permission` field on a tab must match one of the 25 permission keys:
+The `permission` field on a tab can use any of the 25 built-in keys:
 
 **Core (always enabled):** `dashboard`, `users`, `media`, `settings`, `modules`
 
@@ -232,6 +232,112 @@ The `permission` field on a tab must match one of the 25 permission keys:
 When a tab's `permission` points to a feature module:
 - If the module is **disabled**, the tab is hidden for everyone
 - If the module is **enabled**, the tab is shown only to users whose role has that permission
+
+### Custom Permission Keys (Auto-Registration)
+
+When a custom admin tab uses a permission key that isn't one of the 25 built-in keys, PhoenixKit **automatically registers it** as a custom permission. The key appears in the permission matrix and roles popup under an **Custom** section, where it can be granted or revoked per role — just like built-in permissions.
+
+```elixir
+config :phoenix_kit, :admin_dashboard_tabs, [
+  %{
+    id: :admin_analytics,
+    label: "Analytics",
+    icon: "hero-chart-bar",
+    path: "/admin/analytics",
+    permission: "analytics",   # Not a built-in key → auto-registered
+    group: :admin_main,
+    live_view: {MyAppWeb.AnalyticsLive, :index}
+  }
+]
+```
+
+**What happens automatically:**
+1. `"analytics"` is registered as a custom permission key with label and icon from the tab config
+2. It appears in the permission matrix and roles popup under **Custom**
+3. Owner gets automatic access (Owner always gets all keys, including custom ones)
+4. The tab is treated as "always enabled" (custom keys have no module toggle)
+5. The LiveView module → permission mapping is cached for auth enforcement on mount
+
+**Custom keys must** match `~r/^[a-z][a-z0-9_]*$/`. Using a built-in key name raises `ArgumentError`.
+
+### Subtab Permission Inheritance
+
+Subtabs inherit access from their parent tab's permission. When a parent tab is hidden (user lacks its permission), all its subtabs are hidden too — no separate permission needed:
+
+```elixir
+config :phoenix_kit, :admin_dashboard_tabs, [
+  # Parent — requires "analytics" permission
+  %{
+    id: :admin_analytics,
+    label: "Analytics",
+    icon: "hero-chart-bar",
+    path: "/admin/analytics",
+    permission: "analytics",
+    priority: 350,
+    group: :admin_main,
+    live_view: {MyAppWeb.AnalyticsLive, :index}
+  },
+  # Subtabs — no permission field needed, inherit from parent
+  %{
+    id: :admin_analytics_sales,
+    label: "Sales",
+    path: "/admin/analytics/sales",
+    parent: :admin_analytics,
+    priority: 351,
+    live_view: {MyAppWeb.AnalyticsSalesLive, :index}
+  },
+  %{
+    id: :admin_analytics_traffic,
+    label: "Traffic",
+    path: "/admin/analytics/traffic",
+    parent: :admin_analytics,
+    priority: 352,
+    live_view: {MyAppWeb.AnalyticsTrafficLive, :index}
+  }
+]
+```
+
+If a subtab needs its own independent permission, it can set a `permission` field — this will auto-register a separate custom key:
+
+```elixir
+%{
+  id: :admin_analytics_billing,
+  label: "Billing Reports",
+  path: "/admin/analytics/billing",
+  parent: :admin_analytics,
+  permission: "analytics_billing",   # Separate permission, auto-registered
+  priority: 353
+}
+```
+
+### Programmatic Registration
+
+Custom permission keys can also be registered directly, independent of tabs:
+
+```elixir
+PhoenixKit.Users.Permissions.register_custom_key("analytics",
+  label: "Analytics",
+  icon: "hero-chart-bar",
+  description: "Analytics dashboard and reports"
+)
+```
+
+### Granting Custom Permissions
+
+Custom permissions work exactly like built-in ones:
+
+```elixir
+# Via API
+Permissions.grant_permission(role_id, "analytics", granted_by_id)
+
+# Via set_permissions (includes custom keys)
+Permissions.set_permissions(role_id, ["dashboard", "users", "analytics"], granted_by_id)
+
+# Grant all (includes custom keys)
+Permissions.grant_all_permissions(role_id, granted_by_id)
+```
+
+Or use the admin UI: navigate to the permission matrix or the role's permission editor — custom keys appear under the **Custom** section.
 
 ## Navigation Architecture
 
@@ -399,3 +505,54 @@ config :phoenix_kit, :admin_dashboard_tabs, [
 ```
 
 Legacy categories are automatically converted to admin Tab structs at startup. A deprecation warning is logged when legacy config is detected.
+
+## Important: Compile-Time Behavior
+
+The `live_view` field is evaluated **at compile time**. Routes for custom admin tabs are generated during compilation of the router.
+
+### What this means
+
+1. The LiveView module referenced in `live_view` must exist and compile successfully
+2. If the module doesn't compile, the route is silently skipped (a warning is emitted)
+3. Routes are baked into the compiled router — they won't update until recompilation
+
+### After changing `:admin_dashboard_tabs` config
+
+```bash
+mix compile --force
+```
+
+Without `--force`, the router may not recompile and your tab changes won't take effect.
+
+### Troubleshooting
+
+**"My custom tab appears in the sidebar but links to a 404"**
+- The LiveView module may not have been compiled when the router compiled
+- Run `mix compile --force` to regenerate routes
+
+**"My custom tab doesn't appear at all"**
+1. Verify the tab config is correct (has `id`, `label`, `path`, `permission`)
+2. Check that the module is enabled (if permission maps to a feature module)
+3. Check that the user's role has the required permission
+4. Check `mix compile --force` was run after config changes
+
+**"Navigation causes a full page reload"**
+- The tab is missing the `live_view` field, so PhoenixKit can't generate a route in its admin `live_session`
+- Add `live_view: {MyModule, :index}` to enable seamless navigation
+
+## Telemetry
+
+The admin sidebar emits telemetry events for performance monitoring:
+
+- `[:phoenix_kit, :admin_sidebar, :render, :start]` — emitted when sidebar rendering begins
+- `[:phoenix_kit, :admin_sidebar, :render, :stop]` — emitted when rendering completes (includes `tab_count` in metadata)
+
+```elixir
+:telemetry.attach("admin-sidebar-monitor",
+  [:phoenix_kit, :admin_sidebar, :render, :stop],
+  fn _event, measurements, metadata, _config ->
+    Logger.debug("Admin sidebar rendered #{metadata.tab_count} tabs in #{measurements.duration}ns")
+  end,
+  nil
+)
+```

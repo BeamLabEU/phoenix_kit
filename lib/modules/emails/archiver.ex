@@ -536,14 +536,16 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
   end
 
   defp delete_archived_logs(logs) do
-    log_ids = Enum.map(logs, & &1.id)
+    log_uuids = Enum.map(logs, & &1.uuid)
+    log_int_ids = Enum.map(logs, & &1.id)
 
     # Delete events first (foreign key constraint)
-    from(e in Event, where: e.email_log_id in ^log_ids)
+    # email_log_id is an integer FK referencing Log's integer id column
+    from(e in Event, where: e.email_log_id in ^log_int_ids)
     |> repo().delete_all()
 
     # Delete logs
-    from(l in Log, where: l.id in ^log_ids)
+    from(l in Log, where: l.uuid in ^log_uuids)
     |> repo().delete_all()
   end
 

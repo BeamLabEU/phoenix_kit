@@ -144,8 +144,8 @@
                         type="checkbox"
                         class="checkbox checkbox-xs"
                         phx-click="toggle_select"
-                        phx-value-id={comment.id}
-                        checked={comment.id in @selected_ids}
+                        phx-value-id={comment.uuid}
+                        checked={comment.uuid in @selected_ids}
                       />
                     </td>
                     <td class="max-w-xs">
@@ -191,7 +191,7 @@
                         <%= if comment.status != "published" do %>
                           <button
                             phx-click="approve"
-                            phx-value-id={comment.id}
+                            phx-value-id={comment.uuid}
                             class="btn btn-ghost btn-xs text-success"
                             title="Approve"
                           >
@@ -201,7 +201,7 @@
                         <%= if comment.status != "hidden" do %>
                           <button
                             phx-click="hide"
-                            phx-value-id={comment.id}
+                            phx-value-id={comment.uuid}
                             class="btn btn-ghost btn-xs text-warning"
                             title="Hide"
                           >
@@ -210,7 +210,7 @@
                         <% end %>
                         <button
                           phx-click="delete"
-                          phx-value-id={comment.id}
+                          phx-value-id={comment.uuid}
                           class="btn btn-ghost btn-xs text-error"
                           title="Delete"
                           data-confirm="Delete this comment?"

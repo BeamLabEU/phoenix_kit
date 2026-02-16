@@ -99,11 +99,8 @@ defmodule PhoenixKit.Users.Roles do
 
       role ->
         attrs = %{
-          user_id: user.id,
           user_uuid: user.uuid,
-          role_id: role.id,
           role_uuid: role.uuid,
-          assigned_by: assigned_by && assigned_by.id,
           assigned_by_uuid: assigned_by && assigned_by.uuid
         }
 
@@ -342,6 +339,28 @@ defmodule PhoenixKit.Users.Roles do
   def get_role_by_name(name) when is_binary(name) do
     repo = RepoHelper.repo()
     repo.get_by(Role, name: name)
+  end
+
+  @doc """
+  Gets a single role by its UUID.
+
+  Returns `nil` if no role is found.
+
+  ## Parameters
+
+  - `uuid`: The UUID of the role to find
+
+  ## Examples
+
+      iex> get_role_by_uuid("01234567-89ab-cdef-0123-456789abcdef")
+      %Role{uuid: "01234567-89ab-cdef-0123-456789abcdef", name: "Editor"}
+
+      iex> get_role_by_uuid("nonexistent-uuid")
+      nil
+  """
+  def get_role_by_uuid(uuid) when is_binary(uuid) do
+    repo = RepoHelper.repo()
+    repo.get_by(Role, uuid: uuid)
   end
 
   @doc """

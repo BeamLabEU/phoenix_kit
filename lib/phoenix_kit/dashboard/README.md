@@ -818,20 +818,7 @@ end
 
 ## Conditional Visibility
 
-### Role-Based
-
-```elixir
-%{
-  id: :admin_settings,
-  label: "Admin",
-  path: "/dashboard/admin",
-  visible: fn scope ->
-    PhoenixKit.Users.Roles.has_role?(scope.user, "admin")
-  end
-}
-```
-
-### Feature Flag
+Use the `visible` field for non-permission conditional logic like feature flags or user data conditions. For access control, use the `permission` field instead — see [Permission System](ADMIN_README.md#permission-system).
 
 ```elixir
 %{

@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Posts do
   end
 
   defp build_post_entry(post, base_url, language, is_default) do
-    slug = post.slug || to_string(post.id)
+    slug = post.slug || to_string(post.uuid)
     # Canonical path without language prefix (for hreflang grouping)
     canonical_path = "/posts/#{slug}"
     path = build_path_with_language(canonical_path, language, is_default)

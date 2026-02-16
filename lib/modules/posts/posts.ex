@@ -31,10 +31,10 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, post} = Posts.publish_post(post)
 
       # Like a post
-      {:ok, like} = Posts.like_post(post.id, user_id)
+      {:ok, like} = Posts.like_post(post.uuid, user_id)
 
       # Add a comment
-      {:ok, comment} = Posts.create_comment(post.id, user_id, %{
+      {:ok, comment} = Posts.create_comment(post.uuid, user_id, %{
         content: "Great post!"
       })
 
@@ -64,6 +64,7 @@ defmodule PhoenixKit.Modules.Posts do
   alias PhoenixKit.ScheduledJobs
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ============================================================================
   # Module Status
@@ -124,7 +125,7 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   defp count_posts do
-    repo().aggregate(Post, :count, :id)
+    repo().aggregate(Post, :count, :uuid)
   rescue
     _ -> 0
   end
@@ -466,7 +467,7 @@ defmodule PhoenixKit.Modules.Posts do
           Logger.debug("Posts.schedule_post: Post status updated to 'scheduled'")
 
           # Cancel any existing pending scheduled jobs for this post
-          {cancelled_count, _} = ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+          {cancelled_count, _} = ScheduledJobs.cancel_jobs_for_resource("post", post.uuid)
 
           if cancelled_count > 0 do
             Logger.debug(
@@ -484,14 +485,14 @@ defmodule PhoenixKit.Modules.Posts do
 
           case ScheduledJobs.schedule_job(
                  ScheduledPostHandler,
-                 post.id,
+                 post.uuid,
                  scheduled_at,
                  job_args,
                  opts
                ) do
             {:ok, job} ->
               Logger.info(
-                "Posts.schedule_post: Created scheduled job #{job.id} for post #{post.id}"
+                "Posts.schedule_post: Created scheduled job #{job.id} for post #{post.uuid}"
               )
 
               updated_post
@@ -528,7 +529,7 @@ defmodule PhoenixKit.Modules.Posts do
   def unschedule_post(%Post{} = post) do
     repo().transaction(fn ->
       # Cancel any pending scheduled jobs
-      ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+      ScheduledJobs.cancel_jobs_for_resource("post", post.uuid)
 
       # Revert to draft status
       case update_post(post, %{status: "draft", scheduled_at: nil}) do
@@ -591,8 +592,8 @@ defmodule PhoenixKit.Modules.Posts do
       iex> increment_like_count(post)
       {1, nil}
   """
-  def increment_like_count(%Post{id: id}) do
-    from(p in Post, where: p.id == ^id)
+  def increment_like_count(%Post{uuid: id}) do
+    from(p in Post, where: p.uuid == ^id)
     |> repo().update_all(inc: [like_count: 1])
   end
 
@@ -604,8 +605,8 @@ defmodule PhoenixKit.Modules.Posts do
       iex> decrement_like_count(post)
       {1, nil}
   """
-  def decrement_like_count(%Post{id: id}) do
-    from(p in Post, where: p.id == ^id and p.like_count > 0)
+  def decrement_like_count(%Post{uuid: id}) do
+    from(p in Post, where: p.uuid == ^id and p.like_count > 0)
     |> repo().update_all(inc: [like_count: -1])
   end
 
@@ -617,8 +618,8 @@ defmodule PhoenixKit.Modules.Posts do
       iex> increment_dislike_count(post)
       {1, nil}
   """
-  def increment_dislike_count(%Post{id: id}) do
-    from(p in Post, where: p.id == ^id)
+  def increment_dislike_count(%Post{uuid: id}) do
+    from(p in Post, where: p.uuid == ^id)
     |> repo().update_all(inc: [dislike_count: 1])
   end
 
@@ -630,8 +631,8 @@ defmodule PhoenixKit.Modules.Posts do
       iex> decrement_dislike_count(post)
       {1, nil}
   """
-  def decrement_dislike_count(%Post{id: id}) do
-    from(p in Post, where: p.id == ^id and p.dislike_count > 0)
+  def decrement_dislike_count(%Post{uuid: id}) do
+    from(p in Post, where: p.uuid == ^id and p.dislike_count > 0)
     |> repo().update_all(inc: [dislike_count: -1])
   end
 
@@ -643,8 +644,8 @@ defmodule PhoenixKit.Modules.Posts do
       iex> increment_comment_count(post)
       {1, nil}
   """
-  def increment_comment_count(%Post{id: id}) do
-    from(p in Post, where: p.id == ^id)
+  def increment_comment_count(%Post{uuid: id}) do
+    from(p in Post, where: p.uuid == ^id)
     |> repo().update_all(inc: [comment_count: 1])
   end
 
@@ -656,8 +657,8 @@ defmodule PhoenixKit.Modules.Posts do
       iex> decrement_comment_count(post)
       {1, nil}
   """
-  def decrement_comment_count(%Post{id: id}) do
-    from(p in Post, where: p.id == ^id and p.comment_count > 0)
+  def decrement_comment_count(%Post{uuid: id}) do
+    from(p in Post, where: p.uuid == ^id and p.comment_count > 0)
     |> repo().update_all(inc: [comment_count: -1])
   end
 
@@ -669,8 +670,8 @@ defmodule PhoenixKit.Modules.Posts do
       iex> increment_view_count(post)
       {1, nil}
   """
-  def increment_view_count(%Post{id: id}) do
-    from(p in Post, where: p.id == ^id)
+  def increment_view_count(%Post{uuid: id}) do
+    from(p in Post, where: p.uuid == ^id)
     |> repo().update_all(inc: [view_count: 1])
   end
 
@@ -698,29 +699,37 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, %Ecto.Changeset{}}
   """
   def like_post(post_id, user_id) when is_integer(user_id) do
+    do_like_post(post_id, resolve_user_uuid(user_id), user_id)
+  end
+
+  def like_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_like_post(post_id, user_id, resolve_user_id(user_id))
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> like_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_like_post(post_id, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostLike{}
            |> PostLike.changeset(%{
              post_id: post_id,
-             user_id: user_id,
-             user_uuid: resolve_user_uuid(user_id)
+             user_id: user_int_id,
+             user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, like} ->
-          increment_like_count(%Post{id: post_id})
+          increment_like_count(%Post{uuid: post_id})
           like
 
         {:error, changeset} ->
           repo().rollback(changeset)
       end
     end)
-  end
-
-  def like_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> like_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -743,24 +752,32 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, :not_found}
   """
   def unlike_post(post_id, user_id) when is_integer(user_id) do
+    do_unlike_post(post_id, resolve_user_uuid(user_id))
+  end
+
+  def unlike_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_unlike_post(post_id, user_id)
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> unlike_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_unlike_post(post_id, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostLike, post_id: post_id, user_id: user_id) do
+      case repo().get_by(PostLike, post_id: post_id, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         like ->
           {:ok, _} = repo().delete(like)
-          decrement_like_count(%Post{id: post_id})
+          decrement_like_count(%Post{uuid: post_id})
           like
       end
     end)
-  end
-
-  def unlike_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> unlike_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -780,13 +797,19 @@ defmodule PhoenixKit.Modules.Posts do
       false
   """
   def post_liked_by?(post_id, user_id) when is_integer(user_id) do
-    repo().exists?(from l in PostLike, where: l.post_id == ^post_id and l.user_id == ^user_id)
+    post_liked_by?(post_id, resolve_user_uuid(user_id))
   end
 
   def post_liked_by?(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> post_liked_by?(post_id, int_id)
-      _ -> false
+    if UUIDUtils.valid?(user_id) do
+      repo().exists?(
+        from(l in PostLike, where: l.post_id == ^post_id and l.user_uuid == ^user_id)
+      )
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> post_liked_by?(post_id, int_id)
+        _ -> false
+      end
     end
   end
 
@@ -839,29 +862,37 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, %Ecto.Changeset{}}
   """
   def dislike_post(post_id, user_id) when is_integer(user_id) do
+    do_dislike_post(post_id, resolve_user_uuid(user_id), user_id)
+  end
+
+  def dislike_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_dislike_post(post_id, user_id, resolve_user_id(user_id))
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> dislike_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_dislike_post(post_id, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostDislike{}
            |> PostDislike.changeset(%{
              post_id: post_id,
-             user_id: user_id,
-             user_uuid: resolve_user_uuid(user_id)
+             user_id: user_int_id,
+             user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, dislike} ->
-          increment_dislike_count(%Post{id: post_id})
+          increment_dislike_count(%Post{uuid: post_id})
           dislike
 
         {:error, changeset} ->
           repo().rollback(changeset)
       end
     end)
-  end
-
-  def dislike_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> dislike_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -884,24 +915,32 @@ defmodule PhoenixKit.Modules.Posts do
       {:error, :not_found}
   """
   def undislike_post(post_id, user_id) when is_integer(user_id) do
+    do_undislike_post(post_id, resolve_user_uuid(user_id))
+  end
+
+  def undislike_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_undislike_post(post_id, user_id)
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> undislike_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_undislike_post(post_id, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostDislike, post_id: post_id, user_id: user_id) do
+      case repo().get_by(PostDislike, post_id: post_id, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         dislike ->
           {:ok, _} = repo().delete(dislike)
-          decrement_dislike_count(%Post{id: post_id})
+          decrement_dislike_count(%Post{uuid: post_id})
           dislike
       end
     end)
-  end
-
-  def undislike_post(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> undislike_post(post_id, int_id)
-      _ -> {:error, :invalid_user_id}
-    end
   end
 
   @doc """
@@ -921,13 +960,19 @@ defmodule PhoenixKit.Modules.Posts do
       false
   """
   def post_disliked_by?(post_id, user_id) when is_integer(user_id) do
-    repo().exists?(from d in PostDislike, where: d.post_id == ^post_id and d.user_id == ^user_id)
+    post_disliked_by?(post_id, resolve_user_uuid(user_id))
   end
 
   def post_disliked_by?(post_id, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> post_disliked_by?(post_id, int_id)
-      _ -> false
+    if UUIDUtils.valid?(user_id) do
+      repo().exists?(
+        from(d in PostDislike, where: d.post_id == ^post_id and d.user_uuid == ^user_id)
+      )
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> post_disliked_by?(post_id, int_id)
+        _ -> false
+      end
     end
   end
 
@@ -965,7 +1010,7 @@ defmodule PhoenixKit.Modules.Posts do
   Increments the post's denormalized comment_count.
   """
   def on_comment_created("post", resource_id, _comment) do
-    increment_comment_count(%Post{id: resource_id})
+    increment_comment_count(%Post{uuid: resource_id})
     :ok
   end
 
@@ -976,7 +1021,7 @@ defmodule PhoenixKit.Modules.Posts do
   Decrements the post's denormalized comment_count.
   """
   def on_comment_deleted("post", resource_id, _comment) do
-    decrement_comment_count(%Post{id: resource_id})
+    decrement_comment_count(%Post{uuid: resource_id})
     :ok
   end
 
@@ -989,7 +1034,7 @@ defmodule PhoenixKit.Modules.Posts do
   Returns a map of `resource_id => %{title: ..., path: ...}`.
   """
   def resolve_comment_resources(resource_ids) when is_list(resource_ids) do
-    from(p in Post, where: p.id in ^resource_ids, select: {p.id, p.title})
+    from(p in Post, where: p.uuid in ^resource_ids, select: {p.uuid, p.title})
     |> repo().all()
     |> Map.new(fn {id, title} -> {id, %{title: title, path: "/admin/posts/#{id}"}} end)
   rescue
@@ -1067,7 +1112,7 @@ defmodule PhoenixKit.Modules.Posts do
       iex> add_tags_to_post(post, ["elixir", "phoenix"])
       {:ok, [%PostTag{}, %PostTag{}]}
   """
-  def add_tags_to_post(%Post{id: post_id}, tag_names) when is_list(tag_names) do
+  def add_tags_to_post(%Post{uuid: post_id}, tag_names) when is_list(tag_names) do
     repo().transaction(fn ->
       tags =
         Enum.map(tag_names, fn name ->
@@ -1080,11 +1125,11 @@ defmodule PhoenixKit.Modules.Posts do
 
       Enum.each(tags, fn tag ->
         %PostTagAssignment{}
-        |> PostTagAssignment.changeset(%{post_id: post_id, tag_id: tag.id})
+        |> PostTagAssignment.changeset(%{post_id: post_id, tag_id: tag.uuid})
         |> repo().insert(on_conflict: :nothing)
 
         # Increment tag usage
-        from(t in PostTag, where: t.id == ^tag.id)
+        from(t in PostTag, where: t.uuid == ^tag.uuid)
         |> repo().update_all(inc: [usage_count: 1])
       end)
 
@@ -1115,7 +1160,7 @@ defmodule PhoenixKit.Modules.Posts do
           repo().delete(assignment)
 
           # Decrement tag usage
-          from(t in PostTag, where: t.id == ^tag_id and t.usage_count > 0)
+          from(t in PostTag, where: t.uuid == ^tag_id and t.usage_count > 0)
           |> repo().update_all(inc: [usage_count: -1])
 
           assignment
@@ -1317,7 +1362,7 @@ defmodule PhoenixKit.Modules.Posts do
            })
            |> repo().insert() do
         {:ok, assignment} ->
-          from(g in PostGroup, where: g.id == ^group_id)
+          from(g in PostGroup, where: g.uuid == ^group_id)
           |> repo().update_all(inc: [post_count: 1])
 
           assignment
@@ -1352,7 +1397,7 @@ defmodule PhoenixKit.Modules.Posts do
         repo().transaction(fn ->
           repo().delete(assignment)
 
-          from(g in PostGroup, where: g.id == ^group_id and g.post_count > 0)
+          from(g in PostGroup, where: g.uuid == ^group_id and g.post_count > 0)
           |> repo().update_all(inc: [post_count: -1])
 
           assignment
@@ -1418,7 +1463,7 @@ defmodule PhoenixKit.Modules.Posts do
 
     from(p in Post,
       join: ga in PostGroupAssignment,
-      on: ga.post_id == p.id,
+      on: ga.post_id == p.uuid,
       where: ga.group_id == ^group_id,
       order_by: [asc: ga.position]
     )
@@ -1444,7 +1489,7 @@ defmodule PhoenixKit.Modules.Posts do
   def reorder_groups(user_id, group_id_positions) when is_map(group_id_positions) do
     repo().transaction(fn ->
       Enum.each(group_id_positions, fn {group_id, position} ->
-        from(g in PostGroup, where: g.id == ^group_id and g.user_id == ^user_id)
+        from(g in PostGroup, where: g.uuid == ^group_id and g.user_id == ^user_id)
         |> repo().update_all(set: [position: position])
       end)
     end)
@@ -1484,9 +1529,20 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   def add_mention_to_post(post_id, user_id, mention_type) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> add_mention_to_post(post_id, int_id, mention_type)
-      _ -> {:error, :invalid_user_id}
+    if UUIDUtils.valid?(user_id) do
+      %PostMention{}
+      |> PostMention.changeset(%{
+        post_id: post_id,
+        user_id: resolve_user_id(user_id),
+        user_uuid: user_id,
+        mention_type: mention_type
+      })
+      |> repo().insert()
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> add_mention_to_post(post_id, int_id, mention_type)
+        _ -> {:error, :invalid_user_id}
+      end
     end
   end
 
@@ -1503,8 +1559,23 @@ defmodule PhoenixKit.Modules.Posts do
       iex> remove_mention_from_post("018e3c4a-...", 42)
       {:ok, %PostMention{}}
   """
-  def remove_mention_from_post(post_id, user_id) do
-    case repo().get_by(PostMention, post_id: post_id, user_id: user_id) do
+  def remove_mention_from_post(post_id, user_id) when is_integer(user_id) do
+    do_remove_mention(post_id, resolve_user_uuid(user_id))
+  end
+
+  def remove_mention_from_post(post_id, user_id) when is_binary(user_id) do
+    if UUIDUtils.valid?(user_id) do
+      do_remove_mention(post_id, user_id)
+    else
+      case Integer.parse(user_id) do
+        {int_id, ""} -> remove_mention_from_post(post_id, int_id)
+        _ -> {:error, :invalid_user_id}
+      end
+    end
+  end
+
+  defp do_remove_mention(post_id, user_uuid) do
+    case repo().get_by(PostMention, post_id: post_id, user_uuid: user_uuid) do
       nil -> {:error, :not_found}
       mention -> repo().delete(mention)
     end
@@ -1782,12 +1853,13 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    case repo().one(
-           from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
-         ) do
-      nil -> nil
-      uuid -> uuid
-    end
+    from(u in Auth.User, where: u.id == ^user_id, select: u.uuid)
+    |> repo().one()
+  end
+
+  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
+    from(u in Auth.User, where: u.uuid == ^user_uuid, select: u.id)
+    |> repo().one()
   end
 
   # Get repository based on configuration (for tests and apps with custom repos)

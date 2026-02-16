@@ -1,25 +1,45 @@
 # Legacy ID Field Analysis - PhoenixKit UUIDv7 Migration
 
-**Last updated:** 2026-02-14 (post PR #337 merge)
+**Last updated:** 2026-02-15 (all critical issues + Pattern 2 resolved)
 
 ## Executive Summary
-Found multiple instances where the codebase still references the legacy `:id` field instead of `:uuid`. This analysis identifies all the problematic areas that need to be updated for complete UUIDv7 migration.
+Originally found 50+ instances where the codebase referenced the legacy `:id` field instead of `:uuid`. **All critical issues have been resolved** across 5 commits + Pattern 2 migration. Pattern 2 is now fully resolved (29 schemas migrated to `{:uuid, UUIDv7, source: :id}`). The only remaining work is Phase 4 integer column removal.
 
-## Progress Update (PR #337 - Merged 2026-02-14)
+## Progress Update
 
-PR #337 addressed several issues from this analysis and added critical clarification:
+### PR #337 (2026-02-14)
+- **Connections module `type: :integer`** — Confirmed CORRECT per V36 migration. See `dev_docs/uuid_naming_convention_report.md`.
+- **Billing form assigns** — Renamed `*_id` → `*_uuid` in 3 form modules + templates.
+- **13 LiveViews** — Applied `dashboard_assigns()` optimization.
+- **16 alias-in-function-body** instances moved to module level.
+- **New Finding:** 25 Pattern 2 schemas (`@primary_key {:id, UUIDv7}`) — decision pending (Options A-D in `uuid_naming_convention_report.md`).
 
-### Resolved / Clarified
-- **Connections module `type: :integer`** — After investigation, this is **CORRECT**. The V36 migration created FK columns as BIGINT referencing `phoenix_kit_users(id)`. The `type: :integer` in `belongs_to` accurately reflects the DB schema. See `dev_docs/uuid_naming_convention_report.md` for full analysis.
-- **Billing form assigns** — Renamed `*_id` assigns to `*_uuid` in `order_form.ex`, `subscription_form.ex`, `billing_profile_form.ex` and their templates.
-- **13 LiveViews** — Applied `dashboard_assigns()` instead of passing raw assigns to `Layouts.dashboard`.
-- **16 alias-in-function-body** instances moved to module level across publishing, shop, emails, and update task modules.
+### Post-PR #337 Session (2026-02-15) — 5 commits
+- **commit 8958ccbf** — Connections module: 6 schemas + context + web layer migrated to UUID
+- **commit a1130364** — Referrals module: context + form migrated to UUID
+- **commit be76a2af** — Comments/Tickets: 4 schemas + context + component migrated to UUID
+- **commit e5a52a4c** — Mix tasks + admin presence: all `.id` → `.uuid`
+- **commit ccd3f089** — Posts (9) + Tickets (2) + Storage (1): `belongs_to :user` migrated to UUID
 
-### New Finding: Two Primary Key Patterns
-PR #337 added `dev_docs/uuid_naming_convention_report.md` identifying **25 schemas** that use `@primary_key {:id, UUIDv7, ...}` (Pattern 2) where the `id` column is actually a UUID. These are NOT the same issue as schemas with `field :id, :integer`. Decision pending on how to resolve (Options A-D in the report).
+### Pattern 2 Resolution (2026-02-15) — unstaged
+Implemented **Option B** from `uuid_naming_convention_report.md`: schema-only fix with `source: :id`.
 
-### Still Outstanding
-All items below remain unfixed unless marked otherwise.
+- **29 schemas** migrated: `@primary_key {:id, UUIDv7, autogenerate: true}` → `{:uuid, UUIDv7, autogenerate: true, source: :id}`
+  - Comments: `comment.ex`, `comment_dislike.ex`, `comment_like.ex` (3)
+  - Connections: `block.ex`, `block_history.ex`, `connection.ex`, `connection_history.ex`, `follow.ex`, `follow_history.ex` (6)
+  - Posts: `post.ex`, `post_comment.ex`, `post_like.ex`, `post_dislike.ex`, `post_view.ex`, `post_mention.ex`, `post_group.ex`, `post_media.ex`, `post_tag.ex`, `comment_like.ex`, `comment_dislike.ex` (11)
+  - Storage: `bucket.ex`, `dimension.ex`, `file.ex`, `file_instance.ex`, `file_location.ex` (5)
+  - Tickets: `ticket.ex`, `ticket_attachment.ex`, `ticket_comment.ex`, `ticket_status_history.ex` (4)
+- **2 composite-PK schemas discovered:** `post_group_assignment.ex`, `post_tag_assignment.ex` — added missing `references: :uuid` to `belongs_to` associations
+- **10 `has_many` associations** received explicit `foreign_key:` — required because Ecto defaults to inferring FK from the parent's primary key name (now `:uuid` instead of `:id`)
+  - `post.ex`: 5 (`:media`, `:likes`, `:dislikes`, `:comments`, `:mentions`)
+  - `bucket.ex`: 1 (`:file_locations`)
+  - `file.ex`: 1 (`:instances`)
+  - `file_instance.ex`: 1 (`:locations`)
+  - `ticket.ex`: 2 (`:comments`, `:attachments`)
+- **Bug fix: `@foreign_key_type :id` → `UUIDv7`** in 3 history schemas (`block_history.ex`, `connection_history.ex`, `follow_history.ex`) — previously caused Ecto to default `belongs_to` types to `:id` instead of `UUIDv7`
+- **Context/web layer updates:** `posts.ex`, `comments.ex`, `tickets.ex`, `storage.ex`, plus web layers — all `.id` access → `.uuid`
+- **Additional fix:** `upload_controller.ex` — `existing_file.id` → `existing_file.uuid`
 
 ## 1. Schemas Still Using :id as Primary Key
 
@@ -56,118 +76,35 @@ The following schemas still define `field :id, :integer` instead of using UUIDv7
 
 ## 2. Relationships Still Referencing Legacy ID Field
 
-### ~~Connections Module - Using `type: :integer`~~ ✅ NOT A BUG (PR #337)
-~~These relationships explicitly use `:integer` type instead of UUIDv7:~~
+### ~~Connections Module - Using `type: :integer`~~ ✅ MIGRATED TO UUID (commit 8958ccbf)
+All 6 connection schemas migrated from `belongs_to :user, type: :integer` to UUID-based associations. Context module updated for UUID-primary queries with dual-write.
 
-**Clarified by PR #337:** The `type: :integer` declarations are **correct**. The V36 migration created these FK columns as `BIGINT` referencing `phoenix_kit_users(id)`. The integer FKs coexist with dual-write `*_uuid` fields added by V56. These will be migrated to UUID FKs in Phase 4 of the UUID migration.
+### ~~Comments Module - Using `foreign_key: :parent_id`~~ ✅ FIXED (Pattern 2 Resolution)
+- `has_many :children, __MODULE__, foreign_key: :parent_id` — was correct before, still correct after. `parent_id` IS a UUID column in DB.
+- `belongs_to :parent` now includes `references: :uuid` to match renamed primary key field.
 
-- `lib/modules/connections/follow.ex:45-46` — `type: :integer` is correct (FK is BIGINT)
-- `lib/modules/connections/block_history.ex:22-23` — `type: :integer` is correct
-- `lib/modules/connections/block.ex:50-51` — `type: :integer` is correct
-- `lib/modules/connections/connection_history.ex:29-30` — `type: :integer` is correct
+### ~~Tickets Module - Using `foreign_key: :parent_id` and `foreign_key: :comment_id`~~ ✅ FIXED (Pattern 2 Resolution)
+- Same as comments — `parent_id` and `comment_id` columns store UUIDs.
+- All `has_many` associations received explicit `foreign_key:` to prevent Ecto from inferring `:uuid_id` as the FK name.
 
-### Comments Module - Using `foreign_key: :parent_id`
-- `lib/modules/comments/schemas/comment.ex:64`
-  ```elixir
-  has_many :children, __MODULE__, foreign_key: :parent_id
-  ```
-  Should use `foreign_key: :parent_uuid`
+## 3. ~~Direct .id Field Access in Code~~ ✅ ALL FIXED
 
-### Tickets Module - Using `foreign_key: :parent_id` and `foreign_key: :comment_id`
-- `lib/modules/tickets/ticket_comment.ex:88-89`
-  ```elixir
-  has_many :children, __MODULE__, foreign_key: :parent_id
-  has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment, foreign_key: :comment_id
-  ```
-  Should use `foreign_key: :parent_uuid` and `foreign_key: :comment_uuid`
+All instances below have been resolved:
 
-## 3. Direct .id Field Access in Code
+- ~~`email_export.ex:176,253`~~ — ✅ Fixed (commit e5a52a4c): `log.id` → `log.uuid`
+- ~~`email_verify_config.ex:297`~~ — ✅ Fixed (commit e5a52a4c): `log.id` → `log.uuid`
+- ~~`referrals.ex:415,819`~~ — ✅ Fixed (commit a1130364): UUID-primary with dual-write
+- ~~`referrals/web/form.ex:49,80,105,249,252`~~ — ✅ Fixed (commit a1130364): UUID identifiers
+- ~~`shop.deduplicate_products.ex:119,122,130,147`~~ — ✅ Fixed (commit e5a52a4c): Full UUID rewrite
+- ~~`entities/export.ex:137,157`~~ — ✅ Fixed (commit e5a52a4c): `entity.id` → `entity.uuid`
+- ~~`simple_presence.ex:59`~~ — ✅ Fixed (commit e5a52a4c): `user.id` → `user.uuid`
+- ~~`sync_email_status.ex:155`~~ — File no longer exists
+- `sync/connection.ex:504` — `from(u in User, where: u.id == ^user_id, select: u.uuid)` — This is a `resolve_user_uuid` helper that intentionally queries by integer id. Correct behavior.
 
-### Email Export Task
-- `lib/mix/tasks/phoenix_kit/email_export.ex:176,253`
-  ```elixir
-  events = Emails.list_events_for_log(log.id)
-  log.id,
-  ```
+## 4. ~~Additional Issues Found~~ ✅ VERIFIED
 
-### Email Verify Config Task
-- `lib/mix/tasks/phoenix_kit/email_verify_config.ex:297`
-  ```elixir
-  retrieved_log <- Emails.get_log!(log.id),
-  ```
-
-### Referrals Module
-- `lib/modules/referrals/referrals.ex:415,819`
-  ```elixir
-  code_id: code.id,
-  from(r in __MODULE__, where: r.created_by == ^user_id, select: count(r.id))
-  ```
-
-- `lib/modules/referrals/web/form.ex:49,80,105,249,252`
-  ```elixir
-  |> Map.put("beneficiary", beneficiary.id)
-  |> Map.put("created_by", user.id)
-  {params, user.id}
-  ```
-
-### Sync Module
-- `lib/modules/sync/connection.ex:504`
-  ```elixir
-  from(u in User, where: u.id == ^user_id, select: u.uuid)
-  ```
-
-### Shop Deduplication Task
-- `lib/mix/tasks/shop.deduplicate_products.ex:119,122,130,147`
-  ```elixir
-  products = repo.all(from(p in Product, where: p.id in ^ids))
-  Mix.shell().info("    ID #{product.id}: #{inspect(product.title)}")
-  remove_products = repo.all(from(p in Product, where: p.id in ^remove_ids))
-  repo.delete_all(from(p in Product, where: p.id in ^remove_ids))
-  ```
-
-### Entities Export Task
-- `lib/mix/tasks/phoenix_kit/entities/export.ex:137,157`
-  ```elixir
-  data_records = if include_data, do: EntityData.list_data_by_entity(entity.id), else: []
-  ```
-
-### Sync Email Status Task
-- `lib/mix/tasks/phoenix_kit/sync_email_status.ex:155`
-  ```elixir
-  IO.puts("📧 Found existing email log: ID=#{log.id}, Status=#{log.status}")
-  ```
-
-### Admin Presence
-- `lib/phoenix_kit/admin/simple_presence.ex:59`
-  ```elixir
-  key = "user:#{user.id}"
-  ```
-
-## 4. Additional Issues Found
-
-### Sync Module - Missing `references: :uuid`
-The sync connection module has several `belongs_to` relationships that use UUID foreign keys but don't specify `references: :uuid`:
-
-- `lib/modules/sync/connection.ex:126-129,134-137,142-145,150-153`
-  ```elixir
-  belongs_to :approved_by_user, User,
-    foreign_key: :approved_by_uuid,
-    type: UUIDv7
-  
-  belongs_to :suspended_by_user, User,
-    foreign_key: :suspended_by_uuid,
-    type: UUIDv7
-  
-  belongs_to :revoked_by_user, User,
-    foreign_key: :revoked_by_uuid,
-    type: UUIDv7
-  
-  belongs_to :created_by_user, User,
-    foreign_key: :created_by_uuid,
-    type: UUIDv7
-  ```
-
-These should include `references: :uuid` to be explicit and avoid potential issues.
+### ~~Sync Module - Missing `references: :uuid`~~ ✅ NOT A BUG
+Verified that `lib/modules/sync/connection.ex` and `transfer.ex` already include `references: :uuid` on all 4 `belongs_to` User relationships. The original report was incorrect.
 
 ## Migration Recommendations
 
@@ -193,22 +130,29 @@ These should include `references: :uuid` to be explicit and avoid potential issu
 
 ## Critical Files to Update
 
-### High Priority
-- ~~`lib/modules/connections/*.ex` - All connection schemas~~ ✅ `type: :integer` is correct (PR #337 clarification)
-- `lib/modules/comments/schemas/comment.ex` - Comment relationships (`foreign_key: :parent_id`)
-- `lib/modules/tickets/ticket_comment.ex` - Ticket comment relationships (`foreign_key: :parent_id`, `:comment_id`)
-- `lib/modules/referrals/referrals.ex` and `lib/modules/referrals/web/form.ex` - Referral code `.id` usage
+### ~~High Priority~~ ✅ ALL RESOLVED
+- ~~`lib/modules/connections/*.ex`~~ ✅ Migrated to UUID (commit 8958ccbf)
+- ~~`lib/modules/comments/schemas/comment.ex`~~ ✅ Not a bug (Pattern 2) + `belongs_to :user` fixed (commit be76a2af)
+- ~~`lib/modules/tickets/ticket_comment.ex`~~ ✅ Not a bug (Pattern 2) + `belongs_to :user` fixed (commit be76a2af)
+- ~~`lib/modules/referrals/referrals.ex` and `form.ex`~~ ✅ Fixed (commit a1130364)
 
-### Medium Priority
-- All schema files that still have `field :id, :integer`
-- Email export and verification tasks
-- Shop deduplication task
-- Entities export task
-- ~~Billing form assigns using `*_id`~~ ✅ Fixed in PR #337
+### ~~Medium Priority~~ ✅ ALL RESOLVED
+- ~~Email export and verification tasks~~ ✅ Fixed (commit e5a52a4c)
+- ~~Shop deduplication task~~ ✅ Fixed (commit e5a52a4c)
+- ~~Entities export task~~ ✅ Fixed (commit e5a52a4c)
+- ~~Billing form assigns~~ ✅ Fixed in PR #337
+- ~~Posts schemas (9 files)~~ ✅ Fixed (commit ccd3f089)
+- ~~Tickets schemas (2 files)~~ ✅ Fixed (commit ccd3f089)
+- ~~Storage file schema~~ ✅ Fixed (commit ccd3f089)
 
-### Low Priority (but should be updated)
-- Admin presence tracking
-- Sync module relationship specifications (missing `references: :uuid`)
+### ~~Low Priority~~ ✅ ALL RESOLVED
+- ~~Admin presence tracking~~ ✅ Fixed (commit e5a52a4c)
+- ~~Sync module~~ ✅ Already correct (verified)
+
+### Still Remaining (Non-Critical)
+- ~~Pattern 2 schemas~~ ✅ RESOLVED — all 29 Pattern 2 schemas migrated
+- 20+ core/feature schemas still have `field :id, :integer` — these are NOT broken (dual columns), awaiting Phase 4 cleanup
+- Dual-write integer fields will be removed in Phase 4
 
 ## Pattern for Correct UUID Relationships
 
@@ -226,16 +170,31 @@ has_many :items, Item,
 
 ## Verification Checklist
 
-- [ ] All schemas use `field :uuid, UUIDv7` instead of `field :id, :integer`
-- [ ] All `belongs_to` relationships specify `references: :uuid` when using UUID foreign keys
-- [ ] All foreign key names use `_uuid` suffix instead of `_id`
-- [ ] All direct field access uses `.uuid` instead of `.id`
-- [ ] All database queries use `:uuid` instead of `:id`
-- [ ] All Ecto queries updated to use UUID fields
-- [ ] All admin interfaces tested with UUIDs
-- [ ] Data migration scripts created and tested
-- [ ] Decide on Pattern 2 resolution (see `dev_docs/uuid_naming_convention_report.md`, Options A-D)
-- [x] Connections module `type: :integer` — confirmed correct (PR #337)
+### Completed
+- [x] Connections module `type: :integer` — confirmed correct (PR #337), then migrated to UUID (commit 8958ccbf)
 - [x] Billing form assigns renamed `*_id` → `*_uuid` (PR #337)
 - [x] Dashboard assigns optimized with `dashboard_assigns()` (PR #337)
 - [x] Alias-in-function-body instances moved to module level (PR #337)
+- [x] Referrals module — UUID-primary with dual-write (commit a1130364)
+- [x] Comments/Tickets schemas — `belongs_to :user` migrated to UUID (commit be76a2af)
+- [x] Comments context — all CRUD operations accept UUID (commit be76a2af)
+- [x] Mix tasks and admin presence — `.id` → `.uuid` (commit e5a52a4c)
+- [x] Posts schemas (9 files) — `belongs_to :user` migrated to UUID (commit ccd3f089)
+- [x] Tickets schemas (2 files) — `belongs_to :user` migrated to UUID (commit ccd3f089)
+- [x] Storage file schema — `belongs_to :user` migrated to UUID (commit ccd3f089)
+- [x] All `belongs_to` relationships specify `references: :uuid` when using UUID foreign keys
+- [x] All foreign key names use `_uuid` suffix instead of `_id` for UUID associations
+- [x] All direct field access uses `.uuid` instead of `.id` (where applicable)
+- [x] All database queries in tasks updated to use UUID fields
+- [x] Sync module verified correct (`references: :uuid` already present)
+- [x] `has_many :children, foreign_key: :parent_id` verified correct (Pattern 2)
+
+- [x] Pattern 2 resolved: 29 schemas migrated to `{:uuid, UUIDv7, source: :id}` (Option B)
+- [x] 10 `has_many` associations updated with explicit `foreign_key:`
+- [x] 3 history schemas: `@foreign_key_type :id` → `UUIDv7` bug fix
+- [x] 2 composite-PK schemas: added `references: :uuid` to `belongs_to`
+- [x] `upload_controller.ex`: `existing_file.id` → `existing_file.uuid`
+
+### Remaining
+- [ ] Remove dual-write integer columns (Phase 4 — requires DB migration)
+- [ ] All admin interfaces tested with UUIDs
