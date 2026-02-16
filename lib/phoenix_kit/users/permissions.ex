@@ -15,10 +15,10 @@ defmodule PhoenixKit.Users.Permissions do
 
   ## Constants & Metadata
 
-      Permissions.all_module_keys()        # All 24 keys
+      Permissions.all_module_keys()        # 25 built-in + any custom keys
       Permissions.core_section_keys()      # 5 core keys
-      Permissions.feature_module_keys()    # 19 feature keys
-      Permissions.enabled_module_keys()    # Core + currently enabled features
+      Permissions.feature_module_keys()    # 20 feature keys
+      Permissions.enabled_module_keys()    # Core + enabled features + custom keys
       Permissions.valid_module_key?("ai")  # true
       Permissions.feature_enabled?("ai")   # true/false based on module status
       Permissions.module_label("shop")     # "E-Commerce"
@@ -44,6 +44,25 @@ defmodule PhoenixKit.Users.Permissions do
       Permissions.grant_all_permissions(role_id, granted_by_id)
       Permissions.revoke_all_permissions(role_id)
       Permissions.copy_permissions(source_role_id, target_role_id, granted_by_id)
+
+  ## Custom Keys API
+
+  Parent apps can register custom permission keys for custom admin tabs:
+
+      Permissions.register_custom_key("analytics", label: "Analytics", icon: "hero-chart-bar")
+      Permissions.unregister_custom_key("analytics")
+      Permissions.custom_keys()              # List of registered custom key strings
+      Permissions.custom_view_permissions()   # %{ViewModule => "key"} mapping
+
+  Custom keys are always treated as "enabled" (no module toggle) and appear
+  in the permission matrix UI under a "Custom" group.
+
+  ## Edit Protection
+
+      Permissions.can_edit_role_permissions?(scope, role) :: :ok | {:error, String.t()}
+
+  Enforces: users cannot edit their own role, only Owner can edit Admin,
+  system roles cannot have `is_system_role` changed.
   """
 
   import Ecto.Query, warn: false
@@ -284,8 +303,8 @@ defmodule PhoenixKit.Users.Permissions do
   def feature_module_keys, do: @feature_module_keys
 
   @doc """
-  Returns module keys that are currently enabled (core sections + enabled feature modules).
-  Core sections are always included. Feature modules are included only if their
+  Returns module keys that are currently enabled (core sections + enabled feature modules + custom keys).
+  Core sections and custom keys are always included. Feature modules are included only if their
   module reports enabled status.
   """
   @spec enabled_module_keys() :: MapSet.t()

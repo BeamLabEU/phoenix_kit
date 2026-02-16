@@ -464,11 +464,11 @@ PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 
 PhoenixKit includes a granular permission system that controls which roles can access which admin sections and feature modules.
 
-**24 permission keys**: 5 core sections (dashboard, users, media, settings, modules) + 19 feature modules
+**25 permission keys**: 5 core sections (dashboard, users, media, settings, modules) + 20 feature modules
 
 **Access rules**:
 - **Owner** bypasses all checks (full access always)
-- **Admin** seeded with all 24 keys by default
+- **Admin** seeded with all 25 keys by default
 - **Custom roles** start with no permissions, assigned via matrix UI or API
 
 ```elixir

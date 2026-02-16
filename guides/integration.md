@@ -771,7 +771,7 @@ Permissions.module_description(key) :: String.t()
 # Custom Permission Keys (for parent app extensions)
 Permissions.register_custom_key(key, opts \\ []) :: :ok  # opts: label, icon, description
 Permissions.unregister_custom_key(key) :: :ok
-Permissions.custom_keys() :: [String.t()]                # Sorted list of registered custom keys
+Permissions.custom_keys() :: [String.t()]                # List of registered custom keys
 Permissions.custom_keys_map() :: map()                   # Full metadata map for custom keys
 Permissions.clear_custom_keys() :: :ok
 
@@ -787,8 +787,8 @@ Permissions.get_permissions_for_user(user) :: [String.t()]
 Permissions.get_permissions_for_role(role_id) :: [String.t()]
 Permissions.role_has_permission?(role_id, key) :: boolean()
 Permissions.get_permissions_matrix() :: %{String.t() => MapSet.t()}
-Permissions.roles_with_permission(key) :: [Role.t()]
-Permissions.users_with_permission(key) :: [User.t()]
+Permissions.roles_with_permission(key) :: [String.t()]   # Role UUIDs with key
+Permissions.users_with_permission(key) :: [String.t()]   # User UUIDs with key
 Permissions.count_permissions_for_role(role_id) :: non_neg_integer()
 Permissions.diff_permissions(role_a_id, role_b_id) :: map()
 

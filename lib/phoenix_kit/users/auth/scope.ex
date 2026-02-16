@@ -37,7 +37,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
   ## Module-Level Permissions
 
   Permissions are cached in the scope when it is built via `for_user/1`
-  (on mount and on PubSub-triggered refresh). Owner gets all 24 keys
+  (on mount and on PubSub-triggered refresh). Owner gets all 25 keys
   automatically. Admin with no explicit permissions gets full access
   (backward compat before V53 migration).
 
@@ -103,7 +103,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
           case Permissions.get_permissions_for_user(user) do
             # Admin with no explicit permissions gets full access.
             # This handles backward compat before V53 migration is applied
-            # (V53 seeds Admin with all 24 permission keys by default).
+            # (V53 seeds Admin with all 25 permission keys by default).
             [] -> MapSet.new(Permissions.all_module_keys())
             perms -> MapSet.new(perms)
           end
