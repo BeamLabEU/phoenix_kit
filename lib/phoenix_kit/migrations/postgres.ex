@@ -428,7 +428,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Counter caches for like_count and dislike_count
   - Seeds default comments settings and Admin role permission
 
-  ### V56 - UUID Column Consistency Fix + UUID FK Columns ⚡ LATEST
+  ### V56 - UUID Column Consistency Fix + UUID FK Columns
   - Adds missing uuid column to phoenix_kit_consent_logs (V43 schema expected it)
   - Switches 17 tables from gen_random_uuid() (v4) to uuid_generate_v7() (v7)
   - Fixes V55 Comments tables UUID PK defaults (gen_random_uuid → uuid_generate_v7)
@@ -441,6 +441,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Prepares for UUID primary key switch in Ecto schemas
   - All operations idempotent — safe on fresh installs and all upgrade paths
   - Existing non-NULL UUID values unchanged
+
+  ### V57 - UUID FK Column Repair ⚡ LATEST
+  - Re-runs idempotent UUID FK column operations from V56
+  - Fixes missing role_uuid and granted_by_uuid on phoenix_kit_role_permissions
+  - Catches any other UUID FK columns missed when V56 was applied with earlier code
+  - Safe no-op on databases where V56 already created everything correctly
 
   ## Migration Paths
 
@@ -500,7 +506,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 56
+  @current_version 57
   @default_prefix "public"
 
   @doc false
