@@ -1323,7 +1323,9 @@ defmodule PhoenixKitWeb.Users.Auth do
             |> redirect(to: "/")
             |> halt()
 
-          Scope.has_module_access?(scope, module_key) ->
+          Scope.has_module_access?(scope, module_key) and
+              (Scope.system_role?(scope) or
+                 MapSet.member?(Permissions.enabled_module_keys(), module_key)) ->
             conn
 
           true ->
@@ -1608,7 +1610,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       enabled_languages ->
         # Check if base_code matches any enabled language
         Enum.any?(enabled_languages, fn lang ->
-          lang_base = DialectMapper.extract_base(lang["code"])
+          lang_base = DialectMapper.extract_base(lang.code)
           lang_base == base_code
         end)
     end
