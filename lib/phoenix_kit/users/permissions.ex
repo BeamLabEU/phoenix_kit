@@ -466,6 +466,7 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec get_permissions_for_user(User.t() | nil) :: [String.t()]
   def get_permissions_for_user(nil), do: []
+  def get_permissions_for_user(%User{uuid: nil}), do: []
 
   def get_permissions_for_user(%User{uuid: user_uuid}) when not is_nil(user_uuid) do
     repo = RepoHelper.repo()
@@ -708,7 +709,21 @@ defmodule PhoenixKit.Users.Permissions do
     valid_keys = MapSet.new(all_module_keys())
 
     repo.transaction(fn ->
-      current_keys = get_permissions_for_role(role_id) |> MapSet.new()
+      # Resolve both integer and UUID forms for dual-write
+      role_int = resolve_role_id(role_id)
+      role_uuid = resolve_role_uuid(role_id)
+
+      # Lock existing permission rows FOR UPDATE to prevent concurrent set_permissions
+      # from reading the same state and computing conflicting diffs.
+      current_keys =
+        from(rp in RolePermission,
+          where: rp.role_uuid == ^role_uuid,
+          select: rp.module_key,
+          lock: "FOR UPDATE"
+        )
+        |> repo.all()
+        |> MapSet.new()
+
       # Filter out any invalid keys before processing
       desired_set = desired_keys |> MapSet.new() |> MapSet.intersection(valid_keys)
 
@@ -717,10 +732,6 @@ defmodule PhoenixKit.Users.Permissions do
 
       # Keys to remove
       to_remove = MapSet.difference(current_keys, desired_set)
-
-      # Resolve both integer and UUID forms for dual-write
-      role_int = resolve_role_id(role_id)
-      role_uuid = resolve_role_uuid(role_id)
 
       # Bulk insert new permissions
       if MapSet.size(to_add) > 0 do
@@ -831,6 +842,14 @@ defmodule PhoenixKit.Users.Permissions do
   def can_edit_role_permissions?(nil, _role), do: {:error, "Not authenticated"}
 
   def can_edit_role_permissions?(scope, role) do
+    unless Scope.authenticated?(scope) do
+      {:error, "Not authenticated"}
+    else
+      can_edit_role_permissions_check(scope, role)
+    end
+  end
+
+  defp can_edit_role_permissions_check(scope, role) do
     user_roles = Scope.user_roles(scope)
 
     cond do
