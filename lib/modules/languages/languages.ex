@@ -647,13 +647,13 @@ defmodule PhoenixKit.Modules.Languages do
     end)
   end
 
-  # Filter languages based on country's languages_spoken and language_locales
-  # - languages_spoken: determines WHICH languages to show (e.g., ["et", "ru", "en"])
+  # Filter languages based on country's languages_official and language_locales
+  # - languages_official: determines WHICH languages to show (e.g., ["fr"] for France)
   # - language_locales: determines which SPECIFIC LOCALE to use (e.g., %{en: "en-GB"})
   defp filter_languages_by_locale(languages, nil), do: languages
 
   defp filter_languages_by_locale(languages, country_data) do
-    languages_spoken = country_data.languages_spoken || []
+    languages_spoken = country_data.languages_official || []
     language_locales = country_data.language_locales || %{}
 
     if languages_spoken == [] do
