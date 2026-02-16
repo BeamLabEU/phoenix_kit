@@ -395,7 +395,8 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
   Must be called AFTER `up/1` so that columns exist and are backfilled.
 
-  Order: NOT NULL first (data already backfilled), then FK constraints.
+  Order: NOT NULL first (data already backfilled), then ensure unique indexes
+  on all FK-target tables, then FK constraints.
   """
   def add_constraints(%{prefix: prefix} = _opts) do
     escaped_prefix = String.replace(prefix, "'", "\\'")
@@ -403,6 +404,12 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
     for {table, uuid_fk} <- @not_null_uuid_fks do
       set_not_null(table, uuid_fk, prefix, escaped_prefix)
     end
+
+    # Ensure unique indexes exist on all FK-target uuid columns.
+    # FK constraints require a unique constraint/index on the referenced column.
+    # V56 should have created these, but if it ran with an older version of this
+    # module, some tables may be missing them.
+    ensure_fk_target_unique_indexes(prefix, escaped_prefix)
 
     for {table, uuid_fk, ref_table, ref_col, on_delete} <- @fk_constraints do
       add_fk_constraint(table, uuid_fk, ref_table, ref_col, on_delete, prefix, escaped_prefix)
@@ -425,6 +432,59 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
     for {table, uuid_fk} <- @not_null_uuid_fks do
       drop_not_null(table, uuid_fk, prefix, escaped_prefix)
+    end
+  end
+
+  # ── FK Target Unique Index Enforcement ────────────────────────────────
+  # PostgreSQL requires a UNIQUE constraint/index on the referenced column
+  # for any FK constraint. This ensures all FK-target tables have one.
+
+  defp ensure_fk_target_unique_indexes(prefix, escaped_prefix) do
+    # Collect distinct {ref_table, ref_col} pairs from @fk_constraints
+    fk_targets =
+      @fk_constraints
+      |> Enum.map(fn {_table, _uuid_fk, ref_table, ref_col, _on_delete} ->
+        {ref_table, ref_col}
+      end)
+      |> Enum.uniq()
+
+    for {ref_table, ref_col} <- fk_targets do
+      if table_exists?(ref_table, escaped_prefix) and
+           column_exists?(ref_table, ref_col, escaped_prefix) and
+           not unique_index_exists?(ref_table, ref_col, escaped_prefix) do
+        table_name = prefix_table_name(ref_table, prefix)
+        index_name = "#{ref_table}_#{ref_col}_idx"
+
+        index_name =
+          case prefix do
+            nil -> index_name
+            "public" -> index_name
+            p -> "#{p}.#{index_name}"
+          end
+
+        execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS #{index_name}
+        ON #{table_name}(#{ref_col})
+        """)
+      end
+    end
+  end
+
+  defp unique_index_exists?(table_str, column_str, escaped_prefix) do
+    # Check pg_indexes for a unique index that covers this exact column
+    query = """
+    SELECT EXISTS (
+      SELECT 1 FROM pg_indexes
+      WHERE tablename = '#{table_str}'
+      AND schemaname = '#{escaped_prefix}'
+      AND indexdef LIKE '%UNIQUE%'
+      AND indexdef LIKE '%(#{column_str})%'
+    )
+    """
+
+    case repo().query(query, [], log: false) do
+      {:ok, %{rows: [[true]]}} -> true
+      _ -> false
     end
   end
 

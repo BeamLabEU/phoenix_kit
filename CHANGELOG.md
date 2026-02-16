@@ -1,3 +1,8 @@
+## 1.7.41 - 2026-02-16
+- Fix FK constraint creation crash when UUID target tables lack unique indexes
+  - Ensure unique indexes on all FK-target uuid columns before adding FK constraints
+  - Fixes `invalid_foreign_key` error on `phoenix_kit_ai_endpoints` and other tables
+
 ## 1.7.40 - 2026-02-16
 - Remove redundant mb-4 wrapper div around back buttons in 4 admin pages
 - Add V57 migration to repair missing UUID FK columns
