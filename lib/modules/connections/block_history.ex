@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Connections.BlockHistory do
 
     field :action, :string
     field :reason, :string
-    field :inserted_at, :naive_datetime
+    field :inserted_at, :utc_datetime
   end
 
   @actions ~w(block unblock)
@@ -56,7 +56,7 @@ defmodule PhoenixKit.Modules.Connections.BlockHistory do
     put_change(
       changeset,
       :inserted_at,
-      NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      DateTime.utc_now()
     )
   end
 end

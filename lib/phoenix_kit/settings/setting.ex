@@ -88,8 +88,8 @@ defmodule PhoenixKit.Settings.Setting do
     field :value, :string
     field :value_json, :map
     field :module, :string
-    field :date_added, :utc_datetime_usec
-    field :date_updated, :utc_datetime_usec
+    field :date_added, :utc_datetime
+    field :date_updated, :utc_datetime
   end
 
   @doc """

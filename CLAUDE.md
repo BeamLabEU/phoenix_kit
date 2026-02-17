@@ -278,6 +278,34 @@ PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/CLAUDE_R
 
 **Use inline icon buttons for table/list row actions**, not dropdown menus. Pattern: `flex gap-1` with `btn btn-xs btn-ghost` icon-only buttons and `title` tooltips. Dropdown menus are OK for selectors (status, format, version pickers) but not for CRUD actions.
 
+### Structs Over Plain Maps
+
+**Prefer structs over plain maps when a struct type exists.** Use the struct or its `.new/1` constructor in application code rather than bare maps.
+
+**Key struct types:**
+- `PhoenixKit.Dashboard.Tab` - Tab configuration (`Tab.new/1`)
+- `PhoenixKit.Dashboard.Badge` - Badge configuration (`Badge.new/1`)
+- `PhoenixKit.Dashboard.ContextSelector` - Context selector configuration
+
+**Exception:** In `config/config.exs`, plain maps are idiomatic and correct — `.new/1` constructors accept maps and convert them to structs at runtime.
+
+```elixir
+# ✅ In application code, use structs
+Tab.new(%{id: :orders, label: "Orders", path: "/dashboard/orders"})
+
+# ✅ In config/config.exs, plain maps are fine (converted at runtime)
+config :phoenix_kit, :user_dashboard_tabs, [
+  %{id: :orders, label: "Orders", path: "/dashboard/orders"}
+]
+
+# ❌ In application code, avoid plain maps when struct exists
+%{id: :orders, label: "Orders", path: "/dashboard/orders"}
+```
+
+### DateTime: Always Use `DateTime.utc_now()`
+
+**Always use `:utc_datetime` and `DateTime.utc_now()` in new code.** Never use `NaiveDateTime` in new schemas or application code. See the [DateTime Convention](#datetime-convention) section for the full reference table and rationale.
+
 ### URL Prefix and Navigation (IMPORTANT)
 
 **NEVER hardcode PhoenixKit paths.** PhoenixKit uses a configurable URL prefix (default: `/phoenix_kit`). Always use the provided helpers to ensure paths work correctly regardless of prefix configuration.
@@ -583,6 +611,21 @@ belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 # WRONG — causes bigint = uuid type mismatch
 belongs_to :user, User, foreign_key: :user_uuid, type: UUIDv7
 ```
+
+### DateTime Convention
+
+**Always use `:utc_datetime` and `DateTime.utc_now()` in new code.** Never use `NaiveDateTime` in new schemas or application code.
+
+| Context | Use | Never Use |
+|---------|-----|-----------|
+| Schema timestamps | `timestamps(type: :utc_datetime)` | `timestamps()` or `timestamps(type: :naive_datetime)` |
+| Individual datetime fields | `field :name, :utc_datetime` | `field :name, :naive_datetime` |
+| Application code | `DateTime.utc_now()` | `NaiveDateTime.utc_now()` |
+| Bulk insert timestamps | `DateTime.utc_now()` | `NaiveDateTime.utc_now() \|> NaiveDateTime.truncate(:second)` |
+
+**Existing `:utc_datetime_usec` schemas are acceptable** — no need to downgrade them. `DateTime.utc_now()` works with both `:utc_datetime` and `:utc_datetime_usec` fields (Ecto handles precision automatically).
+
+**Why:** A production bug was caused by copying `NaiveDateTime.utc_now()` into a `:utc_datetime_usec` schema. Using `DateTime.utc_now()` everywhere prevents this class of bugs. See `dev_docs/2026-02-15-datetime-inconsistency-report.md` for full details.
 
 ### Key Design Principles
 

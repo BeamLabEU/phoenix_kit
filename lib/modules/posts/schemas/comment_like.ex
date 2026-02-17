@@ -16,8 +16,8 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
           user_uuid: UUIDv7.t() | nil,
           comment: PhoenixKit.Modules.Posts.PostComment.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_comment_likes" do
@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
 
     field :user_id, :integer
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

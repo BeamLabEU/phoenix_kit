@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Billing.Currency do
     field :exchange_rate, :decimal, default: Decimal.new("1.0")
     field :sort_order, :integer, default: 0
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

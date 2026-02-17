@@ -129,8 +129,8 @@ defmodule PhoenixKit.Modules.Entities do
     # legacy
     field :created_by, :integer
     field :created_by_uuid, UUIDv7
-    field :date_created, :utc_datetime_usec
-    field :date_updated, :utc_datetime_usec
+    field :date_created, :utc_datetime
+    field :date_updated, :utc_datetime
 
     belongs_to :creator, User,
       foreign_key: :created_by_uuid,

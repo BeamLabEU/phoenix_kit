@@ -103,8 +103,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     # legacy
     field :created_by, :integer
     field :created_by_uuid, UUIDv7
-    field :date_created, :utc_datetime_usec
-    field :date_updated, :utc_datetime_usec
+    field :date_created, :utc_datetime
+    field :date_updated, :utc_datetime
 
     # legacy
     field :entity_id, :integer

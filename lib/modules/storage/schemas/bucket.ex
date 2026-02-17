@@ -92,8 +92,8 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
           max_size_mb: integer() | nil,
           file_locations:
             [PhoenixKit.Modules.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_buckets" do
@@ -112,7 +112,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
 
     has_many :file_locations, PhoenixKit.Modules.Storage.FileLocation, foreign_key: :bucket_id
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

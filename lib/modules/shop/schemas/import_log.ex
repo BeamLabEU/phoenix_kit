@@ -57,7 +57,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

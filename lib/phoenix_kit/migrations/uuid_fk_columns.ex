@@ -631,7 +631,14 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
          column_exists?(table_str, uuid_fk, escaped_prefix) do
       table_name = prefix_table_name(table_str, prefix)
 
-      # SET NOT NULL is idempotent in PostgreSQL (no-op if already NOT NULL)
+      # Backfill any remaining NULLs — handles orphaned integer FK references
+      # (e.g. created_by references a deleted user with no CASCADE constraint)
+      execute("""
+      UPDATE #{table_name}
+      SET #{uuid_fk} = uuid_generate_v7()
+      WHERE #{uuid_fk} IS NULL
+      """)
+
       execute("""
       ALTER TABLE #{table_name}
       ALTER COLUMN #{uuid_fk} SET NOT NULL

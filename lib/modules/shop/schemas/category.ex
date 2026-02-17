@@ -69,7 +69,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
       references: :uuid,
       type: UUIDv7
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc "Returns list of valid category statuses"

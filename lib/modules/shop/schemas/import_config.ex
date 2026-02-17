@@ -82,7 +82,7 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
     # Option mappings for CSV import (JSONB)
     field :option_mappings, {:array, :map}, default: []
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

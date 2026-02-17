@@ -39,8 +39,8 @@ defmodule PhoenixKit.Modules.Posts.PostTag do
           name: String.t(),
           slug: String.t(),
           usage_count: integer(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_post_tags" do
@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Posts.PostTag do
       join_through: PhoenixKit.Modules.Posts.PostTagAssignment,
       join_keys: [tag_id: :uuid, post_id: :uuid]
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

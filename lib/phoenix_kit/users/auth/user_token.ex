@@ -54,7 +54,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
       references: :uuid,
       type: UUIDv7
 
-    timestamps(updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc """

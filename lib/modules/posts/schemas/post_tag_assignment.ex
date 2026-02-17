@@ -28,8 +28,8 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
           tag_id: UUIDv7.t(),
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           tag: PhoenixKit.Modules.Posts.PostTag.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_post_tag_assignments" do
@@ -43,7 +43,7 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
       type: UUIDv7,
       primary_key: true
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

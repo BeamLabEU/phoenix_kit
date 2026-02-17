@@ -190,16 +190,16 @@ defmodule PhoenixKit.Modules.Emails.Log do
     field :retry_count, :integer, default: 0
     field :error_message, :string
     field :status, :string, default: "queued"
-    field :queued_at, :utc_datetime_usec
-    field :sent_at, :utc_datetime_usec
-    field :delivered_at, :utc_datetime_usec
-    field :bounced_at, :utc_datetime_usec
-    field :complained_at, :utc_datetime_usec
-    field :opened_at, :utc_datetime_usec
-    field :clicked_at, :utc_datetime_usec
-    field :rejected_at, :utc_datetime_usec
-    field :failed_at, :utc_datetime_usec
-    field :delayed_at, :utc_datetime_usec
+    field :queued_at, :utc_datetime
+    field :sent_at, :utc_datetime
+    field :delivered_at, :utc_datetime
+    field :bounced_at, :utc_datetime
+    field :complained_at, :utc_datetime
+    field :opened_at, :utc_datetime
+    field :clicked_at, :utc_datetime
+    field :rejected_at, :utc_datetime
+    field :failed_at, :utc_datetime
+    field :delayed_at, :utc_datetime
     field :configuration_set, :string
     field :message_tags, :map, default: %{}
     field :provider, :string, default: "unknown"
@@ -219,7 +219,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       references: :uuid,
       on_delete: :delete_all
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   ## --- Schema Functions ---

@@ -35,8 +35,8 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
     field :handler_module, :string
     field :resource_type, :string
     field :resource_id, :binary_id
-    field :scheduled_at, :utc_datetime_usec
-    field :executed_at, :utc_datetime_usec
+    field :scheduled_at, :utc_datetime
+    field :executed_at, :utc_datetime
     field :status, :string, default: "pending"
     field :attempts, :integer, default: 0
     field :max_attempts, :integer, default: 3
@@ -45,7 +45,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
     field :priority, :integer, default: 0
     field :created_by_id, :integer
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

@@ -28,8 +28,8 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
           likes: [PhoenixKit.Modules.Posts.CommentLike.t()] | Ecto.Association.NotLoaded.t(),
           dislikes:
             [PhoenixKit.Modules.Posts.CommentDislike.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_post_comments" do
@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
     has_many :likes, PhoenixKit.Modules.Posts.CommentLike, foreign_key: :comment_id
     has_many :dislikes, PhoenixKit.Modules.Posts.CommentDislike, foreign_key: :comment_id
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """
