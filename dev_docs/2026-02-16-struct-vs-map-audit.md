@@ -35,6 +35,7 @@ These data contracts already use proper structs:
 | `Utils.SessionFingerprint` | `lib/phoenix_kit/utils/session_fingerprint.ex` | 2 | Converted 2026-02-17 from Tier 2 audit |
 | `Billing.IbanData` | `lib/modules/billing/utils/iban_data.ex` | 2 | Converted 2026-02-17 from Tier 2 audit |
 | `Sitemap.SitemapFile` | `lib/modules/sitemap/sitemap_file.ex` | 3 | Converted 2026-02-17 from Tier 2 audit |
+| `Billing.TimelineEvent` | `lib/modules/billing/web/invoice_detail/timeline_event.ex` | 3 | Converted 2026-02-17 from Tier 2 audit |
 
 All Ecto schemas (`User`, `Role`, `Cart`, `Post`, `Comment`, etc.) are also proper structs by virtue of `use Ecto.Schema`.
 
@@ -217,19 +218,11 @@ Converted to `%SessionFingerprint{}` struct with `@enforce_keys [:ip_address, :u
 
 Added `%IbanData{}` struct with `@enforce_keys [:length, :sepa]` and `@type t`. Internal `@iban_specs` module attribute stays as plain maps (compile-time limitation). Added `get_spec/1` returning typed struct. `all_specs/0` now returns structs.
 
-### 2.3 Billing Timeline Events
+### 2.3 Billing Timeline Events — DONE (2026-02-17)
 
-**File:** `lib/modules/billing/web/invoice_detail/helpers.ex`, lines 72–168
+**File:** `lib/modules/billing/web/invoice_detail/timeline_event.ex` (new), `helpers.ex`
 
-```elixir
-%{type: :created, datetime: invoice.inserted_at, data: nil}
-%{type: :payment, datetime: txn.inserted_at, data: txn}
-%{type: :refund,  datetime: txn.inserted_at, data: txn}
-```
-
-3 fields (`type`, `datetime`, `data`), 6 event variations. Used only in invoice detail timeline rendering.
-
-**Recommendation:** `%TimelineEvent{}` — small scope but prevents typos in the `:type` atom.
+Created `%TimelineEvent{}` struct with `@enforce_keys [:type]`, typed `event_type()` union, and `@type t`. All 10 construction sites in `helpers.ex` updated. Template dot-access (`event.type`, `event.datetime`, `event.data`) works identically on structs.
 
 ### 2.4 Sitemap ModuleInfo — DONE (2026-02-17)
 
@@ -300,7 +293,7 @@ Complete table of every file with a Tier 1 or Tier 2 gap:
 | `lib/phoenix_kit/dashboard/admin_tabs.ex` | 70–74 | `group` map | `Dashboard.Group` | 1 |
 | `lib/phoenix_kit/utils/session_fingerprint.ex` | 54–59 | ~~fingerprint map~~ | `SessionFingerprint` | 2 ✅ |
 | `lib/modules/billing/utils/iban_data.ex` | 22–98 | ~~`iban_spec` map~~ | `IbanData` | 2 ✅ |
-| `lib/modules/billing/web/invoice_detail/helpers.ex` | 72–168 | timeline event map | `TimelineEvent` | 2 |
+| `lib/modules/billing/web/invoice_detail/helpers.ex` | 72–168 | ~~timeline event map~~ | `TimelineEvent` | 2 ✅ |
 | `lib/modules/sitemap/generator.ex` | 226–242 | ~~module info map~~ | `SitemapFile` | 2 ✅ |
 
 ---
@@ -361,6 +354,6 @@ Suggested order based on cross-boundary impact, consumer count, and bug risk:
 | Tier | Items | New Structs | Done | Remaining |
 |------|-------|-------------|------|-----------|
 | **Tier 1** (cross-module) | 16 map shapes | 16 structs | 0 | 16 |
-| **Tier 2** (module-internal) | 5 map shapes | 5 structs | 3 ✅ | 2 |
+| **Tier 2** (module-internal) | 5 map shapes | 5 structs | 4 ✅ | 1 |
 | **Tier 3** (acceptable) | 6 categories | 0 | — | 0 |
-| **Total** | 27 audited | **21 new structs** | **3** | **18** |
+| **Total** | 27 audited | **21 new structs** | **4** | **17** |
