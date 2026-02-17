@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
     socket = Phoenix.Component.assign(socket, :checkout_loading, provider)
 
     case Billing.create_checkout_session(invoice, provider, opts) do
-      {:ok, %{url: checkout_url}} ->
+      {:ok, checkout_url} when is_binary(checkout_url) ->
         {:noreply, redirect(socket, external: checkout_url)}
 
       {:error, :provider_not_available} ->
