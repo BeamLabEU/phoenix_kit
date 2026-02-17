@@ -174,9 +174,9 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
       {:error, _changeset} ->
         # Unique constraint hit - category was created by concurrent process, fetch it
         case Shop.get_category_by_slug_localized(slug, language) do
-          {:ok, %{id: id}} ->
-            Logger.info("Category #{slug} already exists (id: #{id}), using existing")
-            id
+          {:ok, %{uuid: uuid}} ->
+            Logger.info("Category #{slug} already exists (uuid: #{uuid}), using existing")
+            uuid
 
           {:error, :not_found} ->
             Logger.warning("Failed to create or find category: #{slug}")

@@ -242,6 +242,18 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
     {:phoenix_kit_referral_code_usage, "code_uuid"}
   ]
 
+  # ── Legacy Integer FK Columns to Relax (DROP NOT NULL) ──────────────────
+  # Integer FK columns where the Ecto schema now exclusively uses UUID FKs.
+  # Keeping NOT NULL on these causes insert failures when code only writes UUIDs.
+  # Applied AFTER UUID NOT NULL constraints are set (UUID is the new primary path).
+
+  @relax_integer_fks [
+    {:phoenix_kit_user_role_assignments, "user_id"},
+    {:phoenix_kit_user_role_assignments, "role_id"},
+    {:phoenix_kit_user_role_assignments, "assigned_by"},
+    {:phoenix_kit_role_permissions, "role_id"}
+  ]
+
   # ── FK Constraints for UUID FK columns ──────────────────────────────────
   # Only where the integer FK has an explicit DB-level FK constraint.
   # ON DELETE behavior matches the integer FK's behavior.
@@ -413,6 +425,13 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
     for {table, uuid_fk, ref_table, ref_col, on_delete} <- @fk_constraints do
       add_fk_constraint(table, uuid_fk, ref_table, ref_col, on_delete, prefix, escaped_prefix)
+    end
+
+    # Relax NOT NULL on legacy integer FK columns where Ecto schemas
+    # now exclusively write UUID FKs. Without this, inserts that only
+    # populate UUID columns fail with NOT NULL violations.
+    for {table, int_fk} <- @relax_integer_fks do
+      relax_integer_not_null(table, int_fk, prefix, escaped_prefix)
     end
   end
 
@@ -634,6 +653,37 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
       ALTER TABLE #{table_name}
       ALTER COLUMN #{uuid_fk} DROP NOT NULL
       """)
+    end
+  end
+
+  # ── Legacy Integer FK Relaxation ─────────────────────────────────────
+
+  defp relax_integer_not_null(table, int_fk, prefix, escaped_prefix) do
+    table_str = Atom.to_string(table)
+
+    if table_exists?(table_str, escaped_prefix) and
+         column_exists?(table_str, int_fk, escaped_prefix) and
+         column_is_not_null?(table_str, int_fk, escaped_prefix) do
+      table_name = prefix_table_name(table_str, prefix)
+
+      execute("""
+      ALTER TABLE #{table_name}
+      ALTER COLUMN #{int_fk} DROP NOT NULL
+      """)
+    end
+  end
+
+  defp column_is_not_null?(table_str, column_str, escaped_prefix) do
+    query = """
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_name = '#{table_str}'
+    AND column_name = '#{column_str}'
+    AND table_schema = '#{escaped_prefix}'
+    """
+
+    case repo().query(query, [], log: false) do
+      {:ok, %{rows: [["NO"]]}} -> true
+      _ -> false
     end
   end
 

@@ -140,6 +140,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     |> assign(:step, assigns.initial_step)
     |> assign(:processing, false)
     |> assign(:error_message, nil)
+    |> assign(:email_exists_error, false)
     |> assign(:form_errors, %{})
   end
 
@@ -540,15 +541,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           <div class={["step", @step == :review && "step-primary"]}>Review & Confirm</div>
         </div>
 
-        <%!-- Guest Checkout Warning --%>
+        <%!-- Guest Checkout Info --%>
         <%= if @is_guest do %>
-          <div class="alert alert-warning mb-6">
-            <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          <div class="alert alert-info mb-6">
+            <.icon name="hero-envelope" class="w-5 h-5" />
             <div>
-              <div class="font-semibold">Email confirmation required</div>
+              <div class="font-semibold">Checking out as a guest</div>
               <div class="text-sm">
-                Your order will require email verification. After checkout, you will receive
-                a confirmation email. Please click the link to verify your email address.
+                After placing your order, we'll send a confirmation email to verify your address.
+                Check your inbox and click the link to activate your account and track your order.
               </div>
             </div>
           </div>
