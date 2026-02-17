@@ -253,7 +253,7 @@ This ensures consistent code formatting across the project.
 
 ### 🏷️ Version Management
 
-**Current Version**: 1.7.39 (mix.exs) | **Migration Version**: V57
+**Current Version**: 1.7.41 (mix.exs) | **Migration Version**: V57
 
 **Version updates require:** Update `mix.exs` (@version), `CHANGELOG.md`, and optionally `README.md`. Always run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
