@@ -75,6 +75,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.HtmlSanitizer
   alias PhoenixKit.Modules.Entities.Mirror.Exporter
+  alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
@@ -199,7 +200,27 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
         try do
           entity = Entities.get_entity!(id)
           fields_definition = entity.fields_definition || []
-          sanitized_data = HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
+
+          sanitized_data =
+            if Multilang.multilang_data?(data) do
+              # Sanitize each language's data independently
+              Enum.reduce(data, %{}, fn
+                {"_primary_language", value}, acc ->
+                  Map.put(acc, "_primary_language", value)
+
+                {lang_code, lang_data}, acc when is_map(lang_data) ->
+                  sanitized =
+                    HtmlSanitizer.sanitize_rich_text_fields(fields_definition, lang_data)
+
+                  Map.put(acc, lang_code, sanitized)
+
+                {key, value}, acc ->
+                  Map.put(acc, key, value)
+              end)
+            else
+              HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
+            end
+
           put_change(changeset, :data, sanitized_data)
         rescue
           Ecto.NoResultsError -> changeset
@@ -232,8 +253,16 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   defp validate_data_fields(changeset, entity, data) do
     fields_definition = entity.fields_definition || []
 
+    # For multilang data, validate the primary language data (which must be complete)
+    validation_data =
+      if Multilang.multilang_data?(data) do
+        Multilang.get_primary_data(data)
+      else
+        data
+      end
+
     Enum.reduce(fields_definition, changeset, fn field_def, acc ->
-      validate_single_data_field(acc, field_def, data)
+      validate_single_data_field(acc, field_def, validation_data)
     end)
   end
 
@@ -833,13 +862,35 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   def bulk_update_category(uuids, category) when is_list(uuids) do
     now = DateTime.utc_now()
 
+    # Handle both flat and multilang data structures.
+    # For multilang: update category in every language sub-map.
+    # For flat: update category at the top level.
+    # We detect multilang by checking for the _primary_language key.
     from(d in __MODULE__,
       where: d.uuid in ^uuids,
       update: [
         set: [
           data:
             fragment(
-              "jsonb_set(COALESCE(?, '{}'::jsonb), '{category}', to_jsonb(?::text))",
+              """
+              CASE WHEN jsonb_exists(COALESCE(?, '{}'::jsonb), '_primary_language')
+              THEN (
+                SELECT jsonb_object_agg(
+                  key,
+                  CASE
+                    WHEN jsonb_typeof(value) = 'object'
+                    THEN jsonb_set(value, '{category}', to_jsonb(?::text))
+                    ELSE value
+                  END
+                )
+                FROM jsonb_each(COALESCE(?, '{}'::jsonb))
+              )
+              ELSE jsonb_set(COALESCE(?, '{}'::jsonb), '{category}', to_jsonb(?::text))
+              END
+              """,
+              d.data,
+              ^category,
+              d.data,
               d.data,
               ^category
             ),
@@ -877,7 +928,16 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   """
   def extract_unique_categories(entity_data_records) when is_list(entity_data_records) do
     entity_data_records
-    |> Enum.map(fn r -> get_in(r.data, ["category"]) end)
+    |> Enum.map(fn r ->
+      data = r.data || %{}
+
+      if Multilang.multilang_data?(data) do
+        primary = data["_primary_language"]
+        get_in(data, [primary, "category"])
+      else
+        Map.get(data, "category")
+      end
+    end)
     |> Enum.reject(&(&1 == nil || &1 == ""))
     |> Enum.uniq()
     |> Enum.sort()
@@ -939,6 +999,226 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       archived_records: archived
     }
   end
+
+  # ============================================================================
+  # Translation convenience API
+  # ============================================================================
+
+  @doc """
+  Gets the data fields for a specific language, merged with primary language defaults.
+
+  For multilang records, returns `Map.merge(primary_data, language_overrides)`.
+  For flat (non-multilang) records, returns the data as-is.
+
+  ## Examples
+
+      iex> get_translation(record, "es-ES")
+      %{"name" => "Acme España", "category" => "Tech"}
+
+      iex> get_translation(flat_record, "en-US")
+      %{"name" => "Acme", "category" => "Tech"}
+  """
+  def get_translation(%__MODULE__{data: data}, lang_code) when is_binary(lang_code) do
+    Multilang.get_language_data(data, lang_code)
+  end
+
+  @doc """
+  Gets the raw (non-merged) data for a specific language.
+
+  For secondary languages, returns only the override fields (not merged with primary).
+  Useful for seeing which fields have explicit translations.
+
+  ## Examples
+
+      iex> get_raw_translation(record, "es-ES")
+      %{"name" => "Acme España"}
+  """
+  def get_raw_translation(%__MODULE__{data: data}, lang_code) when is_binary(lang_code) do
+    Multilang.get_raw_language_data(data, lang_code)
+  end
+
+  @doc """
+  Gets translations for all languages in a record.
+
+  Returns a map of language codes to their merged data.
+  For flat records, returns the data under the primary language key.
+
+  ## Examples
+
+      iex> get_all_translations(record)
+      %{
+        "en-US" => %{"name" => "Acme", "category" => "Tech"},
+        "es-ES" => %{"name" => "Acme España", "category" => "Tech"}
+      }
+  """
+  def get_all_translations(%__MODULE__{data: data}) do
+    if Multilang.multilang_data?(data) do
+      Multilang.enabled_languages()
+      |> Map.new(fn lang -> {lang, Multilang.get_language_data(data, lang)} end)
+    else
+      primary = Multilang.primary_language()
+      %{primary => data || %{}}
+    end
+  end
+
+  @doc """
+  Sets the data translation for a specific language on a record.
+
+  For the primary language, stores all fields.
+  For secondary languages, only stores fields that differ from primary (overrides).
+  Persists to the database.
+
+  ## Examples
+
+      iex> set_translation(record, "es-ES", %{"name" => "Acme España"})
+      {:ok, %EntityData{}}
+
+      iex> set_translation(record, "en-US", %{"name" => "Acme Corp", "category" => "Tech"})
+      {:ok, %EntityData{}}
+  """
+  def set_translation(%__MODULE__{} = entity_data, lang_code, field_data)
+      when is_binary(lang_code) and is_map(field_data) do
+    updated_data = Multilang.put_language_data(entity_data.data, lang_code, field_data)
+    __MODULE__.update(entity_data, %{data: updated_data})
+  end
+
+  @doc """
+  Removes all data for a specific language from a record.
+
+  Cannot remove the primary language. Returns `{:error, :cannot_remove_primary}`
+  if the primary language is targeted.
+
+  ## Examples
+
+      iex> remove_translation(record, "es-ES")
+      {:ok, %EntityData{}}
+
+      iex> remove_translation(record, "en-US")
+      {:error, :cannot_remove_primary}
+  """
+  def remove_translation(%__MODULE__{data: data} = entity_data, lang_code)
+      when is_binary(lang_code) do
+    if Multilang.multilang_data?(data) do
+      primary = data["_primary_language"]
+
+      if lang_code == primary do
+        {:error, :cannot_remove_primary}
+      else
+        updated_data = Map.delete(data, lang_code)
+        __MODULE__.update(entity_data, %{data: updated_data})
+      end
+    else
+      {:error, :not_multilang}
+    end
+  end
+
+  @doc """
+  Gets the title translation for a specific language.
+
+  The primary language title is stored in the `title` DB column.
+  Secondary language titles are stored in `metadata["translations"]`.
+
+  ## Examples
+
+      iex> get_title_translation(record, "en-US")
+      "My Product"
+
+      iex> get_title_translation(record, "es-ES")
+      "Mi Producto"
+  """
+  def get_title_translation(%__MODULE__{} = entity_data, lang_code)
+      when is_binary(lang_code) do
+    primary = title_primary_language(entity_data)
+
+    if lang_code == primary do
+      entity_data.title
+    else
+      translations = (entity_data.metadata || %{})["translations"] || %{}
+      get_in(translations, [lang_code, "title"]) || entity_data.title
+    end
+  end
+
+  @doc """
+  Sets the title translation for a specific language.
+
+  For the primary language, updates the `title` column directly.
+  For secondary languages, stores in `metadata["translations"]`.
+
+  ## Examples
+
+      iex> set_title_translation(record, "es-ES", "Mi Producto")
+      {:ok, %EntityData{}}
+
+      iex> set_title_translation(record, "en-US", "My Product")
+      {:ok, %EntityData{}}
+  """
+  def set_title_translation(%__MODULE__{} = entity_data, lang_code, title)
+      when is_binary(lang_code) and is_binary(title) do
+    primary = title_primary_language(entity_data)
+
+    if lang_code == primary do
+      __MODULE__.update(entity_data, %{title: title})
+    else
+      metadata = entity_data.metadata || %{}
+      translations = Map.get(metadata, "translations", %{})
+
+      updated_trans =
+        if title == "" do
+          lang_data = Map.get(translations, lang_code, %{})
+          cleaned = Map.delete(lang_data, "title")
+
+          if map_size(cleaned) == 0,
+            do: Map.delete(translations, lang_code),
+            else: Map.put(translations, lang_code, cleaned)
+        else
+          lang_data = Map.get(translations, lang_code, %{})
+          Map.put(translations, lang_code, Map.put(lang_data, "title", title))
+        end
+
+      updated_metadata =
+        if map_size(updated_trans) == 0,
+          do: Map.delete(metadata, "translations"),
+          else: Map.put(metadata, "translations", updated_trans)
+
+      __MODULE__.update(entity_data, %{metadata: updated_metadata})
+    end
+  end
+
+  @doc """
+  Gets all title translations for a record.
+
+  Returns a map of language codes to title strings.
+
+  ## Examples
+
+      iex> get_all_title_translations(record)
+      %{"en-US" => "My Product", "es-ES" => "Mi Producto", "fr-FR" => "Mon Produit"}
+  """
+  def get_all_title_translations(%__MODULE__{} = entity_data) do
+    primary = title_primary_language(entity_data)
+    translations = (entity_data.metadata || %{})["translations"] || %{}
+
+    Multilang.enabled_languages()
+    |> Map.new(fn lang ->
+      if lang == primary do
+        {lang, entity_data.title}
+      else
+        {lang, get_in(translations, [lang, "title"]) || entity_data.title}
+      end
+    end)
+  end
+
+  # Returns the primary language for title translations.
+  # Uses the record's embedded _primary_language (from data JSONB) rather than
+  # the global primary, so un-rekeyed records are handled correctly.
+  defp title_primary_language(%__MODULE__{data: data}) when is_map(data) do
+    case data["_primary_language"] do
+      nil -> Multilang.primary_language()
+      primary -> primary
+    end
+  end
+
+  defp title_primary_language(_entity_data), do: Multilang.primary_language()
 
   defp repo do
     PhoenixKit.RepoHelper.repo()

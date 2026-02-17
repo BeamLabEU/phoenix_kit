@@ -64,126 +64,401 @@
       phx-submit="save"
       class="space-y-8"
     >
-      <%!-- Basic Metadata Section --%>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-2xl mb-4">
-            <.icon name="hero-information-circle" class="w-6 h-6" /> {gettext("Basic Information")}
-          </h2>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <%!-- Title --%>
-            <div>
-              <.label for="phoenix_kit_entity_data_title">{gettext("Title")} *</.label>
-              <input
-                type="text"
-                name="phoenix_kit_entity_data[title]"
-                id="phoenix_kit_entity_data_title"
-                value={Ecto.Changeset.get_field(@changeset, :title) || ""}
-                placeholder={gettext("Enter a title for this record")}
-                class="input input-bordered w-full"
-                phx-debounce="300"
-                required
-                disabled={@readonly?}
-              />
+      <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
+        <%!-- Multilang: unified card with language tabs wrapping all content --%>
+        <div class="card bg-base-100 shadow-xl">
+          <%!-- Language tab bar --%>
+          <div class="card-body pb-0">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <.icon name="hero-language" class="w-5 h-5 text-primary" />
+                <h2 class="card-title text-lg m-0">{gettext("Content Language")}</h2>
+              </div>
+              <% primary_tab =
+                Enum.find(@language_tabs, fn t -> t.is_primary end) %>
+              <%= if primary_tab do %>
+                <div class="flex items-center gap-1.5 text-xs text-base-content/60">
+                  <.icon name="hero-star-solid" class="w-3.5 h-3.5 text-primary" />
+                  {gettext("Primary: %{lang}", lang: primary_tab.name)}
+                </div>
+              <% end %>
             </div>
 
-            <%!-- Slug with Generator --%>
+            <% compact = length(@language_tabs) > 5 %>
+            <div
+              role="tablist"
+              class="flex flex-wrap items-center gap-1 bg-base-200 rounded-box p-1"
+            >
+              <%= if compact do %>
+                <%= for {tab, idx} <- Enum.with_index(@language_tabs) do %>
+                  <%= if idx > 0 do %>
+                    <span class="text-base-content/30">|</span>
+                  <% end %>
+                  <button
+                    type="button"
+                    role="tab"
+                    phx-click="switch_language"
+                    phx-value-lang={tab.code}
+                    title={tab.name}
+                    class={[
+                      "tab gap-1 transition-all",
+                      @current_lang == tab.code && "tab-active"
+                    ]}
+                  >
+                    <%= if tab.flag do %>
+                      <span>{tab.flag}</span>
+                    <% end %>
+                    <span>{tab.short_code}</span>
+                    <%= if tab.is_primary do %>
+                      <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
+                    <% end %>
+                  </button>
+                <% end %>
+              <% else %>
+                <%= for tab <- @language_tabs do %>
+                  <%= if tab.is_primary do %>
+                    <button
+                      type="button"
+                      role="tab"
+                      phx-click="switch_language"
+                      phx-value-lang={tab.code}
+                      class={[
+                        "tab gap-1.5 transition-all font-medium",
+                        @current_lang == tab.code && "tab-active"
+                      ]}
+                    >
+                      <%= if tab.flag do %>
+                        <span>{tab.flag}</span>
+                      <% end %>
+                      <span>{tab.name}</span>
+                      <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
+                    </button>
+                    <div class="divider divider-horizontal mx-0.5 h-6 self-center"></div>
+                  <% else %>
+                    <button
+                      type="button"
+                      role="tab"
+                      phx-click="switch_language"
+                      phx-value-lang={tab.code}
+                      class={[
+                        "tab gap-1.5 transition-all",
+                        @current_lang == tab.code && "tab-active"
+                      ]}
+                    >
+                      <%= if tab.flag do %>
+                        <span>{tab.flag}</span>
+                      <% end %>
+                      <span>{tab.name}</span>
+                    </button>
+                  <% end %>
+                <% end %>
+              <% end %>
+            </div>
+
+            <%= if @current_lang == @primary_language do %>
+              <p class="text-xs text-base-content/50 mt-3">
+                <.icon name="hero-information-circle" class="w-3.5 h-3.5 inline -mt-0.5" />
+                {gettext(
+                  "This is the primary language. Other languages will use these values as defaults."
+                )}
+              </p>
+            <% else %>
+              <div class="alert alert-info mt-3 py-2 text-xs">
+                <.icon name="hero-information-circle" class="w-4 h-4" />
+                <span>
+                  {gettext("Fields left empty will use the primary language value.")}
+                </span>
+              </div>
+            <% end %>
+          </div>
+
+          <div class="divider mx-6 my-0"></div>
+
+          <%!-- Tab content: Title (translatable) --%>
+          <div class="card-body pt-4 pb-4">
+            <h3 class="text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-3">
+              <.icon name="hero-information-circle" class="w-4 h-4 inline -mt-0.5" />
+              {gettext("Basic Information")}
+            </h3>
+
+            <% title_translations =
+              (Ecto.Changeset.get_field(@changeset, :metadata) || %{})["translations"] || %{} %>
             <div>
-              <.label for="phoenix_kit_entity_data_slug">
-                {gettext("Slug (URL-friendly identifier)")}
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-xs ml-2"
-                  phx-click="generate_slug"
-                  title={gettext("Generate from title")}
+              <%= if @current_lang == @primary_language do %>
+                <.label for="phoenix_kit_entity_data_title">
+                  {gettext("Title")} *
+                </.label>
+                <input
+                  type="text"
+                  name="phoenix_kit_entity_data[title]"
+                  id="phoenix_kit_entity_data_title"
+                  value={Ecto.Changeset.get_field(@changeset, :title) || ""}
+                  placeholder={gettext("Enter a title for this record")}
+                  class="input input-bordered w-full"
+                  phx-debounce="300"
+                  required
+                  disabled={@readonly?}
+                />
+              <% else %>
+                <.label for={"phoenix_kit_entity_data_title_#{@current_lang}"}>
+                  {gettext("Title")}
+                </.label>
+                <input
+                  type="text"
+                  name={"phoenix_kit_entity_data[title_translations][#{@current_lang}]"}
+                  id={"phoenix_kit_entity_data_title_#{@current_lang}"}
+                  value={(title_translations[@current_lang] || %{})["title"]}
+                  placeholder={
+                    Ecto.Changeset.get_field(@changeset, :title) ||
+                      gettext("Enter a title for this record")
+                  }
+                  class="input input-bordered w-full"
+                  phx-debounce="300"
+                  disabled={@readonly?}
+                />
+              <% end %>
+            </div>
+          </div>
+
+          <div class="divider mx-6 my-0"></div>
+
+          <%!-- Tab content: Custom Fields (translatable) --%>
+          <div class="card-body pt-4">
+            <h3 class="text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-3">
+              <.icon name="hero-list-bullet" class="w-4 h-4 inline -mt-0.5" />
+              {gettext("Custom Fields")}
+            </h3>
+
+            <%!-- Dynamic form fields generated by FormBuilder --%>
+            {PhoenixKit.Modules.Entities.FormBuilder.build_fields(@entity, f,
+              wrapper_class: "mb-6",
+              disabled: @readonly?,
+              lang_code: if(@multilang_enabled, do: @current_lang, else: nil)
+            )}
+          </div>
+        </div>
+
+        <%!-- Record Settings (non-translatable, separate card) --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-lg mb-4">
+              <.icon name="hero-cog-6-tooth" class="w-5 h-5" />
+              {gettext("Record Settings")}
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <%!-- Slug with Generator --%>
+              <div>
+                <.label for="phoenix_kit_entity_data_slug">
+                  {gettext("Slug (URL-friendly identifier)")}
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs ml-2"
+                    phx-click="generate_slug"
+                    title={gettext("Generate from title")}
+                    disabled={@readonly?}
+                  >
+                    <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                  </button>
+                </.label>
+                <input
+                  type="text"
+                  name="phoenix_kit_entity_data[slug]"
+                  id="phoenix_kit_entity_data_slug"
+                  value={Ecto.Changeset.get_field(@changeset, :slug) || ""}
+                  placeholder={gettext("auto-generated-slug")}
+                  class="input input-bordered w-full"
+                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                  title={gettext("Use lowercase letters, numbers, and hyphens only.")}
+                  phx-debounce="300"
+                  disabled={@readonly?}
+                />
+                <.label class="label">
+                  <span class="label-text-alt">
+                    {gettext("Leave empty to auto-generate from title")}
+                  </span>
+                </.label>
+              </div>
+
+              <%!-- Status --%>
+              <div>
+                <.label for="phoenix_kit_entity_data_status">{gettext("Status")}</.label>
+                <select
+                  name="phoenix_kit_entity_data[status]"
+                  class="select select-bordered w-full"
                   disabled={@readonly?}
                 >
-                  <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
-                </button>
-              </.label>
-              <input
-                type="text"
-                name="phoenix_kit_entity_data[slug]"
-                id="phoenix_kit_entity_data_slug"
-                value={Ecto.Changeset.get_field(@changeset, :slug) || ""}
-                placeholder={gettext("auto-generated-slug")}
-                class="input input-bordered w-full"
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                title={gettext("Use lowercase letters, numbers, and hyphens only.")}
-                phx-debounce="300"
-                disabled={@readonly?}
-              />
-              <.label class="label">
-                <span class="label-text-alt">
-                  {gettext("Leave empty to auto-generate from title")}
-                </span>
-              </.label>
-            </div>
-
-            <%!-- Status --%>
-            <div>
-              <.label for="phoenix_kit_entity_data_status">{gettext("Status")}</.label>
-              <select
-                name="phoenix_kit_entity_data[status]"
-                class="select select-bordered w-full"
-                disabled={@readonly?}
-              >
-                <option
-                  value="draft"
-                  selected={Ecto.Changeset.get_field(@changeset, :status) == "draft"}
-                >
-                  {gettext("Draft")}
-                </option>
-                <option
-                  value="published"
-                  selected={Ecto.Changeset.get_field(@changeset, :status) == "published"}
-                >
-                  {gettext("Published")}
-                </option>
-                <option
-                  value="archived"
-                  selected={Ecto.Changeset.get_field(@changeset, :status) == "archived"}
-                >
-                  {gettext("Archived")}
-                </option>
-              </select>
-            </div>
-
-            <%!-- Entity Type (Read-only) --%>
-            <div>
-              <.label>{gettext("Entity Type")}</.label>
-              <div class="input input-bordered w-full bg-base-200 flex items-center">
-                <%= if @entity.icon do %>
-                  <.icon name={@entity.icon} class="w-4 h-4 mr-2" />
-                <% end %>
-                {@entity.display_name}
+                  <option
+                    value="draft"
+                    selected={Ecto.Changeset.get_field(@changeset, :status) == "draft"}
+                  >
+                    {gettext("Draft")}
+                  </option>
+                  <option
+                    value="published"
+                    selected={Ecto.Changeset.get_field(@changeset, :status) == "published"}
+                  >
+                    {gettext("Published")}
+                  </option>
+                  <option
+                    value="archived"
+                    selected={Ecto.Changeset.get_field(@changeset, :status) == "archived"}
+                  >
+                    {gettext("Archived")}
+                  </option>
+                </select>
               </div>
-              <input type="hidden" name="phoenix_kit_entity_data[entity_id]" value={@entity.id} />
-              <input
-                type="hidden"
-                name="phoenix_kit_entity_data[entity_uuid]"
-                value={@entity.uuid}
-              />
+
+              <%!-- Entity Type (Read-only) --%>
+              <div>
+                <.label>{gettext("Entity Type")}</.label>
+                <div class="input input-bordered w-full bg-base-200 flex items-center">
+                  <%= if @entity.icon do %>
+                    <.icon name={@entity.icon} class="w-4 h-4 mr-2" />
+                  <% end %>
+                  {@entity.display_name}
+                </div>
+                <input
+                  type="hidden"
+                  name="phoenix_kit_entity_data[entity_id]"
+                  value={@entity.id}
+                />
+                <input
+                  type="hidden"
+                  name="phoenix_kit_entity_data[entity_uuid]"
+                  value={@entity.uuid}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      <% else %>
+        <%!-- Non-multilang: separate cards (original layout) --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-information-circle" class="w-6 h-6" />
+              {gettext("Basic Information")}
+            </h2>
 
-      <%!-- Dynamic Fields Section --%>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-2xl mb-4">
-            <.icon name="hero-list-bullet" class="w-6 h-6" /> {gettext("Custom Fields")}
-          </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <%!-- Title --%>
+              <div>
+                <.label for="phoenix_kit_entity_data_title">{gettext("Title")} *</.label>
+                <input
+                  type="text"
+                  name="phoenix_kit_entity_data[title]"
+                  id="phoenix_kit_entity_data_title"
+                  value={Ecto.Changeset.get_field(@changeset, :title) || ""}
+                  placeholder={gettext("Enter a title for this record")}
+                  class="input input-bordered w-full"
+                  phx-debounce="300"
+                  required
+                  disabled={@readonly?}
+                />
+              </div>
 
-          <%!-- Dynamic form fields generated by FormBuilder --%>
-          {PhoenixKit.Modules.Entities.FormBuilder.build_fields(@entity, f,
-            wrapper_class: "mb-6",
-            disabled: @readonly?
-          )}
+              <%!-- Slug with Generator --%>
+              <div>
+                <.label for="phoenix_kit_entity_data_slug">
+                  {gettext("Slug (URL-friendly identifier)")}
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs ml-2"
+                    phx-click="generate_slug"
+                    title={gettext("Generate from title")}
+                    disabled={@readonly?}
+                  >
+                    <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                  </button>
+                </.label>
+                <input
+                  type="text"
+                  name="phoenix_kit_entity_data[slug]"
+                  id="phoenix_kit_entity_data_slug"
+                  value={Ecto.Changeset.get_field(@changeset, :slug) || ""}
+                  placeholder={gettext("auto-generated-slug")}
+                  class="input input-bordered w-full"
+                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                  title={gettext("Use lowercase letters, numbers, and hyphens only.")}
+                  phx-debounce="300"
+                  disabled={@readonly?}
+                />
+                <.label class="label">
+                  <span class="label-text-alt">
+                    {gettext("Leave empty to auto-generate from title")}
+                  </span>
+                </.label>
+              </div>
+
+              <%!-- Status --%>
+              <div>
+                <.label for="phoenix_kit_entity_data_status">{gettext("Status")}</.label>
+                <select
+                  name="phoenix_kit_entity_data[status]"
+                  class="select select-bordered w-full"
+                  disabled={@readonly?}
+                >
+                  <option
+                    value="draft"
+                    selected={Ecto.Changeset.get_field(@changeset, :status) == "draft"}
+                  >
+                    {gettext("Draft")}
+                  </option>
+                  <option
+                    value="published"
+                    selected={Ecto.Changeset.get_field(@changeset, :status) == "published"}
+                  >
+                    {gettext("Published")}
+                  </option>
+                  <option
+                    value="archived"
+                    selected={Ecto.Changeset.get_field(@changeset, :status) == "archived"}
+                  >
+                    {gettext("Archived")}
+                  </option>
+                </select>
+              </div>
+
+              <%!-- Entity Type (Read-only) --%>
+              <div>
+                <.label>{gettext("Entity Type")}</.label>
+                <div class="input input-bordered w-full bg-base-200 flex items-center">
+                  <%= if @entity.icon do %>
+                    <.icon name={@entity.icon} class="w-4 h-4 mr-2" />
+                  <% end %>
+                  {@entity.display_name}
+                </div>
+                <input
+                  type="hidden"
+                  name="phoenix_kit_entity_data[entity_id]"
+                  value={@entity.id}
+                />
+                <input
+                  type="hidden"
+                  name="phoenix_kit_entity_data[entity_uuid]"
+                  value={@entity.uuid}
+                />
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-list-bullet" class="w-6 h-6" /> {gettext("Custom Fields")}
+            </h2>
+
+            <%!-- Dynamic form fields generated by FormBuilder --%>
+            {PhoenixKit.Modules.Entities.FormBuilder.build_fields(@entity, f,
+              wrapper_class: "mb-6",
+              disabled: @readonly?,
+              lang_code: nil
+            )}
+          </div>
+        </div>
+      <% end %>
 
       <%!-- Form Actions --%>
       <div class="flex justify-between items-center">

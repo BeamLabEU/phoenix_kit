@@ -10,6 +10,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Events
+  alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
@@ -641,14 +642,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   defp filter_by_category(records, "uncategorized") do
     Enum.filter(records, fn record ->
-      cat = get_in(record.data, ["category"])
+      cat = get_data_field(record, "category")
       is_nil(cat) || cat == ""
     end)
   end
 
   defp filter_by_category(records, category) do
     Enum.filter(records, fn record ->
-      get_in(record.data, ["category"]) == category
+      get_data_field(record, "category") == category
     end)
   end
 
@@ -662,13 +663,25 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       slug_match = String.contains?(String.downcase(record.slug || ""), search_term_lower)
 
       category_match =
-        case get_in(record.data, ["category"]) do
+        case get_data_field(record, "category") do
           nil -> false
           cat -> String.contains?(String.downcase(cat), search_term_lower)
         end
 
       title_match || slug_match || category_match
     end)
+  end
+
+  # Extracts a field value from a data record, handling both flat and multilang data.
+  defp get_data_field(record, field_key) do
+    data = record.data || %{}
+
+    if Multilang.multilang_data?(data) do
+      primary = data["_primary_language"]
+      get_in(data, [primary, field_key])
+    else
+      Map.get(data, field_key)
+    end
   end
 
   defp refresh_data_stats(socket) do
@@ -742,8 +755,15 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   def truncate_text(_, _), do: ""
 
   def format_data_preview(data) when is_map(data) do
-    # Show first few key-value pairs as preview
-    data
+    # For multilang data, show primary language fields
+    display_data =
+      if Multilang.multilang_data?(data) do
+        Multilang.flatten_to_primary(data)
+      else
+        data
+      end
+
+    display_data
     |> Enum.take(3)
     |> Enum.map_join(" • ", fn {key, value} ->
       "#{key}: #{truncate_text(to_string(value), 30)}"
