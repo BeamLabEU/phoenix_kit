@@ -1,3 +1,15 @@
+## 1.7.43 - 2026-02-17
+- Fix Language struct Access error on admin modules page and all bracket-access-on-struct bugs
+- Add 20 typed structs replacing plain maps across billing, entities, sync, emails, AI, and dashboard
+  - Billing: CheckoutSession, SetupSession, WebhookEventData, PaymentMethodInfo, ChargeResult, RefundResult, ProviderInfo
+  - Other: AIModel, FieldType, EmailLogData, LegalFramework, PageType, Group, TableSchema, ColumnInfo, SitemapFile, TimelineEvent, IbanData, SessionFingerprint
+- Fix guest checkout flow: relax NOT NULL on legacy integer FK columns, fix transaction error double-wrapping
+- Add return_to login redirect support for seamless post-login navigation (e.g., guest checkout)
+- Add cart merge on login for guest checkout sessions
+- Fix shop module .id to .uuid migration in Storage image lookups and import modules
+- Fix hardcoded "PhoenixKit" fallback in admin header project title
+- Fix 2 dialyzer warnings in checkout session and UUID migration
+
 ## 1.7.42 - 2026-02-17
 - Use PostgreSQL IF NOT EXISTS / IF EXISTS for UUID column operations
   - Replace manual column_exists? checks with native DDL guards in V56 and UUIDFKColumns
