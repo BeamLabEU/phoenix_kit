@@ -40,19 +40,27 @@ defmodule PhoenixKit.Utils.SessionFingerprint do
 
   @hash_algorithm :sha256
 
+  @enforce_keys [:ip_address, :user_agent_hash]
+  defstruct [:ip_address, :user_agent_hash]
+
+  @type t :: %__MODULE__{
+          ip_address: String.t(),
+          user_agent_hash: String.t()
+        }
+
   @doc """
   Creates a session fingerprint from a Plug.Conn connection.
 
-  Returns a map with `:ip_address` and `:user_agent_hash` keys.
+  Returns a `%SessionFingerprint{}` struct with `:ip_address` and `:user_agent_hash` fields.
 
   ## Examples
 
       iex> create_fingerprint(conn)
-      %{ip_address: "192.168.1.1", user_agent_hash: "a1b2c3d4..."}
+      %SessionFingerprint{ip_address: "192.168.1.1", user_agent_hash: "a1b2c3d4..."}
 
   """
   def create_fingerprint(conn) do
-    %{
+    %__MODULE__{
       ip_address: get_ip_address(conn),
       user_agent_hash: hash_user_agent(conn)
     }

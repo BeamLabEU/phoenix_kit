@@ -888,7 +888,7 @@ defmodule PhoenixKit.Users.Auth do
 
   ## Options
 
-    * `:fingerprint` - Optional session fingerprint map with `:ip_address` and `:user_agent_hash`
+    * `:fingerprint` - Optional `%SessionFingerprint{}` struct with `:ip_address` and `:user_agent_hash`
 
   ## Examples
 

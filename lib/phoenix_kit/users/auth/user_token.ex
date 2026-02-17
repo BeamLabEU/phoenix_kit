@@ -83,7 +83,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   ## Options
 
-    * `:fingerprint` - A map with `:ip_address` and `:user_agent_hash` keys
+    * `:fingerprint` - A `%SessionFingerprint{}` struct with `:ip_address` and `:user_agent_hash` fields
 
   ## Examples
 
@@ -91,7 +91,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
       {token, user_token} = build_session_token(user)
 
       # With fingerprinting
-      fingerprint = %{ip_address: "192.168.1.1", user_agent_hash: "abc123"}
+      fingerprint = SessionFingerprint.create_fingerprint(conn)
       {token, user_token} = build_session_token(user, fingerprint: fingerprint)
 
   """
