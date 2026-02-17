@@ -2134,9 +2134,13 @@ defmodule PhoenixKit.Modules.Shop do
            :ok <- maybe_send_guest_confirmation(user_id) do
         {:ok, order}
       else
-        error ->
-          # Rollback transaction on any error
-          repo().rollback(error)
+        {:error, reason} ->
+          # Rollback transaction on any error, unwrapping the {:error, _} tuple
+          # so the transaction returns {:error, reason} (not {:error, {:error, reason}})
+          repo().rollback(reason)
+
+        other ->
+          repo().rollback(other)
       end
     end)
     # unwrap the transaction result

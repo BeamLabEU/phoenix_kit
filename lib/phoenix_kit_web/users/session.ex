@@ -55,6 +55,7 @@ defmodule PhoenixKitWeb.Users.Session do
       {:ok, user} ->
         # Valid credentials and active account
         conn
+        |> maybe_store_return_to_from_params(user_params)
         |> put_flash(:info, info)
         |> UserAuth.log_in_user(user, user_params)
 
@@ -80,6 +81,18 @@ defmodule PhoenixKitWeb.Users.Session do
     |> put_flash(:info, "Logged out successfully.")
     |> UserAuth.log_out_user()
   end
+
+  # Store return_to from form params (e.g., guest checkout → login → back to checkout)
+  defp maybe_store_return_to_from_params(conn, %{"return_to" => return_to})
+       when is_binary(return_to) and return_to != "" do
+    if String.starts_with?(return_to, "/") and not String.starts_with?(return_to, "//") do
+      put_session(conn, :user_return_to, return_to)
+    else
+      conn
+    end
+  end
+
+  defp maybe_store_return_to_from_params(conn, _params), do: conn
 
   # Support GET logout for direct URL access
   def get_logout(conn, _params) do

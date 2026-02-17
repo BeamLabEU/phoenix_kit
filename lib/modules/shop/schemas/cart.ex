@@ -233,7 +233,8 @@ defmodule PhoenixKit.Modules.Shop.Cart do
 
   defp validate_status_transition(changeset, from, to) do
     valid_transitions = %{
-      "active" => ~w(merged converted abandoned expired),
+      "active" => ~w(converting merged converted abandoned expired),
+      "converting" => ~w(converted active),
       "merged" => [],
       "converted" => [],
       "abandoned" => ~w(active),

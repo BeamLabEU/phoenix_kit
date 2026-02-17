@@ -140,6 +140,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     |> assign(:step, assigns.initial_step)
     |> assign(:processing, false)
     |> assign(:error_message, nil)
+    |> assign(:email_exists_error, false)
     |> assign(:form_errors, %{})
   end
 
@@ -410,11 +411,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
         {:noreply,
          socket
          |> assign(:processing, false)
-         |> assign(
-           :error_message,
-           "An account with this email already exists. Please log in to continue."
-         )
-         |> put_flash(:error, "Email already registered. Please log in.")}
+         |> assign(:email_exists_error, true)
+         |> assign(:error_message, nil)}
 
       {:error, _reason} ->
         {:noreply,
@@ -540,15 +538,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           <div class={["step", @step == :review && "step-primary"]}>Review & Confirm</div>
         </div>
 
-        <%!-- Guest Checkout Warning --%>
+        <%!-- Guest Checkout Info --%>
         <%= if @is_guest do %>
-          <div class="alert alert-warning mb-6">
-            <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          <div class="alert alert-info mb-6">
+            <.icon name="hero-envelope" class="w-5 h-5" />
             <div>
-              <div class="font-semibold">Email confirmation required</div>
+              <div class="font-semibold">Checking out as a guest</div>
               <div class="text-sm">
-                Your order will require email verification. After checkout, you will receive
-                a confirmation email. Please click the link to verify your email address.
+                After placing your order, we'll send a confirmation email to verify your address.
+                Check your inbox and click the link to activate your account and track your order.
               </div>
             </div>
           </div>
@@ -587,6 +585,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
                   currency={@currency}
                   processing={@processing}
                   error_message={@error_message}
+                  email_exists_error={@email_exists_error}
                   selected_payment_option={@selected_payment_option}
                   needs_billing={@needs_billing}
                   payment_options={@payment_options}
@@ -1100,6 +1099,33 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           </div>
         </div>
       </div>
+
+      <%!-- Email Already Registered --%>
+      <%= if @email_exists_error do %>
+        <div class="card bg-warning/10 border border-warning">
+          <div class="card-body">
+            <div class="flex items-start gap-4">
+              <.icon name="hero-user-circle" class="w-8 h-8 text-warning flex-shrink-0" />
+              <div>
+                <h3 class="font-semibold text-lg">Account already exists</h3>
+                <p class="text-sm mt-1">
+                  An account with this email is already registered.
+                  Please log in to complete your order.
+                </p>
+                <div class="mt-3">
+                  <.link
+                    navigate={Routes.path("/users/log-in") <> "?return_to=" <> Routes.path("/checkout")}
+                    class="btn btn-primary btn-sm"
+                  >
+                    <.icon name="hero-arrow-right-on-rectangle" class="w-4 h-4 mr-1" />
+                    Log in to continue
+                  </.link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
 
       <%!-- Error Message --%>
       <%= if @error_message do %>

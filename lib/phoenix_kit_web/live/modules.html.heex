@@ -217,7 +217,7 @@
             <%= if @languages_enabled do %>
               <span class="badge badge-outline ml-2 whitespace-nowrap">
                 {if @languages_default,
-                  do: @languages_default["name"],
+                  do: @languages_default.name,
                   else: "No Default"}
               </span>
             <% end %>
@@ -358,7 +358,7 @@
             # Determine default language base code for URL display
             default_lang_code =
               if @languages_enabled && @languages_default do
-                @languages_default["code"]
+                @languages_default.code
                 |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
               else
                 nil
