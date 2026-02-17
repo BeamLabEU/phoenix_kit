@@ -34,6 +34,7 @@ These data contracts already use proper structs:
 | `Languages.Language` | `lib/modules/languages/language.ex` | 4 | Recently refactored from plain map |
 | `Utils.SessionFingerprint` | `lib/phoenix_kit/utils/session_fingerprint.ex` | 2 | Converted 2026-02-17 from Tier 2 audit |
 | `Billing.IbanData` | `lib/modules/billing/utils/iban_data.ex` | 2 | Converted 2026-02-17 from Tier 2 audit |
+| `Sitemap.SitemapFile` | `lib/modules/sitemap/sitemap_file.ex` | 3 | Converted 2026-02-17 from Tier 2 audit |
 
 All Ecto schemas (`User`, `Role`, `Cart`, `Post`, `Comment`, etc.) are also proper structs by virtue of `use Ecto.Schema`.
 
@@ -230,17 +231,11 @@ Added `%IbanData{}` struct with `@enforce_keys [:length, :sepa]` and `@type t`. 
 
 **Recommendation:** `%TimelineEvent{}` — small scope but prevents typos in the `:type` atom.
 
-### 2.4 Sitemap ModuleInfo
+### 2.4 Sitemap ModuleInfo — DONE (2026-02-17)
 
-**File:** `lib/modules/sitemap/generator.ex`, lines 226–242
+**File:** `lib/modules/sitemap/sitemap_file.ex` (new), `lib/modules/sitemap/generator.ex`
 
-```elixir
-%{filename: "sitemap-posts-1.xml", url_count: 500, lastmod: ~U[2026-02-16 00:00:00Z]}
-```
-
-3 fields, constructed in 3 locations (numbered files, single files, flat mode). Consumed by `generate_index/4` for XML generation.
-
-**Recommendation:** `%ModuleInfo{}` or `%SitemapFile{}` — small struct alongside the existing `UrlEntry`.
+Created `%SitemapFile{}` struct with `@enforce_keys [:filename, :url_count]` and `@type t`. All 3 construction sites in `generator.ex` updated. `@spec` annotations on `generate_module/2` and `generate_index/4` updated to use `SitemapFile.t()`.
 
 ### 2.5 Filter/Pagination Params
 
@@ -306,7 +301,7 @@ Complete table of every file with a Tier 1 or Tier 2 gap:
 | `lib/phoenix_kit/utils/session_fingerprint.ex` | 54–59 | ~~fingerprint map~~ | `SessionFingerprint` | 2 ✅ |
 | `lib/modules/billing/utils/iban_data.ex` | 22–98 | ~~`iban_spec` map~~ | `IbanData` | 2 ✅ |
 | `lib/modules/billing/web/invoice_detail/helpers.ex` | 72–168 | timeline event map | `TimelineEvent` | 2 |
-| `lib/modules/sitemap/generator.ex` | 226–242 | module info map | `SitemapFile` | 2 |
+| `lib/modules/sitemap/generator.ex` | 226–242 | ~~module info map~~ | `SitemapFile` | 2 ✅ |
 
 ---
 
@@ -366,6 +361,6 @@ Suggested order based on cross-boundary impact, consumer count, and bug risk:
 | Tier | Items | New Structs | Done | Remaining |
 |------|-------|-------------|------|-----------|
 | **Tier 1** (cross-module) | 16 map shapes | 16 structs | 0 | 16 |
-| **Tier 2** (module-internal) | 5 map shapes | 5 structs | 2 ✅ | 3 |
+| **Tier 2** (module-internal) | 5 map shapes | 5 structs | 3 ✅ | 2 |
 | **Tier 3** (acceptable) | 6 categories | 0 | — | 0 |
-| **Total** | 27 audited | **21 new structs** | **2** | **19** |
+| **Total** | 27 audited | **21 new structs** | **3** | **18** |
