@@ -526,7 +526,7 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
       execute("""
       ALTER TABLE #{table_name}
-      ADD COLUMN #{uuid_fk} UUID
+      ADD COLUMN IF NOT EXISTS #{uuid_fk} UUID
       """)
     end
   end
