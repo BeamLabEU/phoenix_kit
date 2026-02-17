@@ -240,12 +240,14 @@ defmodule PhoenixKit.Config.UserDashboardCategories do
       [%{id: :farm_management, label: "Farm Management", ...}, ...]
 
   """
-  @spec to_groups(list()) :: list()
+  @spec to_groups(list()) :: [PhoenixKit.Dashboard.Group.t()]
   def to_groups(categories) do
+    alias PhoenixKit.Dashboard.Group
+
     categories
     |> Enum.with_index()
     |> Enum.map(fn {category, idx} ->
-      %{
+      %Group{
         id: category_to_group_id(category.title),
         label: category.title,
         icon: category.icon,

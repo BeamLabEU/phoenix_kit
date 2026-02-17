@@ -352,3 +352,19 @@ Suggested order based on cross-boundary impact, consumer count, and bug risk:
 | **Tier 2** (module-internal) | 5 map shapes | 5 structs | 4 ✅ | 1 (deferred) |
 | **Tier 3** (acceptable) | 6 categories | 0 | — | 0 |
 | **Total** | 27 audited | **21 new structs** | **20** | **1** (Filter/Pagination — deferred) |
+
+---
+
+## Post-Conversion Verification Fixes (2026-02-17)
+
+Consumer-side bugs found and fixed during verification pass:
+
+| File | Line | Issue | Fix |
+|------|------|-------|-----|
+| `lib/modules/ai/web/endpoint_form.ex` | 555 | `find_model` used `m["id"]` (string key) on `%AIModel{}` atom-key struct | Changed to `m.id` |
+| `lib/phoenix_kit/dashboard/group.ex` | — | Struct missing `icon` and `collapsible` fields used by sidebar templates | Added both fields + updated `new/1` |
+| `lib/phoenix_kit/dashboard/registry.ex` | 871 | Config groups stored as plain maps, not converted to `%Group{}` | Added `Group.new/1` conversion |
+| `lib/phoenix_kit/config/user_dashboard_categories.ex` | 248 | `to_groups/1` returned plain maps instead of `%Group{}` | Returns `%Group{}` structs |
+| `lib/modules/sync/data_importer.ex` | 256 | `get_primary_keys/1` used string keys on `%TableSchema{}` struct | Added struct-aware clause using `.primary_key` field |
+| `lib/modules/billing/billing.ex` | 3090 | `session[:session_id]` bracket access on `%CheckoutSession{}` struct | Changed to `session.id` and `session.url` |
+| `lib/modules/billing/workers/subscription_renewal_worker.ex` | 187 | `charge_result[:charge_id]` on `%ChargeResult{}` struct | Changed to `charge_result.provider_transaction_id` |

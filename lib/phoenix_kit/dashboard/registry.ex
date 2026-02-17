@@ -868,7 +868,13 @@ defmodule PhoenixKit.Dashboard.Registry do
         :ok
 
       groups when is_list(groups) ->
-        :ets.insert(@ets_table, {:groups, groups})
+        converted =
+          Enum.map(groups, fn
+            %Group{} = g -> g
+            map when is_map(map) -> Group.new(map)
+          end)
+
+        :ets.insert(@ets_table, {:groups, converted})
     end
   end
 

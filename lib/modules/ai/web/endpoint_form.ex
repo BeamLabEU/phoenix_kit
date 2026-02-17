@@ -552,7 +552,7 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   # Private helpers
 
   defp find_model(models, model_id) do
-    Enum.find(models, fn m -> m["id"] == model_id end)
+    Enum.find(models, fn m -> m.id == model_id end)
   end
 
   @doc """
