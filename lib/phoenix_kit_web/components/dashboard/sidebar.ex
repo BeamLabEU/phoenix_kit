@@ -199,23 +199,23 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
       data-collapsed={@collapsed}
     >
       <%!-- Group Header (if labeled) --%>
-      <%= if @group[:label] do %>
+      <%= if @group.label do %>
         <div
           class={[
             "px-3 py-2 text-xs font-semibold text-base-content/50 uppercase tracking-wider",
-            @group[:collapsible] &&
+            @group.collapsible &&
               "cursor-pointer hover:text-base-content/70 flex items-center justify-between"
           ]}
-          phx-click={@group[:collapsible] && "toggle_dashboard_group"}
+          phx-click={@group.collapsible && "toggle_dashboard_group"}
           phx-value-group={@group.id}
         >
           <span class="flex items-center gap-2">
-            <%= if @group[:icon] do %>
-              <.icon name={@group[:icon]} class="w-3.5 h-3.5" />
+            <%= if @group.icon do %>
+              <.icon name={@group.icon} class="w-3.5 h-3.5" />
             <% end %>
-            {@group[:label]}
+            {@group.label}
           </span>
-          <%= if @group[:collapsible] do %>
+          <%= if @group.collapsible do %>
             <.icon
               name={if @collapsed, do: "hero-chevron-right-mini", else: "hero-chevron-down-mini"}
               class="w-4 h-4"

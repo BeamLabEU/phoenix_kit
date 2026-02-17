@@ -368,3 +368,13 @@ Consumer-side bugs found and fixed during verification pass:
 | `lib/modules/sync/data_importer.ex` | 256 | `get_primary_keys/1` used string keys on `%TableSchema{}` struct | Added struct-aware clause using `.primary_key` field |
 | `lib/modules/billing/billing.ex` | 3090 | `session[:session_id]` bracket access on `%CheckoutSession{}` struct | Changed to `session.id` and `session.url` |
 | `lib/modules/billing/workers/subscription_renewal_worker.ex` | 187 | `charge_result[:charge_id]` on `%ChargeResult{}` struct | Changed to `charge_result.provider_transaction_id` |
+
+### Second Verification Pass (2026-02-17)
+
+Additional bracket-access issues found during triple-check:
+
+| File | Lines | Issue | Fix |
+|------|-------|-------|-----|
+| `lib/phoenix_kit_web/components/dashboard/sidebar.ex` | 202-218 | 7× `@group[:label]`, `@group[:icon]`, `@group[:collapsible]` bracket access on `%Group{}` struct | Changed to dot notation (`@group.label`, `@group.icon`, `@group.collapsible`) |
+| `lib/phoenix_kit_web/components/dashboard/admin_sidebar.ex` | 101-107 | 4× `@group[:label]`, `@group[:icon]` bracket access on `%Group{}` struct | Changed to dot notation (`@group.label`, `@group.icon`) |
+| `lib/modules/sitemap/generator.ex` | 267 | `info[:lastmod]` bracket access on `%SitemapFile{}` struct | Changed to `info.lastmod` |

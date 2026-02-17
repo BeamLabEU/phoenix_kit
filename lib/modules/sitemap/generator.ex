@@ -264,7 +264,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       module_infos
       |> Enum.map(fn info ->
         loc = "#{normalized_base}#{normalized_prefix}/sitemaps/#{info.filename}.xml"
-        lastmod_str = format_lastmod(info[:lastmod])
+        lastmod_str = format_lastmod(info.lastmod)
 
         """
           <sitemap>
