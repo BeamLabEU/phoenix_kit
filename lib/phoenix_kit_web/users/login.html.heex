@@ -15,6 +15,7 @@
           action={Routes.path("/users/log-in")}
           phx-update="ignore"
         >
+          <input :if={@return_to} type="hidden" name="user[return_to]" value={@return_to} />
           <fieldset class="fieldset">
             <legend class="fieldset-legend sr-only">{gettext("Login with Password")}</legend>
 

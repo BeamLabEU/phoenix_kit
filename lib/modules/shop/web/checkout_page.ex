@@ -1114,7 +1114,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
                 </p>
                 <div class="mt-3">
                   <.link
-                    navigate={Routes.path("/users/log-in?return_to=#{Routes.path("/checkout")}")}
+                    navigate={Routes.path("/users/log-in") <> "?return_to=" <> Routes.path("/checkout")}
                     class="btn btn-primary btn-sm"
                   >
                     <.icon name="hero-arrow-right-on-rectangle" class="w-4 h-4 mr-1" />
