@@ -147,7 +147,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     ]
   end
 
-  # Check if current page is an admin page that needs navigation
+  # Check if current page is an admin page that needs navigation.
+  # Strips URL prefix first, then locale prefix, to handle paths like
+  # /phoenix_kit/uk/admin/users where the locale sits between prefix and /admin.
   defp admin_page?(assigns) do
     case assigns[:current_path] do
       nil ->
@@ -159,10 +161,21 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         normalized =
           if prefix == "/", do: path, else: String.replace_prefix(path, prefix, "")
 
+        # Strip locale prefix (e.g., /uk/admin → /admin) for localized admin routes
+        normalized = strip_locale_prefix(normalized)
+
         normalized == "/admin" or String.starts_with?(normalized, "/admin/")
 
       _ ->
         false
+    end
+  end
+
+  defp strip_locale_prefix(path) do
+    case Regex.run(~r/^\/[a-z]{2}(-[A-Z]{2})?(\/.*)?$/, path) do
+      [_, _locale, rest] when is_binary(rest) -> rest
+      [_, _locale] -> "/"
+      _ -> path
     end
   end
 

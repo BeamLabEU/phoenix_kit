@@ -632,8 +632,8 @@ defmodule PhoenixKit.Dashboard.Tab do
   defp normalize_path(path) when is_binary(path) do
     path
     |> String.trim_trailing("/")
-    |> remove_locale_prefix()
     |> remove_url_prefix()
+    |> remove_locale_prefix()
   end
 
   defp normalize_path(_), do: ""
