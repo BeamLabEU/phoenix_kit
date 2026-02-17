@@ -45,58 +45,21 @@ defmodule PhoenixKit.Modules.Billing.Providers.Provider do
       end
   """
 
-  @type checkout_session :: %{
-          id: String.t(),
-          url: String.t(),
-          provider: atom(),
-          expires_at: DateTime.t() | nil,
-          metadata: map()
-        }
+  alias PhoenixKit.Modules.Billing.Providers.Types.{
+    ChargeResult,
+    CheckoutSession,
+    PaymentMethodInfo,
+    RefundResult,
+    SetupSession,
+    WebhookEventData
+  }
 
-  @type setup_session :: %{
-          id: String.t(),
-          url: String.t(),
-          provider: atom(),
-          metadata: map()
-        }
-
-  @type webhook_event :: %{
-          type: String.t(),
-          event_id: String.t(),
-          data: map(),
-          provider: atom(),
-          raw_payload: map()
-        }
-
-  @type payment_method :: %{
-          id: String.t(),
-          provider: atom(),
-          provider_payment_method_id: String.t(),
-          provider_customer_id: String.t() | nil,
-          type: String.t(),
-          brand: String.t() | nil,
-          last4: String.t() | nil,
-          exp_month: integer() | nil,
-          exp_year: integer() | nil,
-          metadata: map()
-        }
-
-  @type charge_result :: %{
-          id: String.t(),
-          provider_transaction_id: String.t(),
-          amount: Decimal.t(),
-          currency: String.t(),
-          status: String.t(),
-          metadata: map()
-        }
-
-  @type refund_result :: %{
-          id: String.t(),
-          provider_refund_id: String.t(),
-          amount: Decimal.t(),
-          status: String.t(),
-          metadata: map()
-        }
+  @type checkout_session :: CheckoutSession.t()
+  @type setup_session :: SetupSession.t()
+  @type webhook_event :: WebhookEventData.t()
+  @type payment_method :: PaymentMethodInfo.t()
+  @type charge_result :: ChargeResult.t()
+  @type refund_result :: RefundResult.t()
 
   @doc """
   Returns the provider name as an atom.

@@ -3087,12 +3087,12 @@ defmodule PhoenixKit.Modules.Billing do
         # Update invoice with checkout session info
         invoice
         |> Ecto.Changeset.change(%{
-          checkout_session_id: session[:session_id],
-          checkout_url: session[:url]
+          checkout_session_id: session.id,
+          checkout_url: session.url
         })
         |> repo().update()
 
-        {:ok, session[:url]}
+        {:ok, session.url}
 
       {:error, reason} ->
         {:error, reason}

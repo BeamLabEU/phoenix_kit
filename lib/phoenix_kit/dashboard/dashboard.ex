@@ -125,7 +125,7 @@ defmodule PhoenixKit.Dashboard do
   The sidebar will show "2 viewing" indicators.
   """
 
-  alias PhoenixKit.Dashboard.{Badge, ContextSelector, Presence, Registry, Tab}
+  alias PhoenixKit.Dashboard.{Badge, ContextSelector, Group, Presence, Registry, Tab}
   alias PhoenixKit.PubSubHelper
 
   # ============================================================================
@@ -309,13 +309,13 @@ defmodule PhoenixKit.Dashboard do
         %{id: :account, label: "Account", priority: 900}
       ])
   """
-  @spec register_groups([map()]) :: :ok
+  @spec register_groups([Group.t() | map()]) :: :ok
   defdelegate register_groups(groups), to: Registry
 
   @doc """
   Gets all registered tab groups.
   """
-  @spec get_groups() :: [map()]
+  @spec get_groups() :: [Group.t()]
   defdelegate get_groups(), to: Registry
 
   # ============================================================================

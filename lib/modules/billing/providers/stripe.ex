@@ -43,6 +43,15 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
 
   @behaviour PhoenixKit.Modules.Billing.Providers.Provider
 
+  alias PhoenixKit.Modules.Billing.Providers.Types.{
+    ChargeResult,
+    CheckoutSession,
+    PaymentMethodInfo,
+    RefundResult,
+    SetupSession,
+    WebhookEventData
+  }
+
   alias PhoenixKit.Settings
 
   require Logger
@@ -101,7 +110,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
       case stripe_request(:post, "/checkout/sessions", params, config) do
         {:ok, %{"id" => id, "url" => url, "expires_at" => expires_at}} ->
           {:ok,
-           %{
+           %CheckoutSession{
              id: id,
              url: url,
              provider: :stripe,
@@ -148,7 +157,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
       case stripe_request(:post, "/checkout/sessions", params, config) do
         {:ok, %{"id" => id, "url" => url}} ->
           {:ok,
-           %{
+           %SetupSession{
              id: id,
              url: url,
              provider: :stripe,
@@ -203,7 +212,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
       case stripe_request(:post, "/payment_intents", params, config) do
         {:ok, %{"id" => id, "status" => "succeeded", "latest_charge" => charge_id}} ->
           {:ok,
-           %{
+           %ChargeResult{
              id: id,
              provider_transaction_id: charge_id,
              amount: amount,
@@ -280,7 +289,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
     case normalize_event(type, object) do
       {:ok, normalized} ->
         {:ok,
-         %{
+         %WebhookEventData{
            type: normalized.type,
            event_id: event_id,
            data: normalized.data,
@@ -335,7 +344,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
       case stripe_request(:post, "/refunds", params, config) do
         {:ok, %{"id" => id, "amount" => amount_cents, "status" => status}} ->
           {:ok,
-           %{
+           %RefundResult{
              id: id,
              provider_refund_id: id,
              amount: Decimal.div(Decimal.new(amount_cents), 100),
@@ -377,7 +386,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
            }
          }} ->
           {:ok,
-           %{
+           %PaymentMethodInfo{
              id: id,
              provider: :stripe,
              provider_payment_method_id: id,
@@ -392,7 +401,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
 
         {:ok, %{"id" => id, "type" => type}} ->
           {:ok,
-           %{
+           %PaymentMethodInfo{
              id: id,
              provider: :stripe,
              provider_payment_method_id: id,

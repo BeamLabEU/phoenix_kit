@@ -36,6 +36,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   alias PhoenixKit.Modules.Sitemap.FileStorage
   alias PhoenixKit.Modules.Sitemap.HtmlGenerator
   alias PhoenixKit.Modules.Sitemap.SchedulerWorker
+  alias PhoenixKit.Modules.Sitemap.SitemapFile
   alias PhoenixKit.Modules.Sitemap.Sources.Source
   alias PhoenixKit.Modules.Sitemap.UrlEntry
   alias PhoenixKit.Utils.Routes
@@ -142,7 +143,9 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     {:ok,
      %{
        index_xml: xml,
-       modules: [%{filename: "flat", url_count: total_urls, lastmod: DateTime.utc_now()}],
+       modules: [
+         %SitemapFile{filename: "flat", url_count: total_urls, lastmod: DateTime.utc_now()}
+       ],
        total_urls: total_urls
      }}
   end
@@ -152,10 +155,10 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   @doc """
   Generates sitemap file(s) for a single source module.
 
-  Returns a list of module_info maps (one per file generated).
+  Returns a list of `%SitemapFile{}` structs (one per file generated).
   Empty sources produce no files and return [].
   """
-  @spec generate_module(module(), keyword()) :: [map()]
+  @spec generate_module(module(), keyword()) :: [SitemapFile.t()]
   def generate_module(source_module, opts \\ []) do
     if Source.valid_source?(source_module) and source_module.enabled?() do
       do_generate_module(source_module, opts)
@@ -223,7 +226,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
           FileStorage.save_module(numbered_filename, xml)
           Cache.put_module(numbered_filename, xml)
 
-          %{
+          %SitemapFile{
             filename: numbered_filename,
             url_count: length(chunk),
             lastmod: latest_lastmod(chunk)
@@ -235,7 +238,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         Cache.put_module(filename, xml)
 
         [
-          %{
+          %SitemapFile{
             filename: filename,
             url_count: length(entries),
             lastmod: latest_lastmod(entries)
@@ -248,9 +251,9 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   # ── Sitemapindex generation ────────────────────────────────────────
 
   @doc """
-  Builds `<sitemapindex>` XML from a list of module_info maps.
+  Builds `<sitemapindex>` XML from a list of `%SitemapFile{}` structs.
   """
-  @spec generate_index([map()], String.t(), String.t(), boolean()) :: String.t()
+  @spec generate_index([SitemapFile.t()], String.t(), String.t(), boolean()) :: String.t()
   def generate_index(module_infos, base_url, xsl_style \\ "table", xsl_enabled \\ true) do
     xsl_line = build_index_xsl_line(xsl_style, xsl_enabled)
     normalized_base = String.trim_trailing(base_url, "/")
@@ -261,7 +264,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       module_infos
       |> Enum.map(fn info ->
         loc = "#{normalized_base}#{normalized_prefix}/sitemaps/#{info.filename}.xml"
-        lastmod_str = format_lastmod(info[:lastmod])
+        lastmod_str = format_lastmod(info.lastmod)
 
         """
           <sitemap>

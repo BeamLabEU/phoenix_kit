@@ -476,7 +476,6 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
         index_name =
           case prefix do
-            nil -> index_name
             "public" -> index_name
             p -> "#{p}.#{index_name}"
           end

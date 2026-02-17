@@ -74,8 +74,28 @@ defmodule LanguageRefactorTest do
     assert lang.code == "fr-FR"
     assert lang.name == "French (France)"
 
-    # Map access should NOT work (structs don't support string keys)
-    assert lang["code"] == nil
-    assert lang[:code] == nil
+    # Bracket access raises on structs (Access behaviour not implemented)
+    assert_raise UndefinedFunctionError, fn -> lang["code"] end
+  end
+
+  test "grouped languages converts structs before adding country metadata" do
+    grouped_languages = Languages.get_languages_grouped_by_continent()
+
+    assert is_list(grouped_languages)
+
+    {country, languages} =
+      grouped_languages
+      |> Enum.flat_map(fn {_continent, countries} ->
+        Enum.map(countries, fn {country, _flag, languages} -> {country, languages} end)
+      end)
+      |> Enum.find(fn {_country, languages} -> match?([_ | _], languages) end)
+
+    refute country == nil
+
+    language = hd(languages)
+
+    assert Map.get(language, :country) == country
+    assert is_binary(language.code)
+    assert is_binary(language.name)
   end
 end

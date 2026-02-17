@@ -25,6 +25,8 @@ defmodule PhoenixKit.Modules.AI.OpenRouterClient do
       {:ok, models} = PhoenixKit.Modules.AI.OpenRouterClient.fetch_models("sk-or-v1-...")
   """
 
+  alias PhoenixKit.Modules.AI.AIModel
+
   require Logger
 
   @base_url "https://openrouter.ai/api/v1"
@@ -143,7 +145,7 @@ defmodule PhoenixKit.Modules.AI.OpenRouterClient do
         grouped =
           models
           |> Enum.group_by(fn model ->
-            case String.split(model["id"], "/") do
+            case String.split(model.id, "/") do
               [provider | _] -> provider
               _ -> "other"
             end
@@ -348,7 +350,19 @@ defmodule PhoenixKit.Modules.AI.OpenRouterClient do
 
   Returns `{label, value}` tuple.
   """
-  def model_option(model) do
+  def model_option(%AIModel{} = model) do
+    label =
+      if model.name && model.name != "" do
+        provider = extract_provider(model.id)
+        "#{model.name} (#{provider})"
+      else
+        model.id || "Unknown"
+      end
+
+    {label, model.id || ""}
+  end
+
+  def model_option(model) when is_map(model) do
     label =
       case model do
         %{"name" => name, "id" => id} when name != "" ->
@@ -441,16 +455,16 @@ defmodule PhoenixKit.Modules.AI.OpenRouterClient do
     |> Enum.map(fn model ->
       top_provider = model["top_provider"] || %{}
 
-      %{
-        "id" => model["id"],
-        "name" => model["name"] || extract_model_name(model["id"]),
-        "description" => model["description"],
-        "context_length" => model["context_length"],
-        "max_completion_tokens" => top_provider["max_completion_tokens"],
-        "supported_parameters" => model["supported_parameters"] || [],
-        "pricing" => normalize_pricing(model["pricing"]),
-        "architecture" => model["architecture"],
-        "top_provider" => top_provider
+      %AIModel{
+        id: model["id"],
+        name: model["name"] || extract_model_name(model["id"]),
+        description: model["description"],
+        context_length: model["context_length"],
+        max_completion_tokens: top_provider["max_completion_tokens"],
+        supported_parameters: model["supported_parameters"] || [],
+        pricing: normalize_pricing(model["pricing"]),
+        architecture: model["architecture"] || %{},
+        top_provider: top_provider
       }
     end)
   end
@@ -491,7 +505,7 @@ defmodule PhoenixKit.Modules.AI.OpenRouterClient do
   def fetch_model(api_key, model_id, opts \\ []) do
     case fetch_models(api_key, opts) do
       {:ok, models} ->
-        case Enum.find(models, fn m -> m["id"] == model_id end) do
+        case Enum.find(models, fn m -> m.id == model_id end) do
           nil -> {:error, "Model not found"}
           model -> {:ok, model}
         end
@@ -512,6 +526,10 @@ defmodule PhoenixKit.Modules.AI.OpenRouterClient do
       iex> model_supports_parameter?(model, "tools")
       false
   """
+  def model_supports_parameter?(%AIModel{} = model, param) do
+    param in model.supported_parameters
+  end
+
   def model_supports_parameter?(model, param) when is_map(model) do
     supported = model["supported_parameters"] || []
     param in supported
@@ -523,13 +541,25 @@ defmodule PhoenixKit.Modules.AI.OpenRouterClient do
   Returns the model's max_completion_tokens if available,
   otherwise falls back to a percentage of context_length.
   """
+  def get_model_max_tokens(%AIModel{} = model) do
+    cond do
+      model.max_completion_tokens ->
+        model.max_completion_tokens
+
+      model.context_length ->
+        div(model.context_length, 4)
+
+      true ->
+        4096
+    end
+  end
+
   def get_model_max_tokens(model) when is_map(model) do
     cond do
       model["max_completion_tokens"] ->
         model["max_completion_tokens"]
 
       model["context_length"] ->
-        # Default to 25% of context length if max_completion_tokens not specified
         div(model["context_length"], 4)
 
       true ->
