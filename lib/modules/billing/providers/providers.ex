@@ -27,6 +27,7 @@ defmodule PhoenixKit.Modules.Billing.Providers do
   """
 
   alias PhoenixKit.Modules.Billing.Providers.Provider
+  alias PhoenixKit.Modules.Billing.Providers.Types.ProviderInfo
   alias PhoenixKit.Settings
 
   @providers %{
@@ -321,9 +322,9 @@ defmodule PhoenixKit.Modules.Billing.Providers do
       iex> Providers.provider_info(:stripe)
       %{name: "Stripe", icon: "stripe", color: "#635BFF"}
   """
-  @spec provider_info(atom()) :: map()
+  @spec provider_info(atom()) :: ProviderInfo.t()
   def provider_info(:stripe) do
-    %{
+    %ProviderInfo{
       name: "Stripe",
       icon: "stripe",
       color: "#635BFF",
@@ -332,7 +333,7 @@ defmodule PhoenixKit.Modules.Billing.Providers do
   end
 
   def provider_info(:paypal) do
-    %{
+    %ProviderInfo{
       name: "PayPal",
       icon: "paypal",
       color: "#003087",
@@ -341,7 +342,7 @@ defmodule PhoenixKit.Modules.Billing.Providers do
   end
 
   def provider_info(:razorpay) do
-    %{
+    %ProviderInfo{
       name: "Razorpay",
       icon: "razorpay",
       color: "#072654",
@@ -349,7 +350,9 @@ defmodule PhoenixKit.Modules.Billing.Providers do
     }
   end
 
-  def provider_info(_), do: %{name: "Unknown", icon: "credit-card", color: "#6B7280"}
+  def provider_info(_) do
+    %ProviderInfo{name: "Unknown", icon: "credit-card", color: "#6B7280"}
+  end
 
   # Private helpers
 

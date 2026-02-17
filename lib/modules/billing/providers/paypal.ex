@@ -35,6 +35,14 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
 
   @behaviour PhoenixKit.Modules.Billing.Providers.Provider
 
+  alias PhoenixKit.Modules.Billing.Providers.Types.{
+    ChargeResult,
+    CheckoutSession,
+    RefundResult,
+    SetupSession,
+    WebhookEventData
+  }
+
   alias PhoenixKit.Settings
 
   require Logger
@@ -68,8 +76,8 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
         |> Enum.find(fn link -> link["rel"] == "approve" end)
 
       {:ok,
-       %{
-         session_id: order["id"],
+       %CheckoutSession{
+         id: order["id"],
          url: approve_link["href"],
          provider: :paypal,
          expires_at: nil
@@ -91,8 +99,8 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
         |> Enum.find(fn link -> link["rel"] == "approve" end)
 
       {:ok,
-       %{
-         session_id: setup_token["id"],
+       %SetupSession{
+         id: setup_token["id"],
          url: approve_link["href"],
          provider: :paypal
        }}
@@ -105,11 +113,10 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
          {:ok, order} <- create_order_with_vault(token, payment_method, amount, opts),
          {:ok, capture} <- capture_order(token, order["id"]) do
       {:ok,
-       %{
-         charge_id: capture["id"],
+       %ChargeResult{
+         id: capture["id"],
          status: capture["status"],
-         amount: amount,
-         provider: :paypal
+         amount: amount
        }}
     end
   end
@@ -150,11 +157,11 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
     with {:ok, token} <- get_access_token(),
          {:ok, refund} <- do_create_refund(token, provider_transaction_id, amount, opts) do
       {:ok,
-       %{
-         refund_id: refund["id"],
+       %RefundResult{
+         id: refund["id"],
+         provider_refund_id: refund["id"],
          status: refund["status"],
-         amount: amount,
-         provider: :paypal
+         amount: amount
        }}
     end
   end
@@ -369,7 +376,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
     custom_id = get_custom_id(resource)
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: payload["id"],
        type: "checkout.completed",
        provider: :paypal,
@@ -389,7 +396,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
     custom_id = get_custom_id_from_capture(resource)
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: payload["id"],
        type: "payment.succeeded",
        provider: :paypal,
@@ -407,7 +414,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
     custom_id = get_custom_id_from_capture(resource)
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: payload["id"],
        type: "payment.failed",
        provider: :paypal,
@@ -425,7 +432,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
     amount = resource["amount"]
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: payload["id"],
        type: "refund.created",
        provider: :paypal,

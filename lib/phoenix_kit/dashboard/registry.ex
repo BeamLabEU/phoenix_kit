@@ -62,7 +62,7 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   require Logger
 
-  alias PhoenixKit.Dashboard.{AdminTabs, Badge, Tab}
+  alias PhoenixKit.Dashboard.{AdminTabs, Badge, Group, Tab}
   alias PhoenixKit.PubSubHelper
   alias PhoenixKit.Users.Permissions
 
@@ -300,7 +300,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   @doc """
   Gets all registered groups, sorted by priority.
   """
-  @spec get_groups() :: [map()]
+  @spec get_groups() :: [Group.t()]
   def get_groups do
     if initialized?() do
       case :ets.lookup(@ets_table, :groups) do
@@ -323,7 +323,7 @@ defmodule PhoenixKit.Dashboard.Registry do
         %{id: :account, label: "Account", priority: 900}
       ])
   """
-  @spec register_groups([map()]) :: :ok
+  @spec register_groups([Group.t() | map()]) :: :ok
   def register_groups(groups) when is_list(groups) do
     GenServer.call(__MODULE__, {:register_groups, groups})
   end
@@ -826,9 +826,9 @@ defmodule PhoenixKit.Dashboard.Registry do
 
     # Default groups
     groups = [
-      %{id: :main, label: nil, priority: 100},
-      %{id: :shop, label: nil, priority: 200},
-      %{id: :account, label: nil, priority: 900}
+      %Group{id: :main, label: nil, priority: 100},
+      %Group{id: :shop, label: nil, priority: 200},
+      %Group{id: :account, label: nil, priority: 900}
     ]
 
     Enum.each(defaults, fn tab ->

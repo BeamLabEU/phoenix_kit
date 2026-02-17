@@ -43,6 +43,8 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
       PhoenixKit.Modules.Entities.FieldTypes.requires_options?("select") # => true
   """
 
+  alias PhoenixKit.Modules.Entities.FieldType
+
   @type field_type :: String.t()
   @type field_category ::
           :basic | :numeric | :boolean | :datetime | :choice | :advanced
@@ -189,15 +191,16 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
   }
 
   @doc """
-  Returns all field types as a map.
+  Returns all field types as a map of `%FieldType{}` structs.
 
   ## Examples
 
       iex> PhoenixKit.Modules.Entities.FieldTypes.all()
-      %{"text" => %{name: "text", ...}, ...}
+      %{"text" => %FieldType{name: "text", ...}, ...}
   """
+  @spec all() :: %{String.t() => FieldType.t()}
   def all do
-    @field_types
+    Map.new(@field_types, fn {key, map} -> {key, FieldType.from_map(map)} end)
   end
 
   @doc """
@@ -220,13 +223,17 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
   ## Examples
 
       iex> PhoenixKit.Modules.Entities.FieldTypes.get_type("text")
-      %{name: "text", label: "Text", ...}
+      %FieldType{name: "text", label: "Text", ...}
 
       iex> PhoenixKit.Modules.Entities.FieldTypes.get_type("invalid")
       nil
   """
+  @spec get_type(String.t()) :: FieldType.t() | nil
   def get_type(type_name) when is_binary(type_name) do
-    Map.get(@field_types, type_name)
+    case Map.get(@field_types, type_name) do
+      nil -> nil
+      map -> FieldType.from_map(map)
+    end
   end
 
   @doc """
@@ -250,12 +257,14 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
   ## Examples
 
       iex> PhoenixKit.Modules.Entities.FieldTypes.by_category(:basic)
-      [%{name: "text", ...}, %{name: "textarea", ...}, ...]
+      [%FieldType{name: "text", ...}, %FieldType{name: "textarea", ...}, ...]
   """
+  @spec by_category(field_category()) :: [FieldType.t()]
   def by_category(category) when is_atom(category) do
     @field_types
     |> Map.values()
     |> Enum.filter(fn type -> type.category == category end)
+    |> Enum.map(&FieldType.from_map/1)
   end
 
   @doc """
@@ -273,6 +282,7 @@ defmodule PhoenixKit.Modules.Entities.FieldTypes do
   def categories do
     @field_types
     |> Map.values()
+    |> Enum.map(&FieldType.from_map/1)
     |> Enum.group_by(& &1.category)
   end
 

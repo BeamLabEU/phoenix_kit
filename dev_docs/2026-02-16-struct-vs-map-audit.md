@@ -38,6 +38,19 @@ These data contracts already use proper structs:
 | `Billing.TimelineEvent` | `lib/modules/billing/web/invoice_detail/timeline_event.ex` | 3 | Converted 2026-02-17 from Tier 2 audit |
 | `Legal.LegalFramework` | `lib/modules/legal/legal_framework.ex` | 7 | Converted 2026-02-17 from Tier 1 audit |
 | `Legal.PageType` | `lib/modules/legal/page_type.ex` | 4 | Converted 2026-02-17 from Tier 1 audit |
+| `Billing.CheckoutSession` | `lib/modules/billing/providers/types/checkout_session.ex` | 5 | Converted 2026-02-17 from Tier 1 audit |
+| `Billing.SetupSession` | `lib/modules/billing/providers/types/setup_session.ex` | 4 | Converted 2026-02-17 from Tier 1 audit |
+| `Billing.WebhookEventData` | `lib/modules/billing/providers/types/webhook_event_data.ex` | 5 | Converted 2026-02-17 from Tier 1 audit |
+| `Billing.PaymentMethodInfo` | `lib/modules/billing/providers/types/payment_method_info.ex` | 10 | Converted 2026-02-17 from Tier 1 audit |
+| `Billing.ChargeResult` | `lib/modules/billing/providers/types/charge_result.ex` | 6 | Converted 2026-02-17 from Tier 1 audit |
+| `Billing.RefundResult` | `lib/modules/billing/providers/types/refund_result.ex` | 5 | Converted 2026-02-17 from Tier 1 audit |
+| `Billing.ProviderInfo` | `lib/modules/billing/providers/types/provider_info.ex` | 4 | Converted 2026-02-17 from Tier 1 audit |
+| `Entities.FieldType` | `lib/modules/entities/field_type.ex` | 7 | Converted 2026-02-17 from Tier 1 audit |
+| `Dashboard.Group` | `lib/phoenix_kit/dashboard/group.ex` | 3 | Converted 2026-02-17 from Tier 1 audit |
+| `Sync.TableSchema` | `lib/modules/sync/table_schema.ex` | 4 | Converted 2026-02-17 from Tier 1 audit |
+| `Sync.ColumnInfo` | `lib/modules/sync/column_info.ex` | 8 | Converted 2026-02-17 from Tier 1 audit |
+| `Emails.EmailLogData` | `lib/modules/emails/email_log_data.ex` | 16 | Converted 2026-02-17 from Tier 1 audit |
+| `AI.AIModel` | `lib/modules/ai/ai_model.ex` | 9 | Converted 2026-02-17 from Tier 1 audit |
 
 All Ecto schemas (`User`, `Role`, `Cart`, `Post`, `Comment`, etc.) are also proper structs by virtue of `use Ecto.Schema`.
 
@@ -47,7 +60,7 @@ All Ecto schemas (`User`, `Role`, `Cart`, `Post`, `Comment`, etc.) are also prop
 
 These maps cross module boundaries — they're constructed in one module and consumed (pattern-matched, accessed) in another. Converting them to structs catches shape mismatches at compile time.
 
-### 1.1 Billing Provider Behaviour Types
+### 1.1 Billing Provider Behaviour Types — DONE (2026-02-17)
 
 **File:** `lib/modules/billing/providers/provider.ex`
 
@@ -66,7 +79,7 @@ The `Provider` behaviour defines 6 `@type` specs as plain maps. Every provider (
 
 **Recommendation:** Create structs in `lib/modules/billing/providers/types/` (e.g., `checkout_session.ex`, `webhook_event.ex`). Update the `@callback` specs to return `CheckoutSession.t()` instead of `checkout_session()`. Each provider's return maps become `%CheckoutSession{...}`.
 
-### 1.2 Billing ProviderInfo
+### 1.2 Billing ProviderInfo — DONE (2026-02-17)
 
 **File:** `lib/modules/billing/providers/providers.ex`, lines 325–352
 
@@ -78,7 +91,7 @@ The `Provider` behaviour defines 6 `@type` specs as plain maps. Every provider (
 
 **Recommendation:** `%ProviderInfo{}` struct with 4 required fields. Small but crosses into template rendering.
 
-### 1.3 Entities FieldType
+### 1.3 Entities FieldType — DONE (2026-02-17)
 
 **File:** `lib/modules/entities/field_types.ex`, lines 50–189
 
@@ -99,7 +112,7 @@ The `Provider` behaviour defines 6 `@type` specs as plain maps. Every provider (
 
 **Recommendation:** `%FieldType{}` struct with `@enforce_keys [:name, :label, :category]`. The `default_props` field stays as a plain map (type-specific, dynamic shape).
 
-### 1.4 Emails EmailLogData
+### 1.4 Emails EmailLogData — DONE (2026-02-17)
 
 **File:** `lib/modules/emails/interceptor.ex`, lines 374–391
 
@@ -114,7 +127,7 @@ The `Provider` behaviour defines 6 `@type` specs as plain maps. Every provider (
 
 **Recommendation:** `%EmailLogData{}` struct. This is one of the largest untyped maps in the codebase and sits at the center of the email tracking pipeline.
 
-### 1.5 Sync TableSchema + ColumnInfo
+### 1.5 Sync TableSchema + ColumnInfo — DONE (2026-02-17)
 
 **File:** `lib/modules/sync/schema_inspector.ex`, lines 326–368
 
@@ -139,7 +152,7 @@ Constructed in `fetch_table_schema/2`. Consumed by:
 
 **Recommendation:** Two structs: `%TableSchema{}` and `%ColumnInfo{}`. The sync module passes these across the wire protocol, so typed structs also serve as documentation for the sync API.
 
-### 1.6 AI AIModel
+### 1.6 AI AIModel — DONE (2026-02-17)
 
 **File:** `lib/modules/ai/openrouter_client.ex`, lines 191–267 (embedding models), 444–455 (normalization)
 
@@ -168,7 +181,7 @@ Constructed in `fetch_table_schema/2`. Consumed by:
 
 Created `%LegalFramework{}` (7 fields, `@enforce_keys [:id, :name, :consent_model, :required_pages]`) and `%PageType{}` (4 fields, `@enforce_keys [:slug, :title, :template]`). Both include `from_map/1` for boundary conversion. Internal `@frameworks` and `@page_types` module attributes stay as plain maps. `available_frameworks/0`, `available_page_types/0`, and `get_page_config/1` convert at the boundary.
 
-### 1.8 Dashboard Group
+### 1.8 Dashboard Group — DONE (2026-02-17)
 
 **Files:** `lib/phoenix_kit/dashboard/registry.ex` (lines 826–830), `lib/phoenix_kit/dashboard/admin_tabs.ex` (lines 70–74)
 
@@ -257,22 +270,22 @@ Complete table of every file with a Tier 1 or Tier 2 gap:
 
 | File | Lines | Current Shape | Target Struct | Tier |
 |------|-------|---------------|---------------|------|
-| `lib/modules/billing/providers/provider.ex` | 48–54 | `checkout_session` map | `CheckoutSession` | 1 |
-| `lib/modules/billing/providers/provider.ex` | 56–61 | `setup_session` map | `SetupSession` | 1 |
-| `lib/modules/billing/providers/provider.ex` | 63–69 | `webhook_event` map | `WebhookEvent` (struct) | 1 |
-| `lib/modules/billing/providers/provider.ex` | 71–82 | `payment_method` map | `PaymentMethod` (struct) | 1 |
-| `lib/modules/billing/providers/provider.ex` | 84–91 | `charge_result` map | `ChargeResult` | 1 |
-| `lib/modules/billing/providers/provider.ex` | 93–99 | `refund_result` map | `RefundResult` | 1 |
-| `lib/modules/billing/providers/providers.ex` | 325–352 | `provider_info` map | `ProviderInfo` | 1 |
-| `lib/modules/entities/field_types.ex` | 50–189 | `field_type` map | `FieldType` | 1 |
-| `lib/modules/emails/interceptor.ex` | 374–391 | `email_log_data` map | `EmailLogData` | 1 |
-| `lib/modules/sync/schema_inspector.ex` | 326–368 | `table_schema` map | `TableSchema` | 1 |
-| `lib/modules/sync/schema_inspector.ex` | 345–357 | `column_info` map | `ColumnInfo` | 1 |
-| `lib/modules/ai/openrouter_client.ex` | 444–455 | normalized model map | `AIModel` | 1 |
+| `lib/modules/billing/providers/provider.ex` | 48–54 | ~~`checkout_session` map~~ | `CheckoutSession` | 1 ✅ |
+| `lib/modules/billing/providers/provider.ex` | 56–61 | ~~`setup_session` map~~ | `SetupSession` | 1 ✅ |
+| `lib/modules/billing/providers/provider.ex` | 63–69 | ~~`webhook_event` map~~ | `WebhookEventData` | 1 ✅ |
+| `lib/modules/billing/providers/provider.ex` | 71–82 | ~~`payment_method` map~~ | `PaymentMethodInfo` | 1 ✅ |
+| `lib/modules/billing/providers/provider.ex` | 84–91 | ~~`charge_result` map~~ | `ChargeResult` | 1 ✅ |
+| `lib/modules/billing/providers/provider.ex` | 93–99 | ~~`refund_result` map~~ | `RefundResult` | 1 ✅ |
+| `lib/modules/billing/providers/providers.ex` | 325–352 | ~~`provider_info` map~~ | `ProviderInfo` | 1 ✅ |
+| `lib/modules/entities/field_types.ex` | 50–189 | ~~`field_type` map~~ | `FieldType` | 1 ✅ |
+| `lib/modules/emails/interceptor.ex` | 374–391 | ~~`email_log_data` map~~ | `EmailLogData` | 1 ✅ |
+| `lib/modules/sync/schema_inspector.ex` | 326–368 | ~~`table_schema` map~~ | `TableSchema` | 1 ✅ |
+| `lib/modules/sync/schema_inspector.ex` | 345–357 | ~~`column_info` map~~ | `ColumnInfo` | 1 ✅ |
+| `lib/modules/ai/openrouter_client.ex` | 444–455 | ~~normalized model map~~ | `AIModel` | 1 ✅ |
 | `lib/modules/legal/legal.ex` | 42–106 | ~~`framework` map~~ | `LegalFramework` | 1 ✅ |
 | `lib/modules/legal/legal.ex` | 109–152 | ~~`page_type` map~~ | `PageType` | 1 ✅ |
-| `lib/phoenix_kit/dashboard/registry.ex` | 826–830 | `group` map | `Dashboard.Group` | 1 |
-| `lib/phoenix_kit/dashboard/admin_tabs.ex` | 70–74 | `group` map | `Dashboard.Group` | 1 |
+| `lib/phoenix_kit/dashboard/registry.ex` | 826–830 | ~~`group` map~~ | `Dashboard.Group` | 1 ✅ |
+| `lib/phoenix_kit/dashboard/admin_tabs.ex` | 70–74 | ~~`group` map~~ | `Dashboard.Group` | 1 ✅ |
 | `lib/phoenix_kit/utils/session_fingerprint.ex` | 54–59 | ~~fingerprint map~~ | `SessionFingerprint` | 2 ✅ |
 | `lib/modules/billing/utils/iban_data.ex` | 22–98 | ~~`iban_spec` map~~ | `IbanData` | 2 ✅ |
 | `lib/modules/billing/web/invoice_detail/helpers.ex` | 72–168 | ~~timeline event map~~ | `TimelineEvent` | 2 ✅ |
@@ -335,7 +348,7 @@ Suggested order based on cross-boundary impact, consumer count, and bug risk:
 
 | Tier | Items | New Structs | Done | Remaining |
 |------|-------|-------------|------|-----------|
-| **Tier 1** (cross-module) | 16 map shapes | 16 structs | 2 ✅ | 14 |
-| **Tier 2** (module-internal) | 5 map shapes | 5 structs | 4 ✅ | 1 |
+| **Tier 1** (cross-module) | 16 map shapes | 16 structs | 16 ✅ | 0 |
+| **Tier 2** (module-internal) | 5 map shapes | 5 structs | 4 ✅ | 1 (deferred) |
 | **Tier 3** (acceptable) | 6 categories | 0 | — | 0 |
-| **Total** | 27 audited | **21 new structs** | **6** | **15** |
+| **Total** | 27 audited | **21 new structs** | **20** | **1** (Filter/Pagination — deferred) |
