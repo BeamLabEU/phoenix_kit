@@ -36,6 +36,8 @@ These data contracts already use proper structs:
 | `Billing.IbanData` | `lib/modules/billing/utils/iban_data.ex` | 2 | Converted 2026-02-17 from Tier 2 audit |
 | `Sitemap.SitemapFile` | `lib/modules/sitemap/sitemap_file.ex` | 3 | Converted 2026-02-17 from Tier 2 audit |
 | `Billing.TimelineEvent` | `lib/modules/billing/web/invoice_detail/timeline_event.ex` | 3 | Converted 2026-02-17 from Tier 2 audit |
+| `Legal.LegalFramework` | `lib/modules/legal/legal_framework.ex` | 7 | Converted 2026-02-17 from Tier 1 audit |
+| `Legal.PageType` | `lib/modules/legal/page_type.ex` | 4 | Converted 2026-02-17 from Tier 1 audit |
 
 All Ecto schemas (`User`, `Role`, `Cart`, `Post`, `Comment`, etc.) are also proper structs by virtue of `use Ecto.Schema`.
 
@@ -160,31 +162,11 @@ Constructed in `fetch_table_schema/2`. Consumed by:
 
 **Recommendation:** `%AIModel{}` struct with atom keys. `normalize_models/2` becomes the conversion boundary from string-keyed JSON to typed struct.
 
-### 1.7 Legal LegalFramework + PageType
+### 1.7 Legal LegalFramework + PageType — DONE (2026-02-17)
 
-**File:** `lib/modules/legal/legal.ex`, lines 42–106 (frameworks), 109–152 (page types)
+**Files:** `lib/modules/legal/legal_framework.ex` (new), `lib/modules/legal/page_type.ex` (new), `lib/modules/legal/legal.ex`
 
-**LegalFramework** (7 fields):
-```elixir
-%{id: "gdpr", name: "GDPR (European Union)", description: "...",
-  regions: ["EU", "EEA"], consent_model: :opt_in,
-  required_pages: ["privacy-policy", "cookie-policy"],
-  optional_pages: ["data-retention-policy"]}
-```
-
-7 frameworks defined (GDPR, UK GDPR, CCPA, US States, LGPD, PIPEDA, Generic).
-
-**PageType** (4 fields):
-```elixir
-%{slug: "privacy-policy", title: "Privacy Policy",
-  template: "privacy_policy.eex", description: "..."}
-```
-
-7 page types defined. Both consumed in `legal.web.settings.ex` for UI rendering and template generation.
-
-**~13 occurrences** total.
-
-**Recommendation:** `%LegalFramework{}` and `%PageType{}` structs. Low occurrence count but clean data contracts that benefit from compile-time checks.
+Created `%LegalFramework{}` (7 fields, `@enforce_keys [:id, :name, :consent_model, :required_pages]`) and `%PageType{}` (4 fields, `@enforce_keys [:slug, :title, :template]`). Both include `from_map/1` for boundary conversion. Internal `@frameworks` and `@page_types` module attributes stay as plain maps. `available_frameworks/0`, `available_page_types/0`, and `get_page_config/1` convert at the boundary.
 
 ### 1.8 Dashboard Group
 
@@ -287,8 +269,8 @@ Complete table of every file with a Tier 1 or Tier 2 gap:
 | `lib/modules/sync/schema_inspector.ex` | 326–368 | `table_schema` map | `TableSchema` | 1 |
 | `lib/modules/sync/schema_inspector.ex` | 345–357 | `column_info` map | `ColumnInfo` | 1 |
 | `lib/modules/ai/openrouter_client.ex` | 444–455 | normalized model map | `AIModel` | 1 |
-| `lib/modules/legal/legal.ex` | 42–106 | `framework` map | `LegalFramework` | 1 |
-| `lib/modules/legal/legal.ex` | 109–152 | `page_type` map | `PageType` | 1 |
+| `lib/modules/legal/legal.ex` | 42–106 | ~~`framework` map~~ | `LegalFramework` | 1 ✅ |
+| `lib/modules/legal/legal.ex` | 109–152 | ~~`page_type` map~~ | `PageType` | 1 ✅ |
 | `lib/phoenix_kit/dashboard/registry.ex` | 826–830 | `group` map | `Dashboard.Group` | 1 |
 | `lib/phoenix_kit/dashboard/admin_tabs.ex` | 70–74 | `group` map | `Dashboard.Group` | 1 |
 | `lib/phoenix_kit/utils/session_fingerprint.ex` | 54–59 | ~~fingerprint map~~ | `SessionFingerprint` | 2 ✅ |
@@ -353,7 +335,7 @@ Suggested order based on cross-boundary impact, consumer count, and bug risk:
 
 | Tier | Items | New Structs | Done | Remaining |
 |------|-------|-------------|------|-----------|
-| **Tier 1** (cross-module) | 16 map shapes | 16 structs | 0 | 16 |
+| **Tier 1** (cross-module) | 16 map shapes | 16 structs | 2 ✅ | 14 |
 | **Tier 2** (module-internal) | 5 map shapes | 5 structs | 4 ✅ | 1 |
 | **Tier 3** (acceptable) | 6 categories | 0 | — | 0 |
-| **Total** | 27 audited | **21 new structs** | **4** | **17** |
+| **Total** | 27 audited | **21 new structs** | **6** | **15** |
