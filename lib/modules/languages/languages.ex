@@ -617,9 +617,11 @@ defmodule PhoenixKit.Modules.Languages do
   def get_languages_grouped_by_continent do
     get_available_languages()
     |> Enum.flat_map(fn lang ->
+      base_map = normalize_language_map(lang)
+
       # Create one entry per country for this language
       Enum.map(lang.countries, fn country ->
-        Map.put(lang, :country, country)
+        Map.put(base_map, :country, country)
       end)
     end)
     |> Enum.group_by(& &1.country)
@@ -646,6 +648,9 @@ defmodule PhoenixKit.Modules.Languages do
       {continent, sorted_countries}
     end)
   end
+
+  defp normalize_language_map(%Language{} = lang), do: Map.from_struct(lang)
+  defp normalize_language_map(lang) when is_map(lang), do: lang
 
   # Filter languages based on country's languages_official and language_locales
   # - languages_official: determines WHICH languages to show (e.g., ["fr"] for France)
