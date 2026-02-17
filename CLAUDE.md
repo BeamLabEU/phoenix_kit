@@ -4,498 +4,190 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## MCP Memory Knowledge Base
 
-⚠️ **IMPORTANT**: Always start working with the project by studying data in the MCP memory storage. Use the command:
-
-```
-mcp__memory__read_graph
-```
-
-This will help understand the current state of the project, implemented and planned components, architectural decisions.
-
-Update data in memory when discovering new components or changes in project architecture. Use:
-
-- `mcp__memory__create_entities` - for adding new modules/components
-- `mcp__memory__create_relations` - for relationships between components
-- `mcp__memory__add_observations` - for supplementing information about existing components
+Always start by reading MCP memory: `mcp__memory__read_graph`. Update with `mcp__memory__create_entities`, `mcp__memory__create_relations`, `mcp__memory__add_observations`.
 
 ## Project Overview
 
-This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix with PostgreSQL support and streamlined setup. As a start it provides a complete authentication system that can be integrated into any Phoenix application without circular dependencies.
+**PhoenixKit** - A starter kit for building modern web apps with Elixir/Phoenix/PostgreSQL. Library-first architecture (no OTP application), complete auth system with Magic Links, role-based access control (Owner/Admin/User), built-in admin dashboard, daisyUI 5 theme system, professional versioned migrations, layout integration with parent apps.
 
-**Key Characteristics:**
+## Built-in Dashboard Features (USE THESE FIRST)
 
-- Library-first architecture (no OTP application)
-- Streamlined setup with automatic repository detection
-- Complete authentication system with Magic Links
-- Role-based access control (Owner/Admin/User)
-- Built-in admin dashboard and user management
-- Modern theme system with daisyUI 5 and 35+ themes support
-- Professional versioned migration system
-- Layout integration with parent applications
-- Ready for production use
+Before implementing custom dashboard functionality, check if PhoenixKit already provides it.
 
-## ⚠️ Built-in Dashboard Features (USE THESE FIRST)
+**Full documentation:** `lib/phoenix_kit/dashboard/README.md` (tabs, subtabs, badges, context selectors, and more).
 
-**IMPORTANT**: Before implementing custom dashboard functionality, check if PhoenixKit already provides it.
-
-**Full documentation:** See `lib/phoenix_kit/dashboard/README.md` for comprehensive dashboard documentation including tabs, subtabs, badges, context selectors, and more.
-
-### Quick Reference
-
-- **Tabs & Subtabs** - Configurable navigation with parent/child relationships, custom styling, animations
-- **Admin Navigation** - Registry-driven admin sidebar with permission gating, dynamic children, and parent app customization via `:admin_dashboard_tabs` config (see `ADMIN_README.md`)
-- **Context Selectors** - Organization/team/project switching with dependencies
-- **Theme Switcher** - `dashboard_themes` config, auto-renders in header
-- **Live Badges** - Real-time badge updates via PubSub
-- **Role-based UI** - Use `@phoenix_kit_current_scope` for role checks
-
-### Context Selector Quick Example
-
-```elixir
-# Single selector - config/config.exs
-config :phoenix_kit, :dashboard_context_selector,
-  loader: {MyApp.Orgs, :list_for_user},
-  display_name: fn org -> org.name end,
-  label: "Organization",
-  position: :header
-
-# Multiple selectors with dependencies
-config :phoenix_kit, :dashboard_context_selectors, [
-  %{key: :organization, loader: {MyApp.Orgs, :list_for_user}, ...},
-  %{key: :project, depends_on: :organization, loader: {MyApp.Projects, :list_for_org}, ...}
-]
-```
-
-### Subtab Styling Quick Example
-
-```elixir
-config :phoenix_kit, :user_dashboard_tabs, [
-  %{
-    id: :orders,
-    label: "Orders",
-    path: "/dashboard/orders",
-    subtab_display: :when_active,  # or :always
-    subtab_indent: "pl-12",        # Tailwind padding class
-    subtab_icon_size: "w-3 h-3",   # Icon size
-    subtab_text_size: "text-xs",   # Text size
-    subtab_animation: :slide       # :none, :slide, :fade, :collapse
-  },
-  %{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders}
-]
-```
+**Quick Reference:** Tabs & Subtabs, Admin Navigation (registry-driven, see `ADMIN_README.md`), Context Selectors, Theme Switcher (`dashboard_themes` config), Live Badges (PubSub), Role-based UI (`@phoenix_kit_current_scope`).
 
 ## Development Commands
 
 ### Setup and Dependencies
 
-- `mix setup` - Complete project setup (installs deps, sets up database)
+- `mix setup` - Complete project setup
 - `mix deps.get` - Install Elixir dependencies only
 
 ### Database Operations
 
-- `mix ecto.create` - Create the database
-- `mix ecto.migrate` - Run database migrations
-- `mix ecto.reset` - Drop and recreate database with fresh data
-- `mix ecto.setup` - Create database, run migrations, and seed data
+- `mix ecto.create` / `mix ecto.migrate` / `mix ecto.reset` / `mix ecto.setup`
 
 ### PhoenixKit Installation System
 
-- `mix phoenix_kit.install` - Install PhoenixKit using igniter (for new projects)
-- `mix phoenix_kit.install --help` - Show detailed installation help and options
-- `mix phoenix_kit.update` - Update existing PhoenixKit installation to latest version
-- `mix phoenix_kit.update --help` - Show detailed update help and options
-- `mix phoenix_kit.update --status` - Check current version and available updates
+- `mix phoenix_kit.install` - Install PhoenixKit (use `--help` for options)
+- `mix phoenix_kit.update` - Update existing installation (use `--help` or `--status`)
 - `mix phoenix_kit.gen.migration` - Generate custom migration files
 
-**Key Features:**
-
-- **Professional versioned migrations** - Oban-style migration system with version tracking
-- **Prefix support** - Isolate PhoenixKit tables using PostgreSQL schemas
-- **Idempotent operations** - Safe to run migrations multiple times
-- **Multi-version upgrades** - Automatically handles upgrades across multiple versions
-- **PostgreSQL Validation** - Automatic database adapter detection with warnings for non-PostgreSQL setups
-- **Production Mailer Templates** - Auto-generated configuration examples for SMTP, SendGrid, Mailgun, Amazon SES
-- **Interactive Migration Runner** - Optional automatic migration execution with smart CI detection
-- **Built-in Help System** - Comprehensive help documentation accessible via `--help` flag
-
-**Installation Help:**
-
-```bash
-# Show detailed installation options and examples
-mix phoenix_kit.install --help
-
-# Quick examples from help:
-mix phoenix_kit.install                                   # Basic installation with auto-detection
-mix phoenix_kit.install --repo MyApp.Repo                 # Specify repository
-mix phoenix_kit.install --prefix auth                     # Custom schema prefix
-```
-
-**Update Help:**
-
-```bash
-# Show detailed update options and examples
-mix phoenix_kit.update --help
-
-# Quick examples from help:
-mix phoenix_kit.update                                    # Update to latest version
-mix phoenix_kit.update --status                           # Check current version
-mix phoenix_kit.update --prefix auth                      # Update with custom prefix
-mix phoenix_kit.update -y                                 # Skip confirmation prompts (CI/CD)
-mix phoenix_kit.update --force -y                         # Force update with auto-migration
-```
+Features: Oban-style versioned migrations, prefix support, idempotent operations, PostgreSQL validation, production mailer templates.
 
 ### Code Search with ast-grep
 
-**Prefer `ast-grep` over text-based grep for structural code searches.** It understands AST patterns and works with Elixir.
+**Prefer `ast-grep` over text-based grep for structural code searches.**
 
 ```bash
-# Find all calls to a function
 ast-grep --lang elixir --pattern 'load_filter_data($$$)' lib/
-
-# Find specific variable/field usage
-ast-grep --lang elixir --pattern 'category_id' lib/modules/shop/
-
-# Find function definitions
-ast-grep --lang elixir --pattern 'def $FUNC($$$ARGS) do $$$BODY end' lib/modules/shop/web/components/
-
-# Find pattern matches on a specific key
-ast-grep --lang elixir --pattern 'p.id' lib/modules/shop/shop.ex
+ast-grep --lang elixir --pattern 'def $FUNC($$$ARGS) do $$$BODY end' lib/
 ```
 
-**When to use ast-grep vs Grep:**
-- `ast-grep` - structural patterns, function calls, variable references, refactoring checks
-- `Grep` (ripgrep) - text patterns, regex, searching strings/comments/docs
+Use `ast-grep` for structural patterns/function calls/refactoring; `Grep` (ripgrep) for text/regex/strings/comments.
 
 ### Testing & Code Quality
 
-- `mix test` - Run smoke tests (module loading and configuration)
-- `mix format` - Format code according to .formatter.exs
-- `mix credo --strict` - Static code analysis
-- `mix dialyzer` - Type checking (requires PLT setup)
-- `mix quality` - Run all quality checks (format, credo, dialyzer)
+- `mix test` - Smoke tests (module loading)
+- `mix format` - Format code
+- `mix credo --strict` - Static analysis
+- `mix dialyzer` - Type checking
+- `mix quality` - Run all quality checks
 
-**Testing Philosophy for Library Modules:**
-
-PhoenixKit is a **library module**, not a standalone application. Testing approach:
-
-- ✅ **Smoke Tests** - Verify modules are loadable and properly structured
-- ✅ **Static Analysis** - Credo and Dialyzer catch logic and type errors
-- ✅ **Integration Testing** - Should be performed in parent Phoenix applications
-
-**Why Minimal Unit Tests?**
-- Library code requires database, configuration, and runtime context
-- Unit tests would need complex mocking of Repo, Settings, and other dependencies
-- Real-world usage testing in parent applications provides better coverage
-- Smoke tests ensure library compiles and modules load correctly
-
-**For Contributors:**
-Test your changes by integrating PhoenixKit into a real Phoenix application.
-See CONTRIBUTING.md for development workflow with live reloading.
+PhoenixKit is a library module. Smoke tests + static analysis here; integration testing in parent apps. See CONTRIBUTING.md for dev workflow.
 
 ### CI/CD
 
-PhoenixKit uses GitHub Actions for continuous integration:
+GitHub Actions on push to `main`, `dev`, `claude/**` and all PRs. Checks: formatting, credo, dialyzer, compilation (warnings as errors), dependency audit, smoke tests.
 
-**Automated Checks:**
-- ✅ Code formatting validation (`mix format --check-formatted`)
-- ✅ Static analysis with Credo (`mix credo --strict`)
-- ✅ Type checking with Dialyzer
-- ✅ Compilation with warnings as errors (production code)
-- ✅ Dependency audit (non-blocking for transitive deps)
-- 📝 Smoke tests (optional - basic module loading verification)
+### Pre-commit Checklist
 
-**CI Workflow:**
-- Runs on push to `main`, `dev`, and `claude/**` branches
-- Runs on all pull requests
-- Uses caching for dependencies and PLT files
-- Parallel execution for faster feedback
+**ALWAYS run before git commit:** `mix format` then `git add` then `git commit`.
 
-**View CI Status:**
-- GitHub Actions: Check the "Actions" tab in the repository
-- Badge: See README.md for CI status badge
+### Commit Message Rules
 
-### ⚠️ IMPORTANT: Pre-commit Checklist
+Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`. **NEVER mention Claude or AI assistance** in commit messages.
 
-**ALWAYS run before git commit:**
-
-```bash
-mix format
-git add -A  # Add formatted files
-git commit -m "your message"
-```
-
-This ensures consistent code formatting across the project.
-
-### 📝 Commit Message Rules
-
-**ALWAYS start commit messages with action verbs:**
-
-- `Add` - for new features, files, or functionality
-- `Update` - for modifications to existing code or features
-- `Merge` - for merge commits or combining changes
-- `Fix` - for bug fixes
-- `Remove` - for deletions
-
-**Important commit message restrictions:**
-
-- ❌ **NEVER mention Claude or AI assistance** in commit messages
-- ❌ Avoid phrases like "Generated with Claude", "AI-assisted", etc.
-- ✅ Focus on **what** was changed and **why**
-
-**Examples:**
-
-- ✅ `Add role system for user authorization management`
-- ✅ `Update rollback logic to handle single version migrations`
-- ✅ `Fix merge conflict markers in installation file`
-- ❌ `Enhanced migration system` (no action verb)
-- ❌ `migration fixes` (not descriptive enough)
-- ❌ `Add new feature with Claude assistance` (mentions AI)
-
-### 🏷️ Version Management
+### Version Management
 
 **Current Version**: 1.7.43 (mix.exs) | **Migration Version**: V57
 
-**Version updates require:** Update `mix.exs` (@version), `CHANGELOG.md`, and optionally `README.md`. Always run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
+Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
 ### PR Reviews
 
-PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/CLAUDE_REVIEW.md`. See `dev_docs/pull_requests/README.md` for full conventions, naming, and file types.
+PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/CLAUDE_REVIEW.md`. See `dev_docs/pull_requests/README.md`.
 
 ### Publishing
 
-- `mix hex.build` - Build package for Hex.pm
-- `mix hex.publish` - Publish to Hex.pm (requires auth)
-- `mix docs` - Generate documentation with ExDoc
+- `mix hex.build` / `mix hex.publish` / `mix docs`
 
 ## Code Style Guidelines
 
 ### Template Comments
 
-**Use EEx comments in .heex templates:** `<%!-- comment --%>` (server-side, not sent to client)
-**Avoid HTML comments:** `<!-- comment -->` (sent to browser)
+Use EEx comments: `<%!-- comment --%>` (server-side). Avoid HTML comments: `<!-- -->` (sent to browser).
 
 ### Table Row Actions: Inline Buttons, Not Dropdowns
 
-**Use inline icon buttons for table/list row actions**, not dropdown menus. Pattern: `flex gap-1` with `btn btn-xs btn-ghost` icon-only buttons and `title` tooltips. Dropdown menus are OK for selectors (status, format, version pickers) but not for CRUD actions.
+Use inline icon buttons (`flex gap-1`, `btn btn-xs btn-ghost` with `title` tooltips) for table/list row actions. Dropdown menus OK for selectors only.
 
 ### Structs Over Plain Maps
 
-**Prefer structs over plain maps when a struct type exists.** Use the struct or its `.new/1` constructor in application code rather than bare maps.
-
-**Key struct types:**
-- `PhoenixKit.Dashboard.Tab` - Tab configuration (`Tab.new/1`)
-- `PhoenixKit.Dashboard.Badge` - Badge configuration (`Badge.new/1`)
-- `PhoenixKit.Dashboard.ContextSelector` - Context selector configuration
-
-**Exception:** In `config/config.exs`, plain maps are idiomatic and correct — `.new/1` constructors accept maps and convert them to structs at runtime.
-
-```elixir
-# ✅ In application code, use structs
-Tab.new(%{id: :orders, label: "Orders", path: "/dashboard/orders"})
-
-# ✅ In config/config.exs, plain maps are fine (converted at runtime)
-config :phoenix_kit, :user_dashboard_tabs, [
-  %{id: :orders, label: "Orders", path: "/dashboard/orders"}
-]
-
-# ❌ In application code, avoid plain maps when struct exists
-%{id: :orders, label: "Orders", path: "/dashboard/orders"}
-```
+Prefer structs when a type exists: `Tab.new/1`, `Badge.new/1`, `ContextSelector`. Exception: plain maps in `config/config.exs` are idiomatic.
 
 ### DateTime: Always Use `DateTime.utc_now()`
 
-**Always use `:utc_datetime` and `DateTime.utc_now()` in new code.** Never use `NaiveDateTime` in new schemas or application code. See the [DateTime Convention](#datetime-convention) section for the full reference table and rationale.
+**Always use `:utc_datetime` and `DateTime.utc_now()`.** Never `NaiveDateTime` in new code.
+
+| Context | Use | Never Use |
+|---------|-----|-----------|
+| Schema timestamps | `timestamps(type: :utc_datetime)` | `timestamps()` or `timestamps(type: :naive_datetime)` |
+| Datetime fields | `field :name, :utc_datetime` | `field :name, :naive_datetime` |
+| Application code | `DateTime.utc_now()` | `NaiveDateTime.utc_now()` |
+
+Existing `:utc_datetime_usec` schemas are fine. See `dev_docs/2026-02-15-datetime-inconsistency-report.md` for rationale.
 
 ### URL Prefix and Navigation (IMPORTANT)
 
-**NEVER hardcode PhoenixKit paths.** PhoenixKit uses a configurable URL prefix (default: `/phoenix_kit`). Always use the provided helpers to ensure paths work correctly regardless of prefix configuration.
+**NEVER hardcode PhoenixKit paths.** Use configurable prefix helpers:
 
-**Available Helpers:**
-
-1. **`Routes.path/1`** - Build prefix-aware paths in Elixir code
+1. **`Routes.path/1`** - Prefix-aware paths in Elixir code
 2. **`<.pk_link>`** - Prefix-aware link component for templates
 
-**✅ CORRECT - Using Routes.path:**
-
 ```elixir
-# In any LiveView or Controller (Routes is auto-imported)
-def handle_event("save", _params, socket) do
-  {:noreply, push_navigate(socket, to: Routes.path("/dashboard"))}
-end
-
-# Building URLs for emails
+# In LiveView/Controller (Routes is auto-imported)
+push_navigate(socket, to: Routes.path("/dashboard"))
 url = Routes.url("/users/confirm/#{token}")
 ```
 
-**✅ CORRECT - Using pk_link component:**
-
 ```heex
-<%!-- Navigate with automatic prefix --%>
 <.pk_link navigate="/dashboard">Dashboard</.pk_link>
-
-<%!-- Patch for LiveView updates --%>
 <.pk_link patch="/dashboard/settings">Settings</.pk_link>
-
-<%!-- Button-styled link --%>
-<.pk_link_button navigate="/admin/users" variant="primary">
-  Manage Users
-</.pk_link_button>
+<.pk_link_button navigate="/admin/users" variant="primary">Manage Users</.pk_link_button>
 ```
-
-**❌ WRONG - Hardcoded paths:**
-
-```heex
-<%!-- DON'T DO THIS - breaks when prefix changes --%>
-<.link navigate="/phoenix_kit/dashboard">Dashboard</.link>
-<.link navigate="/dashboard">Dashboard</.link>
-```
-
-**When to use which:**
 
 | Scenario | Use |
 |----------|-----|
-| Template navigation links | `<.pk_link navigate="/path">` |
-| Template patch links | `<.pk_link patch="/path">` |
-| `push_navigate` in LiveView | `Routes.path("/path")` |
-| `push_patch` in LiveView | `Routes.path("/path")` |
-| Redirect in Controller | `Routes.path("/path")` |
+| Template links | `<.pk_link navigate="/path">` or `patch` |
+| LiveView navigate/patch | `Routes.path("/path")` |
+| Controller redirect | `Routes.path("/path")` |
 | Email URLs | `Routes.url("/path")` |
-
-**Note:** `Routes` is automatically aliased in all LiveViews, LiveComponents, Controllers, and HTML modules via `PhoenixKitWeb`.
 
 ### Route Path Convention (Hyphens)
 
-PhoenixKit uses **hyphens** in route paths, not underscores:
-
-| Correct (PhoenixKit) | Common Convention |
-|---------------------|-------------------|
-| `/users/log-in` | `/users/log_in` |
-| `/users/log-out` | `/users/log_out` |
-| `/users/reset-password` | `/users/reset_password` |
-| `/users/magic-link` | `/users/magic_link` |
-
-This matches URL conventions (hyphens are more readable in URLs) but differs from the typical Elixir/Phoenix underscore convention. If you get 404 errors, check that you're using hyphens.
+PhoenixKit uses **hyphens** in route paths: `/users/log-in`, `/users/reset-password`, `/users/magic-link`. If you get 404s, check for hyphens vs underscores.
 
 ### Helper Functions: Use Components, Not Private Functions
 
-**CRITICAL**: Never use `defp` helpers called from HEEX templates - compiler can't see usage.
-
-**❌ WRONG:** `defp format_date(date)` called as `{format_date(@date)}` in template
-**✅ CORRECT:** Create Phoenix Component in `lib/phoenix_kit_web/components/core/` and use as `<.formatted_date date={@date} />`
-
-**Existing components:** `badge.ex`, `time_display.ex`, `user_info.ex`, `button.ex`, `input.ex`, `select.ex`, `draggable_list.ex`
-
-**To add new:** Create in `components/core/`, import in `phoenix_kit_web.ex` → `core_components()`
+**Never use `defp` helpers called from HEEX templates** - compiler can't see usage. Create Phoenix Components in `lib/phoenix_kit_web/components/core/` instead. Existing: `badge.ex`, `time_display.ex`, `user_info.ex`, `button.ex`, `input.ex`, `select.ex`, `draggable_list.ex`. Import in `phoenix_kit_web.ex` → `core_components()`.
 
 ## Architecture
 
-### Config Architecture
+### Config & Settings
 
-- PhoenixKit basic configuration via default Config module in a parent project
-- **PhoenixKit.Config** - Used to work with static configuration instead of `Application.get_env/3`
-
-### Settings System Architecture
-
-- **PhoenixKit.Settings** - Settings context for system-wide configuration management
-- **PhoenixKit.Settings.Setting** - Settings schema with key/value storage and timestamps
-- **PhoenixKitWeb.Live.Settings** - Settings management interface at `{prefix}/admin/settings`
-
-**Core Settings:**
-
-- **time_zone** - System timezone offset (UTC-12 to UTC+12)
-- **date_format** - Date display format (Y-m-d, m/d/Y, d/m/Y, d.m.Y, d-m-Y, F j, Y)
-- **time_format** - Time display format (H:i for 24-hour, h:i A for 12-hour)
-
-**Email Settings:**
-
-- **email_enabled** - Enable/disable email system (default: false)
-- **email_save_body** - Save full email content vs preview only (default: false)
-- **email_ses_events** - Enable AWS SES event processing (default: false)
-- **email_retention_days** - Data retention period (default: 90 days)
-- **email_sampling_rate** - Percentage of emails to fully track (default: 100%)
-
-**Key Features:**
-
-- **Database Storage** - Settings persisted in phoenix_kit_settings table
-- **Admin Interface** - Complete settings management at `{prefix}/admin/settings`
-- **Default Values** - Fallback defaults for all settings (UTC+0, Y-m-d, H:i)
-- **Validation** - Form validation with real-time preview examples
-- **Integration** - Automatic integration with date formatting utilities
-- **Email System UI** - Dedicated section for email system configuration
+- **PhoenixKit.Config** - Static configuration (instead of `Application.get_env/3`)
+- **PhoenixKit.Settings** - DB-persisted settings (time_zone, date_format, time_format, email_*)
+- Admin UI at `{prefix}/admin/settings`
 
 ### Authentication Structure
 
-- **PhoenixKit.Users.Auth** - Main authentication context with public interface
-- **PhoenixKit.Users.Auth.User** - User schema with validations, authentication, and role helpers
-- **PhoenixKit.Users.Auth.UserToken** - Token management for email confirmation and password reset
-- **PhoenixKit.Users.MagicLink** - Magic link authentication system
-- **PhoenixKit.Users.Auth.Scope** - Authentication scope management with role integration
-- **PhoenixKit.Users.RateLimiter** - Rate limiting protection for authentication endpoints
+- **PhoenixKit.Users.Auth** - Main auth context
+- **PhoenixKit.Users.Auth.User** - User schema with role helpers
+- **PhoenixKit.Users.Auth.UserToken** - Token management
+- **PhoenixKit.Users.MagicLink** - Magic link auth
+- **PhoenixKit.Users.Auth.Scope** - Auth scope with role integration
+- **PhoenixKit.Users.RateLimiter** - Rate limiting (Hammer library)
 
-### Rate Limiting
-
-Uses Hammer library. Protected: Login (5/min), Magic Link (3/5min), Password Reset (3/5min), Registration (3/hour). Config via `PhoenixKit.Users.RateLimiter`. Use `hammer_backend_redis` in production.
+Rate limits: Login 5/min, Magic Link 3/5min, Password Reset 3/5min, Registration 3/hour.
 
 ### Session Fingerprinting
 
-Tracks IP and user agent to detect session hijacking. Config: `session_fingerprint_enabled: true`, `session_fingerprint_strict: false`. Non-strict logs warnings; strict forces re-auth on mismatch.
+Tracks IP/user agent. Config: `session_fingerprint_enabled: true`, `session_fingerprint_strict: false`.
 
 ### Role System
 
-Three system roles: Owner, Admin, User. First user becomes Owner. Custom roles can be created via the admin UI. API: `PhoenixKit.Users.Roles`. Admin UI at `{prefix}/admin/users`. Role checks via `PhoenixKit.Users.Auth.Scope`.
+Three system roles: Owner, Admin, User. First user = Owner. Custom roles via admin UI. API: `PhoenixKit.Users.Roles`. Admin UI at `{prefix}/admin/users`.
 
 ### Module-Level Permissions (V53)
 
-Granular access control for admin sections and feature modules. Uses an allowlist model: permission row present = granted, absent = denied.
+Allowlist model for admin sections and feature modules. See `lib/phoenix_kit/dashboard/ADMIN_README.md` for custom tab permissions.
 
-**25 permission keys:** 5 core (`dashboard`, `users`, `media`, `settings`, `modules`) + 20 feature modules (`billing`, `shop`, `emails`, `entities`, `tickets`, `posts`, `comments`, `ai`, `sync`, `publishing`, `referrals`, `sitemap`, `seo`, `maintenance`, `storage`, `languages`, `connections`, `legal`, `db`, `jobs`).
+**25 permission keys:** 5 core (`dashboard`, `users`, `media`, `settings`, `modules`) + 20 feature modules.
 
-**Access rules:**
-- Owner always has full access (hard-coded, no DB rows needed)
-- Admin gets all 25 permissions by default (V55 seeds comments)
-- Custom roles start with no permissions; grant via matrix UI or API
+**Rules:** Owner = full access (hard-coded). Admin = all 25 by default. Custom roles = no permissions initially.
 
-**Key modules:**
-- `PhoenixKit.Users.Permissions` - Full context (queries, mutations, metadata, custom keys)
-- `PhoenixKit.Users.Auth.Scope` - `has_module_access?/2`, `has_any_module_access?/2`, `has_all_module_access?/2`, `system_role?/1`, `permission_count/1`
-- `PhoenixKit.Users.Roles` - Role CRUD, `list_roles/0`, `get_role_by_uuid/1`, `count_users_with_role/1`
-- `PhoenixKit.Users.RolePermission` - Schema for `phoenix_kit_role_permissions` table
+**Key APIs:**
+- `Scope.has_module_access?(scope, "billing")` - Check access
+- `Permissions.set_permissions(role_id, ["dashboard", "users"], granted_by_id)` - Grant
+- `Permissions.copy_permissions(source_id, target_id)` - Copy
+- `Permissions.register_custom_key("analytics", label: "Analytics", icon: "hero-chart-bar")` - Custom keys
 
-**Route enforcement:**
-- `:phoenix_kit_ensure_admin` on_mount - Checks permission + enabled status for mapped admin views
-- `:phoenix_kit_ensure_module_access` on_mount - Checks permission + enabled status for feature module routes
-- Custom roles are fail-closed for unmapped views; Owner/Admin are fail-open
-- Owner/Admin bypass module-enabled checks (can access disabled modules by direct URL)
-- Storage admin views are gated by `media` permission (storage is a sub-feature of Media)
+**Route enforcement:** `:phoenix_kit_ensure_admin` and `:phoenix_kit_ensure_module_access` on_mount hooks. Custom roles fail-closed; Owner/Admin fail-open and bypass module-enabled checks.
 
-**Custom admin tab permissions:** See `lib/phoenix_kit/dashboard/ADMIN_README.md` for how custom tabs auto-register permission keys and wire view-to-permission mappings via `Permissions.register_custom_key/2`.
-
-**Edit protection:**
-- `Permissions.can_edit_role_permissions?(scope, role)` - Returns `:ok` or `{:error, reason}`
-- Users cannot edit their own role's permissions
-- Only Owner can edit Admin role permissions
-- System roles (Owner/Admin/User) cannot have `is_system_role` flag changed
-
-**Usage:**
-
-```elixir
-# Check access in code
-Scope.has_module_access?(scope, "billing")
-
-# Grant permissions programmatically
-Permissions.set_permissions(role_id, ["dashboard", "users", "billing"], granted_by_id)
-
-# Copy permissions between roles
-Permissions.copy_permissions(source_role_id, target_role_id)
-
-# Register custom permission keys from parent app
-Permissions.register_custom_key("analytics", label: "Analytics", icon: "hero-chart-bar")
-Permissions.unregister_custom_key("analytics")
-```
-
-**i18n:** Roles and permissions matrix UI is fully translatable via `gettext()`. All flash messages, labels, buttons, and help text are wrapped. Permission key labels/icons/descriptions in `Permissions` are hardcoded English metadata.
-
-**Admin UI:** Permission matrix at `{prefix}/admin/users/permissions`, inline editor in Roles page.
+**Edit protection:** Users can't edit own role. Only Owner edits Admin role. System roles can't change `is_system_role`.
 
 ### Date Formatting
 
@@ -503,401 +195,153 @@ Use `PhoenixKit.Utils.Date` (aliased as `UtilsDate`). Settings-aware: `format_da
 
 ### Module Folder Structure (IMPORTANT)
 
-**All modules MUST be placed in `lib/modules/`** - this is the only correct location for module code.
+**All modules MUST be placed in `lib/modules/`** with `PhoenixKit.Modules.<ModuleName>` namespace.
 
-**Namespace convention:** All modules must use the `PhoenixKit.Modules.<ModuleName>` namespace prefix.
-
-**Example module structure:**
 ```
 lib/modules/db/
 ├── db.ex                    # PhoenixKit.Modules.DB (main context)
 ├── listener.ex              # PhoenixKit.Modules.DB.Listener
 └── web/
     ├── index.ex             # PhoenixKit.Modules.DB.Web.Index (LiveView)
-    ├── index.html.heex
-    ├── show.ex              # PhoenixKit.Modules.DB.Web.Show (LiveView)
-    └── show.html.heex
+    └── show.ex
 ```
 
-**Key rules:**
-- Backend logic AND web/LiveView code go in the same `lib/modules/<name>/` folder
-- Main context module: `PhoenixKit.Modules.<Name>`
-- Sub-modules: `PhoenixKit.Modules.<Name>.<SubModule>`
-- Web/LiveView code: `PhoenixKit.Modules.<Name>.Web.<Component>` (recommended but flexible)
-- Each module is self-contained for future plugin system compatibility
+Backend + web code in same folder. Self-contained for future plugin system.
 
-**DO NOT use these legacy locations for new modules:**
-- ❌ `lib/phoenix_kit/modules/` - Legacy, being migrated
-- ❌ `lib/phoenix_kit_web/live/modules/` - Legacy, being migrated
-- ❌ `lib/phoenix_kit/<module_name>.ex` - Legacy location
+**DO NOT use legacy locations:** `lib/phoenix_kit/modules/`, `lib/phoenix_kit_web/live/modules/`, `lib/phoenix_kit/<name>.ex`
 
-**Module Documentation:**
+**Module docs:** Each module has a README.md in its folder (AI, Emails, Publishing, Sync, Entities, Languages, Billing, Comments).
 
-- **AI module:** See `lib/modules/ai/README.md` for API usage, endpoint management, prompts, and usage tracking.
-- **Emails module:** See `lib/modules/emails/README.md` for architecture, configuration, and troubleshooting guidance.
-- **Publishing module:** See `lib/modules/publishing/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
-- **Sync module:** See `lib/modules/sync/README.md` for peer-to-peer data sync, programmatic API, conflict strategies, and remote operations.
-- **Entities module:** See `lib/modules/entities/README.md` for dynamic content types.
-- **Languages module:** See `lib/modules/languages/README.md` for multi-language support, two-tier locale system, and frontend/backend language configuration.
-- **Billing module:** See `lib/modules/billing/README.md` for payment providers, subscriptions, invoices.
-- **Comments module:** Standalone, resource-agnostic commenting system with polymorphic associations (`resource_type` + `resource_id`). Provides `PhoenixKit.Modules.Comments` context, reusable `CommentsComponent` LiveComponent, threaded comments, like/dislike reactions, and moderation admin UI.
+### Enabling Modules Before Use
 
-### ⚠️ CRITICAL: Enabling Modules Before Use
-
-**All PhoenixKit modules are DISABLED by default.** Before using any module programmatically, you MUST enable it first. Attempting to use a disabled module will result in errors or no-ops.
-
-**Enable a module using its `enable_system/0` function:**
+**All modules are DISABLED by default.** Enable with `enable_system/0`:
 
 ```elixir
-# Check if module is enabled
-PhoenixKit.Modules.Entities.enabled?()        # => false (default)
-PhoenixKit.Modules.AI.enabled?()              # => false (default)
-
-# Enable modules before use
-PhoenixKit.Modules.Entities.enable_system()   # Enables entities module
-PhoenixKit.Modules.AI.enable_system()         # Enables AI module
-PhoenixKit.Modules.Posts.enable_system()      # Enables posts module
-PhoenixKit.Modules.Comments.enable_system()   # Enables comments module
-PhoenixKit.Emails.enable_system()     # Enables email tracking
-PhoenixKit.Billing.enable_system()    # Enables billing module
-PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
-PhoenixKit.Modules.Sync.enable_system()     # Enables DB sync
-PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
-PhoenixKit.Pages.enable_system()      # Enables pages module
-PhoenixKit.Modules.Referrals.enable_system() # Enables referrals
-
-# Disable when no longer needed
-PhoenixKit.Modules.Entities.disable_system()
+PhoenixKit.Modules.Entities.enable_system()
+PhoenixKit.Modules.AI.enable_system()
+# ... same pattern for all modules
 ```
 
-**Alternatively, enable via Admin UI:** Navigate to `/{prefix}/admin/modules` or each module's settings page.
-
-**Common pattern:**
-
-```elixir
-# WRONG - Will fail if module is disabled
-PhoenixKit.Entities.create_entity(%{name: "products", ...})
-
-# CORRECT - Check/enable first
-unless PhoenixKit.Entities.enabled?() do
-  PhoenixKit.Entities.enable_system()
-end
-PhoenixKit.Entities.create_entity(%{name: "products", ...})
-```
+Or enable via Admin UI at `/{prefix}/admin/modules`.
 
 ### Migration Architecture
 
-- **PhoenixKit.Migrations.Postgres** - PostgreSQL-specific migrator with Oban-style versioning
-- **PhoenixKit.Migrations.Postgres.V01** - Version 1: Basic authentication tables with role system
-- **Mix.Tasks.PhoenixKit.Install** - Igniter-based installation for new projects
-- **Mix.Tasks.PhoenixKit.Update** - Versioned updates for existing installations
-- **Mix.Tasks.PhoenixKit.Gen.Migration** - Custom migration generator
-- **Mix.Tasks.PhoenixKit.MigrateToDaisyui5** - Migration tool for daisyUI 5 upgrade
+- **PhoenixKit.Migrations.Postgres** - Oban-style versioned migrator
+- **Mix.Tasks.PhoenixKit.Install/Update/Gen.Migration** - Mix tasks
 
-### UUIDv7 Migration
+### UUIDv7
 
-**Full documentation:** See `dev_docs/uuid_migration_instructions_v3.md` for comprehensive UUID migration guide including schema patterns, dual-write rules, lookup patterns, query filters, template conventions, migration SQL patterns, and common pitfalls.
+See `dev_docs/uuid_migration_instructions_v3.md` for full guide.
 
-**Quick rules:**
-- Integer `id` column is **deprecated** (V56+) — use `.uuid` for all new code
-- All `belongs_to` with UUID FKs **MUST** include `references: :uuid` (Ecto defaults to `:id`)
-- SQL migrations use `uuid_generate_v7()`, never `gen_random_uuid()`
-- Elixir code uses `UUIDv7.generate()`, never `Ecto.UUID.generate()`
+- Integer `id` is **deprecated** (V56+) — use `.uuid` for new code
+- `belongs_to` with UUID FKs **MUST** include `references: :uuid`
+- SQL: `uuid_generate_v7()`, Elixir: `UUIDv7.generate()`
 
 ```elixir
-# CORRECT belongs_to pattern
+# CORRECT
 belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
-
-# WRONG — causes bigint = uuid type mismatch
+# WRONG — bigint = uuid type mismatch
 belongs_to :user, User, foreign_key: :user_uuid, type: UUIDv7
 ```
 
-### DateTime Convention
-
-**Always use `:utc_datetime` and `DateTime.utc_now()` in new code.** Never use `NaiveDateTime` in new schemas or application code.
-
-| Context | Use | Never Use |
-|---------|-----|-----------|
-| Schema timestamps | `timestamps(type: :utc_datetime)` | `timestamps()` or `timestamps(type: :naive_datetime)` |
-| Individual datetime fields | `field :name, :utc_datetime` | `field :name, :naive_datetime` |
-| Application code | `DateTime.utc_now()` | `NaiveDateTime.utc_now()` |
-| Bulk insert timestamps | `DateTime.utc_now()` | `NaiveDateTime.utc_now() \|> NaiveDateTime.truncate(:second)` |
-
-**Existing `:utc_datetime_usec` schemas are acceptable** — no need to downgrade them. `DateTime.utc_now()` works with both `:utc_datetime` and `:utc_datetime_usec` fields (Ecto handles precision automatically).
-
-**Why:** A production bug was caused by copying `NaiveDateTime.utc_now()` into a `:utc_datetime_usec` schema. Using `DateTime.utc_now()` everywhere prevents this class of bugs. See `dev_docs/2026-02-15-datetime-inconsistency-report.md` for full details.
-
 ### Key Design Principles
 
-- **No Circular Dependencies** - Optional Phoenix deps prevent import cycles
-- **Library-First Architecture** - No OTP application, no supervision tree, can be used as dependency
-  - No `Application.start/2` callback
-  - No Telemetry supervisor (uses `Plug.Telemetry` in endpoint)
-  - No dev-only routes (PageController removed)
-  - Parent apps provide their own home pages and layouts
-- **Professional Testing** - DataCase pattern with database sandbox
-- **Production Ready** - Complete authentication system with security best practices
-- **Clean Codebase** - Removed standard Phoenix template boilerplate (telemetry.ex, page controllers, API pipeline)
-
-### Database Integration
-
-- **PostgreSQL** - Primary database with Ecto integration
-- **Repository Pattern** - Auto-detection or explicit configuration
-- **Migration Support** - V01 migration with authentication, role, and settings tables
-- **Role System Tables** - phoenix_kit_user_roles, phoenix_kit_user_role_assignments, phoenix_kit_role_permissions (V53)
-- **Settings Table** - phoenix_kit_settings with key/value/timestamp storage
-- **Race Condition Protection** - FOR UPDATE locking in Ecto transactions
-- **Test Database** - Separate test database with sandbox
-
-### Professional Features
-
-- **Hex Publishing** - Complete package.exs configuration
-- **Documentation** - ExDoc ready with comprehensive docs
-- **Quality Tools** - Credo, Dialyzer, code formatting configured
-- **Testing Framework** - Complete test suite with fixtures
+Library-first (no OTP app, no supervision tree), no circular dependencies, parent apps provide layouts/home pages. PostgreSQL with Ecto, auto-detection or explicit repo config.
 
 ## PhoenixKit Integration
 
 ### Setup Steps
 
-1. **Install PhoenixKit**: Run `mix phoenix_kit.install --repo YourApp.Repo`
-2. **Run Migrations**: Database tables created automatically (V16 includes OAuth providers and magic link registration)
-3. **Add Routes**: Use `phoenix_kit_routes()` macro in your router
-4. **Configure Mailer**: PhoenixKit auto-detects and uses your app's mailer, or set up email delivery in `config/config.exs`
-5. **Configure Branding**: Set `project_title`, `project_logo`, and/or `project_icon` in `config/config.exs`
-6. **Configure Layout** (Optional): Set custom layouts in `config/config.exs`
-7. **Theme Support**: DaisyUI 5 theme system with 35+ themes is automatically enabled
-8. **Settings Management**: Access admin settings at `{prefix}/admin/settings`
-9. **Email System** (Optional): Enable email system and AWS SES integration
+1. `mix phoenix_kit.install --repo YourApp.Repo`
+2. Run migrations (auto-created)
+3. Add `phoenix_kit_routes()` to router
+4. Configure mailer (auto-detected or explicit)
+5. Configure branding: `project_title`, `project_logo`, `project_icon`
+6. Optional: custom layouts, theme config, email system
 
-> **Note**: `{prefix}` represents your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
-> This can be customized via `config :phoenix_kit, url_prefix: "/your_custom_prefix"`.
+`{prefix}` = configured URL prefix (default: `/phoenix_kit`, set via `url_prefix` config).
 
-### Integration Pattern
+### Core Integration Config
 
 ```elixir
-# In your Phoenix app's config/config.exs
 config :phoenix_kit,
   repo: MyApp.Repo,
-  mailer: MyApp.Mailer  # Optional: Use your app's mailer (auto-detected by installer)
-
-# Configure your app's mailer (PhoenixKit will use it automatically if mailer is set)
-config :my_app, MyApp.Mailer, adapter: Swoosh.Adapters.Local
-
-# Alternative: Configure PhoenixKit's built-in mailer (legacy approach)
-# config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
-
-# Configure Dashboard Branding (IMPORTANT for customization)
-config :phoenix_kit,
-  project_title: "My App",              # Displayed in dashboard header
-  project_title_suffix: "",             # Suffix after title (default: "Dashboard", "" to remove)
-  project_logo: "/images/logo.svg",     # URL/path to logo image (see theme-aware logos below)
-  project_icon: "hero-cube",            # Heroicon name when no logo image (default: "hero-home")
-  project_logo_height: "h-10",          # Tailwind height class (default: "h-8")
-  project_logo_class: "rounded",        # Additional CSS classes for logo image
-  project_home_url: "~/dashboard",      # Where logo links to (default: "/", see below)
-  show_title_with_logo: false           # Show title text alongside logo (default: true)
+  mailer: MyApp.Mailer,  # Optional, auto-detected
+  project_title: "My App",
+  project_logo: "/images/logo.svg",  # SVG with currentColor for theme-aware
+  project_icon: "hero-cube",         # Heroicon when no logo
+  project_home_url: "~/dashboard",   # ~/ prefix auto-applies URL prefix
+  layout: {MyAppWeb.Layouts, :app},  # Optional custom layout
+  dashboard_themes: :all             # or ["system", "light", "dark", ...]
 ```
 
-### Logo Link URL Prefix Convention
+### Dashboard Color Scheme
 
-The `project_home_url` supports a `~/` prefix for automatic URL prefix application:
+**NEVER use hardcoded colors.** Use daisyUI semantic classes: `bg-base-100/200/300`, `text-base-content`, `bg-primary`, `btn btn-primary`, `badge badge-success`, `text-base-content/70`.
 
-- `"~/dashboard"` → `/phoenix_kit/dashboard` (prefix applied)
-- `"/"` → `/` (no prefix, goes to site root)
-- `"https://example.com"` → external URL (no change)
+### Dashboard Layout Performance
 
-Use `~/` when linking to PhoenixKit routes, omit it for external URLs or site root.
+Use `dashboard_assigns/1` not raw `assigns`:
 
-### Theme-Aware Logos
-
-Use SVG logos with `currentColor` for automatic theme adaptation. Use `project_logo_class: "text-base-content"` or `"text-primary"`. Theme stored in localStorage as `phx:theme`, applied via `data-theme` attribute.
-
-### Dashboard Color Scheme Guide
-
-**NEVER use hardcoded colors** (`bg-white`, `text-gray-800`, `bg-blue-500`). Use daisyUI semantic classes:
-
-- **Base:** `bg-base-100/200/300`, `text-base-content`, `border-base-300`
-- **Semantic:** `bg-primary`, `text-error`, `btn btn-primary`, `badge badge-success`
-- **Opacity:** `text-base-content/70`, `bg-primary/10`
-
-### Dashboard Theme Switcher
-
-Config: `dashboard_themes: :all` (default) or `["system", "light", "dark", "nord", "dracula"]`
-
-### Dashboard (Tabs, Subtabs, Context Selectors)
-
-See `lib/phoenix_kit/dashboard/README.md` for full documentation. Quick access in LiveViews:
-- Single context: `socket.assigns.current_context`
-- Multi context: `socket.assigns.current_contexts_map[:key]`
+```heex
+<%!-- ✅ GOOD --%>
+<PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
+<%!-- ❌ BAD - ~84KB/sec redundant diffs --%>
+<PhoenixKitWeb.Layouts.dashboard {assigns}>
+```
 
 ### Admin Dashboard Customization
 
-The admin sidebar uses a registry-driven system with permission gating. See `lib/phoenix_kit/dashboard/ADMIN_README.md` for full documentation.
-
-**Add custom admin tabs from parent app:**
+Registry-driven admin sidebar. See `lib/phoenix_kit/dashboard/ADMIN_README.md`.
 
 ```elixir
 config :phoenix_kit, :admin_dashboard_tabs, [
-  %{
-    id: :admin_analytics,
-    label: "Analytics",
-    icon: "hero-chart-bar",
-    path: "/admin/analytics",
-    permission: "dashboard",
-    priority: 150,
-    group: :admin_main,
-    live_view: {MyAppWeb.PhoenixKitLive.AdminAnalyticsLive, :index}
-  }
+  %{id: :analytics, label: "Analytics", icon: "hero-chart-bar", path: "/admin/analytics",
+    permission: "dashboard", priority: 150, group: :admin_main,
+    live_view: {MyAppWeb.PhoenixKitLive.AdminAnalyticsLive, :index}}
 ]
 ```
 
-The `live_view` field auto-generates a route inside PhoenixKit's admin `live_session` for seamless navigation. Custom admin LiveViews must use `LayoutWrapper.app_layout` (not `Layouts.dashboard`) and `@url_path` for the current path. See the ADMIN_README for the full LiveView template pattern.
+Custom admin LiveViews must use `LayoutWrapper.app_layout` and `@url_path`.
 
-### Dashboard Layout Performance (IMPORTANT)
-
-**Do not pass all assigns to the dashboard layout.** Use `dashboard_assigns/1`:
-
-```heex
-<%!-- ❌ BAD - triggers layout diff on ANY assign change --%>
-<PhoenixKitWeb.Layouts.dashboard {assigns}>
-
-<%!-- ✅ GOOD - only passes assigns the layout uses --%>
-<PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-```
-
-Without this, a LiveView receiving 7 updates/second sends ~84KB/sec of redundant layout HTML. The `dashboard_assigns/1` function (auto-imported in LiveViews) extracts only layout-relevant assigns.
+### Password Config
 
 ```elixir
-# Configure Layout Integration (optional - defaults to PhoenixKit layouts)
-config :phoenix_kit,
-  layout: {MyAppWeb.Layouts, :app},        # Use your app's layout
-  root_layout: {MyAppWeb.Layouts, :root},  # Optional: custom root layout
-  page_title_prefix: "Auth"                # Optional: page title prefix
-
-# Configure DaisyUI 5 Theme System (optional)
-config :phoenix_kit,
-  theme: %{
-    theme: "auto",                   # Any of 35+ daisyUI themes or "auto"
-    primary_color: "#3b82f6",       # Primary brand color (OKLCH format supported)
-    storage: :local_storage,        # :local_storage, :session, :cookie
-    theme_controller: true,         # Enable theme-controller integration
-    categories: [:light, :dark, :colorful]  # Theme categories to show in switcher
-  }
-
-# Migrate existing installations to daisyUI 5
-# Run: mix phoenix_kit.migrate_to_daisyui5
-
-# Settings System Configuration (optional defaults)
-config :phoenix_kit,
-  default_settings: %{
-    time_zone: "0",          # UTC+0 (GMT)
-    date_format: "Y-m-d",    # ISO format: 2025-09-03
-    time_format: "H:i"       # 24-hour format: 15:30
-  }
-
-# Password Requirements Configuration (optional)
-# Configure password strength requirements for user registration and password changes
 config :phoenix_kit, :password_requirements,
-  min_length: 8,            # Minimum password length (default: 8)
-  max_length: 72,           # Maximum password length (default: 72, bcrypt limit)
-  require_uppercase: false, # Require at least one uppercase letter (default: false)
-  require_lowercase: false, # Require at least one lowercase letter (default: false)
-  require_digit: false,     # Require at least one digit (default: false)
-  require_special: false    # Require at least one special character (!?@#$%^&*_) (default: false)
+  min_length: 8, max_length: 72,
+  require_uppercase: false, require_lowercase: false,
+  require_digit: false, require_special: false
+```
 
-# Example: Strong password requirements for production
-# config :phoenix_kit, :password_requirements,
-#   min_length: 12,
-#   require_uppercase: true,
-#   require_lowercase: true,
-#   require_digit: true,
-#   require_special: true
+### Optional Auth
 
-# In your Phoenix app's mix.exs
-def deps do
-  [
-    {:phoenix_kit, "~> 1.2"}
-  ]
-end
-
-### Date Formatting Helpers
-
-- Use `UtilsDate.format_datetime_with_user_format/1`, `format_date_with_user_format/1`, and
-  `format_time_with_user_format/1` in templates to respect admin-configured formats.
-- For hard-coded output, `UtilsDate.format_date/2` and `format_time/2` accept PHP-style format
-  strings such as `"F j, Y"` or `"h:i A"`.
-
-### Optional Authentication Modules
-
-- **OAuth & Magic Link registration:** Setup instructions, environment variables, and feature
-  details now live in `guides/oauth_and_magic_link_setup.md`. Review that guide when enabling the
-  optional authentication flows in a host application.
-
-
+OAuth & Magic Link registration: See `guides/oauth_and_magic_link_setup.md`.
 
 ## Key File Structure
 
-### Core Files
+### Core
 
-- `lib/phoenix_kit.ex` - Main API module
-- `lib/phoenix_kit/users/auth.ex` - Authentication context
+- `lib/phoenix_kit.ex` - Main API
+- `lib/phoenix_kit/users/auth.ex` - Auth context
 - `lib/phoenix_kit/users/auth/user.ex` - User schema
 - `lib/phoenix_kit/users/auth/user_token.ex` - Token management
-- `lib/phoenix_kit/users/magic_link.ex` - Magic link authentication
-- `lib/phoenix_kit/users/magic_link_registration.ex` - Magic link registration (V16+)
-- `lib/phoenix_kit/users/oauth.ex` - OAuth authentication context (V16+)
-- `lib/phoenix_kit/users/oauth_provider.ex` - OAuth provider schema (V16+)
-- `lib/phoenix_kit/users/role*.ex` - Role system (Role, RoleAssignment, RolePermission, Roles)
-- `lib/phoenix_kit/users/permissions.ex` - Module-level permission context (V53+)
-- `lib/phoenix_kit/settings.ex` - Settings context and management
-- `lib/phoenix_kit/utils/date.ex` - Date formatting utilities with Settings integration
-- `lib/phoenix_kit/emails/*.ex` - Email system modules
-- `lib/phoenix_kit/mailer.ex` - Mailer with automatic email system integration
+- `lib/phoenix_kit/users/magic_link.ex` - Magic link auth
+- `lib/phoenix_kit/users/role*.ex` - Role system
+- `lib/phoenix_kit/users/permissions.ex` - Permissions (V53+)
+- `lib/phoenix_kit/settings.ex` - Settings context
+- `lib/phoenix_kit/utils/date.ex` - Date formatting
 
-### Web Integration
+### Web
 
-- `lib/phoenix_kit_web/router.ex` - Library router (dev/test only, parent apps use `phoenix_kit_routes()`)
-- `lib/phoenix_kit_web/integration.ex` - Router integration macro for parent applications
-- `lib/phoenix_kit_web/endpoint.ex` - Phoenix endpoint (uses `Plug.Telemetry`, no custom supervisor)
-- `lib/phoenix_kit_web/users/oauth_controller.ex` - OAuth authentication controller (V16+)
-- `lib/phoenix_kit_web/users/magic_link_registration_controller.ex` - Magic link registration controller (V16+)
-- `lib/phoenix_kit_web/users/magic_link_registration.ex` - Registration completion LiveView (V16+)
-- `lib/phoenix_kit_web/users/auth.ex` - Web authentication plugs
-- `lib/phoenix_kit_web/users/*.ex` - LiveView components (login, registration, settings, etc.)
-- `lib/phoenix_kit_web/live/*.ex` - Admin interfaces (dashboard, users, sessions, settings, modules)
-- `lib/phoenix_kit_web/live/settings.ex` - Settings management interface
-- `lib/phoenix_kit_web/live/modules/emails/*.ex` - Email system LiveView interfaces
+- `lib/phoenix_kit_web/router.ex` - Library router
+- `lib/phoenix_kit_web/integration.ex` - Router integration macro
+- `lib/phoenix_kit_web/users/*.ex` - Auth LiveViews and controllers
+- `lib/phoenix_kit_web/live/*.ex` - Admin interfaces
 - `lib/phoenix_kit_web/components/core_components.ex` - UI components
-- `lib/phoenix_kit_web/components/layouts.ex` - Layout module (fallback for parent apps)
-- `lib/phoenix_kit_web/controllers/error_html.ex` - HTML error rendering
-- `lib/phoenix_kit_web/controllers/error_json.ex` - JSON error rendering
+- `lib/phoenix_kit_web/components/layouts.ex` - Layouts
 
-### Migration & Config
+### Config
 
-- `lib/phoenix_kit/migrations/postgres/v01.ex` - V01 migration (basic auth)
-- `lib/phoenix_kit/migrations/postgres/v07.ex` - V07 migration (email system tables)
-- `lib/phoenix_kit/migrations/postgres/v09.ex` - V09 migration (email blocklist)
-- `lib/phoenix_kit/migrations/postgres/v16.ex` - V16 migration (OAuth providers table)
-- `lib/mix/tasks/phoenix_kit.migrate_to_daisyui5.ex` - DaisyUI 5 migration tool
+- `lib/phoenix_kit/migrations/postgres/v*.ex` - Versioned migrations
 - `config/config.exs` - Library configuration
-- `mix.exs` - Project and package configuration
-- `scripts/aws_ses_sqs_setup.sh` - AWS SES infrastructure automation
-
-### DaisyUI 5 Assets
-
-- `priv/static/assets/phoenix_kit_daisyui5.css` - Modern CSS with @plugin directives
-- `priv/static/assets/phoenix_kit_daisyui5.js` - Enhanced theme system with controller integration
-- `priv/static/examples/tailwind_config_daisyui5.js` - Tailwind CSS 3 example config
-- `priv/static/examples/tailwind_css4_config.css` - Tailwind CSS 4 example config
-
-## Development Workflow
-
-PhoenixKit supports a complete professional development workflow:
-
-1. **Development** - Local development with PostgreSQL
-2. **Testing** - Comprehensive test suite with database integration
-3. **Quality** - Static analysis and type checking
-4. **Documentation** - Generated docs with usage examples
-5. **Publishing** - Ready for Hex.pm with proper versioning
-```
+- `mix.exs` - Package configuration
