@@ -172,6 +172,43 @@ Languages.move_language_down("es-ES")     # Reorder
 <.language_switcher_inline current_locale={@current_locale} />
 ```
 
+## Integration with Entities Module
+
+The Entities module uses Languages for **multi-language content storage**. When 2+ languages are enabled, all entity data automatically supports multilang.
+
+### How It Works
+
+1. `PhoenixKit.Modules.Entities.Multilang.enabled?/0` checks if Languages has 2+ enabled languages
+2. `Multilang.primary_language/0` reads `Languages.get_default_language()`
+3. `Multilang.enabled_languages/0` reads `Languages.get_enabled_language_codes()`
+4. Entity data JSONB is structured by language code (e.g., `"en-US"`, `"es-ES"`)
+
+### Programmatic Translation Setup
+
+```elixir
+# 1. Enable languages
+PhoenixKit.Modules.Languages.enable_system()
+PhoenixKit.Modules.Languages.add_language("es-ES")
+PhoenixKit.Modules.Languages.add_language("fr-FR")
+
+# 2. Multilang is now active — use the convenience API
+alias PhoenixKit.Modules.Entities.EntityData
+
+record = EntityData.get(uuid)
+EntityData.set_translation(record, "es-ES", %{"name" => "Producto"})
+EntityData.set_title_translation(record, "es-ES", "Mi Producto")
+```
+
+### Primary Language Changes
+
+When `Languages.set_default_language/1` is called, existing entity data records lazily re-key on next edit. The new primary is promoted to have all fields. See `lib/modules/entities/OVERVIEW.md` for full details.
+
+### Key Dependency
+
+The Entities Multilang module gracefully degrades when Languages is unavailable — it uses `Code.ensure_loaded?/1` checks and falls back to `"en-US"` as the default language.
+
+---
+
 ## Integration with Publishing Module
 
 The Publishing module uses Languages for:

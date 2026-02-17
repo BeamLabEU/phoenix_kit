@@ -1,4 +1,4 @@
-## 1.7.43 - 2026-02-17
+## 1.7.43 - 2026-02-18
 - Fix Language struct Access error on admin modules page and all bracket-access-on-struct bugs
 - Add 20 typed structs replacing plain maps across billing, entities, sync, emails, AI, and dashboard
   - Billing: CheckoutSession, SetupSession, WebhookEventData, PaymentMethodInfo, ChargeResult, RefundResult, ProviderInfo
@@ -9,6 +9,15 @@
 - Fix shop module .id to .uuid migration in Storage image lookups and import modules
 - Fix hardcoded "PhoenixKit" fallback in admin header project title
 - Fix 2 dialyzer warnings in checkout session and UUID migration
+- Add multi-language support for Entities module
+  - New `Multilang` module with pure-function helpers for multilang JSONB data
+  - Language tabs in entity form, data form, and data view (adaptive compact mode for >5 languages)
+  - Override-only storage for secondary languages with ghost-text placeholders
+  - Lazy re-keying when global primary language changes
+  - Translation convenience API: `Entities.set_entity_translation/3`, `EntityData.set_translation/3`, `EntityData.set_title_translation/3`, and related get/remove functions
+  - Multilang-aware category extraction in data navigator and entity data
+  - Non-translatable fields (slug, status) separated into their own card
+  - Required field indicators hidden on secondary language tabs
 
 ## 1.7.42 - 2026-02-17
 - Use PostgreSQL IF NOT EXISTS / IF EXISTS for UUID column operations

@@ -67,7 +67,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
 
     case GenServer.call(@server_name, {:track, key, metadata}) do
       :ok ->
-        Events.broadcast_user_session_connected(user.id, metadata)
+        Events.broadcast_user_session_connected(user.uuid, metadata)
         broadcast_presence_stats()
         :ok
 
