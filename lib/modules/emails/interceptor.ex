@@ -53,6 +53,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   require Logger
 
   alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.EmailLogData
   alias PhoenixKit.Modules.Emails.Event
   alias PhoenixKit.Modules.Emails.Log
   alias Swoosh.Email
@@ -371,7 +372,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
     user_id = Keyword.get(opts, :user_id)
     user_uuid = Keyword.get(opts, :user_uuid) || resolve_user_uuid(user_id)
 
-    %{
+    %EmailLogData{
       message_id: generate_message_id(email, opts),
       to: extract_primary_recipient(email.to),
       from: extract_sender(email.from),

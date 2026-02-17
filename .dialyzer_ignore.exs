@@ -143,6 +143,10 @@
   # Pre-existing false positive unrelated to UUID migration
   {"lib/modules/entities/entities.ex", :pattern_match},
 
+  # UUID FK columns migration - prefix parameter is typed as binary() by Dialyzer
+  # but nil is a valid runtime value (no prefix configured)
+  {"lib/phoenix_kit/migrations/uuid_fk_columns.ex", :pattern_match},
+
   # ExUnit.CaseTemplate macro generates calls to internal ExUnit functions
   # that Dialyzer cannot resolve (Elixir 1.18+ internal API changes)
   {"test/support/conn_case.ex", :unknown_function},

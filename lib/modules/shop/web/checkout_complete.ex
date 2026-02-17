@@ -118,18 +118,22 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
 
         <%!-- Guest Order Email Confirmation Reminder --%>
         <%= if @is_guest_order do %>
-          <div class="card bg-warning/10 border border-warning mb-6">
+          <div class="card bg-info/10 border border-info mb-6">
             <div class="card-body">
               <div class="flex items-start gap-4">
-                <.icon name="hero-envelope" class="w-8 h-8 text-warning flex-shrink-0" />
+                <.icon name="hero-envelope" class="w-8 h-8 text-info flex-shrink-0" />
                 <div>
-                  <h3 class="font-semibold text-lg">Please confirm your email</h3>
+                  <h3 class="font-semibold text-lg">Check your inbox</h3>
                   <p class="text-sm mt-1">
                     We've sent a confirmation email to <strong>{@order_email}</strong>.
-                    Please click the link in the email to verify your address.
                   </p>
-                  <p class="text-sm text-base-content/60 mt-2">
-                    Your order will remain in "pending" status until your email is confirmed.
+                  <ol class="text-sm mt-3 space-y-1.5 list-decimal list-inside text-base-content/80">
+                    <li>Open the email titled <strong>"Confirm your account"</strong></li>
+                    <li>Click the confirmation link inside</li>
+                    <li>Your account will be activated and you can track your order</li>
+                  </ol>
+                  <p class="text-xs text-base-content/50 mt-3">
+                    Don't see it? Check your spam or junk folder. The email may take a minute to arrive.
                   </p>
                 </div>
               </div>
@@ -142,9 +146,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
           <div class="card-body text-center">
             <div class="text-sm text-base-content/60">Order Number</div>
             <div class="text-2xl font-mono font-bold">{@order.order_number}</div>
-            <div class="text-sm text-base-content/60 mt-2">
-              A confirmation email will be sent to your email address.
-            </div>
+            <%= unless @is_guest_order do %>
+              <div class="text-sm text-base-content/60 mt-2">
+                A confirmation email will be sent to your email address.
+              </div>
+            <% end %>
           </div>
         </div>
 

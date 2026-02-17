@@ -17,6 +17,14 @@ defmodule PhoenixKit.Modules.Billing.IbanData do
       false
   """
 
+  @enforce_keys [:length, :sepa]
+  defstruct [:length, :sepa]
+
+  @type t :: %__MODULE__{
+          length: pos_integer(),
+          sepa: boolean()
+        }
+
   @iban_specs %{
     # EU/EEA SEPA Countries
     "AD" => %{length: 24, sepa: true},
@@ -165,9 +173,27 @@ defmodule PhoenixKit.Modules.Billing.IbanData do
   def country_uses_iban?(_), do: false
 
   @doc """
+  Get the IBAN specification for a country.
+
+  Returns a `%IbanData{}` struct or nil if the country does not use IBAN.
+  """
+  def get_spec(country_code) when is_binary(country_code) do
+    case Map.get(@iban_specs, String.upcase(country_code)) do
+      %{length: length, sepa: sepa} -> %__MODULE__{length: length, sepa: sepa}
+      _ -> nil
+    end
+  end
+
+  def get_spec(_), do: nil
+
+  @doc """
   Get all IBAN specifications.
 
-  Returns a map of country codes to their IBAN specifications.
+  Returns a map of country codes to `%IbanData{}` structs.
   """
-  def all_specs, do: @iban_specs
+  def all_specs do
+    Map.new(@iban_specs, fn {code, %{length: length, sepa: sepa}} ->
+      {code, %__MODULE__{length: length, sepa: sepa}}
+    end)
+  end
 end

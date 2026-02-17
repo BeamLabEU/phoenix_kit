@@ -42,6 +42,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
   alias PhoenixKit.Users.Permissions
@@ -93,11 +94,28 @@ defmodule PhoenixKitWeb.Users.Auth do
     token = Auth.generate_user_session_token(user, opts)
     user_return_to = get_session(conn, :user_return_to)
 
+    # Merge guest cart into user cart before session renewal clears session data.
+    # The shop_session_id cookie survives renew_session (only session data is cleared).
+    maybe_merge_guest_cart(conn, user)
+
     conn
     |> renew_session()
     |> put_token_in_session(token)
     |> maybe_write_remember_me_cookie(token, params)
     |> redirect(to: user_return_to || signed_in_path(conn))
+  end
+
+  defp maybe_merge_guest_cart(conn, user) do
+    shop_session_id =
+      conn.cookies["shop_session_id"] || get_session(conn, :shop_session_id)
+
+    if shop_session_id do
+      try do
+        Shop.merge_guest_cart(shop_session_id, user)
+      rescue
+        _ -> :ok
+      end
+    end
   end
 
   defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do

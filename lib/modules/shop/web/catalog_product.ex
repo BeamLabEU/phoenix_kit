@@ -1143,12 +1143,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   defp get_storage_image_url(file_id, variant) do
     # Storage.get_file/1 returns %File{} struct or nil (not {:ok, file} tuple)
     case Storage.get_file(file_id) do
-      %{id: id} = _file ->
+      %{uuid: uuid} = _file ->
         # Check if requested variant exists, fall back to original if not
-        case Storage.get_file_instance_by_name(id, variant) do
+        case Storage.get_file_instance_by_name(uuid, variant) do
           nil ->
             # Variant doesn't exist - try original
-            case Storage.get_file_instance_by_name(id, "original") do
+            case Storage.get_file_instance_by_name(uuid, "original") do
               nil -> placeholder_image_url()
               _instance -> URLSigner.signed_url(file_id, "original")
             end

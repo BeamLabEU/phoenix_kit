@@ -23,6 +23,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   use Ecto.Schema
   import Ecto.Query
   alias PhoenixKit.Users.Auth.UserToken
+  alias PhoenixKit.Utils.SessionFingerprint
 
   @hash_algorithm :sha256
   # 48 bytes = ~64 chars after base64 - enhanced security for passwordless auth
@@ -83,7 +84,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   ## Options
 
-    * `:fingerprint` - A map with `:ip_address` and `:user_agent_hash` keys
+    * `:fingerprint` - A `%SessionFingerprint{}` struct with `:ip_address` and `:user_agent_hash` fields
 
   ## Examples
 
@@ -91,25 +92,36 @@ defmodule PhoenixKit.Users.Auth.UserToken do
       {token, user_token} = build_session_token(user)
 
       # With fingerprinting
-      fingerprint = %{ip_address: "192.168.1.1", user_agent_hash: "abc123"}
+      fingerprint = SessionFingerprint.create_fingerprint(conn)
       {token, user_token} = build_session_token(user, fingerprint: fingerprint)
 
   """
   def build_session_token(user, opts \\ []) do
     token = :crypto.strong_rand_bytes(@rand_size)
     fingerprint = Keyword.get(opts, :fingerprint)
+    {ip_address, user_agent_hash} = extract_fingerprint_attrs(fingerprint)
 
     user_token = %UserToken{
       token: token,
       context: "session",
       user_id: user.id,
       user_uuid: user.uuid,
-      ip_address: fingerprint && fingerprint[:ip_address],
-      user_agent_hash: fingerprint && fingerprint[:user_agent_hash]
+      ip_address: ip_address,
+      user_agent_hash: user_agent_hash
     }
 
     {token, user_token}
   end
+
+  defp extract_fingerprint_attrs(%SessionFingerprint{} = fp) do
+    {fp.ip_address, fp.user_agent_hash}
+  end
+
+  defp extract_fingerprint_attrs(%{} = fp) do
+    {fp[:ip_address] || fp["ip_address"], fp[:user_agent_hash] || fp["user_agent_hash"]}
+  end
+
+  defp extract_fingerprint_attrs(_), do: {nil, nil}
 
   @doc """
   Checks if the token is valid and returns its underlying lookup query.

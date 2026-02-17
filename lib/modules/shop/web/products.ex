@@ -756,10 +756,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   defp get_storage_image_url(file_id, variant) do
     case Storage.get_file(file_id) do
-      %{id: id} ->
-        case Storage.get_file_instance_by_name(id, variant) do
+      %{uuid: uuid} ->
+        case Storage.get_file_instance_by_name(uuid, variant) do
           nil ->
-            case Storage.get_file_instance_by_name(id, "original") do
+            case Storage.get_file_instance_by_name(uuid, "original") do
               nil -> nil
               _instance -> URLSigner.signed_url(file_id, "original")
             end

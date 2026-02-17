@@ -31,6 +31,8 @@ defmodule PhoenixKit.Modules.Legal do
       PhoenixKit.Modules.Legal.generate_all_pages()
   """
 
+  alias PhoenixKit.Modules.Legal.LegalFramework
+  alias PhoenixKit.Modules.Legal.PageType
   alias PhoenixKit.Modules.Legal.TemplateGenerator
   alias PhoenixKit.Settings
 
@@ -231,14 +233,18 @@ defmodule PhoenixKit.Modules.Legal do
   @doc """
   Get available compliance frameworks.
   """
-  @spec available_frameworks() :: map()
-  def available_frameworks, do: @frameworks
+  @spec available_frameworks() :: %{String.t() => LegalFramework.t()}
+  def available_frameworks do
+    Map.new(@frameworks, fn {id, map} -> {id, LegalFramework.from_map(map)} end)
+  end
 
   @doc """
   Get available page types.
   """
-  @spec available_page_types() :: map()
-  def available_page_types, do: @page_types
+  @spec available_page_types() :: %{String.t() => PageType.t()}
+  def available_page_types do
+    Map.new(@page_types, fn {slug, map} -> {slug, PageType.from_map(map)} end)
+  end
 
   @doc """
   Get selected compliance frameworks.
@@ -815,7 +821,7 @@ defmodule PhoenixKit.Modules.Legal do
   defp get_page_config(page_type) do
     case Map.get(@page_types, page_type) do
       nil -> {:error, :unknown_page_type}
-      config -> {:ok, config}
+      map -> {:ok, PageType.from_map(map)}
     end
   end
 

@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Users.Login do
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
-  def mount(_params, session, socket) do
+  def mount(params, session, socket) do
     # Track anonymous visitor session
     if connected?(socket) do
       session_id = session["live_socket_id"] || generate_session_id()
@@ -44,13 +44,17 @@ defmodule PhoenixKitWeb.Users.Login do
 
     form = to_form(%{"email_or_username" => email_or_username}, as: "user")
 
+    # Support return_to query param for post-login redirect (e.g., from guest checkout)
+    return_to = sanitize_return_to(params["return_to"])
+
     socket =
       assign(socket,
         form: form,
         project_title: project_title,
         allow_registration: allow_registration,
         magic_link_enabled: magic_link_enabled,
-        show_language_switcher: show_language_switcher
+        show_language_switcher: show_language_switcher,
+        return_to: return_to
       )
 
     {:ok, socket, temporary_assigns: [form: form]}
@@ -63,4 +67,15 @@ defmodule PhoenixKitWeb.Users.Login do
   defp generate_session_id do
     :crypto.strong_rand_bytes(16) |> Base.encode64()
   end
+
+  # Only allow relative paths to prevent open redirect attacks
+  defp sanitize_return_to(path) when is_binary(path) do
+    if String.starts_with?(path, "/") and not String.starts_with?(path, "//") do
+      path
+    else
+      nil
+    end
+  end
+
+  defp sanitize_return_to(_), do: nil
 end

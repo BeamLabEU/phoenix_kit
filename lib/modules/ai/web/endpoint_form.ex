@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.AI
+  alias PhoenixKit.Modules.AI.AIModel
   alias PhoenixKit.Modules.AI.Endpoint
   alias PhoenixKit.Modules.AI.OpenRouterClient
   alias PhoenixKit.Settings
@@ -113,7 +114,7 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   end
 
   defp get_max_for_field("max_tokens", _definition, selected_model) do
-    selected_model && selected_model["max_completion_tokens"]
+    selected_model && selected_model.max_completion_tokens
   end
 
   defp get_max_for_field(_field, definition, _selected_model) do
@@ -121,8 +122,8 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   end
 
   defp get_placeholder_for_field("max_tokens", _definition, selected_model) do
-    if selected_model && selected_model["max_completion_tokens"] do
-      "Max: #{selected_model["max_completion_tokens"]}"
+    if selected_model && selected_model.max_completion_tokens do
+      "Max: #{selected_model.max_completion_tokens}"
     else
       "Model default"
     end
@@ -551,7 +552,7 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   # Private helpers
 
   defp find_model(models, model_id) do
-    Enum.find(models, fn m -> m["id"] == model_id end)
+    Enum.find(models, fn m -> m.id == model_id end)
   end
 
   @doc """
@@ -658,11 +659,15 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
     group_parameters(Map.keys(definitions), definitions)
   end
 
+  def get_supported_params(%AIModel{} = model) do
+    definitions = parameter_definitions()
+    supported_keys = Enum.filter(model.supported_parameters, &Map.has_key?(definitions, &1))
+    group_parameters(supported_keys, definitions)
+  end
+
   def get_supported_params(model) when is_map(model) do
     supported = model["supported_parameters"] || []
     definitions = parameter_definitions()
-
-    # Filter to parameters we have definitions for AND model supports
     supported_keys = Enum.filter(supported, &Map.has_key?(definitions, &1))
     group_parameters(supported_keys, definitions)
   end
@@ -680,6 +685,10 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   Gets the max tokens limit for the selected model.
   """
   def model_max_tokens(nil), do: nil
+
+  def model_max_tokens(%AIModel{} = model) do
+    model.max_completion_tokens || model.context_length
+  end
 
   def model_max_tokens(model) when is_map(model) do
     model["max_completion_tokens"] || model["context_length"]

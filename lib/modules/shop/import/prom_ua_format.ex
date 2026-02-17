@@ -224,8 +224,8 @@ defmodule PhoenixKit.Modules.Shop.Import.PromUaFormat do
     lang = Translations.default_language()
 
     case Shop.get_category_by_slug_localized(slug, lang) do
-      {:ok, %{id: id}} ->
-        id
+      {:ok, %{uuid: uuid}} ->
+        uuid
 
       {:error, :not_found} ->
         attrs = %{
@@ -237,7 +237,7 @@ defmodule PhoenixKit.Modules.Shop.Import.PromUaFormat do
         case Shop.create_category(attrs) do
           {:ok, category} ->
             Logger.info("Auto-created Prom.ua category: #{slug} (#{group_name})")
-            category.id
+            category.uuid
 
           {:error, changeset} ->
             Logger.warning("Failed to create category #{slug}: #{inspect(changeset.errors)}")

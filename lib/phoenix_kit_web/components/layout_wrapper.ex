@@ -71,7 +71,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :page_title, :string, default: nil
   attr :current_path, :string, default: nil
   attr :inner_content, :string, default: nil
-  attr :project_title, :string, default: "PhoenixKit"
+  attr :project_title, :string, default: nil
   attr :current_locale, :string, default: nil
 
   slot :inner_block, required: false
