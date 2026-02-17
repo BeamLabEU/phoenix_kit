@@ -87,8 +87,8 @@ defmodule PhoenixKit.Modules.Referrals do
     # legacy
     field :beneficiary, :integer
     field :beneficiary_uuid, UUIDv7
-    field :date_created, :utc_datetime_usec
-    field :expiration_date, :utc_datetime_usec
+    field :date_created, :utc_datetime
+    field :expiration_date, :utc_datetime
 
     belongs_to :creator, PhoenixKit.Users.Auth.User,
       foreign_key: :created_by_uuid,

@@ -116,9 +116,9 @@ defmodule PhoenixKit.Modules.Billing.Order do
     field :metadata, :map, default: %{}
 
     # Timestamps
-    field :confirmed_at, :utc_datetime_usec
-    field :paid_at, :utc_datetime_usec
-    field :cancelled_at, :utc_datetime_usec
+    field :confirmed_at, :utc_datetime
+    field :paid_at, :utc_datetime
+    field :cancelled_at, :utc_datetime
 
     # legacy
     field :user_id, :integer
@@ -135,7 +135,7 @@ defmodule PhoenixKit.Modules.Billing.Order do
       foreign_key: :order_uuid,
       references: :uuid
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

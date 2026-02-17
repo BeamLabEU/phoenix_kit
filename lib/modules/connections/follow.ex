@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Connections.Follow do
           followed_id: integer() | nil,
           follower: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           followed: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_user_follows" do
@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Connections.Follow do
     field :follower_id, :integer
     field :followed_id, :integer
 
-    field :inserted_at, :naive_datetime
+    field :inserted_at, :utc_datetime
   end
 
   @doc """
@@ -113,7 +113,7 @@ defmodule PhoenixKit.Modules.Connections.Follow do
       put_change(
         changeset,
         :inserted_at,
-        NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        DateTime.utc_now()
       )
     end
   end

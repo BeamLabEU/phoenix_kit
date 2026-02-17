@@ -235,7 +235,7 @@ defmodule PhoenixKit.Modules.Storage do
       repo().delete_all(Dimension)
 
       # Insert default dimensions
-      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      now = DateTime.utc_now()
 
       default_dimensions = [
         # Image dimensions

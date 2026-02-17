@@ -81,7 +81,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     field :auto_approve_tables, {:array, :string}, default: []
 
     # Expiration & limits
-    field :expires_at, :utc_datetime_usec
+    field :expires_at, :utc_datetime
     field :max_downloads, :integer
     field :downloads_used, :integer, default: 0
     field :max_records_total, :integer
@@ -105,15 +105,15 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     field :auto_sync_interval_minutes, :integer, default: 60
 
     # Approval & status tracking
-    field :approved_at, :utc_datetime_usec
-    field :suspended_at, :utc_datetime_usec
+    field :approved_at, :utc_datetime
+    field :suspended_at, :utc_datetime
     field :suspended_reason, :string
-    field :revoked_at, :utc_datetime_usec
+    field :revoked_at, :utc_datetime
     field :revoked_reason, :string
 
     # Audit & statistics
-    field :last_connected_at, :utc_datetime_usec
-    field :last_transfer_at, :utc_datetime_usec
+    field :last_connected_at, :utc_datetime
+    field :last_transfer_at, :utc_datetime
     field :total_transfers, :integer, default: 0
     field :total_records_transferred, :integer, default: 0
     field :total_bytes_transferred, :integer, default: 0
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
       references: :uuid,
       type: UUIDv7
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

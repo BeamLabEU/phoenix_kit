@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
     field :id, :integer, read_after_writes: true
     field :event_type, :string
     field :event_data, :map, default: %{}
-    field :occurred_at, :utc_datetime_usec
+    field :occurred_at, :utc_datetime
     field :ip_address, :string
     field :user_agent, :string
     field :geo_location, :map, default: %{}
@@ -88,7 +88,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
     field :email_log_id, :integer
     belongs_to :email_log, Log, foreign_key: :email_log_uuid, references: :uuid, type: UUIDv7
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   ## --- Schema Functions ---

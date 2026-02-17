@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
     field :followed_id, :integer
 
     field :action, :string
-    field :inserted_at, :naive_datetime
+    field :inserted_at, :utc_datetime
   end
 
   @actions ~w(follow unfollow)
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
     put_change(
       changeset,
       :inserted_at,
-      NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      DateTime.utc_now()
     )
   end
 end

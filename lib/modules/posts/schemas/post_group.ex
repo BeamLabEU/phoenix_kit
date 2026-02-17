@@ -63,8 +63,8 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           cover_image: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t() | nil,
           posts: [PhoenixKit.Modules.Posts.Post.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_post_groups" do
@@ -87,7 +87,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
       join_through: PhoenixKit.Modules.Posts.PostGroupAssignment,
       join_keys: [group_id: :uuid, post_id: :uuid]
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

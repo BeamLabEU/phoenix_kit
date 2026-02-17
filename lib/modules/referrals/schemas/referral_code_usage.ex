@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
     # legacy
     field :used_by, :integer
     field :used_by_uuid, UUIDv7
-    field :date_used, :utc_datetime_usec
+    field :date_used, :utc_datetime
 
     # legacy
     field :code_id, :integer

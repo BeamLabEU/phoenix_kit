@@ -90,13 +90,13 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
 
     # Receipt (integrated)
     field :receipt_number, :string
-    field :receipt_generated_at, :utc_datetime_usec
+    field :receipt_generated_at, :utc_datetime
     field :receipt_data, :map, default: %{}
 
     # Timestamps
-    field :sent_at, :utc_datetime_usec
-    field :paid_at, :utc_datetime_usec
-    field :voided_at, :utc_datetime_usec
+    field :sent_at, :utc_datetime
+    field :paid_at, :utc_datetime
+    field :voided_at, :utc_datetime
 
     # legacy
     field :user_id, :integer
@@ -106,7 +106,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
     belongs_to :order, Order, foreign_key: :order_uuid, references: :uuid, type: UUIDv7
     has_many :transactions, Transaction, foreign_key: :invoice_uuid, references: :uuid
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

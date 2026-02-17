@@ -52,15 +52,15 @@ defmodule PhoenixKit.Modules.Posts.PostView do
           viewed_at: DateTime.t(),
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t() | nil,
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_post_views" do
     field :ip_address, :string
     field :user_agent_hash, :string
     field :session_id, :string
-    field :viewed_at, :utc_datetime_usec
+    field :viewed_at, :utc_datetime
 
     belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid, type: UUIDv7
 
@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
 
     field :user_id, :integer
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

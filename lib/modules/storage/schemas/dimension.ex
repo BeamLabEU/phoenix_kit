@@ -86,7 +86,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     field :maintain_aspect_ratio, :boolean, default: true
     field :order, :integer, default: 0
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

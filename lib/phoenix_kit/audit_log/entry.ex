@@ -57,7 +57,7 @@ defmodule PhoenixKit.AuditLog.Entry do
     field :user_agent, :string
     field :metadata, :map
 
-    timestamps(type: :utc_datetime_usec, updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc """

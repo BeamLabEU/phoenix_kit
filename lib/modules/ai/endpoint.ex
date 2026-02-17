@@ -143,13 +143,13 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
     # Status
     field :enabled, :boolean, default: true
     field :sort_order, :integer, default: 0
-    field :last_validated_at, :utc_datetime_usec
+    field :last_validated_at, :utc_datetime
 
     has_many :requests, PhoenixKit.Modules.AI.Request,
       foreign_key: :endpoint_uuid,
       references: :uuid
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

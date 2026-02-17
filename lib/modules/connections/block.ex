@@ -47,7 +47,7 @@ defmodule PhoenixKit.Modules.Connections.Block do
           reason: String.t() | nil,
           blocker: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           blocked: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_user_blocks" do
@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Connections.Block do
     field :blocked_id, :integer
 
     field :reason, :string
-    field :inserted_at, :naive_datetime
+    field :inserted_at, :utc_datetime
   end
 
   @doc """
@@ -121,7 +121,7 @@ defmodule PhoenixKit.Modules.Connections.Block do
       put_change(
         changeset,
         :inserted_at,
-        NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        DateTime.utc_now()
       )
     end
   end

@@ -38,8 +38,8 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
           position: integer(),
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           group: PhoenixKit.Modules.Posts.PostGroup.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_post_group_assignments" do
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
       type: UUIDv7,
       primary_key: true
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

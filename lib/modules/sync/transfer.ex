@@ -89,18 +89,18 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     # Status and approval
     field :status, :string, default: "pending"
     field :requires_approval, :boolean, default: false
-    field :approved_at, :utc_datetime_usec
-    field :denied_at, :utc_datetime_usec
+    field :approved_at, :utc_datetime
+    field :denied_at, :utc_datetime
     field :denial_reason, :string
-    field :approval_expires_at, :utc_datetime_usec
+    field :approval_expires_at, :utc_datetime
 
     # Request context
     field :requester_ip, :string
     field :requester_user_agent, :string
 
     field :error_message, :string
-    field :started_at, :utc_datetime_usec
-    field :completed_at, :utc_datetime_usec
+    field :started_at, :utc_datetime
+    field :completed_at, :utc_datetime
     field :metadata, :map, default: %{}
 
     # legacy
@@ -135,7 +135,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
       references: :uuid,
       type: UUIDv7
 
-    timestamps(type: :utc_datetime_usec, updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc """

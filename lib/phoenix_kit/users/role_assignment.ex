@@ -28,8 +28,8 @@ defmodule PhoenixKit.Users.RoleAssignment do
           user_uuid: UUIDv7.t() | nil,
           role_uuid: UUIDv7.t() | nil,
           assigned_by_uuid: UUIDv7.t() | nil,
-          assigned_at: NaiveDateTime.t(),
-          inserted_at: NaiveDateTime.t()
+          assigned_at: DateTime.t(),
+          inserted_at: DateTime.t()
         }
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
@@ -52,9 +52,9 @@ defmodule PhoenixKit.Users.RoleAssignment do
       references: :uuid,
       type: UUIDv7
 
-    field :assigned_at, :naive_datetime
+    field :assigned_at, :utc_datetime
 
-    timestamps(updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc """
@@ -99,7 +99,7 @@ defmodule PhoenixKit.Users.RoleAssignment do
         put_change(
           changeset,
           :assigned_at,
-          NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+          DateTime.utc_now()
         )
 
       _ ->

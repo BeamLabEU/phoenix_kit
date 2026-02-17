@@ -34,8 +34,8 @@ defmodule PhoenixKit.Users.Role do
           name: String.t(),
           description: String.t() | nil,
           is_system_role: boolean(),
-          inserted_at: NaiveDateTime.t(),
-          updated_at: NaiveDateTime.t()
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
   @roles %{
@@ -60,7 +60,7 @@ defmodule PhoenixKit.Users.Role do
       join_through: PhoenixKit.Users.RoleAssignment,
       join_keys: [role_uuid: :uuid, user_uuid: :uuid]
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

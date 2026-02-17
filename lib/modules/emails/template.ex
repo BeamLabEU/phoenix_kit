@@ -129,7 +129,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
     field :variables, :map, default: %{}
     field :metadata, :map, default: %{}
     field :usage_count, :integer, default: 0
-    field :last_used_at, :utc_datetime_usec
+    field :last_used_at, :utc_datetime
     field :version, :integer, default: 1
     field :is_system, :boolean, default: false
     # legacy
@@ -139,7 +139,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
     field :updated_by_user_id, :integer
     field :updated_by_user_uuid, UUIDv7
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

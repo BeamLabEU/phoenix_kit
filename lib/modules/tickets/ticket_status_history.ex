@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
           reason: String.t() | nil,
           ticket: PhoenixKit.Modules.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t(),
           changed_by: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_ticket_status_history" do
@@ -83,7 +83,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
     field :changed_by_id, :integer
 
-    timestamps(type: :naive_datetime, updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc """

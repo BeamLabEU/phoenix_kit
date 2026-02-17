@@ -105,8 +105,8 @@ defmodule PhoenixKit.Modules.Posts.Post do
           mentions: [PhoenixKit.Modules.Posts.PostMention.t()] | Ecto.Association.NotLoaded.t(),
           tags: [PhoenixKit.Modules.Posts.PostTag.t()] | Ecto.Association.NotLoaded.t(),
           groups: [PhoenixKit.Modules.Posts.PostGroup.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_posts" do
@@ -115,8 +115,8 @@ defmodule PhoenixKit.Modules.Posts.Post do
     field :content, :string
     field :type, :string, default: "post"
     field :status, :string, default: "draft"
-    field :scheduled_at, :utc_datetime_usec
-    field :published_at, :utc_datetime_usec
+    field :scheduled_at, :utc_datetime
+    field :published_at, :utc_datetime
     field :repost_url, :string
     field :slug, :string
     field :like_count, :integer, default: 0
@@ -146,7 +146,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
       join_through: PhoenixKit.Modules.Posts.PostGroupAssignment,
       join_keys: [post_id: :uuid, group_id: :uuid]
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

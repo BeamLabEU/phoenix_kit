@@ -72,8 +72,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
           children: [t()] | Ecto.Association.NotLoaded.t(),
           attachments:
             [PhoenixKit.Modules.Tickets.TicketAttachment.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_ticket_comments" do
@@ -94,7 +94,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
     has_many :children, __MODULE__, foreign_key: :parent_id
     has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment, foreign_key: :comment_id
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """
