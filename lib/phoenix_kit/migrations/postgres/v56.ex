@@ -320,10 +320,10 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   defp add_uuid_column(table, prefix, escaped_prefix) do
     table_name = prefix_table_name(Atom.to_string(table), prefix)
 
-    if table_exists?(table, escaped_prefix) and not column_exists?(table, :uuid, escaped_prefix) do
+    if table_exists?(table, escaped_prefix) do
       execute("""
       ALTER TABLE #{table_name}
-      ADD COLUMN uuid UUID DEFAULT uuid_generate_v7()
+      ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7()
       """)
 
       # Backfill existing rows
@@ -426,7 +426,7 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
 
       execute("""
       ALTER TABLE #{table_name}
-      DROP COLUMN uuid
+      DROP COLUMN IF EXISTS uuid
       """)
     end
   end

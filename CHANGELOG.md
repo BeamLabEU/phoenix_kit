@@ -1,3 +1,8 @@
+## 1.7.42 - 2026-02-17
+- Use PostgreSQL IF NOT EXISTS / IF EXISTS for UUID column operations
+  - Replace manual column_exists? checks with native DDL guards in V56 and UUIDFKColumns
+  - Makes migrations more robust and idempotent
+
 ## 1.7.41 - 2026-02-16
 - Fix FK constraint creation crash when UUID target tables lack unique indexes
   - Ensure unique indexes on all FK-target uuid columns before adding FK constraints
