@@ -1,8 +1,8 @@
 # DateTime Standardization Plan
 
 **Date:** 2026-02-17
-**Updated:** 2026-02-18 (post-audit of PR #350 — truncation gap identified)
-**Status:** Steps 1-3 COMPLETED, Step 5 IN PROGRESS (critical)
+**Updated:** 2026-02-19 (post-PR #350 analysis)
+**Status:** Steps 1-4 COMPLETED, Step 5 **38% COMPLETE** (19/50+ sites fixed)
 **Related:** `dev_docs/2026-02-15-datetime-inconsistency-report.md`
 
 ---
@@ -55,12 +55,12 @@ Then replace all `DateTime.truncate(DateTime.utc_now(), :second)` with `UtilsDat
 
 | Problem | Count | Status |
 |---------|-------|--------|
-| Schemas using `:naive_datetime` (default or explicit) | **38 files** | DONE (PR #347) |
-| Schemas using `:utc_datetime_usec` (timestamps) | **~17 files** | DONE (PR #347) |
-| Individual fields typed `:naive_datetime` | **11 fields in 9 files** | DONE (PR #347) |
-| Individual fields typed `:utc_datetime_usec` | **~30+ fields in ~17 files** | DONE (PR #347) |
-| Application code using `NaiveDateTime.utc_now()` | **19 calls in 14 files** | DONE (PR #347) |
-| **`DateTime.utc_now()` needing truncation** | **~50 calls in ~28 files** | **19 fixed (PR #350), ~50 REMAINING** |
+| Schemas using `:naive_datetime` (default or explicit) | **38 files** | ✅ DONE (PR #347) |
+| Schemas using `:utc_datetime_usec` (timestamps) | **~17 files** | ✅ DONE (PR #347) |
+| Individual fields typed `:naive_datetime` | **11 fields in 9 files** | ✅ DONE (PR #347) |
+| Individual fields typed `:utc_datetime_usec` | **~30+ fields in ~17 files** | ✅ DONE (PR #347) |
+| Application code using `NaiveDateTime.utc_now()` | **19 calls in 14 files** | ✅ DONE (PR #347) |
+| **`DateTime.utc_now()` needing truncation** | **50+ calls in 28+ files** | ⚠️ **19 fixed (PR #350), 31+ REMAINING** |
 
 ---
 
@@ -195,11 +195,11 @@ Replace bare `NaiveDateTime.utc_now()` → `DateTime.utc_now()`
 
 ---
 
-## Step 5: Add DateTime.truncate(:second) to All DB Write Sites — IN PROGRESS
+## Step 5: Add DateTime.truncate(:second) to All DB Write Sites — 38% COMPLETE
 
 **This is the critical missing step.** `DateTime.utc_now()` returns microsecond precision. Every call that writes to a `:utc_datetime` schema field needs `DateTime.truncate(DateTime.utc_now(), :second)`.
 
-PR #350 fixed 19 files (marked with FIXED below). All remaining sites will crash at runtime.
+PR #350 fixed 19 files (marked with FIXED below). **31+ additional crash sites remain** across 7 modules (Emails, Sync, Connections, Shop, Entities, AI, Posts, Billing).
 
 ### How to Fix Each Site
 
@@ -379,6 +379,50 @@ These `DateTime.utc_now()` calls do NOT write to `:utc_datetime` schema fields:
 
 ---
 
+## Post-PR #350 Analysis (Added 2026-02-19)
+
+### What PR #350 Fixed (19 sites)
+
+| Module | Sites Fixed | Risk Level |
+|--------|-------------|------------|
+| Billing | 6 sites (Invoice, Order) | High |
+| Core | 6 sites (Settings, ScheduledJobs, Auth) | High |
+| Referrals | 2 sites | Medium |
+| Tickets | 2 sites | Medium |
+| Comments | 1 site | Medium |
+| Shop | 3 sites | Medium |
+| Group struct conversion | 1 site | High |
+| Live sessions UUID | 1 site | High |
+
+### What Remains Unfixed (31+ sites)
+
+| Module | Sites Remaining | Risk Assessment |
+|--------|-----------------|-----------------|
+| Emails | 22 sites | 🔴 CRITICAL - Email processing will crash |
+| Sync | 15 sites | 🔴 CRITICAL - Data sync workflows will crash |
+| Connections | 7 sites | 🟠 HIGH - User connection tracking |
+| Shop | 3 sites | 🟡 MEDIUM - Cart operations |
+| Entities | 6 sites | 🟡 MEDIUM - Entity creation/updates |
+| AI | 2 sites | 🟡 MEDIUM - AI endpoint validation |
+| Posts | 1 site | 🟡 MEDIUM - Post publishing |
+| Billing | 5 sites | 🟠 HIGH - Subscription processing |
+
+### Risk Matrix
+
+| Risk Level | Criteria | Modules |
+|------------|----------|---------|
+| 🔴 CRITICAL | Used in core workflows, high execution frequency | Emails, Sync |
+| 🟠 HIGH | Used in important but less frequent workflows | Connections, Billing |
+| 🟡 MEDIUM | Used in secondary workflows | Shop, Entities, AI, Posts |
+
+### Recommended Immediate Action
+
+1. **Fix Emails module first** (22 sites) - Most likely to cause production crashes
+2. **Fix Sync module second** (15 sites) - Data synchronization is critical
+3. **Fix Connections module** (7 sites) - User connection tracking
+4. **Add centralized helper** to prevent future issues
+5. **Add integration tests** for datetime-heavy workflows
+
 ## Verification
 
 1. `mix compile --warnings-as-errors` — no type warnings
@@ -394,10 +438,97 @@ These `DateTime.utc_now()` calls do NOT write to `:utc_datetime` schema fields:
 
 ## PR History
 
-| PR | What It Did | Status |
-|----|-------------|--------|
-| #347 | Changed all schemas from `:utc_datetime_usec`/`:naive_datetime` → `:utc_datetime` and all `NaiveDateTime.utc_now()` → `DateTime.utc_now()` | Merged |
-| #350 | Added `DateTime.truncate(:second)` to 19 files, fixed Group struct conversion, fixed live sessions UUID lookup | Merged |
-| TBD | Fix remaining ~50 truncation sites | **Needed** |
-| TBD | Add centralized `utc_now/0` helper | **Recommended** |
-| TBD | V58 DB migration: `timestamp(0)` → `timestamptz` | Deferred |
+| PR | What It Did | Status | Date |
+|----|-------------|--------|------|
+| #347 | Changed all schemas from `:utc_datetime_usec`/`:naive_datetime` → `:utc_datetime` and all `NaiveDateTime.utc_now()` → `DateTime.utc_now()` | ✅ Merged | 2026-02-17 |
+| #350 | Fixed 19/50+ truncation sites, fixed Group struct conversion, fixed live sessions UUID lookup | ✅ Merged | 2026-02-18 |
+| #TBD | Fix remaining 31+ truncation sites (Emails, Sync, Connections, etc.) | ⏳ **CRITICAL** | - |
+| #TBD | Add `UtilsDateTime.utc_now/0` centralized helper | 📋 Recommended | - |
+| #TBD | V58 DB migration: `timestamp(0)` → `timestamptz` columns | ⏭️ Deferred | - |
+
+---
+
+## Testing Strategy for Truncation Fixes
+
+### Manual Testing Priority
+1. **Emails module**: Send test emails through all paths (SQS, interceptor, templates)
+2. **Sync module**: Run connection approval, transfer workflows
+3. **Connections**: Create follows, blocks, connection requests
+4. **Billing**: Process subscriptions, invoices, webhooks
+
+### Automated Test Coverage
+```elixir
+# Example test pattern for each fixed site
+test "DateTime fields are truncated to seconds" do
+  # Before fix: would raise ArgumentError
+  {:ok, record} = create_record_with_timestamp()
+  assert record.timestamp.microsecond == 0
+end
+```
+
+### Smoke Test Command
+```bash
+# Verify no untruncated DateTime.utc_now() in DB contexts
+ast-grep --lang elixir --pattern 'DateTime.utc_now()' lib/ | \
+  grep -v "truncate" | \
+  grep -v "SAFE_PATTERNS"  # Should return only display/util code
+```
+
+## Recommended: Centralized Helper Implementation
+
+### Location: `lib/phoenix_kit/utils/datetime.ex`
+
+```elixir
+defmodule PhoenixKit.Utils.DateTime do
+  @moduledoc """
+  DateTime utilities for consistent timestamp handling.
+  """
+
+  @doc """
+  Returns current UTC time truncated to second precision.
+
+  Use this for all `:utc_datetime` schema fields to avoid ArgumentError
+  from microseconds. This is the ONLY function that should be used for
+  writing timestamps to the database.
+
+  ## Examples
+
+      iex> UtilsDateTime.utc_now()
+      ~U[2026-02-19 14:30:45Z]
+
+      # In changesets:
+      iex> put_change(changeset, :updated_at, UtilsDateTime.utc_now())
+
+      # In bulk updates:
+      iex> Repo.update_all(Query, set: [updated_at: UtilsDateTime.utc_now()])
+  """
+  @spec utc_now() :: DateTime.t()
+  def utc_now do
+    DateTime.utc_now() |> DateTime.truncate(:second)
+  end
+
+  @doc """
+  Returns current UTC time with microsecond precision.
+
+  Use this ONLY for display purposes, logging, or when explicitly
+  needed for microsecond precision calculations. NEVER use for database writes.
+  """
+  @spec utc_now_with_microseconds() :: DateTime.t()
+  def utc_now_with_microseconds do
+    DateTime.utc_now()
+  end
+end
+```
+
+### Migration Plan
+1. Add the helper module
+2. Replace all `DateTime.truncate(DateTime.utc_now(), :second)` with `UtilsDateTime.utc_now()`
+3. Add `@moduledoc` references in key modules
+4. Update CLAUDE.md to reference the helper
+5. Add Credo check to warn on bare `DateTime.utc_now()` in DB contexts
+
+---
+
+**Related:**
+- Parent PR #347 (schema migration)
+- CLAUDE.md section "DateTime: Always Use `DateTime.utc_now()`" — should be updated to reference the truncation requirement once the helper is implemented.
