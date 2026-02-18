@@ -80,7 +80,7 @@ Indexes cover `name`, `status`, `created_by`. A comment block documents JSON col
 - `slug` – optional unique slug per entity
 - `status` – `draft | published | archived`
 - `data` – JSONB map keyed by field definition (or multilang structure, see below)
-- `metadata` – optional JSONB extras (includes title translations when multilang enabled)
+- `metadata` – optional JSONB extras (tags, categories, etc.)
 - `created_by` – admin user id
 - `date_created`, `date_updated`
 
@@ -315,7 +315,7 @@ When the **Languages module** is enabled with 2+ languages, all entities automat
 - Primary language stores ALL fields
 - Secondary languages store ONLY overrides (fields that differ from primary)
 - Display merges: `Map.merge(primary_data, language_overrides)`
-- `title` and `slug` DB columns remain primary-language-only; secondary title translations are in `metadata["translations"]`
+- `title` and `slug` DB columns remain primary-language-only; secondary title translations are stored as `_title` overrides in the JSONB `data` column alongside other fields
 - Entity definition translations (display_name, etc.) are in `entity.settings["translations"]`
 
 ### Translation Storage Summary
@@ -323,7 +323,7 @@ When the **Languages module** is enabled with 2+ languages, all entities automat
 | What | Primary language | Secondary languages |
 |------|-----------------|---------------------|
 | Entity data (custom fields) | `data["en-US"]` | `data["es-ES"]` (overrides only) |
-| Record title | `title` column | `metadata["translations"]["es-ES"]["title"]` |
+| Record title | `title` column + `data[primary]["_title"]` | `data["es-ES"]["_title"]` (overrides) |
 | Entity display_name | `display_name` column | `settings["translations"]["es-ES"]["display_name"]` |
 
 ### Enabling Multilang
@@ -389,7 +389,7 @@ When the global primary language changes (via Languages admin), existing records
 1. User opens an existing record for editing
 2. System detects embedded `_primary_language` differs from global primary
 3. The new primary is promoted to have all fields (missing fields filled from old primary)
-4. Title is swapped between the column and metadata translations
+4. All secondary languages are recomputed against the new primary; `_title` is re-keyed with other fields
 5. Changes persist when the user saves
 
 Records that are never edited continue to work — read paths use the embedded primary for correct display.

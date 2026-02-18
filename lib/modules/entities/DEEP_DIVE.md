@@ -1070,7 +1070,7 @@ The `_primary_language` key cannot collide with user field keys because field ke
 | Content | Primary language | Secondary languages |
 |---------|-----------------|---------------------|
 | Data custom fields | `data[primary_lang]` | `data[lang_code]` (overrides) |
-| Record title | `title` column | `metadata["translations"][lang_code]["title"]` |
+| Record title | `title` column + `data[primary]["_title"]` | `data[lang_code]["_title"]` (overrides) |
 | Entity display_name | `display_name` column | `settings["translations"][lang_code]["display_name"]` |
 | Entity description | `description` column | `settings["translations"][lang_code]["description"]` |
 
@@ -1082,7 +1082,7 @@ When the global primary language changes (via Languages admin), existing records
 2. **Edit paths** (data form) detect the mismatch on mount and silently restructure:
    - Update `_primary_language` to the new global primary
    - Promote new primary to have all fields (missing fields filled from old primary)
-   - Swap title between column and metadata translations
+   - Recompute all secondary language overrides against new primary (including `_title`)
    - Changes persist when the user saves
 
 This approach avoids bulk migrations and is idempotent — if the user doesn't save, re-keying happens again on next edit.
