@@ -296,6 +296,16 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Gets multiple users by their UUIDs.
+  """
+  def get_users_by_uuids([]), do: []
+
+  def get_users_by_uuids(uuids) when is_list(uuids) do
+    from(u in User, where: u.uuid in ^uuids)
+    |> Repo.all()
+  end
+
+  @doc """
   Gets the first admin user (Owner or Admin role).
 
   Useful for programmatic operations that require a user ID, such as
@@ -2447,7 +2457,11 @@ defmodule PhoenixKit.Users.Auth do
 
       from(o in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
-        set: [user_id: nil, user_uuid: nil, anonymized_at: DateTime.utc_now()]
+        set: [
+          user_id: nil,
+          user_uuid: nil,
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
+        ]
       )
       |> elem(0)
     else
@@ -2470,7 +2484,7 @@ defmodule PhoenixKit.Users.Auth do
           user_id: nil,
           user_uuid: nil,
           author_deleted: true,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)
@@ -2504,7 +2518,7 @@ defmodule PhoenixKit.Users.Auth do
           user_id: nil,
           user_uuid: nil,
           author_deleted: true,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)
@@ -2543,7 +2557,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.utc_now(),
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second),
           original_user_email: nil
         ]
       )
@@ -2568,7 +2582,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)
@@ -2591,7 +2605,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)

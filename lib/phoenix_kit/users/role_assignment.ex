@@ -99,7 +99,7 @@ defmodule PhoenixKit.Users.RoleAssignment do
         put_change(
           changeset,
           :assigned_at,
-          DateTime.utc_now()
+          DateTime.truncate(DateTime.utc_now(), :second)
         )
 
       _ ->

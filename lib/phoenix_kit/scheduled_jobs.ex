@@ -130,7 +130,9 @@ defmodule PhoenixKit.ScheduledJobs do
       where: j.resource_id == ^resource_id,
       where: j.status == "pending"
     )
-    |> repo().update_all(set: [status: "cancelled", updated_at: DateTime.utc_now()])
+    |> repo().update_all(
+      set: [status: "cancelled", updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+    )
   end
 
   @doc """

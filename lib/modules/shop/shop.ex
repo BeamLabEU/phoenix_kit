@@ -539,7 +539,9 @@ defmodule PhoenixKit.Modules.Shop do
 
     {count, _} =
       query
-      |> repo().update_all(set: [status: status, updated_at: DateTime.utc_now()])
+      |> repo().update_all(
+        set: [status: status, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+      )
 
     if count > 0 do
       Events.broadcast_products_bulk_status_changed(ids, status)
@@ -963,7 +965,9 @@ defmodule PhoenixKit.Modules.Shop do
 
     {count, _} =
       query
-      |> repo().update_all(set: [status: status, updated_at: DateTime.utc_now()])
+      |> repo().update_all(
+        set: [status: status, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+      )
 
     if count > 0 do
       Events.broadcast_categories_bulk_status_changed(ids, status)
@@ -2385,7 +2389,9 @@ defmodule PhoenixKit.Modules.Shop do
     {count, _} =
       Cart
       |> where([c], c.id == ^cart_id and c.status == "active")
-      |> repo().update_all(set: [status: "converting", updated_at: DateTime.utc_now()])
+      |> repo().update_all(
+        set: [status: "converting", updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+      )
 
     if count == 1 do
       # Successfully locked - reload cart with new status

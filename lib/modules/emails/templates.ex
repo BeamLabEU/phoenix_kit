@@ -480,7 +480,7 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     template
     |> Template.usage_changeset(%{
       usage_count: template.usage_count + 1,
-      last_used_at: DateTime.utc_now()
+      last_used_at: DateTime.truncate(DateTime.utc_now(), :second)
     })
     |> repo().update()
   end

@@ -84,7 +84,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
     scheduled_job
     |> change(%{
       status: "executed",
-      executed_at: DateTime.utc_now()
+      executed_at: DateTime.truncate(DateTime.utc_now(), :second)
     })
   end
 

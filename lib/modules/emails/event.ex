@@ -759,7 +759,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
   # Set occurred_at if not provided
   defp maybe_set_occurred_at(changeset) do
     case get_field(changeset, :occurred_at) do
-      nil -> put_change(changeset, :occurred_at, DateTime.utc_now())
+      nil -> put_change(changeset, :occurred_at, DateTime.truncate(DateTime.utc_now(), :second))
       _ -> changeset
     end
   end

@@ -161,9 +161,9 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
       |> validate_status_transition(invoice.status, new_status)
 
     case new_status do
-      "sent" -> put_change(changeset, :sent_at, DateTime.utc_now())
-      "paid" -> put_change(changeset, :paid_at, DateTime.utc_now())
-      "void" -> put_change(changeset, :voided_at, DateTime.utc_now())
+      "sent" -> put_change(changeset, :sent_at, DateTime.truncate(DateTime.utc_now(), :second))
+      "paid" -> put_change(changeset, :paid_at, DateTime.truncate(DateTime.utc_now(), :second))
+      "void" -> put_change(changeset, :voided_at, DateTime.truncate(DateTime.utc_now(), :second))
       _ -> changeset
     end
   end

@@ -586,10 +586,17 @@ defmodule PhoenixKit.Modules.Tickets do
         # Set timestamps based on new status
         attrs =
           case new_status do
-            "resolved" -> Map.put(attrs, :resolved_at, DateTime.utc_now())
-            "closed" -> Map.put(attrs, :closed_at, DateTime.utc_now())
-            "open" -> Map.merge(attrs, %{resolved_at: nil, closed_at: nil})
-            _ -> attrs
+            "resolved" ->
+              Map.put(attrs, :resolved_at, DateTime.truncate(DateTime.utc_now(), :second))
+
+            "closed" ->
+              Map.put(attrs, :closed_at, DateTime.truncate(DateTime.utc_now(), :second))
+
+            "open" ->
+              Map.merge(attrs, %{resolved_at: nil, closed_at: nil})
+
+            _ ->
+              attrs
           end
 
         # Use raw update to avoid double broadcast from update_ticket

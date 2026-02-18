@@ -738,7 +738,7 @@ defmodule PhoenixKit.Users.Permissions do
 
       # Bulk insert new permissions
       if MapSet.size(to_add) > 0 do
-        now = DateTime.utc_now()
+        now = DateTime.truncate(DateTime.utc_now(), :second)
         granted_by_int = resolve_user_id(granted_by_id)
         granted_by_uuid = resolve_user_uuid(granted_by_id)
 

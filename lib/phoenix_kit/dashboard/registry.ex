@@ -540,7 +540,13 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   @impl true
   def handle_call({:register_groups, groups}, _from, state) do
-    :ets.insert(@ets_table, {:groups, groups})
+    converted =
+      Enum.map(groups, fn
+        %Group{} = g -> g
+        map when is_map(map) -> Group.new(map)
+      end)
+
+    :ets.insert(@ets_table, {:groups, converted})
     broadcast_refresh()
     {:reply, :ok, state}
   end

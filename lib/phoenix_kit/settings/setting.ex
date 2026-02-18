@@ -122,21 +122,21 @@ defmodule PhoenixKit.Settings.Setting do
     |> validate_setting_value()
     |> validate_value_exclusivity()
     |> validate_length(:module, max: 255)
-    |> put_change(:date_updated, DateTime.utc_now())
+    |> put_change(:date_updated, DateTime.truncate(DateTime.utc_now(), :second))
   end
 
   # Private helper to set timestamps on new records
   defp maybe_set_timestamps(changeset) do
     case changeset.data.uuid do
       nil ->
-        now = DateTime.utc_now()
+        now = DateTime.truncate(DateTime.utc_now(), :second)
 
         changeset
         |> put_change(:date_added, now)
         |> put_change(:date_updated, now)
 
       _uuid ->
-        put_change(changeset, :date_updated, DateTime.utc_now())
+        put_change(changeset, :date_updated, DateTime.truncate(DateTime.utc_now(), :second))
     end
   end
 
