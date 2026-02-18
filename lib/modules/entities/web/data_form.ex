@@ -706,13 +706,15 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   # When on a secondary language tab, the form doesn't submit title/slug/status.
   # Preserve their current values so the changeset doesn't clear them.
+  @preserve_fields %{"title" => :title, "slug" => :slug, "status" => :status}
+
   defp preserve_primary_fields(data_params, changeset) do
-    Enum.reduce(~w(title slug status), data_params, fn field, acc ->
-      if Map.has_key?(acc, field) do
+    Enum.reduce(@preserve_fields, data_params, fn {str_key, atom_key}, acc ->
+      if Map.has_key?(acc, str_key) do
         acc
       else
-        value = Ecto.Changeset.get_field(changeset, String.to_existing_atom(field))
-        if value, do: Map.put(acc, field, value), else: acc
+        value = Ecto.Changeset.get_field(changeset, atom_key)
+        if value, do: Map.put(acc, str_key, value), else: acc
       end
     end)
   end

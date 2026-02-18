@@ -349,6 +349,44 @@ defmodule PhoenixKit.Modules.Entities.MultilangTest do
     end
   end
 
+  # --- maybe_rekey_data/1 ---
+  # Note: In test env without Languages module DB, primary_language() falls
+  # back to "en-US". So data with embedded "en-US" is a no-op, while data
+  # with any other embedded primary will be re-keyed to "en-US".
+
+  describe "maybe_rekey_data/1" do
+    test "re-keys when embedded primary differs from global" do
+      # Embedded is "es-ES", global fallback is "en-US" → should re-key
+      data = %{
+        "_primary_language" => "es-ES",
+        "es-ES" => %{"name" => "Acme España", "category" => "Tech"},
+        "en-US" => %{"name" => "Acme"}
+      }
+
+      result = Multilang.maybe_rekey_data(data)
+
+      assert result["_primary_language"] == "en-US"
+      # New primary promoted with all fields from old primary
+      assert result["en-US"] == %{"name" => "Acme", "category" => "Tech"}
+    end
+
+    test "returns data unchanged when already using global primary" do
+      # Embedded is "en-US" which matches the fallback global
+      result = Multilang.maybe_rekey_data(multilang_data())
+
+      assert result == multilang_data()
+    end
+
+    test "returns non-multilang data unchanged" do
+      result = Multilang.maybe_rekey_data(flat_data())
+      assert result == flat_data()
+    end
+
+    test "returns nil unchanged" do
+      assert Multilang.maybe_rekey_data(nil) == nil
+    end
+  end
+
   # --- Integration: migrate then put ---
 
   describe "migrate + put workflow" do

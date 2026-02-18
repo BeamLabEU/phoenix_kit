@@ -29,7 +29,7 @@ The PhoenixKit Entities System is a dynamic content type management system. It a
 ### Key Features
 
 - **Dynamic Schema Creation**: Create custom content types with flexible field definitions stored as JSONB
-- **11 Field Types**: Comprehensive field type support including text, textarea, email, url, number, boolean, date, select, radio, checkbox, and rich text. *(Image, file, and relation fields exist in the form builder as placeholders but are not registered in FieldTypes.)*
+- **12 Field Types**: Comprehensive field type support including text, textarea, email, url, number, boolean, date, select, radio, checkbox, rich text, and file. *(Image and relation fields exist in the form builder as placeholders but are not registered in FieldTypes.)*
 - **Admin Interfaces**: Complete CRUD interfaces for both entity definitions and entity data
 - **Dynamic Form Generation**: Forms automatically generated from entity field definitions
 - **System-Wide Toggle**: Enable/disable the entire entities system via Settings
@@ -111,8 +111,8 @@ Stores content type blueprints with field definitions.
 | `fields_definition` | jsonb             | Array of field definitions                       |
 | `settings`          | jsonb             | Entity-specific settings                         |
 | `created_by`        | integer           | User ID of creator                               |
-| `date_created`      | utc_datetime_usec | Creation timestamp                               |
-| `date_updated`      | utc_datetime_usec | Last update timestamp                            |
+| `date_created`      | utc_datetime | Creation timestamp                               |
+| `date_updated`      | utc_datetime | Last update timestamp                            |
 
 **Indexes:**
 - Unique index on `name`
@@ -122,7 +122,7 @@ Stores content type blueprints with field definitions.
 **Example Entity Record:**
 
 ```elixir
-%PhoenixKit.Entities{
+%PhoenixKit.Modules.Entities{
   id: 1,
   name: "blog_post",
   display_name: "Blog Post",
@@ -170,8 +170,8 @@ Stores actual content records based on entity blueprints.
 | `data`         | jsonb             | All field values as key-value pairs              |
 | `metadata`     | jsonb             | Additional metadata (tags, categories, etc.)     |
 | `created_by`   | integer           | User ID of creator                               |
-| `date_created` | utc_datetime_usec | Creation timestamp                               |
-| `date_updated` | utc_datetime_usec | Last update timestamp                            |
+| `date_created` | utc_datetime | Creation timestamp                               |
+| `date_updated` | utc_datetime | Last update timestamp                            |
 
 **Indexes:**
 - Index on `entity_id`
@@ -186,7 +186,7 @@ Stores actual content records based on entity blueprints.
 **Example Data Record:**
 
 ```elixir
-%PhoenixKit.Entities.EntityData{
+%PhoenixKit.Modules.Entities.EntityData{
   id: 1,
   entity_id: 1,
   title: "Getting Started with PhoenixKit",
@@ -251,14 +251,14 @@ The system supports 11 fully functional field types organized into 5 categories,
 | `radio`      | Radio Buttons      | Single choice from radio buttons      | **Yes**          |
 | `checkbox`   | Checkboxes         | Multiple choices from checkboxes      | **Yes**          |
 
-### Media Fields *(Coming Soon)*
+### Media Fields
 
 | Type         | Label              | Description                           | Requires Options | Status |
 |--------------|--------------------| --------------------------------------|------------------|--------|
+| `file`       | File Upload        | File upload with configurable constraints | No           | **Registered** |
 | `image`      | Image Upload       | Image file upload                     | No               | Placeholder UI |
-| `file`       | File Upload        | Generic file upload                   | No               | Placeholder UI |
 
-> **Note**: Media fields are defined in the schema but render "Coming Soon" placeholders in the form builder. No actual file upload functionality is implemented yet.
+> **Note**: `file` is fully registered in `FieldTypes` and can be created via `file_field/3`. `image` is defined in the form builder schema but renders a "Coming Soon" placeholder — no actual image upload functionality is implemented yet.
 
 ### Relational Fields *(Coming Soon)*
 
@@ -335,7 +335,7 @@ The `FieldTypes.validate_field/1` function validates:
 
 ## Core Modules
 
-### 1. PhoenixKit.Entities
+### 1. PhoenixKit.Modules.Entities
 
 **File**: `lib/modules/entities/entities.ex`
 
@@ -345,28 +345,28 @@ Main module for entity management with both Ecto schema and business logic.
 
 ```elixir
 # List all entities
-PhoenixKit.Entities.list_entities()
-# => [%PhoenixKit.Entities{}, ...]
+PhoenixKit.Modules.Entities.list_entities()
+# => [%PhoenixKit.Modules.Entities{}, ...]
 
 # List only published entities
-PhoenixKit.Entities.list_active_entities()
-# => [%PhoenixKit.Entities{status: "published"}, ...]
+PhoenixKit.Modules.Entities.list_active_entities()
+# => [%PhoenixKit.Modules.Entities{status: "published"}, ...]
 
 # Get entity by ID (raises if not found)
-PhoenixKit.Entities.get_entity!(1)
-# => %PhoenixKit.Entities{}
+PhoenixKit.Modules.Entities.get_entity!(1)
+# => %PhoenixKit.Modules.Entities{}
 
 # Get entity by ID (returns nil if not found)
-PhoenixKit.Entities.get_entity(1)
-# => %PhoenixKit.Entities{} | nil
+PhoenixKit.Modules.Entities.get_entity(1)
+# => %PhoenixKit.Modules.Entities{} | nil
 
 # Get entity by unique name
-PhoenixKit.Entities.get_entity_by_name("blog_post")
-# => %PhoenixKit.Entities{}
+PhoenixKit.Modules.Entities.get_entity_by_name("blog_post")
+# => %PhoenixKit.Modules.Entities{}
 
 # Create entity
 # Note: created_by is optional - it auto-fills with first admin user if not provided
-PhoenixKit.Entities.create_entity(%{
+PhoenixKit.Modules.Entities.create_entity(%{
   name: "blog_post",
   display_name: "Blog Post",
   description: "Blog post content type",
@@ -375,31 +375,31 @@ PhoenixKit.Entities.create_entity(%{
   # created_by: user_id,  # Optional! Auto-filled if omitted
   fields_definition: [...]
 })
-# => {:ok, %PhoenixKit.Entities{}}
+# => {:ok, %PhoenixKit.Modules.Entities{}}
 
 # Update entity
-PhoenixKit.Entities.update_entity(entity, %{status: "published"})
-# => {:ok, %PhoenixKit.Entities{}}
+PhoenixKit.Modules.Entities.update_entity(entity, %{status: "published"})
+# => {:ok, %PhoenixKit.Modules.Entities{}}
 
 # Delete entity (also deletes all associated data)
-PhoenixKit.Entities.delete_entity(entity)
-# => {:ok, %PhoenixKit.Entities{}}
+PhoenixKit.Modules.Entities.delete_entity(entity)
+# => {:ok, %PhoenixKit.Modules.Entities{}}
 
 # Get changeset for forms
-PhoenixKit.Entities.change_entity(entity, attrs)
+PhoenixKit.Modules.Entities.change_entity(entity, attrs)
 # => %Ecto.Changeset{}
 
 # System stats
-PhoenixKit.Entities.get_system_stats()
+PhoenixKit.Modules.Entities.get_system_stats()
 # => %{total_entities: 5, active_entities: 4, total_data_records: 150}
 
 # Check if enabled
-PhoenixKit.Entities.enabled?()
+PhoenixKit.Modules.Entities.enabled?()
 # => true
 
 # Enable/disable system
-PhoenixKit.Entities.enable_system()
-PhoenixKit.Entities.disable_system()
+PhoenixKit.Modules.Entities.enable_system()
+PhoenixKit.Modules.Entities.disable_system()
 ```
 
 **Validations:**
@@ -411,7 +411,7 @@ PhoenixKit.Entities.disable_system()
 - **Fields Definition**: Must be valid array of field definitions
 - **Timestamps**: Auto-set on create/update
 
-### 2. PhoenixKit.Entities.EntityData
+### 2. PhoenixKit.Modules.Entities.EntityData
 
 **File**: `lib/modules/entities/entity_data.ex`
 
@@ -421,24 +421,24 @@ Module for entity data records with dynamic validation.
 
 ```elixir
 # List all data for an entity
-PhoenixKit.Entities.EntityData.list_by_entity(entity_id)
-# => [%PhoenixKit.Entities.EntityData{}, ...]
+PhoenixKit.Modules.Entities.EntityData.list_by_entity(entity_id)
+# => [%PhoenixKit.Modules.Entities.EntityData{}, ...]
 
 # List all data across all entities
-PhoenixKit.Entities.EntityData.list_all()
-# => [%PhoenixKit.Entities.EntityData{}, ...]
+PhoenixKit.Modules.Entities.EntityData.list_all()
+# => [%PhoenixKit.Modules.Entities.EntityData{}, ...]
 
 # Get data record by ID (raises if not found)
-PhoenixKit.Entities.EntityData.get!(id)
-# => %PhoenixKit.Entities.EntityData{}
+PhoenixKit.Modules.Entities.EntityData.get!(id)
+# => %PhoenixKit.Modules.Entities.EntityData{}
 
 # Get data record by ID (returns nil if not found)
-PhoenixKit.Entities.EntityData.get(id)
-# => %PhoenixKit.Entities.EntityData{} | nil
+PhoenixKit.Modules.Entities.EntityData.get(id)
+# => %PhoenixKit.Modules.Entities.EntityData{} | nil
 
 # Create data record
 # Note: created_by is optional - it auto-fills with first admin user if not provided
-PhoenixKit.Entities.EntityData.create(%{
+PhoenixKit.Modules.Entities.EntityData.create(%{
   entity_id: 1,
   title: "My First Post",
   slug: "my-first-post",
@@ -446,18 +446,18 @@ PhoenixKit.Entities.EntityData.create(%{
   data: %{"title" => "My First Post", "content" => "..."}
   # created_by: user_id  # Optional! Auto-filled if omitted
 })
-# => {:ok, %PhoenixKit.Entities.EntityData{}}
+# => {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
 # Update data record
-PhoenixKit.Entities.EntityData.update(data_record, %{status: "published"})
-# => {:ok, %PhoenixKit.Entities.EntityData{}}
+PhoenixKit.Modules.Entities.EntityData.update(data_record, %{status: "published"})
+# => {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
 # Delete data record
-PhoenixKit.Entities.EntityData.delete(data_record)
-# => {:ok, %PhoenixKit.Entities.EntityData{}}
+PhoenixKit.Modules.Entities.EntityData.delete(data_record)
+# => {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
 # Get changeset
-PhoenixKit.Entities.EntityData.change(data_record, attrs)
+PhoenixKit.Modules.Entities.EntityData.change(data_record, attrs)
 # => %Ecto.Changeset{}
 ```
 
@@ -470,7 +470,7 @@ The `validate_data_against_entity/1` function validates data records against the
 3. **Options**: For choice fields, validates values are in allowed options
 4. **Data Completeness**: Ensures data map contains entries for defined fields
 
-### 3. PhoenixKit.Entities.FieldTypes
+### 3. PhoenixKit.Modules.Entities.FieldTypes
 
 **File**: `lib/modules/entities/field_types.ex`
 
@@ -480,60 +480,60 @@ Field type definitions and validation.
 
 ```elixir
 # Get all field types
-PhoenixKit.Entities.FieldTypes.all()
+PhoenixKit.Modules.Entities.FieldTypes.all()
 # => %{"text" => %{name: "text", label: "Text", ...}, ...}
 
 # Get field types by category
-PhoenixKit.Entities.FieldTypes.by_category(:basic)
+PhoenixKit.Modules.Entities.FieldTypes.by_category(:basic)
 # => [%{name: "text", label: "Text", ...}, ...]
 
 # Get category list
-PhoenixKit.Entities.FieldTypes.category_list()
+PhoenixKit.Modules.Entities.FieldTypes.category_list()
 # => [{:basic, "Basic Fields"}, {:numeric, "Numeric"}, ...]
 
 # Get specific type
-PhoenixKit.Entities.FieldTypes.get_type("text")
+PhoenixKit.Modules.Entities.FieldTypes.get_type("text")
 # => %{name: "text", label: "Text", category: :basic, icon: "hero-document-text"}
 
 # Check if type requires options
-PhoenixKit.Entities.FieldTypes.requires_options?("select")
+PhoenixKit.Modules.Entities.FieldTypes.requires_options?("select")
 # => true
 
 # Validate field definition
-PhoenixKit.Entities.FieldTypes.validate_field(field_map)
+PhoenixKit.Modules.Entities.FieldTypes.validate_field(field_map)
 # => {:ok, validated_field} | {:error, error_message}
 
 # Format for picker UI
-PhoenixKit.Entities.FieldTypes.for_picker()
+PhoenixKit.Modules.Entities.FieldTypes.for_picker()
 # => Structured data for UI dropdowns
 
 # Field Builder Helpers (for programmatic entity creation)
 # These helpers make it easy to create field definitions with proper structure
 
 # Create a field with options
-PhoenixKit.Entities.FieldTypes.new_field("text", "title", "Title", required: true)
+PhoenixKit.Modules.Entities.FieldTypes.new_field("text", "title", "Title", required: true)
 # => %{"type" => "text", "key" => "title", "label" => "Title", "required" => true, ...}
 
 # Create choice fields with options
-PhoenixKit.Entities.FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
+PhoenixKit.Modules.Entities.FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
 # => %{"type" => "select", "key" => "category", "label" => "Category", "options" => [...], ...}
 
-PhoenixKit.Entities.FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"])
+PhoenixKit.Modules.Entities.FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"])
 # => %{"type" => "radio", "key" => "priority", "label" => "Priority", "options" => [...], ...}
 
-PhoenixKit.Entities.FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
+PhoenixKit.Modules.Entities.FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
 # => %{"type" => "checkbox", "key" => "tags", "label" => "Tags", "options" => [...], ...}
 
 # Convenience helpers for common field types
-PhoenixKit.Entities.FieldTypes.text_field("name", "Full Name", required: true)
-PhoenixKit.Entities.FieldTypes.textarea_field("bio", "Biography")
-PhoenixKit.Entities.FieldTypes.email_field("email", "Email Address", required: true)
-PhoenixKit.Entities.FieldTypes.number_field("age", "Age")
-PhoenixKit.Entities.FieldTypes.boolean_field("active", "Is Active", default: true)
-PhoenixKit.Entities.FieldTypes.rich_text_field("content", "Content")
+PhoenixKit.Modules.Entities.FieldTypes.text_field("name", "Full Name", required: true)
+PhoenixKit.Modules.Entities.FieldTypes.textarea_field("bio", "Biography")
+PhoenixKit.Modules.Entities.FieldTypes.email_field("email", "Email Address", required: true)
+PhoenixKit.Modules.Entities.FieldTypes.number_field("age", "Age")
+PhoenixKit.Modules.Entities.FieldTypes.boolean_field("active", "Is Active", default: true)
+PhoenixKit.Modules.Entities.FieldTypes.rich_text_field("content", "Content")
 ```
 
-### 4. PhoenixKit.Entities.FormBuilder
+### 4. PhoenixKit.Modules.Entities.FormBuilder
 
 **File**: `lib/modules/entities/form_builder.ex`
 
@@ -543,15 +543,15 @@ Dynamic form generation from entity field definitions.
 
 ```elixir
 # Generate form fields from entity (returns Phoenix.Component HTML)
-PhoenixKit.Entities.FormBuilder.build_fields(entity, changeset, opts \\ [])
+PhoenixKit.Modules.Entities.FormBuilder.build_fields(entity, changeset, opts \\ [])
 # => Phoenix.LiveView.Rendered (HEEx template)
 
 # Generate single field (multi-clause function handles all field types)
-PhoenixKit.Entities.FormBuilder.build_field(field_definition, changeset, opts \\ [])
+PhoenixKit.Modules.Entities.FormBuilder.build_field(field_definition, changeset, opts \\ [])
 # => Phoenix.LiveView.Rendered (HEEx template)
 
 # Validate entity data against field definitions
-PhoenixKit.Entities.FormBuilder.validate_data(entity, data_params)
+PhoenixKit.Modules.Entities.FormBuilder.validate_data(entity, data_params)
 # => {:ok, validated_data} | {:error, errors}
 ```
 
@@ -929,11 +929,11 @@ end
 
 ```elixir
 # Sanitize a single string
-PhoenixKit.Entities.HtmlSanitizer.sanitize("<script>alert('xss')</script><p>Hello</p>")
+PhoenixKit.Modules.Entities.HtmlSanitizer.sanitize("<script>alert('xss')</script><p>Hello</p>")
 # => "<p>Hello</p>"
 
 # Sanitize all rich_text fields in data map
-PhoenixKit.Entities.HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
+PhoenixKit.Modules.Entities.HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
 ```
 
 ---
@@ -1029,7 +1029,7 @@ The multilang system is built around three principles:
 2. **Lazy migration** — Existing flat records are automatically wrapped into multilang structure on first edit. No bulk migration needed.
 3. **Embedded primary** — Each record stores its own `_primary_language` key, allowing records created under different primary languages to coexist.
 
-### Core Module: `PhoenixKit.Entities.Multilang`
+### Core Module: `PhoenixKit.Modules.Entities.Multilang`
 
 Pure-function module with zero side effects. All functions operate on data maps without touching the database.
 
@@ -1091,7 +1091,7 @@ This approach avoids bulk migrations and is idempotent — if the user doesn't s
 
 The translation API provides high-level functions so that scripts and AI agents can manage translations without understanding the internal JSONB structure:
 
-**Entity definitions** (`PhoenixKit.Entities`):
+**Entity definitions** (`PhoenixKit.Modules.Entities`):
 ```elixir
 Entities.set_entity_translation(entity, "es-ES", %{"display_name" => "Productos"})
 Entities.get_entity_translation(entity, "es-ES")
@@ -1100,7 +1100,7 @@ Entities.remove_entity_translation(entity, "es-ES")
 Entities.multilang_enabled?()
 ```
 
-**Data records** (`PhoenixKit.Entities.EntityData`):
+**Data records** (`PhoenixKit.Modules.Entities.EntityData`):
 ```elixir
 EntityData.set_translation(record, "es-ES", %{"name" => "Acme España"})
 EntityData.get_translation(record, "es-ES")
@@ -1141,7 +1141,7 @@ EntityData.get_all_title_translations(record)
 
 ```elixir
 # 1. Create the entity definition
-{:ok, blog_entity} = PhoenixKit.Entities.create_entity(%{
+{:ok, blog_entity} = PhoenixKit.Modules.Entities.create_entity(%{
   name: "blog_post",
   display_name: "Blog Post",
   description: "Blog post content type with rich text and categories",
@@ -1197,7 +1197,7 @@ EntityData.get_all_title_translations(record)
 })
 
 # 2. Create blog post data records
-{:ok, post} = PhoenixKit.Entities.EntityData.create(%{
+{:ok, post} = PhoenixKit.Modules.Entities.EntityData.create(%{
   entity_id: blog_entity.id,
   title: "Getting Started with PhoenixKit Entities",
   slug: "getting-started-phoenixkit-entities",
@@ -1221,7 +1221,7 @@ EntityData.get_all_title_translations(record)
 
 # 3. Query published blog posts
 published_posts =
-  PhoenixKit.Entities.EntityData.list_by_entity(blog_entity.id)
+  PhoenixKit.Modules.Entities.EntityData.list_by_entity(blog_entity.id)
   |> Enum.filter(&(&1.status == "published"))
   |> Enum.sort_by(&(&1.data["publish_date"]), :desc)
 ```
@@ -1229,7 +1229,7 @@ published_posts =
 ### Creating a Product Catalog
 
 ```elixir
-{:ok, product_entity} = PhoenixKit.Entities.create_entity(%{
+{:ok, product_entity} = PhoenixKit.Modules.Entities.create_entity(%{
   name: "product",
   display_name: "Product",
   description: "Product catalog with pricing and inventory",
@@ -1253,7 +1253,7 @@ published_posts =
 ### Creating Team Members
 
 ```elixir
-{:ok, team_entity} = PhoenixKit.Entities.create_entity(%{
+{:ok, team_entity} = PhoenixKit.Modules.Entities.create_entity(%{
   name: "team_member",
   display_name: "Team Member",
   description: "Team member profiles with bio and social links",
@@ -1373,10 +1373,10 @@ end
 
 **Feature**: Entities navigation menu items only appear when the system is enabled.
 
-**Implementation**: Used `PhoenixKit.Entities.enabled?()` check in `layout_wrapper.ex`:
+**Implementation**: Used `PhoenixKit.Modules.Entities.enabled?()` check in `layout_wrapper.ex`:
 
 ```heex
-<%= if PhoenixKit.Entities.enabled?() do %>
+<%= if PhoenixKit.Modules.Entities.enabled?() do %>
   <.admin_nav_item
     href={Routes.locale_aware_path(assigns, "/admin/entities")}
     icon="entities"
@@ -1386,7 +1386,7 @@ end
 
   <%= if submenu_open?(@current_path, ["/admin/entities"]) do %>
     <%!-- Dynamically list each published entity --%>
-    <%= for entity <- PhoenixKit.Entities.list_entities() do %>
+    <%= for entity <- PhoenixKit.Modules.Entities.list_entities() do %>
       <%= if entity.status == "published" do %>
         <.admin_nav_item
           href={Routes.locale_aware_path(assigns, "/admin/entities/#{entity.name}/data")}
@@ -1451,27 +1451,27 @@ ON CONFLICT (key) DO NOTHING
 
 ```elixir
 # Check if system is enabled
-PhoenixKit.Entities.enabled?()
+PhoenixKit.Modules.Entities.enabled?()
 # => false
 
 # Enable system
-PhoenixKit.Entities.enable_system()
+PhoenixKit.Modules.Entities.enable_system()
 # => {:ok, %Setting{}}
 
 # Disable system
-PhoenixKit.Entities.disable_system()
+PhoenixKit.Modules.Entities.disable_system()
 # => {:ok, %Setting{}}
 
 # Get max entities per user
-PhoenixKit.Entities.get_max_per_user()
+PhoenixKit.Modules.Entities.get_max_per_user()
 # => 100
 
 # Validate user hasn't exceeded limit
-PhoenixKit.Entities.validate_user_entity_limit(user_id)
+PhoenixKit.Modules.Entities.validate_user_entity_limit(user_id)
 # => {:ok, :valid} | {:error, "You have reached the maximum limit of 100 entities"}
 
 # Get full config
-PhoenixKit.Entities.get_config()
+PhoenixKit.Modules.Entities.get_config()
 # => %{
 #   enabled: false,
 #   max_per_user: 100,
@@ -1725,16 +1725,16 @@ test "unique constraint on entity name"
 **Solution**: Ensure `phx-change="update_field_form"` is set and `field_form` assign is properly merged.
 
 **Issue**: Entities menu not appearing
-**Solution**: Enable the entities system via Settings or run `PhoenixKit.Entities.enable_system()`.
+**Solution**: Enable the entities system via Settings or run `PhoenixKit.Modules.Entities.enable_system()`.
 
 ---
 
 ## API Reference
 
-### PhoenixKit.Entities
+### PhoenixKit.Modules.Entities
 
 ```elixir
-@type t :: %PhoenixKit.Entities{
+@type t :: %PhoenixKit.Modules.Entities{
   id: integer(),
   name: String.t(),
   display_name: String.t(),
@@ -1772,10 +1772,10 @@ test "unique constraint on entity name"
 
 Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
 
-### PhoenixKit.Entities.EntityData
+### PhoenixKit.Modules.Entities.EntityData
 
 ```elixir
-@type t :: %PhoenixKit.Entities.EntityData{
+@type t :: %PhoenixKit.Modules.Entities.EntityData{
   id: integer(),
   entity_id: integer(),
   title: String.t(),
@@ -1810,7 +1810,7 @@ Note: `create_entity/1` auto-fills `created_by` with the first admin user if not
 
 Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
 
-### PhoenixKit.Entities.Multilang
+### PhoenixKit.Modules.Entities.Multilang
 
 ```elixir
 @spec enabled?() :: boolean()
@@ -1828,7 +1828,7 @@ Note: `create/1` auto-fills `created_by` with the first admin user if not provid
 @spec build_language_tabs() :: [map()]
 ```
 
-### PhoenixKit.Entities.FieldTypes
+### PhoenixKit.Modules.Entities.FieldTypes
 
 ```elixir
 @spec all() :: map()

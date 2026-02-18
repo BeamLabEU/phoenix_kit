@@ -7,7 +7,7 @@ PhoenixKit's Entities layer is a dynamic content type engine. It lets administra
 ## High-level capabilities
 
 - **Entity blueprints** – Define reusable content types (`phoenix_kit_entities`) with metadata, singular/plural labels, icon, status, JSON field schema, and optional custom settings.
-- **Dynamic fields** – 11 built-in field types (text, textarea, number, boolean, date, email, URL, select, radio, checkbox, rich text). Field definitions live in JSONB and are validated at creation time. *(Note: image, file, and relation fields are defined but not yet fully implemented—UI shows "coming soon" placeholders.)*
+- **Dynamic fields** – 12 built-in field types (text, textarea, number, boolean, date, email, URL, select, radio, checkbox, rich text, file). Field definitions live in JSONB and are validated at creation time. *(Note: image and relation fields are defined but not yet fully implemented—UI shows "coming soon" placeholders.)*
 - **Entity data records** – Store instances of an entity (`phoenix_kit_entity_data`) with slug support, status workflow (draft/published/archived), JSONB data payload, metadata, creator tracking, and timestamps.
 - **Admin UI** – LiveView dashboards for managing blueprints, browsing/creating data, filtering, and adjusting module settings.
 - **Settings + security** – Feature toggle and max entities per user are enforced; additional settings (relation/file flags, auto slugging, etc.) are persisted in `phoenix_kit_settings` but reserved for future use. All surfaces are gated behind the admin scope.
@@ -96,7 +96,7 @@ Indexes cover `entity_id`, `slug`, `status`, `created_by`, `title`. FK cascades 
 
 ## Core modules
 
-### `PhoenixKit.Entities`
+### `PhoenixKit.Modules.Entities`
 Responsible for entity blueprints:
 - Schema + changeset enforcing unique names, valid field definitions, timestamps, etc.
 - CRUD helpers (`list_entities/0`, `get_entity!/1`, `get_entity/1`, `get_entity_by_name/1`, `create_entity/1`, `update_entity/2`, `delete_entity/1`, `change_entity/2`).
@@ -108,7 +108,7 @@ Note: `create_entity/1` auto-fills `created_by` with the first admin user if not
 
 Field validation pipeline ensures every entry in `fields_definition` has `type/key/label` and uses a supported type. Note: the changeset validates but does not enrich field definitions—use `FieldTypes.new_field/4` to apply default properties.
 
-### `PhoenixKit.Entities.EntityData`
+### `PhoenixKit.Modules.Entities.EntityData`
 Manages actual records:
 - Schema + changeset verifying required fields, slug format, status, and cross-checking submitted JSON against the entity definition.
 - CRUD and query helpers (`list_all/0`, `list_by_entity/1`, `get!/1`, `get/1`, `search_by_title/2`, `create/1`, `update/2`, `delete/1`, `change/2`).
@@ -116,7 +116,7 @@ Manages actual records:
 
 Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
 
-### `PhoenixKit.Entities.FieldTypes`
+### `PhoenixKit.Modules.Entities.FieldTypes`
 Registry of supported field types with metadata:
 - `all/0`, `list_types/0`, `for_picker/0` – introspection for UI builders.
 - Category helpers, default properties, and `validate_field/1` to ensure field definitions are complete.
@@ -126,7 +126,7 @@ Registry of supported field types with metadata:
   - `text_field/3`, `textarea_field/3`, `email_field/3`, `number_field/3`, `boolean_field/3`, `rich_text_field/3` – Common field types
 - Used both when saving entity definitions and when rendering forms.
 
-### `PhoenixKit.Entities.Multilang`
+### `PhoenixKit.Modules.Entities.Multilang`
 Pure-function module for multi-language data transformations. No database calls — used by LiveViews and the convenience API.
 - Global helpers: `enabled?/0`, `primary_language/0`, `enabled_languages/0`.
 - Data reading: `get_language_data/2`, `get_primary_data/1`, `get_raw_language_data/2`, `multilang_data?/1`.
@@ -134,7 +134,7 @@ Pure-function module for multi-language data transformations. No database calls 
 - Re-keying: `rekey_primary/2`, `maybe_rekey_data/1` — handles primary language changes.
 - UI: `build_language_tabs/0` — builds tab data for language switcher UI.
 
-### `PhoenixKit.Entities.FormBuilder`
+### `PhoenixKit.Modules.Entities.FormBuilder`
 - Renders form inputs dynamically based on field definitions (`build_fields/3`, `build_field/3`).
 - Provides `validate_data/2` and lower-level helpers to check payloads before they reach `EntityData.changeset/2`.
 - Language-aware: accepts `lang_code` option to render fields for a specific language, with ghost-text placeholders showing primary language values on secondary tabs.
@@ -204,7 +204,7 @@ Each field definition is a map like:
 
 > **Note**: Settings marked "Not yet enforced" are persisted in the database and visible in the admin UI, but the underlying functionality is not yet implemented. They are placeholders for future features.
 
-`PhoenixKit.Entities.get_config/0` returns a map:
+`PhoenixKit.Modules.Entities.get_config/0` returns a map:
 ```elixir
 %{
   enabled: boolean,
@@ -222,8 +222,8 @@ Each field definition is a map like:
 
 ### Enabling the module
 ```elixir
-{:ok, _setting} = PhoenixKit.Entities.enable_system()
-PhoenixKit.Entities.enabled?()
+{:ok, _setting} = PhoenixKit.Modules.Entities.enable_system()
+PhoenixKit.Modules.Entities.enabled?()
 # => true/false
 ```
 
@@ -231,7 +231,7 @@ PhoenixKit.Entities.enabled?()
 ```elixir
 # Note: created_by is optional - auto-fills with first admin user if omitted
 {:ok, blog_entity} =
-  PhoenixKit.Entities.create_entity(%{
+  PhoenixKit.Modules.Entities.create_entity(%{
     name: "blog_post",
     display_name: "Blog Post",
     display_name_plural: "Blog Posts",
@@ -246,7 +246,7 @@ PhoenixKit.Entities.enabled?()
 
 ### Creating fields with builder helpers
 ```elixir
-alias PhoenixKit.Entities.FieldTypes
+alias PhoenixKit.Modules.Entities.FieldTypes
 
 # Build fields programmatically
 fields = [
@@ -257,7 +257,7 @@ fields = [
   FieldTypes.boolean_field("featured", "Featured Post", default: false)
 ]
 
-{:ok, entity} = PhoenixKit.Entities.create_entity(%{
+{:ok, entity} = PhoenixKit.Modules.Entities.create_entity(%{
   name: "article",
   display_name: "Article",
   fields_definition: fields
@@ -268,7 +268,7 @@ fields = [
 ```elixir
 # Note: created_by is optional - auto-fills with first admin user if omitted
 {:ok, _record} =
-  PhoenixKit.Entities.EntityData.create(%{
+  PhoenixKit.Modules.Entities.EntityData.create(%{
     entity_id: blog_entity.id,
     title: "My First Post",
     status: "published",
@@ -279,13 +279,13 @@ fields = [
 
 ### Counting statistics
 ```elixir
-PhoenixKit.Entities.get_system_stats()
+PhoenixKit.Modules.Entities.get_system_stats()
 # => %{total_entities: 5, active_entities: 4, total_data_records: 23}
 ```
 
 ### Enforcing limits
 ```elixir
-PhoenixKit.Entities.validate_user_entity_limit(admin.id)
+PhoenixKit.Modules.Entities.validate_user_entity_limit(admin.id)
 # {:ok, :valid} or {:error, "You have reached the maximum limit of 100 entities"}
 ```
 
