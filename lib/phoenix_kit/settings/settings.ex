@@ -724,7 +724,7 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Handle missing uuid column during V40 migration gracefully (silent)
+      # Silence transient migration errors (missing uuid column, cached plan invalidation)
       unless migration_column_error?(error) do
         Logger.warning("Failed to get settings directly from DB: #{inspect(error)}")
       end
@@ -1492,7 +1492,7 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Handle missing uuid column during V40 migration gracefully
+      # Silence transient migration errors (missing uuid column, cached plan invalidation)
       unless migration_column_error?(error) do
         Logger.error("Failed to warm settings cache: #{inspect(error)}")
       end
@@ -1546,7 +1546,7 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Handle missing uuid column during V40 migration gracefully
+      # Silence transient migration errors (missing uuid column, cached plan invalidation)
       unless migration_column_error?(error) do
         Logger.error("Failed to warm critical cache: #{inspect(error)}")
       end
@@ -1608,7 +1608,7 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Handle missing uuid column during V40 migration gracefully (silent)
+      # Silence transient migration errors (missing uuid column, cached plan invalidation)
       # Also skip logging during compilation mode
       unless migration_column_error?(error) or compilation_mode?() do
         Logger.error("Failed to query setting #{key}: #{inspect(error)}")
@@ -1643,7 +1643,7 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Handle missing uuid column during V40 migration gracefully (silent)
+      # Silence transient migration errors (missing uuid column, cached plan invalidation)
       # Also skip logging during compilation mode
       unless migration_column_error?(error) or compilation_mode?() do
         Logger.error("Failed to query JSON setting #{key}: #{inspect(error)}")
@@ -1670,13 +1670,25 @@ defmodule PhoenixKit.Settings do
     _ -> true
   end
 
-  # Check if error is specifically about missing uuid column (happens during V40 migration)
-  # Only silences uuid column errors - other missing columns will still be logged
-  # This is safe: after V40 migration, uuid exists and this never matches
+  # Check if error is a transient migration-related error that should be silenced.
+  # These errors resolve on their own after connections are recycled.
+  #
+  # Matches:
+  # 1. Missing uuid column (during V56 migration, before uuid column exists)
+  # 2. Cached plan invalidation (during V58+ migrations that change column types,
+  #    e.g. timestamp -> timestamptz). PostgreSQL raises "cached plan must not
+  #    change result type" when a prepared statement's cached plan becomes stale
+  #    after ALTER COLUMN TYPE.
   defp migration_column_error?(%Postgrex.Error{
          postgres: %{code: :undefined_column, message: msg}
        }) do
     String.contains?(msg, "uuid")
+  end
+
+  defp migration_column_error?(%Postgrex.Error{
+         postgres: %{code: :feature_not_supported, message: msg}
+       }) do
+    String.contains?(msg, "cached plan")
   end
 
   defp migration_column_error?(_), do: false
