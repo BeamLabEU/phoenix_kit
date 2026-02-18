@@ -24,7 +24,7 @@ Well-structured PR that unifies a fragmented storage model (title in metadata vs
 
 The move from `metadata["translations"][lang]["title"]` to `data[lang]["_title"]` is the right call. It means all per-language content now lives in one place (`data`), and the merge/override logic in `get_language_data/2` automatically handles `_title` the same way it handles custom fields.
 
-The `_title` prefix convention (`_` prefix) is consistent with `_primary_language` — these are system keys distinguished from user field keys which must be alphanumeric.
+The `_title` prefix convention (`_` prefix) is consistent with `_primary_language` — these are system keys distinguished from user field keys which must be alphanumeric. As Kimi's review correctly notes, field validation already rejects keys starting with `_`, so there is zero collision risk between `_title` and user-defined field keys. This is a concrete safety guarantee, not just a naming convention.
 
 ### Rekey Logic (Approve)
 
@@ -131,6 +131,8 @@ Comprehensive coverage of `get_title_translation/2`:
 
 Good edge case coverage. Uses struct construction directly (no DB) which is appropriate for pure-function tests.
 
+**Minor test gap** (noted by Kimi): No test explicitly covers the partial migration state where the primary language has `_title` seeded but a secondary language still has its title only in `metadata["translations"]`. The individual code paths are tested (JSONB read, metadata fallback), but the combined scenario isn't exercised end-to-end. Low risk since the fallback chain handles it, but worth adding for completeness.
+
 ### Rekey Tests (Updated)
 
 Tests now verify the override recomputation:
@@ -155,10 +157,26 @@ Assertions updated from string matching to atom matching. New test for system ro
 
 2. **`FormBuilder.validate_data` preserving `_title`**: Would eliminate the double `inject_title_into_form_data` call pattern.
 
-3. **Remove `metadata["translations"]` fallback**: After sufficient time for all records to be edited at least once, the transitional read fallback in `get_title_translation/2` could be removed to simplify the code.
+3. **Remove `metadata["translations"]` fallback**: Set a concrete deprecation milestone (e.g., V60) after which the transitional read fallback in `get_title_translation/2` can be removed. A bulk migration task (suggestion #1) would make this achievable sooner rather than waiting for organic edits.
+
+4. **Partial migration test**: Add a test that constructs a record with `_title` on the primary language but title only in `metadata["translations"]` for a secondary, then verifies `get_title_translation/2` returns the metadata value correctly.
 
 ---
 
 ## Verdict
 
 **Approve.** The title unification and rekey fix are architecturally sound improvements. The permissions cleanup is thorough. Test coverage is good. No blocking issues found.
+
+---
+
+## Cross-Review Notes
+
+*Updated after reading Kimi and Mistral reviews (2026-02-18).*
+
+All three reviews converge on **Approve** with the same core observations. Notable additions from peer reviews incorporated above:
+
+- **Kimi**: Field validation rejects `_`-prefixed keys, providing a concrete collision safety guarantee (not just convention). Added to Title Unification section.
+- **Kimi**: Suggested a specific deprecation milestone (V60) for removing the metadata fallback. Added to Suggestions.
+- **Both**: Identified the partial migration test gap more explicitly. Added to Tests section.
+
+No disagreements across the three reviews. The observations about double injection, gradual migration timeline, and catch-all scope fallbacks were independently identified by all reviewers.
