@@ -552,7 +552,7 @@
                 </.table_default_cell>
                 <%= if !@selected_entity do %>
                   <.table_default_cell>
-                    <span class="badge badge-outline badge-sm">
+                    <span class="badge badge-outline badge-sm h-auto">
                       {get_entity_name(@entities, data_record.entity_id)}
                     </span>
                   </.table_default_cell>
@@ -568,14 +568,14 @@
                         {gettext("Uncategorized")}
                       </span>
                     <% category -> %>
-                      <span class="badge badge-primary badge-outline badge-sm">
+                      <span class="badge badge-primary badge-outline badge-sm h-auto">
                         <.icon name="hero-tag" class="w-3 h-3 mr-1" />
                         {category}
                       </span>
                   <% end %>
                 </.table_default_cell>
                 <.table_default_cell>
-                  <span class={"badge #{status_badge_class(data_record.status)} badge-sm"}>
+                  <span class={"badge #{status_badge_class(data_record.status)} badge-sm h-auto"}>
                     <.icon name={status_icon(data_record.status)} class="w-3 h-3 mr-1" />
                     {status_label(data_record.status)}
                   </span>

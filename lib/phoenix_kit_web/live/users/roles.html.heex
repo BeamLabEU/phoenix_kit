@@ -129,9 +129,13 @@
                 </.table_default_cell>
                 <.table_default_cell>
                   <%= if role.is_system_role do %>
-                    <span class="badge badge-outline badge-sm">{gettext("System Role")}</span>
+                    <span class="badge badge-outline badge-sm h-auto">
+                      {gettext("System Role")}
+                    </span>
                   <% else %>
-                    <span class="badge badge-success badge-sm">{gettext("Custom Role")}</span>
+                    <span class="badge badge-success badge-sm h-auto">
+                      {gettext("Custom Role")}
+                    </span>
                   <% end %>
                 </.table_default_cell>
                 <.table_default_cell class="max-w-xs">
@@ -171,7 +175,9 @@
                         <.icon name="hero-trash" class="h-3 w-3 mr-1" /> {gettext("Delete")}
                       </button>
                     <% else %>
-                      <span class="badge badge-ghost badge-sm">{gettext("Protected")}</span>
+                      <span class="badge badge-ghost badge-sm h-auto">
+                        {gettext("Protected")}
+                      </span>
                     <% end %>
 
                     <%!-- Permissions Button (users permission required, editable roles only) --%>

@@ -835,7 +835,7 @@
             <div class="text-xs text-base-content/70 mb-1">Parameters</div>
             <div class="flex flex-wrap gap-2">
               <%= for {key, value} <- params_to_show, not is_nil(value) do %>
-                <span class="badge badge-outline badge-sm">{key}: {value}</span>
+                <span class="badge badge-outline badge-sm h-auto">{key}: {value}</span>
               <% end %>
             </div>
           </div>

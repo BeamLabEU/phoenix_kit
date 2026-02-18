@@ -117,7 +117,7 @@
                   {entry.schema}.{entry.table}
                 </.link>
                 <%= if entry.row_id do %>
-                  <span class="badge badge-outline badge-sm">id: {entry.row_id}</span>
+                  <span class="badge badge-outline badge-sm h-auto">id: {entry.row_id}</span>
                 <% end %>
                 <span class="text-xs text-base-content/50 ml-auto font-mono">
                   {Calendar.strftime(entry.timestamp, "%Y-%m-%d %H:%M:%S")}

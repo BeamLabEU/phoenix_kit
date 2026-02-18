@@ -944,10 +944,10 @@
                           disabled={@readonly?}
                         />
                         <span class="swap-on">
-                          <span class="badge badge-success badge-sm">{gettext("On")}</span>
+                          <span class="badge badge-success badge-sm h-auto">{gettext("On")}</span>
                         </span>
                         <span class="swap-off">
-                          <span class="badge badge-ghost badge-sm">{gettext("Off")}</span>
+                          <span class="badge badge-ghost badge-sm h-auto">{gettext("Off")}</span>
                         </span>
                       </label>
                     </div>
@@ -986,9 +986,11 @@
                       {gettext("Saving...")}
                     </span>
                   <% @has_pending_changes -> %>
-                    <span class="badge badge-warning badge-sm">{gettext("Unsaved changes")}</span>
+                    <span class="badge badge-warning badge-sm h-auto">
+                      {gettext("Unsaved changes")}
+                    </span>
                   <% @is_new_post -> %>
-                    <span class="badge badge-ghost badge-sm">{gettext("New")}</span>
+                    <span class="badge badge-ghost badge-sm h-auto">{gettext("New")}</span>
                   <% true -> %>
                     <span class="badge badge-success badge-sm gap-1">
                       <.icon name="hero-check" class="w-3 h-3" />
@@ -1085,7 +1087,7 @@
                     {gettext("Copy from v%{version}", version: version)}
                   </span>
                   <span class={[
-                    "badge badge-xs",
+                    "badge badge-xs h-auto",
                     status == "published" && "badge-success",
                     status == "draft" && "badge-warning",
                     status == "archived" && "badge-ghost"

@@ -119,7 +119,7 @@
                         <div>
                           <label class="text-sm font-medium text-base-content/70">Template</label>
                           <div class="flex items-center gap-2">
-                            <span class="badge badge-primary badge-sm">
+                            <span class="badge badge-primary badge-sm h-auto">
                               {@email_log.template_name}
                             </span>
                             <button
@@ -144,7 +144,9 @@
 
                       <div>
                         <label class="text-sm font-medium text-base-content/70">Provider</label>
-                        <div class="badge badge-outline badge-sm">{@email_log.provider}</div>
+                        <div class="badge badge-outline badge-sm h-auto">
+                          {@email_log.provider}
+                        </div>
                       </div>
 
                       <div>
@@ -190,7 +192,7 @@
                     <div class="border-t pt-4 mt-4">
                       <label class="text-sm font-medium text-base-content/70">Campaign</label>
                       <div class="flex items-center gap-2 mt-1">
-                        <span class="badge badge-secondary badge-sm">
+                        <span class="badge badge-secondary badge-sm h-auto">
                           {@email_log.campaign_id}
                         </span>
                         <button
@@ -408,7 +410,7 @@
                       <%= for {key, value} <- @email_log.message_tags do %>
                         <div class="flex justify-between items-center text-sm">
                           <span class="font-medium">{key}</span>
-                          <span class="badge badge-outline badge-xs">{value}</span>
+                          <span class="badge badge-outline badge-xs h-auto">{value}</span>
                         </div>
                       <% end %>
                     </div>

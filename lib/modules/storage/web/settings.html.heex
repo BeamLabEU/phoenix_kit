@@ -184,7 +184,7 @@
 
                     <%!-- Provider --%>
                     <td>
-                      <span class="badge badge-ghost badge-sm">
+                      <span class="badge badge-ghost badge-sm h-auto">
                         {String.upcase(bucket.provider)}
                       </span>
                     </td>
@@ -208,9 +208,9 @@
                     <%!-- Status --%>
                     <td>
                       <%= if bucket.enabled do %>
-                        <span class="badge badge-success badge-sm">Enabled</span>
+                        <span class="badge badge-success badge-sm h-auto">Enabled</span>
                       <% else %>
-                        <span class="badge badge-error badge-sm">Disabled</span>
+                        <span class="badge badge-error badge-sm h-auto">Disabled</span>
                       <% end %>
                     </td>
 

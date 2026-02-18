@@ -180,7 +180,10 @@
                       <% end %>
                     </td>
                     <td>
-                      <span class={["badge badge-sm", status_badge_class(subscription.status)]}>
+                      <span class={[
+                        "badge badge-sm h-auto",
+                        status_badge_class(subscription.status)
+                      ]}>
                         {subscription.status}
                       </span>
                       <%= if subscription.cancel_at_period_end do %>

@@ -33,13 +33,15 @@
               <div class="flex-shrink-0 ml-4">
                 <%= case @ticket.status do %>
                   <% "open" -> %>
-                    <span class="badge badge-info badge-lg">{gettext("Open")}</span>
+                    <span class="badge badge-info badge-lg h-auto">{gettext("Open")}</span>
                   <% "in_progress" -> %>
-                    <span class="badge badge-warning badge-lg">{gettext("In Progress")}</span>
+                    <span class="badge badge-warning badge-lg h-auto">
+                      {gettext("In Progress")}
+                    </span>
                   <% "resolved" -> %>
-                    <span class="badge badge-success badge-lg">{gettext("Resolved")}</span>
+                    <span class="badge badge-success badge-lg h-auto">{gettext("Resolved")}</span>
                   <% "closed" -> %>
-                    <span class="badge badge-lg">{gettext("Closed")}</span>
+                    <span class="badge badge-lg h-auto">{gettext("Closed")}</span>
                 <% end %>
               </div>
             </div>

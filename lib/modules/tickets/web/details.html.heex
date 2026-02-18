@@ -215,7 +215,7 @@
                 <h2 class="card-title text-warning">
                   Internal Notes ({length(@internal_notes)})
                 </h2>
-                <span class="badge badge-warning badge-sm">Staff Only</span>
+                <span class="badge badge-warning badge-sm h-auto">Staff Only</span>
               </div>
 
               <%!-- Internal Notes List --%>
@@ -299,13 +299,13 @@
               <div class="mt-1">
                 <%= case @ticket.status do %>
                   <% "open" -> %>
-                    <span class="badge badge-info badge-lg">Open</span>
+                    <span class="badge badge-info badge-lg h-auto">Open</span>
                   <% "in_progress" -> %>
-                    <span class="badge badge-warning badge-lg">In Progress</span>
+                    <span class="badge badge-warning badge-lg h-auto">In Progress</span>
                   <% "resolved" -> %>
-                    <span class="badge badge-success badge-lg">Resolved</span>
+                    <span class="badge badge-success badge-lg h-auto">Resolved</span>
                   <% "closed" -> %>
-                    <span class="badge badge-lg">Closed</span>
+                    <span class="badge badge-lg h-auto">Closed</span>
                 <% end %>
               </div>
             </div>
@@ -450,7 +450,7 @@
                   <div>
                     <div>
                       <%= if entry.from_status do %>
-                        <span class="badge badge-xs">{entry.from_status}</span> →
+                        <span class="badge badge-xs h-auto">{entry.from_status}</span> →
                       <% end %>
                       <span class="badge badge-xs badge-primary">{entry.to_status}</span>
                     </div>

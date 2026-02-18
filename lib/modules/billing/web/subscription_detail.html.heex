@@ -18,7 +18,7 @@
         <div>
           <div class="flex items-center gap-3">
             <h1 class="text-3xl font-bold">Subscription #{@subscription.uuid}</h1>
-            <span class={["badge badge-lg", status_badge_class(@subscription.status)]}>
+            <span class={["badge badge-lg h-auto", status_badge_class(@subscription.status)]}>
               {@subscription.status}
             </span>
           </div>

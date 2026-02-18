@@ -100,17 +100,19 @@
                     <span class="text-sm font-medium">{gettext("File")}</span>
                     <%= if @cache_info.file_enabled do %>
                       <%= if @cache_info.exists do %>
-                        <span class="badge badge-success badge-xs">{gettext("cached")}</span>
+                        <span class="badge badge-success badge-xs h-auto">
+                          {gettext("cached")}
+                        </span>
                         <%= if @cache_info.generated_at do %>
                           <span class="text-xs text-base-content/50">
                             {format_cache_time(@cache_info.generated_at)}
                           </span>
                         <% end %>
                       <% else %>
-                        <span class="badge badge-ghost badge-xs">{gettext("empty")}</span>
+                        <span class="badge badge-ghost badge-xs h-auto">{gettext("empty")}</span>
                       <% end %>
                     <% else %>
-                      <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                      <span class="badge badge-ghost badge-xs h-auto">{gettext("off")}</span>
                     <% end %>
                   </div>
                   <div class="flex items-center gap-1">
@@ -163,9 +165,13 @@
                     <%= if @cache_info.memory_enabled do %>
                       <%= if @cache_info.in_memory do %>
                         <%= if memory_is_stale do %>
-                          <span class="badge badge-warning badge-xs">{gettext("stale")}</span>
+                          <span class="badge badge-warning badge-xs h-auto">
+                            {gettext("stale")}
+                          </span>
                         <% else %>
-                          <span class="badge badge-success badge-xs">{gettext("loaded")}</span>
+                          <span class="badge badge-success badge-xs h-auto">
+                            {gettext("loaded")}
+                          </span>
                         <% end %>
                         <%= if @cache_info.memory_file_generated_at do %>
                           <span class="text-xs text-base-content/50">
@@ -181,10 +187,10 @@
                           </span>
                         <% end %>
                       <% else %>
-                        <span class="badge badge-ghost badge-xs">{gettext("empty")}</span>
+                        <span class="badge badge-ghost badge-xs h-auto">{gettext("empty")}</span>
                       <% end %>
                     <% else %>
-                      <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                      <span class="badge badge-ghost badge-xs h-auto">{gettext("off")}</span>
                     <% end %>
                   </div>
                   <div class="flex items-center gap-1">
@@ -243,12 +249,14 @@
                     <.icon name="hero-document-text" class="w-4 h-4 text-base-content/70" />
                     <span class="text-sm font-medium">{gettext("Posts")}</span>
                     <%= if @cache_info.render_enabled && @cache_info.render_global_enabled do %>
-                      <span class="badge badge-success badge-xs">{gettext("on")}</span>
+                      <span class="badge badge-success badge-xs h-auto">{gettext("on")}</span>
                     <% else %>
                       <%= if !@cache_info.render_global_enabled do %>
-                        <span class="badge badge-ghost badge-xs">{gettext("global off")}</span>
+                        <span class="badge badge-ghost badge-xs h-auto">
+                          {gettext("global off")}
+                        </span>
                       <% else %>
-                        <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                        <span class="badge badge-ghost badge-xs h-auto">{gettext("off")}</span>
                       <% end %>
                     <% end %>
                   </div>

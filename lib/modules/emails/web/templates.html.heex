@@ -186,7 +186,7 @@
                       <div class="font-medium text-sm">{template.display_name}</div>
                       <div class="text-xs text-base-content/70">{template.name}</div>
                       <%= if template.is_system do %>
-                        <div class="badge badge-info badge-xs">System</div>
+                        <div class="badge badge-info badge-xs h-auto">System</div>
                       <% end %>
                     </div>
                   </.table_default_cell>
@@ -209,7 +209,7 @@
                   <%!-- Category Column --%>
                   <.table_default_cell>
                     <%= if template.is_system do %>
-                      <div class="badge badge-ghost badge-sm">
+                      <div class="badge badge-ghost badge-sm h-auto">
                         {String.capitalize(template.category)}
                       </div>
                     <% else %>

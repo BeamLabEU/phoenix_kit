@@ -188,7 +188,7 @@
             <div class="divider"></div>
             <div class="flex flex-wrap gap-2">
               <%= for tag <- @post.tags do %>
-                <div class="badge badge-outline badge-lg">
+                <div class="badge badge-outline badge-lg h-auto">
                   #{tag.name}
                 </div>
               <% end %>
@@ -202,7 +202,7 @@
               <h3 class="font-semibold text-base-content/70">Collections:</h3>
               <div class="flex flex-wrap gap-2">
                 <%= for group <- @post.groups do %>
-                  <div class="badge badge-secondary badge-lg">
+                  <div class="badge badge-secondary badge-lg h-auto">
                     <.icon name="hero-folder" class="w-4 h-4 mr-1" />
                     {group.name}
                   </div>

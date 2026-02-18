@@ -159,7 +159,9 @@
                       <% end %>
                     </td>
                     <td>
-                      <span class="badge badge-ghost badge-sm">{comment.resource_type}</span>
+                      <span class="badge badge-ghost badge-sm h-auto">
+                        {comment.resource_type}
+                      </span>
                       <%= case resource_info(@resource_context, comment) do %>
                         <% %{title: title, path: path} -> %>
                           <.link

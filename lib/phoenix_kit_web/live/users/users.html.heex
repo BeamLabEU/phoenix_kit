@@ -55,7 +55,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                       <.role_badge role={role} size={:sm} />
                       <%= if role.is_system_role do %>
-                        <span class="badge badge-outline badge-xs">System</span>
+                        <span class="badge badge-outline badge-xs h-auto">System</span>
                       <% end %>
                       <%= if role.description do %>
                         <span class="text-sm text-base-content/70">- {role.description}</span>
@@ -178,7 +178,7 @@
                               <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-medium link link-hover">{user.email}</span>
                                 <%= if user.id == @phoenix_kit_current_user.id do %>
-                                  <span class="badge badge-info badge-xs">you</span>
+                                  <span class="badge badge-info badge-xs h-auto">you</span>
                                 <% end %>
                               </div>
                               <%= if user.username do %>
@@ -206,20 +206,20 @@
                               />
                             <% end %>
                             <%= if Enum.empty?(user_roles) do %>
-                              <span class="badge badge-ghost badge-sm">No roles</span>
+                              <span class="badge badge-ghost badge-sm h-auto">No roles</span>
                             <% end %>
                           </div>
                         <% column_id == "status" -> %>
                           <div class="flex flex-col gap-1">
                             <%= if user.confirmed_at do %>
-                              <span class="badge badge-success badge-sm">Confirmed</span>
+                              <span class="badge badge-success badge-sm h-auto">Confirmed</span>
                             <% else %>
-                              <span class="badge badge-warning badge-sm">Pending</span>
+                              <span class="badge badge-warning badge-sm h-auto">Pending</span>
                             <% end %>
                             <%= if user.is_active do %>
-                              <span class="badge badge-outline badge-xs">Active</span>
+                              <span class="badge badge-outline badge-xs h-auto">Active</span>
                             <% else %>
-                              <span class="badge badge-error badge-xs">Inactive</span>
+                              <span class="badge badge-error badge-xs h-auto">Inactive</span>
                             <% end %>
                           </div>
                         <% column_id == "registered" -> %>
@@ -247,7 +247,7 @@
                               <%= if user.registration_country || user.registration_region || user.registration_city || user.registration_ip do %>
                                 <%= if user.registration_country do %>
                                   <div class="flex items-center gap-1">
-                                    <span class="badge badge-outline badge-xs">
+                                    <span class="badge badge-outline badge-xs h-auto">
                                       {user.registration_country}
                                     </span>
                                   </div>
