@@ -1,5 +1,7 @@
 This is a web application written using the Phoenix web framework.
 
+> 📚 **For comprehensive PhoenixKit documentation** (architecture, configuration, development guidelines), see [`CLAUDE.md`](./CLAUDE.md).
+
 ## 🚧 IN-PROGRESS: UUID Migration (V40)
 
 > **DELETE THIS SECTION** after the UUID migration is fully complete and merged to main.
