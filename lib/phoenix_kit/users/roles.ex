@@ -799,7 +799,7 @@ defmodule PhoenixKit.Users.Roles do
 
   # Add confirmed_at timestamp if user email is not confirmed
   defp maybe_add_confirmed_at(changes, nil) do
-    Map.put(changes, :confirmed_at, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second))
+    Map.put(changes, :confirmed_at, DateTime.utc_now())
   end
 
   defp maybe_add_confirmed_at(changes, _confirmed_at), do: changes

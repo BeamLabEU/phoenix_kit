@@ -558,7 +558,7 @@
                   </.table_default_cell>
                 <% end %>
                 <.table_default_cell>
-                  <%= case get_in(data_record.data, ["category"]) do %>
+                  <%= case Multilang.get_primary_data(data_record.data)["category"] do %>
                     <% nil -> %>
                       <span class="badge badge-ghost badge-sm text-base-content/40">
                         {gettext("Uncategorized")}
@@ -682,7 +682,7 @@
                         <% end %>
 
                         <%!-- Category --%>
-                        <%= case get_in(data_record.data, ["category"]) do %>
+                        <%= case Multilang.get_primary_data(data_record.data)["category"] do %>
                           <% nil -> %>
                             <span class="badge badge-ghost badge-sm text-base-content/40 mb-2">
                               <.icon name="hero-tag" class="w-3 h-3 mr-1" />

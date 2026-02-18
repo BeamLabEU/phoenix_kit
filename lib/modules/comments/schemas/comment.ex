@@ -44,8 +44,8 @@ defmodule PhoenixKit.Modules.Comments.Comment do
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t() | nil,
           parent: t() | Ecto.Association.NotLoaded.t() | nil,
           children: [t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_comments" do
@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
 
     has_many :children, __MODULE__, foreign_key: :parent_id
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

@@ -112,8 +112,8 @@ defmodule PhoenixKit.Modules.Storage.File do
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           instances:
             [PhoenixKit.Modules.Storage.FileInstance.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_files" do
@@ -140,7 +140,7 @@ defmodule PhoenixKit.Modules.Storage.File do
     field :user_id, :integer
     has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_id
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

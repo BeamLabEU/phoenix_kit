@@ -24,6 +24,7 @@ lib/modules/entities/
 ├── entity_data.ex       # Data record schema + CRUD helpers
 ├── field_types.ex       # Registry of supported field types
 ├── form_builder.ex      # Dynamic form rendering + validation helpers
+├── multilang.ex         # Multi-language data transformation helpers
 ├── html_sanitizer.ex    # XSS prevention for rich_text fields
 ├── presence.ex          # Phoenix.Presence for real-time collaboration
 ├── presence_helpers.ex  # FIFO locking and presence utilities
@@ -78,8 +79,8 @@ Indexes cover `name`, `status`, `created_by`. A comment block documents JSON col
 - `title` – record label
 - `slug` – optional unique slug per entity
 - `status` – `draft | published | archived`
-- `data` – JSONB map keyed by field definition
-- `metadata` – optional JSONB extras
+- `data` – JSONB map keyed by field definition (or multilang structure, see below)
+- `metadata` – optional JSONB extras (includes title translations when multilang enabled)
 - `created_by` – admin user id
 - `date_created`, `date_updated`
 
@@ -125,9 +126,18 @@ Registry of supported field types with metadata:
   - `text_field/3`, `textarea_field/3`, `email_field/3`, `number_field/3`, `boolean_field/3`, `rich_text_field/3` – Common field types
 - Used both when saving entity definitions and when rendering forms.
 
+### `PhoenixKit.Entities.Multilang`
+Pure-function module for multi-language data transformations. No database calls — used by LiveViews and the convenience API.
+- Global helpers: `enabled?/0`, `primary_language/0`, `enabled_languages/0`.
+- Data reading: `get_language_data/2`, `get_primary_data/1`, `get_raw_language_data/2`, `multilang_data?/1`.
+- Data writing: `put_language_data/3`, `migrate_to_multilang/2`, `flatten_to_primary/1`.
+- Re-keying: `rekey_primary/2`, `maybe_rekey_data/1` — handles primary language changes.
+- UI: `build_language_tabs/0` — builds tab data for language switcher UI.
+
 ### `PhoenixKit.Entities.FormBuilder`
 - Renders form inputs dynamically based on field definitions (`build_fields/3`, `build_field/3`).
 - Provides `validate_data/2` and lower-level helpers to check payloads before they reach `EntityData.changeset/2`.
+- Language-aware: accepts `lang_code` option to render fields for a specific language, with ghost-text placeholders showing primary language values on secondary tabs.
 - Produces consistent labels, placeholders, and helper text aligned with Tailwind/daisyUI styling.
 
 ---
@@ -278,6 +288,125 @@ PhoenixKit.Entities.get_system_stats()
 PhoenixKit.Entities.validate_user_entity_limit(admin.id)
 # {:ok, :valid} or {:error, "You have reached the maximum limit of 100 entities"}
 ```
+
+---
+
+## Multi-Language Support
+
+When the **Languages module** is enabled with 2+ languages, all entities automatically support multilang content. There is no per-entity toggle — languages are configured system-wide.
+
+### Data Structure
+
+**Flat (single language or multilang disabled):**
+```json
+{"name": "Acme", "category": "Tech"}
+```
+
+**Multilang (Languages module has 2+ languages):**
+```json
+{
+  "_primary_language": "en-US",
+  "en-US": {"name": "Acme", "category": "Tech", "desc": "A company"},
+  "es-ES": {"name": "Acme España"}
+}
+```
+
+- `_primary_language` signals the multilang structure (cannot collide with field keys — they must match `^[a-z][a-z0-9_]*$`)
+- Primary language stores ALL fields
+- Secondary languages store ONLY overrides (fields that differ from primary)
+- Display merges: `Map.merge(primary_data, language_overrides)`
+- `title` and `slug` DB columns remain primary-language-only; secondary title translations are in `metadata["translations"]`
+- Entity definition translations (display_name, etc.) are in `entity.settings["translations"]`
+
+### Translation Storage Summary
+
+| What | Primary language | Secondary languages |
+|------|-----------------|---------------------|
+| Entity data (custom fields) | `data["en-US"]` | `data["es-ES"]` (overrides only) |
+| Record title | `title` column | `metadata["translations"]["es-ES"]["title"]` |
+| Entity display_name | `display_name` column | `settings["translations"]["es-ES"]["display_name"]` |
+
+### Enabling Multilang
+
+```elixir
+# 1. Enable Languages module
+PhoenixKit.Modules.Languages.enable_system()
+
+# 2. Add secondary languages
+PhoenixKit.Modules.Languages.add_language("es-ES")
+PhoenixKit.Modules.Languages.add_language("fr-FR")
+
+# 3. Multilang is now active for all entities
+PhoenixKit.Modules.Entities.multilang_enabled?()
+# => true
+```
+
+### Translation API (Programmatic)
+
+```elixir
+alias PhoenixKit.Modules.Entities
+alias PhoenixKit.Modules.Entities.EntityData
+
+# --- Entity definition translations ---
+entity = Entities.get_entity_by_name("products")
+
+Entities.set_entity_translation(entity, "es-ES", %{
+  "display_name" => "Productos",
+  "display_name_plural" => "Productos",
+  "description" => "Catálogo de productos"
+})
+
+Entities.get_entity_translation(entity, "es-ES")
+# => %{"display_name" => "Productos", "display_name_plural" => "Productos", ...}
+
+Entities.get_entity_translations(entity)
+# => %{"es-ES" => %{...}, "fr-FR" => %{...}}
+
+# --- Entity data translations ---
+record = EntityData.get(uuid)
+
+EntityData.set_translation(record, "es-ES", %{"name" => "Acme España", "desc" => "Una empresa"})
+EntityData.set_title_translation(record, "es-ES", "Mi Producto")
+
+EntityData.get_translation(record, "es-ES")
+# => %{"name" => "Acme España", "category" => "Tech", "desc" => "Una empresa"}
+
+EntityData.get_all_translations(record)
+# => %{"en-US" => %{...}, "es-ES" => %{...}}
+
+EntityData.get_all_title_translations(record)
+# => %{"en-US" => "My Product", "es-ES" => "Mi Producto"}
+
+# Remove a language's translations
+EntityData.remove_translation(record, "fr-FR")
+Entities.remove_entity_translation(entity, "fr-FR")
+```
+
+### Primary Language Changes
+
+When the global primary language changes (via Languages admin), existing records lazily re-key on edit:
+
+1. User opens an existing record for editing
+2. System detects embedded `_primary_language` differs from global primary
+3. The new primary is promoted to have all fields (missing fields filled from old primary)
+4. Title is swapped between the column and metadata translations
+5. Changes persist when the user saves
+
+Records that are never edited continue to work — read paths use the embedded primary for correct display.
+
+### Admin UI
+
+- **Entity form** (`/admin/entities/:id/edit`): Language tabs above translatable fields (display_name, display_name_plural, description). Non-translatable fields (slug, icon, status) in a separate card.
+- **Data form** (`/admin/entities/:slug/data/:id/edit`): Language tabs for title and custom fields. Slug, status, and entity type in a separate card.
+- **Data view**: Read-only language tabs for viewing translations.
+- **Compact mode**: When >5 languages, tabs show short codes (EN, ES) instead of full names.
+
+### Limitations
+
+- **Search** queries primary language data only; secondary translations are not searched.
+- **Public form builder** creates flat (non-multilang) data. Use the admin UI or API to add translations afterward.
+- **Clearing a secondary field** makes it inherit the primary value (by design — override-only storage).
+- See `DEEP_DIVE.md § Known Limitations` for the full table.
 
 ---
 

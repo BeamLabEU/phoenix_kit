@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.FormBuilder
+  alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Settings
 
   @impl true
@@ -74,6 +75,11 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
     # Create a modified entity with only other fields for display
     other_entity = %{entity | fields_definition: other_fields}
 
+    # Multilang assigns (driven by Languages module globally)
+    multilang_enabled = Multilang.enabled?()
+    primary_language = Multilang.primary_language()
+    language_tabs = Multilang.build_language_tabs()
+
     socket =
       socket
       |> assign(:current_locale, locale)
@@ -92,12 +98,27 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
       |> assign(:public_form_description, Map.get(settings, "public_form_description", ""))
       |> assign(:metadata, data_record.metadata || %{})
       |> assign(:is_public_submission, public_submission?(data_record.metadata))
+      |> assign(:multilang_enabled, multilang_enabled)
+      |> assign(:primary_language, primary_language)
+      |> assign(:current_lang, primary_language)
+      |> assign(:language_tabs, language_tabs)
 
     {:ok, socket}
   end
 
   defp public_submission?(nil), do: false
   defp public_submission?(metadata), do: Map.get(metadata, "source") == "public_form"
+
+  @impl true
+  def handle_event("switch_language", %{"lang" => lang_code}, socket) do
+    enabled = Multilang.enabled_languages()
+
+    if lang_code in enabled do
+      {:noreply, assign(socket, :current_lang, lang_code)}
+    else
+      {:noreply, socket}
+    end
+  end
 
   @impl true
   def render(assigns) do
@@ -176,6 +197,111 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
           </div>
         </div>
 
+        <%!-- Language Selector (only when multilang enabled) --%>
+        <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
+          <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-language" class="w-5 h-5 text-primary" />
+                  <h2 class="card-title text-lg m-0">{gettext("Content Language")}</h2>
+                </div>
+                <% primary_tab =
+                  Enum.find(@language_tabs, fn t -> t.is_primary end) %>
+                <%= if primary_tab do %>
+                  <div class="flex items-center gap-1.5 text-xs text-base-content/60">
+                    <.icon name="hero-star-solid" class="w-3.5 h-3.5 text-primary" />
+                    {gettext("Primary: %{lang}", lang: primary_tab.name)}
+                  </div>
+                <% end %>
+              </div>
+
+              <% compact = length(@language_tabs) > 5 %>
+              <div
+                role="tablist"
+                class="flex flex-wrap items-center gap-1 bg-base-200 rounded-box p-1"
+              >
+                <%= if compact do %>
+                  <%= for {tab, idx} <- Enum.with_index(@language_tabs) do %>
+                    <%= if idx > 0 do %>
+                      <span class="text-base-content/30">|</span>
+                    <% end %>
+                    <button
+                      type="button"
+                      role="tab"
+                      phx-click="switch_language"
+                      phx-value-lang={tab.code}
+                      title={tab.name}
+                      class={[
+                        "tab gap-1 transition-all",
+                        @current_lang == tab.code && "tab-active"
+                      ]}
+                    >
+                      <%= if tab.flag do %>
+                        <span>{tab.flag}</span>
+                      <% end %>
+                      <span>{tab.short_code}</span>
+                      <%= if tab.is_primary do %>
+                        <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
+                      <% end %>
+                    </button>
+                  <% end %>
+                <% else %>
+                  <%= for tab <- @language_tabs do %>
+                    <%= if tab.is_primary do %>
+                      <button
+                        type="button"
+                        role="tab"
+                        phx-click="switch_language"
+                        phx-value-lang={tab.code}
+                        class={[
+                          "tab gap-1.5 transition-all font-medium",
+                          @current_lang == tab.code && "tab-active"
+                        ]}
+                      >
+                        <%= if tab.flag do %>
+                          <span>{tab.flag}</span>
+                        <% end %>
+                        <span>{tab.name}</span>
+                        <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
+                      </button>
+                      <div class="divider divider-horizontal mx-0.5 h-6 self-center"></div>
+                    <% else %>
+                      <button
+                        type="button"
+                        role="tab"
+                        phx-click="switch_language"
+                        phx-value-lang={tab.code}
+                        class={[
+                          "tab gap-1.5 transition-all",
+                          @current_lang == tab.code && "tab-active"
+                        ]}
+                      >
+                        <%= if tab.flag do %>
+                          <span>{tab.flag}</span>
+                        <% end %>
+                        <span>{tab.name}</span>
+                      </button>
+                    <% end %>
+                  <% end %>
+                <% end %>
+              </div>
+
+              <%= if @current_lang == @primary_language do %>
+                <p class="text-xs text-base-content/50 mt-3">
+                  <.icon name="hero-information-circle" class="w-3.5 h-3.5 inline -mt-0.5" />
+                  {gettext("This is the primary language.")}
+                </p>
+              <% else %>
+                <p class="text-xs text-base-content/50 mt-3">
+                  <.icon name="hero-information-circle" class="w-3.5 h-3.5 inline -mt-0.5" />
+                  {gettext("Fields without a value show the primary language value.")}
+                </p>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
         <%= if (@public_form_enabled || @is_public_submission) && length(@form_fields) > 0 do %>
           <%!-- Public Form Fields Section - Using FormBuilder with disabled inputs --%>
           <div class="card bg-base-100 shadow-xl mb-6">
@@ -195,7 +321,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
               <%!-- Use FormBuilder with disabled fields --%>
               {FormBuilder.build_fields(@form_entity, @changeset,
                 wrapper_class: "mb-4",
-                disabled: true
+                disabled: true,
+                lang_code: if(@multilang_enabled, do: @current_lang, else: nil)
               )}
             </div>
           </div>
@@ -359,7 +486,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
               <%!-- Use FormBuilder with disabled fields --%>
               {FormBuilder.build_fields(@other_entity, @changeset,
                 wrapper_class: "mb-4",
-                disabled: true
+                disabled: true,
+                lang_code: if(@multilang_enabled, do: @current_lang, else: nil)
               )}
             </div>
           </div>

@@ -40,6 +40,14 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
 
   @behaviour PhoenixKit.Modules.Billing.Providers.Provider
 
+  alias PhoenixKit.Modules.Billing.Providers.Types.{
+    ChargeResult,
+    CheckoutSession,
+    PaymentMethodInfo,
+    RefundResult,
+    WebhookEventData
+  }
+
   alias PhoenixKit.Settings
 
   require Logger
@@ -67,8 +75,8 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     with {:ok, order} <- create_order(merged_opts),
          {:ok, payment_link} <- create_payment_link(order, merged_opts) do
       {:ok,
-       %{
-         session_id: order["id"],
+       %CheckoutSession{
+         id: order["id"],
          url: payment_link["short_url"],
          provider: :razorpay,
          expires_at: payment_link["expire_by"] |> datetime_from_unix()
@@ -95,11 +103,10 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     with {:ok, order} <- create_order_for_recurring(amount, opts),
          {:ok, payment} <- create_recurring_payment(order, token_id, customer_id, opts) do
       {:ok,
-       %{
-         charge_id: payment["id"],
+       %ChargeResult{
+         id: payment["id"],
          status: payment["status"],
-         amount: amount,
-         provider: :razorpay
+         amount: amount
        }}
     end
   end
@@ -151,11 +158,11 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
   def create_refund(provider_transaction_id, amount, opts) do
     with {:ok, refund} <- do_create_refund(provider_transaction_id, amount, opts) do
       {:ok,
-       %{
-         refund_id: refund["id"],
+       %RefundResult{
+         id: refund["id"],
+         provider_refund_id: refund["id"],
          status: refund["status"],
-         amount: refund["amount"],
-         provider: :razorpay
+         amount: refund["amount"]
        }}
     end
   end
@@ -165,7 +172,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     # Razorpay tokens don't expose card details easily
     # Return minimal structure matching the payment_method type
     {:ok,
-     %{
+     %PaymentMethodInfo{
        id: token_id,
        provider: :razorpay,
        provider_payment_method_id: token_id,
@@ -295,7 +302,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     notes = payment["notes"] || %{}
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: raw_payload["event_id"] || payment["id"],
        type: "payment.succeeded",
        provider: :razorpay,
@@ -316,7 +323,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     # For 2-step payments, we may need to capture manually
     # Auto-capture is usually enabled, so this is informational
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: raw_payload["event_id"] || payment["id"],
        type: "payment.authorized",
        provider: :razorpay,
@@ -336,7 +343,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     notes = payment["notes"] || %{}
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: raw_payload["event_id"] || payment["id"],
        type: "payment.failed",
        provider: :razorpay,
@@ -357,7 +364,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     notes = order["notes"] || %{}
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: raw_payload["event_id"] || order["id"],
        type: "checkout.completed",
        provider: :razorpay,
@@ -377,7 +384,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     refund = event_payload["refund"]["entity"]
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: raw_payload["event_id"] || refund["id"],
        type: "refund.created",
        provider: :razorpay,
@@ -395,7 +402,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
     refund = event_payload["refund"]["entity"]
 
     {:ok,
-     %{
+     %WebhookEventData{
        event_id: raw_payload["event_id"] || refund["id"],
        type: "refund.completed",
        provider: :razorpay,

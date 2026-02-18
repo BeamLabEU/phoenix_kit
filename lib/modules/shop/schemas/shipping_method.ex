@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
 
     field :metadata, :map, default: %{}
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @required_fields [:name, :price]

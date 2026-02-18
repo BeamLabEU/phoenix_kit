@@ -253,11 +253,16 @@ defmodule PhoenixKit.Modules.Sync.DataImporter do
   # Helpers
   # ============================================================================
 
-  defp get_primary_keys(schema) do
-    schema
-    |> Map.get("columns", [])
-    |> Enum.filter(& &1["is_primary_key"])
-    |> Enum.map(& &1["name"])
+  defp get_primary_keys(%{primary_key: pks}) when is_list(pks), do: pks
+
+  defp get_primary_keys(schema) when is_map(schema) do
+    columns = Map.get(schema, :columns) || Map.get(schema, "columns") || []
+
+    columns
+    |> Enum.filter(fn col ->
+      Map.get(col, :primary_key) || Map.get(col, "is_primary_key") || Map.get(col, "primary_key")
+    end)
+    |> Enum.map(fn col -> Map.get(col, :name) || Map.get(col, "name") end)
   end
 
   defp prepare_record(record) when is_map(record) do

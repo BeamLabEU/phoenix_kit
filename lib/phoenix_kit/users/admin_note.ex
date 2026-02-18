@@ -31,8 +31,8 @@ defmodule PhoenixKit.Users.AdminNote do
           author_id: integer(),
           author_uuid: UUIDv7.t() | nil,
           content: String.t(),
-          inserted_at: NaiveDateTime.t(),
-          updated_at: NaiveDateTime.t()
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Users.AdminNote do
 
     field :content, :string
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

@@ -40,15 +40,15 @@ defmodule PhoenixKit.Users.Auth.User do
           first_name: String.t() | nil,
           last_name: String.t() | nil,
           is_active: boolean(),
-          confirmed_at: NaiveDateTime.t() | nil,
+          confirmed_at: DateTime.t() | nil,
           user_timezone: String.t() | nil,
           registration_ip: String.t() | nil,
           registration_country: String.t() | nil,
           registration_region: String.t() | nil,
           registration_city: String.t() | nil,
           custom_fields: map() | nil,
-          inserted_at: NaiveDateTime.t(),
-          updated_at: NaiveDateTime.t()
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
@@ -63,7 +63,7 @@ defmodule PhoenixKit.Users.Auth.User do
     field :first_name, :string
     field :last_name, :string
     field :is_active, :boolean, default: true
-    field :confirmed_at, :naive_datetime
+    field :confirmed_at, :utc_datetime
     field :user_timezone, :string
     field :registration_ip, :string
     field :registration_country, :string
@@ -79,7 +79,7 @@ defmodule PhoenixKit.Users.Auth.User do
       join_through: PhoenixKit.Users.RoleAssignment,
       join_keys: [user_uuid: :uuid, role_uuid: :uuid]
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc """
@@ -319,7 +319,7 @@ defmodule PhoenixKit.Users.Auth.User do
   Confirms the account by setting `confirmed_at`.
   """
   def confirm_changeset(user) do
-    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    now = DateTime.utc_now()
     change(user, confirmed_at: now)
   end
 

@@ -14,6 +14,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   alias PhoenixKit.Modules.Entities.FieldTypes
   alias PhoenixKit.Modules.Entities.Mirror.Exporter
   alias PhoenixKit.Modules.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Modules.Entities.Presence
   alias PhoenixKit.Modules.Entities.PresenceHelpers
   alias PhoenixKit.Settings
@@ -59,6 +60,11 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
     live_source = ensure_live_source(socket)
 
+    # Multilang state
+    multilang_enabled = Multilang.enabled?()
+    primary_language = if multilang_enabled, do: Multilang.primary_language(), else: nil
+    language_tabs = Multilang.build_language_tabs()
+
     socket =
       socket
       |> assign(:page_title, page_title)
@@ -83,6 +89,10 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       |> assign(:delete_confirm_index, nil)
       |> assign(:has_unsaved_changes, false)
       |> assign(:mirror_path, Storage.root_path())
+      |> assign(:multilang_enabled, multilang_enabled)
+      |> assign(:primary_language, primary_language)
+      |> assign(:current_lang, primary_language)
+      |> assign(:language_tabs, language_tabs)
 
     socket =
       if connected?(socket) do
@@ -171,6 +181,16 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     end
   end
 
+  def handle_event("switch_language", %{"lang" => lang_code}, socket) do
+    enabled_langs = Multilang.enabled_languages()
+
+    if lang_code in enabled_langs do
+      {:noreply, assign(socket, :current_lang, lang_code)}
+    else
+      {:noreply, socket}
+    end
+  end
+
   @impl true
   def handle_event("validate", %{"entities" => entity_params}, socket) do
     if socket.assigns[:lock_owner?] do
@@ -213,8 +233,10 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       # Add fields_definition to params for validation
       entity_params = Map.put(entity_params, "fields_definition", socket.assigns.fields)
 
-      # Add current settings to params for validation
-      entity_params = Map.put(entity_params, "settings", socket.assigns.entity.settings || %{})
+      # Add current settings with merged translations to params
+      settings = merge_translation_params(socket, entity_params)
+      entity_params = Map.put(entity_params, "settings", settings)
+      entity_params = Map.delete(entity_params, "translations")
 
       # Add created_by for new entities during validation so changeset can be valid
       entity_params =
@@ -230,7 +252,13 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
         socket.assigns.entity
         |> Entities.change_entity(entity_params)
 
-      socket = assign(socket, :changeset, changeset)
+      # Keep entity in sync with updated settings
+      entity = %{socket.assigns.entity | settings: settings}
+
+      socket =
+        socket
+        |> assign(:changeset, changeset)
+        |> assign(:entity, entity)
 
       reply_with_broadcast(socket)
     else
@@ -244,8 +272,10 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       # Add current fields to entity params
       entity_params = Map.put(entity_params, "fields_definition", socket.assigns.fields)
 
-      # Add current settings to entity params
-      entity_params = Map.put(entity_params, "settings", socket.assigns.entity.settings || %{})
+      # Add current settings with merged translations
+      settings = merge_translation_params(socket, entity_params)
+      entity_params = Map.put(entity_params, "settings", settings)
+      entity_params = Map.delete(entity_params, "translations")
 
       # Add created_by for new entities
       entity_params =
@@ -258,7 +288,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
         end
 
       case save_entity(socket, entity_params) do
-        {:ok, _entity} ->
+        {:ok, _saved_entity} ->
           # Presence will automatically clean up when LiveView process terminates
           locale = socket.assigns[:current_locale] || "en"
 
@@ -1331,6 +1361,35 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     do: Slug.slugify(name, separator: "_")
 
   defp generate_slug_from_name(_), do: ""
+
+  defp merge_translation_params(socket, entity_params) do
+    settings = socket.assigns.entity.settings || %{}
+    existing_translations = settings["translations"] || %{}
+
+    # Extract translation params from form (e.g., %{"es-ES" => %{"display_name" => "Marcas"}})
+    new_translations = entity_params["translations"] || %{}
+
+    # Merge new translations into existing, stripping empty values
+    updated_translations =
+      Enum.reduce(new_translations, existing_translations, fn {lang_code, fields}, acc ->
+        cleaned =
+          fields
+          |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+          |> Map.new()
+
+        if map_size(cleaned) == 0 do
+          Map.delete(acc, lang_code)
+        else
+          Map.put(acc, lang_code, cleaned)
+        end
+      end)
+
+    if map_size(updated_translations) == 0 do
+      Map.delete(settings, "translations")
+    else
+      Map.put(settings, "translations", updated_translations)
+    end
+  end
 
   defp new_field_form do
     %{

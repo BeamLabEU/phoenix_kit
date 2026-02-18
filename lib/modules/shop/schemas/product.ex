@@ -110,7 +110,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
       references: :uuid,
       type: UUIDv7
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

@@ -99,8 +99,8 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
             [PhoenixKit.Modules.Tickets.TicketAttachment.t()] | Ecto.Association.NotLoaded.t(),
           status_history:
             [PhoenixKit.Modules.Tickets.TicketStatusHistory.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_tickets" do
@@ -110,8 +110,8 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
     field :slug, :string
     field :comment_count, :integer, default: 0
     field :metadata, :map, default: %{}
-    field :resolved_at, :utc_datetime_usec
-    field :closed_at, :utc_datetime_usec
+    field :resolved_at, :utc_datetime
+    field :closed_at, :utc_datetime
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -132,7 +132,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
     has_many :status_history, PhoenixKit.Modules.Tickets.TicketStatusHistory,
       foreign_key: :ticket_id
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

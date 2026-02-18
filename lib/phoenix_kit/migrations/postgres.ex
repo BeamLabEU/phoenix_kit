@@ -442,11 +442,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - All operations idempotent — safe on fresh installs and all upgrade paths
   - Existing non-NULL UUID values unchanged
 
-  ### V57 - UUID FK Column Repair ⚡ LATEST
+  ### V57 - UUID FK Column Repair
   - Re-runs idempotent UUID FK column operations from V56
   - Fixes missing role_uuid and granted_by_uuid on phoenix_kit_role_permissions
   - Catches any other UUID FK columns missed when V56 was applied with earlier code
   - Safe no-op on databases where V56 already created everything correctly
+
+  ### V58 - Timestamp Column Type Standardization ⚡ LATEST
+  - Converts ALL timestamp columns across 68 tables from `timestamp` to `timestamptz`
+  - Completes DateTime standardization (Elixir `:utc_datetime` + PostgreSQL `timestamptz`)
+  - No USING clause needed for up (PostgreSQL treats timestamp as UTC implicitly)
+  - Down uses `USING col AT TIME ZONE 'UTC'` for safe revert to `timestamp(0)`
+  - Fully idempotent: checks table/column existence and current type before altering
 
   ## Migration Paths
 
@@ -506,7 +513,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 57
+  @current_version 58
   @default_prefix "public"
 
   @doc false

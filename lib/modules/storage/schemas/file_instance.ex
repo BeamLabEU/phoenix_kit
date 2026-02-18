@@ -98,8 +98,8 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
           file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
           locations:
             [PhoenixKit.Modules.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_file_instances" do
@@ -116,7 +116,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
     belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
     has_many :locations, PhoenixKit.Modules.Storage.FileLocation, foreign_key: :file_instance_id
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

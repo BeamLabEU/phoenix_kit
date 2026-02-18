@@ -92,6 +92,7 @@ defmodule PhoenixKit.Modules.Entities do
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.Mirror.Exporter
   alias PhoenixKit.Modules.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
@@ -129,8 +130,8 @@ defmodule PhoenixKit.Modules.Entities do
     # legacy
     field :created_by, :integer
     field :created_by_uuid, UUIDv7
-    field :date_created, :utc_datetime_usec
-    field :date_updated, :utc_datetime_usec
+    field :date_created, :utc_datetime
+    field :date_updated, :utc_datetime
 
     belongs_to :creator, User,
       foreign_key: :created_by_uuid,
@@ -841,6 +842,7 @@ defmodule PhoenixKit.Modules.Entities do
     update_entity(entity, %{settings: new_settings})
   end
 
+  # ============================================================================
   @doc """
   Lists all entities with their mirror status and data counts.
 
@@ -951,6 +953,137 @@ defmodule PhoenixKit.Modules.Entities do
     success_count = Enum.count(results, &match?({:ok, _}, &1))
     {:ok, success_count}
   end
+
+  # ============================================================================
+  # Translation convenience API
+  # ============================================================================
+
+  @doc """
+  Gets all translations for an entity definition.
+
+  Returns a map of language codes to translated fields.
+  Only includes languages that have at least one translated field.
+
+  ## Examples
+
+      iex> get_entity_translations(entity)
+      %{
+        "es-ES" => %{"display_name" => "Productos", "display_name_plural" => "Productos"},
+        "fr-FR" => %{"display_name" => "Produits"}
+      }
+
+      iex> get_entity_translations(entity_without_translations)
+      %{}
+  """
+  def get_entity_translations(%__MODULE__{settings: settings}) do
+    (settings || %{})
+    |> Map.get("translations", %{})
+  end
+
+  @doc """
+  Gets the translation for a specific language on an entity definition.
+
+  Returns the translated fields merged with the primary language values
+  as defaults. Returns primary language values if no translation exists.
+
+  ## Examples
+
+      iex> get_entity_translation(entity, "es-ES")
+      %{"display_name" => "Productos", "display_name_plural" => "Productos", "description" => "..."}
+  """
+  def get_entity_translation(%__MODULE__{} = entity, lang_code) when is_binary(lang_code) do
+    primary = %{
+      "display_name" => entity.display_name,
+      "display_name_plural" => entity.display_name_plural,
+      "description" => entity.description
+    }
+
+    translations = get_entity_translations(entity)
+    lang_overrides = Map.get(translations, lang_code, %{})
+
+    Map.merge(primary, lang_overrides)
+  end
+
+  @doc """
+  Sets the translation for a specific language on an entity definition.
+
+  Merges the provided fields into the existing translation for that language.
+  Empty string values are treated as "remove override" (field falls back to primary).
+
+  ## Examples
+
+      iex> set_entity_translation(entity, "es-ES", %{
+      ...>   "display_name" => "Productos",
+      ...>   "display_name_plural" => "Productos"
+      ...> })
+      {:ok, %PhoenixKit.Modules.Entities{}}
+  """
+  def set_entity_translation(%__MODULE__{} = entity, lang_code, attrs)
+      when is_binary(lang_code) and is_map(attrs) do
+    current_settings = entity.settings || %{}
+    translations = Map.get(current_settings, "translations", %{})
+
+    existing = Map.get(translations, lang_code, %{})
+    merged = Map.merge(existing, attrs)
+
+    # Remove empty values (fall back to primary)
+    cleaned =
+      merged
+      |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+      |> Map.new()
+
+    updated_translations =
+      if map_size(cleaned) == 0 do
+        Map.delete(translations, lang_code)
+      else
+        Map.put(translations, lang_code, cleaned)
+      end
+
+    new_settings =
+      if map_size(updated_translations) == 0 do
+        Map.delete(current_settings, "translations")
+      else
+        Map.put(current_settings, "translations", updated_translations)
+      end
+
+    update_entity(entity, %{settings: new_settings})
+  end
+
+  @doc """
+  Removes all translations for a specific language from an entity definition.
+
+  ## Examples
+
+      iex> remove_entity_translation(entity, "es-ES")
+      {:ok, %PhoenixKit.Modules.Entities{}}
+  """
+  def remove_entity_translation(%__MODULE__{} = entity, lang_code)
+      when is_binary(lang_code) do
+    current_settings = entity.settings || %{}
+    translations = Map.get(current_settings, "translations", %{})
+    updated = Map.delete(translations, lang_code)
+
+    new_settings =
+      if map_size(updated) == 0 do
+        Map.delete(current_settings, "translations")
+      else
+        Map.put(current_settings, "translations", updated)
+      end
+
+    update_entity(entity, %{settings: new_settings})
+  end
+
+  @doc """
+  Checks if multilang is globally enabled (Languages module has 2+ languages).
+
+  Convenience wrapper around `Multilang.enabled?/0`.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.multilang_enabled?()
+      true
+  """
+  def multilang_enabled?, do: Multilang.enabled?()
 
   defp repo do
     PhoenixKit.RepoHelper.repo()

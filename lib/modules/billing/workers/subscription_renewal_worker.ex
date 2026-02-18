@@ -184,7 +184,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
             amount: invoice.total,
             payment_method: pm.provider,
             description: "Subscription renewal payment",
-            provider_transaction_id: charge_result[:charge_id],
+            provider_transaction_id: charge_result.provider_transaction_id,
             provider_data: charge_result
           }
 

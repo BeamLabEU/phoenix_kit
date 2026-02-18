@@ -53,8 +53,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
           comment:
             PhoenixKit.Modules.Tickets.TicketComment.t() | Ecto.Association.NotLoaded.t() | nil,
           file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_ticket_attachments" do
@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
     belongs_to :comment, PhoenixKit.Modules.Tickets.TicketComment, references: :uuid
     belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

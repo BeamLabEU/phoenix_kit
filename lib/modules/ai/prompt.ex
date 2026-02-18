@@ -106,12 +106,12 @@ defmodule PhoenixKit.Modules.AI.Prompt do
 
     # Usage tracking
     field :usage_count, :integer, default: 0
-    field :last_used_at, :utc_datetime_usec
+    field :last_used_at, :utc_datetime
 
     # Flexible metadata
     field :metadata, :map, default: %{}
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

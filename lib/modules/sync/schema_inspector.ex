@@ -32,6 +32,7 @@ defmodule PhoenixKit.Modules.Sync.SchemaInspector do
       }}
   """
 
+  alias PhoenixKit.Modules.Sync.{ColumnInfo, TableSchema}
   alias PhoenixKit.RepoHelper
 
   # Tables to always exclude from sync
@@ -343,22 +344,20 @@ defmodule PhoenixKit.Modules.Sync.SchemaInspector do
          {:ok, primary_key} <- get_primary_key(table_name, schema: schema) do
       columns =
         Enum.map(column_rows, fn [name, type, nullable, default, max_len, precision, scale] ->
-          column = %{
+          %ColumnInfo{
             name: name,
             type: type,
             nullable: nullable,
-            primary_key: name in primary_key
+            primary_key: name in primary_key,
+            default: default,
+            max_length: max_len,
+            precision: precision,
+            scale: scale
           }
-
-          column
-          |> maybe_add(:default, default)
-          |> maybe_add(:max_length, max_len)
-          |> maybe_add(:precision, precision)
-          |> maybe_add(:scale, scale)
         end)
 
       {:ok,
-       %{
+       %TableSchema{
          table: table_name,
          schema: schema,
          columns: columns,
@@ -382,7 +381,4 @@ defmodule PhoenixKit.Modules.Sync.SchemaInspector do
         false
     end
   end
-
-  defp maybe_add(map, _key, nil), do: map
-  defp maybe_add(map, key, value), do: Map.put(map, key, value)
 end

@@ -66,12 +66,12 @@ defmodule PhoenixKit.Modules.Connections.Connection do
           requester_id: integer() | nil,
           recipient_id: integer() | nil,
           status: status(),
-          requested_at: NaiveDateTime.t(),
-          responded_at: NaiveDateTime.t() | nil,
+          requested_at: DateTime.t(),
+          responded_at: DateTime.t() | nil,
           requester: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           recipient: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_user_connections" do
@@ -89,10 +89,10 @@ defmodule PhoenixKit.Modules.Connections.Connection do
     field :recipient_id, :integer
 
     field :status, :string, default: "pending"
-    field :requested_at, :naive_datetime
-    field :responded_at, :naive_datetime
+    field :requested_at, :utc_datetime
+    field :responded_at, :utc_datetime
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """
@@ -167,7 +167,7 @@ defmodule PhoenixKit.Modules.Connections.Connection do
       put_change(
         changeset,
         :requested_at,
-        NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        DateTime.utc_now()
       )
     end
   end
@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Connections.Connection do
       put_change(
         changeset,
         :responded_at,
-        NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        DateTime.utc_now()
       )
     else
       changeset

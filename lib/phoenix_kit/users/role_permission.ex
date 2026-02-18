@@ -27,7 +27,7 @@ defmodule PhoenixKit.Users.RolePermission do
           module_key: String.t(),
           granted_by: integer() | nil,
           granted_by_uuid: UUIDv7.t() | nil,
-          inserted_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil
         }
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
@@ -41,7 +41,7 @@ defmodule PhoenixKit.Users.RolePermission do
     field :role_id, :integer
     belongs_to :role, Role, foreign_key: :role_uuid, references: :uuid, type: UUIDv7
 
-    timestamps(updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc """

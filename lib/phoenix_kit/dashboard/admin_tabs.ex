@@ -9,7 +9,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
 
   require Logger
 
-  alias PhoenixKit.Dashboard.{Registry, Tab}
+  alias PhoenixKit.Dashboard.{Group, Registry, Tab}
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
@@ -65,12 +65,12 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   @doc """
   Returns the default admin tab groups.
   """
-  @spec default_groups() :: [map()]
+  @spec default_groups() :: [Group.t()]
   def default_groups do
     [
-      %{id: :admin_main, label: nil, priority: 100},
-      %{id: :admin_modules, label: nil, priority: 500},
-      %{id: :admin_system, label: nil, priority: 900}
+      %Group{id: :admin_main, label: nil, priority: 100},
+      %Group{id: :admin_modules, label: nil, priority: 500},
+      %Group{id: :admin_system, label: nil, priority: 900}
     ]
   end
 

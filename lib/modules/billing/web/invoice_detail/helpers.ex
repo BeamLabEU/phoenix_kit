@@ -6,6 +6,8 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
   and other template-callable utilities.
   """
 
+  alias PhoenixKit.Modules.Billing.Web.InvoiceDetail.TimelineEvent
+
   @doc """
   Gets the default email address from invoice billing details or user.
   """
@@ -63,19 +65,19 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
 
   @doc """
   Builds a sorted timeline of all invoice events.
-  Returns a list of maps with :type, :datetime, and :data keys, sorted by datetime.
+  Returns a list of `%TimelineEvent{}` structs sorted by datetime.
   """
   def build_timeline_events(invoice, transactions) do
     events = []
 
     # 1. Created event
-    events = [%{type: :created, datetime: invoice.inserted_at, data: nil} | events]
+    events = [%TimelineEvent{type: :created, datetime: invoice.inserted_at} | events]
 
     # 2. Invoice sent events
     invoice_sends =
       get_send_history(invoice)
       |> Enum.map(fn entry ->
-        %{
+        %TimelineEvent{
           type: :invoice_sent,
           datetime: parse_datetime(entry["sent_at"]),
           data: entry
@@ -87,7 +89,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
     # Fallback for old invoices without send_history
     events =
       if invoice.sent_at && Enum.empty?(get_send_history(invoice)) do
-        [%{type: :invoice_sent_legacy, datetime: invoice.sent_at, data: nil} | events]
+        [%TimelineEvent{type: :invoice_sent_legacy, datetime: invoice.sent_at} | events]
       else
         events
       end
@@ -97,7 +99,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
       transactions
       |> Enum.filter(&Decimal.positive?(&1.amount))
       |> Enum.map(fn txn ->
-        %{type: :payment, datetime: txn.inserted_at, data: txn}
+        %TimelineEvent{type: :payment, datetime: txn.inserted_at, data: txn}
       end)
 
     events = events ++ payment_events
@@ -105,7 +107,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
     # 4. Paid event (when fully paid)
     events =
       if invoice.paid_at do
-        [%{type: :paid, datetime: invoice.paid_at, data: nil} | events]
+        [%TimelineEvent{type: :paid, datetime: invoice.paid_at} | events]
       else
         events
       end
@@ -114,7 +116,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
     events =
       if invoice.receipt_number do
         [
-          %{
+          %TimelineEvent{
             type: :receipt_generated,
             datetime: invoice.receipt_generated_at,
             data: invoice.receipt_number
@@ -129,7 +131,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
     receipt_sends =
       get_receipt_send_history(invoice)
       |> Enum.map(fn entry ->
-        %{
+        %TimelineEvent{
           type: :receipt_sent,
           datetime: parse_datetime(entry["sent_at"]),
           data: entry
@@ -144,13 +146,13 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
       |> Enum.filter(&Decimal.negative?(&1.amount))
       |> Enum.flat_map(fn txn ->
         # Refund event itself
-        refund_event = %{type: :refund, datetime: txn.inserted_at, data: txn}
+        refund_event = %TimelineEvent{type: :refund, datetime: txn.inserted_at, data: txn}
 
         # Credit note send events for this refund
         credit_note_sends =
           get_credit_note_send_history(txn)
           |> Enum.map(fn entry ->
-            %{
+            %TimelineEvent{
               type: :credit_note_sent,
               datetime: parse_datetime(entry["sent_at"]),
               data: Map.put(entry, "transaction", txn)
@@ -165,7 +167,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Helpers do
     # 8. Voided event
     events =
       if invoice.voided_at do
-        [%{type: :voided, datetime: invoice.voided_at, data: nil} | events]
+        [%TimelineEvent{type: :voided, datetime: invoice.voided_at} | events]
       else
         events
       end

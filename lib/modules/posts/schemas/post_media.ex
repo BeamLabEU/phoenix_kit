@@ -44,8 +44,8 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
           caption: String.t() | nil,
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_post_media" do
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
     belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid
     belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

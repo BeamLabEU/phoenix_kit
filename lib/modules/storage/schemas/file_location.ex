@@ -75,26 +75,26 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
           path: String.t(),
           status: String.t(),
           priority: integer(),
-          last_verified_at: NaiveDateTime.t() | nil,
+          last_verified_at: DateTime.t() | nil,
           file_instance_id: UUIDv7.t() | nil,
           bucket_id: UUIDv7.t() | nil,
           file_instance:
             PhoenixKit.Modules.Storage.FileInstance.t() | Ecto.Association.NotLoaded.t(),
           bucket: PhoenixKit.Modules.Storage.Bucket.t() | Ecto.Association.NotLoaded.t(),
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "phoenix_kit_file_locations" do
     field :path, :string
     field :status, :string, default: "active"
     field :priority, :integer, default: 0
-    field :last_verified_at, :naive_datetime
+    field :last_verified_at, :utc_datetime
 
     belongs_to :file_instance, PhoenixKit.Modules.Storage.FileInstance, references: :uuid
     belongs_to :bucket, PhoenixKit.Modules.Storage.Bucket, references: :uuid
 
-    timestamps(type: :naive_datetime)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

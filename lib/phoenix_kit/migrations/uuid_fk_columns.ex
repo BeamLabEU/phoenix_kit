@@ -476,7 +476,6 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
         index_name =
           case prefix do
-            nil -> index_name
             "public" -> index_name
             p -> "#{p}.#{index_name}"
           end
@@ -539,15 +538,13 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
   # ── Column Operations ─────────────────────────────────────────────────
 
-  defp add_uuid_fk_column(table_str, uuid_fk, prefix, escaped_prefix) do
-    unless column_exists?(table_str, uuid_fk, escaped_prefix) do
-      table_name = prefix_table_name(table_str, prefix)
+  defp add_uuid_fk_column(table_str, uuid_fk, prefix, _escaped_prefix) do
+    table_name = prefix_table_name(table_str, prefix)
 
-      execute("""
-      ALTER TABLE #{table_name}
-      ADD COLUMN IF NOT EXISTS #{uuid_fk} UUID
-      """)
-    end
+    execute("""
+    ALTER TABLE #{table_name}
+    ADD COLUMN IF NOT EXISTS #{uuid_fk} UUID
+    """)
   end
 
   defp backfill_uuid_fk(table_str, int_fk, uuid_fk, source_table, prefix, _escaped_prefix) do
@@ -634,7 +631,14 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
          column_exists?(table_str, uuid_fk, escaped_prefix) do
       table_name = prefix_table_name(table_str, prefix)
 
-      # SET NOT NULL is idempotent in PostgreSQL (no-op if already NOT NULL)
+      # Backfill any remaining NULLs — handles orphaned integer FK references
+      # (e.g. created_by references a deleted user with no CASCADE constraint)
+      execute("""
+      UPDATE #{table_name}
+      SET #{uuid_fk} = uuid_generate_v7()
+      WHERE #{uuid_fk} IS NULL
+      """)
+
       execute("""
       ALTER TABLE #{table_name}
       ALTER COLUMN #{uuid_fk} SET NOT NULL
@@ -751,7 +755,7 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
       execute("""
       ALTER TABLE #{table_name}
-      DROP COLUMN #{uuid_fk}
+      DROP COLUMN IF EXISTS #{uuid_fk}
       """)
     end
   end

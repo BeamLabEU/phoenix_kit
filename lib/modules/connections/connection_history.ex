@@ -47,7 +47,7 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
     field :actor_id, :integer
 
     field :action, :string
-    field :inserted_at, :naive_datetime
+    field :inserted_at, :utc_datetime
   end
 
   @actions ~w(requested accepted rejected removed)
@@ -95,7 +95,7 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
     put_change(
       changeset,
       :inserted_at,
-      NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      DateTime.utc_now()
     )
   end
 end

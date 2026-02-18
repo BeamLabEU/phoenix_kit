@@ -27,6 +27,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Exporter do
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities.Multilang
 
   @export_version "1.0"
 
@@ -180,12 +181,22 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Exporter do
   # ============================================================================
 
   defp build_export_content(entity, data_records) do
-    %{
+    base = %{
       "export_version" => @export_version,
       "exported_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
       "definition" => serialize_entity(entity),
       "data" => Enum.map(data_records, &serialize_entity_data/1)
     }
+
+    if Multilang.enabled?() do
+      Map.put(base, "multilang", %{
+        "enabled" => true,
+        "primary_language" => Multilang.primary_language(),
+        "languages" => Multilang.enabled_languages()
+      })
+    else
+      base
+    end
   end
 
   defp get_entity_data(entity) do

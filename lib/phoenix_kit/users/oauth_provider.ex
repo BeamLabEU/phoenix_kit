@@ -25,10 +25,10 @@ defmodule PhoenixKit.Users.OAuthProvider do
     field :provider_email, :string
     field :access_token, :string
     field :refresh_token, :string
-    field :token_expires_at, :utc_datetime_usec
+    field :token_expires_at, :utc_datetime
     field :raw_data, :map, default: %{}
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

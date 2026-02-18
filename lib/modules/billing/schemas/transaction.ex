@@ -44,7 +44,7 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
     field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

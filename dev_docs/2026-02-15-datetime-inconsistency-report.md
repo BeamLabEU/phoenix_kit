@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-15
 **Severity:** Medium (already caused a production bug)
-**Recommendation:** Standardize on `timestamptz` + `:utc_datetime_usec` everywhere
+**Recommendation:** Standardize on `:utc_datetime` + `DateTime.utc_now()` everywhere (existing `:utc_datetime_usec` schemas left as-is)
 
 ---
 
@@ -110,97 +110,64 @@ Code that receives values from different schemas needs to handle all three, or r
 
 ---
 
-## Recommendation: Standardize on `timestamptz` + `:utc_datetime_usec`
+## Recommendation: Standardize on `:utc_datetime` + `DateTime.utc_now()`
 
 ### Target State
 
 | Layer | Standard | Notes |
 |-------|----------|-------|
-| **PostgreSQL** | `timestamptz` | Timezone-aware, auto-normalizes to UTC |
-| **Ecto Schema** | `:utc_datetime_usec` | Returns `DateTime` with microsecond precision |
-| **Application Code** | `DateTime.utc_now()` | Consistent everywhere |
-| **Default timestamps** | `timestamps(type: :utc_datetime_usec)` | Override Ecto's default |
+| **Ecto Schema** | `:utc_datetime` | Returns `DateTime` with second precision |
+| **Application Code** | `DateTime.utc_now()` | Consistent everywhere, already returns second precision |
+| **Default timestamps** | `timestamps(type: :utc_datetime)` | Override Ecto's default |
+| **Existing `:utc_datetime_usec`** | Leave as-is | Already works correctly, no need to downgrade |
 
-### Why `timestamptz` over `timestamp`
+### Why `:utc_datetime` (not `:utc_datetime_usec`)
 
-PostgreSQL's `timestamptz` stores the value in UTC internally (same storage cost) but provides timezone conversion on input/output. If a client connects with a non-UTC timezone, `timestamptz` handles the conversion correctly. With plain `timestamp`, that same value would be silently misinterpreted.
+- Microsecond precision is not needed for this application
+- Second precision matches the existing `timestamp(0)` database columns — no DB migration required
+- `DateTime.utc_now()` returns second precision by default, so no `truncate/2` calls needed
+- Simpler migration path: only schema + application code changes, no database column alterations
 
-### Why `:utc_datetime_usec` over `:utc_datetime`
+### Why not `:naive_datetime`
 
-- Modern Ecto/Phoenix generators default to `_usec` variants
-- No precision loss — you get the full resolution PostgreSQL offers
-- One fewer type to think about
-- The "usec" suffix is misleading — it doesn't cost extra storage, it just preserves what PostgreSQL already stores
+- `NaiveDateTime` has no timezone information, making it easy to misuse
+- `DateTime` with UTC timezone is explicit about the timezone context
+- Copying `DateTime.utc_now()` between any modules (`:utc_datetime` or `:utc_datetime_usec`) works correctly
+- Ecto automatically handles `DateTime` → `:utc_datetime_usec` promotion (adds zero microseconds)
+
+### Database Migration (Deferred)
+
+Converting `timestamp(0)` → `timestamptz` columns is deferred to a separate V58 migration. The schema-level change to `:utc_datetime` is safe with existing `timestamp(0)` columns because Ecto handles the conversion transparently.
 
 ---
 
 ## Migration Plan
 
-### Phase 1: Prevent New Inconsistencies (Immediate)
+### Phase 1: Standardize Schemas and Application Code (COMPLETED 2026-02-17)
 
-1. **Add project-wide convention to CLAUDE.md and CONTRIBUTING.md:**
-   - Always use `timestamps(type: :utc_datetime_usec)` in schemas
-   - Always use `DateTime.utc_now()` in application code
-   - Always use `timestamptz` in raw SQL migrations
+All schemas and application code have been updated:
 
-2. **Add a Credo check or compile-time warning** for `NaiveDateTime.utc_now()` in non-migration code.
+1. **Schema timestamps:** All `timestamps()` and `timestamps(type: :naive_datetime)` → `timestamps(type: :utc_datetime)`
+2. **Individual fields:** All `field :name, :naive_datetime` → `field :name, :utc_datetime`
+3. **Application code:** All `NaiveDateTime.utc_now()` → `DateTime.utc_now()` in non-display code
+4. **Convention added to CLAUDE.md** to prevent future regressions
 
-### Phase 2: Align Schemas with Database (Low Risk)
+**Files updated:** ~38 schema files, 9 field type files, 14 application code files
 
-Update all Ecto schemas to use `:utc_datetime_usec` for existing columns. Since the database columns with precision=6 already store microseconds, the schema change is backwards-compatible — Ecto will just return `DateTime` instead of `NaiveDateTime`.
+**What was NOT changed:**
+- Schemas already on `:utc_datetime_usec` (left as-is, they work correctly)
+- Schemas already on `:utc_datetime` (already correct)
+- Display/formatter code in `time_display.ex` and `file_display.ex` (handles both DateTime and NaiveDateTime)
 
-**Schemas to update:**
-- `User` — `confirmed_at`, `timestamps()`
-- `Role` — `timestamps()`
-- `AdminNote` — `timestamps()`
-- `RoleAssignment` — `assigned_at`
-- All Connections schemas — `inserted_at`, `requested_at`, `responded_at`
-- All Shop schemas — `timestamps()`
-- `Subscription` — all 8 datetime fields
-- `WebhookEvent` — `processed_at`
-- Storage schemas — `last_verified_at`, `timestamps()`
+### Phase 2: Database Migration (Deferred)
 
-**Application code to update (use `DateTime.utc_now()` instead of `NaiveDateTime.utc_now()`):**
-- `lib/phoenix_kit/users/auth/user.ex:322`
-- `lib/phoenix_kit/users/sessions.ex:234`
-- `lib/phoenix_kit/users/permissions.ex:504`
-- `lib/phoenix_kit/users/magic_link_registration.ex:166`
-- `lib/phoenix_kit/users/roles.ex:783`
-- `lib/phoenix_kit/users/role_assignment.ex:113`
-- `lib/modules/storage/storage.ex:238`
-- `lib/modules/connections/follow.ex:99`
-- `lib/modules/connections/block.ex:110`
-- `lib/modules/connections/block_history.ex:51`
-- `lib/modules/connections/connection.ex:153,165`
-- `lib/modules/connections/connection_history.ex:83`
-- `lib/modules/connections/follow_history.ex:50`
-- `lib/modules/comments/comments.ex:302`
+Converting `timestamp(0)` → `timestamptz` columns deferred to a separate V58 migration. The schema-level changes are safe with existing columns.
 
-### Phase 3: Database Migration (Requires Downtime Planning)
+### Phase 3: Verify and Clean Up
 
-A versioned migration (V57 or later) to alter all 64 precision-0 columns:
-
-```sql
--- Convert timestamp(0) to timestamptz with microsecond precision
--- This is a metadata-only change in PostgreSQL for columns that already store UTC
-ALTER TABLE phoenix_kit_users
-  ALTER COLUMN confirmed_at TYPE timestamptz USING confirmed_at AT TIME ZONE 'UTC',
-  ALTER COLUMN inserted_at TYPE timestamptz USING inserted_at AT TIME ZONE 'UTC',
-  ALTER COLUMN updated_at TYPE timestamptz USING updated_at AT TIME ZONE 'UTC';
-
--- Repeat for all 34 affected tables...
-```
-
-**Important notes:**
-- `ALTER COLUMN ... TYPE` on large tables may require a lock. For tables with millions of rows, consider doing this during a maintenance window or using `pg_repack`.
-- The `AT TIME ZONE 'UTC'` clause tells PostgreSQL that existing values are UTC (they are, since Ecto always writes UTC).
-- Also convert the 135 precision-6 `timestamp` columns to `timestamptz` for timezone safety.
-
-### Phase 4: Verify and Clean Up
-
-- Run full integration test suite against a parent application
-- Remove any `NaiveDateTime` imports/aliases that are no longer needed
-- Update any date formatting utilities that special-case `NaiveDateTime`
+- Compile with `--warnings-as-errors` — no type warnings
+- Run `mix test`, `mix format`, `mix credo --strict`
+- Verify no remaining `NaiveDateTime.utc_now()` in application code (only in display utilities)
 
 ---
 
@@ -368,10 +335,11 @@ lib/modules/comments/comments.ex:302                         ✅
 
 ### Recommendation Priority Update
 
-Based on verification findings:
+**Status: Phase 1 COMPLETED (2026-02-17)**
 
-1. **Immediate (High Risk):** Add compile-time check or Credo rule for `NaiveDateTime.utc_now()` in non-migration code - this prevents new bugs being introduced
-2. **Short-term:** Fix the 17 files using `NaiveDateTime.utc_now()` in application code (especially `permissions.ex`, `comments.ex`, `storage.ex`)
-3. **Medium-term:** Align Ecto schemas to use `:utc_datetime_usec` (backwards-compatible change)
-4. **Long-term:** Database migration to `timestamptz` (requires downtime planning)
+All schema and application code standardized on `:utc_datetime` + `DateTime.utc_now()`. Convention added to CLAUDE.md.
+
+**Remaining:**
+1. **Database migration (V58):** Convert `timestamp(0)` → `timestamptz` columns (deferred, requires downtime planning)
+2. **Optional:** Add Credo check or compile-time warning for `NaiveDateTime.utc_now()` to prevent regressions
 

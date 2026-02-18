@@ -231,7 +231,7 @@ defmodule PhoenixKit.Users.Sessions do
 
   """
   def get_session_stats do
-    now = NaiveDateTime.utc_now()
+    now = DateTime.utc_now()
     today_start = %{now | hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
 
     # Active sessions
@@ -287,10 +287,10 @@ defmodule PhoenixKit.Users.Sessions do
   end
 
   defp calculate_age_in_days(created_at) do
-    NaiveDateTime.diff(NaiveDateTime.utc_now(), created_at, :day)
+    DateTime.diff(DateTime.utc_now(), created_at, :day)
   end
 
   defp session_expired?(created_at) do
-    NaiveDateTime.diff(NaiveDateTime.utc_now(), created_at, :day) >= @session_validity_in_days
+    DateTime.diff(DateTime.utc_now(), created_at, :day) >= @session_validity_in_days
   end
 end

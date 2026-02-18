@@ -83,7 +83,7 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
     field :user_agent_hash, :string
     field :metadata, :map, default: %{}
 
-    timestamps(type: :utc_datetime_usec)
+    timestamps(type: :utc_datetime)
   end
 
   @doc """

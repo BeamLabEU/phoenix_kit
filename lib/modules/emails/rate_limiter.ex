@@ -15,12 +15,12 @@ defmodule PhoenixKit.Modules.Emails.EmailBlocklist do
     field :id, :integer, read_after_writes: true
     field :email, :string
     field :reason, :string
-    field :expires_at, :utc_datetime_usec
+    field :expires_at, :utc_datetime
     # legacy
     field :user_id, :integer
     field :user_uuid, UUIDv7
-    field :inserted_at, :utc_datetime_usec
-    field :updated_at, :utc_datetime_usec
+    field :inserted_at, :utc_datetime
+    field :updated_at, :utc_datetime
   end
 
   def changeset(blocklist, attrs) do
