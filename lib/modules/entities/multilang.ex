@@ -11,13 +11,17 @@ defmodule PhoenixKit.Modules.Entities.Multilang do
 
       %{
         "_primary_language" => "en-US",
-        "en-US" => %{"name" => "Acme", "tagline" => "Quality products"},
-        "es-ES" => %{"name" => "Acme España"}
+        "en-US" => %{"_title" => "Acme", "name" => "Acme", "tagline" => "Quality products"},
+        "es-ES" => %{"_title" => "Acme España", "name" => "Acme España"}
       }
 
   The primary language always has complete data. Secondary languages
   store only overrides — fields that differ from primary. Display
   merges primary values as defaults with language-specific overrides.
+
+  The `_title` key stores the record title alongside custom fields,
+  unifying title translation with the same override-only storage pattern.
+  The `title` DB column remains a denormalized copy for queries/sorting.
   """
 
   alias PhoenixKit.Modules.Languages
@@ -206,7 +210,8 @@ defmodule PhoenixKit.Modules.Entities.Multilang do
 
   Updates `_primary_language` to the new primary and ensures the new
   primary has complete data (fills missing fields from the old primary).
-  Other languages are left untouched.
+  All secondary languages are recomputed: their overrides are recalculated
+  against the new promoted primary, and languages with zero overrides are removed.
 
   Returns data unchanged if already using the given primary or not multilang.
   """
@@ -222,15 +227,20 @@ defmodule PhoenixKit.Modules.Entities.Multilang do
         data
 
       true ->
-        old_primary_data = Map.get(data, primary_language_from_data(data), %{})
+        old_primary = primary_language_from_data(data)
+        old_primary_data = Map.get(data, old_primary, %{})
         new_primary_data = Map.get(data, new_primary, %{})
 
         # Promote: fill missing fields in new primary from old primary
         promoted = Map.merge(old_primary_data, new_primary_data)
 
-        data
-        |> Map.put(@primary_language_key, new_primary)
-        |> Map.put(new_primary, promoted)
+        data =
+          data
+          |> Map.put(@primary_language_key, new_primary)
+          |> Map.put(new_primary, promoted)
+
+        # Recompute all secondaries (including old primary) against the new base
+        recompute_all_secondaries(data, new_primary, promoted, old_primary_data)
     end
   end
 
@@ -299,6 +309,36 @@ defmodule PhoenixKit.Modules.Entities.Multilang do
       end)
 
     if collision, do: String.upcase(code), else: base
+  end
+
+  # After rekeying, recompute overrides for every secondary language against the
+  # new promoted primary. Removes language keys that have zero overrides.
+  defp recompute_all_secondaries(data, new_primary, promoted, old_primary_data) do
+    Enum.reduce(data, data, fn
+      {@primary_language_key, _}, acc ->
+        acc
+
+      {^new_primary, _}, acc ->
+        acc
+
+      {lang, lang_data}, acc when is_map(lang_data) ->
+        # Reconstruct full data using OLD primary as base (overrides were against old primary)
+        full_lang_data = Map.merge(old_primary_data, lang_data)
+        # Then diff against the NEW primary to compute new overrides
+        overrides = compute_overrides(full_lang_data, promoted)
+        put_or_remove_language(acc, lang, overrides)
+
+      {_key, _value}, acc ->
+        acc
+    end)
+  end
+
+  defp put_or_remove_language(data, lang, overrides) do
+    if map_size(overrides) == 0 do
+      Map.delete(data, lang)
+    else
+      Map.put(data, lang, overrides)
+    end
   end
 
   defp compute_overrides(lang_data, primary_data) do

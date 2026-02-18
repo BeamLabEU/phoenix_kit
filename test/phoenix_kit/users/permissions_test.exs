@@ -400,24 +400,21 @@ defmodule PhoenixKit.Users.PermissionsTest do
   describe "can_edit_role_permissions?/2" do
     test "returns error for nil scope" do
       role = build_role("User")
-      assert {:error, "Not authenticated"} = Permissions.can_edit_role_permissions?(nil, role)
+      assert {:error, :not_authenticated} = Permissions.can_edit_role_permissions?(nil, role)
     end
 
     test "blocks editing Owner role" do
       scope = build_scope(["Owner"])
       role = build_role("Owner")
 
-      assert {:error, msg} = Permissions.can_edit_role_permissions?(scope, role)
-      assert msg =~ "Owner"
-      assert msg =~ "cannot be modified"
+      assert {:error, :owner_immutable} = Permissions.can_edit_role_permissions?(scope, role)
     end
 
-    test "blocks editing own role" do
-      scope = build_scope(["Admin"])
-      role = build_role("Admin")
+    test "blocks editing own role for non-system roles" do
+      scope = build_scope(["Editor"])
+      role = build_role("Editor", is_system_role: false)
 
-      assert {:error, msg} = Permissions.can_edit_role_permissions?(scope, role)
-      assert msg =~ "your own role"
+      assert {:error, :self_role} = Permissions.can_edit_role_permissions?(scope, role)
     end
 
     test "blocks non-Owner from editing Admin role" do
@@ -425,8 +422,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
       scope = build_scope(["Editor"])
       role = build_role("Admin")
 
-      assert {:error, msg} = Permissions.can_edit_role_permissions?(scope, role)
-      assert msg =~ "Only the Owner"
+      assert {:error, :admin_owner_only} = Permissions.can_edit_role_permissions?(scope, role)
     end
 
     test "allows Owner to edit Admin role" do
@@ -457,13 +453,20 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert :ok = Permissions.can_edit_role_permissions?(scope, role)
     end
 
-    test "blocks user with multiple roles from editing any of their own" do
+    test "system role user can edit roles they also hold (except Owner/Admin restrictions)" do
+      # Admin who also holds Editor can still edit Editor because they have system role
       scope = build_scope(["Admin", "Editor"])
-      admin_role = build_role("Admin")
       editor_role = build_role("Editor", is_system_role: false)
 
-      assert {:error, _} = Permissions.can_edit_role_permissions?(scope, admin_role)
-      assert {:error, _} = Permissions.can_edit_role_permissions?(scope, editor_role)
+      assert :ok = Permissions.can_edit_role_permissions?(scope, editor_role)
+    end
+
+    test "non-system role user blocked from editing own role" do
+      # User with only custom roles can't edit their own role
+      scope = build_scope(["Editor", "Support"])
+      editor_role = build_role("Editor", is_system_role: false)
+
+      assert {:error, :self_role} = Permissions.can_edit_role_permissions?(scope, editor_role)
     end
 
     test "Owner check takes priority over own-role check" do
@@ -472,9 +475,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
       scope = build_scope(["Owner"])
       role = build_role("Owner")
 
-      assert {:error, msg} = Permissions.can_edit_role_permissions?(scope, role)
-      assert msg =~ "cannot be modified"
-      refute msg =~ "your own role"
+      assert {:error, :owner_immutable} = Permissions.can_edit_role_permissions?(scope, role)
     end
   end
 end

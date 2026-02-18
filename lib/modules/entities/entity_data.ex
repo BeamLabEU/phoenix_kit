@@ -68,6 +68,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   """
 
   use Ecto.Schema
+  use Gettext, backend: PhoenixKitWeb.Gettext
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
@@ -179,7 +180,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
           add_error(
             changeset,
             :slug,
-            "must contain only lowercase letters, numbers, and hyphens"
+            gettext("must contain only lowercase letters, numbers, and hyphens")
           )
         end
     end
@@ -239,7 +240,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       id ->
         case Entities.get_entity!(id) do
           nil ->
-            add_error(changeset, :entity_id, "does not exist")
+            add_error(changeset, :entity_id, gettext("does not exist"))
 
           entity ->
             validate_data_fields(changeset, entity, data || %{})
@@ -247,7 +248,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     end
   rescue
     Ecto.NoResultsError ->
-      add_error(changeset, :entity_id, "does not exist")
+      add_error(changeset, :entity_id, gettext("does not exist"))
   end
 
   defp validate_data_fields(changeset, entity, data) do
@@ -276,7 +277,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
         add_error(
           changeset,
           :data,
-          "field '#{field_def["label"]}' is required"
+          gettext("field '%{label}' is required", label: field_def["label"])
         )
 
       !is_nil(field_value) && field_value != "" ->
@@ -303,7 +304,11 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     if is_number(value) || (is_binary(value) && Regex.match?(~r/^\d+(\.\d+)?$/, value)) do
       changeset
     else
-      add_error(changeset, :data, "field '#{field_def["label"]}' must be a number")
+      add_error(
+        changeset,
+        :data,
+        gettext("field '%{label}' must be a number", label: field_def["label"])
+      )
     end
   end
 
@@ -311,7 +316,11 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     if is_boolean(value) do
       changeset
     else
-      add_error(changeset, :data, "field '#{field_def["label"]}' must be true or false")
+      add_error(
+        changeset,
+        :data,
+        gettext("field '%{label}' must be true or false", label: field_def["label"])
+      )
     end
   end
 
@@ -319,7 +328,11 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     if is_binary(value) && Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/, value) do
       changeset
     else
-      add_error(changeset, :data, "field '#{field_def["label"]}' must be a valid email")
+      add_error(
+        changeset,
+        :data,
+        gettext("field '%{label}' must be a valid email", label: field_def["label"])
+      )
     end
   end
 
@@ -327,7 +340,11 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     if is_binary(value) && String.starts_with?(value, ["http://", "https://"]) do
       changeset
     else
-      add_error(changeset, :data, "field '#{field_def["label"]}' must be a valid URL")
+      add_error(
+        changeset,
+        :data,
+        gettext("field '%{label}' must be a valid URL", label: field_def["label"])
+      )
     end
   end
 
@@ -338,7 +355,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       add_error(
         changeset,
         :data,
-        "field '#{field_def["label"]}' must be a valid date (YYYY-MM-DD)"
+        gettext("field '%{label}' must be a valid date (YYYY-MM-DD)", label: field_def["label"])
       )
     end
   end
@@ -352,7 +369,10 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       add_error(
         changeset,
         :data,
-        "field '#{field_def["label"]}' must be one of: #{Enum.join(options, ", ")}"
+        gettext("field '%{label}' must be one of: %{options}",
+          label: field_def["label"],
+          options: Enum.join(options, ", ")
+        )
       )
     end
   end
@@ -1115,8 +1135,9 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   @doc """
   Gets the title translation for a specific language.
 
-  The primary language title is stored in the `title` DB column.
-  Secondary language titles are stored in `metadata["translations"]`.
+  Reads from `data[lang]["_title"]` (unified JSONB storage). Falls back to
+  the old `metadata["translations"]` location for unmigrated records, and
+  finally to the `title` column.
 
   ## Examples
 
@@ -1128,21 +1149,24 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   """
   def get_title_translation(%__MODULE__{} = entity_data, lang_code)
       when is_binary(lang_code) do
-    primary = title_primary_language(entity_data)
+    case Multilang.get_language_data(entity_data.data, lang_code) do
+      %{"_title" => title} when is_binary(title) and title != "" ->
+        title
 
-    if lang_code == primary do
-      entity_data.title
-    else
-      translations = (entity_data.metadata || %{})["translations"] || %{}
-      get_in(translations, [lang_code, "title"]) || entity_data.title
+      _ ->
+        # Transitional fallback: check old metadata location for unmigrated records
+        case get_in(entity_data.metadata || %{}, ["translations", lang_code, "title"]) do
+          title when is_binary(title) and title != "" -> title
+          _ -> entity_data.title
+        end
     end
   end
 
   @doc """
   Sets the title translation for a specific language.
 
-  For the primary language, updates the `title` column directly.
-  For secondary languages, stores in `metadata["translations"]`.
+  Stores `_title` in the JSONB `data` column using `put_language_data`.
+  For the primary language, also updates the `title` DB column.
 
   ## Examples
 
@@ -1154,34 +1178,17 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   """
   def set_title_translation(%__MODULE__{} = entity_data, lang_code, title)
       when is_binary(lang_code) and is_binary(title) do
-    primary = title_primary_language(entity_data)
+    # Merge _title into existing raw overrides to preserve other fields
+    existing_lang_data = Multilang.get_raw_language_data(entity_data.data, lang_code)
+    merged = Map.put(existing_lang_data, "_title", title)
+    updated_data = Multilang.put_language_data(entity_data.data, lang_code, merged)
 
-    if lang_code == primary do
-      __MODULE__.update(entity_data, %{title: title})
-    else
-      metadata = entity_data.metadata || %{}
-      translations = Map.get(metadata, "translations", %{})
+    # If setting primary language, also update the DB column
+    primary = (entity_data.data || %{})["_primary_language"] || Multilang.primary_language()
+    attrs = %{data: updated_data}
+    attrs = if lang_code == primary, do: Map.put(attrs, :title, title), else: attrs
 
-      updated_trans =
-        if title == "" do
-          lang_data = Map.get(translations, lang_code, %{})
-          cleaned = Map.delete(lang_data, "title")
-
-          if map_size(cleaned) == 0,
-            do: Map.delete(translations, lang_code),
-            else: Map.put(translations, lang_code, cleaned)
-        else
-          lang_data = Map.get(translations, lang_code, %{})
-          Map.put(translations, lang_code, Map.put(lang_data, "title", title))
-        end
-
-      updated_metadata =
-        if map_size(updated_trans) == 0,
-          do: Map.delete(metadata, "translations"),
-          else: Map.put(metadata, "translations", updated_trans)
-
-      __MODULE__.update(entity_data, %{metadata: updated_metadata})
-    end
+    __MODULE__.update(entity_data, attrs)
   end
 
   @doc """
@@ -1195,30 +1202,11 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       %{"en-US" => "My Product", "es-ES" => "Mi Producto", "fr-FR" => "Mon Produit"}
   """
   def get_all_title_translations(%__MODULE__{} = entity_data) do
-    primary = title_primary_language(entity_data)
-    translations = (entity_data.metadata || %{})["translations"] || %{}
-
     Multilang.enabled_languages()
     |> Map.new(fn lang ->
-      if lang == primary do
-        {lang, entity_data.title}
-      else
-        {lang, get_in(translations, [lang, "title"]) || entity_data.title}
-      end
+      {lang, get_title_translation(entity_data, lang)}
     end)
   end
-
-  # Returns the primary language for title translations.
-  # Uses the record's embedded _primary_language (from data JSONB) rather than
-  # the global primary, so un-rekeyed records are handled correctly.
-  defp title_primary_language(%__MODULE__{data: data}) when is_map(data) do
-    case data["_primary_language"] do
-      nil -> Multilang.primary_language()
-      primary -> primary
-    end
-  end
-
-  defp title_primary_language(_entity_data), do: Multilang.primary_language()
 
   defp repo do
     PhoenixKit.RepoHelper.repo()

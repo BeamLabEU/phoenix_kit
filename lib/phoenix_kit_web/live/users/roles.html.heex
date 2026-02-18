@@ -351,21 +351,19 @@
           <h4 class="font-semibold text-sm text-accent mb-3 uppercase tracking-wide">
             {gettext("Custom")}
           </h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-            <div class="space-y-2">
-              <%= for key <- PhoenixKit.Users.Permissions.custom_keys(), MapSet.member?(@permissions_grantable_keys, key) do %>
-                <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-base-200 transition-colors">
-                  <input
-                    type="checkbox"
-                    class="checkbox checkbox-sm checkbox-primary"
-                    checked={MapSet.member?(@permissions_role_keys, key)}
-                    phx-click="toggle_permission"
-                    phx-value-key={key}
-                  />
-                  <span class="text-sm">{PhoenixKit.Users.Permissions.module_label(key)}</span>
-                </label>
-              <% end %>
-            </div>
+          <div class="columns-1 md:columns-2 gap-x-6">
+            <%= for key <- PhoenixKit.Users.Permissions.custom_keys(), MapSet.member?(@permissions_grantable_keys, key) do %>
+              <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-base-200 transition-colors break-inside-avoid">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-sm checkbox-primary"
+                  checked={MapSet.member?(@permissions_role_keys, key)}
+                  phx-click="toggle_permission"
+                  phx-value-key={key}
+                />
+                <span class="text-sm">{PhoenixKit.Users.Permissions.module_label(key)}</span>
+              </label>
+            <% end %>
           </div>
         </div>
       <% end %>

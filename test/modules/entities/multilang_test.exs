@@ -285,20 +285,24 @@ defmodule PhoenixKit.Modules.Entities.MultilangTest do
              }
     end
 
-    test "preserves old primary data untouched" do
+    test "strips old primary to overrides" do
       result = Multilang.rekey_primary(multilang_data(), "es-ES")
 
-      # Old primary still has its original data
-      assert result["en-US"] == %{
-               "name" => "Acme",
-               "category" => "Tech",
-               "desc" => "A company"
-             }
+      # Old primary (en-US) is now secondary — only fields differing from new primary are kept.
+      # New primary has: name="Acme España", category="Tech", desc="A company"
+      # Old primary had: name="Acme", category="Tech", desc="A company"
+      # Only "name" differs → stored as override
+      assert result["en-US"] == %{"name" => "Acme"}
     end
 
-    test "preserves other languages untouched" do
+    test "recomputes other secondaries against new primary" do
       result = Multilang.rekey_primary(multilang_data(), "es-ES")
-      assert result["fr-FR"] == %{"desc" => "Une entreprise"}
+
+      # fr-FR had override: desc="Une entreprise"
+      # New primary has: name="Acme España", category="Tech", desc="A company"
+      # fr-FR full data: name="Acme", category="Tech", desc="Une entreprise"
+      # Overrides vs new primary: name differs ("Acme" vs "Acme España"), desc differs
+      assert result["fr-FR"] == %{"name" => "Acme", "desc" => "Une entreprise"}
     end
 
     test "returns data unchanged when already using that primary" do
@@ -326,6 +330,26 @@ defmodule PhoenixKit.Modules.Entities.MultilangTest do
                "category" => "Tech",
                "desc" => "A company"
              }
+
+      # Old primary (en-US) now matches de-DE exactly → key removed entirely
+      refute Map.has_key?(result, "en-US")
+    end
+
+    test "removes secondary when all fields match new primary" do
+      # Create data where es-ES has overrides that match what de-DE would promote to
+      data = %{
+        "_primary_language" => "en-US",
+        "en-US" => %{"name" => "Acme", "color" => "red"},
+        "es-ES" => %{"name" => "Acme"}
+      }
+
+      # Rekey to es-ES: promoted = merge(en-US, es-ES) = %{name: "Acme", color: "red"}
+      # en-US vs promoted: name same, color same → removed entirely
+      result = Multilang.rekey_primary(data, "es-ES")
+
+      assert result["_primary_language"] == "es-ES"
+      assert result["es-ES"] == %{"name" => "Acme", "color" => "red"}
+      refute Map.has_key?(result, "en-US")
     end
 
     test "is idempotent" do
@@ -334,7 +358,7 @@ defmodule PhoenixKit.Modules.Entities.MultilangTest do
       assert once == twice
     end
 
-    test "round-trip preserves all data" do
+    test "round-trip preserves all translatable data" do
       rekeyed = Multilang.rekey_primary(multilang_data(), "es-ES")
       back = Multilang.rekey_primary(rekeyed, "en-US")
 
@@ -346,6 +370,52 @@ defmodule PhoenixKit.Modules.Entities.MultilangTest do
                "category" => "Tech",
                "desc" => "A company"
              }
+
+      # es-ES becomes overrides-only (name differs from restored primary)
+      assert back["es-ES"] == %{"name" => "Acme España"}
+
+      # fr-FR still has its override
+      assert back["fr-FR"] == %{"desc" => "Une entreprise"}
+    end
+  end
+
+  # --- maybe_rekey_data/1 ---
+  # Note: In test env without Languages module DB, primary_language() falls
+  # back to "en-US". So data with embedded "en-US" is a no-op, while data
+  # with any other embedded primary will be re-keyed to "en-US".
+
+  describe "maybe_rekey_data/1" do
+    test "re-keys when embedded primary differs from global" do
+      # Embedded is "es-ES", global fallback is "en-US" → should re-key
+      data = %{
+        "_primary_language" => "es-ES",
+        "es-ES" => %{"name" => "Acme España", "category" => "Tech"},
+        "en-US" => %{"name" => "Acme"}
+      }
+
+      result = Multilang.maybe_rekey_data(data)
+
+      assert result["_primary_language"] == "en-US"
+      # New primary promoted: merge(es-ES base, en-US overrides) = name="Acme", category="Tech"
+      assert result["en-US"] == %{"name" => "Acme", "category" => "Tech"}
+      # Old primary (es-ES) stripped to overrides: only name differs
+      assert result["es-ES"] == %{"name" => "Acme España"}
+    end
+
+    test "returns data unchanged when already using global primary" do
+      # Embedded is "en-US" which matches the fallback global
+      result = Multilang.maybe_rekey_data(multilang_data())
+
+      assert result == multilang_data()
+    end
+
+    test "returns non-multilang data unchanged" do
+      result = Multilang.maybe_rekey_data(flat_data())
+      assert result == flat_data()
+    end
+
+    test "returns nil unchanged" do
+      assert Multilang.maybe_rekey_data(nil) == nil
     end
   end
 

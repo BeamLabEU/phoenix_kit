@@ -13,11 +13,14 @@
   - New `Multilang` module with pure-function helpers for multilang JSONB data
   - Language tabs in entity form, data form, and data view (adaptive compact mode for >5 languages)
   - Override-only storage for secondary languages with ghost-text placeholders
-  - Lazy re-keying when global primary language changes
+  - Lazy re-keying when global primary language changes (recomputes all secondary overrides)
   - Translation convenience API: `Entities.set_entity_translation/3`, `EntityData.set_translation/3`, `EntityData.set_title_translation/3`, and related get/remove functions
   - Multilang-aware category extraction in data navigator and entity data
   - Non-translatable fields (slug, status) separated into their own card
   - Required field indicators hidden on secondary language tabs
+  - Title translations stored as `_title` in JSONB data column (unified with other field translations)
+  - Slug generation disabled on secondary language tabs
+  - Validation error messages wrapped in gettext for i18n
 
 ## 1.7.42 - 2026-02-17
 - Use PostgreSQL IF NOT EXISTS / IF EXISTS for UUID column operations
