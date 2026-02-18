@@ -240,7 +240,7 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec custom_keys() :: [String.t()]
   def custom_keys do
-    Map.keys(custom_keys_map())
+    custom_keys_map() |> Map.keys() |> Enum.sort()
   end
 
   @doc """
@@ -290,7 +290,7 @@ defmodule PhoenixKit.Users.Permissions do
 
   # --- Constants ---
 
-  @doc "Returns all built-in and custom permission keys."
+  @doc "Returns all built-in and custom permission keys as a list. See `enabled_module_keys/0` for filtered MapSet variant."
   @spec all_module_keys() :: [String.t()]
   def all_module_keys, do: @all_module_keys ++ custom_keys()
 
@@ -303,9 +303,12 @@ defmodule PhoenixKit.Users.Permissions do
   def feature_module_keys, do: @feature_module_keys
 
   @doc """
-  Returns module keys that are currently enabled (core sections + enabled feature modules + custom keys).
-  Core sections and custom keys are always included. Feature modules are included only if their
-  module reports enabled status.
+  Returns module keys that are currently enabled (core sections + enabled feature modules + custom keys)
+  as a `MapSet` for efficient membership checks. Core sections and custom keys are always included.
+  Feature modules are included only if their module reports enabled status.
+
+  Returns `MapSet.t()` unlike `all_module_keys/0` which returns a list — callers use this
+  primarily for `MapSet.member?/2` and `MapSet.intersection/2` checks.
   """
   @spec enabled_module_keys() :: MapSet.t()
   def enabled_module_keys do
@@ -838,14 +841,14 @@ defmodule PhoenixKit.Users.Permissions do
   - Users cannot edit their own role (prevents self-lockout)
   - Only Owner can edit Admin role (prevents privilege escalation)
   """
-  @spec can_edit_role_permissions?(Scope.t() | nil, Role.t()) :: :ok | {:error, String.t()}
-  def can_edit_role_permissions?(nil, _role), do: {:error, "Not authenticated"}
+  @spec can_edit_role_permissions?(Scope.t() | nil, Role.t()) :: :ok | {:error, atom()}
+  def can_edit_role_permissions?(nil, _role), do: {:error, :not_authenticated}
 
   def can_edit_role_permissions?(scope, role) do
     if Scope.authenticated?(scope) do
       can_edit_role_permissions_check(scope, role)
     else
-      {:error, "Not authenticated"}
+      {:error, :not_authenticated}
     end
   end
 
@@ -854,13 +857,13 @@ defmodule PhoenixKit.Users.Permissions do
 
     cond do
       role.name == "Owner" ->
-        {:error, "Owner role always has full access and cannot be modified"}
+        {:error, :owner_immutable}
 
-      role.name in user_roles ->
-        {:error, "You cannot edit permissions for your own role"}
+      role.name in user_roles and not Scope.system_role?(scope) ->
+        {:error, :self_role}
 
       role.name == "Admin" and not Scope.owner?(scope) ->
-        {:error, "Only the Owner can edit Admin permissions"}
+        {:error, :admin_owner_only}
 
       true ->
         :ok
@@ -982,8 +985,8 @@ defmodule PhoenixKit.Users.Permissions do
       :ok
     else
       case Roles.get_role_by_name(Role.system_roles().admin) do
-        %{id: admin_id} when not is_nil(admin_id) ->
-          case grant_permission(admin_id, key, nil) do
+        %{uuid: admin_uuid} when not is_nil(admin_uuid) ->
+          case grant_permission(admin_uuid, key, nil) do
             {:ok, _} ->
               Settings.update_setting(flag_key, "true")
 

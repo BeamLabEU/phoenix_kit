@@ -236,7 +236,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
     role_name in cached_roles
   end
 
-  def has_role?(%__MODULE__{user: nil}, _role_name), do: false
+  def has_role?(_, _role_name), do: false
 
   @doc """
   Checks if the user is an owner.
@@ -259,7 +259,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
     roles.owner in cached_roles
   end
 
-  def owner?(%__MODULE__{user: nil}), do: false
+  def owner?(_), do: false
 
   @doc """
   Checks if the user can access the admin panel.
@@ -291,7 +291,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
       (not is_nil(perms) and MapSet.size(perms) > 0)
   end
 
-  def admin?(%__MODULE__{user: nil}), do: false
+  def admin?(_), do: false
 
   @doc """
   Gets all roles for the user.
@@ -312,7 +312,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
     cached_roles
   end
 
-  def user_roles(%__MODULE__{user: nil}), do: []
+  def user_roles(_), do: []
 
   @doc """
   Gets the user's full name.
@@ -461,5 +461,5 @@ defmodule PhoenixKit.Users.Auth.Scope do
     roles.owner in cached_roles or roles.admin in cached_roles
   end
 
-  def system_role?(%__MODULE__{user: nil}), do: false
+  def system_role?(_), do: false
 end

@@ -90,7 +90,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
       end
     else
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, reason)}
+        {:noreply, put_flash(socket, :error, permission_error_message(reason))}
 
       nil ->
         {:noreply, put_flash(socket, :error, gettext("Role not found"))}
@@ -214,4 +214,17 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     matrix = Permissions.get_permissions_matrix()
     assign(socket, :matrix, matrix)
   end
+
+  defp permission_error_message(:not_authenticated), do: gettext("Not authenticated")
+
+  defp permission_error_message(:owner_immutable),
+    do: gettext("Owner role always has full access and cannot be modified")
+
+  defp permission_error_message(:self_role),
+    do: gettext("You cannot edit permissions for your own role")
+
+  defp permission_error_message(:admin_owner_only),
+    do: gettext("Only the Owner can edit Admin permissions")
+
+  defp permission_error_message(_), do: gettext("Permission denied")
 end
