@@ -125,7 +125,7 @@ Code that receives values from different schemas needs to handle all three, or r
 
 - Microsecond precision is not needed for this application
 - Second precision matches the existing `timestamp(0)` database columns — no DB migration required
-- `DateTime.utc_now()` returns second precision by default, so no `truncate/2` calls needed
+- **IMPORTANT:** `DateTime.utc_now()` returns **microsecond** precision — all DB writes MUST use `DateTime.truncate(DateTime.utc_now(), :second)`. See `2026-02-17-datetime-standardization-plan.md` Step 5 for the full list of call sites.
 - Simpler migration path: only schema + application code changes, no database column alterations
 
 ### Why not `:naive_datetime`
@@ -340,6 +340,8 @@ lib/modules/comments/comments.ex:302                         ✅
 All schema and application code standardized on `:utc_datetime` + `DateTime.utc_now()`. Convention added to CLAUDE.md.
 
 **Remaining:**
-1. **Database migration (V58):** Convert `timestamp(0)` → `timestamptz` columns (deferred, requires downtime planning)
-2. **Optional:** Add Credo check or compile-time warning for `NaiveDateTime.utc_now()` to prevent regressions
+1. **CRITICAL — DateTime truncation:** ~50 `DateTime.utc_now()` calls still need `DateTime.truncate(:second)` before writing to `:utc_datetime` fields. PR #350 fixed 19 files, but the majority remain. Full list in `2026-02-17-datetime-standardization-plan.md` Step 5.
+2. **Recommended:** Add centralized `UtilsDateTime.utc_now/0` helper that returns pre-truncated values
+3. **Database migration (V58):** Convert `timestamp(0)` → `timestamptz` columns (deferred, requires downtime planning)
+4. **Optional:** Add Credo check or compile-time warning for bare `DateTime.utc_now()` in DB-write contexts
 
