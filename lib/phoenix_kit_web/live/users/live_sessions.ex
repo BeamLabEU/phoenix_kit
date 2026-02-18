@@ -226,15 +226,15 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   end
 
   defp preload_users_for_sessions(sessions) do
-    user_ids =
+    user_uuids =
       sessions
       |> Enum.filter(&(&1.type == :authenticated))
       |> Enum.map(& &1.user_id)
       |> Enum.uniq()
 
-    case user_ids do
+    case user_uuids do
       [] -> %{}
-      ids -> Auth.get_users_by_ids(ids) |> Map.new(&{&1.id, &1})
+      uuids -> Auth.get_users_by_uuids(uuids) |> Map.new(&{&1.uuid, &1})
     end
   end
 

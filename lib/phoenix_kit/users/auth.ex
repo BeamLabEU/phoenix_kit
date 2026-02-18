@@ -296,6 +296,16 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Gets multiple users by their UUIDs.
+  """
+  def get_users_by_uuids([]), do: []
+
+  def get_users_by_uuids(uuids) when is_list(uuids) do
+    from(u in User, where: u.uuid in ^uuids)
+    |> Repo.all()
+  end
+
+  @doc """
   Gets the first admin user (Owner or Admin role).
 
   Useful for programmatic operations that require a user ID, such as
