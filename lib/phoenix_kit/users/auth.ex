@@ -2447,7 +2447,11 @@ defmodule PhoenixKit.Users.Auth do
 
       from(o in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
-        set: [user_id: nil, user_uuid: nil, anonymized_at: DateTime.utc_now()]
+        set: [
+          user_id: nil,
+          user_uuid: nil,
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
+        ]
       )
       |> elem(0)
     else
@@ -2470,7 +2474,7 @@ defmodule PhoenixKit.Users.Auth do
           user_id: nil,
           user_uuid: nil,
           author_deleted: true,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)
@@ -2504,7 +2508,7 @@ defmodule PhoenixKit.Users.Auth do
           user_id: nil,
           user_uuid: nil,
           author_deleted: true,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)
@@ -2543,7 +2547,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.utc_now(),
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second),
           original_user_email: nil
         ]
       )
@@ -2568,7 +2572,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)
@@ -2591,7 +2595,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.utc_now()
+          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
         ]
       )
       |> elem(0)

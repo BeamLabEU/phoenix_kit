@@ -163,7 +163,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     attrs =
       attrs
       |> Map.put("email", email)
-      |> Map.put("confirmed_at", DateTime.utc_now())
+      |> Map.put("confirmed_at", DateTime.truncate(DateTime.utc_now(), :second))
 
     track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
 

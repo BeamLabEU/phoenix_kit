@@ -217,7 +217,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   # Private helper to set date_used on new records
   defp maybe_set_date_used(changeset) do
     if changeset.data.__meta__.state == :built do
-      put_change(changeset, :date_used, DateTime.utc_now())
+      put_change(changeset, :date_used, DateTime.truncate(DateTime.utc_now(), :second))
     else
       changeset
     end

@@ -1217,7 +1217,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
   # Set queued_at if not provided
   defp maybe_set_queued_at(changeset) do
     case get_field(changeset, :queued_at) do
-      nil -> put_change(changeset, :queued_at, DateTime.utc_now())
+      nil -> put_change(changeset, :queued_at, DateTime.truncate(DateTime.utc_now(), :second))
       _ -> changeset
     end
   end

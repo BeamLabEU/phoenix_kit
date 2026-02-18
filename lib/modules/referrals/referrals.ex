@@ -757,7 +757,7 @@ defmodule PhoenixKit.Modules.Referrals do
 
   defp maybe_set_date_created(changeset) do
     if changeset.data.__meta__.state == :built do
-      put_change(changeset, :date_created, DateTime.utc_now())
+      put_change(changeset, :date_created, DateTime.truncate(DateTime.utc_now(), :second))
     else
       changeset
     end

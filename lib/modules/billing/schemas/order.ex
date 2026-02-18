@@ -214,10 +214,17 @@ defmodule PhoenixKit.Modules.Billing.Order do
       |> validate_status_transition(order.status, new_status)
 
     case new_status do
-      "confirmed" -> put_change(changeset, :confirmed_at, DateTime.utc_now())
-      "paid" -> put_change(changeset, :paid_at, DateTime.utc_now())
-      "cancelled" -> put_change(changeset, :cancelled_at, DateTime.utc_now())
-      _ -> changeset
+      "confirmed" ->
+        put_change(changeset, :confirmed_at, DateTime.truncate(DateTime.utc_now(), :second))
+
+      "paid" ->
+        put_change(changeset, :paid_at, DateTime.truncate(DateTime.utc_now(), :second))
+
+      "cancelled" ->
+        put_change(changeset, :cancelled_at, DateTime.truncate(DateTime.utc_now(), :second))
+
+      _ ->
+        changeset
     end
   end
 
