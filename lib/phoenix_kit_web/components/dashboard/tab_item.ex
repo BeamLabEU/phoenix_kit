@@ -294,12 +294,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     if path_has_locale_prefix?(path) do
       Routes.path(path, locale: :none)
     else
-      # Routes.path strips locale from admin/reserved paths, but admin sidebar
-      # links must preserve locale for the /:locale/admin/* route scope.
-      if admin_path?(path) and locale != nil do
-        url_prefix = PhoenixKit.Config.get_url_prefix()
-        base_prefix = if url_prefix == "/", do: "", else: url_prefix
-        "#{base_prefix}/#{locale}#{path}"
+      if admin_path?(path) do
+        Routes.admin_path(path, locale)
       else
         Routes.path(path, locale: locale)
       end

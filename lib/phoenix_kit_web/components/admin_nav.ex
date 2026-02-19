@@ -658,11 +658,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           normalized_path
       end
 
-    # Build URL directly — Routes.path strips locale from admin paths (reserved),
-    # but the language switcher must always include the locale in the URL.
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-    base_prefix = if url_prefix == "/", do: "", else: url_prefix
-    "#{base_prefix}/#{base_code}#{clean_path}"
+    Routes.admin_path(clean_path, base_code)
   end
 
   # Legacy helper - kept for backward compatibility

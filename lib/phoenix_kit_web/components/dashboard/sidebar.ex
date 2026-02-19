@@ -630,12 +630,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   defp build_path(path, nil), do: Routes.path(path, locale: :none)
 
   defp build_path(path, locale) do
-    # Routes.path strips locale from admin/reserved paths, but admin sidebar
-    # links must preserve locale for the /:locale/admin/* route scope.
-    if String.starts_with?(path, "/admin") and locale != nil do
-      url_prefix = PhoenixKit.Config.get_url_prefix()
-      base_prefix = if url_prefix == "/", do: "", else: url_prefix
-      "#{base_prefix}/#{locale}#{path}"
+    if String.starts_with?(path, "/admin") do
+      Routes.admin_path(path, locale)
     else
       Routes.path(path, locale: locale)
     end
