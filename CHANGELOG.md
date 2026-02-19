@@ -1,23 +1,44 @@
 ## 1.7.43 - 2026-02-18
+- Standardize all schemas to `:utc_datetime` and `DateTime.utc_now()` across 73 files
+  - Replace `:utc_datetime_usec` with `:utc_datetime` and `NaiveDateTime` with `DateTime`
+  - Add V58 migration to convert all timestamp columns across 68 tables from `timestamp` to `timestamptz`
+  - Fix UUID FK backfill to handle NULL UUIDs before applying NOT NULL constraints
+- Fix DateTime.utc_now() microsecond crashes in 19 files after `:utc_datetime` schema migration
+  - Add `DateTime.truncate(:second)` to all `DateTime.utc_now()` calls in contexts
+  - Affected: settings, billing, shop, emails, referrals, tickets, comments, auth, permissions, roles
 - Fix Language struct Access error on admin modules page and all bracket-access-on-struct bugs
 - Add 20 typed structs replacing plain maps across billing, entities, sync, emails, AI, and dashboard
   - Billing: CheckoutSession, SetupSession, WebhookEventData, PaymentMethodInfo, ChargeResult, RefundResult, ProviderInfo
   - Other: AIModel, FieldType, EmailLogData, LegalFramework, PageType, Group, TableSchema, ColumnInfo, SitemapFile, TimelineEvent, IbanData, SessionFingerprint
+- Fix `register_groups` to convert plain maps to `Group` structs, preventing sidebar crashes
+- Fix CastError in live sessions page by using UUID lookup instead of integer id
 - Fix guest checkout flow: relax NOT NULL on legacy integer FK columns, fix transaction error double-wrapping
 - Add return_to login redirect support for seamless post-login navigation (e.g., guest checkout)
 - Add cart merge on login for guest checkout sessions
 - Fix shop module .id to .uuid migration in Storage image lookups and import modules
 - Fix hardcoded "PhoenixKit" fallback in admin header project title
+- Fix admin sidebar submenu not opening on localized routes
 - Fix 2 dialyzer warnings in checkout session and UUID migration
 - Add multi-language support for Entities module
   - New `Multilang` module with pure-function helpers for multilang JSONB data
   - Language tabs in entity form, data form, and data view (adaptive compact mode for >5 languages)
   - Override-only storage for secondary languages with ghost-text placeholders
-  - Lazy re-keying when global primary language changes
+  - Lazy re-keying when global primary language changes (recomputes all secondary overrides)
   - Translation convenience API: `Entities.set_entity_translation/3`, `EntityData.set_translation/3`, `EntityData.set_title_translation/3`, and related get/remove functions
   - Multilang-aware category extraction in data navigator and entity data
   - Non-translatable fields (slug, status) separated into their own card
   - Required field indicators hidden on secondary language tabs
+  - Title translations stored as `_title` in JSONB data column (unified with other field translations)
+  - Slug generation disabled on secondary language tabs
+  - Validation error messages wrapped in gettext for i18n
+  - 124 pure function tests for Multilang, HtmlSanitizer, FieldTypes, FieldType
+- Fix entities multilang review issues
+  - Unify title storage in JSONB data column, fix rekey logic for primary language changes
+  - Add `seed_title_in_data` for lazy backwards-compat migration on mount
+  - Replace `String.to_existing_atom` with compile-time `@preserve_fields` map
+  - Fix 7 remaining issues from PR #341 permissions review
+  - Add catch-all fallback clauses to Scope functions to prevent FunctionClauseError
+  - Sort `custom_keys/0` explicitly instead of relying on Erlang map ordering
 
 ## 1.7.42 - 2026-02-17
 - Use PostgreSQL IF NOT EXISTS / IF EXISTS for UUID column operations

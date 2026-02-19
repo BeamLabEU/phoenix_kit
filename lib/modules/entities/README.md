@@ -2,7 +2,7 @@
 
 The Entities module delivers PhoenixKit's dynamic content type system. It allows administrators
 to design structured content types with custom fields without writing migrations or code. This README gives a quick orientation for contributors working on the LiveView
-layer; the business logic lives in the `PhoenixKit.Entities` context.
+layer; the business logic lives in the `PhoenixKit.Modules.Entities` context.
 
 ## LiveViews & Components
 
@@ -23,13 +23,13 @@ All templates follow Phoenix 1.8 layout conventions (`<Layouts.app ...>` with `@
 - **Data Navigator** – Browse, search, and filter entity data with status filters and archive/restore workflow.
 - **Collaborative Editing** – Presence helpers in entity_form and data_form prevent overwrites when multiple admins edit the same record.
 - **Settings Guardrails** – Module can be toggled on/off via PhoenixKit Settings (`entities_enabled`).
-- **Event Broadcasting** – Hooks integrate with `PhoenixKit.Entities.Events` for lifecycle tracking.
+- **Event Broadcasting** – Hooks integrate with `PhoenixKit.Modules.Entities.Events` for lifecycle tracking.
 
 ## Integration Points
 
-- Context modules: `PhoenixKit.Entities`, `PhoenixKit.Entities.EntityData`, `PhoenixKit.Entities.FieldTypes`.
-- Multilang module: `PhoenixKit.Entities.Multilang` – pure-function helpers for multilang JSONB.
-- Supporting modules: `PhoenixKit.Entities.Events`, `PhoenixKit.Entities.PresenceHelpers`.
+- Context modules: `PhoenixKit.Modules.Entities`, `PhoenixKit.Modules.Entities.EntityData`, `PhoenixKit.Modules.Entities.FieldTypes`.
+- Multilang module: `PhoenixKit.Modules.Entities.Multilang` – pure-function helpers for multilang JSONB.
+- Supporting modules: `PhoenixKit.Modules.Entities.Events`, `PhoenixKit.Modules.Entities.PresenceHelpers`.
 - Languages integration: multilang is auto-enabled when `PhoenixKit.Modules.Languages` has 2+ enabled languages.
 - Enabling flag: `PhoenixKit.Settings.get_setting("entities_enabled", "false")`.
 - Router: available under `{prefix}/admin/entities/*` via `phoenix_kit_routes()`.

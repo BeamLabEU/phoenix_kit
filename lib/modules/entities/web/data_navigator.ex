@@ -279,7 +279,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     socket =
       socket
       |> assign(:selected_ids, MapSet.new())
-      |> push_patch(to: Routes.locale_aware_path(socket.assigns, full_path))
+      |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end

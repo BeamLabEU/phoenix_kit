@@ -125,7 +125,7 @@ Code that receives values from different schemas needs to handle all three, or r
 
 - Microsecond precision is not needed for this application
 - Second precision matches the existing `timestamp(0)` database columns — no DB migration required
-- `DateTime.utc_now()` returns second precision by default, so no `truncate/2` calls needed
+- **IMPORTANT:** `DateTime.utc_now()` returns **microsecond** precision — all DB writes MUST use `DateTime.truncate(DateTime.utc_now(), :second)`. See `2026-02-17-datetime-standardization-plan.md` Step 5 for the full list of call sites.
 - Simpler migration path: only schema + application code changes, no database column alterations
 
 ### Why not `:naive_datetime`
@@ -335,11 +335,36 @@ lib/modules/comments/comments.ex:302                         ✅
 
 ### Recommendation Priority Update
 
-**Status: Phase 1 COMPLETED (2026-02-17)**
+**Status: Phase 1 COMPLETED (2026-02-17), Partial Truncation Fix (2026-02-18)**
 
 All schema and application code standardized on `:utc_datetime` + `DateTime.utc_now()`. Convention added to CLAUDE.md.
 
-**Remaining:**
-1. **Database migration (V58):** Convert `timestamp(0)` → `timestamptz` columns (deferred, requires downtime planning)
-2. **Optional:** Add Credo check or compile-time warning for `NaiveDateTime.utc_now()` to prevent regressions
+**PR #350 Progress (2026-02-18):**
+- Fixed 19/50+ truncation sites (38% complete)
+- Fixed Group struct conversion bug
+- Fixed live sessions UUID lookup bug
+
+**Remaining Critical Work:**
+1. **CRITICAL — DateTime truncation:** 31+ `DateTime.utc_now()` calls still need `DateTime.truncate(:second)` before writing to `:utc_datetime` fields. Highest risk modules: Emails (22 sites), Sync (15 sites), Connections (7 sites). Full inventory in `2026-02-17-datetime-standardization-plan.md` Step 5.
+2. **Recommended:** Add centralized `UtilsDateTime.utc_now/0` helper that returns pre-truncated values
+3. **Database migration (V58):** Convert `timestamp(0)` → `timestamptz` columns (deferred, requires downtime planning)
+4. **Optional:** Add Credo check or compile-time warning for bare `DateTime.utc_now()` in DB-write contexts
+
+## Post-PR #350 Status (Added 2026-02-19)
+
+**Current State:**
+- ✅ All schemas standardized to `:utc_datetime`
+- ✅ All `NaiveDateTime.utc_now()` converted to `DateTime.utc_now()`
+- ⚠️ Only 38% of truncation sites fixed (19/50+)
+- ❌ 31+ crash sites remain unfixed
+
+**Risk Assessment:**
+- **CRITICAL:** Emails module (22 sites) - Email processing workflows will crash
+- **CRITICAL:** Sync module (15 sites) - Data synchronization workflows will crash  
+- **HIGH:** Connections module (7 sites) - User connection tracking will crash
+- **HIGH:** Billing module (5 sites) - Subscription processing may crash
+- **MEDIUM:** Shop, Entities, AI, Posts modules (10+ sites)
+
+**Immediate Action Required:**
+Complete Step 5 of the standardization plan by fixing all remaining truncation sites, prioritizing Emails and Sync modules first.
 

@@ -194,9 +194,9 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
       {:error, :repo_not_available}
     end
   rescue
-    # Database connection errors
+    # Database connection errors (includes transient "cached plan" errors during migrations)
     error in [DBConnection.ConnectionError, Postgrex.Error] ->
-      Logger.warning("Database connection error: #{Exception.message(error)}")
+      Logger.debug("OAuth config loading skipped: #{Exception.message(error)}")
       {:error, :repo_not_available}
 
     # Any other unexpected error

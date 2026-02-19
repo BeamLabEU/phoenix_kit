@@ -97,12 +97,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     language_tabs = Multilang.build_language_tabs()
 
     # Lazy re-key: if global primary changed since this record was saved,
-    # restructure data + title around the new primary language.
+    # restructure data around the new primary language.
+    # Also seed _title into JSONB data for backwards compat.
     changeset =
       if multilang_enabled and data_record.id do
         changeset
         |> rekey_data_on_mount()
-        |> rekey_title_on_mount(data_record, primary_language)
+        |> seed_title_in_data(data_record)
       else
         changeset
       end
@@ -270,14 +271,23 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
       current_lang = socket.assigns[:current_lang]
 
-      # Merge title translations into metadata
-      data_params = merge_title_translations(data_params, socket.assigns.changeset)
+      # Inject _title into form data so it flows through merge_multilang_data
+      form_data =
+        inject_title_into_form_data(form_data, data_params, current_lang, socket.assigns)
 
       # On secondary language tabs, preserve primary-language fields that aren't in the form
       data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
 
       case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
         {:ok, validated_data} ->
+          validated_data =
+            inject_title_into_form_data(
+              validated_data,
+              data_params,
+              current_lang,
+              socket.assigns
+            )
+
           final_data = merge_multilang_data(socket.assigns, current_lang, validated_data)
           params = Map.put(data_params, "data", final_data)
 
@@ -324,15 +334,27 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
       current_lang = socket.assigns[:current_lang]
 
-      # Merge title translations into metadata
-      data_params = merge_title_translations(data_params, socket.assigns.changeset)
+      # Inject _title into form data so it flows through merge_multilang_data
+      form_data =
+        inject_title_into_form_data(form_data, data_params, current_lang, socket.assigns)
 
       # On secondary language tabs, preserve primary-language fields that aren't in the form
       data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
 
+      # Strip lang_title — it's only used by inject_title_into_form_data, not a schema field
+      data_params = Map.delete(data_params, "lang_title")
+
       # Validate the form data against entity field definitions
       case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
         {:ok, validated_data} ->
+          validated_data =
+            inject_title_into_form_data(
+              validated_data,
+              data_params,
+              current_lang,
+              socket.assigns
+            )
+
           final_data = merge_multilang_data(socket.assigns, current_lang, validated_data)
 
           # Add metadata to params
@@ -648,38 +670,92 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     end
   end
 
-  # Swaps the title column and metadata translations when data was re-keyed.
-  # Old title goes into translations[old_primary], new primary's title becomes the column value.
-  defp rekey_title_on_mount(changeset, data_record, global_primary) do
-    old_data = data_record.data
+  # Seeds `_title` into the JSONB data column for existing records on mount.
+  # Handles backwards compat: migrates from metadata["translations"] to data[lang]["_title"].
+  defp seed_title_in_data(changeset, data_record) do
+    data = Ecto.Changeset.get_field(changeset, :data) || %{}
 
-    with true <- Multilang.multilang_data?(old_data),
-         embedded when is_binary(embedded) <- old_data["_primary_language"],
-         true <- embedded != global_primary do
-      metadata = Ecto.Changeset.get_field(changeset, :metadata) || %{}
-      translations = metadata["translations"] || %{}
-      old_title = Ecto.Changeset.get_field(changeset, :title)
-      new_title = get_in(translations, [global_primary, "title"])
+    if Multilang.multilang_data?(data) do
+      primary = data["_primary_language"]
+      primary_data = Map.get(data, primary, %{})
 
-      # Always preserve old title under old primary in translations
-      updated_trans = Map.put(translations, embedded, %{"title" => old_title})
-
-      if new_title do
-        # Swap: new primary's title goes to column, remove it from translations
-        updated_trans = Map.delete(updated_trans, global_primary)
-        updated_metadata = Map.put(metadata, "translations", updated_trans)
-
+      if Map.has_key?(primary_data, "_title") do
         changeset
-        |> Ecto.Changeset.put_change(:title, new_title)
-        |> Ecto.Changeset.put_change(:metadata, updated_metadata)
       else
-        # No translation for new primary — keep old title in column as fallback,
-        # but still preserve it under old primary in translations
-        updated_metadata = Map.put(metadata, "translations", updated_trans)
-        Ecto.Changeset.put_change(changeset, :metadata, updated_metadata)
+        title = Ecto.Changeset.get_field(changeset, :title)
+        do_seed_title(changeset, data, data_record, primary, primary_data, title)
       end
     else
-      _ -> changeset
+      changeset
+    end
+  end
+
+  defp do_seed_title(changeset, data, data_record, primary, primary_data, title) do
+    # Seed primary _title from the title column
+    updated_primary = Map.put(primary_data, "_title", title || "")
+    data = Map.put(data, primary, updated_primary)
+
+    # Migrate secondary titles from metadata["translations"]
+    metadata = Ecto.Changeset.get_field(changeset, :metadata) || %{}
+    {data, metadata} = migrate_title_translations(data, metadata, title)
+
+    changeset = Ecto.Changeset.put_change(changeset, :data, data)
+
+    # Update title column if primary was rekeyed
+    changeset = maybe_sync_rekeyed_title(changeset, data, data_record, primary, title)
+
+    if metadata != (Ecto.Changeset.get_field(changeset, :metadata) || %{}) do
+      Ecto.Changeset.put_change(changeset, :metadata, metadata)
+    else
+      changeset
+    end
+  end
+
+  defp migrate_title_translations(data, metadata, primary_title) do
+    translations = metadata["translations"] || %{}
+
+    Enum.reduce(translations, {data, metadata}, fn
+      {lang_code, %{"title" => lang_title}}, {d, m}
+      when is_binary(lang_title) and lang_title != "" ->
+        d = put_secondary_title(d, lang_code, lang_title, primary_title)
+        m = clean_title_translation(m, lang_code)
+        {d, m}
+
+      _, acc ->
+        acc
+    end)
+  end
+
+  defp put_secondary_title(data, _lang_code, lang_title, primary_title)
+       when lang_title == primary_title,
+       do: data
+
+  defp put_secondary_title(data, lang_code, lang_title, _primary_title) do
+    lang_data = Map.get(data, lang_code, %{})
+    Map.put(data, lang_code, Map.put(lang_data, "_title", lang_title))
+  end
+
+  defp clean_title_translation(metadata, lang_code) do
+    cleaned = metadata |> Map.get("translations", %{}) |> Map.delete(lang_code)
+
+    if map_size(cleaned) == 0,
+      do: Map.delete(metadata, "translations"),
+      else: Map.put(metadata, "translations", cleaned)
+  end
+
+  defp maybe_sync_rekeyed_title(changeset, data, data_record, primary, title) do
+    old_embedded = get_in(data_record.data || %{}, ["_primary_language"])
+
+    if old_embedded && old_embedded != primary do
+      new_title = get_in(data, [primary, "_title"])
+
+      if is_binary(new_title) and new_title != "" and new_title != title do
+        Ecto.Changeset.put_change(changeset, :title, new_title)
+      else
+        changeset
+      end
+    else
+      changeset
     end
   end
 
@@ -704,53 +780,49 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     end
   end
 
-  # When on a secondary language tab, the form doesn't submit title/slug/status.
-  # Preserve their current values so the changeset doesn't clear them.
+  # When on a secondary language tab, preserve primary-language DB fields.
+  # Title on secondary tab goes to JSONB _title via inject_title_into_form_data;
+  # the DB title column must keep the primary language value.
+  @preserve_fields %{"title" => :title, "slug" => :slug, "status" => :status}
+
   defp preserve_primary_fields(data_params, changeset) do
-    Enum.reduce(~w(title slug status), data_params, fn field, acc ->
-      if Map.has_key?(acc, field) do
+    Enum.reduce(@preserve_fields, data_params, fn {str_key, atom_key}, acc ->
+      if Map.has_key?(acc, str_key) do
         acc
       else
-        value = Ecto.Changeset.get_field(changeset, String.to_existing_atom(field))
-        if value, do: Map.put(acc, field, value), else: acc
+        value = Ecto.Changeset.get_field(changeset, atom_key)
+        if value, do: Map.put(acc, str_key, value), else: acc
       end
     end)
   end
 
-  defp merge_title_translations(data_params, changeset) do
-    title_translations = Map.get(data_params, "title_translations", %{})
-    existing_metadata = Ecto.Changeset.get_field(changeset, :metadata) || %{}
+  # Injects _title into form data map so it flows through merge_multilang_data/3.
+  # On primary tab: _title comes from data_params["title"] (the DB column field).
+  # On secondary tab: _title comes from data_params["lang_title"] (separate input).
+  defp inject_title_into_form_data(form_data, data_params, current_lang, assigns) do
+    if assigns[:multilang_enabled] == true do
+      primary = assigns[:primary_language]
 
-    if map_size(title_translations) == 0 do
-      # No new translations in this submission, but preserve existing metadata
-      # (translations may have been set on a different language tab earlier)
-      if map_size(existing_metadata) > 0 and not Map.has_key?(data_params, "metadata") do
-        Map.put(data_params, "metadata", existing_metadata)
-      else
-        data_params
-      end
-    else
-      existing_trans = existing_metadata["translations"] || %{}
-
-      updated_trans =
-        Enum.reduce(title_translations, existing_trans, fn {lang_code, title_value}, acc ->
-          if is_nil(title_value) or title_value == "" do
-            Map.delete(acc, lang_code)
-          else
-            Map.put(acc, lang_code, %{"title" => title_value})
-          end
-        end)
-
-      metadata =
-        if map_size(updated_trans) == 0 do
-          Map.delete(existing_metadata, "translations")
+      title =
+        if current_lang == primary do
+          data_params["title"]
         else
-          Map.put(existing_metadata, "translations", updated_trans)
+          data_params["lang_title"]
         end
 
-      data_params
-      |> Map.delete("title_translations")
-      |> Map.put("metadata", metadata)
+      if is_binary(title) do
+        Map.put(form_data, "_title", title)
+      else
+        # No title submitted — preserve existing _title from JSONB data
+        existing_data = Ecto.Changeset.get_field(assigns.changeset, :data) || %{}
+
+        case Multilang.get_raw_language_data(existing_data, current_lang) do
+          %{"_title" => existing_title} -> Map.put(form_data, "_title", existing_title)
+          _ -> form_data
+        end
+      end
+    else
+      form_data
     end
   end
 
@@ -800,9 +872,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         :status,
         :data,
         :metadata,
-        :created_by,
-        :date_created,
-        :date_updated
+        :created_by
       ])
       |> Map.put(:action, :validate)
 
