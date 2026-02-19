@@ -352,8 +352,11 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
             <%= for language <- @admin_languages do %>
               <li>
-                <a
-                  href={generate_language_switch_url(@current_path, language.code)}
+                <button
+                  type="button"
+                  phx-click="phoenix_kit_set_locale"
+                  phx-value-locale={language.code}
+                  phx-value-url={generate_language_switch_url(@current_path, language.code)}
                   class={[
                     "flex items-center gap-3",
                     if(language.code == @current_locale, do: "active", else: "")
@@ -364,7 +367,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
                   <%= if language.code == @current_locale do %>
                     <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
                   <% end %>
-                </a>
+                </button>
               </li>
             <% end %>
           <% end %>
@@ -655,9 +658,11 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           normalized_path
       end
 
-    # Use Routes.path which handles default language logic
-    # Default language gets clean URLs (no prefix), other languages get prefixed
-    Routes.path(clean_path, locale: base_code)
+    # Build URL directly — Routes.path strips locale from admin paths (reserved),
+    # but the language switcher must always include the locale in the URL.
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+    base_prefix = if url_prefix == "/", do: "", else: url_prefix
+    "#{base_prefix}/#{base_code}#{clean_path}"
   end
 
   # Legacy helper - kept for backward compatibility
