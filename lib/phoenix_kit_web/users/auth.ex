@@ -1451,7 +1451,7 @@ defmodule PhoenixKitWeb.Users.Auth do
             redirect_to_base_locale(conn, locale)
 
           # Validate base code exists in predefined language list AND is enabled
-          DialectMapper.valid_base_code?(locale) and language_enabled?(locale) ->
+          DialectMapper.valid_base_code?(locale) and locale_allowed?(locale) ->
             # If this is the default language, redirect to clean URL (no prefix needed)
             if locale == get_default_admin_language() do
               redirect_default_locale_to_clean_url(conn, locale)
@@ -1571,6 +1571,10 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp get_user_preferred_locale(_user), do: nil
+
+  defp locale_allowed?(base_code) do
+    language_enabled?(base_code) or admin_language_enabled?(base_code)
+  end
 
   # Check if a language (base code) is enabled as an admin language
   defp admin_language_enabled?(base_code) do
