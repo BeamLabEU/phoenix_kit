@@ -520,8 +520,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       <div class="p-6 max-w-6xl mx-auto">
         <div class="flex items-center justify-between mb-8">
           <h1 class="text-3xl font-bold">Checkout</h1>
-          <.link navigate={Routes.path("/cart")} class="btn btn-ghost btn-sm gap-2">
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Cart
+          <.link navigate={Routes.path("/cart")} class="btn btn-ghost btn-sm">
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
         </div>
 
@@ -708,7 +708,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
         <div class="card-actions justify-between mt-6">
           <%= if length(@payment_options) > 1 do %>
             <button phx-click="back_to_payment" class="btn btn-ghost">
-              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+              <.icon name="hero-arrow-left" class="w-4 h-4" />
             </button>
           <% else %>
             <div></div>
@@ -1140,11 +1140,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
         <%= cond do %>
           <% @needs_billing -> %>
             <button phx-click="back_to_billing" class="btn btn-ghost">
-              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+              <.icon name="hero-arrow-left" class="w-4 h-4" />
             </button>
           <% length(@payment_options) > 1 -> %>
             <button phx-click="back_to_payment" class="btn btn-ghost">
-              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+              <.icon name="hero-arrow-left" class="w-4 h-4" />
             </button>
           <% true -> %>
             <div></div>

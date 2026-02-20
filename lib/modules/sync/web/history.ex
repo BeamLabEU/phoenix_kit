@@ -203,9 +203,9 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
         <header class="w-full relative mb-6">
           <.link
             navigate={Routes.path("/admin/sync", locale: @current_locale)}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+            class="btn btn-ghost btn-sm -mb-12"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to DB Sync
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
 
           <div class="text-center">

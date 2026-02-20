@@ -803,9 +803,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           <div class="flex items-start gap-4">
             <.link
               navigate={Routes.path("/admin/shop")}
-              class="btn btn-outline btn-primary btn-sm shrink-0"
+              class="btn btn-ghost btn-sm"
             >
-              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+              <.icon name="hero-arrow-left" class="w-4 h-4" />
             </.link>
             <div class="flex-1 min-w-0">
               <h1 class="text-3xl font-bold text-base-content">CSV Import</h1>
@@ -1389,7 +1389,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     <%!-- Action Buttons --%>
     <div class="flex gap-3 mt-6">
       <button type="button" phx-click="back_to_upload" class="btn btn-outline">
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
       </button>
       <div class="flex-1"></div>
       <%= if @option_mappings != [] do %>
@@ -1557,7 +1557,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
     <div class="flex gap-3 mt-6">
       <button type="button" phx-click="back_to_upload" class="btn btn-outline">
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
       </button>
       <div class="flex-1"></div>
       <button type="button" phx-click="confirm_import" class="btn btn-primary">

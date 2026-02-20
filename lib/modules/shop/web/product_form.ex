@@ -681,9 +681,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           <div class="flex items-start gap-4">
             <.link
               navigate={Routes.path("/admin/shop/products")}
-              class="btn btn-outline btn-primary btn-sm shrink-0"
+              class="btn btn-ghost btn-sm"
             >
-              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+              <.icon name="hero-arrow-left" class="w-4 h-4" />
             </.link>
             <div class="flex-1 min-w-0">
               <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>

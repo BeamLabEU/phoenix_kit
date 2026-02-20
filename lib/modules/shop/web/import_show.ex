@@ -80,9 +80,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportShow do
         <header class="mb-6 flex items-center gap-4">
           <.link
             navigate={Routes.path("/admin/shop/imports")}
-            class="btn btn-outline btn-primary btn-sm"
+            class="btn btn-ghost btn-sm"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
           <h1 class="text-2xl font-bold flex-1">Import Details</h1>
           <span class={[

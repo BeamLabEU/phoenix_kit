@@ -12,7 +12,7 @@
       navigate={Routes.path("/admin/media")}
       class="btn btn-outline btn-sm mb-4"
     >
-      <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Media
+      <.icon name="hero-arrow-left" class="w-4 h-4" /> Media
     </.link>
 
     <%= if @file_data do %>
@@ -347,7 +347,7 @@
             The file you're looking for doesn't exist or has been deleted.
           </p>
           <.link navigate={Routes.path("/admin/media")} class="btn btn-primary btn-sm mt-4">
-            Back to Media Library
+            <.icon name="hero-arrow-left" class="w-4 h-4" /> Library
           </.link>
         </div>
       </div>

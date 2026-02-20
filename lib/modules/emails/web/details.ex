@@ -42,8 +42,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
-  import PhoenixKitWeb.Components.Core.Icons, only: [icon_arrow_left: 1]
-
   ## --- Lifecycle Callbacks ---
 
   @impl true

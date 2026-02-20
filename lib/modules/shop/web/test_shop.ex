@@ -91,7 +91,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
             <.icon name="hero-beaker" class="w-7 h-7 inline" /> Shop Test Module
           </h1>
           <.link navigate={Routes.path("/admin/shop/products")} class="btn btn-ghost btn-sm">
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Products
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
         </div>
 

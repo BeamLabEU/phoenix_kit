@@ -75,6 +75,110 @@
   --color-error-content: oklch(17.43% 0.037 22.18);
 }
 
+/* ============================================================================
+   DaisyUI Label Mobile Fixes - Override DaisyUI's white-space: nowrap
+   ============================================================================ */
+
+/* Direct override for DaisyUI label classes */
+.label, .label-text, .label-text-alt {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Fix inline-flex causing horizontal overflow - add flex-wrap */
+.label {
+  flex-wrap: wrap !important;
+  row-gap: 0.25rem !important;
+}
+
+/* Ensure form control labels stack properly */
+.form-control .label {
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+}
+
+/* Handle label-text and label-text-alt spacing when wrapped */
+.form-control .label .label-text-alt {
+  margin-left: auto !important;
+  text-align: right !important;
+}
+
+/* Mobile: label-text-alt should stack below and align left */
+@media (max-width: 768px) {
+  .form-control .label .label-text-alt {
+    margin-left: 0 !important;
+    text-align: left !important;
+    width: 100% !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* More specific selectors to ensure override */
+body .label, body .label-text, body .label-text-alt,
+.form-control .label, .form-control .label-text, .form-control .label-text-alt,
+.daisyui .label, .daisyui .label-text, .daisyui .label-text-alt {
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+/* Override DaisyUI utility classes */
+.whitespace-nowrap.label, .whitespace-nowrap .label,
+.whitespace-nowrap .label-text, .whitespace-nowrap .label-text-alt {
+  white-space: normal !important;
+}
+
+/* Override inline styles */
+.label[style*="white-space: nowrap"],
+.label-text[style*="white-space: nowrap"],
+.label-text-alt[style*="white-space: nowrap"] {
+  white-space: normal !important;
+}
+
+/* Fix checkbox/radio flex containers */
+.flex.items-center.gap-3,
+.flex.items-center.gap-4 {
+  flex-wrap: wrap !important;
+}
+
+.flex.items-center.gap-3 > input[type="checkbox"],
+.flex.items-center.gap-3 > input[type="radio"],
+.flex.items-center.gap-4 > input[type="checkbox"],
+.flex.items-center.gap-4 > input[type="radio"] {
+  flex-shrink: 0 !important;
+}
+
+.flex.items-center.gap-3 .label-text,
+.flex.items-center.gap-4 .label-text {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  word-break: break-word !important;
+}
+
+/* Fix alert inline-flex w-fit issues */
+.alert.inline-flex.w-fit {
+  display: flex !important;
+  width: 100% !important;
+  flex-wrap: wrap !important;
+}
+
+/* Force grids to single column on small mobile devices */
+@media (max-width: 640px) {
+  .grid.grid-cols-2:not(.md\\:grid-cols-2):not(.md\\:grid-cols-3):not(.md\\:grid-cols-4),
+  .grid.grid-cols-3:not(.md\\:grid-cols-2):not(.md\\:grid-cols-3):not(.md\\:grid-cols-4),
+  .grid.grid-cols-4:not(.md\\:grid-cols-2):not(.md\\:grid-cols-3):not(.md\\:grid-cols-4) {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+  .label, .label-text, .label-text-alt {
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+}
+
 /* Cupcake Theme - Soft pastel light theme */
 [data-theme=cupcake] {
   color-scheme: light;

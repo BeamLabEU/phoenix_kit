@@ -48,8 +48,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
   alias PhoenixKit.Utils.Number, as: UtilsNumber
   alias PhoenixKit.Utils.Routes
 
-  import PhoenixKitWeb.Components.Core.Icons, only: [icon_arrow_left: 1]
-
   # Auto-refresh every 30 seconds
   @refresh_interval 30_000
 

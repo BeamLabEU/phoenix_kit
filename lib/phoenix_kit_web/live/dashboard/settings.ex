@@ -657,7 +657,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
       <div class="max-w-6xl mx-auto">
         <!-- Development Mode Notice -->
         <div :if={show_dev_notice?()} class="mb-6">
-          <div class="alert alert-info inline-flex w-fit">
+          <div class="alert alert-info flex w-full sm:w-fit">
             <.icon name="hero-information-circle" class="stroke-current shrink-0 h-6 w-6" />
             <span>
               Development mode: Check

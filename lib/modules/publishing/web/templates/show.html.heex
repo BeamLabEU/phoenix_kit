@@ -234,8 +234,8 @@
     </div>
     <%!-- Post Footer --%>
     <footer class="mt-12 pt-6 border-t">
-      <a href={blog_listing_path(@current_language, @blog_slug)} class="btn btn-outline btn-sm">
-        ← Back to {String.capitalize(@blog_slug)}
+      <a href={blog_listing_path(@current_language, @blog_slug)} class="btn btn-ghost btn-sm">
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
       </a>
     </footer>
   </article>

@@ -907,9 +907,9 @@ defmodule PhoenixKit.Modules.Sync.Web.Receiver do
         <header class="w-full relative mb-8">
           <.link
             navigate={Routes.path("/admin/sync", locale: @current_locale)}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+            class="btn btn-ghost btn-sm"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Back
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
 
           <div class="text-center">
