@@ -7,41 +7,25 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <%!-- Back Button (Left aligned) --%>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/users")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">{@user.email}</p>
+      <:actions>
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/users")}
-          class="btn btn-ghost btn-sm"
+          navigate={PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@user.uuid}")}
+          class="btn btn-primary btn-sm"
         >
-          <.icon name="hero-arrow-left" class="w-4 h-4" />
+          <PhoenixKitWeb.Components.Core.Icons.icon_edit /> {gettext("Edit")}
         </.link>
-
-        <%!-- Action Buttons (Right aligned) --%>
-        <div class="flex gap-2">
-          <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@user.uuid}")}
-            class="btn btn-primary btn-sm"
-          >
-            <PhoenixKitWeb.Components.Core.Icons.icon_edit /> {gettext("Edit")}
-          </.link>
-          <button
-            type="button"
-            class="btn btn-error btn-sm btn-outline"
-            phx-click="show_delete_modal"
-          >
-            <PhoenixKitWeb.Components.Core.Icons.icon_trash /> {gettext("Delete")}
-          </button>
-        </div>
-      </div>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-2">{@page_title}</h1>
-        <p class="text-base-content/70">{@user.email}</p>
-      </div>
-    </header>
+        <button
+          type="button"
+          class="btn btn-error btn-sm btn-outline"
+          phx-click="show_delete_modal"
+        >
+          <PhoenixKitWeb.Components.Core.Icons.icon_trash /> {gettext("Delete")}
+        </button>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Tabs Navigation --%>
     <div class="flex justify-center mb-6">

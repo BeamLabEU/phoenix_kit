@@ -7,20 +7,12 @@
 >
   <div class="container mx-auto px-4 py-6">
     <%!-- Header --%>
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-      <div class="flex items-center gap-4">
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
-          class="btn btn-ghost btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" />
-        </.link>
-        <div>
-          <h1 class="text-3xl font-bold">Subscriptions</h1>
-          <p class="text-base-content/60 mt-1">Manage recurring billing subscriptions</p>
-        </div>
-      </div>
-      <div class="flex gap-2">
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/billing")}
+      title="Subscriptions"
+      subtitle="Manage recurring billing subscriptions"
+    >
+      <:actions>
         <.link
           navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
           class="btn btn-outline btn-sm"
@@ -33,8 +25,8 @@
         >
           <.icon name="hero-plus" class="w-4 h-4" /> New Subscription
         </.link>
-      </div>
-    </div>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">

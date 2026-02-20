@@ -14,33 +14,22 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{@entity.name}/data")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          <%= if @data_record.id do %>
-            {gettext("Edit %{entity}", entity: @entity.display_name)}
-          <% else %>
-            {gettext("Create New %{entity}", entity: @entity.display_name)}
-          <% end %>
-        </h1>
-        <p class="text-base sm:text-lg text-base-content">
-          <%= if @data_record.id do %>
-            {gettext("Update data for the %{entity} entity", entity: @entity.display_name)}
-          <% else %>
-            {gettext("Add data for the %{entity} entity", entity: @entity.display_name)}
-          <% end %>
-        </p>
-      </div>
-    </header>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/entities/#{@entity.name}/data")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+        <%= if @data_record.id do %>
+          {gettext("Edit %{entity}", entity: @entity.display_name)}
+        <% else %>
+          {gettext("Create New %{entity}", entity: @entity.display_name)}
+        <% end %>
+      </h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        <%= if @data_record.id do %>
+          {gettext("Update data for the %{entity} entity", entity: @entity.display_name)}
+        <% else %>
+          {gettext("Add data for the %{entity} entity", entity: @entity.display_name)}
+        <% end %>
+      </p>
+    </.admin_page_header>
 
     <%!-- Readonly Banner --%>
     <%= if @readonly? do %>

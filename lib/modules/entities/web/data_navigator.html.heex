@@ -13,39 +13,28 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/entities")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <%= if @selected_entity do %>
-          <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-            {@selected_entity.display_name_plural || @selected_entity.display_name}
-          </h1>
-          <p class="text-base sm:text-lg text-base-content">
-            {gettext("Browse and manage your %{entity}",
-              entity:
-                String.downcase(
-                  @selected_entity.display_name_plural || @selected_entity.display_name
-                )
-            )}
-          </p>
-        <% else %>
-          <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-            {gettext("Data Navigator")}
-          </h1>
-          <p class="text-base sm:text-lg text-base-content">
-            {gettext("Browse and manage all entity data records across your system")}
-          </p>
-        <% end %>
-      </div>
-    </header>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/entities")}>
+      <%= if @selected_entity do %>
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+          {@selected_entity.display_name_plural || @selected_entity.display_name}
+        </h1>
+        <p class="text-sm text-base-content/60 mt-0.5">
+          {gettext("Browse and manage your %{entity}",
+            entity:
+              String.downcase(
+                @selected_entity.display_name_plural || @selected_entity.display_name
+              )
+          )}
+        </p>
+      <% else %>
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+          {gettext("Data Navigator")}
+        </h1>
+        <p class="text-sm text-base-content/60 mt-0.5">
+          {gettext("Browse and manage all entity data records across your system")}
+        </p>
+      <% end %>
+    </.admin_page_header>
 
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

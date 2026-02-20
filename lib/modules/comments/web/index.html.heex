@@ -6,31 +6,20 @@
   project_title={@project_title}
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
-    <%!-- Header --%>
-    <header class="w-full mb-6">
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <.link
-          navigate={Routes.path("/admin")}
-          class="btn btn-ghost btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" />
-        </.link>
-
+    <.admin_page_header
+      back={Routes.path("/admin")}
+      title="Comments"
+      subtitle="Moderate comments across all content"
+    >
+      <:actions>
         <.link
           navigate={Routes.path("/admin/settings/comments")}
           class="btn btn-ghost btn-sm"
         >
           <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> Settings
         </.link>
-      </div>
-
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold">Comments</h1>
-        <p class="text-base sm:text-lg text-base-content/70">
-          Moderate comments across all content
-        </p>
-      </div>
-    </header>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Statistics --%>
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">

@@ -13,25 +13,11 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          {gettext("Entities Settings")}
-        </h1>
-        <p class="text-base sm:text-lg text-base-content">
-          {gettext("Configure the entities system behavior and preferences")}
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/modules")}
+      title={gettext("Entities Settings")}
+      subtitle={gettext("Configure the entities system behavior and preferences")}
+    />
 
     <%!-- System Status Card --%>
     <div class="card bg-base-100 shadow-xl mb-6">

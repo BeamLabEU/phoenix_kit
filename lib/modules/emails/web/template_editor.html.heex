@@ -6,31 +6,19 @@
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/emails/templates")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
-        <%= if @mode == :edit and @template do %>
-          <% source_module = PhoenixKit.Modules.Emails.Template.get_source_module(@template) %>
-          <p class="text-base sm:text-lg text-base-content">
-            Version {@template.version} • {String.capitalize(@template.category)} • {String.capitalize(
-              source_module
-            )} • {String.capitalize(@template.status)}
-          </p>
-        <% else %>
-          <p class="text-base sm:text-lg text-base-content">Create a new email template</p>
-        <% end %>
-      </div>
-    </header>
+    <.admin_page_header back={Routes.path("/admin/emails/templates")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <%= if @mode == :edit and @template do %>
+        <% source_module = PhoenixKit.Modules.Emails.Template.get_source_module(@template) %>
+        <p class="text-sm text-base-content/60 mt-0.5">
+          Version {@template.version} • {String.capitalize(@template.category)} • {String.capitalize(
+            source_module
+          )} • {String.capitalize(@template.status)}
+        </p>
+      <% else %>
+        <p class="text-sm text-base-content/60 mt-0.5">Create a new email template</p>
+      <% end %>
+    </.admin_page_header>
 
     <%!-- Main Editor Grid --%>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

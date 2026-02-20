@@ -6,59 +6,41 @@
   project_title={@project_title}
 >
   <div class="container mx-auto px-4 py-8">
-    <%!-- Header with Live Indicator --%>
-    <div class="mb-8">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <%!-- Back Button --%>
-          <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin")}
-            class="btn btn-ghost btn-sm"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4" />
-          </.link>
-          <h1 class="text-3xl font-bold text-base-content">
-            Live Sessions
-          </h1>
-          <%!-- Live Indicator --%>
-          <div class="flex items-center gap-2 px-3 py-1 bg-success/10 text-success rounded-full">
-            <div class="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-            <span class="text-xs font-medium">LIVE</span>
-          </div>
-        </div>
-
-        <%!-- Controls --%>
-        <div class="flex items-center gap-2">
-          <%!-- Auto-refresh toggle --%>
-          <button
-            phx-click="toggle_auto_refresh"
-            class={[
-              "btn btn-sm",
-              if(@auto_refresh, do: "btn-success", else: "btn-outline")
-            ]}
-          >
-            <%= if @auto_refresh do %>
-              <.icon name="hero-pause-circle" class="w-5 h-5" /> Auto-refresh ON
-            <% else %>
-              <.icon name="hero-play-circle" class="w-5 h-5" /> Auto-refresh OFF
-            <% end %>
-          </button>
-
-          <%!-- Manual refresh --%>
-          <button
-            phx-click="refresh_now"
-            class="btn btn-sm btn-outline"
-          >
-            <.icon name="hero-arrow-path" class="w-5 h-5" /> Refresh
-          </button>
-        </div>
-      </div>
-
-      <p class="text-base-content/70 mt-2">
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/users")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">Live Sessions</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
         Real-time monitoring of all active sessions with live updates.
         Last updated: {Calendar.strftime(@last_updated, "%H:%M:%S")}
       </p>
-    </div>
+      <:actions>
+        <%!-- Live Indicator --%>
+        <div class="flex items-center gap-2 px-3 py-1 bg-success/10 text-success rounded-full">
+          <div class="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+          <span class="text-xs font-medium">LIVE</span>
+        </div>
+        <%!-- Auto-refresh toggle --%>
+        <button
+          phx-click="toggle_auto_refresh"
+          class={[
+            "btn btn-sm",
+            if(@auto_refresh, do: "btn-success", else: "btn-outline")
+          ]}
+        >
+          <%= if @auto_refresh do %>
+            <.icon name="hero-pause-circle" class="w-5 h-5" /> Auto-refresh ON
+          <% else %>
+            <.icon name="hero-play-circle" class="w-5 h-5" /> Auto-refresh OFF
+          <% end %>
+        </button>
+        <%!-- Manual refresh --%>
+        <button
+          phx-click="refresh_now"
+          class="btn btn-sm btn-outline"
+        >
+          <.icon name="hero-arrow-path" class="w-5 h-5" /> Refresh
+        </button>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Statistics Cards --%>
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

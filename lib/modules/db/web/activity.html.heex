@@ -7,30 +7,20 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <div class="text-center">
-        <div class="flex items-center justify-center gap-3 mb-3">
-          <div class={"w-3 h-3 rounded-full #{if @paused, do: "bg-warning", else: "bg-success animate-pulse"}"}>
-          </div>
-          <h1 class="text-2xl sm:text-4xl font-bold text-base-content">Live Database Activity</h1>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/db")}>
+      <div class="flex items-center justify-center gap-3">
+        <div class={"w-3 h-3 rounded-full #{if @paused, do: "bg-warning", else: "bg-success animate-pulse"}"}>
         </div>
-        <p class="text-base sm:text-lg text-base-content">
-          <%= if @paused do %>
-            Paused - {length(@activity_log)} events captured
-          <% else %>
-            Monitoring all tables in real-time
-          <% end %>
-        </p>
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">Live Database Activity</h1>
       </div>
-    </header>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        <%= if @paused do %>
+          Paused - {length(@activity_log)} events captured
+        <% else %>
+          Monitoring all tables in real-time
+        <% end %>
+      </p>
+    </.admin_page_header>
 
     <%!-- Controls --%>
     <div class="flex justify-center gap-2 mb-6">

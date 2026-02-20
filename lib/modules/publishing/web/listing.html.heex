@@ -8,53 +8,42 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/publishing")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          {(@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")}
-        </h1>
-        <% blog_slug = (@current_blog && @current_blog["slug"]) || @blog_slug || "your-blog" %>
-        <% url_prefix =
-          PhoenixKit.Config.get_url_prefix()
-          |> case do
-            "/" -> ""
-            prefix -> prefix
-          end %>
-        <% files_hint = @group_files_root <> blog_slug <> "/…" %>
-        <%!-- Use primary language for public URL preview --%>
-        <% public_url =
-          if length(@enabled_languages) == 1 do
-            @endpoint_url <> url_prefix <> "/" <> blog_slug
-          else
-            @endpoint_url <> url_prefix <> "/#{@primary_language}/" <> blog_slug
-          end %>
-        <div class="text-sm text-base-content/60 space-y-1">
-          <p>
-            <span class="font-medium text-base-content">{gettext("Files")}: </span>
-            <code class="font-mono break-all">{files_hint}</code>
-          </p>
-          <p>
-            <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-            <a
-              href={public_url}
-              target="_blank"
-              class="link link-hover font-mono break-all text-xs"
-            >
-              {public_url}
-            </a>
-          </p>
-        </div>
+    <% blog_slug = (@current_blog && @current_blog["slug"]) || @blog_slug || "your-blog" %>
+    <% url_prefix =
+      PhoenixKit.Config.get_url_prefix()
+      |> case do
+        "/" -> ""
+        prefix -> prefix
+      end %>
+    <% files_hint = @group_files_root <> blog_slug <> "/…" %>
+    <%!-- Use primary language for public URL preview --%>
+    <% public_url =
+      if length(@enabled_languages) == 1 do
+        @endpoint_url <> url_prefix <> "/" <> blog_slug
+      else
+        @endpoint_url <> url_prefix <> "/#{@primary_language}/" <> blog_slug
+      end %>
+    <.admin_page_header back={Routes.path("/admin/publishing")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+        {(@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")}
+      </h1>
+      <div class="text-sm text-base-content/60 space-y-1 mt-0.5">
+        <p>
+          <span class="font-medium text-base-content">{gettext("Files")}: </span>
+          <code class="font-mono break-all">{files_hint}</code>
+        </p>
+        <p>
+          <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+          <a
+            href={public_url}
+            target="_blank"
+            class="link link-hover font-mono break-all text-xs"
+          >
+            {public_url}
+          </a>
+        </p>
       </div>
-    </header>
+    </.admin_page_header>
 
     <%!-- Cache Status Section (Collapsible) --%>
     <%= if @cache_info do %>

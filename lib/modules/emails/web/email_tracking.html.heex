@@ -7,26 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          Email Tracking Settings
-        </h1>
-        <p class="text-base sm:text-lg text-base-content">
-          Configure email tracking system behavior and data retention
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings")}
+      title="Email Tracking Settings"
+      subtitle="Configure email tracking system behavior and data retention"
+    />
 
     <%!-- Main Content --%>
     <div class="max-w-4xl mx-auto space-y-8">

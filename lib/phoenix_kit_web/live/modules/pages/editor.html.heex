@@ -10,29 +10,14 @@
     <%!-- Header --%>
     <div class="border-b border-base-300 bg-base-100">
       <div class="container mx-auto px-4 py-4">
-        <div class="flex items-center justify-between">
-          <%!-- Left: Back button and filename --%>
-          <div class="flex items-center gap-4">
-            <button
-              type="button"
-              class="btn btn-ghost btn-sm"
-              phx-click="attempt_cancel"
-              id="back-button"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </button>
-            <div>
-              <h1 class="text-xl font-bold">{Path.basename(@file_path || "")}</h1>
-              <%= if @has_changes do %>
-                <p class="text-sm text-warning">Unsaved changes</p>
-              <% else %>
-                <p class="text-sm text-base-content/60">All changes saved</p>
-              <% end %>
-            </div>
-          </div>
-
-          <%!-- Right: Action buttons --%>
-          <div class="flex gap-2">
+        <.admin_page_header back_click="attempt_cancel">
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{Path.basename(@file_path || "")}</h1>
+          <%= if @has_changes do %>
+            <p class="text-sm text-warning mt-0.5">Unsaved changes</p>
+          <% else %>
+            <p class="text-sm text-base-content/60 mt-0.5">All changes saved</p>
+          <% end %>
+          <:actions>
             <%!-- Status Dropdown --%>
             <div class="dropdown dropdown-end">
               <label tabindex="0" class="btn btn-sm gap-2">
@@ -84,8 +69,8 @@
             >
               <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4" /> Save
             </button>
-          </div>
-        </div>
+          </:actions>
+        </.admin_page_header>
       </div>
     </div>
 

@@ -1,19 +1,9 @@
 <div class="container mx-auto px-4 py-6 max-w-4xl">
-  <%!-- Header --%>
-  <header class="mb-6">
-    <div class="flex items-center gap-4">
-      <.link
-        navigate={Routes.path("/admin/tickets")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-      <h1 class="text-3xl font-bold text-base-content">{gettext("Create New Ticket")}</h1>
-    </div>
-    <p class="text-base-content/70 mt-2 ml-[calc(2.5rem+100px)]">
-      {gettext("Create a support ticket on behalf of a user")}
-    </p>
-  </header>
+  <.admin_page_header
+    back={Routes.path("/admin/tickets")}
+    title={gettext("Create New Ticket")}
+    subtitle={gettext("Create a support ticket on behalf of a user")}
+  />
 
   <%!-- Form --%>
   <div class="bg-base-100 rounded-lg shadow-sm border border-base-300 p-6">

@@ -7,25 +7,15 @@
 >
   <div class="container mx-auto px-4 py-6">
     <%!-- Header --%>
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-      <div class="flex items-center gap-4">
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
-          class="btn btn-ghost btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" />
-        </.link>
-        <div>
-          <h1 class="text-3xl font-bold">Invoices</h1>
-          <p class="text-base-content/60 mt-1">{@total_count} total invoices</p>
-        </div>
-      </div>
-      <div class="flex gap-2">
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/billing")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">Invoices</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">{@total_count} total invoices</p>
+      <:actions>
         <button phx-click="refresh" class="btn btn-ghost btn-sm">
           <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
         </button>
-      </div>
-    </div>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Filters --%>
     <div class="card bg-base-100 shadow mb-6">

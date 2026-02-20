@@ -7,37 +7,19 @@
   current_locale={assigns[:current_locale]}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <%= case @active_tab do %>
-          <% "endpoints" -> %>
-            <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">AI Endpoints</h1>
-            <p class="text-base sm:text-lg text-base-content">
-              Manage AI provider endpoints and API configurations
-            </p>
-          <% "usage" -> %>
-            <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">AI Usage</h1>
-            <p class="text-base sm:text-lg text-base-content">
-              Monitor API requests, token usage, and costs
-            </p>
-          <% _ -> %>
-            <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">AI Endpoints</h1>
-            <p class="text-base sm:text-lg text-base-content">
-              Manage AI provider endpoints and API configurations
-            </p>
-        <% end %>
-      </div>
-    </header>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin")}>
+      <%= case @active_tab do %>
+        <% "endpoints" -> %>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">AI Endpoints</h1>
+          <p class="text-sm text-base-content/60 mt-0.5">Manage AI provider endpoints and API configurations</p>
+        <% "usage" -> %>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">AI Usage</h1>
+          <p class="text-sm text-base-content/60 mt-0.5">Monitor API requests, token usage, and costs</p>
+        <% _ -> %>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">AI Endpoints</h1>
+          <p class="text-sm text-base-content/60 mt-0.5">Manage AI provider endpoints and API configurations</p>
+      <% end %>
+    </.admin_page_header>
 
     <%!-- Controls --%>
     <div class="bg-base-200 rounded-lg p-6 mb-6">

@@ -7,20 +7,12 @@
 >
   <div class="container mx-auto px-4 py-6 max-w-4xl">
     <%!-- Header --%>
-    <div class="flex items-center gap-4 mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-      <div>
-        <h1 class="text-3xl font-bold">{@page_title}</h1>
-        <p class="text-base-content/60 mt-1">
-          {if @order, do: "Modify order details", else: "Create a new order"}
-        </p>
-      </div>
-    </div>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        {if @order, do: "Modify order details", else: "Create a new order"}
+      </p>
+    </.admin_page_header>
 
     <.form for={@form} phx-submit="save" class="space-y-6">
       <%!-- Customer Selection --%>

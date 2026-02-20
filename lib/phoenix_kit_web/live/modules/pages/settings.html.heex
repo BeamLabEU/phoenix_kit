@@ -7,33 +7,7 @@
   current_locale={@current_locale}
 >
   <div class="container mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-center justify-between">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)}
-        class="btn btn-outline btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" />
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-      <div class="text-right">
-        <p class="text-sm text-base-content/70">{gettext("Project")}</p>
-        <p class="text-lg font-semibold">{@project_title}</p>
-      </div>
-    </div>
-
-    <header class="text-center space-y-2">
-      <p class="text-sm uppercase tracking-wide text-base-content/60">
-        {gettext("Pages Module")}
-      </p>
-      <h1 class="text-2xl sm:text-4xl font-bold text-base-content">
-        {gettext("Pages Settings")}
-      </h1>
-      <p class="text-base text-base-content/70 max-w-2xl mx-auto">
-        {gettext(
-          "Control how unpublished routes are handled and manage the markdown file used for the public-facing 404 page."
-        )}
-      </p>
-    </header>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)} title={gettext("Pages Settings")} subtitle={gettext("Control how unpublished routes are handled and manage the markdown file used for the public-facing 404 page.")} />
 
     <div class="grid gap-6 lg:grid-cols-3">
       <div class="card bg-base-100 shadow-xl border border-base-200 lg:col-span-2">

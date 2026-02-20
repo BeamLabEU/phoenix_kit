@@ -7,10 +7,7 @@
   current_locale={@current_locale}
 >
   <div class="p-6">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-base-content">Media</h1>
-      <p class="text-base-content/70 mt-1">Manage user media and uploads</p>
-    </div>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin")} title="Media" subtitle="Manage user media and uploads" />
 
     <%!-- Upload Section (Hidden by default) --%>
     <%= if @show_upload do %>

@@ -7,18 +7,11 @@
 >
   <div class="container mx-auto px-4 py-6">
     <%!-- Header --%>
-    <div class="flex items-center gap-4 mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-      <div>
-        <h1 class="text-3xl font-bold">Payment Providers</h1>
-        <p class="text-base-content/60 mt-1">Configure online payment integrations</p>
-      </div>
-    </div>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/billing")}
+      title="Payment Providers"
+      subtitle="Configure online payment integrations"
+    />
 
     <%!-- Navigation Tabs --%>
     <div class="tabs tabs-boxed bg-base-200 p-1 mb-6">

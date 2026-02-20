@@ -143,6 +143,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.PkLink
       import PhoenixKitWeb.Components.Core.Modal
       import PhoenixKitWeb.Components.Core.MediaThumbnail
+      import PhoenixKitWeb.Components.Core.AdminPageHeader
     end
   end
 

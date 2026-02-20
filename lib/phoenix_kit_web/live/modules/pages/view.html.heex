@@ -10,39 +10,25 @@
     <%!-- Header --%>
     <div class="border-b border-base-300 bg-base-100">
       <div class="container mx-auto px-4 py-4">
-        <div class="flex items-center justify-between">
-          <%!-- Left: Back button and title --%>
-          <div class="flex items-center gap-4">
-            <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/pages")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div>
-              <h1 class="text-xl font-bold">{Path.basename(@file_path || "")}</h1>
-              <%= if @metadata do %>
-                <div class="flex items-center gap-2 text-sm text-base-content/60">
-                  <.page_status_badge status={@metadata.status} />
-                  <%= if @metadata.author do %>
-                    <span>by {@metadata.author}</span>
-                  <% end %>
-                </div>
+        <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/pages")}>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{Path.basename(@file_path || "")}</h1>
+          <%= if @metadata do %>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mt-0.5">
+              <.page_status_badge status={@metadata.status} />
+              <%= if @metadata.author do %>
+                <span>by {@metadata.author}</span>
               <% end %>
             </div>
-          </div>
-
-          <%!-- Right: Edit button --%>
-          <div class="flex gap-2">
+          <% end %>
+          <:actions>
             <.link
               navigate={PhoenixKit.Utils.Routes.path("/admin/pages/edit?path=#{@file_path}")}
               class="btn btn-primary btn-sm"
             >
               <PhoenixKitWeb.Components.Core.Icons.icon_edit class="w-4 h-4" /> Edit
             </.link>
-          </div>
-        </div>
+          </:actions>
+        </.admin_page_header>
       </div>
     </div>
 

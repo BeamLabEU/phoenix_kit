@@ -7,22 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">DB</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          Explore database tables and their contents
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin")}
+      title="DB"
+      subtitle="Explore database tables and their contents"
+    />
 
     <%!-- Actions --%>
     <div class="flex justify-end mb-6">

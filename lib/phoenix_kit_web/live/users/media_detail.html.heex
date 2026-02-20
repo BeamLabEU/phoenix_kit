@@ -7,13 +7,7 @@
   current_locale={@current_locale}
 >
   <div class="p-6">
-    <%!-- Back Button --%>
-    <.link
-      navigate={Routes.path("/admin/media")}
-      class="btn btn-outline btn-sm mb-4"
-    >
-      <.icon name="hero-arrow-left" class="w-4 h-4" /> Media
-    </.link>
+    <.admin_page_header back={Routes.path("/admin/users/media")} title="Media Detail" />
 
     <%= if @file_data do %>
       <%!-- Main Layout: 3/4 Preview + 1/4 Info --%>
