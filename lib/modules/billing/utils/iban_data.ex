@@ -106,6 +106,10 @@ defmodule PhoenixKit.Modules.Billing.IbanData do
     "VG" => %{length: 24, sepa: false}
   }
 
+  @all_specs Map.new(@iban_specs, fn {code, %{length: length, sepa: sepa}} ->
+               {code, %{__struct__: __MODULE__, length: length, sepa: sepa}}
+             end)
+
   @doc """
   Get IBAN length for a country.
 
@@ -191,9 +195,5 @@ defmodule PhoenixKit.Modules.Billing.IbanData do
 
   Returns a map of country codes to `%IbanData{}` structs.
   """
-  def all_specs do
-    Map.new(@iban_specs, fn {code, %{length: length, sepa: sepa}} ->
-      {code, %__MODULE__{length: length, sepa: sepa}}
-    end)
-  end
+  def all_specs, do: @all_specs
 end
