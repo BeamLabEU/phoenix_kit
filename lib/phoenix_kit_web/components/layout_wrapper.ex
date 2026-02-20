@@ -195,6 +195,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
               project_title: assigns[:project_title] || PhoenixKit.Settings.get_project_title(),
               current_locale: assigns[:current_locale],
+              current_locale_base:
+                assigns[:current_locale] && DialectMapper.extract_base(assigns[:current_locale]),
               scope: assigns[:phoenix_kit_current_scope]
             }
 
@@ -290,7 +292,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <.admin_sidebar
                       current_path={@current_path || ""}
                       scope={@scope}
-                      locale={@current_locale}
+                      locale={@current_locale_base}
                     />
                   </div>
                 </aside>

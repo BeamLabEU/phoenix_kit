@@ -630,7 +630,11 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   defp build_path(path, nil), do: Routes.path(path, locale: :none)
 
   defp build_path(path, locale) do
-    Routes.path(path, locale: locale)
+    if String.starts_with?(path, "/admin") do
+      Routes.admin_path(path, locale)
+    else
+      Routes.path(path, locale: locale)
+    end
   end
 
   # Check if any subtab is currently active

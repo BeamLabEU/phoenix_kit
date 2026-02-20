@@ -176,7 +176,7 @@
                             class="text-base-content/40 text-xs ml-1"
                             title={to_string(comment.resource_id)}
                           >
-                            (deleted)
+                            {String.slice(to_string(comment.resource_id), 0..7)}
                           </span>
                       <% end %>
                     </td>

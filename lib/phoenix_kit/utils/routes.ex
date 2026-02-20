@@ -128,6 +128,30 @@ defmodule PhoenixKit.Utils.Routes do
   end
 
   @doc """
+  Returns a locale-prefixed admin path, bypassing the reserved-path
+  locale stripping that `path/2` applies.
+
+  Admin routes use a `/:locale/admin/*` scope, so they need locale
+  in the URL even though `/admin` is a reserved prefix.
+
+  ## Examples
+
+      iex> Routes.admin_path("/admin/users", "uk")
+      "/phoenix_kit/uk/admin/users"
+
+      iex> Routes.admin_path("/admin/users", nil)
+      "/phoenix_kit/admin/users"
+
+  """
+  def admin_path(url_path, locale) when is_binary(locale) do
+    url_prefix = Config.get_url_prefix()
+    base_prefix = if url_prefix == "/", do: "", else: url_prefix
+    "#{base_prefix}/#{locale}#{url_path}"
+  end
+
+  def admin_path(url_path, _locale), do: path(url_path)
+
+  @doc """
   Returns a locale-aware path using locale from assigns.
 
   This function is specifically designed for use in component templates

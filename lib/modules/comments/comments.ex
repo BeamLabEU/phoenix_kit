@@ -400,8 +400,17 @@ defmodule PhoenixKit.Modules.Comments do
     end)
   end
 
+  defp resource_handlers do
+    configured = Application.get_env(:phoenix_kit, :comment_resource_handlers, %{})
+    Map.merge(default_resource_handlers(), configured)
+  end
+
+  defp default_resource_handlers do
+    %{"post" => PhoenixKit.Modules.Posts}
+  end
+
   defp resolve_for_type(resource_type, resource_ids) do
-    handlers = Application.get_env(:phoenix_kit, :comment_resource_handlers, %{})
+    handlers = resource_handlers()
 
     case Map.get(handlers, resource_type) do
       nil ->
@@ -708,7 +717,7 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   defp notify_resource_handler(callback, resource_type, resource_id, comment) do
-    handlers = Application.get_env(:phoenix_kit, :comment_resource_handlers, %{})
+    handlers = resource_handlers()
 
     case Map.get(handlers, resource_type) do
       nil ->
