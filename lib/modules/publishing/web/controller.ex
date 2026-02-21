@@ -1,13 +1,13 @@
 defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   @moduledoc """
-  Public blog post display controller.
+  Public post display controller.
 
-  Handles public-facing routes for viewing published blog posts with multi-language support.
+  Handles public-facing routes for viewing published posts with multi-language support.
 
   URL patterns:
-    /:language/:blog_slug/:post_slug - Slug mode post
-    /:language/:blog_slug/:date/:time - Timestamp mode post
-    /:language/:blog_slug - Blog listing
+    /:language/:group_slug/:post_slug - Slug mode post
+    /:language/:group_slug/:date/:time - Timestamp mode post
+    /:language/:group_slug - Group listing
 
   ## Architecture
 
@@ -16,7 +16,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   - `Language` - Language detection and resolution
   - `SlugResolution` - URL slug resolution and redirects
   - `PostFetching` - Post retrieval from cache/filesystem
-  - `Listing` - Blog listing rendering and pagination
+  - `Listing` - Group listing rendering and pagination
   - `PostRendering` - Post rendering and version handling
   - `Translations` - Translation link building
   - `Fallback` - 404 handling and smart fallback chain
@@ -38,21 +38,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # ============================================================================
 
   @doc """
-  Displays a blog post, blog listing, or all blogs overview.
+  Displays a post, group listing, or all groups overview.
 
   Path parsing determines which action to take:
-  - [] -> Invalid request (no blog specified)
-  - [blog_slug] -> Blog listing
-  - [blog_slug, post_slug] -> Slug mode post
-  - [blog_slug, date] -> Date-only timestamp (resolves to single post or first post)
-  - [blog_slug, date, time] -> Timestamp mode post
+  - [] -> Invalid request (no group specified)
+  - [group_slug] -> Group listing
+  - [group_slug, post_slug] -> Slug mode post
+  - [group_slug, date] -> Date-only timestamp (resolves to single post or first post)
+  - [group_slug, date, time] -> Timestamp mode post
   """
   def show(conn, %{"language" => language_param} = params) do
-    # Detect if 'language' param is actually a language code or a blog slug
+    # Detect if 'language' param is actually a language code or a group slug
     # This allows the same route to work for both single and multi-language setups
-    {language, adjusted_params} = Language.detect_language_or_blog(language_param, params)
+    {language, adjusted_params} = Language.detect_language_or_group(language_param, params)
 
     conn = assign(conn, :current_language, language)
+    set_gettext_locale(language)
 
     if Publishing.enabled?() and public_enabled?() do
       case Routing.build_segments(adjusted_params) do
@@ -68,20 +69,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   # Fallback for routes without language parameter
-  # This handles the non-localized route where :blog might actually be a language code
+  # This handles the non-localized route where :group might actually be a language code
   def show(conn, params) do
     if Publishing.enabled?() and public_enabled?() do
-      # Check if the first segment (blog) is actually a language with content
-      case Language.detect_language_in_blog_param(params) do
+      # Check if the first segment (group) is actually a language with content
+      case Language.detect_language_in_group_param(params) do
         {:language_detected, language, adjusted_params} ->
           # First segment was a language code with content - use localized logic
           conn = assign(conn, :current_language, language)
+          set_gettext_locale(language)
           handle_localized_request(conn, language, adjusted_params)
 
         :not_a_language ->
-          # First segment is a blog slug - use default language
+          # First segment is a group slug - use default language
           language = Language.get_default_language()
           conn = assign(conn, :current_language, language)
+          set_gettext_locale(language)
           handle_non_localized_request(conn, language, params)
       end
     else
@@ -118,20 +121,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # Dispatches to appropriate handler based on parsed path
   defp handle_parsed_path(conn, parsed_path, language) do
     case parsed_path do
-      {:listing, blog_slug} ->
-        handle_blog_listing(conn, blog_slug, language)
+      {:listing, group_slug} ->
+        handle_group_listing(conn, group_slug, language)
 
-      {:slug_post, blog_slug, post_slug} ->
-        handle_post(conn, blog_slug, {:slug, post_slug}, language)
+      {:slug_post, group_slug, post_slug} ->
+        handle_post(conn, group_slug, {:slug, post_slug}, language)
 
-      {:timestamp_post, blog_slug, date, time} ->
-        handle_post(conn, blog_slug, {:timestamp, date, time}, language)
+      {:timestamp_post, group_slug, date, time} ->
+        handle_post(conn, group_slug, {:timestamp, date, time}, language)
 
-      {:date_only_post, blog_slug, date} ->
-        handle_date_only_url(conn, blog_slug, date, language)
+      {:date_only_post, group_slug, date} ->
+        handle_date_only_url(conn, group_slug, date, language)
 
-      {:versioned_post, blog_slug, post_slug, version} ->
-        handle_versioned_post(conn, blog_slug, post_slug, version, language)
+      {:versioned_post, group_slug, post_slug, version} ->
+        handle_versioned_post(conn, group_slug, post_slug, version, language)
 
       {:error, reason} ->
         handle_not_found(conn, reason)
@@ -139,15 +142,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   # ============================================================================
-  # Blog Listing Handler
+  # Group Listing Handler
   # ============================================================================
 
-  defp handle_blog_listing(conn, blog_slug, language) do
-    case Listing.render_blog_listing(conn, blog_slug, language, conn.params) do
+  defp handle_group_listing(conn, group_slug, language) do
+    case Listing.render_group_listing(conn, group_slug, language, conn.params) do
       {:ok, assigns} ->
         conn
         |> assign(:page_title, assigns.page_title)
-        |> assign(:blog, assigns.blog)
+        |> assign(:group, assigns.group)
         |> assign(:posts, assigns.posts)
         |> assign(:current_language, assigns.current_language)
         |> assign(:translations, assigns.translations)
@@ -170,12 +173,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # Post Handlers
   # ============================================================================
 
-  defp handle_post(conn, blog_slug, identifier, language) do
-    case PostRendering.render_post(conn, blog_slug, identifier, language) do
+  defp handle_post(conn, group_slug, identifier, language) do
+    case PostRendering.render_post(conn, group_slug, identifier, language) do
       {:ok, assigns} ->
         conn
         |> assign(:page_title, assigns.page_title)
-        |> assign(:blog_slug, assigns.blog_slug)
+        |> assign(:group_slug, assigns.group_slug)
         |> assign(:post, assigns.post)
         |> assign(:html_content, assigns.html_content)
         |> assign(:current_language, assigns.current_language)
@@ -197,12 +200,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
     end
   end
 
-  defp handle_versioned_post(conn, blog_slug, post_slug, version, language) do
-    case PostRendering.render_versioned_post(conn, blog_slug, post_slug, version, language) do
+  defp handle_versioned_post(conn, group_slug, post_slug, version, language) do
+    case PostRendering.render_versioned_post(conn, group_slug, post_slug, version, language) do
       {:ok, assigns} ->
         conn
         |> assign(:page_title, assigns.page_title)
-        |> assign(:blog_slug, assigns.blog_slug)
+        |> assign(:group_slug, assigns.group_slug)
         |> assign(:post, assigns.post)
         |> assign(:html_content, assigns.html_content)
         |> assign(:current_language, assigns.current_language)
@@ -220,12 +223,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
     end
   end
 
-  defp handle_date_only_url(conn, blog_slug, date, language) do
-    case PostRendering.handle_date_only_url(conn, blog_slug, date, language) do
+  defp handle_date_only_url(conn, group_slug, date, language) do
+    case PostRendering.handle_date_only_url(conn, group_slug, date, language) do
       {:ok, assigns} ->
         conn
         |> assign(:page_title, assigns.page_title)
-        |> assign(:blog_slug, assigns.blog_slug)
+        |> assign(:group_slug, assigns.group_slug)
         |> assign(:post, assigns.post)
         |> assign(:html_content, assigns.html_content)
         |> assign(:current_language, assigns.current_language)
@@ -278,5 +281,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
       "false" -> false
       _ -> true
     end
+  end
+
+  defp set_gettext_locale(language) do
+    Gettext.put_locale(PhoenixKitWeb.Gettext, language)
   end
 end

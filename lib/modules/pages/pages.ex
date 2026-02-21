@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Pages do
+defmodule PhoenixKit.Modules.Pages do
   @moduledoc """
   Pages module for file-based content management.
 
@@ -7,9 +7,9 @@ defmodule PhoenixKit.Pages do
   """
   require Logger
 
-  alias PhoenixKit.Pages.FileOperations
-  alias PhoenixKit.Pages.Metadata
-  alias PhoenixKit.Pages.Paths
+  alias PhoenixKit.Modules.Pages.FileOperations
+  alias PhoenixKit.Modules.Pages.FilePaths
+  alias PhoenixKit.Modules.Pages.HtmlMetadata
 
   @not_found_enabled_key "pages_handle_not_found"
   @not_found_path_key "pages_not_found_page"
@@ -19,7 +19,7 @@ defmodule PhoenixKit.Pages do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.enabled?()
+      iex> PhoenixKit.Modules.Pages.enabled?()
       true
   """
   def enabled? do
@@ -59,14 +59,14 @@ defmodule PhoenixKit.Pages do
   """
   def not_found_slug do
     PhoenixKit.Settings.get_setting(@not_found_path_key, "/404")
-    |> Paths.normalize_slug()
+    |> FilePaths.normalize_slug()
   end
 
   @doc """
   Updates the slug used for the custom 404 page.
   """
   def update_not_found_slug(slug) when is_binary(slug) do
-    normalized = Paths.normalize_slug(slug)
+    normalized = FilePaths.normalize_slug(slug)
     PhoenixKit.Settings.update_setting(@not_found_path_key, normalized)
     normalized
   end
@@ -75,7 +75,7 @@ defmodule PhoenixKit.Pages do
   Returns the relative file path (with `.md`) for the configured not found page.
   """
   def not_found_file_path do
-    Paths.slug_to_file_path(not_found_slug())
+    FilePaths.slug_to_file_path(not_found_slug())
   end
 
   @doc """
@@ -93,7 +93,7 @@ defmodule PhoenixKit.Pages do
       Logger.info("Creating default Pages 404 at #{full_path}")
 
       metadata =
-        Metadata.default_metadata()
+        HtmlMetadata.default_metadata()
         |> Map.put(:status, "published")
         |> Map.put(:title, "Page Not Found")
         |> Map.put(:description, "Displayed when a page cannot be located.")
@@ -105,7 +105,7 @@ defmodule PhoenixKit.Pages do
       The page you are looking for could not be found. It may have been moved or removed.
       """
 
-      content = Metadata.serialize(metadata) <> "\n\n" <> String.trim(body) <> "\n"
+      content = HtmlMetadata.serialize(metadata) <> "\n\n" <> String.trim(body) <> "\n"
 
       case FileOperations.write_file(relative_path, content) do
         :ok ->
@@ -120,6 +120,14 @@ defmodule PhoenixKit.Pages do
   end
 
   @doc """
+  Returns the storage mode for a group slug.
+
+  Pages always uses timestamp mode (copied from Publishing's listing cache
+  which supports both timestamp and slug modes).
+  """
+  def get_group_mode(_group_slug), do: "timestamp"
+
+  @doc """
   Gets the root directory path for pages.
 
   Creates the directory if it doesn't exist.
@@ -127,8 +135,8 @@ defmodule PhoenixKit.Pages do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.root_path()
+      iex> PhoenixKit.Modules.Pages.root_path()
       "/path/to/app/priv/static/pages"
   """
-  def root_path, do: Paths.root_path()
+  def root_path, do: FilePaths.root_path()
 end

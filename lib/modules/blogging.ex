@@ -97,6 +97,5 @@ defmodule PhoenixKit.Modules.Blogging do
 
   # Storage migration functions - delegate to new names
   defdelegate legacy_blog?(blog_slug), to: PhoenixKit.Modules.Publishing, as: :legacy_group?
-  defdelegate migrate_blog(blog_slug), to: PhoenixKit.Modules.Publishing, as: :migrate_group
   defdelegate has_legacy_blogs?(), to: PhoenixKit.Modules.Publishing, as: :has_legacy_groups?
 end

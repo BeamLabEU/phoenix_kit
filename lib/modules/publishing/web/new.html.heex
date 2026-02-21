@@ -37,7 +37,7 @@
         <div class="card-body space-y-6">
           <.form
             for={@form}
-            id="blog-create-form"
+            id="group-create-form"
             class="space-y-6"
             phx-change="update_new_group"
             phx-submit="add_group"
@@ -91,7 +91,7 @@
                 </p>
               </div>
               <% slug_value = @form[:slug].value || "" %>
-              <% slug_sample = if slug_value == "", do: gettext("your-blog"), else: slug_value %>
+              <% slug_sample = if slug_value == "", do: gettext("your-group"), else: slug_value %>
               <% url_prefix =
                 PhoenixKit.Config.get_url_prefix()
                 |> case do
@@ -182,7 +182,7 @@
                       <div class="mt-2">
                         <input
                           type="text"
-                          name="blog[custom_type]"
+                          name="group[custom_type]"
                           class="input input-bordered input-sm w-full max-w-xs"
                           placeholder={gettext("e.g. tutorials, recipes")}
                           value={
@@ -190,7 +190,7 @@
                               do: @form[:type].value,
                               else: ""
                           }
-                          phx-change="update_new_blog"
+                          phx-change="update_new_group"
                           phx-debounce="300"
                         />
                       </div>

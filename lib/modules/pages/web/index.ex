@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Pages.Pages do
+defmodule PhoenixKit.Modules.Pages.Web.Index do
   @moduledoc """
   LiveView for Pages file management interface.
 
@@ -7,9 +7,9 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Pages do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Pages
-  alias PhoenixKit.Pages.FileOperations
-  alias PhoenixKit.Pages.Metadata
+  alias PhoenixKit.Modules.Pages
+  alias PhoenixKit.Modules.Pages.FileOperations
+  alias PhoenixKit.Modules.Pages.HtmlMetadata
   alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
@@ -157,8 +157,8 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Pages do
         {:noreply, socket}
       else
         # Create file with default metadata
-        metadata = Metadata.default_metadata()
-        initial_content = Metadata.serialize(metadata) <> "\n\n"
+        metadata = HtmlMetadata.default_metadata()
+        initial_content = HtmlMetadata.serialize(metadata) <> "\n\n"
 
         case FileOperations.write_file(file_path, initial_content) do
           :ok ->
@@ -520,10 +520,10 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Pages do
 
   defp get_file_metadata(path) do
     with {:ok, content} <- FileOperations.read_file(path),
-         {:ok, meta, _stripped} <- Metadata.parse(content) do
+         {:ok, meta, _stripped} <- HtmlMetadata.parse(content) do
       meta
     else
-      _ -> Metadata.default_metadata()
+      _ -> HtmlMetadata.default_metadata()
     end
   end
 
@@ -630,7 +630,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Pages do
   end
 
   defp update_metadata_status(content, new_status) do
-    case Metadata.parse(content) do
+    case HtmlMetadata.parse(content) do
       {:ok, metadata, _stripped_content} ->
         # Update both status and updated_at timestamp
         updated_metadata =
@@ -638,17 +638,17 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Pages do
           |> Map.put(:status, new_status)
           |> Map.put(:updated_at, DateTime.utc_now())
 
-        Metadata.update_metadata(content, updated_metadata)
+        HtmlMetadata.update_metadata(content, updated_metadata)
 
       {:error, :no_metadata} ->
         # No metadata exists, create new metadata with the status
         metadata =
-          Metadata.default_metadata()
+          HtmlMetadata.default_metadata()
           |> Map.put(:status, new_status)
           |> Map.put(:updated_at, DateTime.utc_now())
 
         # Prepend metadata to content
-        Metadata.serialize(metadata) <> "\n\n" <> content
+        HtmlMetadata.serialize(metadata) <> "\n\n" <> content
     end
   end
 end

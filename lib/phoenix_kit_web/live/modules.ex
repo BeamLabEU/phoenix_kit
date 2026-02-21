@@ -19,6 +19,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Modules.Pages
   alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Referrals
@@ -28,7 +29,6 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Modules.Tickets
-  alias PhoenixKit.Pages
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Date, as: UtilsDate

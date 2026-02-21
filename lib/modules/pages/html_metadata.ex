@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Pages.Metadata do
+defmodule PhoenixKit.Modules.Pages.HtmlMetadata do
   @moduledoc """
   Metadata management for Pages module.
 
@@ -58,7 +58,7 @@ defmodule PhoenixKit.Pages.Metadata do
       ...> -->
       ...> # Content
       ...> \"\"\"
-      iex> {:ok, metadata, content} = Metadata.parse(content)
+      iex> {:ok, metadata, content} = HtmlMetadata.parse(content)
       iex> metadata.status
       "published"
   """
@@ -95,7 +95,7 @@ defmodule PhoenixKit.Pages.Metadata do
       ...>   created_at: ~U[2025-01-15 10:00:00Z],
       ...>   updated_at: ~U[2025-01-15 10:00:00Z]
       ...> }
-      iex> Metadata.serialize(metadata)
+      iex> HtmlMetadata.serialize(metadata)
       "<!-- METADATA\\nstatus: published\\n...\\n-->"
   """
   @spec serialize(metadata()) :: String.t()
@@ -132,7 +132,7 @@ defmodule PhoenixKit.Pages.Metadata do
   ## Examples
 
       iex> content = "<!-- METADATA\\nstatus: draft\\n-->\\n\\n# Content"
-      iex> Metadata.strip_metadata(content)
+      iex> HtmlMetadata.strip_metadata(content)
       "# Content"
   """
   @spec strip_metadata(String.t()) :: String.t()
@@ -161,7 +161,7 @@ defmodule PhoenixKit.Pages.Metadata do
 
       iex> content = "# Content"
       iex> metadata = default_metadata()
-      iex> updated = Metadata.update_metadata(content, metadata)
+      iex> updated = HtmlMetadata.update_metadata(content, metadata)
       iex> updated =~ "<!-- METADATA"
       true
   """
@@ -178,7 +178,7 @@ defmodule PhoenixKit.Pages.Metadata do
 
   ## Examples
 
-      iex> metadata = Metadata.default_metadata()
+      iex> metadata = HtmlMetadata.default_metadata()
       iex> metadata.status
       "draft"
   """
@@ -205,7 +205,7 @@ defmodule PhoenixKit.Pages.Metadata do
   ## Examples
 
       iex> user_data = %{"status" => "published", "custom_field" => "value"}
-      iex> metadata = Metadata.merge_metadata(user_data, default_metadata())
+      iex> metadata = HtmlMetadata.merge_metadata(user_data, default_metadata())
       iex> metadata.status
       "published"
   """

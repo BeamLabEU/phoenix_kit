@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Pages.View do
+defmodule PhoenixKit.Modules.Pages.Web.View do
   @moduledoc """
   Rendered view for Pages markdown files.
 
@@ -7,9 +7,9 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.View do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Pages
-  alias PhoenixKit.Pages.FileOperations
-  alias PhoenixKit.Pages.Metadata
+  alias PhoenixKit.Modules.Pages
+  alias PhoenixKit.Modules.Pages.FileOperations
+  alias PhoenixKit.Modules.Pages.HtmlMetadata
   alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
@@ -44,7 +44,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.View do
       {:ok, content} ->
         # Parse metadata and content
         {metadata, markdown_content} =
-          case Metadata.parse(content) do
+          case HtmlMetadata.parse(content) do
             {:ok, meta, stripped} -> {meta, stripped}
             {:error, :no_metadata} -> {nil, content}
           end

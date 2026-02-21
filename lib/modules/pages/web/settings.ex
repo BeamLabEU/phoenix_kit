@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Pages.Settings do
+defmodule PhoenixKit.Modules.Pages.Web.Settings do
   @moduledoc """
   LiveView for configuring public-facing Pages module settings, including the
   custom 404 fallback experience.
@@ -6,8 +6,8 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Pages
-  alias PhoenixKit.Pages.FileOperations
+  alias PhoenixKit.Modules.Pages
+  alias PhoenixKit.Modules.Pages.FileOperations
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

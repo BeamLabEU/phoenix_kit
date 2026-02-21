@@ -448,12 +448,19 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Catches any other UUID FK columns missed when V56 was applied with earlier code
   - Safe no-op on databases where V56 already created everything correctly
 
-  ### V58 - Timestamp Column Type Standardization ⚡ LATEST
+  ### V58 - Timestamp Column Type Standardization
   - Converts ALL timestamp columns across 68 tables from `timestamp` to `timestamptz`
   - Completes DateTime standardization (Elixir `:utc_datetime` + PostgreSQL `timestamptz`)
   - No USING clause needed for up (PostgreSQL treats timestamp as UTC implicitly)
   - Down uses `USING col AT TIME ZONE 'UTC'` for safe revert to `timestamp(0)`
   - Fully idempotent: checks table/column existence and current type before altering
+
+  ### V59 - Publishing Module Database Tables ⚡ LATEST
+  - Creates 4 core publishing tables: groups, posts, versions, contents
+  - JSONB `data` column on every table for extensibility without future migrations
+  - UUID v7 primary keys, dual-write user FKs, timestamptz timestamps
+  - One content row per language (mirrors filesystem one-file-per-language model)
+  - Seeds `publishing_storage` setting (default: "filesystem")
 
   ## Migration Paths
 
@@ -513,7 +520,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 58
+  @current_version 59
   @default_prefix "public"
 
   @doc false
