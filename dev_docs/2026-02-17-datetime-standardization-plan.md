@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-17
 **Updated:** 2026-02-19 (post-PR #350 analysis)
-**Status:** Steps 1-4 COMPLETED, Step 5 **38% COMPLETE** (19/50+ sites fixed)
+**Status:** Steps 1-4 COMPLETED, Step 5 **50% COMPLETE** (25/50+ sites fixed)
 **Related:** `dev_docs/2026-02-15-datetime-inconsistency-report.md`
 
 ---
@@ -35,19 +35,18 @@ DateTime.truncate(DateTime.utc_now(), :second)
 
 PR #347 changed all schemas to `:utc_datetime` without adding truncation. PR #350 partially fixed this (19 files), but **~50 additional crash sites remain**.
 
-### Recommended: Centralized Helper
+### Centralized Helper — ✅ IMPLEMENTED
 
-To prevent this class of bug permanently, add a utility function:
+Added `utc_now/0` to the existing `PhoenixKit.Utils.Date` module (`lib/phoenix_kit/utils/date.ex`):
 
 ```elixir
-# In lib/phoenix_kit/utils/datetime.ex (or similar)
-defmodule PhoenixKit.Utils.DateTime do
-  @doc "Returns current UTC time truncated to second precision for :utc_datetime fields."
-  def utc_now, do: DateTime.truncate(DateTime.utc_now(), :second)
-end
+alias PhoenixKit.Utils.Date, as: UtilsDate
+
+# Returns DateTime.utc_now() truncated to second precision
+UtilsDate.utc_now()
 ```
 
-Then replace all `DateTime.truncate(DateTime.utc_now(), :second)` with `UtilsDateTime.utc_now()`. Future code uses the helper — impossible to get wrong.
+Replace all remaining `DateTime.truncate(DateTime.utc_now(), :second)` and bare `DateTime.utc_now()` (in DB write contexts) with `UtilsDate.utc_now()`. Future code uses the helper — impossible to get wrong.
 
 ---
 
@@ -60,7 +59,7 @@ Then replace all `DateTime.truncate(DateTime.utc_now(), :second)` with `UtilsDat
 | Individual fields typed `:naive_datetime` | **11 fields in 9 files** | ✅ DONE (PR #347) |
 | Individual fields typed `:utc_datetime_usec` | **~30+ fields in ~17 files** | ✅ DONE (PR #347) |
 | Application code using `NaiveDateTime.utc_now()` | **19 calls in 14 files** | ✅ DONE (PR #347) |
-| **`DateTime.utc_now()` needing truncation** | **50+ calls in 28+ files** | ⚠️ **19 fixed (PR #350), 31+ REMAINING** |
+| **`DateTime.utc_now()` needing truncation** | **50+ calls in 28+ files** | ⚠️ **25 fixed (PR #350 + Entities), 25+ REMAINING** |
 
 ---
 
@@ -203,18 +202,18 @@ PR #350 fixed 19 files (marked with FIXED below). **31+ additional crash sites r
 
 ### How to Fix Each Site
 
-Replace:
+1. Add the alias to the module:
 ```elixir
-DateTime.utc_now()
-```
-With:
-```elixir
-DateTime.truncate(DateTime.utc_now(), :second)
+alias PhoenixKit.Utils.Date, as: UtilsDate
 ```
 
-Or, if a centralized helper is added (recommended):
+2. Replace bare `DateTime.utc_now()` calls that write to DB:
 ```elixir
-UtilsDateTime.utc_now()
+# Before
+now = DateTime.utc_now()
+
+# After
+now = UtilsDate.utc_now()
 ```
 
 ### 5a. Emails Module (22 crash sites)
@@ -300,12 +299,12 @@ UtilsDateTime.utc_now()
 
 | File | Line(s) | Field(s) | Status |
 |------|---------|----------|--------|
-| `lib/modules/entities/entity_data.ex` | 383 | `date_created` | TODO |
-| `lib/modules/entities/entity_data.ex` | 393 | `date_updated` | TODO |
-| `lib/modules/entities/entity_data.ex` | 863 | `date_updated` (update_all) | TODO |
-| `lib/modules/entities/entity_data.ex` | 883 | `date_updated` (update_all) | TODO |
-| `lib/modules/entities/entities.ex` | 282 | `date_created` | TODO |
-| `lib/modules/entities/entities.ex` | 292 | `date_updated` | TODO |
+| `lib/modules/entities/entity_data.ex` | 383 | `date_created` | FIXED |
+| `lib/modules/entities/entity_data.ex` | 393 | `date_updated` | FIXED |
+| `lib/modules/entities/entity_data.ex` | 863 | `date_updated` (update_all) | FIXED |
+| `lib/modules/entities/entity_data.ex` | 883 | `date_updated` (update_all) | FIXED |
+| `lib/modules/entities/entities.ex` | 282 | `date_created` | FIXED |
+| `lib/modules/entities/entities.ex` | 292 | `date_updated` | FIXED |
 
 ### 5f. Shop Module (4 crash sites beyond PR #350 fixes)
 
@@ -402,7 +401,7 @@ These `DateTime.utc_now()` calls do NOT write to `:utc_datetime` schema fields:
 | Sync | 15 sites | 🔴 CRITICAL - Data sync workflows will crash |
 | Connections | 7 sites | 🟠 HIGH - User connection tracking |
 | Shop | 3 sites | 🟡 MEDIUM - Cart operations |
-| Entities | 6 sites | 🟡 MEDIUM - Entity creation/updates |
+| Entities | ~~6 sites~~ 0 remaining | ✅ FIXED - Entity creation/updates |
 | AI | 2 sites | 🟡 MEDIUM - AI endpoint validation |
 | Posts | 1 site | 🟡 MEDIUM - Post publishing |
 | Billing | 5 sites | 🟠 HIGH - Subscription processing |
@@ -417,11 +416,12 @@ These `DateTime.utc_now()` calls do NOT write to `:utc_datetime` schema fields:
 
 ### Recommended Immediate Action
 
-1. **Fix Emails module first** (22 sites) - Most likely to cause production crashes
-2. **Fix Sync module second** (15 sites) - Data synchronization is critical
-3. **Fix Connections module** (7 sites) - User connection tracking
-4. **Add centralized helper** to prevent future issues
-5. **Add integration tests** for datetime-heavy workflows
+1. ~~**Add centralized helper**~~ ✅ Done — `UtilsDate.utc_now/0` in `lib/phoenix_kit/utils/date.ex`
+2. ~~**Fix Entities module**~~ ✅ Done — 6/6 sites fixed using `UtilsDate.utc_now()`
+3. **Fix Emails module** (22 sites) - Most likely to cause production crashes
+4. **Fix Sync module** (15 sites) - Data synchronization is critical
+5. **Fix Connections module** (7 sites) - User connection tracking
+6. **Add integration tests** for datetime-heavy workflows
 
 ## Verification
 
@@ -442,8 +442,8 @@ These `DateTime.utc_now()` calls do NOT write to `:utc_datetime` schema fields:
 |----|-------------|--------|------|
 | #347 | Changed all schemas from `:utc_datetime_usec`/`:naive_datetime` → `:utc_datetime` and all `NaiveDateTime.utc_now()` → `DateTime.utc_now()` | ✅ Merged | 2026-02-17 |
 | #350 | Fixed 19/50+ truncation sites, fixed Group struct conversion, fixed live sessions UUID lookup | ✅ Merged | 2026-02-18 |
-| #TBD | Fix remaining 31+ truncation sites (Emails, Sync, Connections, etc.) | ⏳ **CRITICAL** | - |
-| #TBD | Add `UtilsDateTime.utc_now/0` centralized helper | 📋 Recommended | - |
+| #TBD | Fix remaining 25+ truncation sites (Emails, Sync, Connections, etc.) | ⏳ **CRITICAL** | - |
+| — | Add `UtilsDate.utc_now/0` centralized helper + fix Entities module | ✅ Done | 2026-02-21 |
 | #TBD | V58 DB migration: `timestamp(0)` → `timestamptz` columns | ⏭️ Deferred | - |
 
 ---
@@ -468,62 +468,33 @@ end
 
 ### Smoke Test Command
 ```bash
-# Verify no untruncated DateTime.utc_now() in DB contexts
+# Verify no untruncated DateTime.utc_now() in DB write contexts
+# Should only return: utils/date.ex (the helper itself), display code, and SAFE patterns
 ast-grep --lang elixir --pattern 'DateTime.utc_now()' lib/ | \
-  grep -v "truncate" | \
-  grep -v "SAFE_PATTERNS"  # Should return only display/util code
+  grep -v "utils/date.ex" | \
+  grep -v "SAFE_PATTERNS"
 ```
 
-## Recommended: Centralized Helper Implementation
+## Centralized Helper — ✅ IMPLEMENTED
 
-### Location: `lib/phoenix_kit/utils/datetime.ex`
+### Location: `lib/phoenix_kit/utils/date.ex` → `PhoenixKit.Utils.Date.utc_now/0`
+
+Added to the existing `PhoenixKit.Utils.Date` module (not a separate file) since it's already the date/time utility module used across the codebase.
 
 ```elixir
-defmodule PhoenixKit.Utils.DateTime do
-  @moduledoc """
-  DateTime utilities for consistent timestamp handling.
-  """
+alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  @doc """
-  Returns current UTC time truncated to second precision.
+# In changesets:
+put_change(changeset, :updated_at, UtilsDate.utc_now())
 
-  Use this for all `:utc_datetime` schema fields to avoid ArgumentError
-  from microseconds. This is the ONLY function that should be used for
-  writing timestamps to the database.
-
-  ## Examples
-
-      iex> UtilsDateTime.utc_now()
-      ~U[2026-02-19 14:30:45Z]
-
-      # In changesets:
-      iex> put_change(changeset, :updated_at, UtilsDateTime.utc_now())
-
-      # In bulk updates:
-      iex> Repo.update_all(Query, set: [updated_at: UtilsDateTime.utc_now()])
-  """
-  @spec utc_now() :: DateTime.t()
-  def utc_now do
-    DateTime.utc_now() |> DateTime.truncate(:second)
-  end
-
-  @doc """
-  Returns current UTC time with microsecond precision.
-
-  Use this ONLY for display purposes, logging, or when explicitly
-  needed for microsecond precision calculations. NEVER use for database writes.
-  """
-  @spec utc_now_with_microseconds() :: DateTime.t()
-  def utc_now_with_microseconds do
-    DateTime.utc_now()
-  end
-end
+# In bulk updates:
+Repo.update_all(Query, set: [updated_at: UtilsDate.utc_now()])
 ```
 
-### Migration Plan
-1. Add the helper module
-2. Replace all `DateTime.truncate(DateTime.utc_now(), :second)` with `UtilsDateTime.utc_now()`
-3. Add `@moduledoc` references in key modules
+### Remaining Migration Steps
+1. ~~Add the helper function~~ ✅ Done
+2. Replace all remaining `DateTime.utc_now()` DB write sites with `UtilsDate.utc_now()` (see sections 5a-5h)
+3. Replace existing `DateTime.truncate(DateTime.utc_now(), :second)` from PR #350 with `UtilsDate.utc_now()` for consistency
 4. Update CLAUDE.md to reference the helper
 5. Add Credo check to warn on bare `DateTime.utc_now()` in DB contexts
 
