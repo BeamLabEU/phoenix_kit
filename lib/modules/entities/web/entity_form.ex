@@ -287,21 +287,30 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
           |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
         end
 
-      case save_entity(socket, entity_params) do
-        {:ok, _saved_entity} ->
-          # Presence will automatically clean up when LiveView process terminates
-          locale = socket.assigns[:current_locale] || "en"
+      try do
+        case save_entity(socket, entity_params) do
+          {:ok, _saved_entity} ->
+            # Presence will automatically clean up when LiveView process terminates
+            locale = socket.assigns[:current_locale] || "en"
 
-          socket =
-            socket
-            |> put_flash(:info, gettext("Entity saved successfully"))
-            |> push_navigate(to: Routes.path("/admin/entities", locale: locale))
+            socket =
+              socket
+              |> put_flash(:info, gettext("Entity saved successfully"))
+              |> push_navigate(to: Routes.path("/admin/entities", locale: locale))
 
-          {:noreply, socket}
+            {:noreply, socket}
 
-        {:error, %Ecto.Changeset{} = changeset} ->
-          socket = assign(socket, :changeset, changeset)
-          reply_with_broadcast(socket)
+          {:error, %Ecto.Changeset{} = changeset} ->
+            socket = assign(socket, :changeset, changeset)
+            reply_with_broadcast(socket)
+        end
+      rescue
+        e ->
+          require Logger
+          Logger.error("Entity save failed: #{Exception.message(e)}")
+
+          {:noreply,
+           put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
       end
     else
       {:noreply, put_flash(socket, :error, gettext("Cannot save - you are spectating"))}
