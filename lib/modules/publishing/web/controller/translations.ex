@@ -3,7 +3,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   Translation link building for the publishing controller.
 
   Handles building translation/language switcher links for:
-  - Blog listing pages
+  - Group listing pages
   - Individual post pages
   """
 
@@ -20,10 +20,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   # ============================================================================
 
   @doc """
-  Build translation links for blog listing page.
+  Build translation links for group listing page.
   Accepts posts to avoid redundant list_posts calls.
   """
-  def build_listing_translations(blog_slug, current_language, posts) do
+  def build_listing_translations(group_slug, current_language, posts) do
     # Get enabled languages - these are the ONLY languages that should show
     enabled_languages =
       try do
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
           display_code: display_code,
           name: Language.get_language_name(lang),
           flag: Language.get_language_flag(lang),
-          url: PublishingHTML.blog_listing_path(display_code, blog_slug),
+          url: PublishingHTML.group_listing_path(display_code, group_slug),
           current: DialectMapper.extract_base(lang) == current_base
         }
       end)
@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     |> Enum.uniq_by(& &1.code)
   end
 
-  # Check if a specific enabled language has published content in the blog
+  # Check if a specific enabled language has published content in the group
   # ONLY checks for EXACT file matches - no base code fallback
   # This ensures only languages with actual files show in the public switcher
   # Uses passed posts to avoid redundant list_posts calls
@@ -94,7 +94,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   @doc """
   Build translation links for a post page.
   """
-  def build_translation_links(blog_slug, post, current_language, opts \\ []) do
+  def build_translation_links(group_slug, post, current_language, opts \\ []) do
     version = Keyword.get(opts, :version)
 
     # Get enabled languages
@@ -113,7 +113,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
     # Fetch language_slugs from cache for per-language URL slugs
     # Falls back to using post.slug for all languages if cache miss
-    language_slugs = fetch_language_slugs_from_cache(blog_slug, post)
+    language_slugs = fetch_language_slugs_from_cache(group_slug, post)
 
     # Include ALL available languages that are published
     # This allows legacy/disabled languages to still show in the public switcher
@@ -122,7 +122,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
       post.available_languages
       |> normalize_languages(current_language)
       |> Enum.filter(fn lang ->
-        translation_published_exact?(blog_slug, post, lang)
+        translation_published_exact?(group_slug, post, lang)
       end)
 
     # Remove legacy base code files when dialect files exist
@@ -147,9 +147,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
       # Build URL with version if viewing a specific version
       url =
         if version do
-          PostRendering.build_version_url(blog_slug, post_with_url_slug, display_code, version)
+          PostRendering.build_version_url(group_slug, post_with_url_slug, display_code, version)
         else
-          PublishingHTML.build_post_url(blog_slug, post_with_url_slug, display_code)
+          PublishingHTML.build_post_url(group_slug, post_with_url_slug, display_code)
         end
 
       %{
@@ -203,9 +203,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
   # Fetches language_slugs map from cache for per-language URL slugs
   # Returns a map of language -> url_slug for each available language
-  defp fetch_language_slugs_from_cache(blog_slug, post) do
+  defp fetch_language_slugs_from_cache(group_slug, post) do
     # Use appropriate cache lookup based on post mode
-    cache_result = find_cached_post(blog_slug, post)
+    cache_result = find_cached_post(group_slug, post)
 
     case cache_result do
       {:ok, cached_post} ->
@@ -218,7 +218,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   end
 
   # Find cached post using appropriate method based on post mode
-  defp find_cached_post(blog_slug, post) do
+  defp find_cached_post(group_slug, post) do
     case Map.get(post, :mode) do
       :timestamp ->
         # For timestamp mode, use date/time lookup
@@ -228,14 +228,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
         if date && time do
           date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
           time_str = format_time_for_cache(time)
-          ListingCache.find_post_by_path(blog_slug, date_str, time_str)
+          ListingCache.find_post_by_path(group_slug, date_str, time_str)
         else
           {:error, :not_found}
         end
 
       _ ->
         # For slug mode, use slug lookup
-        ListingCache.find_post(blog_slug, post.slug)
+        ListingCache.find_post(group_slug, post.slug)
     end
   end
 
@@ -274,7 +274,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
   # Checks if the exact language file exists and is published
   # Uses preloaded language_statuses map to avoid redundant file reads
-  defp translation_published_exact?(_blog_slug, post, language) do
+  defp translation_published_exact?(_group_slug, post, language) do
     language in (post.available_languages || []) and
       Map.get(post.language_statuses, language) == "published"
   end

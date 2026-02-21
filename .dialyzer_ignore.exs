@@ -109,6 +109,18 @@
   ~r/lib\/modules\/publishing\/workers\/migrate_legacy_structure_worker\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*unused_fun/,
+  ~r/lib\/modules\/publishing\/workers\/migrate_to_database_worker\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/workers\/migrate_to_database_worker\.ex:.*unused_fun/,
+  ~r/lib\/modules\/publishing\/workers\/validate_migration_worker\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/workers\/validate_migration_worker\.ex:.*unused_fun/,
+
+  # Publishing DB Importer - read_post type inference false positives
+  ~r/lib\/modules\/publishing\/db_importer\.ex:.*pattern_match/,
+
+  # Pages module - same type inference false positives as Publishing (copied codebase)
+  ~r/lib\/modules\/pages\/listing_cache\.ex:.*pattern_match/,
+  ~r/lib\/modules\/pages\/storage\/.*\.ex:.*pattern_match/,
+  ~r/lib\/modules\/pages\/storage\/.*\.ex:.*call/,
 
   # Dashboard tab system - keyword list spec inference false positives
   # Functions accept keyword() but Dialyzer infers broader types from pattern matching

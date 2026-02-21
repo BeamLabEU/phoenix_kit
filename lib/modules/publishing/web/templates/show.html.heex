@@ -5,7 +5,7 @@
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
 >
   <%!-- TODO: Add SEO meta tags (description, canonical) when layout system supports meta_tags slot --%>
-  <article class="blog-post-container max-w-4xl mx-auto px-6 py-8">
+  <article class="post-container max-w-4xl mx-auto px-6 py-8">
     <%!-- Breadcrumb Navigation --%>
     <div class="breadcrumbs text-sm mb-6">
       <ul>
@@ -35,7 +35,7 @@
             />
           </svg>
           <time datetime={@post.metadata.published_at || ""}>
-            {format_post_date(@post, @blog_slug)}
+            {format_post_date(@post, @group_slug)}
           </time>
         </div>
       <% end %>
@@ -234,8 +234,8 @@
     </div>
     <%!-- Post Footer --%>
     <footer class="mt-12 pt-6 border-t">
-      <a href={blog_listing_path(@current_language, @blog_slug)} class="btn btn-outline btn-sm">
-        ← Back to {String.capitalize(@blog_slug)}
+      <a href={group_listing_path(@current_language, @group_slug)} class="btn btn-outline btn-sm">
+        ← Back to {String.capitalize(@group_slug)}
       </a>
     </footer>
   </article>

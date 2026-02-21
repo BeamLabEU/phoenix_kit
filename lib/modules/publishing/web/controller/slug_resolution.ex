@@ -8,7 +8,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   - Filesystem fallback when cache is unavailable
   """
 
-  alias PhoenixKit.Modules.Publishing.ListingCache
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
@@ -25,8 +25,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   - `{:ok, identifier}` for resolved internal slug
   - `:passthrough` for direct use
   """
-  def resolve_url_slug(blog_slug, {:slug, url_slug}, language) do
-    case ListingCache.find_by_url_slug(blog_slug, language, url_slug) do
+  def resolve_url_slug(group_slug, {:slug, url_slug}, language) do
+    case Publishing.find_by_url_slug(group_slug, language, url_slug) do
       {:ok, cached_post} ->
         internal_slug = cached_post.slug
 
@@ -40,43 +40,43 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
 
       {:error, :not_found} ->
         # Not found in current slugs - check previous slugs for 301 redirect
-        case ListingCache.find_by_previous_url_slug(blog_slug, language, url_slug) do
+        case Publishing.find_by_previous_url_slug(group_slug, language, url_slug) do
           {:ok, cached_post} ->
             # Found in previous slugs - redirect to current URL
             current_url_slug =
               Map.get(cached_post.language_slugs || %{}, language, cached_post.slug)
 
             redirect_url =
-              build_post_redirect_url(blog_slug, cached_post, language, current_url_slug)
+              build_post_redirect_url(group_slug, cached_post, language, current_url_slug)
 
             {:redirect, redirect_url}
 
           {:error, _} ->
             # Not found in cache - try filesystem fallback
-            resolve_url_slug_from_filesystem(blog_slug, url_slug, language)
+            resolve_url_slug_from_filesystem(group_slug, url_slug, language)
         end
 
       {:error, :cache_miss} ->
         # Cache not available - try filesystem fallback
-        resolve_url_slug_from_filesystem(blog_slug, url_slug, language)
+        resolve_url_slug_from_filesystem(group_slug, url_slug, language)
     end
   end
 
   # Non-slug modes pass through directly
-  def resolve_url_slug(_blog_slug, _identifier, _language), do: :passthrough
+  def resolve_url_slug(_group_slug, _identifier, _language), do: :passthrough
 
   @doc """
   Resolves a URL slug to the internal directory slug.
   Used by versioned URL handler and other places that need the internal slug.
   """
-  def resolve_url_slug_to_internal(blog_slug, url_slug, language) do
-    case ListingCache.find_by_url_slug(blog_slug, language, url_slug) do
+  def resolve_url_slug_to_internal(group_slug, url_slug, language) do
+    case Publishing.find_by_url_slug(group_slug, language, url_slug) do
       {:ok, cached_post} ->
-        cached_post.slug
+        cached_post.slug || cached_post[:slug]
 
       {:error, _} ->
         # Fallback: try filesystem scan for custom slug
-        case find_internal_slug_from_filesystem(blog_slug, url_slug, language) do
+        case find_internal_slug_from_filesystem(group_slug, url_slug, language) do
           {:ok, internal_slug} -> internal_slug
           {:error, _} -> url_slug
         end
@@ -91,8 +91,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   Filesystem fallback for URL slug resolution when cache is unavailable.
   Also handles 301 redirects for previous_url_slugs.
   """
-  def resolve_url_slug_from_filesystem(blog_slug, url_slug, language) do
-    case find_slug_in_filesystem(blog_slug, url_slug, language) do
+  def resolve_url_slug_from_filesystem(group_slug, url_slug, language) do
+    case find_slug_in_filesystem(group_slug, url_slug, language) do
       {:current, internal_slug} when internal_slug != url_slug ->
         # Found as current url_slug - resolve to internal slug
         {:ok, {:slug, internal_slug}}
@@ -104,7 +104,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
       {:previous, internal_slug, current_url_slug} ->
         # Found in previous_url_slugs - redirect to current URL
         redirect_url =
-          build_redirect_url_from_slugs(blog_slug, internal_slug, language, current_url_slug)
+          build_redirect_url_from_slugs(group_slug, internal_slug, language, current_url_slug)
 
         {:redirect, redirect_url}
 
@@ -122,8 +122,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   - `{:previous, internal_slug, current_url_slug}` - found in previous_url_slugs (for redirect)
   - `{:error, reason}` - not found
   """
-  def find_slug_in_filesystem(blog_slug, url_slug, language) do
-    group_path = Storage.group_path(blog_slug)
+  def find_slug_in_filesystem(group_slug, url_slug, language) do
+    group_path = Storage.group_path(group_slug)
 
     with true <- File.dir?(group_path),
          dirs <- File.ls!(group_path),
@@ -176,8 +176,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   end
 
   # Legacy function for resolve_url_slug_to_internal (only needs current slug)
-  defp find_internal_slug_from_filesystem(blog_slug, url_slug, language) do
-    case find_slug_in_filesystem(blog_slug, url_slug, language) do
+  defp find_internal_slug_from_filesystem(group_slug, url_slug, language) do
+    case find_slug_in_filesystem(group_slug, url_slug, language) do
       {:current, internal_slug} -> {:ok, internal_slug}
       {:previous, internal_slug, _current} -> {:ok, internal_slug}
       {:error, reason} -> {:error, reason}
@@ -254,7 +254,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   @doc """
   Builds redirect URL for 301 redirects from cached post data.
   """
-  def build_post_redirect_url(blog_slug, cached_post, language, url_slug) do
+  def build_post_redirect_url(group_slug, cached_post, language, url_slug) do
     # Build post struct with minimal fields needed for URL generation
     post = %{
       slug: cached_post.slug,
@@ -265,13 +265,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
       language_slugs: cached_post.language_slugs
     }
 
-    PublishingHTML.build_post_url(blog_slug, post, language)
+    PublishingHTML.build_post_url(group_slug, post, language)
   end
 
   @doc """
   Builds redirect URL when we only have slug data (no full post struct).
   """
-  def build_redirect_url_from_slugs(blog_slug, internal_slug, language, current_url_slug) do
+  def build_redirect_url_from_slugs(group_slug, internal_slug, language, current_url_slug) do
     # Build minimal post struct for URL generation
     post = %{
       slug: internal_slug,
@@ -280,6 +280,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
       language_slugs: %{language => current_url_slug}
     }
 
-    PublishingHTML.build_post_url(blog_slug, post, language)
+    PublishingHTML.build_post_url(group_slug, post, language)
   end
 end

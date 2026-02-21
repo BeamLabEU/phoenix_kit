@@ -47,16 +47,35 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index_localized
 
-      live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
-        as: :publishing_blog_localized
+      live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
+        as: :publishing_group_localized
 
-      live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
+      live "/admin/publishing/:group/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
         as: :publishing_editor_localized
 
-      live "/admin/publishing/:blog/preview",
+      live "/admin/publishing/:group/new", PhoenixKit.Modules.Publishing.Web.Editor, :new,
+        as: :publishing_new_post_localized
+
+      live "/admin/publishing/:group/preview",
            PhoenixKit.Modules.Publishing.Web.Preview,
            :preview,
            as: :publishing_preview_localized
+
+      # UUID-based routes (param routes — must come AFTER literal routes above)
+      live "/admin/publishing/:group/:post_uuid",
+           PhoenixKit.Modules.Publishing.Web.PostShow,
+           :show,
+           as: :publishing_post_show_localized
+
+      live "/admin/publishing/:group/:post_uuid/edit",
+           PhoenixKit.Modules.Publishing.Web.Editor,
+           :edit_post,
+           as: :publishing_post_editor_localized
+
+      live "/admin/publishing/:group/:post_uuid/preview",
+           PhoenixKit.Modules.Publishing.Web.Preview,
+           :preview_post,
+           as: :publishing_post_preview_localized
 
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings_localized
@@ -64,7 +83,7 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
         as: :publishing_new_localized
 
-      live "/admin/settings/publishing/:blog/edit",
+      live "/admin/settings/publishing/:group/edit",
            PhoenixKit.Modules.Publishing.Web.Edit,
            :edit,
            as: :publishing_edit_localized
@@ -79,16 +98,35 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index
 
-      live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
-        as: :publishing_blog
+      live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
+        as: :publishing_group
 
-      live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
+      live "/admin/publishing/:group/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
         as: :publishing_editor
 
-      live "/admin/publishing/:blog/preview",
+      live "/admin/publishing/:group/new", PhoenixKit.Modules.Publishing.Web.Editor, :new,
+        as: :publishing_new_post
+
+      live "/admin/publishing/:group/preview",
            PhoenixKit.Modules.Publishing.Web.Preview,
            :preview,
            as: :publishing_preview
+
+      # UUID-based routes (param routes — must come AFTER literal routes above)
+      live "/admin/publishing/:group/:post_uuid",
+           PhoenixKit.Modules.Publishing.Web.PostShow,
+           :show,
+           as: :publishing_post_show
+
+      live "/admin/publishing/:group/:post_uuid/edit",
+           PhoenixKit.Modules.Publishing.Web.Editor,
+           :edit_post,
+           as: :publishing_post_editor
+
+      live "/admin/publishing/:group/:post_uuid/preview",
+           PhoenixKit.Modules.Publishing.Web.Preview,
+           :preview_post,
+           as: :publishing_post_preview
 
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings
@@ -96,7 +134,7 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
         as: :publishing_new
 
-      live "/admin/settings/publishing/:blog/edit",
+      live "/admin/settings/publishing/:group/edit",
            PhoenixKit.Modules.Publishing.Web.Edit,
            :edit,
            as: :publishing_edit

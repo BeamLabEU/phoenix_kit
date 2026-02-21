@@ -15,13 +15,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   embed_templates("templates/*")
 
   @doc """
-  Builds the public URL for a blog listing page.
+  Builds the public URL for a group listing page.
   When multiple languages are enabled, always includes locale prefix.
   When languages module is off or only one language, uses clean URLs.
   """
-  def blog_listing_path(language, blog_slug, params \\ []) do
+  def group_listing_path(language, group_slug, params \\ []) do
     segments =
-      if single_language_mode?(), do: [blog_slug], else: [language, blog_slug]
+      if single_language_mode?(), do: [group_slug], else: [language, group_slug]
 
     base_path = build_public_path(segments)
 
@@ -40,10 +40,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   or post.language_slugs[language]) for SEO-friendly localized URLs.
 
   For timestamp mode posts:
-  - If only one post exists on the date, uses date-only URL (e.g., /blog/2025-12-09)
-  - If multiple posts exist on the date, includes time (e.g., /blog/2025-12-09/16:26)
+  - If only one post exists on the date, uses date-only URL (e.g., /group/2025-12-09)
+  - If multiple posts exist on the date, includes time (e.g., /group/2025-12-09/16:26)
   """
-  def build_post_url(blog_slug, post, language) do
+  def build_post_url(group_slug, post, language) do
     case post.mode do
       :slug ->
         # Use language-specific URL slug for SEO-friendly localized URLs
@@ -51,8 +51,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
         segments =
           if single_language_mode?(),
-            do: [blog_slug, url_slug],
-            else: [language, blog_slug, url_slug]
+            do: [group_slug, url_slug],
+            else: [language, group_slug, url_slug]
 
         build_public_path(segments)
 
@@ -62,7 +62,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
         date = get_timestamp_date(post)
 
         # Check if we need time in URL (only if multiple posts on same date)
-        post_count = count_posts_on_date(blog_slug, date)
+        post_count = count_posts_on_date(group_slug, date)
 
         segments =
           if post_count > 1 do
@@ -70,13 +70,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
             time = get_timestamp_time(post)
 
             if single_language_mode?(),
-              do: [blog_slug, date, time],
-              else: [language, blog_slug, date, time]
+              do: [group_slug, date, time],
+              else: [language, group_slug, date, time]
           else
             # Single post or no posts - date only
             if single_language_mode?(),
-              do: [blog_slug, date],
-              else: [language, blog_slug, date]
+              do: [group_slug, date],
+              else: [language, group_slug, date]
           end
 
         build_public_path(segments)
@@ -87,8 +87,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
         segments =
           if single_language_mode?(),
-            do: [blog_slug, url_slug],
-            else: [language, blog_slug, url_slug]
+            do: [group_slug, url_slug],
+            else: [language, group_slug, url_slug]
 
         build_public_path(segments)
     end
@@ -124,22 +124,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   Builds a public path with explicit date and time (always includes time).
   Used when redirecting from date-only URLs to full timestamp URLs.
   """
-  def build_public_path_with_time(language, blog_slug, date, time) do
+  def build_public_path_with_time(language, group_slug, date, time) do
     segments =
       if single_language_mode?(),
-        do: [blog_slug, date, time],
-        else: [language, blog_slug, date, time]
+        do: [group_slug, date, time],
+        else: [language, group_slug, date, time]
 
     build_public_path(segments)
   end
 
   @doc """
-  Formats a date for display.
+  Formats a date for display using locale-aware month names.
   """
   def format_date(datetime) when is_struct(datetime, DateTime) do
     datetime
     |> DateTime.to_date()
-    |> Calendar.strftime("%B %d, %Y")
+    |> locale_strftime(gettext("%B %d, %Y"))
   end
 
   def format_date(datetime_string) when is_binary(datetime_string) do
@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
       {:ok, datetime, _} ->
         datetime
         |> DateTime.to_date()
-        |> Calendar.strftime("%B %d, %Y")
+        |> locale_strftime(gettext("%B %d, %Y"))
 
       _ ->
         datetime_string
@@ -161,13 +161,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   Used when multiple posts exist on the same date.
   """
   def format_date_with_time(datetime) when is_struct(datetime, DateTime) do
-    Calendar.strftime(datetime, "%B %d, %Y at %H:%M")
+    date_str = locale_strftime(datetime, gettext("%B %d, %Y"))
+    time_str = Calendar.strftime(datetime, "%H:%M")
+    gettext("%{date} at %{time}", date: date_str, time: time_str)
   end
 
   def format_date_with_time(datetime_string) when is_binary(datetime_string) do
     case DateTime.from_iso8601(datetime_string) do
       {:ok, datetime, _} ->
-        Calendar.strftime(datetime, "%B %d, %Y at %H:%M")
+        date_str = locale_strftime(datetime, gettext("%B %d, %Y"))
+        time_str = Calendar.strftime(datetime, "%H:%M")
+        gettext("%{date} at %{time}", date: date_str, time: time_str)
 
       _ ->
         datetime_string
@@ -197,12 +201,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   @doc """
   Formats a post's publication date, including time only when multiple posts exist on the same date.
   """
-  def format_post_date(post, blog_slug) do
+  def format_post_date(post, group_slug) do
     case post.mode do
       :timestamp ->
         # For timestamp mode, use date/time from directory structure
         date = get_timestamp_date(post)
-        post_count = count_posts_on_date(blog_slug, date)
+        post_count = count_posts_on_date(group_slug, date)
 
         if post_count > 1 do
           format_timestamp_date_with_time(post)
@@ -316,11 +320,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   defp format_timestamp_date(post) do
     cond do
       is_struct(post[:date], Date) ->
-        Calendar.strftime(post.date, "%B %d, %Y")
+        locale_strftime(post.date, gettext("%B %d, %Y"))
 
       is_binary(post[:date]) ->
         case Date.from_iso8601(post.date) do
-          {:ok, date} -> Calendar.strftime(date, "%B %d, %Y")
+          {:ok, date} -> locale_strftime(date, gettext("%B %d, %Y"))
           _ -> post.date
         end
 
@@ -333,7 +337,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   defp format_timestamp_date_with_time(post) do
     date_str = format_timestamp_date(post)
     time_str = get_timestamp_time(post)
-    "#{date_str} at #{time_str}"
+    gettext("%{date} at %{time}", date: date_str, time: time_str)
   end
 
   # Gets the date for a timestamp-mode post from post.date field (directory structure)
@@ -398,10 +402,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
     not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
   end
 
-  # Counts posts on a given date for a blog
+  # Counts posts on a given date for a group
   # Used to determine if time should be included in URLs
-  defp count_posts_on_date(blog_slug, date) do
-    PublishingStorage.count_posts_on_date(blog_slug, date)
+  defp count_posts_on_date(group_slug, date) do
+    PublishingStorage.count_posts_on_date(group_slug, date)
   end
 
   @doc """
@@ -439,5 +443,52 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
         exists: true
       }
     end)
+  end
+
+  # Locale-aware Calendar.strftime that translates month names via gettext.
+  # The format string itself can also be translated (e.g., "%d %B %Y" for day-first locales).
+  defp locale_strftime(date_or_datetime, format) do
+    Calendar.strftime(date_or_datetime, format,
+      month_names: fn month ->
+        Enum.at(translated_month_names(), month - 1)
+      end,
+      abbreviated_month_names: fn month ->
+        Enum.at(translated_abbreviated_month_names(), month - 1)
+      end
+    )
+  end
+
+  defp translated_month_names do
+    [
+      gettext("January"),
+      gettext("February"),
+      gettext("March"),
+      gettext("April"),
+      gettext("May"),
+      gettext("June"),
+      gettext("July"),
+      gettext("August"),
+      gettext("September"),
+      gettext("October"),
+      gettext("November"),
+      gettext("December")
+    ]
+  end
+
+  defp translated_abbreviated_month_names do
+    [
+      gettext("Jan"),
+      gettext("Feb"),
+      gettext("Mar"),
+      gettext("Apr"),
+      gettext("May"),
+      gettext("Jun"),
+      gettext("Jul"),
+      gettext("Aug"),
+      gettext("Sep"),
+      gettext("Oct"),
+      gettext("Nov"),
+      gettext("Dec")
+    ]
   end
 end

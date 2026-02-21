@@ -2,7 +2,7 @@
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title}
-  current_path={PhoenixKit.Utils.Routes.path("/admin/publishing/#{@blog_slug}/edit")}
+  current_path={PhoenixKit.Utils.Routes.path("/admin/publishing/#{@group_slug}/edit")}
   project_title={@project_title}
   current_locale={@current_locale}
 >
@@ -128,8 +128,8 @@
   <div class="container mx-auto px-4 py-6 space-y-6">
     <div class="flex items-center justify-between">
       <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="back_to_list">
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to %{blog}",
-          blog: @blog_name || gettext("Blog")
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to %{group}",
+          group: @group_name || gettext("Group")
         )}
       </button>
       <div class="flex items-center gap-3">
@@ -171,7 +171,7 @@
         <% all_languages =
           build_editor_languages(
             @post,
-            @blog_slug,
+            @group_slug,
             @all_enabled_languages,
             @current_language
           ) %>
@@ -326,29 +326,6 @@
     <% end %>
 
     <%!-- Legacy structure migration banner --%>
-    <%= if @post && @post.is_legacy_structure do %>
-      <div class="alert alert-info shadow-sm">
-        <.icon name="hero-arrow-up-circle" class="w-5 h-5" />
-        <div class="flex-1">
-          <span class="font-medium">{gettext("Legacy file structure detected:")}</span>
-          <span>
-            {gettext(
-              "This post uses the legacy flat file structure. Migrate to enable versioning features like version history and editing published content safely."
-            )}
-          </span>
-        </div>
-        <button
-          type="button"
-          class="btn btn-sm btn-primary"
-          phx-click="migrate_to_versioned"
-          phx-disable-with={gettext("Migrating...")}
-        >
-          <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
-          {gettext("Migrate to v1")}
-        </button>
-      </div>
-    <% end %>
-
     <%!-- Primary Language Needs Update Warning (shown on ALL languages when update needed) --%>
     <% needs_update =
       not @is_new_post and length(@all_enabled_languages) > 1 and
@@ -658,7 +635,7 @@
             <.form for={@form} id="publishing-meta" phx-change="update_meta" phx-submit="noop">
               <div class="space-y-4">
                 <%!-- Title is extracted from markdown content (first # Heading) --%>
-                <%= if @blog_mode == "slug" do %>
+                <%= if @group_mode == "slug" do %>
                   <%= if @is_primary_language do %>
                     <%!-- Primary language: editable slug that sets the directory name --%>
                     <div>
@@ -722,7 +699,7 @@
                       <p class="text-xs text-base-content/50 mt-0.5">
                         {gettext("Preview: /%{language}/%{group}/%{slug}",
                           language: @current_language,
-                          group: @blog_slug,
+                          group: @group_slug,
                           slug:
                             if(@form["url_slug"] != "",
                               do: @form["url_slug"],

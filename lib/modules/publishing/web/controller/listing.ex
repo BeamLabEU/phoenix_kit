@@ -1,8 +1,8 @@
 defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   @moduledoc """
-  Blog listing functionality for the publishing controller.
+  Group listing functionality for the publishing controller.
 
-  Handles rendering blog post listings with:
+  Handles rendering post listings with:
   - Language filtering and fallback
   - Pagination
   - Translation link building for listings
@@ -17,15 +17,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   alias PhoenixKit.Settings
 
   # ============================================================================
-  # Blog Listing Rendering
+  # Group Listing Rendering
   # ============================================================================
 
   @doc """
-  Renders a blog listing page.
+  Renders a group listing page.
   """
-  def render_blog_listing(conn, blog_slug, language, params) do
-    case fetch_blog(blog_slug) do
-      {:ok, blog} ->
+  def render_group_listing(conn, group_slug, language, params) do
+    case fetch_group(group_slug) do
+      {:ok, group} ->
         # Only preserve pagination params for redirects
         pagination_params = Map.take(params, ["page"])
 
@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
         if canonical_language != language do
           # Redirect to canonical URL
           canonical_url =
-            PublishingHTML.blog_listing_path(canonical_language, blog_slug, pagination_params)
+            PublishingHTML.group_listing_path(canonical_language, group_slug, pagination_params)
 
           {:redirect, canonical_url}
         else
@@ -43,13 +43,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
           per_page = get_per_page_setting()
 
           # Try cache first, fall back to filesystem scan
-          all_posts_unfiltered = PostFetching.fetch_posts_with_cache(blog_slug)
+          all_posts_unfiltered = PostFetching.fetch_posts_with_cache(group_slug)
           published_posts = filter_published(all_posts_unfiltered)
 
           # Resolve posts for the requested language, with fallback handling
           listing_context = %{
-            blog: blog,
-            blog_slug: blog_slug,
+            group: group,
+            group_slug: group_slug,
             language: language,
             canonical_language: canonical_language,
             published_posts: published_posts,
@@ -80,17 +80,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
     case resolve_language_posts(
            exact_language_posts,
            ctx.published_posts,
-           ctx.blog_slug,
+           ctx.group_slug,
            ctx.language
          ) do
       {:exact, posts} ->
-        render_blog_index(conn, ctx, posts)
+        render_group_index(conn, ctx, posts)
 
       {:fallback, fallback_language} ->
         fallback_url =
-          PublishingHTML.blog_listing_path(
+          PublishingHTML.group_listing_path(
             fallback_language,
-            ctx.blog_slug,
+            ctx.group_slug,
             ctx.pagination_params
           )
 
@@ -102,13 +102,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   end
 
   # Returns {:exact, posts}, {:fallback, language}, or :not_found
-  defp resolve_language_posts(exact_posts, _published_posts, _blog_slug, _language)
+  defp resolve_language_posts(exact_posts, _published_posts, _group_slug, _language)
        when exact_posts != [] do
     {:exact, exact_posts}
   end
 
-  defp resolve_language_posts([], published_posts, blog_slug, language) do
-    fallback_posts = filter_by_exact_language(published_posts, blog_slug, language)
+  defp resolve_language_posts([], published_posts, group_slug, language) do
+    fallback_posts = filter_by_exact_language(published_posts, group_slug, language)
 
     if fallback_posts != [] do
       {:fallback, get_fallback_language(language, fallback_posts)}
@@ -118,28 +118,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   end
 
   # ============================================================================
-  # Blog Index Rendering
+  # Group Index Rendering
   # ============================================================================
 
   @doc """
-  Renders the blog index page with resolved posts.
+  Renders the group index page with resolved posts.
   """
-  def render_blog_index(_conn, ctx, all_posts) do
+  def render_group_index(_conn, ctx, all_posts) do
     total_count = length(all_posts)
-    posts = paginate(all_posts, ctx.page, ctx.per_page)
-    breadcrumbs = [%{label: ctx.blog["name"], url: nil}]
+
+    posts =
+      all_posts
+      |> paginate(ctx.page, ctx.per_page)
+      |> resolve_posts_for_language(ctx.canonical_language)
+
+    breadcrumbs = [%{label: ctx.group["name"], url: nil}]
 
     translations =
       Translations.build_listing_translations(
-        ctx.blog_slug,
+        ctx.group_slug,
         ctx.canonical_language,
         ctx.all_posts_unfiltered
       )
 
     {:ok,
      %{
-       page_title: ctx.blog["name"],
-       blog: ctx.blog,
+       page_title: ctx.group["name"],
+       group: ctx.group,
        posts: posts,
        current_language: ctx.canonical_language,
        translations: translations,
@@ -149,6 +154,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
        total_pages: ceil(total_count / ctx.per_page),
        breadcrumbs: breadcrumbs
      }}
+  end
+
+  # ============================================================================
+  # Per-Language Resolution
+  # ============================================================================
+
+  # Resolves listing post metadata (title, excerpt) for the requested language.
+  # DB-mode listing maps carry `language_titles` and `language_excerpts` maps
+  # so the template shows the correct translation, not just the primary language.
+  defp resolve_posts_for_language(posts, language) do
+    Enum.map(posts, fn post ->
+      resolve_post_for_language(post, language)
+    end)
+  end
+
+  defp resolve_post_for_language(post, language) do
+    lang_titles = post[:language_titles] || %{}
+    lang_excerpts = post[:language_excerpts] || %{}
+
+    title = Map.get(lang_titles, language, post.metadata.title)
+    excerpt = Map.get(lang_excerpts, language)
+
+    post
+    |> put_in([:metadata, :title], title)
+    |> then(fn p ->
+      if excerpt, do: Map.put(p, :content, excerpt), else: p
+    end)
   end
 
   # ============================================================================
@@ -169,7 +201,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   Handles both exact matches and base code matches (e.g., "en" matches "en-US").
   Uses preloaded language_statuses to avoid redundant file reads.
   """
-  def filter_by_exact_language(posts, _blog_slug, language) do
+  def filter_by_exact_language(posts, _group_slug, language) do
     Enum.filter(posts, fn post ->
       # Find the matching language file (exact or base code match)
       matching_language = find_matching_language(language, post.available_languages)
@@ -293,31 +325,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   # ============================================================================
 
   @doc """
-  Fetches blog configuration by slug.
+  Fetches group configuration by slug.
   """
-  def fetch_blog(blog_slug) do
-    blog_slug = blog_slug |> to_string() |> String.trim()
+  def fetch_group(group_slug) do
+    group_slug = group_slug |> to_string() |> String.trim()
 
-    case Enum.find(Publishing.list_groups(), fn blog ->
-           case blog["slug"] do
+    case Enum.find(Publishing.list_groups(), fn group ->
+           case group["slug"] do
              slug when is_binary(slug) ->
-               String.downcase(slug) == String.downcase(blog_slug)
+               String.downcase(slug) == String.downcase(group_slug)
 
              _ ->
                false
            end
          end) do
-      nil -> {:error, :blog_not_found}
-      blog -> {:ok, blog}
+      nil -> {:error, :group_not_found}
+      group -> {:ok, group}
     end
   end
 
   @doc """
-  Gets the default blog listing path for a language.
+  Gets the default group listing path for a language.
   """
-  def default_blog_listing(language) do
+  def default_group_listing(language) do
     case Publishing.list_groups() do
-      [%{"slug" => slug} | _] -> PublishingHTML.blog_listing_path(language, slug)
+      [%{"slug" => slug} | _] -> PublishingHTML.group_listing_path(language, slug)
       _ -> nil
     end
   end

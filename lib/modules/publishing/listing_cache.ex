@@ -9,7 +9,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
   1. When a post is created/updated/published, `regenerate/1` is called
   2. This scans all posts and writes metadata to `.listing_cache.json`
-  3. `render_blog_listing` reads from cache instead of scanning filesystem
+  3. `render_group_listing` reads from cache instead of scanning filesystem
   4. Cache includes: title, slug, date, status, languages, versions (no content)
 
   ## Cache File Location
@@ -46,6 +46,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   """
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
@@ -56,9 +57,9 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   @dialyzer {:nowarn_function, read_from_file_and_cache: 3}
 
   @cache_filename ".listing_cache.json"
-  @persistent_term_prefix :phoenix_kit_blog_listing_cache
-  @persistent_term_loaded_at_prefix :phoenix_kit_blog_listing_cache_loaded_at
-  @persistent_term_file_generated_at_prefix :phoenix_kit_blog_listing_cache_file_generated_at
+  @persistent_term_prefix :phoenix_kit_group_listing_cache
+  @persistent_term_loaded_at_prefix :phoenix_kit_group_listing_cache_loaded_at
+  @persistent_term_file_generated_at_prefix :phoenix_kit_group_listing_cache_file_generated_at
 
   # ETS table for regeneration locks (provides atomic test-and-set via insert_new)
   @lock_table :phoenix_kit_listing_cache_locks
@@ -81,10 +82,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   (with fallback to legacy `blogging_*` keys).
   """
   @spec read(String.t()) :: {:ok, [map()]} | {:error, :cache_miss}
-  def read(blog_slug) do
+  def read(group_slug) do
     memory_enabled = memory_cache_enabled?()
     file_enabled = file_cache_enabled?()
-    term_key = persistent_term_key(blog_slug)
+    term_key = persistent_term_key(group_slug)
 
     cond do
       # Both caches disabled
@@ -95,9 +96,14 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       memory_enabled and memory_cache_hit?(term_key) ->
         safe_persistent_term_get(term_key)
 
+      # Memory enabled, DB mode — regenerate from database on cache miss
+      memory_enabled and Publishing.storage_mode() == :db ->
+        regenerate(group_slug)
+        safe_persistent_term_get(term_key)
+
       # Memory enabled but not found, try file
       memory_enabled and file_enabled ->
-        read_from_file_and_cache(blog_slug, term_key, true)
+        read_from_file_and_cache(group_slug, term_key, true)
 
       # Memory enabled, file disabled, not in memory
       memory_enabled ->
@@ -105,7 +111,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
       # Memory disabled, file enabled
       file_enabled ->
-        read_from_file_only(blog_slug)
+        read_from_file_only(group_slug)
 
       # Fallback
       true ->
@@ -128,13 +134,13 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   # Read from JSON file and optionally store in :persistent_term
-  defp read_from_file_and_cache(blog_slug, term_key, store_in_memory) do
-    cache_path = cache_path(blog_slug)
+  defp read_from_file_and_cache(group_slug, term_key, store_in_memory) do
+    cache_path = cache_path(group_slug)
 
     with {:ok, content} <- read_cache_file(cache_path),
-         {:ok, normalized_posts, generated_at} <- parse_cache_content(content, blog_slug) do
+         {:ok, normalized_posts, generated_at} <- parse_cache_content(content, group_slug) do
       if store_in_memory do
-        store_posts_in_memory(blog_slug, term_key, normalized_posts, generated_at)
+        store_posts_in_memory(group_slug, term_key, normalized_posts, generated_at)
       end
 
       {:ok, normalized_posts}
@@ -149,7 +155,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end
   end
 
-  defp parse_cache_content(content, blog_slug) do
+  defp parse_cache_content(content, group_slug) do
     case Jason.decode(content) do
       {:ok, %{"posts" => posts} = data} ->
         normalized_posts = Enum.map(posts, &normalize_post/1)
@@ -157,49 +163,49 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
         {:ok, normalized_posts, generated_at}
 
       {:ok, _} ->
-        Logger.warning("[ListingCache] Invalid cache format for #{blog_slug}")
+        Logger.warning("[ListingCache] Invalid cache format for #{group_slug}")
         {:error, :cache_miss}
 
       {:error, reason} ->
         Logger.warning(
-          "[ListingCache] Failed to parse cache for #{blog_slug}: #{inspect(reason)}"
+          "[ListingCache] Failed to parse cache for #{group_slug}: #{inspect(reason)}"
         )
 
         {:error, :cache_miss}
     end
   end
 
-  defp store_posts_in_memory(blog_slug, term_key, normalized_posts, generated_at) do
+  defp store_posts_in_memory(group_slug, term_key, normalized_posts, generated_at) do
     safe_persistent_term_put(term_key, normalized_posts)
 
     safe_persistent_term_put(
-      loaded_at_key(blog_slug),
+      loaded_at_key(group_slug),
       DateTime.utc_now() |> DateTime.to_iso8601()
     )
 
     if generated_at do
-      safe_persistent_term_put(file_generated_at_key(blog_slug), generated_at)
+      safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
     end
 
     Logger.debug(
-      "[ListingCache] Loaded #{blog_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
+      "[ListingCache] Loaded #{group_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
     )
 
-    PublishingPubSub.broadcast_cache_changed(blog_slug)
+    PublishingPubSub.broadcast_cache_changed(group_slug)
   end
 
   # Read from JSON file only (no :persistent_term storage)
-  defp read_from_file_only(blog_slug) do
-    cache_path = cache_path(blog_slug)
+  defp read_from_file_only(group_slug) do
+    cache_path = cache_path(group_slug)
 
     with {:ok, content} <- read_cache_file(cache_path),
-         {:ok, normalized_posts, _generated_at} <- parse_cache_content(content, blog_slug) do
+         {:ok, normalized_posts, _generated_at} <- parse_cache_content(content, group_slug) do
       {:ok, normalized_posts}
     end
   end
 
   @doc """
-  Regenerates the listing cache for a blog.
+  Regenerates the listing cache for a group.
 
   Scans all posts using the standard `list_posts` function and writes
   the metadata to `.listing_cache.json`.
@@ -213,7 +219,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Returns `:ok` on success or `{:error, reason}` on failure.
   """
   @spec regenerate(String.t()) :: :ok | {:error, any()}
-  def regenerate(blog_slug) do
+  def regenerate(group_slug) do
     file_enabled = file_cache_enabled?()
     memory_enabled = memory_cache_enabled?()
 
@@ -221,25 +227,62 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     if not file_enabled and not memory_enabled do
       :ok
     else
-      do_regenerate(blog_slug, file_enabled, memory_enabled)
+      do_regenerate(group_slug, file_enabled, memory_enabled)
     end
   rescue
     error ->
       Logger.error(
-        "[ListingCache] Failed to regenerate cache for #{blog_slug}: #{inspect(error)}"
+        "[ListingCache] Failed to regenerate cache for #{group_slug}: #{inspect(error)}"
       )
 
       {:error, {:regenerate_failed, error}}
   end
 
-  defp do_regenerate(blog_slug, file_enabled, memory_enabled) do
+  defp do_regenerate(group_slug, file_enabled, memory_enabled) do
     start_time = System.monotonic_time(:millisecond)
 
+    case Publishing.storage_mode() do
+      :db -> do_regenerate_from_db(group_slug, memory_enabled, start_time)
+      :filesystem -> do_regenerate_from_fs(group_slug, file_enabled, memory_enabled, start_time)
+    end
+  end
+
+  # DB mode: fetch from database, store directly in persistent_term (no JSON file)
+  defp do_regenerate_from_db(group_slug, memory_enabled, start_time) do
+    # Posts from to_listing_map are already atom-key maps with excerpts
+    posts = DBStorage.list_posts_for_listing(group_slug)
+    generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    if memory_enabled do
+      safe_persistent_term_put(persistent_term_key(group_slug), posts)
+      safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
+      safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
+    end
+
+    elapsed = System.monotonic_time(:millisecond) - start_time
+
+    Logger.debug(
+      "[ListingCache] Regenerated cache from DB for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
+    )
+
+    PublishingPubSub.broadcast_cache_changed(group_slug)
+    :ok
+  rescue
+    error ->
+      Logger.error(
+        "[ListingCache] Failed to regenerate DB cache for #{group_slug}: #{inspect(error)}"
+      )
+
+      {:error, {:regenerate_failed, error}}
+  end
+
+  # Filesystem mode: scan files, serialize to JSON, store in persistent_term
+  defp do_regenerate_from_fs(group_slug, file_enabled, memory_enabled, start_time) do
     # Fetch all posts using the existing storage layer
     posts =
-      case Publishing.get_group_mode(blog_slug) do
-        "slug" -> Storage.list_posts_slug_mode(blog_slug, nil)
-        _ -> Storage.list_posts(blog_slug, nil)
+      case Publishing.get_group_mode(group_slug) do
+        "slug" -> Storage.list_posts_slug_mode(group_slug, nil)
+        _ -> Storage.list_posts(group_slug, nil)
       end
 
     # Convert to cacheable format (strip content, keep metadata)
@@ -258,16 +301,16 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
           "posts" => serialized_posts
         }
 
-        write_cache_file(cache_path(blog_slug), cache_data)
+        write_cache_file(cache_path(group_slug), cache_data)
       else
         :ok
       end
 
     # Update :persistent_term if enabled
     if memory_enabled do
-      safe_persistent_term_put(persistent_term_key(blog_slug), normalized_posts)
-      safe_persistent_term_put(loaded_at_key(blog_slug), generated_at)
-      safe_persistent_term_put(file_generated_at_key(blog_slug), generated_at)
+      safe_persistent_term_put(persistent_term_key(group_slug), normalized_posts)
+      safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
+      safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
     end
 
     elapsed = System.monotonic_time(:millisecond) - start_time
@@ -275,16 +318,16 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     case file_result do
       :ok ->
         Logger.debug(
-          "[ListingCache] Regenerated cache for #{blog_slug} (#{length(posts)} posts) in #{elapsed}ms"
+          "[ListingCache] Regenerated cache for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
         )
 
         # Broadcast cache change so admin UI updates live
-        PublishingPubSub.broadcast_cache_changed(blog_slug)
+        PublishingPubSub.broadcast_cache_changed(group_slug)
 
         :ok
 
       {:error, reason} = error ->
-        Logger.error("[ListingCache] Failed to write cache for #{blog_slug}: #{inspect(reason)}")
+        Logger.error("[ListingCache] Failed to write cache for #{group_slug}: #{inspect(reason)}")
 
         error
     end
@@ -314,69 +357,69 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
   On cache miss in read paths, use this instead of `regenerate/1`:
 
-      case ListingCache.regenerate_if_not_in_progress(blog_slug) do
+      case ListingCache.regenerate_if_not_in_progress(group_slug) do
         :ok -> # Cache is ready, read from it
         :already_in_progress -> # Fall back to filesystem scan
         {:error, _} -> # Fall back to filesystem scan
       end
   """
   @spec regenerate_if_not_in_progress(String.t()) :: :ok | :already_in_progress | {:error, any()}
-  def regenerate_if_not_in_progress(blog_slug) do
+  def regenerate_if_not_in_progress(group_slug) do
     ensure_lock_table_exists()
     now = System.monotonic_time(:millisecond)
 
     # Try to atomically acquire the lock using ETS insert_new
     # Returns true if inserted (lock acquired), false if key already exists
-    case :ets.insert_new(@lock_table, {blog_slug, now}) do
+    case :ets.insert_new(@lock_table, {group_slug, now}) do
       true ->
         # We acquired the lock - perform regeneration
-        do_regenerate_with_lock(blog_slug)
+        do_regenerate_with_lock(group_slug)
 
       false ->
         # Lock exists - check if it's stale
-        handle_existing_lock(blog_slug, now)
+        handle_existing_lock(group_slug, now)
     end
   end
 
   # Handle case where lock already exists - check staleness
-  defp handle_existing_lock(blog_slug, now) do
-    case :ets.lookup(@lock_table, blog_slug) do
-      [{^blog_slug, lock_timestamp}] ->
+  defp handle_existing_lock(group_slug, now) do
+    case :ets.lookup(@lock_table, group_slug) do
+      [{^group_slug, lock_timestamp}] ->
         lock_age = now - lock_timestamp
 
         if lock_age < @lock_timeout_ms do
           # Lock is valid and recent - another process is regenerating
           Logger.debug(
-            "[ListingCache] Regeneration already in progress for #{blog_slug} (#{lock_age}ms ago), skipping"
+            "[ListingCache] Regeneration already in progress for #{group_slug} (#{lock_age}ms ago), skipping"
           )
 
           :already_in_progress
         else
           # Lock is stale - previous process likely died
           # Try to take over by deleting and re-acquiring atomically
-          take_over_stale_lock(blog_slug, lock_timestamp, lock_age, now)
+          take_over_stale_lock(group_slug, lock_timestamp, lock_age, now)
         end
 
       [] ->
         # Lock was released between insert_new and lookup - try again
-        regenerate_if_not_in_progress(blog_slug)
+        regenerate_if_not_in_progress(group_slug)
     end
   end
 
   # Attempt to take over a stale lock using compare-and-delete
-  defp take_over_stale_lock(blog_slug, old_timestamp, lock_age, now) do
+  defp take_over_stale_lock(group_slug, old_timestamp, lock_age, now) do
     # Use match_delete for atomic compare-and-delete
     # Only deletes if the timestamp matches (no one else took over)
-    case :ets.select_delete(@lock_table, [{{blog_slug, old_timestamp}, [], [true]}]) do
+    case :ets.select_delete(@lock_table, [{{group_slug, old_timestamp}, [], [true]}]) do
       1 ->
         # Successfully deleted stale lock - now try to acquire
         Logger.warning(
-          "[ListingCache] Found stale lock for #{blog_slug} (#{lock_age}ms old), taking over regeneration"
+          "[ListingCache] Found stale lock for #{group_slug} (#{lock_age}ms old), taking over regeneration"
         )
 
-        case :ets.insert_new(@lock_table, {blog_slug, now}) do
+        case :ets.insert_new(@lock_table, {group_slug, now}) do
           true ->
-            do_regenerate_with_lock(blog_slug)
+            do_regenerate_with_lock(group_slug)
 
           false ->
             # Another process beat us to it
@@ -390,8 +433,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   # Perform regeneration while holding the lock
-  defp do_regenerate_with_lock(blog_slug) do
-    result = regenerate(blog_slug)
+  defp do_regenerate_with_lock(group_slug) do
+    result = regenerate(group_slug)
 
     case result do
       :ok -> :ok
@@ -399,7 +442,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end
   after
     # Always release the lock when done (success or failure)
-    :ets.delete(@lock_table, blog_slug)
+    :ets.delete(@lock_table, group_slug)
   end
 
   # Ensure the ETS table for locks exists (lazy initialization)
@@ -448,14 +491,23 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   update :persistent_term. Use `load_into_memory/1` separately if needed.
   """
   @spec regenerate_file_only(String.t()) :: :ok | {:error, any()}
-  def regenerate_file_only(blog_slug) do
+  def regenerate_file_only(group_slug) do
+    # No file cache in DB mode — DB is the persistence layer
+    if Publishing.storage_mode() == :db do
+      :ok
+    else
+      do_regenerate_file_only(group_slug)
+    end
+  end
+
+  defp do_regenerate_file_only(group_slug) do
     start_time = System.monotonic_time(:millisecond)
 
     # Fetch all posts using the existing storage layer
     posts =
-      case Publishing.get_group_mode(blog_slug) do
-        "slug" -> Storage.list_posts_slug_mode(blog_slug, nil)
-        _ -> Storage.list_posts(blog_slug, nil)
+      case Publishing.get_group_mode(group_slug) do
+        "slug" -> Storage.list_posts_slug_mode(group_slug, nil)
+        _ -> Storage.list_posts(group_slug, nil)
       end
 
     # Convert to cacheable format (use safe version to handle malformed posts)
@@ -467,26 +519,26 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       "posts" => serialized_posts
     }
 
-    result = write_cache_file(cache_path(blog_slug), cache_data)
+    result = write_cache_file(cache_path(group_slug), cache_data)
     elapsed = System.monotonic_time(:millisecond) - start_time
 
     case result do
       :ok ->
         Logger.debug(
-          "[ListingCache] Regenerated file cache for #{blog_slug} (#{length(posts)} posts) in #{elapsed}ms"
+          "[ListingCache] Regenerated file cache for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
         )
 
         :ok
 
       {:error, reason} = error ->
-        Logger.error("[ListingCache] Failed to write cache for #{blog_slug}: #{inspect(reason)}")
+        Logger.error("[ListingCache] Failed to write cache for #{group_slug}: #{inspect(reason)}")
 
         error
     end
   rescue
     error ->
       Logger.error(
-        "[ListingCache] Failed to regenerate file cache for #{blog_slug}: #{inspect(error)}"
+        "[ListingCache] Failed to regenerate file cache for #{group_slug}: #{inspect(error)}"
       )
 
       {:error, {:regenerate_failed, error}}
@@ -499,45 +551,73 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   or `{:error, reason}` for other failures.
   """
   @spec load_into_memory(String.t()) :: :ok | {:error, any()}
-  def load_into_memory(blog_slug) do
-    cache_path = cache_path(blog_slug)
+  def load_into_memory(group_slug) do
+    case Publishing.storage_mode() do
+      :db -> load_into_memory_from_db(group_slug)
+      :filesystem -> load_into_memory_from_file(group_slug)
+    end
+  end
+
+  defp load_into_memory_from_db(group_slug) do
+    posts = DBStorage.list_posts_for_listing(group_slug)
+    generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    safe_persistent_term_put(persistent_term_key(group_slug), posts)
+    safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
+    safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
+
+    Logger.debug(
+      "[ListingCache] Loaded #{group_slug} from DB into :persistent_term (#{length(posts)} posts)"
+    )
+
+    PublishingPubSub.broadcast_cache_changed(group_slug)
+    :ok
+  rescue
+    error ->
+      Logger.error("[ListingCache] Failed to load #{group_slug} from DB: #{inspect(error)}")
+
+      {:error, {:load_failed, error}}
+  end
+
+  defp load_into_memory_from_file(group_slug) do
+    cache_path = cache_path(group_slug)
 
     case File.read(cache_path) do
       {:ok, content} ->
         case Jason.decode(content) do
           {:ok, %{"posts" => posts, "generated_at" => generated_at}} ->
             normalized_posts = Enum.map(posts, &normalize_post/1)
-            safe_persistent_term_put(persistent_term_key(blog_slug), normalized_posts)
+            safe_persistent_term_put(persistent_term_key(group_slug), normalized_posts)
 
             safe_persistent_term_put(
-              loaded_at_key(blog_slug),
+              loaded_at_key(group_slug),
               DateTime.utc_now() |> DateTime.to_iso8601()
             )
 
             # Store the file's generated_at so we know what version of data is in memory
-            safe_persistent_term_put(file_generated_at_key(blog_slug), generated_at)
+            safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
 
             Logger.debug(
-              "[ListingCache] Loaded #{blog_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
+              "[ListingCache] Loaded #{group_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
             )
 
             # Broadcast cache change so admin UI updates live
-            PublishingPubSub.broadcast_cache_changed(blog_slug)
+            PublishingPubSub.broadcast_cache_changed(group_slug)
 
             :ok
 
           {:ok, %{"posts" => posts}} ->
             # Fallback for files without generated_at
             normalized_posts = Enum.map(posts, &normalize_post/1)
-            safe_persistent_term_put(persistent_term_key(blog_slug), normalized_posts)
+            safe_persistent_term_put(persistent_term_key(group_slug), normalized_posts)
 
             safe_persistent_term_put(
-              loaded_at_key(blog_slug),
+              loaded_at_key(group_slug),
               DateTime.utc_now() |> DateTime.to_iso8601()
             )
 
             # Broadcast cache change so admin UI updates live
-            PublishingPubSub.broadcast_cache_changed(blog_slug)
+            PublishingPubSub.broadcast_cache_changed(group_slug)
 
             :ok
 
@@ -557,16 +637,16 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
-  Invalidates (deletes) the cache for a blog.
+  Invalidates (deletes) the cache for a group.
 
   Clears both the :persistent_term entry and the JSON file.
   The next read will return `:cache_miss`, triggering a fallback to
   the filesystem scan.
   """
   @spec invalidate(String.t()) :: :ok
-  def invalidate(blog_slug) do
+  def invalidate(group_slug) do
     # Clear :persistent_term entries
-    term_key = persistent_term_key(blog_slug)
+    term_key = persistent_term_key(group_slug)
 
     try do
       :persistent_term.erase(term_key)
@@ -575,23 +655,23 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end
 
     try do
-      :persistent_term.erase(loaded_at_key(blog_slug))
+      :persistent_term.erase(loaded_at_key(group_slug))
     rescue
       ArgumentError -> :ok
     end
 
     try do
-      :persistent_term.erase(file_generated_at_key(blog_slug))
+      :persistent_term.erase(file_generated_at_key(group_slug))
     rescue
       ArgumentError -> :ok
     end
 
     # Then delete the file
-    cache_path = cache_path(blog_slug)
+    cache_path = cache_path(group_slug)
 
     case File.rm(cache_path) do
       :ok ->
-        Logger.debug("[ListingCache] Invalidated cache for #{blog_slug}")
+        Logger.debug("[ListingCache] Invalidated cache for #{group_slug}")
         :ok
 
       {:error, :enoent} ->
@@ -599,7 +679,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
       {:error, reason} ->
         Logger.warning(
-          "[ListingCache] Failed to delete cache for #{blog_slug}: #{inspect(reason)}"
+          "[ListingCache] Failed to delete cache for #{group_slug}: #{inspect(reason)}"
         )
 
         :ok
@@ -607,13 +687,13 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
-  Checks if a cache exists for a blog (in :persistent_term or file).
+  Checks if a cache exists for a group (in :persistent_term or file).
   """
   @spec exists?(String.t()) :: boolean()
-  def exists?(blog_slug) do
-    case safe_persistent_term_get(persistent_term_key(blog_slug)) do
+  def exists?(group_slug) do
+    case safe_persistent_term_get(persistent_term_key(group_slug)) do
       {:ok, _} -> true
-      :not_found -> cache_path(blog_slug) |> File.exists?()
+      :not_found -> cache_path(group_slug) |> File.exists?()
     end
   end
 
@@ -626,8 +706,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Returns `{:ok, cached_post}` if found, `{:error, :not_found}` otherwise.
   """
   @spec find_post(String.t(), String.t()) :: {:ok, map()} | {:error, :not_found | :cache_miss}
-  def find_post(blog_slug, post_slug) do
-    case read(blog_slug) do
+  def find_post(group_slug, post_slug) do
+    case read(group_slug) do
       {:ok, posts} ->
         case Enum.find(posts, fn p -> p.slug == post_slug end) do
           nil -> {:error, :not_found}
@@ -647,8 +727,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   """
   @spec find_post_by_path(String.t(), String.t(), String.t()) ::
           {:ok, map()} | {:error, :not_found | :cache_miss}
-  def find_post_by_path(blog_slug, date, time) do
-    case read(blog_slug) do
+  def find_post_by_path(group_slug, date, time) do
+    case read(group_slug) do
       {:ok, posts} ->
         # Match posts using discrete date and time fields (more robust than path string matching)
         # Parse the input date string to compare with the cached Date struct
@@ -814,16 +894,16 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Returns the :persistent_term key for tracking when the memory cache was loaded.
   """
   @spec loaded_at_key(String.t()) :: tuple()
-  def loaded_at_key(blog_slug) do
-    {@persistent_term_loaded_at_prefix, blog_slug}
+  def loaded_at_key(group_slug) do
+    {@persistent_term_loaded_at_prefix, group_slug}
   end
 
   @doc """
   Returns when the memory cache was loaded (ISO 8601 string), or nil if not loaded.
   """
   @spec memory_loaded_at(String.t()) :: String.t() | nil
-  def memory_loaded_at(blog_slug) do
-    case safe_persistent_term_get(loaded_at_key(blog_slug)) do
+  def memory_loaded_at(group_slug) do
+    case safe_persistent_term_get(loaded_at_key(group_slug)) do
       {:ok, loaded_at} -> loaded_at
       :not_found -> nil
     end
@@ -833,8 +913,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Returns the :persistent_term key for tracking the file's generated_at when loaded into memory.
   """
   @spec file_generated_at_key(String.t()) :: tuple()
-  def file_generated_at_key(blog_slug) do
-    {@persistent_term_file_generated_at_prefix, blog_slug}
+  def file_generated_at_key(group_slug) do
+    {@persistent_term_file_generated_at_prefix, group_slug}
   end
 
   @doc """
@@ -842,8 +922,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   This tells us what version of the file data is currently in memory.
   """
   @spec memory_file_generated_at(String.t()) :: String.t() | nil
-  def memory_file_generated_at(blog_slug) do
-    case safe_persistent_term_get(file_generated_at_key(blog_slug)) do
+  def memory_file_generated_at(group_slug) do
+    case safe_persistent_term_get(file_generated_at_key(group_slug)) do
       {:ok, generated_at} -> generated_at
       :not_found -> nil
     end
@@ -883,8 +963,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   2. Have `primary_language` different from global setting (need migration decision)
   """
   @spec posts_needing_primary_language_migration(String.t()) :: [map()]
-  def posts_needing_primary_language_migration(blog_slug) do
-    case read(blog_slug) do
+  def posts_needing_primary_language_migration(group_slug) do
+    case read(group_slug) do
       {:ok, posts} ->
         global_primary = Storage.get_primary_language()
 
@@ -896,19 +976,19 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
       {:error, _} ->
         # If cache doesn't exist, scan filesystem directly
-        scan_posts_needing_migration(blog_slug)
+        scan_posts_needing_migration(group_slug)
     end
   end
 
-  defp scan_posts_needing_migration(blog_slug) do
+  defp scan_posts_needing_migration(group_slug) do
     global_primary = Storage.get_primary_language()
 
     # Try slug mode first, then timestamp mode (list_posts handles timestamp)
-    posts = Storage.list_posts_slug_mode(blog_slug)
+    posts = Storage.list_posts_slug_mode(group_slug)
 
     posts =
       if posts == [] do
-        Storage.list_posts(blog_slug)
+        Storage.list_posts(group_slug)
       else
         posts
       end
@@ -931,8 +1011,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   - `needs_backfill` - posts with no primary_language stored (legacy posts)
   """
   @spec count_primary_language_status(String.t()) :: map()
-  def count_primary_language_status(blog_slug) do
-    case read(blog_slug) do
+  def count_primary_language_status(group_slug) do
+    case read(group_slug) do
       {:ok, posts} ->
         global_primary = Storage.get_primary_language()
 
@@ -954,19 +1034,19 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
       {:error, _} ->
         # If cache doesn't exist, scan filesystem directly
-        scan_primary_language_status(blog_slug)
+        scan_primary_language_status(group_slug)
     end
   end
 
-  defp scan_primary_language_status(blog_slug) do
+  defp scan_primary_language_status(group_slug) do
     global_primary = Storage.get_primary_language()
 
     # Try slug mode first, then timestamp mode (list_posts handles timestamp)
-    posts = Storage.list_posts_slug_mode(blog_slug)
+    posts = Storage.list_posts_slug_mode(group_slug)
 
     posts =
       if posts == [] do
-        Storage.list_posts(blog_slug)
+        Storage.list_posts(group_slug)
       else
         posts
       end
@@ -999,8 +1079,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   - `legacy` - posts with flat file structure (need migration)
   """
   @spec count_legacy_structure_status(String.t()) :: map()
-  def count_legacy_structure_status(blog_slug) do
-    case read(blog_slug) do
+  def count_legacy_structure_status(group_slug) do
+    case read(group_slug) do
       {:ok, posts} ->
         Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
           if post[:is_legacy_structure] do
@@ -1012,7 +1092,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
       {:error, _} ->
         # If cache doesn't exist, scan filesystem directly
-        scan_legacy_structure_status(blog_slug)
+        scan_legacy_structure_status(group_slug)
     end
   end
 
@@ -1020,19 +1100,19 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Returns list of posts that need version structure migration.
   """
   @spec posts_needing_version_migration(String.t()) :: [map()]
-  def posts_needing_version_migration(blog_slug) do
-    case read(blog_slug) do
+  def posts_needing_version_migration(group_slug) do
+    case read(group_slug) do
       {:ok, posts} ->
         Enum.filter(posts, & &1[:is_legacy_structure])
 
       {:error, _} ->
         # If cache doesn't exist, scan filesystem directly
-        scan_posts_needing_version_migration(blog_slug)
+        scan_posts_needing_version_migration(group_slug)
     end
   end
 
-  defp scan_legacy_structure_status(blog_slug) do
-    posts = get_posts_for_scan(blog_slug)
+  defp scan_legacy_structure_status(group_slug) do
+    posts = get_posts_for_scan(group_slug)
 
     Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
       if Map.get(post, :is_legacy_structure, false) do
@@ -1043,17 +1123,17 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end)
   end
 
-  defp scan_posts_needing_version_migration(blog_slug) do
-    posts = get_posts_for_scan(blog_slug)
+  defp scan_posts_needing_version_migration(group_slug) do
+    posts = get_posts_for_scan(group_slug)
     Enum.filter(posts, &Map.get(&1, :is_legacy_structure, false))
   end
 
-  defp get_posts_for_scan(blog_slug) do
+  defp get_posts_for_scan(group_slug) do
     # Try slug mode first, then timestamp mode
-    posts = Storage.list_posts_slug_mode(blog_slug)
+    posts = Storage.list_posts_slug_mode(group_slug)
 
     if posts == [] do
-      Storage.list_posts(blog_slug)
+      Storage.list_posts(group_slug)
     else
       posts
     end

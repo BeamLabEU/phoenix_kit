@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Modules.Publishing.Renderer do
   @moduledoc """
-  Renders blog post markdown to HTML with caching support.
+  Renders publishing post markdown to HTML with caching support.
 
   Uses PhoenixKit.Cache for performance optimization of markdown rendering.
   Cache keys include content hashes for automatic invalidation.
@@ -20,11 +20,11 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
   # New settings keys (write to these)
   @global_cache_key "publishing_render_cache_enabled"
-  @per_blog_cache_prefix "publishing_render_cache_enabled_"
+  @per_group_cache_prefix "publishing_render_cache_enabled_"
 
   # Legacy settings keys (read from these as fallback)
   @legacy_global_cache_key "blogging_render_cache_enabled"
-  @legacy_per_blog_cache_prefix "blogging_render_cache_enabled_"
+  @legacy_per_group_cache_prefix "blogging_render_cache_enabled_"
 
   @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video|EntityForm)\s+([^>]*?)\/>/s
   @component_block_regex ~r/<(Hero|CTA|Headline|Subheadline|Video|EntityForm)\s*([^>]*)>(.*?)<\/\1>/s
@@ -35,8 +35,8 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   Caches the result for published posts using content-hash-based keys.
   Lazy-loads cache (only caches after first render).
 
-  Respects `blogging_render_cache_enabled` (global) and
-  `blogging_render_cache_enabled_{blog_slug}` (per-blog) settings.
+  Respects `publishing_render_cache_enabled` (global) and
+  `publishing_render_cache_enabled_{group_slug}` (per-group) settings.
 
   ## Examples
 
@@ -61,18 +61,18 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   end
 
   @doc """
-  Returns whether render caching is enabled for a blog.
+  Returns whether render caching is enabled for a group.
 
-  Checks both the global setting and per-blog setting.
+  Checks both the global setting and per-group setting.
   Both must be enabled (or default to enabled) for caching to work.
   Checks new keys first, falls back to legacy keys.
   """
   @spec render_cache_enabled?(String.t()) :: boolean()
-  def render_cache_enabled?(blog_slug) do
+  def render_cache_enabled?(group_slug) do
     global_enabled = global_render_cache_enabled?()
-    per_blog_enabled = group_render_cache_enabled?(blog_slug)
+    per_group_enabled = group_render_cache_enabled?(group_slug)
 
-    global_enabled and per_blog_enabled
+    global_enabled and per_group_enabled
   end
 
   @doc """
@@ -94,8 +94,8 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   """
   @spec group_render_cache_enabled?(String.t()) :: boolean()
   def group_render_cache_enabled?(group_slug) do
-    new_key = @per_blog_cache_prefix <> group_slug
-    legacy_key = @legacy_per_blog_cache_prefix <> group_slug
+    new_key = @per_group_cache_prefix <> group_slug
+    legacy_key = @legacy_per_group_cache_prefix <> group_slug
 
     case Settings.get_setting_cached(new_key, nil) do
       nil -> Settings.get_setting_cached(legacy_key, "true") == "true"
@@ -108,7 +108,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   Used by other modules that need to write to the setting.
   """
   @spec per_group_cache_key(String.t()) :: String.t()
-  def per_group_cache_key(group_slug), do: @per_blog_cache_prefix <> group_slug
+  def per_group_cache_key(group_slug), do: @per_group_cache_prefix <> group_slug
 
   # Deprecated shims for backward compatibility
   @doc false
@@ -393,15 +393,15 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
       Renderer.invalidate_cache("docs", "getting-started", "en")
 
   """
-  def invalidate_cache(blog_slug, identifier, language) do
+  def invalidate_cache(group_slug, identifier, language) do
     # Build pattern to match all cache keys for this post
     # We don't know the content hash, so we invalidate by prefix
-    pattern = "#{@cache_version}:blog_post:#{blog_slug}:#{identifier}:#{language}:"
+    pattern = "#{@cache_version}:blog_post:#{group_slug}:#{identifier}:#{language}:"
 
     # Since PhoenixKit.Cache doesn't support pattern matching,
     # we'll just log this for now and rely on content hash changes
     Logger.info("Cache invalidation requested",
-      blog: blog_slug,
+      group: group_slug,
       identifier: identifier,
       language: language,
       pattern: pattern
@@ -413,22 +413,22 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   end
 
   @doc """
-  Clears all blog post caches.
+  Clears all publishing post caches.
 
   Useful for testing or when doing bulk updates.
   """
   def clear_all_cache do
     PhoenixKit.Cache.clear(@cache_name)
-    Logger.info("Cleared all blog post caches")
+    Logger.info("Cleared all publishing post caches")
     :ok
   rescue
     _ ->
-      Logger.warning("Blog cache not available for clearing")
+      Logger.warning("Publishing cache not available for clearing")
       :ok
   end
 
   @doc """
-  Clears the render cache for a specific blog.
+  Clears the render cache for a specific group.
 
   Returns `{:ok, count}` with the number of entries cleared.
 

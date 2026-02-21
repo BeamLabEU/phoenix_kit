@@ -32,27 +32,27 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   @doc """
   Renders a post after resolving URL slugs.
   """
-  def render_post(conn, blog_slug, identifier, language) do
+  def render_post(conn, group_slug, identifier, language) do
     # For slug mode, resolve URL slug to internal slug first
     # This enables per-language URL slugs and 301 redirects for old slugs
-    case SlugResolution.resolve_url_slug(blog_slug, identifier, language) do
+    case SlugResolution.resolve_url_slug(group_slug, identifier, language) do
       {:redirect, redirect_url} ->
         # Old URL slug - 301 redirect to current URL
         {:redirect_301, redirect_url}
 
       {:ok, resolved_identifier} ->
-        render_resolved_post(conn, blog_slug, resolved_identifier, language)
+        render_resolved_post(conn, group_slug, resolved_identifier, language)
 
       :passthrough ->
-        render_resolved_post(conn, blog_slug, identifier, language)
+        render_resolved_post(conn, group_slug, identifier, language)
     end
   end
 
   @doc """
   Renders a post after identifier has been resolved.
   """
-  def render_resolved_post(conn, blog_slug, identifier, language) do
-    case PostFetching.fetch_post(blog_slug, identifier, language) do
+  def render_resolved_post(conn, group_slug, identifier, language) do
+    case PostFetching.fetch_post(group_slug, identifier, language) do
       {:ok, post} ->
         # Check if published
         if post.metadata.status == "published" do
@@ -62,7 +62,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
           if canonical_language != language do
             # Redirect to canonical URL
-            canonical_url = PublishingHTML.build_post_url(blog_slug, post, canonical_language)
+            canonical_url = PublishingHTML.build_post_url(group_slug, post, canonical_language)
             {:redirect, canonical_url}
           else
             # Render markdown (cached for published posts)
@@ -70,18 +70,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             # Build translation links
             translations =
-              Translations.build_translation_links(blog_slug, post, canonical_language)
+              Translations.build_translation_links(group_slug, post, canonical_language)
 
             # Build breadcrumbs
-            breadcrumbs = build_breadcrumbs(blog_slug, post, canonical_language)
+            breadcrumbs = build_breadcrumbs(group_slug, post, canonical_language)
 
             # Build version dropdown data if allowed
-            version_dropdown = build_version_dropdown(blog_slug, post, canonical_language)
+            version_dropdown = build_version_dropdown(group_slug, post, canonical_language)
 
             {:ok,
              %{
                page_title: post.metadata.title,
-               blog_slug: blog_slug,
+               group_slug: group_slug,
                post: post,
                html_content: html_content,
                current_language: canonical_language,
@@ -91,12 +91,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
              }}
           end
         else
-          log_404(conn, blog_slug, identifier, language, :unpublished)
+          log_404(conn, group_slug, identifier, language, :unpublished)
           {:error, :unpublished}
         end
 
       {:error, reason} ->
-        log_404(conn, blog_slug, identifier, language, reason)
+        log_404(conn, group_slug, identifier, language, reason)
         {:error, reason}
     end
   end
@@ -104,21 +104,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   @doc """
   Renders a specific version of a post (for version browsing feature).
   """
-  def render_versioned_post(conn, blog_slug, url_slug, version, language) do
+  def render_versioned_post(conn, group_slug, url_slug, version, language) do
     # Resolve URL slug to internal slug (handles per-language custom slugs)
-    internal_slug = SlugResolution.resolve_url_slug_to_internal(blog_slug, url_slug, language)
+    internal_slug = SlugResolution.resolve_url_slug_to_internal(group_slug, url_slug, language)
 
     # Check per-post version access setting (from the live version's metadata)
     # Each post controls its own version access - no global setting required
-    if post_allows_version_access?(blog_slug, internal_slug, language) do
+    if post_allows_version_access?(group_slug, internal_slug, language) do
       # Resolve language to actual file language (e.g., "en" -> "en-US")
       # This matches the behavior in PostFetching.fetch_post
-      version_dir = Path.join([Storage.group_path(blog_slug), internal_slug, "v#{version}"])
+      version_dir = Path.join([Storage.group_path(group_slug), internal_slug, "v#{version}"])
       available_languages = PostFetching.detect_available_languages_in_dir(version_dir)
       resolved_language = Language.resolve_language_for_post(language, available_languages)
 
       # Fetch the specific version with resolved language
-      case Publishing.read_post(blog_slug, internal_slug, resolved_language, version) do
+      case Publishing.read_post(group_slug, internal_slug, resolved_language, version) do
         {:ok, post} ->
           # Check if version is published
           if post.metadata.status == "published" do
@@ -130,28 +130,28 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             # Build translation links (preserve version in URLs)
             translations =
-              Translations.build_translation_links(blog_slug, post, canonical_language,
+              Translations.build_translation_links(group_slug, post, canonical_language,
                 version: version
               )
 
             # Build breadcrumbs
-            breadcrumbs = build_breadcrumbs(blog_slug, post, canonical_language)
+            breadcrumbs = build_breadcrumbs(group_slug, post, canonical_language)
 
             # Build canonical URL (points to main post URL, not versioned URL)
-            canonical_url = PublishingHTML.build_post_url(blog_slug, post, canonical_language)
+            canonical_url = PublishingHTML.build_post_url(group_slug, post, canonical_language)
 
             # Build version dropdown data (also gives us the live version)
-            version_dropdown = build_version_dropdown(blog_slug, post, canonical_language)
+            version_dropdown = build_version_dropdown(group_slug, post, canonical_language)
 
             # Check if this is the live version by comparing to the published version
             # (is_live field was removed from metadata, now derived from status)
-            {_allow_access, live_version} = get_cached_version_info(blog_slug, post)
+            {_allow_access, live_version} = get_cached_version_info(group_slug, post)
             is_live = version == live_version
 
             {:ok,
              %{
                page_title: post.metadata.title,
-               blog_slug: blog_slug,
+               group_slug: group_slug,
                post: post,
                html_content: html_content,
                current_language: canonical_language,
@@ -164,12 +164,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
                version_dropdown: version_dropdown
              }}
           else
-            log_404(conn, blog_slug, {:slug, internal_slug, version}, language, :unpublished)
+            log_404(conn, group_slug, {:slug, internal_slug, version}, language, :unpublished)
             {:error, :unpublished}
           end
 
         {:error, reason} ->
-          log_404(conn, blog_slug, {:slug, internal_slug, version}, language, reason)
+          log_404(conn, group_slug, {:slug, internal_slug, version}, language, reason)
           {:error, reason}
       end
     else
@@ -178,14 +178,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   end
 
   @doc """
-  Handles date-only URLs (e.g., /blog/2025-12-09).
+  Handles date-only URLs (e.g., /group/2025-12-09).
   If only one post exists on that date, render it directly.
   If multiple posts exist, redirect to the first one with time in URL.
   """
-  def handle_date_only_url(conn, blog_slug, date, language) do
-    case Listing.fetch_blog(blog_slug) do
-      {:ok, _blog} ->
-        times = Storage.list_times_on_date(blog_slug, date)
+  def handle_date_only_url(conn, group_slug, date, language) do
+    case Listing.fetch_group(group_slug) do
+      {:ok, _group} ->
+        times = Storage.list_times_on_date(group_slug, date)
 
         case times do
           [] ->
@@ -194,12 +194,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
           [single_time] ->
             # Only one post - render it directly
-            render_post(conn, blog_slug, {:timestamp, date, single_time}, language)
+            render_post(conn, group_slug, {:timestamp, date, single_time}, language)
 
           [first_time | _rest] ->
             # Multiple posts - redirect to first one with time in URL
             canonical_language = Language.get_canonical_url_language(language)
-            redirect_url = build_timestamp_url(blog_slug, date, first_time, canonical_language)
+            redirect_url = build_timestamp_url(group_slug, date, first_time, canonical_language)
             {:redirect, redirect_url}
         end
 
@@ -233,10 +233,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   Returns nil if version access is disabled or only one published version exists.
   Uses listing cache for fast lookups instead of reading files.
   """
-  def build_version_dropdown(blog_slug, post, language) do
+  def build_version_dropdown(group_slug, post, language) do
     # Try to get cached data first (sub-microsecond from :persistent_term)
     # The cache stores the live version with all version metadata
-    {allow_access, live_version} = get_cached_version_info(blog_slug, post)
+    {allow_access, live_version} = get_cached_version_info(group_slug, post)
 
     version_statuses = Map.get(post, :version_statuses, %{})
     current_version = Map.get(post, :version, 1)
@@ -253,7 +253,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
       if length(published_versions) > 1 do
         versions_with_urls =
           Enum.map(published_versions, fn version ->
-            url = build_version_url(blog_slug, post, language, version)
+            url = build_version_url(group_slug, post, language, version)
 
             %{
               version: version,
@@ -279,9 +279,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   Gets version info from cache (allow_version_access and live_version).
   Falls back to file reads if cache miss.
   """
-  def get_cached_version_info(blog_slug, current_post) do
+  def get_cached_version_info(group_slug, current_post) do
     # Use appropriate cache lookup based on post mode
-    cache_result = find_cached_post(blog_slug, current_post)
+    cache_result = find_cached_post(group_slug, current_post)
 
     case cache_result do
       {:ok, cached_post} ->
@@ -297,16 +297,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
         # Use post's stored primary language, not global
         primary_language =
           current_post[:primary_language] ||
-            Storage.get_post_primary_language(blog_slug, post_identifier)
+            Storage.get_post_primary_language(group_slug, post_identifier)
 
-        allow_access = get_allow_access_from_file(blog_slug, current_post, primary_language)
-        live_version = get_live_version_from_file(blog_slug, post_identifier)
+        allow_access = get_allow_access_from_file(group_slug, current_post, primary_language)
+        live_version = get_live_version_from_file(group_slug, post_identifier)
         {allow_access, live_version}
     end
   end
 
   # Find cached post using appropriate method based on post mode
-  defp find_cached_post(blog_slug, post) do
+  defp find_cached_post(group_slug, post) do
     case Map.get(post, :mode) do
       :timestamp ->
         # For timestamp mode, use date/time lookup
@@ -316,14 +316,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
         if date && time do
           date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
           time_str = format_time_for_cache(time)
-          ListingCache.find_post_by_path(blog_slug, date_str, time_str)
+          ListingCache.find_post_by_path(group_slug, date_str, time_str)
         else
           {:error, :not_found}
         end
 
       _ ->
         # For slug mode, use slug lookup
-        ListingCache.find_post(blog_slug, post.slug)
+        ListingCache.find_post(group_slug, post.slug)
     end
   end
 
@@ -353,13 +353,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   defp extract_timestamp_identifier(path), do: path
 
   # Fallback: Gets allow_version_access from file when cache misses
-  defp get_allow_access_from_file(blog_slug, current_post, primary_language) do
+  defp get_allow_access_from_file(group_slug, current_post, primary_language) do
     if current_post.language == primary_language do
       Map.get(current_post.metadata, :allow_version_access, false)
     else
       post_identifier = get_post_identifier(current_post)
 
-      case Publishing.read_post(blog_slug, post_identifier, primary_language, nil) do
+      case Publishing.read_post(group_slug, post_identifier, primary_language, nil) do
         {:ok, primary_post} -> Map.get(primary_post.metadata, :allow_version_access, false)
         {:error, _} -> false
       end
@@ -367,8 +367,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   end
 
   # Fallback: Gets published version from file when cache misses
-  defp get_live_version_from_file(blog_slug, post_identifier) do
-    case Storage.get_published_version(blog_slug, post_identifier) do
+  defp get_live_version_from_file(group_slug, post_identifier) do
+    case Storage.get_published_version(group_slug, post_identifier) do
       {:ok, version} -> version
       {:error, _} -> nil
     end
@@ -378,12 +378,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   Checks if a specific post allows public access to older versions.
   Always reads from the primary language's live version to ensure consistency.
   """
-  def post_allows_version_access?(blog_slug, post_slug, _language) do
+  def post_allows_version_access?(group_slug, post_slug, _language) do
     # Always read from post's stored primary language to ensure per-post behavior
-    primary_language = Storage.get_post_primary_language(blog_slug, post_slug)
+    primary_language = Storage.get_post_primary_language(group_slug, post_slug)
 
     # Read the live version (version: nil means get latest/live)
-    case Publishing.read_post(blog_slug, post_slug, primary_language, nil) do
+    case Publishing.read_post(group_slug, post_slug, primary_language, nil) do
       {:ok, post} ->
         Map.get(post.metadata, :allow_version_access, false)
 
@@ -400,16 +400,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   @doc """
   Builds URL for a specific version of a post.
   """
-  def build_version_url(blog_slug, post, language, version) do
-    base_url = PublishingHTML.build_post_url(blog_slug, post, language)
+  def build_version_url(group_slug, post, language, version) do
+    base_url = PublishingHTML.build_post_url(group_slug, post, language)
     "#{base_url}/v/#{version}"
   end
 
   @doc """
   Builds a timestamp URL with date and time.
   """
-  def build_timestamp_url(blog_slug, date, time, language) do
-    PublishingHTML.build_public_path_with_time(language, blog_slug, date, time)
+  def build_timestamp_url(group_slug, date, time, language) do
+    PublishingHTML.build_public_path_with_time(language, group_slug, date, time)
   end
 
   # ============================================================================
@@ -419,15 +419,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   @doc """
   Builds breadcrumbs for a post page.
   """
-  def build_breadcrumbs(blog_slug, post, language) do
-    blog_name =
-      case Listing.fetch_blog(blog_slug) do
-        {:ok, blog} -> blog["name"]
-        {:error, _} -> blog_slug
+  def build_breadcrumbs(group_slug, post, language) do
+    group_name =
+      case Listing.fetch_group(group_slug) do
+        {:ok, group} -> group["name"]
+        {:error, _} -> group_slug
       end
 
     [
-      %{label: blog_name, url: PublishingHTML.blog_listing_path(language, blog_slug)},
+      %{label: group_name, url: PublishingHTML.group_listing_path(language, group_slug)},
       %{label: post.metadata.title, url: nil}
     ]
   end
@@ -436,9 +436,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   # Logging
   # ============================================================================
 
-  defp log_404(conn, blog_slug, identifier, language, reason) do
+  defp log_404(conn, group_slug, identifier, language, reason) do
     Logger.info("Publishing 404",
-      blog_slug: blog_slug,
+      group_slug: group_slug,
       identifier: inspect(identifier),
       reason: reason,
       language: language,

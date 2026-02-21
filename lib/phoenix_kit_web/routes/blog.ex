@@ -20,15 +20,15 @@ defmodule PhoenixKitWeb.Routes.BlogRoutes do
       scope blog_scope_multi do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+        get "/:group", PhoenixKit.Modules.Publishing.Web.Controller, :show,
           constraints: %{
-            "blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
+            "group" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
             "language" => ~r/^[a-z]{2}$/
           }
 
-        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+        get "/:group/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
           constraints: %{
-            "blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
+            "group" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
             "language" => ~r/^[a-z]{2}$/
           }
       end
@@ -43,11 +43,11 @@ defmodule PhoenixKitWeb.Routes.BlogRoutes do
       scope blog_scope_non_localized do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
+        get "/:group", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"group" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
 
-        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
+        get "/:group/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"group" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
       end
     end
   end

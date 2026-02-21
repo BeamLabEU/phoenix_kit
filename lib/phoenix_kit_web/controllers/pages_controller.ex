@@ -1,8 +1,8 @@
 defmodule PhoenixKitWeb.PagesController do
   use PhoenixKitWeb, :controller
 
-  alias PhoenixKit.Pages
-  alias PhoenixKit.Pages.Renderer
+  alias PhoenixKit.Modules.Pages
+  alias PhoenixKit.Modules.Pages.SimpleRenderer, as: Renderer
 
   @doc """
   Renders a public page from the pages directory.

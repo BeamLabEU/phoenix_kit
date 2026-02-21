@@ -34,9 +34,9 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
 
   require Logger
 
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
 
   # Batch size for progress updates (broadcast every N posts)
   @progress_batch_size 5
@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
 
           result =
             if post_slug do
-              Storage.update_post_primary_language(group_slug, post_slug, primary_language)
+              Publishing.update_post_primary_language(group_slug, post_slug, primary_language)
             else
               {:error, :no_slug}
             end

@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Utils.Routes
 
   # ============================================================================
   # Language Helpers
@@ -26,26 +27,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     primary_language = post_primary || Storage.get_primary_language()
     is_primary = language_code == primary_language
 
-    # Check if the post needs primary language migration
+    # Check if this post's primary language matches the global setting
+    global_primary = Storage.get_primary_language()
+
     primary_lang_status =
-      case {socket.assigns[:blog_slug], socket.assigns[:post]} do
-        {blog_slug, post} when is_binary(blog_slug) and is_map(post) ->
-          post_dir = get_post_directory(post)
-
-          if post_dir do
-            Publishing.check_primary_language_status(blog_slug, post_dir)
-          else
-            {:ok, :current}
-          end
-
-        _ ->
-          {:ok, :current}
+      cond do
+        post_primary == nil -> {:needs_update, :backfill}
+        post_primary != global_primary -> {:needs_update, :migration}
+        true -> {:ok, :current}
       end
 
     # Get language names for display
-    current_language_name = if lang_info, do: lang_info[:name], else: String.upcase(language_code)
+    current_language_name = if lang_info, do: lang_info.name, else: String.upcase(language_code)
     primary_language_name = get_language_name(primary_language)
-    global_primary = Storage.get_primary_language()
     global_primary_language_name = get_language_name(global_primary)
 
     socket
@@ -105,7 +99,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Builds language data for the publishing_language_switcher component.
   """
-  def build_editor_languages(post, _blog_slug, enabled_languages, current_language) do
+  def build_editor_languages(post, _group_slug, enabled_languages, current_language) do
     post_primary = post[:primary_language] || Storage.get_primary_language()
 
     all_languages =
@@ -138,7 +132,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
         is_current: is_current,
         enabled: is_enabled,
         known: is_known,
-        is_primary: is_primary
+        is_primary: is_primary,
+        uuid: post[:uuid]
       }
     end)
   end
@@ -159,27 +154,27 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   end
 
   defp build_url_for_mode(post, language) do
-    blog_slug = post.group || "blog"
+    group_slug = post.group || "group"
 
     case Map.get(post, :mode) do
-      :slug -> build_slug_mode_url(blog_slug, post, language)
-      :timestamp -> build_timestamp_mode_url(blog_slug, post, language)
+      :slug -> build_slug_mode_url(group_slug, post, language)
+      :timestamp -> build_timestamp_mode_url(group_slug, post, language)
       _ -> nil
     end
   end
 
-  defp build_slug_mode_url(blog_slug, post, language) do
+  defp build_slug_mode_url(group_slug, post, language) do
     if post.slug do
-      PublishingHTML.build_post_url(blog_slug, post, language)
+      PublishingHTML.build_post_url(group_slug, post, language)
     else
       nil
     end
   end
 
-  defp build_timestamp_mode_url(blog_slug, post, language) do
+  defp build_timestamp_mode_url(group_slug, post, language) do
     if post.metadata.published_at do
       case DateTime.from_iso8601(post.metadata.published_at) do
-        {:ok, _datetime, _} -> PublishingHTML.build_post_url(blog_slug, post, language)
+        {:ok, _datetime, _} -> PublishingHTML.build_post_url(group_slug, post, language)
         _ -> nil
       end
     else
@@ -201,9 +196,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Builds a virtual post for new post creation.
   """
-  def build_virtual_post(blog_slug, "slug", primary_language, now) do
+  def build_virtual_post(group_slug, "slug", primary_language, now) do
     %{
-      group: blog_slug,
+      group: group_slug,
       date: nil,
       time: nil,
       path: nil,
@@ -224,7 +219,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     }
   end
 
-  def build_virtual_post(blog_slug, _mode, primary_language, now) do
+  def build_virtual_post(group_slug, _mode, primary_language, now) do
     date = DateTime.to_date(now)
     time = DateTime.to_time(now)
 
@@ -232,12 +227,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
       "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
 
     %{
-      group: blog_slug,
+      group: group_slug,
       date: date,
       time: time,
       path:
         Path.join([
-          blog_slug,
+          group_slug,
           Date.to_iso8601(date),
           time_folder,
           "#{primary_language}.phk"
@@ -260,64 +255,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Builds a virtual translation for a new language.
   """
-  def build_virtual_translation(post, blog_slug, new_language, new_path, socket) do
+  def build_virtual_translation(post, group_slug, new_language, new_path, socket) do
     post
     |> Map.put(:path, new_path)
     |> Map.put(:language, new_language)
-    |> Map.put(:blog, blog_slug || "blog")
+    |> Map.put(:group, group_slug || "group")
     |> Map.put(:content, "")
     |> Map.put(:metadata, Map.put(post.metadata, :title, ""))
     |> Map.put(:mode, post.mode)
     |> Map.put(:slug, post.slug || Map.get(socket.assigns.form, "slug"))
-  end
-
-  # ============================================================================
-  # Post Directory Helpers
-  # ============================================================================
-
-  @doc """
-  Gets post directory path for primary language status check.
-  """
-  def get_post_directory(%{mode: :timestamp, date: date, time: time})
-      when not is_nil(date) and not is_nil(time) do
-    date_str = Date.to_iso8601(date)
-    time_str = format_time_for_path(time)
-    Path.join(date_str, time_str)
-  end
-
-  def get_post_directory(%{slug: slug}) when is_binary(slug) and slug != "", do: slug
-  def get_post_directory(_), do: nil
-
-  defp format_time_for_path(%Time{} = time) do
-    time
-    |> Time.to_string()
-    |> String.slice(0, 5)
-    |> String.replace(":", ":")
-  end
-
-  defp format_time_for_path(time) when is_binary(time), do: String.slice(time, 0, 5)
-  defp format_time_for_path(_), do: nil
-
-  @doc """
-  Gets the base directory for a slug-mode post.
-  """
-  def slug_base_dir(post, blog_slug) do
-    cond do
-      # For versioned posts, use the path to preserve version directory
-      post.path && not Map.get(post, :is_legacy_structure, false) ->
-        Path.dirname(post.path)
-
-      # For legacy slug mode posts without versioning
-      Map.get(post, :mode) == :slug and Map.get(post, :slug) ->
-        Path.join([blog_slug || "blog", post.slug])
-
-      # Fallback to path dirname if available
-      post.path ->
-        Path.dirname(post.path)
-
-      true ->
-        Path.join([blog_slug || "blog", post.slug || ""])
-    end
   end
 
   # ============================================================================
@@ -350,4 +296,90 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   end
 
   def sanitize_featured_image_id(_), do: nil
+
+  # ============================================================================
+  # URL Construction Helpers
+  # ============================================================================
+
+  @doc """
+  Builds the URL for a post overview page.
+
+  Uses UUID-based URL when available, falls back to legacy path URL.
+  """
+  def build_post_url(group_slug, post, _opts \\ []) do
+    case post[:uuid] do
+      nil ->
+        # Fallback to legacy editor URL
+        path = post[:path] || "#{post[:slug]}/v1/#{post[:language] || "en"}.phk"
+        Routes.path("/admin/publishing/#{group_slug}/edit?path=#{URI.encode(path)}")
+
+      uuid ->
+        Routes.path("/admin/publishing/#{group_slug}/#{uuid}")
+    end
+  end
+
+  @doc """
+  Builds the URL for the post editor.
+
+  Uses UUID-based URL when available, falls back to legacy path URL.
+  Options: `:version`, `:lang`
+  """
+  def build_edit_url(group_slug, post, opts \\ []) do
+    case post[:uuid] do
+      nil ->
+        # Fallback to legacy path URL
+        path = post[:path] || "#{post[:slug]}/v1/#{post[:language] || "en"}.phk"
+
+        base = "/admin/publishing/#{group_slug}/edit?path=#{URI.encode(path)}"
+
+        base =
+          if opts[:lang],
+            do: "#{base}&lang=#{opts[:lang]}",
+            else: base
+
+        Routes.path(base)
+
+      uuid ->
+        base = "/admin/publishing/#{group_slug}/#{uuid}/edit"
+        params = build_query_params(opts)
+
+        if params == "" do
+          Routes.path(base)
+        else
+          Routes.path("#{base}?#{params}")
+        end
+    end
+  end
+
+  @doc """
+  Builds the URL for the post preview.
+  """
+  def build_preview_url(group_slug, post, _opts \\ []) do
+    case post[:uuid] do
+      nil ->
+        Routes.path("/admin/publishing/#{group_slug}/preview")
+
+      uuid ->
+        Routes.path("/admin/publishing/#{group_slug}/#{uuid}/preview")
+    end
+  end
+
+  @doc """
+  Builds the URL for creating a new post.
+  """
+  def build_new_post_url(group_slug) do
+    Routes.path("/admin/publishing/#{group_slug}/new")
+  end
+
+  defp build_query_params(opts) do
+    params =
+      []
+      |> maybe_add_param("v", opts[:version])
+      |> maybe_add_param("lang", opts[:lang])
+
+    URI.encode_query(params)
+  end
+
+  defp maybe_add_param(params, _key, nil), do: params
+  defp maybe_add_param(params, key, value), do: [{key, value} | params]
 end

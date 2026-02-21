@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   For existing files, uses the file's own status to avoid confusion between
   what the dropdown shows and what the language switcher shows.
   """
-  def post_form_with_primary_status(blog_slug, post, version) do
+  def post_form_with_primary_status(group_slug, post, version) do
     form = post_form(post)
     primary_language = post[:primary_language] || Storage.get_primary_language()
     original_language = post[:original_language] || post.language
@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       # Use appropriate identifier based on post mode
       post_identifier = get_post_identifier(post)
 
-      case Publishing.read_post(blog_slug, post_identifier, primary_language, version) do
+      case Publishing.read_post(group_slug, post_identifier, primary_language, version) do
         {:ok, primary_post} ->
           primary_status = Map.get(primary_post.metadata, :status, "draft")
           Map.put(form, "status", primary_status)
@@ -279,7 +279,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   end
 
   defp slug_update_applicable?(socket, content) do
-    socket.assigns.blog_mode == "slug" and String.trim(content) != ""
+    socket.assigns.group_mode == "slug" and String.trim(content) != ""
   end
 
   defp maybe_update_primary_slug(socket, content, opts) do
@@ -310,7 +310,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
     title = Metadata.extract_title_from_content(content)
     current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
 
-    case Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil,
+    case Storage.generate_unique_slug(socket.assigns.group_slug, title, nil,
            current_slug: current_slug
          ) do
       {:ok, ""} ->

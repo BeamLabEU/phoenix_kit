@@ -24,32 +24,37 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   Fetches a slug-mode post - iterates from highest version down, returns first published.
   Falls back to primary language or first available if requested language isn't found.
   """
-  def fetch_post(blog_slug, {:slug, post_slug}, language) do
-    case Storage.list_versions(blog_slug, post_slug) do
-      [] ->
-        {:error, :post_not_found}
+  def fetch_post(group_slug, {:slug, post_slug}, language) do
+    if Publishing.db_storage?() do
+      # In DB mode, read directly from database (no filesystem)
+      Publishing.read_post(group_slug, post_slug, language)
+    else
+      case Storage.list_versions(group_slug, post_slug) do
+        [] ->
+          {:error, :post_not_found}
 
-      versions ->
-        find_published_slug_post(blog_slug, post_slug, versions, language)
+        versions ->
+          find_published_slug_post(group_slug, post_slug, versions, language)
+      end
     end
   end
 
-  def fetch_post(blog_slug, {:timestamp, date, time}, language) do
+  def fetch_post(group_slug, {:timestamp, date, time}, language) do
     # Try cache first for fast lookup (sub-microsecond from :persistent_term)
-    case fetch_timestamp_post_from_cache(blog_slug, date, time, language) do
+    case fetch_timestamp_post_from_cache(group_slug, date, time, language) do
       {:ok, _post} = result ->
         result
 
       {:error, _} ->
         # Cache miss - fall back to filesystem scan
-        post_dir = Path.join([Storage.group_path(blog_slug), date, time])
+        post_dir = Path.join([Storage.group_path(group_slug), date, time])
 
         case Storage.detect_post_structure(post_dir) do
           :versioned ->
-            fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir)
+            fetch_versioned_timestamp_post(group_slug, date, time, language, post_dir)
 
           :legacy ->
-            fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir)
+            fetch_legacy_timestamp_post(group_slug, date, time, language, post_dir)
 
           :empty ->
             {:error, :post_not_found}
@@ -61,22 +66,29 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   # Slug Mode Post Fetching
   # ============================================================================
 
-  defp find_published_slug_post(blog_slug, post_slug, versions, language) do
+  defp find_published_slug_post(group_slug, post_slug, versions, language) do
     # Use post's stored primary language for fallback, not global
-    primary_language = Storage.get_post_primary_language(blog_slug, post_slug)
-    post_dir = Path.join([Storage.group_path(blog_slug), post_slug])
+    primary_language = Storage.get_post_primary_language(group_slug, post_slug)
+    post_dir = Path.join([Storage.group_path(group_slug), post_slug])
 
     published_result =
       versions
       |> Enum.sort(:desc)
       |> Enum.find_value(
-        &find_published_version(&1, blog_slug, post_slug, post_dir, language, primary_language)
+        &find_published_version(&1, group_slug, post_slug, post_dir, language, primary_language)
       )
 
     published_result || {:error, :post_not_found}
   end
 
-  defp find_published_version(version, blog_slug, post_slug, post_dir, language, primary_language) do
+  defp find_published_version(
+         version,
+         group_slug,
+         post_slug,
+         post_dir,
+         language,
+         primary_language
+       ) do
     version_dir = Path.join(post_dir, "v#{version}")
     available_languages = detect_available_languages_in_dir(version_dir)
     resolved_language = Language.resolve_language_for_post(language, available_languages)
@@ -86,11 +98,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
       |> Enum.uniq()
       |> Enum.filter(&(&1 in available_languages))
 
-    Enum.find_value(languages_to_try, &try_read_published_post(blog_slug, post_slug, &1, version))
+    Enum.find_value(
+      languages_to_try,
+      &try_read_published_post(group_slug, post_slug, &1, version)
+    )
   end
 
-  defp try_read_published_post(blog_slug, post_slug, lang, version) do
-    case Publishing.read_post(blog_slug, post_slug, lang, version) do
+  defp try_read_published_post(group_slug, post_slug, lang, version) do
+    case Publishing.read_post(group_slug, post_slug, lang, version) do
       {:ok, post} when post.metadata.status == "published" -> {:ok, post}
       _ -> nil
     end
@@ -103,8 +118,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   @doc """
   Fast path: Use cache to get metadata, only read content file.
   """
-  def fetch_timestamp_post_from_cache(blog_slug, date, time, language) do
-    case ListingCache.find_post_by_path(blog_slug, date, time) do
+  def fetch_timestamp_post_from_cache(group_slug, date, time, language) do
+    # In DB mode, skip cache and read directly from DB
+    if Publishing.db_storage?() do
+      identifier = "#{date}/#{time}"
+      Publishing.read_post(group_slug, identifier, language)
+    else
+      fetch_timestamp_post_from_listing_cache(group_slug, date, time, language)
+    end
+  end
+
+  defp fetch_timestamp_post_from_listing_cache(group_slug, date, time, language) do
+    case ListingCache.find_post_by_path(group_slug, date, time) do
       {:ok, cached_post} ->
         # Cache has all metadata, we just need to read the content
         # Find the right language file to read
@@ -181,11 +206,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   Iterates from highest version down, returns first published version found.
   Falls back to primary language or first available if requested language isn't found.
   """
-  def fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir) do
+  def fetch_versioned_timestamp_post(group_slug, date, time, language, post_dir) do
     versions = list_timestamp_versions(post_dir) |> Enum.sort(:desc)
     # Use post's stored primary language for fallback
     post_identifier = Path.join(date, time)
-    primary_language = Storage.get_post_primary_language(blog_slug, post_identifier)
+    primary_language = Storage.get_post_primary_language(group_slug, post_identifier)
 
     # Find first published version, starting from highest
     published_result =
@@ -205,9 +230,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
           |> Enum.filter(&(&1 in available_languages))
 
         Enum.find_value(languages_to_try, fn lang ->
-          path = "#{blog_slug}/#{date}/#{time}/v#{version}/#{lang}.phk"
+          path = "#{group_slug}/#{date}/#{time}/v#{version}/#{lang}.phk"
 
-          case Publishing.read_post(blog_slug, path) do
+          case Publishing.read_post(group_slug, path) do
             {:ok, post} when post.metadata.status == "published" -> {:ok, post}
             _ -> nil
           end
@@ -221,11 +246,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   Fetch a legacy timestamp post (files directly in post directory).
   Falls back to primary language or first available if requested language isn't found.
   """
-  def fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir) do
+  def fetch_legacy_timestamp_post(group_slug, date, time, language, post_dir) do
     available_languages = detect_available_languages_in_dir(post_dir)
     # Use post's stored primary language for fallback
     post_identifier = Path.join(date, time)
-    primary_language = Storage.get_post_primary_language(blog_slug, post_identifier)
+    primary_language = Storage.get_post_primary_language(group_slug, post_identifier)
     resolved_language = Language.resolve_language_for_post(language, available_languages)
 
     # Build priority list of languages to try
@@ -235,10 +260,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
       |> Enum.filter(&(&1 in available_languages))
 
     Enum.find_value(languages_to_try, fn lang ->
-      # Build legacy path: blog/date/time/language.phk
-      path = "#{blog_slug}/#{date}/#{time}/#{lang}.phk"
+      # Build legacy path: group/date/time/language.phk
+      path = "#{group_slug}/#{date}/#{time}/#{lang}.phk"
 
-      case Publishing.read_post(blog_slug, path) do
+      case Publishing.read_post(group_slug, path) do
         {:ok, post} -> {:ok, post}
         _ -> nil
       end
@@ -312,43 +337,50 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   # ============================================================================
 
   @doc """
-  Fetches posts using cache when available, falls back to filesystem scan.
-  On cache miss, regenerates cache synchronously for next request.
+  Fetches posts using cache when available, falls back to direct read.
+
+  In both filesystem and DB modes, tries ListingCache (persistent_term) first
+  for sub-microsecond reads. On cache miss, regenerates from the appropriate
+  source (filesystem scan or DB query).
   """
-  def fetch_posts_with_cache(blog_slug) do
+  def fetch_posts_with_cache(group_slug) do
+    fetch_posts_with_listing_cache(group_slug)
+  end
+
+  defp fetch_posts_with_listing_cache(group_slug) do
     start_time = System.monotonic_time(:microsecond)
 
-    case ListingCache.read(blog_slug) do
+    case ListingCache.read(group_slug) do
       {:ok, posts} ->
         elapsed_us = System.monotonic_time(:microsecond) - start_time
 
         Logger.debug(
-          "[PublishingController] Cache HIT for #{blog_slug} (#{elapsed_us}μs, #{length(posts)} posts)"
+          "[PublishingController] Cache HIT for #{group_slug} (#{elapsed_us}μs, #{length(posts)} posts)"
         )
 
         posts
 
       {:error, :cache_miss} ->
         Logger.warning(
-          "[PublishingController] Cache MISS for #{blog_slug} - regenerating cache synchronously"
+          "[PublishingController] Cache MISS for #{group_slug} - regenerating cache synchronously"
         )
 
         # Cache miss - regenerate cache synchronously to prevent race condition
         # where subsequent requests (e.g., clicking a post) also hit cache miss.
         # Uses lock to prevent thundering herd if multiple requests hit simultaneously.
-        case ListingCache.regenerate_if_not_in_progress(blog_slug) do
+        case ListingCache.regenerate_if_not_in_progress(group_slug) do
           :ok ->
             elapsed_us = System.monotonic_time(:microsecond) - start_time
             elapsed_ms = Float.round(elapsed_us / 1000, 1)
 
             Logger.info(
-              "[PublishingController] Cache regenerated for #{blog_slug} (#{elapsed_ms}ms)"
+              "[PublishingController] Cache regenerated for #{group_slug} (#{elapsed_ms}ms)"
             )
 
             # Read from freshly populated cache
-            case ListingCache.read(blog_slug) do
+            case ListingCache.read(group_slug) do
               {:ok, posts} -> posts
-              {:error, _} -> Publishing.list_posts(blog_slug, nil)
+              {:error, _} -> Publishing.list_posts(group_slug, nil)
             end
 
           :already_in_progress ->
@@ -356,19 +388,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
             elapsed_ms = Float.round(elapsed_us / 1000, 1)
 
             Logger.info(
-              "[PublishingController] Cache regeneration in progress for #{blog_slug}, using filesystem (#{elapsed_ms}ms)"
+              "[PublishingController] Cache regeneration in progress for #{group_slug}, using filesystem (#{elapsed_ms}ms)"
             )
 
             # Another request is regenerating, fall back to filesystem
-            Publishing.list_posts(blog_slug, nil)
+            Publishing.list_posts(group_slug, nil)
 
           {:error, reason} ->
             Logger.error(
-              "[PublishingController] Cache regeneration failed for #{blog_slug}: #{inspect(reason)}"
+              "[PublishingController] Cache regeneration failed for #{group_slug}: #{inspect(reason)}"
             )
 
             # Regeneration failed, fall back to filesystem
-            Publishing.list_posts(blog_slug, nil)
+            Publishing.list_posts(group_slug, nil)
         end
     end
   end
