@@ -98,17 +98,28 @@ Use inline icon buttons (`flex gap-1`, `btn btn-xs btn-ghost` with `title` toolt
 
 Prefer structs when a type exists: `Tab.new/1`, `Badge.new/1`, `ContextSelector`. Exception: plain maps in `config/config.exs` are idiomatic.
 
-### DateTime: Always Use `DateTime.utc_now()`
+### DateTime: Always Use `UtilsDate.utc_now()`
 
-**Always use `:utc_datetime` and `DateTime.utc_now()`.** Never `NaiveDateTime` in new code.
+**Always use `:utc_datetime` schema fields and `UtilsDate.utc_now()` for DB writes.** Never `NaiveDateTime` in new code.
 
 | Context | Use | Never Use |
 |---------|-----|-----------|
 | Schema timestamps | `timestamps(type: :utc_datetime)` | `timestamps()` or `timestamps(type: :naive_datetime)` |
 | Datetime fields | `field :name, :utc_datetime` | `field :name, :naive_datetime` |
-| Application code | `DateTime.utc_now()` | `NaiveDateTime.utc_now()` |
+| DB writes (changesets, update_all) | `UtilsDate.utc_now()` | Bare `DateTime.utc_now()` (has microseconds, will crash) |
+| Non-DB (assigns, logs, queries) | `DateTime.utc_now()` is fine | `NaiveDateTime.utc_now()` |
 
-Existing `:utc_datetime_usec` schemas are fine. See `dev_docs/2026-02-15-datetime-inconsistency-report.md` for rationale.
+```elixir
+alias PhoenixKit.Utils.Date, as: UtilsDate
+
+# Changesets
+put_change(changeset, :updated_at, UtilsDate.utc_now())
+
+# Bulk updates
+Repo.update_all(query, set: [updated_at: UtilsDate.utc_now()])
+```
+
+**Why:** `:utc_datetime` fields reject microseconds. `DateTime.utc_now()` returns microsecond precision. `UtilsDate.utc_now()` truncates to seconds automatically. See `dev_docs/2026-02-17-datetime-standardization-plan.md` for full context.
 
 ### URL Prefix and Navigation (IMPORTANT)
 
