@@ -63,7 +63,9 @@ defmodule PhoenixKit.Modules.AI.Prompt do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Slug
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   # Regex for extracting variable names from content
@@ -146,7 +148,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
   def usage_changeset(prompt) do
     change(prompt,
       usage_count: (prompt.usage_count || 0) + 1,
-      last_used_at: DateTime.utc_now()
+      last_used_at: UtilsDate.utc_now()
     )
   end
 

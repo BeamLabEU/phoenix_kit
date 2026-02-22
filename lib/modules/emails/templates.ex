@@ -30,6 +30,7 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
   import Ecto.Query, warn: false
   alias PhoenixKit.Modules.Emails.Template
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -480,7 +481,7 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     template
     |> Template.usage_changeset(%{
       usage_count: template.usage_count + 1,
-      last_used_at: DateTime.truncate(DateTime.utc_now(), :second)
+      last_used_at: UtilsDate.utc_now()
     })
     |> repo().update()
   end

@@ -55,6 +55,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
   alias PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -202,7 +203,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     grace_days =
       Settings.get_setting("billing_subscription_grace_days", "3") |> String.to_integer()
 
-    grace_period_end = DateTime.add(DateTime.utc_now(), grace_days, :day)
+    grace_period_end = DateTime.add(UtilsDate.utc_now(), grace_days, :day)
 
     Logger.warning(
       "Subscription #{subscription.id} renewal failed: #{error_message}. Grace period until #{grace_period_end}"

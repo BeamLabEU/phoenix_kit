@@ -22,6 +22,8 @@ defmodule PhoenixKit.Users.RoleAssignment do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           id: integer() | nil,
@@ -99,7 +101,7 @@ defmodule PhoenixKit.Users.RoleAssignment do
         put_change(
           changeset,
           :assigned_at,
-          DateTime.truncate(DateTime.utc_now(), :second)
+          UtilsDate.utc_now()
         )
 
       _ ->

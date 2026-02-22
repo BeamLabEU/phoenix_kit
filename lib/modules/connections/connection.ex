@@ -53,6 +53,8 @@ defmodule PhoenixKit.Modules.Connections.Connection do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @statuses ["pending", "accepted", "rejected"]
@@ -167,7 +169,7 @@ defmodule PhoenixKit.Modules.Connections.Connection do
       put_change(
         changeset,
         :requested_at,
-        DateTime.utc_now()
+        UtilsDate.utc_now()
       )
     end
   end
@@ -179,7 +181,7 @@ defmodule PhoenixKit.Modules.Connections.Connection do
       put_change(
         changeset,
         :responded_at,
-        DateTime.utc_now()
+        UtilsDate.utc_now()
       )
     else
       changeset

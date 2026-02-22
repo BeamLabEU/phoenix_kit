@@ -25,6 +25,8 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
@@ -84,7 +86,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
     scheduled_job
     |> change(%{
       status: "executed",
-      executed_at: DateTime.truncate(DateTime.utc_now(), :second)
+      executed_at: UtilsDate.utc_now()
     })
   end
 

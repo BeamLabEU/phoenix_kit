@@ -25,6 +25,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
   """
 
   alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -299,7 +300,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
       # Update post status and published_at
       DBStorage.update_post(db_post, %{
         status: "published",
-        published_at: db_post.published_at || DateTime.utc_now()
+        published_at: db_post.published_at || UtilsDate.utc_now()
       })
     end)
   end

@@ -24,6 +24,8 @@ defmodule PhoenixKit.Modules.Storage do
   import Ecto.Query, warn: false
   require Logger
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.FileInstance
@@ -235,7 +237,7 @@ defmodule PhoenixKit.Modules.Storage do
       repo().delete_all(Dimension)
 
       # Insert default dimensions
-      now = DateTime.utc_now()
+      now = UtilsDate.utc_now()
 
       default_dimensions = [
         # Image dimensions

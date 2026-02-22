@@ -64,6 +64,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
   @derive {Jason.Encoder, except: [:__meta__, :email_log]}
 
   alias PhoenixKit.Modules.Emails.Log
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
@@ -759,7 +760,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
   # Set occurred_at if not provided
   defp maybe_set_occurred_at(changeset) do
     case get_field(changeset, :occurred_at) do
-      nil -> put_change(changeset, :occurred_at, DateTime.truncate(DateTime.utc_now(), :second))
+      nil -> put_change(changeset, :occurred_at, UtilsDate.utc_now())
       _ -> changeset
     end
   end

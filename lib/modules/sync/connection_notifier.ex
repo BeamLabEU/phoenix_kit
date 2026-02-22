@@ -33,6 +33,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Modules.Sync.Connections
   alias PhoenixKit.Modules.Sync.Transfers
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @default_timeout 30_000
   @connect_timeout 10_000
@@ -539,7 +540,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       remote_site_url: site_url,
       conflict_strategy: conflict_strategy,
       status: "in_progress",
-      started_at: DateTime.utc_now()
+      started_at: UtilsDate.utc_now()
     })
   end
 

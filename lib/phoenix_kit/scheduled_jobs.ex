@@ -40,6 +40,7 @@ defmodule PhoenixKit.ScheduledJobs do
 
   alias PhoenixKit.Config
   alias PhoenixKit.ScheduledJobs.ScheduledJob
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Get the configured repo
   defp repo, do: Config.get_repo()
@@ -130,9 +131,7 @@ defmodule PhoenixKit.ScheduledJobs do
       where: j.resource_id == ^resource_id,
       where: j.status == "pending"
     )
-    |> repo().update_all(
-      set: [status: "cancelled", updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-    )
+    |> repo().update_all(set: [status: "cancelled", updated_at: UtilsDate.utc_now()])
   end
 
   @doc """

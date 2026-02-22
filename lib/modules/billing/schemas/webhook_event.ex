@@ -25,6 +25,8 @@ defmodule PhoenixKit.Modules.Billing.WebhookEvent do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_webhook_events" do
@@ -69,7 +71,7 @@ defmodule PhoenixKit.Modules.Billing.WebhookEvent do
     event
     |> change(%{
       processed: true,
-      processed_at: DateTime.utc_now(),
+      processed_at: UtilsDate.utc_now(),
       error_message: nil
     })
   end

@@ -83,6 +83,7 @@ defmodule PhoenixKit.Modules.Billing.Order do
   alias PhoenixKit.Modules.Billing.BillingProfile
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(draft pending confirmed paid cancelled refunded)
@@ -215,13 +216,13 @@ defmodule PhoenixKit.Modules.Billing.Order do
 
     case new_status do
       "confirmed" ->
-        put_change(changeset, :confirmed_at, DateTime.truncate(DateTime.utc_now(), :second))
+        put_change(changeset, :confirmed_at, UtilsDate.utc_now())
 
       "paid" ->
-        put_change(changeset, :paid_at, DateTime.truncate(DateTime.utc_now(), :second))
+        put_change(changeset, :paid_at, UtilsDate.utc_now())
 
       "cancelled" ->
-        put_change(changeset, :cancelled_at, DateTime.truncate(DateTime.utc_now(), :second))
+        put_change(changeset, :cancelled_at, UtilsDate.utc_now())
 
       _ ->
         changeset

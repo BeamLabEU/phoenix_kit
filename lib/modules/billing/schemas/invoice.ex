@@ -61,6 +61,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   alias PhoenixKit.Modules.Billing.Order
   alias PhoenixKit.Modules.Billing.Transaction
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(draft sent paid void overdue)
@@ -161,9 +162,9 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
       |> validate_status_transition(invoice.status, new_status)
 
     case new_status do
-      "sent" -> put_change(changeset, :sent_at, DateTime.truncate(DateTime.utc_now(), :second))
-      "paid" -> put_change(changeset, :paid_at, DateTime.truncate(DateTime.utc_now(), :second))
-      "void" -> put_change(changeset, :voided_at, DateTime.truncate(DateTime.utc_now(), :second))
+      "sent" -> put_change(changeset, :sent_at, UtilsDate.utc_now())
+      "paid" -> put_change(changeset, :paid_at, UtilsDate.utc_now())
+      "void" -> put_change(changeset, :voided_at, UtilsDate.utc_now())
       _ -> changeset
     end
   end
@@ -172,7 +173,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   Changeset for marking invoice as paid and generating receipt.
   """
   def paid_changeset(invoice, receipt_number) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     invoice
     |> change(%{

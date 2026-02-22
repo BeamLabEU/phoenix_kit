@@ -46,6 +46,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionPlan}
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -160,7 +161,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
     subscription
     |> Ecto.Changeset.change(%{
       renewal_attempts: subscription.renewal_attempts + 1,
-      last_renewal_attempt_at: DateTime.utc_now()
+      last_renewal_attempt_at: UtilsDate.utc_now()
     })
     |> RepoHelper.repo().update()
   end

@@ -58,6 +58,7 @@ defmodule PhoenixKit.Modules.Comments do
   alias PhoenixKit.Modules.Comments.CommentLike
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ============================================================================
@@ -304,9 +305,7 @@ defmodule PhoenixKit.Modules.Comments do
   def bulk_update_status(comment_ids, status)
       when is_list(comment_ids) and status in ["published", "hidden", "deleted", "pending"] do
     from(c in Comment, where: c.uuid in ^comment_ids)
-    |> repo().update_all(
-      set: [status: status, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-    )
+    |> repo().update_all(set: [status: status, updated_at: UtilsDate.utc_now()])
   end
 
   @doc """

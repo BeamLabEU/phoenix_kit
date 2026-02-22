@@ -63,6 +63,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
 
   alias PhoenixKit.Modules.Sync.Connection
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   @type t :: %__MODULE__{}
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
@@ -176,7 +177,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     transfer
     |> change(%{
       status: "in_progress",
-      started_at: DateTime.utc_now()
+      started_at: UtilsDate.utc_now()
     })
   end
 
@@ -216,7 +217,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     ])
     |> change(%{
       status: "completed",
-      completed_at: DateTime.utc_now()
+      completed_at: UtilsDate.utc_now()
     })
   end
 
@@ -228,7 +229,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     |> change(%{
       status: "failed",
       error_message: error_message,
-      completed_at: DateTime.utc_now()
+      completed_at: UtilsDate.utc_now()
     })
   end
 
@@ -239,7 +240,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     transfer
     |> change(%{
       status: "cancelled",
-      completed_at: DateTime.utc_now()
+      completed_at: UtilsDate.utc_now()
     })
   end
 
@@ -247,7 +248,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
   Changeset for requesting approval.
   """
   def request_approval_changeset(transfer, expires_in_hours \\ 24) do
-    expires_at = DateTime.utc_now() |> DateTime.add(expires_in_hours * 3600, :second)
+    expires_at = UtilsDate.utc_now() |> DateTime.add(expires_in_hours * 3600, :second)
 
     transfer
     |> change(%{
@@ -264,7 +265,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     transfer
     |> change(%{
       status: "approved",
-      approved_at: DateTime.utc_now(),
+      approved_at: UtilsDate.utc_now(),
       approved_by: admin_user_id,
       approved_by_uuid: resolve_user_uuid(admin_user_id)
     })
@@ -277,7 +278,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     transfer
     |> change(%{
       status: "denied",
-      denied_at: DateTime.utc_now(),
+      denied_at: UtilsDate.utc_now(),
       denied_by: admin_user_id,
       denied_by_uuid: resolve_user_uuid(admin_user_id),
       denial_reason: reason

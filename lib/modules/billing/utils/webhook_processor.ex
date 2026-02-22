@@ -26,6 +26,7 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
 
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -265,8 +266,8 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
       payload: event.raw_payload || %{},
       processed: false,
       retry_count: 0,
-      inserted_at: DateTime.utc_now(),
-      updated_at: DateTime.utc_now()
+      inserted_at: UtilsDate.utc_now(),
+      updated_at: UtilsDate.utc_now()
     }
 
     case repo.insert_all("phoenix_kit_webhook_events", [attrs], returning: [:id]) do
@@ -299,9 +300,9 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
     repo.update_all(query,
       set: [
         processed: processed,
-        processed_at: DateTime.utc_now(),
+        processed_at: UtilsDate.utc_now(),
         error_message: error_message,
-        updated_at: DateTime.utc_now()
+        updated_at: UtilsDate.utc_now()
       ]
     )
 
