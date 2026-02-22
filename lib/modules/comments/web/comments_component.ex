@@ -58,7 +58,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
       |> assign_new(:title, fn -> "Comments" end)
 
     socket =
-      if changed?(assigns, :resource_id) or socket.assigns.comments == [] do
+      if changed?(socket, :resource_id) or socket.assigns.comments == [] do
         load_comments(socket)
       else
         socket
