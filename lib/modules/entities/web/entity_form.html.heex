@@ -92,8 +92,7 @@
                   <button
                     type="button"
                     role="tab"
-                    phx-click="switch_language"
-                    phx-value-lang={tab.code}
+                    phx-click={switch_lang_js(tab.code)}
                     title={tab.name}
                     class={[
                       "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
@@ -115,8 +114,7 @@
                     <button
                       type="button"
                       role="tab"
-                      phx-click="switch_language"
-                      phx-value-lang={tab.code}
+                      phx-click={switch_lang_js(tab.code)}
                       class={[
                         "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all font-medium cursor-pointer",
                         @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
@@ -133,8 +131,7 @@
                     <button
                       type="button"
                       role="tab"
-                      phx-click="switch_language"
-                      phx-value-lang={tab.code}
+                      phx-click={switch_lang_js(tab.code)}
                       class={[
                         "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
                         @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
@@ -151,142 +148,182 @@
             </div>
           <% end %>
 
+          <%!-- Skeleton placeholders (shown instantly on tab click).
+               IMPORTANT: IDs MUST include @current_lang so morphdom treats them as new
+               elements on language switch. Static IDs would preserve JS-modified classes
+               across LiveView patches, causing skeletons to stick. --%>
+          <div
+            id={"translatable-skeletons-#{@current_lang}"}
+            data-translatable="skeletons"
+            class="hidden space-y-6"
+            aria-busy="true"
+            aria-label={gettext("Loading language content")}
+          >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <div class="skeleton h-4 w-36"></div>
+                <div class="skeleton h-12 w-full"></div>
+                <div class="skeleton h-3 w-48"></div>
+              </div>
+              <div class="space-y-2">
+                <div class="skeleton h-4 w-36"></div>
+                <div class="skeleton h-12 w-full"></div>
+                <div class="skeleton h-3 w-48"></div>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <div class="skeleton h-4 w-24"></div>
+              <div class="skeleton h-12 w-full"></div>
+              <div class="skeleton h-3 w-56"></div>
+            </div>
+            <div class="space-y-2">
+              <div class="skeleton h-4 w-40"></div>
+              <div class="skeleton h-24 w-full"></div>
+            </div>
+          </div>
+
           <%!-- Translatable fields --%>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <%!-- Entity Name (Singular) --%>
+          <div
+            id={"translatable-fields-#{@current_lang}"}
+            data-translatable="fields"
+            class="space-y-6"
+          >
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <%!-- Entity Name (Singular) --%>
+              <div>
+                <.label for="entity_display_name">
+                  {gettext("Entity Name (Singular)")}{unless is_secondary, do: " *"}
+                </.label>
+                <%= if is_secondary do %>
+                  <input
+                    id={"entity_display_name_#{@current_lang}"}
+                    type="text"
+                    name={"entities[translations][#{@current_lang}][display_name]"}
+                    value={lang_translations["display_name"]}
+                    placeholder={f[:display_name].value || gettext("Brand")}
+                    class="input input-bordered w-full"
+                    phx-debounce="300"
+                    disabled={@readonly?}
+                  />
+                <% else %>
+                  <.input
+                    field={f[:display_name]}
+                    type="text"
+                    placeholder={gettext("Brand")}
+                    phx-debounce="300"
+                    disabled={@readonly?}
+                  />
+                <% end %>
+                <.label class="label">
+                  <span class="label-text-alt">
+                    {gettext("Singular form (e.g., \"Brand\")")}
+                  </span>
+                </.label>
+              </div>
+
+              <%!-- Entity Name (Plural) --%>
+              <div>
+                <.label for="entity_display_name_plural">
+                  {gettext("Entity Name (Plural)")}{unless is_secondary, do: " *"}
+                </.label>
+                <%= if is_secondary do %>
+                  <input
+                    id={"entity_display_name_plural_#{@current_lang}"}
+                    type="text"
+                    name={"entities[translations][#{@current_lang}][display_name_plural]"}
+                    value={lang_translations["display_name_plural"]}
+                    placeholder={f[:display_name_plural].value || gettext("Brands")}
+                    class="input input-bordered w-full"
+                    phx-debounce="300"
+                    disabled={@readonly?}
+                  />
+                <% else %>
+                  <.input
+                    field={f[:display_name_plural]}
+                    type="text"
+                    placeholder={gettext("Brands")}
+                    phx-debounce="300"
+                    disabled={@readonly?}
+                  />
+                <% end %>
+                <.label class="label">
+                  <span class="label-text-alt">
+                    {gettext("Plural form (e.g., \"Brands\")")}
+                  </span>
+                </.label>
+              </div>
+            </div>
+
+            <%!-- Slug (translatable) --%>
             <div>
-              <.label for="entity_display_name">
-                {gettext("Entity Name (Singular)")}{unless is_secondary, do: " *"}
+              <.label for="entity_name">
+                {gettext("Slug")}{unless is_secondary, do: " *"}
+                <%= unless is_secondary do %>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs ml-2"
+                    phx-click="generate_entity_slug"
+                    title={gettext("Generate from Entity Name")}
+                    disabled={@readonly?}
+                  >
+                    <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                  </button>
+                <% end %>
               </.label>
               <%= if is_secondary do %>
                 <input
-                  id={"entity_display_name_#{@current_lang}"}
+                  id={"entity_name_#{@current_lang}"}
                   type="text"
-                  name={"entities[translations][#{@current_lang}][display_name]"}
-                  value={lang_translations["display_name"]}
-                  placeholder={f[:display_name].value || gettext("Brand")}
+                  name={"entities[translations][#{@current_lang}][name]"}
+                  value={lang_translations["name"]}
+                  placeholder={f[:name].value || gettext("brand")}
                   class="input input-bordered w-full"
                   phx-debounce="300"
                   disabled={@readonly?}
                 />
               <% else %>
                 <.input
-                  field={f[:display_name]}
+                  field={f[:name]}
                   type="text"
-                  placeholder={gettext("Brand")}
+                  placeholder={gettext("brand")}
                   phx-debounce="300"
                   disabled={@readonly?}
                 />
               <% end %>
               <.label class="label">
                 <span class="label-text-alt">
-                  {gettext("Singular form (e.g., \"Brand\")")}
+                  {gettext("snake_case identifier used in the system")}
                 </span>
               </.label>
             </div>
 
-            <%!-- Entity Name (Plural) --%>
+            <%!-- Description (translatable) --%>
             <div>
-              <.label for="entity_display_name_plural">
-                {gettext("Entity Name (Plural)")}{unless is_secondary, do: " *"}
-              </.label>
+              <.label for="entity_description">{gettext("Description (Optional)")}</.label>
               <%= if is_secondary do %>
-                <input
-                  id={"entity_display_name_plural_#{@current_lang}"}
-                  type="text"
-                  name={"entities[translations][#{@current_lang}][display_name_plural]"}
-                  value={lang_translations["display_name_plural"]}
-                  placeholder={f[:display_name_plural].value || gettext("Brands")}
-                  class="input input-bordered w-full"
+                <textarea
+                  id={"entity_description_#{@current_lang}"}
+                  name={"entities[translations][#{@current_lang}][description]"}
+                  placeholder={
+                    f[:description].value || gettext("Describe what this entity represents...")
+                  }
+                  class="textarea textarea-bordered w-full"
+                  rows="3"
                   phx-debounce="300"
                   disabled={@readonly?}
-                />
+                >{lang_translations["description"]}</textarea>
               <% else %>
-                <.input
-                  field={f[:display_name_plural]}
-                  type="text"
-                  placeholder={gettext("Brands")}
+                <textarea
+                  id="entity_description"
+                  name={f[:description].name}
+                  placeholder={gettext("Describe what this entity represents...")}
+                  class="textarea textarea-bordered w-full"
+                  rows="3"
                   phx-debounce="300"
                   disabled={@readonly?}
-                />
+                >{f[:description].value}</textarea>
               <% end %>
-              <.label class="label">
-                <span class="label-text-alt">
-                  {gettext("Plural form (e.g., \"Brands\")")}
-                </span>
-              </.label>
             </div>
-          </div>
-
-          <%!-- Slug (translatable) --%>
-          <div>
-            <.label for="entity_name">
-              {gettext("Slug")}{unless is_secondary, do: " *"}
-              <%= unless is_secondary do %>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-xs ml-2"
-                  phx-click="generate_entity_slug"
-                  title={gettext("Generate from Entity Name")}
-                  disabled={@readonly?}
-                >
-                  <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
-                </button>
-              <% end %>
-            </.label>
-            <%= if is_secondary do %>
-              <input
-                id={"entity_name_#{@current_lang}"}
-                type="text"
-                name={"entities[translations][#{@current_lang}][name]"}
-                value={lang_translations["name"]}
-                placeholder={f[:name].value || gettext("brand")}
-                class="input input-bordered w-full"
-                phx-debounce="300"
-                disabled={@readonly?}
-              />
-            <% else %>
-              <.input
-                field={f[:name]}
-                type="text"
-                placeholder={gettext("brand")}
-                phx-debounce="300"
-                disabled={@readonly?}
-              />
-            <% end %>
-            <.label class="label">
-              <span class="label-text-alt">
-                {gettext("snake_case identifier used in the system")}
-              </span>
-            </.label>
-          </div>
-
-          <%!-- Description (translatable) --%>
-          <div>
-            <.label for="entity_description">{gettext("Description (Optional)")}</.label>
-            <%= if is_secondary do %>
-              <textarea
-                id={"entity_description_#{@current_lang}"}
-                name={"entities[translations][#{@current_lang}][description]"}
-                placeholder={
-                  f[:description].value || gettext("Describe what this entity represents...")
-                }
-                class="textarea textarea-bordered w-full"
-                rows="3"
-                phx-debounce="300"
-                disabled={@readonly?}
-              >{lang_translations["description"]}</textarea>
-            <% else %>
-              <textarea
-                id="entity_description"
-                name={f[:description].name}
-                placeholder={gettext("Describe what this entity represents...")}
-                class="textarea textarea-bordered w-full"
-                rows="3"
-                phx-debounce="300"
-                disabled={@readonly?}
-              >{f[:description].value}</textarea>
-            <% end %>
           </div>
         </div>
       </div>
