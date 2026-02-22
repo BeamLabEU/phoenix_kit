@@ -68,6 +68,9 @@ defmodule PhoenixKit.Migrations.Postgres.V15 do
       add :created_by_user_id, :integer, null: true
       # FK to users who last updated the template
       add :updated_by_user_id, :integer, null: true
+      # UUID FK to users who created/updated the template (UUIDv7 migration)
+      add :created_by_user_uuid, :uuid, null: true
+      add :updated_by_user_uuid, :uuid, null: true
 
       # Timestamps for tracking record creation/update
       timestamps(type: :utc_datetime_usec)

@@ -455,12 +455,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Down uses `USING col AT TIME ZONE 'UTC'` for safe revert to `timestamp(0)`
   - Fully idempotent: checks table/column existence and current type before altering
 
-  ### V59 - Publishing Module Database Tables ⚡ LATEST
+  ### V59 - Publishing Module Database Tables
   - Creates 4 core publishing tables: groups, posts, versions, contents
   - JSONB `data` column on every table for extensibility without future migrations
   - UUID v7 primary keys, dual-write user FKs, timestamptz timestamps
   - One content row per language (mirrors filesystem one-file-per-language model)
   - Seeds `publishing_storage` setting (default: "filesystem")
+
+  ### V60 - Email Templates UUID FK Columns ⚡ LATEST
+  - Adds `created_by_user_uuid` and `updated_by_user_uuid` columns to phoenix_kit_email_templates
+  - Fixes schema/migration mismatch where Template schema referenced UUID columns never created
+  - Idempotent: checks column existence before adding (safe for fresh installs where V15 now includes them)
+  - Resolves fresh install crash at V30 caused by V15 seed query failing on missing columns
 
   ## Migration Paths
 
@@ -520,7 +526,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 59
+  @current_version 60
   @default_prefix "public"
 
   @doc false
