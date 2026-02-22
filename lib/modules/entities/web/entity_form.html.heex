@@ -43,6 +43,16 @@
       phx-submit="save"
       class="space-y-8"
     >
+      <div class="flex justify-end">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          disabled={!@changeset.valid? or @readonly?}
+        >
+          {if @entity.id, do: gettext("Update Entity"), else: gettext("Create Entity")}
+        </button>
+      </div>
+
       <%!-- Entity Metadata Section --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
