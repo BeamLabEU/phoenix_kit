@@ -81,12 +81,13 @@
             <% compact = length(@language_tabs) > 5 %>
             <div
               role="tablist"
-              class="flex flex-wrap items-center gap-1 bg-base-200 rounded-box p-1 mb-4"
+              class="inline-flex flex-wrap items-center bg-base-200 rounded-box mb-4"
+              style="gap: 4px; padding: 4px;"
             >
               <%= if compact do %>
                 <%= for {tab, idx} <- Enum.with_index(@language_tabs) do %>
                   <%= if idx > 0 do %>
-                    <span class="text-base-content/30">|</span>
+                    <span class="text-base-content/30 text-xs">|</span>
                   <% end %>
                   <button
                     type="button"
@@ -95,8 +96,8 @@
                     phx-value-lang={tab.code}
                     title={tab.name}
                     class={[
-                      "tab gap-1 transition-all",
-                      @current_lang == tab.code && "tab-active"
+                      "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
+                      @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
                     ]}
                   >
                     <%= if tab.flag do %>
@@ -117,8 +118,8 @@
                       phx-click="switch_language"
                       phx-value-lang={tab.code}
                       class={[
-                        "tab gap-1.5 transition-all font-medium",
-                        @current_lang == tab.code && "tab-active"
+                        "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all font-medium cursor-pointer",
+                        @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
                       ]}
                     >
                       <%= if tab.flag do %>
@@ -127,7 +128,7 @@
                       <span>{tab.name}</span>
                       <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
                     </button>
-                    <div class="divider divider-horizontal mx-0.5 h-6 self-center"></div>
+                    <span class="w-px h-4 bg-base-content/20 self-center"></span>
                   <% else %>
                     <button
                       type="button"
@@ -135,8 +136,8 @@
                       phx-click="switch_language"
                       phx-value-lang={tab.code}
                       class={[
-                        "tab gap-1.5 transition-all",
-                        @current_lang == tab.code && "tab-active"
+                        "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
+                        @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
                       ]}
                     >
                       <%= if tab.flag do %>
