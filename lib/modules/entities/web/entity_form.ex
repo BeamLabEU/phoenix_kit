@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   require Logger
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.FieldTypes
@@ -17,7 +18,6 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Modules.Entities.Presence
   alias PhoenixKit.Modules.Entities.PresenceHelpers
-  alias Phoenix.LiveView.JS
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.HeroIcons
   alias PhoenixKit.Utils.Routes
