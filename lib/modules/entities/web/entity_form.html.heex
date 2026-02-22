@@ -69,6 +69,15 @@
 
           <%!-- Language tabs --%>
           <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
+            <div class="alert alert-info py-2 text-xs mb-4">
+              <.icon name="hero-information-circle" class="w-4 h-4" />
+              <span>
+                {gettext(
+                  "Use the language tabs below to translate this entity's name, plural name, and description. The primary language (marked with a star) is required. Other languages are optional — any empty fields will fall back to the primary language value."
+                )}
+              </span>
+            </div>
+
             <% compact = length(@language_tabs) > 5 %>
             <div
               role="tablist"
@@ -139,15 +148,6 @@
                 <% end %>
               <% end %>
             </div>
-
-            <%= if is_secondary do %>
-              <div class="alert alert-info py-2 text-xs mb-4">
-                <.icon name="hero-information-circle" class="w-4 h-4" />
-                <span>
-                  {gettext("Fields left empty will use the primary language value.")}
-                </span>
-              </div>
-            <% end %>
           <% end %>
 
           <%!-- Translatable fields --%>
