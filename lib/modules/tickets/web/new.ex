@@ -101,20 +101,26 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     # Merge the determined user_id into params
     params = Map.put(params, "user_id", user_id)
 
-    case Tickets.create_ticket(user_id, params) do
-      {:ok, ticket} ->
-        # Attach pending files to the newly created ticket
-        Enum.each(pending_file_ids, fn file_id ->
-          Tickets.add_attachment_to_ticket(ticket.uuid, file_id)
-        end)
+    try do
+      case Tickets.create_ticket(user_id, params) do
+        {:ok, ticket} ->
+          # Attach pending files to the newly created ticket
+          Enum.each(pending_file_ids, fn file_id ->
+            Tickets.add_attachment_to_ticket(ticket.uuid, file_id)
+          end)
 
-        {:noreply,
-         socket
-         |> put_flash(:info, gettext("Ticket created successfully"))
-         |> push_navigate(to: Routes.path("/admin/tickets/#{ticket.uuid}"))}
+          {:noreply,
+           socket
+           |> put_flash(:info, gettext("Ticket created successfully"))
+           |> push_navigate(to: Routes.path("/admin/tickets/#{ticket.uuid}"))}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset))}
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply, assign(socket, :form, to_form(changeset))}
+      end
+    rescue
+      e ->
+        Logger.error("Ticket save failed: #{Exception.message(e)}")
+        {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
     end
   end
 

@@ -66,38 +66,47 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
     changeset = build_changeset(settings_params, :save)
 
     if changeset.valid? do
-      case save_settings(settings_params) do
-        :ok ->
-          # Refresh settings and stats
-          new_settings = %{
-            entities_enabled: Entities.enabled?(),
-            auto_generate_slugs: Settings.get_setting("entities_auto_generate_slugs", "true"),
-            default_status: Settings.get_setting("entities_default_status", "draft"),
-            require_approval: Settings.get_setting("entities_require_approval", "false"),
-            max_entities_per_user: Settings.get_setting("entities_max_per_user", "100"),
-            data_retention_days: Settings.get_setting("entities_data_retention_days", "365"),
-            enable_revisions: Settings.get_setting("entities_enable_revisions", "false"),
-            enable_comments: Settings.get_setting("entities_enable_comments", "false")
-          }
+      try do
+        case save_settings(settings_params) do
+          :ok ->
+            # Refresh settings and stats
+            new_settings = %{
+              entities_enabled: Entities.enabled?(),
+              auto_generate_slugs: Settings.get_setting("entities_auto_generate_slugs", "true"),
+              default_status: Settings.get_setting("entities_default_status", "draft"),
+              require_approval: Settings.get_setting("entities_require_approval", "false"),
+              max_entities_per_user: Settings.get_setting("entities_max_per_user", "100"),
+              data_retention_days: Settings.get_setting("entities_data_retention_days", "365"),
+              enable_revisions: Settings.get_setting("entities_enable_revisions", "false"),
+              enable_comments: Settings.get_setting("entities_enable_comments", "false")
+            }
 
-          socket =
-            socket
-            |> assign(:settings, new_settings)
-            |> assign(:changeset, build_changeset(new_settings))
-            |> assign(:entities_stats, get_entities_stats())
-            |> put_flash(:info, gettext("Entities settings saved successfully"))
+            socket =
+              socket
+              |> assign(:settings, new_settings)
+              |> assign(:changeset, build_changeset(new_settings))
+              |> assign(:entities_stats, get_entities_stats())
+              |> put_flash(:info, gettext("Entities settings saved successfully"))
 
-          {:noreply, socket}
+            {:noreply, socket}
 
-        {:error, reason} ->
-          socket =
-            put_flash(
-              socket,
-              :error,
-              gettext("Failed to save settings: %{reason}", reason: reason)
-            )
+          {:error, reason} ->
+            socket =
+              put_flash(
+                socket,
+                :error,
+                gettext("Failed to save settings: %{reason}", reason: reason)
+              )
 
-          {:noreply, socket}
+            {:noreply, socket}
+        end
+      rescue
+        e ->
+          require Logger
+          Logger.error("Entities settings save failed: #{Exception.message(e)}")
+
+          {:noreply,
+           put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
       end
     else
       {:noreply, assign(socket, :changeset, changeset)}

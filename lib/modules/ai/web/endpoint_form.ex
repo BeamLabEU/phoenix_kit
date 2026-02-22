@@ -469,17 +469,24 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
         AI.create_endpoint(params)
       end
 
-    case result do
-      {:ok, _endpoint} ->
-        action = if socket.assigns.endpoint, do: "updated", else: "created"
+    try do
+      case result do
+        {:ok, _endpoint} ->
+          action = if socket.assigns.endpoint, do: "updated", else: "created"
 
-        {:noreply,
-         socket
-         |> put_flash(:info, "Endpoint #{action} successfully")
-         |> push_navigate(to: Routes.ai_path())}
+          {:noreply,
+           socket
+           |> put_flash(:info, "Endpoint #{action} successfully")
+           |> push_navigate(to: Routes.ai_path())}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset))}
+        {:error, changeset} ->
+          {:noreply, assign(socket, :form, to_form(changeset))}
+      end
+    rescue
+      e ->
+        require Logger
+        Logger.error("Endpoint save failed: #{Exception.message(e)}")
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
     end
   end
 

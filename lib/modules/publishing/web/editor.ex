@@ -670,7 +670,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     is_new = socket.assigns[:is_new_post] || socket.assigns[:is_new_translation]
 
     if is_new do
-      Persistence.perform_save(socket)
+      try do
+        Persistence.perform_save(socket)
+      rescue
+        e ->
+          Logger.error("Editor save failed: #{Exception.message(e)}")
+
+          {:noreply,
+           put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
+      end
     else
       {:noreply, socket}
     end
@@ -682,6 +690,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_event("save", _params, socket) do
     Persistence.perform_save(socket)
+  rescue
+    e ->
+      Logger.error("Editor save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
