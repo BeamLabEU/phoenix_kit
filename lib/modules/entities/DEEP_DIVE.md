@@ -579,17 +579,19 @@ Media fields (`image`, `file`) and relation fields render "Coming Soon" placehol
 **Features:**
 
 - List all entities with status badges (Draft/Published/Archived)
-- System statistics cards (Total Entities, Active Entities, Data Records)
+- Table and card view toggle (card view auto-selected on small screens)
 - Create new entity button
 - Edit entity button for each entity
 - View data button to browse entity records
-- Delete entity with confirmation (cascades to all data)
+- Archive/restore entity actions
 - Empty state with helpful onboarding message
 
 **LiveView Events:**
 
 ```elixir
-handle_event("delete_entity", %{"id" => id}, socket)
+handle_event("toggle_view_mode", %{"mode" => mode}, socket)
+handle_event("archive_entity", %{"uuid" => uuid}, socket)
+handle_event("restore_entity", %{"uuid" => uuid}, socket)
 ```
 
 ### 2. Entity Form (Create/Edit)

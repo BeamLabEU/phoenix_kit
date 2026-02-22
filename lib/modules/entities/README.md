@@ -6,7 +6,7 @@ layer; the business logic lives in the `PhoenixKit.Modules.Entities` context.
 
 ## LiveViews & Components
 
-- `entities.ex` / `.html.heex` – Main dashboard listing entities, their status, and health.
+- `entities.ex` / `.html.heex` – Main dashboard listing entities with table/card views (card view auto-selected on small screens).
 - `entity_form.ex` / `.html.heex` – Schema builder for creating and editing entity definitions (with presence locking).
 - `entities_settings.ex` / `.html.heex` – Module settings (enable/disable system, defaults).
 - `data_navigator.ex` / `.html.heex` – Explorer for entity records with filtering, search, and status management.
