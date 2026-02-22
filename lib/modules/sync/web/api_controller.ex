@@ -25,6 +25,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Modules.Sync.Connections
   alias PhoenixKit.Modules.Sync.Transfers
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
   Registers an incoming connection from a remote site.
@@ -376,7 +377,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       tables = get_syncable_tables()
 
       # Update last_connected_at
-      Connections.update_connection(connection, %{last_connected_at: DateTime.utc_now()})
+      Connections.update_connection(connection, %{last_connected_at: UtilsDate.utc_now()})
 
       conn
       |> put_status(200)
@@ -431,7 +432,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       record_count = length(data)
 
       Connections.update_connection(connection, %{
-        last_transfer_at: DateTime.utc_now(),
+        last_transfer_at: UtilsDate.utc_now(),
         downloads_used: (connection.downloads_used || 0) + 1,
         records_downloaded: (connection.records_downloaded || 0) + record_count,
         total_transfers: (connection.total_transfers || 0) + 1,
@@ -447,8 +448,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
         remote_site_url: connection.site_url,
         conflict_strategy: validated.conflict_strategy,
         status: "completed",
-        started_at: DateTime.utc_now(),
-        completed_at: DateTime.utc_now(),
+        started_at: UtilsDate.utc_now(),
+        completed_at: UtilsDate.utc_now(),
         records_transferred: record_count
       })
 

@@ -251,8 +251,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     source_lang_info = Storage.get_language_info(source_language)
     target_lang_info = Storage.get_language_info(target_language)
 
-    source_lang_name = source_lang_info[:name] || source_language
-    target_lang_name = target_lang_info[:name] || target_language
+    source_lang_name = if source_lang_info, do: source_lang_info.name, else: source_language
+    target_lang_name = if target_lang_info, do: target_lang_info.name, else: target_language
 
     Logger.info(
       "[TranslatePostWorker] Translating to #{target_language} (#{target_lang_name})..."
@@ -802,8 +802,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     source_lang_info = Storage.get_language_info(source_language)
     target_lang_info = Storage.get_language_info(target_language)
 
-    source_lang_name = source_lang_info[:name] || source_language
-    target_lang_name = target_lang_info[:name] || target_language
+    source_lang_name = if source_lang_info, do: source_lang_info.name, else: source_language
+    target_lang_name = if target_lang_info, do: target_lang_info.name, else: target_language
 
     source_title = extract_title(source_post)
     source_content = source_post.content || ""

@@ -11,6 +11,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
 
   alias PhoenixKit.Dashboard.{Group, Registry, Tab}
   alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Publishing.DBStorage, as: PublishingDBStorage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
 
@@ -917,16 +918,11 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         Settings.get_boolean_setting("blogging_enabled", false)
 
     if publishing_enabled do
-      json =
-        Settings.get_json_setting_cached("publishing_groups", nil) ||
-          Settings.get_json_setting_cached("blogging_blogs", nil)
-
-      case json do
-        %{"publishing_groups" => groups} when is_list(groups) -> normalize_groups(groups)
-        %{"blogs" => blogs} when is_list(blogs) -> normalize_groups(blogs)
-        list when is_list(list) -> normalize_groups(list)
-        _ -> []
-      end
+      # Read from DB tables — subtabs only appear after groups are migrated
+      PublishingDBStorage.list_groups()
+      |> Enum.map(fn g ->
+        %{"name" => g.name, "slug" => g.slug, "mode" => g.mode, "position" => g.position}
+      end)
     else
       []
     end
@@ -934,11 +930,6 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
     error ->
       Logger.warning("[AdminTabs] load_publishing_groups/0 failed: #{Exception.message(error)}")
       []
-  end
-
-  @spec normalize_groups([map()]) :: [map()]
-  defp normalize_groups(groups) do
-    Enum.map(groups, &Map.new(&1, fn {k, v} -> {to_string(k), v} end))
   end
 
   # --- Cache helpers ---

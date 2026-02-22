@@ -7,7 +7,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.ListingCache
+  alias PhoenixKit.Modules.Publishing.DBImporter
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Workers.MigrateLegacyStructureWorker
@@ -32,7 +33,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
         }
       )
 
-    {blogs, insights, summary} =
+    {groups, insights, summary} =
       dashboard_snapshot(
         socket.assigns.current_locale_base,
         socket.assigns[:phoenix_kit_current_user],
@@ -41,12 +42,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
     # Subscribe to PubSub for live updates when connected
     if connected?(socket) do
-      # Subscribe to all blogs' post updates
-      Enum.each(blogs, fn blog ->
-        PublishingPubSub.subscribe_to_posts(blog["slug"])
+      # Subscribe to all groups' post updates
+      Enum.each(groups, fn group ->
+        PublishingPubSub.subscribe_to_posts(group["slug"])
       end)
 
-      # Subscribe to global blogs topic (for blog creation/deletion)
+      # Subscribe to global groups topic (for group creation/deletion)
       PublishingPubSub.subscribe_to_groups()
     end
 
@@ -58,10 +59,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
         :current_path,
         Routes.path("/admin/publishing")
       )
-      |> assign(:blogs, blogs)
+      |> assign(:groups, groups)
       |> assign(:dashboard_insights, insights)
       |> assign(:dashboard_summary, summary)
-      |> assign(:empty_state?, blogs == [])
+      |> assign(:empty_state?, groups == [])
+      |> assign(:fs_group_count, length(Publishing.list_groups()))
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:endpoint_url, nil)
       |> assign(:date_time_settings, date_time_settings)
@@ -83,7 +85,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
   @impl true
   def handle_params(_params, uri, socket) do
-    {blogs, insights, summary} =
+    {groups, insights, summary} =
       dashboard_snapshot(
         socket.assigns.current_locale_base,
         socket.assigns[:phoenix_kit_current_user],
@@ -94,10 +96,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
     {:noreply,
      assign(socket,
-       blogs: blogs,
+       groups: groups,
        dashboard_insights: insights,
        dashboard_summary: summary,
-       empty_state?: blogs == [],
+       empty_state?: groups == [],
        endpoint_url: endpoint_url
      )}
   end
@@ -118,6 +120,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
   def handle_info({:group_updated, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
 
+  # DB import/migration handlers (broadcast on groups_topic)
+  def handle_info({:db_import_started, _group_slug, _source}, socket), do: {:noreply, socket}
+
+  def handle_info({:db_import_completed, _group_slug, _stats, _source}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
+  def handle_info({:db_migration_started, _total_groups}, socket), do: {:noreply, socket}
+
+  def handle_info({:db_migration_group_progress, _group_slug, _migrated, _total}, socket),
+    do: {:noreply, socket}
+
+  def handle_info({:db_migration_completed, _stats}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
+  def handle_info({:migration_validation_completed, _results}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
   # Primary language migration progress handlers
   def handle_info({:primary_language_migration_started, _group_slug, _total_count}, socket) do
     # Already tracked in migrations_in_progress when job was enqueued
@@ -125,7 +144,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   def handle_info({:primary_language_migration_progress, group_slug, current, total}, socket) do
-    # Update progress for the specific blog
+    # Update progress for the specific group
     migrations =
       if Map.has_key?(socket.assigns.migrations_in_progress, group_slug) do
         put_in(
@@ -188,7 +207,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   def handle_info({:legacy_structure_migration_progress, group_slug, current, total}, socket) do
-    # Update progress for the specific blog
+    # Update progress for the specific group
     migrations =
       if Map.has_key?(socket.assigns.version_migrations_in_progress, group_slug) do
         put_in(
@@ -241,16 +260,61 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   @impl true
+  def handle_event("import_all_to_db", _params, socket) do
+    case DBImporter.import_all_groups() do
+      {:ok, stats} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(
+           :info,
+           gettext(
+             "Migrated %{groups} groups, %{posts} posts, %{versions} versions, %{contents} contents to database",
+             groups: stats.groups,
+             posts: stats.posts,
+             versions: stats.versions,
+             contents: stats.contents
+           )
+         )}
+    end
+  end
+
+  def handle_event("import_to_db", %{"slug" => slug}, socket) do
+    case DBImporter.import_group(slug) do
+      {:ok, stats} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(
+           :info,
+           gettext(
+             "Migrated %{posts} posts, %{versions} versions, %{contents} contents to database",
+             posts: stats.posts,
+             versions: stats.versions,
+             contents: stats.contents
+           )
+         )}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Migration failed: %{reason}", reason: inspect(reason))
+         )}
+    end
+  end
+
   def handle_event(
         "show_migration_modal",
-        %{"slug" => blog_slug, "name" => blog_name, "count" => count},
+        %{"slug" => group_slug, "name" => group_name, "count" => count},
         socket
       ) do
     {:noreply,
      socket
      |> assign(:show_migration_modal, true)
-     |> assign(:migration_modal_slug, blog_slug)
-     |> assign(:migration_modal_name, blog_name)
+     |> assign(:migration_modal_slug, group_slug)
+     |> assign(:migration_modal_name, group_name)
      |> assign(:migration_modal_count, String.to_integer(count))}
   end
 
@@ -266,14 +330,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   # Version migration modal events
   def handle_event(
         "show_version_migration_modal",
-        %{"slug" => blog_slug, "name" => blog_name, "count" => count},
+        %{"slug" => group_slug, "name" => group_name, "count" => count},
         socket
       ) do
     {:noreply,
      socket
      |> assign(:show_version_migration_modal, true)
-     |> assign(:version_migration_modal_slug, blog_slug)
-     |> assign(:version_migration_modal_name, blog_name)
+     |> assign(:version_migration_modal_slug, group_slug)
+     |> assign(:version_migration_modal_name, group_name)
      |> assign(:version_migration_modal_count, String.to_integer(count))}
   end
 
@@ -287,18 +351,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   def handle_event("confirm_migrate_to_versioned", _params, socket) do
-    blog_slug = socket.assigns.version_migration_modal_slug
+    group_slug = socket.assigns.version_migration_modal_slug
     total_count = socket.assigns.version_migration_modal_count
 
     # Use background job for large migrations
     if total_count > @migration_async_threshold do
-      # Subscribe to this blog's posts for progress updates
-      PublishingPubSub.subscribe_to_posts(blog_slug)
+      # Subscribe to this group's posts for progress updates
+      PublishingPubSub.subscribe_to_posts(group_slug)
 
-      case MigrateLegacyStructureWorker.enqueue(blog_slug) do
+      case MigrateLegacyStructureWorker.enqueue(group_slug) do
         {:ok, _job} ->
           migrations =
-            Map.put(socket.assigns.version_migrations_in_progress, blog_slug, %{
+            Map.put(socket.assigns.version_migrations_in_progress, group_slug, %{
               current: 0,
               total: total_count
             })
@@ -328,46 +392,36 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       end
     else
       # Synchronous migration for small counts
-      case Publishing.migrate_posts_to_versioned_structure(blog_slug) do
-        {:ok, count} ->
-          {:noreply,
-           socket
-           |> assign(:show_version_migration_modal, false)
-           |> assign(:version_migration_modal_slug, nil)
-           |> assign(:version_migration_modal_name, nil)
-           |> assign(:version_migration_modal_count, 0)
-           |> refresh_dashboard()
-           |> put_flash(
-             :info,
-             gettext("Migrated %{count} posts to versioned structure", count: count)
-           )}
+      {:ok, count} = Publishing.migrate_posts_to_versioned_structure(group_slug)
 
-        {:error, reason} ->
-          {:noreply,
-           socket
-           |> assign(:show_version_migration_modal, false)
-           |> put_flash(
-             :error,
-             gettext("Failed to migrate: %{reason}", reason: inspect(reason))
-           )}
-      end
+      {:noreply,
+       socket
+       |> assign(:show_version_migration_modal, false)
+       |> assign(:version_migration_modal_slug, nil)
+       |> assign(:version_migration_modal_name, nil)
+       |> assign(:version_migration_modal_count, 0)
+       |> refresh_dashboard()
+       |> put_flash(
+         :info,
+         gettext("Migrated %{count} posts to versioned structure", count: count)
+       )}
     end
   end
 
   def handle_event("confirm_migrate_primary_language", _params, socket) do
-    blog_slug = socket.assigns.migration_modal_slug
+    group_slug = socket.assigns.migration_modal_slug
     primary_language = Storage.get_primary_language()
     total_count = socket.assigns.migration_modal_count
 
     # Use background job for large migrations
     if total_count > @migration_async_threshold do
-      # Subscribe to this blog's posts for progress updates
-      PublishingPubSub.subscribe_to_posts(blog_slug)
+      # Subscribe to this group's posts for progress updates
+      PublishingPubSub.subscribe_to_posts(group_slug)
 
-      case MigratePrimaryLanguageWorker.enqueue(blog_slug, primary_language) do
+      case MigratePrimaryLanguageWorker.enqueue(group_slug, primary_language) do
         {:ok, _job} ->
           migrations =
-            Map.put(socket.assigns.migrations_in_progress, blog_slug, %{
+            Map.put(socket.assigns.migrations_in_progress, group_slug, %{
               current: 0,
               total: total_count
             })
@@ -396,33 +450,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
            )}
       end
     else
-      # Synchronous migration for small counts
-      case Publishing.migrate_posts_to_current_primary_language(blog_slug) do
-        {:ok, count} ->
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> assign(:migration_modal_slug, nil)
-           |> assign(:migration_modal_name, nil)
-           |> assign(:migration_modal_count, 0)
-           |> refresh_dashboard()
-           |> put_flash(
-             :info,
-             gettext("Updated %{count} posts to primary language: %{lang}",
-               count: count,
-               lang: get_language_name(primary_language)
-             )
-           )}
+      # Synchronous migration — update DB records directly
+      {:ok, count} = DBStorage.migrate_primary_language(group_slug, primary_language)
 
-        {:error, reason} ->
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> put_flash(
-             :error,
-             gettext("Failed to migrate: %{reason}", reason: inspect(reason))
-           )}
-      end
+      {:noreply,
+       socket
+       |> assign(:show_migration_modal, false)
+       |> assign(:migration_modal_slug, nil)
+       |> assign(:migration_modal_name, nil)
+       |> assign(:migration_modal_count, 0)
+       |> refresh_dashboard()
+       |> put_flash(
+         :info,
+         gettext("Updated %{count} posts to primary language: %{lang}",
+           count: count,
+           lang: get_language_name(primary_language)
+         )
+       )}
     end
   end
 
@@ -434,61 +478,74 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   defp refresh_dashboard(socket) do
-    {blogs, insights, summary} =
+    {groups, insights, summary} =
       dashboard_snapshot(
         socket.assigns.current_locale_base,
         socket.assigns[:phoenix_kit_current_user],
         socket.assigns.date_time_settings
       )
 
-    # Resubscribe to any new blogs that may have been created
-    Enum.each(blogs, fn blog ->
-      PublishingPubSub.subscribe_to_posts(blog["slug"])
+    # Resubscribe to any new groups that may have been created
+    Enum.each(groups, fn group ->
+      PublishingPubSub.subscribe_to_posts(group["slug"])
     end)
 
     assign(socket,
-      blogs: blogs,
+      groups: groups,
       dashboard_insights: insights,
       dashboard_summary: summary,
-      empty_state?: blogs == []
+      empty_state?: groups == []
     )
   end
 
-  defp dashboard_snapshot(locale, current_user, date_time_settings) do
-    blogs = Publishing.list_groups()
-    insights = Enum.map(blogs, &build_blog_insight(&1, locale, current_user, date_time_settings))
-    summary = build_summary(blogs, insights)
+  defp dashboard_snapshot(_locale, current_user, date_time_settings) do
+    # Admin side reads from database only — groups appear after import
+    db_groups = DBStorage.list_groups()
 
-    {blogs, insights, summary}
+    groups =
+      Enum.map(db_groups, fn g ->
+        %{
+          "name" => g.name,
+          "slug" => g.slug,
+          "mode" => g.mode,
+          "position" => g.position
+        }
+      end)
+
+    insights =
+      Enum.map(db_groups, &build_group_insight(&1, current_user, date_time_settings))
+
+    summary = build_summary(groups, insights)
+
+    {groups, insights, summary}
   end
 
-  defp build_blog_insight(blog, locale, current_user, date_time_settings) do
-    blog_slug = blog["slug"]
-    posts = Publishing.list_posts(blog_slug, locale)
-    status_counts = Enum.frequencies_by(posts, &Map.get(&1.metadata, :status, "draft"))
+  defp build_group_insight(db_group, current_user, date_time_settings) do
+    posts = DBStorage.list_posts_with_metadata(db_group.slug)
+    status_counts = Enum.frequencies_by(posts, &Map.get(&1[:metadata] || %{}, :status, "draft"))
 
     languages =
       posts
-      |> Enum.flat_map(&(&1.available_languages || []))
+      |> Enum.flat_map(&(&1[:available_languages] || []))
       |> Enum.uniq()
       |> Enum.sort()
 
     latest_published_at = find_latest_published_at(posts)
+    fs_post_count = length(Publishing.list_posts(db_group.slug))
 
-    # Get primary language migration status
-    primary_language_status = ListingCache.count_primary_language_status(blog_slug)
+    # Check DB records for primary language issues
+    global_primary = Storage.get_primary_language()
+    primary_lang_status = DBStorage.count_primary_language_status(db_group.slug, global_primary)
 
-    needs_migration =
-      primary_language_status.needs_backfill + primary_language_status.needs_migration
-
-    # Get legacy structure (version) migration status
-    legacy_structure_status = ListingCache.count_legacy_structure_status(blog_slug)
+    lang_migration_count =
+      primary_lang_status.needs_backfill + primary_lang_status.needs_migration
 
     %{
-      name: blog["name"],
-      slug: blog_slug,
-      mode: Map.get(blog, "mode", "timestamp"),
+      name: db_group.name,
+      slug: db_group.slug,
+      mode: db_group.mode,
       posts_count: length(posts),
+      needs_import: fs_post_count > 0 and posts == [],
       published_count: Map.get(status_counts, "published", 0),
       draft_count: Map.get(status_counts, "draft", 0),
       archived_count: Map.get(status_counts, "archived", 0),
@@ -496,19 +553,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       last_published_at: latest_published_at,
       last_published_at_text:
         format_datetime(latest_published_at, current_user, date_time_settings),
-      primary_language_status: primary_language_status,
-      needs_primary_language_migration: needs_migration > 0,
-      needs_migration_count: needs_migration,
-      # Version structure migration fields
-      legacy_structure_status: legacy_structure_status,
-      needs_version_migration: legacy_structure_status.legacy > 0,
-      legacy_count: legacy_structure_status.legacy
+      primary_language_status: primary_lang_status,
+      needs_primary_language_migration: lang_migration_count > 0,
+      needs_migration_count: lang_migration_count,
+      # Legacy structure is a filesystem concern — not relevant for DB records
+      legacy_structure_status: %{legacy: 0, versioned: 0},
+      needs_version_migration: false,
+      legacy_count: 0
     }
   end
 
   defp find_latest_published_at(posts) do
     posts
-    |> Enum.map(&Map.get(&1.metadata, :published_at))
+    |> Enum.map(&get_in(&1, [:metadata, :published_at]))
     |> Enum.reduce(nil, &update_latest_datetime/2)
   end
 
@@ -525,11 +582,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     if DateTime.compare(datetime, current) == :gt, do: datetime, else: current
   end
 
-  defp build_summary(blogs, insights) do
+  defp build_summary(groups, insights) do
     Enum.reduce(
       insights,
       %{
-        total_blogs: length(blogs),
+        total_groups: length(groups),
         total_posts: 0,
         published_posts: 0,
         draft_posts: 0,

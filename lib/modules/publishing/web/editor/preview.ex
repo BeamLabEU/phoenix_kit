@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     }
 
     %{
-      blog_slug: socket.assigns.blog_slug,
+      group_slug: socket.assigns.group_slug,
       path: post.path,
       mode: Map.get(post, :mode) || Map.get(post, "mode") || infer_mode(socket),
       language: socket.assigns.current_language,
@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   end
 
   defp infer_mode(socket) do
-    case socket.assigns[:blog_mode] do
+    case socket.assigns[:group_mode] do
       "slug" -> :slug
       :slug -> :slug
       _ -> :timestamp
@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   Builds the editor path for preview mode.
   """
   def preview_editor_path(socket, data, token, params) do
-    blog_slug = data[:blog_slug] || socket.assigns.blog_slug
+    group_slug = data[:group_slug] || socket.assigns.group_slug
 
     query_params =
       %{}
@@ -161,7 +161,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
         encoded -> "?" <> encoded
       end
 
-    Routes.path("/admin/publishing/#{blog_slug}/edit#{query}")
+    Routes.path("/admin/publishing/#{group_slug}/edit#{query}")
   end
 
   # ============================================================================
@@ -172,21 +172,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   Applies preview payload data to the socket.
   """
   def apply_preview_payload(socket, data) do
-    blog_slug = data[:blog_slug] || socket.assigns.blog_slug
+    group_slug = data[:group_slug] || socket.assigns.group_slug
     mode = data[:mode] || :timestamp
     language = data[:language] || socket.assigns.current_language || "en"
     metadata = normalize_preview_metadata(data[:metadata] || %{}, mode)
 
-    post = build_preview_post(data, blog_slug, mode, language, metadata)
-    {post, disk_post} = enrich_from_disk(post, blog_slug)
+    post = build_preview_post(data, group_slug, mode, language, metadata)
+    {post, disk_post} = enrich_from_disk(post, group_slug)
     form = build_preview_form(metadata, mode, disk_post)
 
-    apply_preview_assigns(socket, post, form, blog_slug, mode, data, disk_post)
+    apply_preview_assigns(socket, post, form, group_slug, mode, data, disk_post)
   end
 
-  defp build_preview_post(data, blog_slug, mode, language, metadata) do
+  defp build_preview_post(data, group_slug, mode, language, metadata) do
     {date, time} = derive_datetime_fields(mode, metadata[:published_at])
-    path = data[:path] || derive_preview_path(blog_slug, metadata[:slug], language, mode)
+    path = data[:path] || derive_preview_path(group_slug, metadata[:slug], language, mode)
     full_path = if path, do: Storage.absolute_path(path), else: nil
     available_languages = data[:available_languages] || []
 
@@ -194,7 +194,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       [language | available_languages] |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
     %{
-      group: blog_slug,
+      group: group_slug,
       slug: metadata[:slug],
       date: date,
       time: time,
@@ -244,7 +244,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     )
   end
 
-  defp apply_preview_assigns(socket, post, form, blog_slug, mode, data, disk_post) do
+  defp apply_preview_assigns(socket, post, form, group_slug, mode, data, disk_post) do
     language = post.language
 
     has_changes =
@@ -265,8 +265,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       end
 
     socket
-    |> Phoenix.Component.assign(:blog_mode, mode_to_string(mode))
-    |> Phoenix.Component.assign(:blog_slug, blog_slug)
+    |> Phoenix.Component.assign(:group_mode, mode_to_string(mode))
+    |> Phoenix.Component.assign(:group_slug, group_slug)
     |> Phoenix.Component.assign(:post, post)
     |> Forms.assign_form_with_tracking(form, slug_manually_set: false)
     |> Phoenix.Component.assign(:content, data[:content] || "")
@@ -276,7 +276,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     |> Phoenix.Component.assign(:has_pending_changes, has_changes)
     |> Phoenix.Component.assign(:is_new_post, data[:is_new_post] || false)
     |> Phoenix.Component.assign(:public_url, Helpers.build_public_url(post, language))
-    |> Phoenix.Component.assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
+    |> Phoenix.Component.assign(:group_name, Publishing.group_name(group_slug) || group_slug)
     |> Phoenix.Component.assign(:current_version, Map.get(post, :version))
     |> Phoenix.Component.assign(:available_versions, Map.get(post, :available_versions, []))
     |> Phoenix.Component.assign(:version_statuses, Map.get(post, :version_statuses, %{}))
@@ -286,9 +286,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     |> Phoenix.Component.assign(:saved_status, saved_status)
   end
 
-  defp enrich_from_disk(post, blog_slug) do
+  defp enrich_from_disk(post, group_slug) do
     if post.path do
-      case Publishing.read_post(blog_slug, post.path) do
+      case Publishing.read_post(group_slug, post.path) do
         {:ok, disk_post} ->
           # Merge disk metadata as base, with preview metadata on top.
           # This preserves non-form fields (description, created_at, version_created_at,
@@ -373,11 +373,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
   defp derive_datetime_fields(_, _), do: {nil, nil}
 
-  defp derive_preview_path(_blog_slug, _slug, _language, :timestamp), do: nil
+  defp derive_preview_path(_group_slug, _slug, _language, :timestamp), do: nil
 
-  defp derive_preview_path(blog_slug, slug, language, :slug)
+  defp derive_preview_path(group_slug, slug, language, :slug)
        when is_binary(slug) and slug != "" do
-    Path.join([blog_slug, slug, "#{language}.phk"])
+    Path.join([group_slug, slug, "#{language}.phk"])
   end
 
   defp derive_preview_path(_, _, _, _), do: nil

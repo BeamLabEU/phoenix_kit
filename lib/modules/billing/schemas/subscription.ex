@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
 
   alias PhoenixKit.Modules.Billing.{BillingProfile, PaymentMethod, SubscriptionPlan}
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @statuses ~w(trialing active past_due paused cancelled)
 
@@ -155,7 +156,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       status: "past_due",
       grace_period_end: grace_period_end,
       renewal_attempts: subscription.renewal_attempts + 1,
-      last_renewal_attempt_at: DateTime.utc_now()
+      last_renewal_attempt_at: UtilsDate.utc_now()
     })
   end
 
@@ -183,7 +184,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       subscription
       |> change(%{
         status: "cancelled",
-        cancelled_at: DateTime.utc_now()
+        cancelled_at: UtilsDate.utc_now()
       })
     else
       subscription
@@ -200,7 +201,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
     subscription
     |> change(%{
       status: "trialing",
-      trial_start: DateTime.utc_now(),
+      trial_start: UtilsDate.utc_now(),
       trial_end: trial_end
     })
   end

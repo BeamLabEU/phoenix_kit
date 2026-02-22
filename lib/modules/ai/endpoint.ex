@@ -63,6 +63,8 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_providers ~w(openrouter)
 
@@ -200,7 +202,7 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
   Creates a changeset for updating the last_validated_at timestamp.
   """
   def validation_changeset(endpoint) do
-    change(endpoint, last_validated_at: DateTime.utc_now())
+    change(endpoint, last_validated_at: UtilsDate.utc_now())
   end
 
   @doc """

@@ -64,6 +64,7 @@ defmodule PhoenixKit.Modules.Posts do
   alias PhoenixKit.ScheduledJobs
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ============================================================================
@@ -416,7 +417,7 @@ defmodule PhoenixKit.Modules.Posts do
   def publish_post(%Post{} = post) do
     update_post(post, %{
       status: "public",
-      published_at: DateTime.utc_now()
+      published_at: UtilsDate.utc_now()
     })
   end
 

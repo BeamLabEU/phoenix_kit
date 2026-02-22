@@ -34,6 +34,8 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   import Ecto.Changeset
   import Ecto.Query
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   alias PhoenixKit.Modules.Referrals
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
@@ -217,7 +219,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   # Private helper to set date_used on new records
   defp maybe_set_date_used(changeset) do
     if changeset.data.__meta__.state == :built do
-      put_change(changeset, :date_used, DateTime.truncate(DateTime.utc_now(), :second))
+      put_change(changeset, :date_used, UtilsDate.utc_now())
     else
       changeset
     end

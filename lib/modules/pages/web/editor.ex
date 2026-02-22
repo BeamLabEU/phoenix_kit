@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
+defmodule PhoenixKit.Modules.Pages.Web.Editor do
   @moduledoc """
   Full-screen editor for Pages files.
 
@@ -7,9 +7,9 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Pages
-  alias PhoenixKit.Pages.FileOperations
-  alias PhoenixKit.Pages.Metadata
+  alias PhoenixKit.Modules.Pages
+  alias PhoenixKit.Modules.Pages.FileOperations
+  alias PhoenixKit.Modules.Pages.HtmlMetadata
   alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
@@ -44,7 +44,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
       {:ok, content} ->
         # Extract current status from metadata
         current_status =
-          case Metadata.parse(content) do
+          case HtmlMetadata.parse(content) do
             {:ok, metadata, _stripped} -> metadata.status
             {:error, :no_metadata} -> "draft"
           end
@@ -102,21 +102,28 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
     # Update metadata's updated_at timestamp
     updated_content = update_metadata_timestamp(content)
 
-    case FileOperations.write_file(file_path, updated_content) do
-      :ok ->
-        socket =
-          socket
-          |> assign(:original_content, updated_content)
-          |> assign(:file_content, updated_content)
-          |> assign(:has_changes, false)
-          |> put_flash(:info, "File saved: #{Path.basename(file_path)}")
+    try do
+      case FileOperations.write_file(file_path, updated_content) do
+        :ok ->
+          socket =
+            socket
+            |> assign(:original_content, updated_content)
+            |> assign(:file_content, updated_content)
+            |> assign(:has_changes, false)
+            |> put_flash(:info, "File saved: #{Path.basename(file_path)}")
 
-        # Notify JavaScript hook that changes have been saved
-        {:noreply, push_event(socket, "changes-status", %{has_changes: false})}
+          # Notify JavaScript hook that changes have been saved
+          {:noreply, push_event(socket, "changes-status", %{has_changes: false})}
 
-      {:error, _reason} ->
-        socket = put_flash(socket, :error, "Failed to save file")
-        {:noreply, socket}
+        {:error, _reason} ->
+          socket = put_flash(socket, :error, "Failed to save file")
+          {:noreply, socket}
+      end
+    rescue
+      e ->
+        require Logger
+        Logger.error("Page editor save failed: #{Exception.message(e)}")
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
     end
   end
 
@@ -167,11 +174,11 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
   ## Private Helpers
 
   defp update_metadata_timestamp(content) do
-    case Metadata.parse(content) do
+    case HtmlMetadata.parse(content) do
       {:ok, metadata, _stripped_content} ->
         # Update the updated_at timestamp
         updated_metadata = Map.put(metadata, :updated_at, DateTime.utc_now())
-        Metadata.update_metadata(content, updated_metadata)
+        HtmlMetadata.update_metadata(content, updated_metadata)
 
       {:error, :no_metadata} ->
         # No metadata, return content as-is
@@ -180,7 +187,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
   end
 
   defp update_metadata_status(content, new_status) do
-    case Metadata.parse(content) do
+    case HtmlMetadata.parse(content) do
       {:ok, metadata, _stripped_content} ->
         # Update both status and updated_at timestamp
         updated_metadata =
@@ -188,17 +195,17 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
           |> Map.put(:status, new_status)
           |> Map.put(:updated_at, DateTime.utc_now())
 
-        Metadata.update_metadata(content, updated_metadata)
+        HtmlMetadata.update_metadata(content, updated_metadata)
 
       {:error, :no_metadata} ->
         # No metadata exists, create new metadata with the status
         metadata =
-          Metadata.default_metadata()
+          HtmlMetadata.default_metadata()
           |> Map.put(:status, new_status)
           |> Map.put(:updated_at, DateTime.utc_now())
 
         # Prepend metadata to content
-        Metadata.serialize(metadata) <> "\n\n" <> content
+        HtmlMetadata.serialize(metadata) <> "\n\n" <> content
     end
   end
 end

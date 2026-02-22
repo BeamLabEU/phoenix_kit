@@ -81,14 +81,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
           PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
 
           # Unsubscribe from old post's translation and version topics
-          blog_slug = socket.assigns[:blog_slug]
+          group_slug = socket.assigns[:group_slug]
 
-          if blog_slug && old_post_slug do
-            PublishingPubSub.unsubscribe_from_post_translations(blog_slug, old_post_slug)
-            PublishingPubSub.unsubscribe_from_post_versions(blog_slug, old_post_slug)
+          if group_slug && old_post_slug do
+            PublishingPubSub.unsubscribe_from_post_translations(group_slug, old_post_slug)
+            PublishingPubSub.unsubscribe_from_post_versions(group_slug, old_post_slug)
           end
 
-          # Broadcast editor left for the old post to update blog dashboard
+          # Broadcast editor left for the old post to update group dashboard
           broadcast_editor_left_for_post(socket, old_post_slug)
         end
 
@@ -132,14 +132,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
       PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
 
       # Unsubscribe from old post's translation and version topics using the OLD slug
-      blog_slug = socket.assigns[:blog_slug]
+      group_slug = socket.assigns[:group_slug]
 
-      if blog_slug && old_post_slug do
-        PublishingPubSub.unsubscribe_from_post_translations(blog_slug, old_post_slug)
-        PublishingPubSub.unsubscribe_from_post_versions(blog_slug, old_post_slug)
+      if group_slug && old_post_slug do
+        PublishingPubSub.unsubscribe_from_post_translations(group_slug, old_post_slug)
+        PublishingPubSub.unsubscribe_from_post_versions(group_slug, old_post_slug)
       end
 
-      # Broadcast editor left to blog listing for the OLD post
+      # Broadcast editor left to group listing for the OLD post
       broadcast_editor_left_for_post(socket, old_post_slug)
     end
   end
@@ -148,11 +148,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   Broadcast editor left for a specific post slug (used when we've already switched posts).
   """
   def broadcast_editor_left_for_post(socket, post_slug) do
-    blog_slug = socket.assigns[:blog_slug]
+    group_slug = socket.assigns[:group_slug]
 
-    if blog_slug && post_slug do
+    if group_slug && post_slug do
       user_info = build_user_info(socket, nil)
-      PublishingPubSub.broadcast_editor_left(blog_slug, post_slug, user_info)
+      PublishingPubSub.broadcast_editor_left(group_slug, post_slug, user_info)
     end
   end
 
@@ -160,12 +160,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   Unsubscribe from current post's topics (used in terminate when LiveView closes).
   """
   def unsubscribe_from_old_post_topics(socket) do
-    blog_slug = socket.assigns[:blog_slug]
+    group_slug = socket.assigns[:group_slug]
     post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
 
-    if blog_slug && post_slug do
-      PublishingPubSub.unsubscribe_from_post_translations(blog_slug, post_slug)
-      PublishingPubSub.unsubscribe_from_post_versions(blog_slug, post_slug)
+    if group_slug && post_slug do
+      PublishingPubSub.unsubscribe_from_post_translations(group_slug, post_slug)
+      PublishingPubSub.unsubscribe_from_post_versions(group_slug, post_slug)
     end
   end
 
@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   defp subscribe_to_post_translations(socket) do
     case socket.assigns[:post] && socket.assigns.post[:slug] do
       post_slug when is_binary(post_slug) ->
-        PublishingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
+        PublishingPubSub.subscribe_to_post_translations(socket.assigns.group_slug, post_slug)
 
       _ ->
         :ok
@@ -196,7 +196,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   defp subscribe_to_post_versions(socket) do
     case socket.assigns[:post] && socket.assigns.post[:slug] do
       post_slug when is_binary(post_slug) ->
-        PublishingPubSub.subscribe_to_post_versions(socket.assigns.blog_slug, post_slug)
+        PublishingPubSub.subscribe_to_post_versions(socket.assigns.group_slug, post_slug)
 
       _ ->
         :ok
@@ -316,21 +316,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   end
 
   @doc """
-  Broadcast editor activity to blog listing (for showing who's editing).
+  Broadcast editor activity to group listing (for showing who's editing).
   """
   def broadcast_editor_activity(socket, action, user \\ nil) do
-    blog_slug = socket.assigns[:blog_slug]
+    group_slug = socket.assigns[:group_slug]
     post = socket.assigns[:post]
 
-    if blog_slug && post && post[:slug] do
+    if group_slug && post && post[:slug] do
       user_info = build_user_info(socket, user)
 
       case action do
         :joined ->
-          PublishingPubSub.broadcast_editor_joined(blog_slug, post.slug, user_info)
+          PublishingPubSub.broadcast_editor_joined(group_slug, post.slug, user_info)
 
         :left ->
-          PublishingPubSub.broadcast_editor_left(blog_slug, post.slug, user_info)
+          PublishingPubSub.broadcast_editor_left(group_slug, post.slug, user_info)
       end
     end
   end

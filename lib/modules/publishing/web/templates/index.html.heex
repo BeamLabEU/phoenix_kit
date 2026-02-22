@@ -3,7 +3,7 @@
   page_title={@page_title}
   current_path={@conn.request_path}
 >
-  <div class="blog-index-container max-w-6xl mx-auto px-6 py-8">
+  <div class="group-index-container max-w-6xl mx-auto px-6 py-8">
     <%!-- Breadcrumb Navigation --%>
     <div class="breadcrumbs text-sm mb-6">
       <ul>
@@ -18,11 +18,11 @@
         <% end %>
       </ul>
     </div>
-    <%!-- Blog Header --%>
+    <%!-- Group Header --%>
     <header class="mb-8">
-      <h1 class="text-2xl sm:text-4xl font-bold mb-2">{@blog["name"]}</h1>
+      <h1 class="text-2xl sm:text-4xl font-bold mb-2">{@group["name"]}</h1>
       <p class="text-base sm:text-lg text-base-content/70">
-        {pluralize(@total_count, "post", "posts")}
+        {ngettext("1 post", "%{count} posts", @total_count)}
       </p>
       <%!-- Language Switcher --%>
       <%= if length(@translations) > 1 do %>
@@ -54,7 +54,7 @@
             <div class="card-body">
               <h2 class="card-title text-xl">
                 <a
-                  href={build_post_url(@blog["slug"], post, @current_language)}
+                  href={build_post_url(@group["slug"], post, @current_language)}
                   class="hover:text-primary"
                 >
                   {post.metadata.title}
@@ -79,17 +79,17 @@
                     class="text-xs text-base-content/60"
                     datetime={post.metadata.published_at || ""}
                   >
-                    {format_post_date(post, @blog["slug"])}
+                    {format_post_date(post, @group["slug"])}
                   </time>
                 <% else %>
                   <span class="text-xs text-base-content/60"></span>
                 <% end %>
 
                 <a
-                  href={build_post_url(@blog["slug"], post, @current_language)}
+                  href={build_post_url(@group["slug"], post, @current_language)}
                   class="btn btn-sm btn-primary"
                 >
-                  Read More →
+                  {gettext("Read More →")}
                 </a>
               </div>
             </div>
@@ -104,7 +104,7 @@
               <button class="join-item btn btn-active">{page_num}</button>
             <% else %>
               <a
-                href={blog_listing_path(@current_language, @blog["slug"], page: page_num)}
+                href={group_listing_path(@current_language, @group["slug"], page: page_num)}
                 class="join-item btn"
               >
                 {page_num}
@@ -129,7 +129,7 @@
           >
           </path>
         </svg>
-        <span>No published posts yet.</span>
+        <span>{gettext("No published posts yet.")}</span>
       </div>
     <% end %>
   </div>

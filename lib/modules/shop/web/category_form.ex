@@ -256,22 +256,29 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
       end
 
     # Save to category
-    case Options.update_category_options(socket.assigns.category, updated_opts) do
-      {:ok, updated_category} ->
-        merged = Options.merge_schemas(socket.assigns.global_options, updated_opts)
+    try do
+      case Options.update_category_options(socket.assigns.category, updated_opts) do
+        {:ok, updated_category} ->
+          merged = Options.merge_schemas(socket.assigns.global_options, updated_opts)
 
-        {:noreply,
-         socket
-         |> assign(:category, updated_category)
-         |> assign(:category_options, updated_opts)
-         |> assign(:merged_preview, merged)
-         |> assign(:show_opt_modal, false)
-         |> assign(:editing_opt, nil)
-         |> assign(:opt_form_data, initial_opt_form_data())
-         |> put_flash(:info, if(editing, do: "Option updated", else: "Option added"))}
+          {:noreply,
+           socket
+           |> assign(:category, updated_category)
+           |> assign(:category_options, updated_opts)
+           |> assign(:merged_preview, merged)
+           |> assign(:show_opt_modal, false)
+           |> assign(:editing_opt, nil)
+           |> assign(:opt_form_data, initial_opt_form_data())
+           |> put_flash(:info, if(editing, do: "Option updated", else: "Option added"))}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Error: #{inspect(reason)}")}
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Error: #{inspect(reason)}")}
+      end
+    rescue
+      e ->
+        require Logger
+        Logger.error("Category option save failed: #{Exception.message(e)}")
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
     end
   end
 

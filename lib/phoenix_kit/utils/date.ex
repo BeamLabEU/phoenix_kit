@@ -54,6 +54,22 @@ defmodule PhoenixKit.Utils.Date do
   alias PhoenixKit.Settings
 
   @doc """
+  Returns current UTC time truncated to second precision.
+
+  Use this for all `:utc_datetime` schema fields to avoid
+  `ArgumentError: :utc_datetime expects microseconds to be empty`.
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Date.utc_now()
+      ~U[2026-02-21 14:30:45Z]
+  """
+  @spec utc_now() :: DateTime.t()
+  def utc_now do
+    DateTime.utc_now() |> DateTime.truncate(:second)
+  end
+
+  @doc """
   Formats a date according to the specified format string.
 
   Uses Calendar.strftime for robust date formatting with extensive format support.

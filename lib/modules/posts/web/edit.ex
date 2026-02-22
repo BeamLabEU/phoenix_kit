@@ -360,43 +360,50 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         post_params
       end
 
-    case Posts.create_post(socket.assigns.current_user.uuid, create_params) do
-      {:ok, post} ->
-        # If scheduling, create the scheduled job
-        post =
-          if new_status == "scheduled" and post_params["scheduled_at"] do
-            case Posts.schedule_post(post, post_params["scheduled_at"]) do
-              {:ok, scheduled_post} -> scheduled_post
-              {:error, _reason} -> post
+    try do
+      case Posts.create_post(socket.assigns.current_user.uuid, create_params) do
+        {:ok, post} ->
+          # If scheduling, create the scheduled job
+          post =
+            if new_status == "scheduled" and post_params["scheduled_at"] do
+              case Posts.schedule_post(post, post_params["scheduled_at"]) do
+                {:ok, scheduled_post} -> scheduled_post
+                {:error, _reason} -> post
+              end
+            else
+              post
             end
-          else
-            post
+
+          # Handle tags
+          if tags != [] do
+            Posts.add_tags_to_post(post, tags)
           end
 
-        # Handle tags
-        if tags != [] do
-          Posts.add_tags_to_post(post, tags)
-        end
+          # Handle pending images (set during new post creation)
+          pending_ids = socket.assigns[:pending_image_ids] || []
 
-        # Handle pending images (set during new post creation)
-        pending_ids = socket.assigns[:pending_image_ids] || []
+          pending_ids
+          |> Enum.with_index(1)
+          |> Enum.each(fn {file_id, position} ->
+            Posts.attach_media(post.uuid, file_id, position: position)
+          end)
 
-        pending_ids
-        |> Enum.with_index(1)
-        |> Enum.each(fn {file_id, position} ->
-          Posts.attach_media(post.uuid, file_id, position: position)
-        end)
+          {:noreply,
+           socket
+           |> put_flash(:info, "Post created successfully")
+           |> push_navigate(to: Routes.path("/admin/posts/#{post.uuid}"))}
 
-        {:noreply,
-         socket
-         |> put_flash(:info, "Post created successfully")
-         |> push_navigate(to: Routes.path("/admin/posts/#{post.uuid}"))}
-
-      {:error, _changeset} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Failed to create post")
-         |> assign(:form, Component.to_form(post_params, as: :post))}
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "Failed to create post")
+           |> assign(:form, Component.to_form(post_params, as: :post))}
+      end
+    rescue
+      e ->
+        require Logger
+        Logger.error("Post save failed: #{Exception.message(e)}")
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
     end
   end
 
@@ -455,6 +462,11 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
          |> put_flash(:error, "Failed to update post")
          |> assign(:form, Component.to_form(post_params, as: :post))}
     end
+  rescue
+    e ->
+      require Logger
+      Logger.error("Post save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
   defp load_form_data(socket) do

@@ -197,12 +197,23 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
         template_params_with_vars
       end
 
-    case socket.assigns.mode do
-      :new ->
-        create_template(socket, template_params_final)
+    try do
+      case socket.assigns.mode do
+        :new ->
+          create_template(socket, template_params_final)
 
-      :edit ->
-        update_template(socket, template_params_final)
+        :edit ->
+          update_template(socket, template_params_final)
+      end
+    rescue
+      e ->
+        require Logger
+        Logger.error("Template save failed: #{Exception.message(e)}")
+
+        {:noreply,
+         socket
+         |> assign(:saving, false)
+         |> put_flash(:error, "Something went wrong. Please try again.")}
     end
   end
 

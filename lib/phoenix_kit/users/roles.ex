@@ -45,6 +45,7 @@ defmodule PhoenixKit.Users.Roles do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.{Role, RoleAssignment, ScopeNotifier}
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
   Assigns a role to a user.
@@ -799,7 +800,7 @@ defmodule PhoenixKit.Users.Roles do
 
   # Add confirmed_at timestamp if user email is not confirmed
   defp maybe_add_confirmed_at(changes, nil) do
-    Map.put(changes, :confirmed_at, DateTime.truncate(DateTime.utc_now(), :second))
+    Map.put(changes, :confirmed_at, UtilsDate.utc_now())
   end
 
   defp maybe_add_confirmed_at(changes, _confirmed_at), do: changes

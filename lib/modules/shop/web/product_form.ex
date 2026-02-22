@@ -640,6 +640,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
     end
+  rescue
+    e ->
+      require Logger
+      Logger.error("Product save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
   end
 
   defp save_product(socket, :edit, product_params) do
@@ -656,6 +661,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
     end
+  rescue
+    e ->
+      require Logger
+      Logger.error("Product save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
   end
 
   # Get options with affects_price=true

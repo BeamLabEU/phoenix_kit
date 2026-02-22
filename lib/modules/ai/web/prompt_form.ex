@@ -121,5 +121,10 @@ defmodule PhoenixKit.Modules.AI.Web.PromptForm do
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
+  rescue
+    e ->
+      require Logger
+      Logger.error("Prompt save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 end

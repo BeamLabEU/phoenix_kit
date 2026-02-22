@@ -170,6 +170,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
   @derive {Jason.Encoder, except: [:__meta__, :user, :events]}
 
   alias PhoenixKit.Modules.Emails.Event
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
@@ -559,7 +560,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_delivered(%__MODULE__{} = email_log, delivered_at \\ nil) do
-    delivered_at = delivered_at || DateTime.utc_now()
+    delivered_at = delivered_at || UtilsDate.utc_now()
 
     update_log(email_log, %{
       status: "delivered",
@@ -589,7 +590,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {:ok, updated_log} =
         update_log(email_log, %{
           status: status,
-          bounced_at: DateTime.utc_now()
+          bounced_at: UtilsDate.utc_now()
         })
 
       # Create bounce event
@@ -629,7 +630,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
         email_log_id: updated_log.id,
         email_log_uuid: updated_log.uuid,
         event_type: "open",
-        occurred_at: opened_at || DateTime.utc_now()
+        occurred_at: opened_at || UtilsDate.utc_now()
       })
 
       updated_log
@@ -654,7 +655,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
         email_log_id: updated_log.id,
         email_log_uuid: updated_log.uuid,
         event_type: "click",
-        occurred_at: clicked_at || DateTime.utc_now(),
+        occurred_at: clicked_at || UtilsDate.utc_now(),
         link_url: link_url
       })
 
@@ -671,7 +672,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_queued(%__MODULE__{} = email_log, queued_at \\ nil) do
-    queued_at = queued_at || DateTime.utc_now()
+    queued_at = queued_at || UtilsDate.utc_now()
 
     update_log(email_log, %{
       status: "queued",
@@ -688,7 +689,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_sent(%__MODULE__{} = email_log, sent_at \\ nil) do
-    sent_at = sent_at || DateTime.utc_now()
+    sent_at = sent_at || UtilsDate.utc_now()
 
     update_log(email_log, %{
       status: "sent",
@@ -705,7 +706,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_rejected(%__MODULE__{} = email_log, reason, rejected_at \\ nil) do
-    rejected_at = rejected_at || DateTime.utc_now()
+    rejected_at = rejected_at || UtilsDate.utc_now()
 
     update_log(email_log, %{
       status: "rejected",
@@ -723,7 +724,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_failed(%__MODULE__{} = email_log, reason, failed_at \\ nil) do
-    failed_at = failed_at || DateTime.utc_now()
+    failed_at = failed_at || UtilsDate.utc_now()
 
     repo().transaction(fn ->
       # Update log status with timestamp
@@ -758,7 +759,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_delayed(%__MODULE__{} = email_log, delay_info \\ nil, delayed_at \\ nil) do
-    delayed_at = delayed_at || DateTime.utc_now()
+    delayed_at = delayed_at || UtilsDate.utc_now()
 
     update_log(email_log, %{
       status: "delayed",
@@ -1145,7 +1146,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       user_uuid: Keyword.get(opts, :user_uuid),
       configuration_set: Keyword.get(opts, :configuration_set),
       message_tags: Keyword.get(opts, :message_tags, %{}),
-      sent_at: DateTime.utc_now()
+      sent_at: UtilsDate.utc_now()
     }
   end
 
@@ -1217,7 +1218,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
   # Set queued_at if not provided
   defp maybe_set_queued_at(changeset) do
     case get_field(changeset, :queued_at) do
-      nil -> put_change(changeset, :queued_at, DateTime.truncate(DateTime.utc_now(), :second))
+      nil -> put_change(changeset, :queued_at, UtilsDate.utc_now())
       _ -> changeset
     end
   end

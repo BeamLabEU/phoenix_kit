@@ -24,6 +24,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   import Ecto.Changeset
 
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @statuses ["pending", "processing", "completed", "failed"]
 
@@ -97,7 +98,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     |> change(%{
       status: "processing",
       total_rows: total_rows,
-      started_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      started_at: UtilsDate.utc_now()
     })
   end
 
@@ -131,7 +132,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     |> change(%{
       status: "completed",
       processed_rows: import_log.total_rows,
-      completed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      completed_at: UtilsDate.utc_now()
     })
   end
 
@@ -145,7 +146,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     |> change(%{
       status: "failed",
       error_details: error_details,
-      completed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      completed_at: UtilsDate.utc_now()
     })
   end
 

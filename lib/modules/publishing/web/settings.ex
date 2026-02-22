@@ -1,12 +1,14 @@
 defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   @moduledoc """
-  Admin configuration for site blogs.
+  Admin configuration for publishing groups.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.DBImporter
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
@@ -30,14 +32,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       PublishingPubSub.subscribe_to_groups()
     end
 
-    blogs = Publishing.list_groups()
+    # Admin side reads from database only — groups appear after import
+    groups = db_groups_to_maps()
+    fs_groups = fs_groups_to_maps()
+    # Cache management uses DB groups if imported, else FS groups (caches serve public pages)
+    cache_groups = if groups != [], do: groups, else: fs_groups
     languages_enabled = Languages.enabled?()
-
-    # Add legacy status and primary language migration status to each blog
-    blogs_with_status =
-      blogs
-      |> add_legacy_status()
-      |> add_primary_language_status()
 
     socket =
       socket
@@ -48,7 +48,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
         Routes.path("/admin/settings/publishing")
       )
       |> assign(:module_enabled, Publishing.enabled?())
-      |> assign(:blogs, blogs_with_status)
+      |> assign(:publishing, groups)
+      |> assign(:cache_groups, cache_groups)
+      |> assign(:fs_group_count, length(fs_groups))
       |> assign(:languages_enabled, languages_enabled)
       |> assign(:global_primary_language, Storage.get_primary_language())
       |> assign(:file_cache_enabled, get_cache_setting(@file_cache_key, @legacy_file_cache_key))
@@ -60,9 +62,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
         :render_cache_enabled,
         get_cache_setting(@render_cache_key, @legacy_render_cache_key)
       )
-      |> assign(:cache_status, build_cache_status(blogs))
+      |> assign(:cache_status, build_cache_status(cache_groups))
       |> assign(:render_cache_stats, get_render_cache_stats())
-      |> assign(:render_cache_per_blog, build_render_cache_per_blog(blogs))
+      |> assign(:render_cache_per_group, build_render_cache_per_group(cache_groups))
 
     {:ok, socket}
   end
@@ -78,23 +80,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
          put_flash(
            socket,
            :info,
-           gettext("Blog moved to trash as: %{name}", name: trashed_name)
+           gettext("Group moved to trash as: %{name}", name: trashed_name)
          )}
 
       {:error, :not_found} ->
-        # Blog directory doesn't exist, just remove from config
+        # Group directory doesn't exist, just remove from config
         case Publishing.remove_group(slug) do
           {:ok, _} ->
             # The `Publishing.remove_group` call handles the broadcast. This
             # LiveView will catch the event and update its state.
-            {:noreply, put_flash(socket, :info, gettext("Blog removed from configuration"))}
+            {:noreply, put_flash(socket, :info, gettext("Group removed from configuration"))}
 
           {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to remove blog"))}
+            {:noreply, put_flash(socket, :error, gettext("Failed to remove group"))}
         end
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to move blog to trash"))}
+        {:noreply, put_flash(socket, :error, gettext("Failed to move group to trash"))}
     end
   end
 
@@ -103,8 +105,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       :ok ->
         {:noreply,
          socket
-         |> assign(:cache_status, build_cache_status(socket.assigns.blogs))
-         |> put_flash(:info, gettext("Cache regenerated for %{blog}", blog: slug))}
+         |> assign(:cache_status, build_cache_status(socket.assigns.cache_groups))
+         |> put_flash(:info, gettext("Cache regenerated for %{group}", group: slug))}
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to regenerate cache"))}
@@ -116,60 +118,58 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
     {:noreply,
      socket
-     |> assign(:cache_status, build_cache_status(socket.assigns.blogs))
-     |> put_flash(:info, gettext("Cache cleared for %{blog}", blog: slug))}
+     |> assign(:cache_status, build_cache_status(socket.assigns.cache_groups))
+     |> put_flash(:info, gettext("Cache cleared for %{group}", group: slug))}
   end
 
-  def handle_event("migrate_storage", %{"slug" => slug}, socket) do
-    case Publishing.migrate_group(slug) do
-      {:ok, _new_path} ->
-        # Refresh blogs list with updated legacy status
-        blogs =
-          Publishing.list_groups()
-          |> add_legacy_status()
-          |> add_primary_language_status()
+  def handle_event("migrate_primary_language", %{"slug" => slug}, socket) do
+    primary_lang = socket.assigns.global_primary_language
+    {:ok, count} = DBStorage.migrate_primary_language(slug, primary_lang)
 
+    {:noreply,
+     socket
+     |> refresh_groups()
+     |> put_flash(
+       :info,
+       gettext("Updated %{count} posts to use primary language: %{lang}",
+         count: count,
+         lang: primary_lang
+       )
+     )}
+  end
+
+  def handle_event("import_all_to_db", _params, socket) do
+    case DBImporter.import_all_groups() do
+      {:ok, stats} ->
         {:noreply,
          socket
-         |> assign(:blogs, blogs)
-         |> assign(:cache_status, build_cache_status(blogs))
-         |> put_flash(:info, gettext("Storage migrated for %{blog}", blog: slug))}
-
-      {:error, :already_migrated} ->
-        {:noreply,
-         put_flash(socket, :info, gettext("Storage already migrated for %{blog}", blog: slug))}
-
-      {:error, :not_found} ->
-        {:noreply, put_flash(socket, :error, gettext("Blog not found: %{blog}", blog: slug))}
-
-      {:error, reason} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           gettext("Failed to migrate storage: %{reason}", reason: inspect(reason))
+         |> refresh_groups()
+         |> put_flash(
+           :info,
+           gettext(
+             "Migrated %{groups} groups, %{posts} posts, %{versions} versions, %{contents} contents to database",
+             groups: stats.groups,
+             posts: stats.posts,
+             versions: stats.versions,
+             contents: stats.contents
+           )
          )}
     end
   end
 
-  def handle_event("migrate_primary_language", %{"slug" => slug}, socket) do
-    case Publishing.migrate_posts_to_current_primary_language(slug) do
-      {:ok, count} ->
-        # Refresh blogs list with updated status
-        blogs =
-          Publishing.list_groups()
-          |> add_legacy_status()
-          |> add_primary_language_status()
-
+  def handle_event("import_to_db", %{"slug" => slug}, socket) do
+    case DBImporter.import_group(slug) do
+      {:ok, stats} ->
         {:noreply,
          socket
-         |> assign(:blogs, blogs)
-         |> assign(:cache_status, build_cache_status(blogs))
+         |> refresh_groups()
          |> put_flash(
            :info,
-           gettext("Updated %{count} posts to use primary language: %{lang}",
-             count: count,
-             lang: socket.assigns.global_primary_language
+           gettext(
+             "Migrated %{posts} posts, %{versions} versions, %{contents} contents to database",
+             posts: stats.posts,
+             versions: stats.versions,
+             contents: stats.contents
            )
          )}
 
@@ -178,22 +178,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
          put_flash(
            socket,
            :error,
-           gettext("Failed to migrate primary language: %{reason}", reason: inspect(reason))
+           gettext("Migration failed: %{reason}", reason: inspect(reason))
          )}
     end
   end
 
   def handle_event("regenerate_all_caches", _params, socket) do
     results =
-      Enum.map(socket.assigns.blogs, fn blog ->
-        {blog["slug"], ListingCache.regenerate(blog["slug"])}
+      Enum.map(socket.assigns.cache_groups, fn group ->
+        {group["slug"], ListingCache.regenerate(group["slug"])}
       end)
 
     success_count = Enum.count(results, fn {_, result} -> result == :ok end)
 
     {:noreply,
      socket
-     |> assign(:cache_status, build_cache_status(socket.assigns.blogs))
+     |> assign(:cache_status, build_cache_status(socket.assigns.cache_groups))
      |> put_flash(:info, gettext("Regenerated %{count} caches", count: success_count))}
   end
 
@@ -213,9 +213,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
     # If disabling memory cache, clear all :persistent_term entries
     if !new_value do
-      Enum.each(socket.assigns.blogs, fn blog ->
+      Enum.each(socket.assigns.cache_groups, fn group ->
         try do
-          :persistent_term.erase(ListingCache.persistent_term_key(blog["slug"]))
+          :persistent_term.erase(ListingCache.persistent_term_key(group["slug"]))
         rescue
           ArgumentError -> :ok
         end
@@ -225,7 +225,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     {:noreply,
      socket
      |> assign(:memory_cache_enabled, new_value)
-     |> assign(:cache_status, build_cache_status(socket.assigns.blogs))
+     |> assign(:cache_status, build_cache_status(socket.assigns.cache_groups))
      |> put_flash(:info, cache_toggle_message("Memory cache", new_value))}
   end
 
@@ -238,7 +238,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
      |> put_flash(:info, gettext("Render cache cleared"))}
   end
 
-  def handle_event("clear_blog_render_cache", %{"slug" => slug}, socket) do
+  def handle_event("clear_group_render_cache", %{"slug" => slug}, socket) do
     case Renderer.clear_group_cache(slug) do
       {:ok, count} ->
         {:noreply,
@@ -246,7 +246,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
          |> assign(:render_cache_stats, get_render_cache_stats())
          |> put_flash(
            :info,
-           gettext("Cleared %{count} cached posts for %{blog}", count: count, blog: slug)
+           gettext("Cleared %{count} cached posts for %{group}", count: count, group: slug)
          )}
 
       {:error, _} ->
@@ -264,16 +264,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
      |> put_flash(:info, cache_toggle_message("Render cache", new_value))}
   end
 
-  def handle_event("toggle_blog_render_cache", %{"slug" => slug}, socket) do
+  def handle_event("toggle_group_render_cache", %{"slug" => slug}, socket) do
     # Use Renderer helper to get the new key for writes
-    per_blog_key = Renderer.per_group_cache_key(slug)
+    per_group_key = Renderer.per_group_cache_key(slug)
     current_value = Renderer.group_render_cache_enabled?(slug)
     new_value = !current_value
-    Settings.update_setting(per_blog_key, to_string(new_value))
+    Settings.update_setting(per_group_key, to_string(new_value))
 
     {:noreply,
      socket
-     |> assign(:render_cache_per_blog, build_render_cache_per_blog(socket.assigns.blogs))
+     |> assign(:render_cache_per_group, build_render_cache_per_group(socket.assigns.cache_groups))
      |> put_flash(:info, cache_toggle_message("Render cache for #{slug}", new_value))}
   end
 
@@ -282,27 +282,106 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   # ============================================================================
 
   def handle_info({:group_created, _group}, socket) do
-    {:noreply, refresh_blogs(socket)}
+    {:noreply, refresh_groups(socket)}
   end
 
   def handle_info({:group_deleted, _slug}, socket) do
-    {:noreply, refresh_blogs(socket)}
+    {:noreply, refresh_groups(socket)}
   end
 
   def handle_info({:group_updated, _group}, socket) do
-    {:noreply, refresh_blogs(socket)}
+    {:noreply, refresh_groups(socket)}
   end
 
-  defp refresh_blogs(socket) do
-    blogs =
-      Publishing.list_groups()
-      |> add_legacy_status()
-      |> add_primary_language_status()
+  # DB import events — refresh groups when import completes (from any client)
+  def handle_info({:db_import_started, _group_slug, _source}, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_info({:db_import_completed, _group_slug, _stats, _source}, socket) do
+    {:noreply, refresh_groups(socket)}
+  end
+
+  def handle_info({:db_migration_started, _total_groups}, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_info({:db_migration_completed, _stats}, socket) do
+    {:noreply, refresh_groups(socket)}
+  end
+
+  def handle_info({:migration_validation_completed, results}, socket) do
+    total_discrepancies = Enum.sum(Enum.map(results, & &1.discrepancies))
+
+    socket =
+      if total_discrepancies > 0 do
+        put_flash(
+          socket,
+          :warning,
+          gettext("Validation found %{count} discrepancies between filesystem and database",
+            count: total_discrepancies
+          )
+        )
+      else
+        put_flash(
+          socket,
+          :info,
+          gettext("Validation passed — filesystem and database are in sync")
+        )
+      end
+
+    {:noreply, refresh_groups(socket)}
+  end
+
+  defp refresh_groups(socket) do
+    groups = db_groups_to_maps()
+    fs_groups = fs_groups_to_maps()
+    cache_groups = if groups != [], do: groups, else: fs_groups
 
     socket
-    |> assign(:blogs, blogs)
-    |> assign(:cache_status, build_cache_status(blogs))
-    |> assign(:render_cache_per_blog, build_render_cache_per_blog(blogs))
+    |> assign(:publishing, groups)
+    |> assign(:cache_groups, cache_groups)
+    |> assign(:fs_group_count, length(fs_groups))
+    |> assign(:cache_status, build_cache_status(cache_groups))
+    |> assign(:render_cache_per_group, build_render_cache_per_group(cache_groups))
+  end
+
+  defp db_groups_to_maps do
+    global_primary = Storage.get_primary_language()
+
+    DBStorage.list_groups()
+    |> Enum.map(fn g ->
+      fs_posts = length(Publishing.list_posts(g.slug))
+      db_posts = length(DBStorage.list_posts(g.slug))
+
+      # Check DB records for primary language issues (not filesystem)
+      primary_lang_status = DBStorage.count_primary_language_status(g.slug, global_primary)
+
+      needs_lang_migration =
+        primary_lang_status.needs_backfill + primary_lang_status.needs_migration > 0
+
+      %{
+        "name" => g.name,
+        "slug" => g.slug,
+        "mode" => g.mode,
+        "position" => g.position,
+        "needs_import" => fs_posts > 0 and db_posts == 0,
+        "needs_primary_lang_migration" => needs_lang_migration,
+        "primary_language_status" => primary_lang_status
+      }
+    end)
+  end
+
+  defp fs_groups_to_maps do
+    Publishing.list_groups()
+    |> Enum.map(fn g ->
+      %{
+        "name" => g["name"],
+        "slug" => g["slug"],
+        "mode" => g["mode"],
+        "position" => g["position"]
+      }
+    end)
   end
 
   # Helper for dual-key cache setting reads
@@ -321,16 +400,46 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     end
   end
 
-  # Build cache status for all blogs
-  defp build_cache_status(blogs) do
-    Map.new(blogs, fn blog ->
-      slug = blog["slug"]
+  # Build cache status for all groups
+  defp build_cache_status(groups) do
+    Map.new(groups, fn group ->
+      slug = group["slug"]
       {slug, get_cache_info(slug)}
     end)
   end
 
-  defp get_cache_info(blog_slug) do
-    cache_path = ListingCache.cache_path(blog_slug)
+  defp get_cache_info(group_slug) do
+    if Publishing.db_storage?() do
+      get_cache_info_db(group_slug)
+    else
+      get_cache_info_fs(group_slug)
+    end
+  end
+
+  defp get_cache_info_db(group_slug) do
+    in_memory =
+      case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
+        :not_found -> false
+        _ -> true
+      end
+
+    post_count =
+      case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
+        :not_found -> length(DBStorage.list_posts(group_slug))
+        posts -> length(posts)
+      end
+
+    %{
+      exists: in_memory,
+      file_size: 0,
+      modified_at: nil,
+      post_count: post_count,
+      in_memory: in_memory
+    }
+  end
+
+  defp get_cache_info_fs(group_slug) do
+    cache_path = ListingCache.cache_path(group_slug)
 
     case File.stat(cache_path) do
       {:ok, stat} ->
@@ -349,7 +458,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
         # Check if in :persistent_term
         in_memory =
-          case :persistent_term.get(ListingCache.persistent_term_key(blog_slug), :not_found) do
+          case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
             :not_found -> false
             _ -> true
           end
@@ -373,31 +482,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     _ -> %{hits: 0, misses: 0, puts: 0, invalidations: 0, hit_rate: 0.0}
   end
 
-  defp build_render_cache_per_blog(blogs) do
-    Map.new(blogs, fn blog ->
-      slug = blog["slug"]
+  defp build_render_cache_per_group(groups) do
+    Map.new(groups, fn group ->
+      slug = group["slug"]
       {slug, Renderer.group_render_cache_enabled?(slug)}
-    end)
-  end
-
-  # Add legacy storage status to each blog
-  defp add_legacy_status(blogs) do
-    Enum.map(blogs, fn blog ->
-      slug = blog["slug"]
-      Map.put(blog, "is_legacy", Publishing.legacy_group?(slug))
-    end)
-  end
-
-  # Add primary language migration status to each blog
-  defp add_primary_language_status(blogs) do
-    Enum.map(blogs, fn blog ->
-      slug = blog["slug"]
-      status = Publishing.get_primary_language_migration_status(slug)
-      needs_migration = status.needs_backfill > 0 or status.needs_migration > 0
-
-      blog
-      |> Map.put("primary_language_status", status)
-      |> Map.put("needs_primary_lang_migration", needs_migration)
     end)
   end
 end

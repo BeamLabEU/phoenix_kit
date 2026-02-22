@@ -79,6 +79,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
@@ -378,20 +379,16 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   defp maybe_set_timestamps(changeset) do
+    now = UtilsDate.utc_now()
+
     case changeset.data.__meta__.state do
       :built ->
-        now = DateTime.utc_now()
-
         changeset
         |> put_change(:date_created, now)
         |> put_change(:date_updated, now)
 
       :loaded ->
-        put_change(
-          changeset,
-          :date_updated,
-          DateTime.utc_now()
-        )
+        put_change(changeset, :date_updated, now)
     end
   end
 
@@ -860,7 +857,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       {2, nil}
   """
   def bulk_update_status(uuids, status) when is_list(uuids) and status in @valid_statuses do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     from(d in __MODULE__, where: d.uuid in ^uuids)
     |> repo().update_all(set: [status: status, date_updated: now])
@@ -880,7 +877,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       {2, nil}
   """
   def bulk_update_category(uuids, category) when is_list(uuids) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     # Handle both flat and multilang data structures.
     # For multilang: update category in every language sub-map.

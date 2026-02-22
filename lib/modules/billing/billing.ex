@@ -53,6 +53,7 @@ defmodule PhoenixKit.Modules.Billing do
   alias PhoenixKit.Modules.Billing.Transaction
   alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ============================================
@@ -1954,7 +1955,7 @@ defmodule PhoenixKit.Modules.Billing do
         invoice
         |> Ecto.Changeset.change(%{
           receipt_number: receipt_number,
-          receipt_generated_at: DateTime.utc_now(),
+          receipt_generated_at: UtilsDate.utc_now(),
           receipt_data: build_receipt_data(invoice)
         })
         |> repo().update()
@@ -2678,7 +2679,7 @@ defmodule PhoenixKit.Modules.Billing do
 
     with {:ok, plan} <- get_subscription_plan(plan_id) do
       trial_days = attrs[:trial_days] || plan.trial_days || 0
-      now = DateTime.utc_now()
+      now = UtilsDate.utc_now()
 
       {status, trial_end, period_start, period_end} =
         if trial_days > 0 do

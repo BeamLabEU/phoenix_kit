@@ -346,7 +346,7 @@ All schema and application code standardized on `:utc_datetime` + `DateTime.utc_
 
 **Remaining Critical Work:**
 1. **CRITICAL — DateTime truncation:** 31+ `DateTime.utc_now()` calls still need `DateTime.truncate(:second)` before writing to `:utc_datetime` fields. Highest risk modules: Emails (22 sites), Sync (15 sites), Connections (7 sites). Full inventory in `2026-02-17-datetime-standardization-plan.md` Step 5.
-2. **Recommended:** Add centralized `UtilsDateTime.utc_now/0` helper that returns pre-truncated values
+2. ~~**Recommended:** Add centralized `UtilsDateTime.utc_now/0` helper that returns pre-truncated values~~ **DONE** — `UtilsDate.utc_now/0` implemented at `lib/phoenix_kit/utils/date.ex:69`
 3. **Database migration (V58):** Convert `timestamp(0)` → `timestamptz` columns (deferred, requires downtime planning)
 4. **Optional:** Add Credo check or compile-time warning for bare `DateTime.utc_now()` in DB-write contexts
 
@@ -360,11 +360,101 @@ All schema and application code standardized on `:utc_datetime` + `DateTime.utc_
 
 **Risk Assessment:**
 - **CRITICAL:** Emails module (22 sites) - Email processing workflows will crash
-- **CRITICAL:** Sync module (15 sites) - Data synchronization workflows will crash  
+- **CRITICAL:** Sync module (15 sites) - Data synchronization workflows will crash
 - **HIGH:** Connections module (7 sites) - User connection tracking will crash
 - **HIGH:** Billing module (5 sites) - Subscription processing may crash
 - **MEDIUM:** Shop, Entities, AI, Posts modules (10+ sites)
 
 **Immediate Action Required:**
 Complete Step 5 of the standardization plan by fixing all remaining truncation sites, prioritizing Emails and Sync modules first.
+
+---
+
+## UtilsDate.utc_now() Migration (2026-02-22)
+
+### Approach
+
+Rather than using bare `DateTime.utc_now()` with manual truncation, all DB write contexts now use `UtilsDate.utc_now()` (`PhoenixKit.Utils.Date.utc_now/0`), which returns `DateTime.utc_now() |> DateTime.truncate(:second)` — pre-truncated and safe for all `:utc_datetime` fields.
+
+### Current Unstaged Changes: 41 Files Converted
+
+All changes add `alias PhoenixKit.Utils.Date, as: UtilsDate` and replace `DateTime.utc_now()` or `DateTime.truncate(DateTime.utc_now(), :second)` with `UtilsDate.utc_now()` in DB write contexts (changesets, `update_all`, `insert_all`).
+
+**Files converted (by area):**
+
+| Area | Files |
+|------|-------|
+| AI | `endpoint.ex`, `prompt.ex` |
+| Billing | `billing.ex`, `invoice.ex`, `order.ex`, `subscription.ex`, `webhook_processor.ex`, `subscription_dunning_worker.ex` |
+| Comments | `comments.ex` |
+| Connections | `block.ex`, `block_history.ex`, `connection.ex`, `connection_history.ex`, `follow.ex`, `follow_history.ex` |
+| Emails | `event.ex`, `interceptor.ex`, `log.ex`, `rate_limiter.ex`, `sqs_processor.ex`, `templates.ex` |
+| Posts | `posts.ex` |
+| Referrals | `referrals.ex`, `referral_code_usage.ex` |
+| Shop | `shop.ex` |
+| Sync | `connection.ex`, `connection_notifier.ex`, `connections.ex`, `transfer.ex`, `api_controller.ex` |
+| Tickets | `tickets.ex` |
+| Core | `scheduled_jobs.ex`, `scheduled_job.ex`, `setting.ex`, `auth.ex`, `user.ex`, `magic_link_registration.ex`, `permissions.ex`, `role_assignment.ex`, `roles.ex` |
+| Web | `media_selector_modal.ex` |
+
+### Previously Missing: DB Write Contexts (FIXED 2026-02-22)
+
+These 4 crash sites were identified during the 2026-02-22 audit and fixed in the same session:
+
+| File | Line | Code | Status |
+|------|------|------|--------|
+| `billing/schemas/webhook_event.ex` | 72 | `processed_at: DateTime.utc_now()` in `change()` changeset | ✅ Fixed |
+| `storage/storage.ex` | 238 | `now = DateTime.utc_now()` used for `inserted_at`/`updated_at` in `insert_all` | ✅ Fixed |
+| `billing/workers/subscription_renewal_worker.ex` | 205 | `DateTime.add(DateTime.utc_now(), grace_days, :day)` → passed to `past_due_changeset` | ✅ Fixed |
+| `publishing/dual_write.ex` | 302 | `published_at: db_post.published_at \|\| DateTime.utc_now()` in `DBStorage.update_post` | ✅ Fixed |
+
+### Previously Missing: Manual Truncation (FIXED 2026-02-22)
+
+These 3 files manually truncated instead of using `UtilsDate.utc_now()`. Fixed for consistency:
+
+| File | Lines | Status |
+|------|-------|--------|
+| `shop/schemas/import_log.ex` | 100, 134, 148 | ✅ Fixed |
+| `publishing/publishing.ex` | 828 | ✅ Fixed |
+| `publishing/publishing.ex` | 1459 | ✅ Fixed |
+
+### Correctly Left Alone (non-DB contexts)
+
+The following `DateTime.utc_now()` call sites do **not** need conversion — they are used in non-DB contexts where microsecond precision is harmless:
+
+| Context | Examples | Count |
+|---------|----------|-------|
+| **Query filters** (`where: field < ^now`) | `shop.ex:2063`, `posts.ex:558`, `renewal_worker.ex:240` | ~20 |
+| **LiveView assigns** (`assign(:last_updated, ...)`) | `emails/web/metrics.ex`, `queue.ex`, `blocklist.ex` | ~8 |
+| **ISO8601 strings** (`DateTime.to_iso8601()`) | `emails/event.ex` (13 sites), `billing.ex` notifications, sitemaps, caches | ~30 |
+| **DateTime comparisons** (`DateTime.compare`, `DateTime.diff`) | `sync/connection.ex`, `referrals.ex`, `subscription.ex`, `sessions.ex` | ~15 |
+| **In-memory state** (presence, socket, worker state) | `simple_presence.ex`, `sync/web/sender.ex`, `sqs_worker.ex` | ~10 |
+| **File metadata** (pages/publishing storage) | `pages/storage.ex`, `pages/metadata.ex`, `publishing/metadata.ex` | ~10 |
+| **Dashboard/display** | `dashboard/tab.ex`, `dashboard/presence.ex` | ~5 |
+| **Migration files** (`NaiveDateTime` in v20/v29/v35/v36) | Correct for the migration context they were written in | 7 |
+| **`utils/date.ex:69`** | This IS the `UtilsDate.utc_now()` implementation | 1 |
+
+### Remaining Manual Truncation (non-DB, safe as-is)
+
+These files still use `DateTime.utc_now() |> DateTime.truncate(:second)` but are in **filesystem storage** modules (writing `.phk` file metadata, not DB). No action needed:
+
+| File | Lines | Context |
+|------|-------|---------|
+| `pages/storage.ex` | 470, 1405, 1450, 1542, 1836 | File metadata timestamps |
+| `pages/metadata.ex` | 135 | File metadata timestamps |
+| `publishing/metadata.ex` | 135 | File metadata timestamps |
+| `publishing/web/editor.ex` | 377 | Form default value (truncated then floored to minute) |
+
+### Summary
+
+| Category | Sites | Status |
+|----------|-------|--------|
+| Converted to `UtilsDate.utc_now()` (current diff) | ~55 | ✅ Done |
+| Additional crash sites (fixed 2026-02-22) | 4 | ✅ Fixed |
+| Manual truncation in DB writes (fixed 2026-02-22) | 5 | ✅ Fixed |
+| Manual truncation in filesystem (safe, no action) | 8 | ✅ No action needed |
+| Non-DB contexts (correctly left alone) | ~105 | ✅ No action needed |
+| Migration files (correctly left alone) | 7 | ✅ No action needed |
+
+**All DB write contexts are now using `UtilsDate.utc_now()`.** The only remaining `DateTime.utc_now()` calls are in non-DB contexts (queries, assigns, comparisons, formatting, filesystem metadata) where microsecond precision is harmless.
 

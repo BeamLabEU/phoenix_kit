@@ -49,6 +49,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   alias PhoenixKit.Modules.Sync.Connection
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
@@ -497,8 +498,8 @@ defmodule PhoenixKit.Modules.Sync.Connections do
       total_transfers: connection.total_transfers + 1,
       total_records_transferred: connection.total_records_transferred + records_count,
       total_bytes_transferred: connection.total_bytes_transferred + bytes_count,
-      last_connected_at: DateTime.utc_now(),
-      last_transfer_at: DateTime.utc_now()
+      last_connected_at: UtilsDate.utc_now(),
+      last_transfer_at: UtilsDate.utc_now()
     }
 
     connection
@@ -518,7 +519,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
     repo = RepoHelper.repo()
 
     connection
-    |> Connection.stats_changeset(%{last_connected_at: DateTime.utc_now()})
+    |> Connection.stats_changeset(%{last_connected_at: UtilsDate.utc_now()})
     |> repo.update()
   end
 
@@ -617,7 +618,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   @spec expire_connections() :: {non_neg_integer(), nil | term()}
   def expire_connections do
     repo = RepoHelper.repo()
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     # Find connections to expire
     query =

@@ -36,24 +36,34 @@ defmodule PhoenixKit.Modules.Comments.Web.Settings do
     socket = assign(socket, :saving, true)
     settings = Map.get(params, "settings", %{})
 
-    results =
-      Enum.map(settings, fn {key, value} ->
-        Settings.update_setting(key, value)
-      end)
+    try do
+      results =
+        Enum.map(settings, fn {key, value} ->
+          Settings.update_setting(key, value)
+        end)
 
-    socket =
-      if Enum.all?(results, fn
-           {:ok, _} -> true
-           _ -> false
-         end) do
-        socket
-        |> put_flash(:info, "Settings saved successfully")
-        |> load_settings()
-      else
-        put_flash(socket, :error, "Failed to save some settings")
-      end
+      socket =
+        if Enum.all?(results, fn
+             {:ok, _} -> true
+             _ -> false
+           end) do
+          socket
+          |> put_flash(:info, "Settings saved successfully")
+          |> load_settings()
+        else
+          put_flash(socket, :error, "Failed to save some settings")
+        end
 
-    {:noreply, assign(socket, :saving, false)}
+      {:noreply, assign(socket, :saving, false)}
+    rescue
+      e ->
+        require Logger
+        Logger.error("Comment settings save failed: #{Exception.message(e)}")
+
+        {:noreply,
+         assign(socket, :saving, false)
+         |> put_flash(:error, "Something went wrong. Please try again.")}
+    end
   end
 
   @impl true

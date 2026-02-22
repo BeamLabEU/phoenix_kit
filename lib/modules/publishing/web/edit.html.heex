@@ -23,7 +23,7 @@
         <div class="card-body space-y-6">
           <.form
             for={@form}
-            id="blog-edit-form"
+            id="group-edit-form"
             phx-change="validate"
             phx-submit="save"
             class="space-y-6"
@@ -76,7 +76,7 @@
             <div class="rounded-lg border border-base-200 bg-base-200/40 px-4 py-3 text-sm text-base-content/70">
               <p>
                 <span class="font-semibold">{gettext("Storage mode")}:</span>
-                <%= case @blog["mode"] do %>
+                <%= case @group["mode"] do %>
                   <% "slug" -> %>
                     {gettext("Slug-based")} · {gettext(
                       "Semantic URLs ideal for evergreen content."

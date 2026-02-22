@@ -363,31 +363,40 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
             |> Map.put("data", final_data)
             |> maybe_add_creator_id(socket.assigns.current_user, socket.assigns.data_record)
 
-          case save_data_record(socket, params) do
-            {:ok, _data_record} ->
-              # Presence will automatically clean up when LiveView process terminates
-              # Redirect to entity-specific data navigator after successful creation/update
-              entity_name = socket.assigns.entity.name
+          try do
+            case save_data_record(socket, params) do
+              {:ok, _data_record} ->
+                # Presence will automatically clean up when LiveView process terminates
+                # Redirect to entity-specific data navigator after successful creation/update
+                entity_name = socket.assigns.entity.name
 
-              socket =
-                socket
-                |> put_flash(:info, gettext("Data record saved successfully"))
-                |> push_navigate(
-                  to:
-                    Routes.path("/admin/entities/#{entity_name}/data",
-                      locale: socket.assigns.current_locale_base
-                    )
-                )
+                socket =
+                  socket
+                  |> put_flash(:info, gettext("Data record saved successfully"))
+                  |> push_navigate(
+                    to:
+                      Routes.path("/admin/entities/#{entity_name}/data",
+                        locale: socket.assigns.current_locale_base
+                      )
+                  )
 
-              {:noreply, socket}
+                {:noreply, socket}
 
-            {:error, %Ecto.Changeset{} = changeset} ->
-              socket =
-                socket
-                |> assign(:changeset, changeset)
-                |> broadcast_data_form_state(params)
+              {:error, %Ecto.Changeset{} = changeset} ->
+                socket =
+                  socket
+                  |> assign(:changeset, changeset)
+                  |> broadcast_data_form_state(params)
 
-              {:noreply, socket}
+                {:noreply, socket}
+            end
+          rescue
+            e ->
+              require Logger
+              Logger.error("Entity data save failed: #{Exception.message(e)}")
+
+              {:noreply,
+               put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
           end
 
         {:error, errors} ->

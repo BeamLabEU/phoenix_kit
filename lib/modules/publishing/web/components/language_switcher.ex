@@ -152,6 +152,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
         phx-value-language={@lang[:code]}
         phx-value-path={@lang[:path]}
         phx-value-post_path={@lang[:post_path]}
+        phx-value-uuid={@lang[:uuid]}
         phx-value-status={@status}
         phx-target={@phx_target}
         class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}

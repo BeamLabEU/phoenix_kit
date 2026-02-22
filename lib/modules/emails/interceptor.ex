@@ -56,6 +56,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   alias PhoenixKit.Modules.Emails.EmailLogData
   alias PhoenixKit.Modules.Emails.Event
   alias PhoenixKit.Modules.Emails.Log
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias Swoosh.Email
 
   @doc """
@@ -248,7 +249,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
     update_attrs = %{
       status: "sent",
-      sent_at: DateTime.utc_now()
+      sent_at: UtilsDate.utc_now()
     }
 
     # Extract additional data from provider response

@@ -1,0 +1,147 @@
+<PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
+  <%= if @post do %>
+    <div class="max-w-4xl mx-auto p-4 md:p-6">
+      <%!-- Breadcrumb --%>
+      <div class="text-sm breadcrumbs mb-4">
+        <ul>
+          <li>
+            <.pk_link navigate="/admin/publishing">{gettext("Publishing")}</.pk_link>
+          </li>
+          <li>
+            <.pk_link navigate={"/admin/publishing/#{@group_slug}"}>{@group_name}</.pk_link>
+          </li>
+          <li>{@post.metadata.title || gettext("Untitled")}</li>
+        </ul>
+      </div>
+
+      <%!-- Header with title and actions --%>
+      <div class="flex items-start justify-between gap-4 mb-6">
+        <div class="min-w-0">
+          <h1 class="text-2xl font-bold text-base-content truncate">
+            {@post.metadata.title || gettext("Untitled post")}
+          </h1>
+          <div class="flex items-center gap-2 mt-1">
+            <span class={"badge #{version_status_badge_class(@post.metadata[:status] || "draft")}"}>
+              {@post.metadata[:status] || "draft"}
+            </span>
+            <span class="text-sm text-base-content/60">
+              {gettext("Slug")}: <code class="font-mono">{@post.slug}</code>
+            </span>
+          </div>
+        </div>
+
+        <div class="flex gap-2 shrink-0">
+          <.pk_link
+            navigate={"/admin/publishing/#{@group_slug}/#{@post_uuid}/edit"}
+            class="btn btn-primary btn-sm"
+          >
+            <span class="hero-pencil-square w-4 h-4" />{gettext("Edit")}
+          </.pk_link>
+          <.pk_link
+            navigate={"/admin/publishing/#{@group_slug}/#{@post_uuid}/preview"}
+            class="btn btn-ghost btn-sm"
+          >
+            <span class="hero-eye w-4 h-4" />{gettext("Preview")}
+          </.pk_link>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <%!-- Versions card --%>
+        <div class="card bg-base-100 border border-base-200 shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="card-title text-base">{gettext("Versions")}</h2>
+            <div class="space-y-2 mt-2">
+              <%= for version <- @post.available_versions do %>
+                <% status = Map.get(@post.version_statuses || %{}, version, "draft") %>
+                <% date = Map.get(@post.version_dates || %{}, version) %>
+                <.pk_link
+                  navigate={"/admin/publishing/#{@group_slug}/#{@post_uuid}/edit?v=#{version}"}
+                  class="flex items-center justify-between p-2 rounded-lg hover:bg-base-200 transition-colors"
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-sm">v{version}</span>
+                    <span class={"badge badge-xs #{version_status_badge_class(status)}"}>
+                      {status}
+                    </span>
+                  </div>
+                  <%= if date do %>
+                    <span class="text-xs text-base-content/50">{date}</span>
+                  <% end %>
+                </.pk_link>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Languages card --%>
+        <div class="card bg-base-100 border border-base-200 shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="card-title text-base">{gettext("Languages")}</h2>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <%= for lang <- @post.available_languages do %>
+                <% status = Map.get(@post.language_statuses || %{}, lang) %>
+                <% is_primary = lang == @post.primary_language %>
+                <.pk_link
+                  navigate={"/admin/publishing/#{@group_slug}/#{@post_uuid}/edit?lang=#{lang}"}
+                  class={
+                    if is_primary,
+                      do:
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors bg-primary/10 border border-primary/20 hover:bg-primary/20",
+                      else:
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors bg-base-200 hover:bg-base-300"
+                  }
+                >
+                  <span class={"rounded-full inline-block w-2 h-2 #{language_status_color(status)}"} />
+                  <span class="text-sm font-medium">{lang}</span>
+                  <%= if is_primary do %>
+                    <span class="text-xs text-primary/70">{gettext("Primary")}</span>
+                  <% end %>
+                </.pk_link>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Metadata card --%>
+        <div class="card bg-base-100 border border-base-200 shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="card-title text-base">{gettext("Details")}</h2>
+            <dl class="space-y-2 mt-2 text-sm">
+              <div class="flex justify-between">
+                <dt class="text-base-content/60">{gettext("Mode")}</dt>
+                <dd class="font-medium">{@post.mode}</dd>
+              </div>
+              <%= if @post[:date] do %>
+                <div class="flex justify-between">
+                  <dt class="text-base-content/60">{gettext("Date")}</dt>
+                  <dd class="font-medium font-mono">{Date.to_iso8601(@post.date)}</dd>
+                </div>
+              <% end %>
+              <div class="flex justify-between">
+                <dt class="text-base-content/60">{gettext("Primary Language")}</dt>
+                <dd class="font-medium">{@post.primary_language}</dd>
+              </div>
+              <%= if @post.metadata[:description] do %>
+                <div>
+                  <dt class="text-base-content/60 mb-1">{gettext("Description")}</dt>
+                  <dd class="text-base-content/80">{@post.metadata.description}</dd>
+                </div>
+              <% end %>
+            </dl>
+          </div>
+        </div>
+
+        <%!-- Future stats placeholder --%>
+        <div class="card bg-base-100 border border-base-200 shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="card-title text-base">{gettext("Stats")}</h2>
+            <p class="text-sm text-base-content/50 mt-2">
+              {gettext("Post analytics will appear here.")}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</PhoenixKitWeb.Layouts.dashboard>

@@ -6,6 +6,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
   URL slug validation for per-language slugs, and slug generation.
   """
 
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Storage
@@ -29,7 +30,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
   - `{:error, :invalid_format}` if format is invalid
   - `{:error, :reserved_language_code}` if slug is a language code
 
-  Blog slugs cannot be language codes (like 'en', 'es', 'fr') to prevent routing ambiguity.
+  Group slugs cannot be language codes (like 'en', 'es', 'fr') to prevent routing ambiguity.
   """
   @spec validate_slug(String.t()) ::
           {:ok, String.t()} | {:error, :invalid_format | :reserved_language_code}
@@ -49,7 +50,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
   @doc """
   Validates whether the given string is a slug and not a reserved language code.
 
-  Blog slugs cannot be language codes (like 'en', 'es', 'fr') to prevent routing ambiguity.
+  Group slugs cannot be language codes (like 'en', 'es', 'fr') to prevent routing ambiguity.
   """
   @spec valid_slug?(String.t()) :: boolean()
   def valid_slug?(slug) when is_binary(slug) do
@@ -164,11 +165,25 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Slugs do
 
   @doc """
   Checks if a slug already exists within the given publishing group.
+  Checks both the filesystem and the database.
   """
   @spec slug_exists?(String.t(), String.t()) :: boolean()
   def slug_exists?(group_slug, post_slug) do
-    Path.join([Paths.group_path(group_slug), post_slug])
-    |> File.dir?()
+    fs_exists =
+      Path.join([Paths.group_path(group_slug), post_slug])
+      |> File.dir?()
+
+    fs_exists || db_slug_exists?(group_slug, post_slug)
+  end
+
+  defp db_slug_exists?(group_slug, post_slug) do
+    case DBStorage.get_post(group_slug, post_slug) do
+      nil -> false
+      _post -> true
+    end
+  rescue
+    # DB tables may not exist yet (pre-V59 migration)
+    _ -> false
   end
 
   @doc """

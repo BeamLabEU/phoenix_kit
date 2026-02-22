@@ -70,6 +70,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
   alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles}
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.SessionFingerprint
 
@@ -2460,7 +2461,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
+          anonymized_at: UtilsDate.utc_now()
         ]
       )
       |> elem(0)
@@ -2484,7 +2485,7 @@ defmodule PhoenixKit.Users.Auth do
           user_id: nil,
           user_uuid: nil,
           author_deleted: true,
-          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
+          anonymized_at: UtilsDate.utc_now()
         ]
       )
       |> elem(0)
@@ -2518,7 +2519,7 @@ defmodule PhoenixKit.Users.Auth do
           user_id: nil,
           user_uuid: nil,
           author_deleted: true,
-          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
+          anonymized_at: UtilsDate.utc_now()
         ]
       )
       |> elem(0)
@@ -2557,7 +2558,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second),
+          anonymized_at: UtilsDate.utc_now(),
           original_user_email: nil
         ]
       )
@@ -2582,7 +2583,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
+          anonymized_at: UtilsDate.utc_now()
         ]
       )
       |> elem(0)
@@ -2605,7 +2606,7 @@ defmodule PhoenixKit.Users.Auth do
         set: [
           user_id: nil,
           user_uuid: nil,
-          anonymized_at: DateTime.truncate(DateTime.utc_now(), :second)
+          anonymized_at: UtilsDate.utc_now()
         ]
       )
       |> elem(0)

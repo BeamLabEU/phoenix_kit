@@ -18,46 +18,46 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   # ============================================================================
 
   @doc """
-  Detects whether the 'language' parameter is actually a language code or a blog slug.
+  Detects whether the 'language' parameter is actually a language code or a group slug.
 
-  This allows the same route pattern (/:language/:blog/*path) to work for both:
-  - Multi-language: /en/my-blog/my-post (language=en, blog=my-blog)
-  - Single-language: /my-blog/my-post (language=my-blog, needs adjustment)
+  This allows the same route pattern (/:language/:group/*path) to work for both:
+  - Multi-language: /en/my-group/my-post (language=en, group=my-group)
+  - Single-language: /my-group/my-post (language=my-group, needs adjustment)
 
   Returns {detected_language, adjusted_params}
   """
-  def detect_language_or_blog(language_param, params) do
+  def detect_language_or_group(language_param, params) do
     # First check if it's a known/predefined language
-    # Then check if content exists for this language in the blog (handles unknown languages like "af")
-    blog_slug = params["blog"]
+    # Then check if content exists for this language in the group (handles unknown languages like "af")
+    group_slug = params["group"]
 
     cond do
       # Known/predefined language - use as-is
       valid_language?(language_param) ->
         {language_param, params}
 
-      # Unknown language code but content exists for it in this blog
+      # Unknown language code but content exists for it in this group
       # This handles files like af.phk, test.phk, etc.
-      blog_slug && has_content_for_language?(blog_slug, language_param) ->
+      group_slug && has_content_for_language?(group_slug, language_param) ->
         {language_param, params}
 
-      # Not a language - shift parameters (blog slug in language position)
+      # Not a language - shift parameters (group slug in language position)
       true ->
         default_language = get_default_language()
 
         adjusted_params =
           case params do
-            # Pattern: %{"language" => blog_slug, "blog" => first_path_segment, "path" => rest}
-            %{"blog" => first_segment, "path" => rest} when is_list(rest) ->
-              %{"blog" => language_param, "path" => [first_segment | rest]}
+            # Pattern: %{"language" => group_slug, "group" => first_path_segment, "path" => rest}
+            %{"group" => first_segment, "path" => rest} when is_list(rest) ->
+              %{"group" => language_param, "path" => [first_segment | rest]}
 
-            # Pattern: %{"language" => blog_slug, "blog" => first_path_segment}
-            %{"blog" => first_segment} ->
-              %{"blog" => language_param, "path" => [first_segment]}
+            # Pattern: %{"language" => group_slug, "group" => first_path_segment}
+            %{"group" => first_segment} ->
+              %{"group" => language_param, "path" => [first_segment]}
 
-            # Pattern: %{"language" => blog_slug} (just listing)
+            # Pattern: %{"language" => group_slug} (just listing)
             _ ->
-              %{"blog" => language_param}
+              %{"group" => language_param}
           end
 
         {default_language, adjusted_params}
@@ -65,30 +65,30 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   end
 
   @doc """
-  Detects if the "blog" param is actually a language code by checking if content exists.
+  Detects if the :group route param is actually a language code by checking if content exists.
 
   Returns {:language_detected, language, adjusted_params} or :not_a_language
   """
-  def detect_language_in_blog_param(
-        %{"blog" => potential_lang, "path" => [_ | _] = path} = _params
+  def detect_language_in_group_param(
+        %{"group" => potential_lang, "path" => [_ | _] = path} = _params
       )
       when is_binary(potential_lang) do
-    [actual_blog | rest_path] = path
+    [actual_group | rest_path] = path
 
-    blog_exists = blog_exists?(actual_blog)
-    has_content = has_content_for_language?(actual_blog, potential_lang)
+    group_exists = group_exists?(actual_group)
+    has_content = has_content_for_language?(actual_group, potential_lang)
 
-    # Check if there's a blog with slug matching actual_blog
-    # AND if there's content for potential_lang in that blog
-    if blog_exists and has_content do
-      adjusted_params = %{"blog" => actual_blog, "path" => rest_path}
+    # Check if there's a group with slug matching actual_group
+    # AND if there's content for potential_lang in that group
+    if group_exists and has_content do
+      adjusted_params = %{"group" => actual_group, "path" => rest_path}
       {:language_detected, potential_lang, adjusted_params}
     else
       :not_a_language
     end
   end
 
-  def detect_language_in_blog_param(_params), do: :not_a_language
+  def detect_language_in_group_param(_params), do: :not_a_language
 
   # ============================================================================
   # Language Validation
@@ -285,12 +285,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   # ============================================================================
 
   @doc """
-  Check if any post in the blog has content for the given language.
+  Check if any post in the group has content for the given language.
   Uses listing cache when available for fast lookups.
   """
-  def has_content_for_language?(blog_slug, language) do
+  def has_content_for_language?(group_slug, language) do
     # Try cache first for fast lookup
-    case ListingCache.read(blog_slug) do
+    case ListingCache.read(group_slug) do
       {:ok, posts} ->
         Enum.any?(posts, fn post ->
           language in (post.available_languages || [])
@@ -298,7 +298,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
 
       {:error, _} ->
         # Cache miss - fall back to filesystem scan
-        posts = Publishing.list_posts(blog_slug, nil)
+        posts = Publishing.list_posts(group_slug, nil)
 
         Enum.any?(posts, fn post ->
           language in (post.available_languages || [])
@@ -308,11 +308,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
     _ -> false
   end
 
-  defp blog_exists?(blog_slug) do
-    case Enum.find(Publishing.list_groups(), fn blog ->
-           case blog["slug"] do
+  defp group_exists?(group_slug) do
+    case Enum.find(Publishing.list_groups(), fn group ->
+           case group["slug"] do
              slug when is_binary(slug) ->
-               String.downcase(slug) == String.downcase(to_string(blog_slug))
+               String.downcase(slug) == String.downcase(to_string(group_slug))
 
              _ ->
                false

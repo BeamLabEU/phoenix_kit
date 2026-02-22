@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Pages.Paths do
+defmodule PhoenixKit.Modules.Pages.FilePaths do
   @moduledoc """
   Path utilities for Pages module.
 
@@ -18,7 +18,7 @@ defmodule PhoenixKit.Pages.Paths do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.Paths.root_path()
+      iex> PhoenixKit.Modules.Pages.FilePaths.root_path()
       "/path/to/app/priv/static/pages"
   """
   def root_path do
@@ -42,13 +42,13 @@ defmodule PhoenixKit.Pages.Paths do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.Paths.normalize_slug("")
+      iex> PhoenixKit.Modules.Pages.FilePaths.normalize_slug("")
       "/404"
 
-      iex> PhoenixKit.Pages.Paths.normalize_slug("hello")
+      iex> PhoenixKit.Modules.Pages.FilePaths.normalize_slug("hello")
       "/hello"
 
-      iex> PhoenixKit.Pages.Paths.normalize_slug("/hello/")
+      iex> PhoenixKit.Modules.Pages.FilePaths.normalize_slug("/hello/")
       "/hello"
   """
   def normalize_slug(slug) do
@@ -84,10 +84,10 @@ defmodule PhoenixKit.Pages.Paths do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.Paths.slug_to_file_path("/hello")
+      iex> PhoenixKit.Modules.Pages.FilePaths.slug_to_file_path("/hello")
       "/hello.md"
 
-      iex> PhoenixKit.Pages.Paths.slug_to_file_path("/hello.md")
+      iex> PhoenixKit.Modules.Pages.FilePaths.slug_to_file_path("/hello.md")
       "/hello.md"
   """
   def slug_to_file_path(slug) do
@@ -105,10 +105,10 @@ defmodule PhoenixKit.Pages.Paths do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.Paths.file_path_to_slug("/hello.md")
+      iex> PhoenixKit.Modules.Pages.FilePaths.file_path_to_slug("/hello.md")
       "/hello"
 
-      iex> PhoenixKit.Pages.Paths.file_path_to_slug("/hello")
+      iex> PhoenixKit.Modules.Pages.FilePaths.file_path_to_slug("/hello")
       "/hello"
   """
   def file_path_to_slug(file_path) do
@@ -124,10 +124,10 @@ defmodule PhoenixKit.Pages.Paths do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.Paths.safe_path?("/hello")
+      iex> PhoenixKit.Modules.Pages.FilePaths.safe_path?("/hello")
       true
 
-      iex> PhoenixKit.Pages.Paths.safe_path?("/../etc/passwd")
+      iex> PhoenixKit.Modules.Pages.FilePaths.safe_path?("/../etc/passwd")
       false
   """
   def safe_path?(relative_path) do
@@ -146,7 +146,7 @@ defmodule PhoenixKit.Pages.Paths do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.Paths.build_full_path("/hello.md")
+      iex> PhoenixKit.Modules.Pages.FilePaths.build_full_path("/hello.md")
       "/app/priv/static/pages/hello.md"
   """
   def build_full_path(relative_path) do
@@ -180,10 +180,10 @@ defmodule PhoenixKit.Pages.Paths do
 
   ## Examples
 
-      iex> PhoenixKit.Pages.Paths.join_path("/blog", "hello.md")
+      iex> PhoenixKit.Modules.Pages.FilePaths.join_path("/blog", "hello.md")
       "/blog/hello.md"
 
-      iex> PhoenixKit.Pages.Paths.join_path("/blog/", "/hello.md")
+      iex> PhoenixKit.Modules.Pages.FilePaths.join_path("/blog/", "/hello.md")
       "/blog/hello.md"
   """
   def join_path(segments) when is_list(segments) do

@@ -13,17 +13,37 @@
       title={gettext("Publishing")}
       subtitle={
         gettext(
-          "Monitor publishing activity, jump into blog workspaces, and guide your team toward new content opportunities."
+          "Monitor publishing activity, jump into group workspaces, and guide your team toward new content opportunities."
         )
       }
     >
       <:actions>
-        <.link
-          navigate={Routes.path("/admin/settings/publishing/new")}
-          class="btn btn-primary btn-sm"
-        >
-          <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
-        </.link>
+        <% needs_migration =
+          (@fs_group_count > 0 and @empty_state?) or
+            Enum.any?(@dashboard_insights, & &1.needs_import) %>
+        <%= if needs_migration do %>
+          <button
+            type="button"
+            phx-click="import_all_to_db"
+            class="btn btn-info btn-sm"
+            title={gettext("Migrate all groups and posts from filesystem to database storage")}
+            data-confirm={
+              gettext(
+                "Migrate all publishing groups and their posts to database storage? Existing DB records will be updated."
+              )
+            }
+          >
+            <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
+            {gettext("Migrate All to Database")}
+          </button>
+        <% else %>
+          <.link
+            navigate={Routes.path("/admin/settings/publishing/new")}
+            class="btn btn-primary btn-sm"
+          >
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
+          </.link>
+        <% end %>
       </:actions>
     </.admin_page_header>
 
@@ -35,31 +55,50 @@
               <.icon name="hero-document-text" class="w-8 h-8" />
             </div>
             <h2 class="text-2xl font-semibold text-base-content">
-              {gettext("No publishing groups yet")}
+              {gettext("No publishing groups in database")}
             </h2>
-            <p class="text-base text-base-content/70 max-w-xl">
-              {gettext(
-                "Publishing lets you organize content into themed workspaces with their own publishing flows. Set up your first publishing group to start drafting posts."
-              )}
-            </p>
-            <div class="flex flex-wrap justify-center gap-3">
-              <.link
-                href={Routes.path("/admin/settings/publishing/new")}
-                class="btn btn-primary btn-sm"
-              >
-                <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext(
-                  "Create Publishing Group"
+            <%= if @fs_group_count > 0 do %>
+              <p class="text-base text-base-content/70 max-w-xl">
+                {ngettext(
+                  "%{count} publishing group found in filesystem. Migrate to database to get started.",
+                  "%{count} publishing groups found in filesystem. Migrate to database to get started.",
+                  @fs_group_count,
+                  count: @fs_group_count
                 )}
-              </.link>
-              <.link
-                navigate={Routes.path("/admin/settings/publishing")}
-                class="btn btn-outline btn-sm"
-              >
-                <.icon name="hero-information-circle" class="w-4 h-4 mr-1" /> {gettext(
-                  "Learn More"
-                )}
-              </.link>
-            </div>
+              </p>
+              <div class="flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  phx-click="import_all_to_db"
+                  class="btn btn-info"
+                  data-confirm={
+                    gettext("Migrate all publishing groups and their posts to database storage?")
+                  }
+                >
+                  <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
+                  {ngettext(
+                    "Migrate %{count} Group to Database",
+                    "Migrate %{count} Groups to Database",
+                    @fs_group_count,
+                    count: @fs_group_count
+                  )}
+                </button>
+              </div>
+            <% else %>
+              <p class="text-base text-base-content/70 max-w-xl">
+                {gettext("Create your first publishing group to start drafting posts.")}
+              </p>
+              <div class="flex flex-wrap justify-center gap-3">
+                <.link
+                  href={Routes.path("/admin/settings/publishing/new")}
+                  class="btn btn-primary btn-sm"
+                >
+                  <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext(
+                    "Create Publishing Group"
+                  )}
+                </.link>
+              </div>
+            <% end %>
           </div>
         </div>
       <% else %>
@@ -69,7 +108,7 @@
               {gettext("Publishing Groups")}
             </div>
             <div class="stat-value text-3xl text-base-content">
-              {@dashboard_summary.total_blogs}
+              {@dashboard_summary.total_groups}
             </div>
           </div>
           <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
@@ -263,7 +302,25 @@
                   <% end %>
                 <% end %>
 
-                <div class="flex gap-2 mt-auto">
+                <div class="flex flex-wrap gap-2 mt-auto">
+                  <%= if insight.needs_import do %>
+                    <button
+                      type="button"
+                      phx-click="import_to_db"
+                      phx-value-slug={insight.slug}
+                      class="btn btn-info btn-sm"
+                      title={gettext("Migrate posts from filesystem to database storage")}
+                      data-confirm={
+                        gettext(
+                          "Migrate all posts from \"%{name}\" to database storage? Existing DB records will be updated.",
+                          name: insight.name
+                        )
+                      }
+                    >
+                      <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
+                      {gettext("Migrate to Database")}
+                    </button>
+                  <% end %>
                   <.link
                     navigate={Routes.path("/admin/publishing/#{insight.slug}")}
                     class="btn btn-outline btn-sm"
@@ -278,7 +335,7 @@
                     <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
                     {gettext("Settings")}
                   </.link>
-                  <% blog_slug = insight.slug %>
+                  <% group_slug = insight.slug %>
                   <% url_prefix =
                     PhoenixKit.Config.get_url_prefix()
                     |> case do
@@ -289,9 +346,9 @@
                   <% default_language = List.first(@enabled_languages) %>
                   <% public_url =
                     if length(@enabled_languages) == 1 do
-                      @endpoint_url <> url_prefix <> "/" <> blog_slug
+                      @endpoint_url <> url_prefix <> "/" <> group_slug
                     else
-                      @endpoint_url <> url_prefix <> "/#{default_language}/" <> blog_slug
+                      @endpoint_url <> url_prefix <> "/#{default_language}/" <> group_slug
                     end %>
                   <a
                     href={public_url}

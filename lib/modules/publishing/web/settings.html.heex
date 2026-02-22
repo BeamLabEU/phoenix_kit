@@ -72,96 +72,92 @@
                 )}
               </p>
             </div>
-            <.link
-              href={Routes.path("/admin/settings/publishing/new")}
-              class="btn btn-primary btn-sm whitespace-nowrap"
-            >
-              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Publishing Group")}
-            </.link>
+            <%= if @fs_group_count == 0 do %>
+              <.link
+                href={Routes.path("/admin/settings/publishing/new")}
+                class="btn btn-primary btn-sm whitespace-nowrap"
+              >
+                <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext(
+                  "Create Publishing Group"
+                )}
+              </.link>
+            <% end %>
           </div>
 
-          <%= if @blogs == [] do %>
-            <div class="alert alert-info">
-              <.icon name="hero-information-circle" class="w-5 h-5" />
-              <div>
-                <h3 class="font-bold">{gettext("No publishing groups yet")}</h3>
-                <p class="text-sm">
-                  {gettext("Create your first publishing group to start publishing content.")}
-                </p>
+          <%= if @publishing == [] do %>
+            <%= if @fs_group_count > 0 do %>
+              <div class="alert alert-info">
+                <.icon name="hero-circle-stack" class="w-5 h-5" />
+                <div>
+                  <h3 class="font-bold">
+                    {gettext("Migrate to Database Storage")}
+                  </h3>
+                  <p class="text-sm">
+                    {ngettext(
+                      "%{count} publishing group found. Migrate your existing content to the new database system for better performance and editing features.",
+                      "%{count} publishing groups found. Migrate your existing content to the new database system for better performance and editing features.",
+                      @fs_group_count,
+                      count: @fs_group_count
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  phx-click="import_all_to_db"
+                  class="btn btn-primary btn-sm"
+                  data-confirm={
+                    gettext(
+                      "Migrate all publishing groups and posts to the database? This is safe to run multiple times."
+                    )
+                  }
+                >
+                  <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
+                  {gettext("Migrate to Database")}
+                </button>
               </div>
-            </div>
+            <% else %>
+              <div class="alert alert-info">
+                <.icon name="hero-information-circle" class="w-5 h-5" />
+                <div>
+                  <h3 class="font-bold">{gettext("No publishing groups yet")}</h3>
+                  <p class="text-sm">
+                    {gettext("Create your first publishing group to start publishing content.")}
+                  </p>
+                </div>
+              </div>
+            <% end %>
           <% else %>
             <div class="space-y-4">
-              <%= for blog <- @blogs do %>
-                <% is_legacy = blog["is_legacy"] == true %>
-                <% storage_dir = if is_legacy, do: "blogging", else: "publishing" %>
+              <%= for group <- @publishing do %>
                 <div class="border border-base-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div class="space-y-1">
                     <p class="flex items-center gap-2 text-base font-semibold text-base-content">
                       <.link
-                        navigate={Routes.path("/admin/publishing/#{blog["slug"]}")}
+                        navigate={Routes.path("/admin/publishing/#{group["slug"]}")}
                         class="hover:text-primary transition-colors"
                       >
-                        {blog["name"]}
+                        {group["name"]}
                       </.link>
                       <span class="badge badge-ghost badge-lg text-xs px-4 py-3 whitespace-nowrap">
-                        <%= if blog["mode"] == "slug" do %>
+                        <%= if group["mode"] == "slug" do %>
                           {gettext("Slug-based")}
                         <% else %>
                           {gettext("Timestamp-based")}
                         <% end %>
                       </span>
-                      <%= if is_legacy do %>
-                        <span
-                          class="badge badge-warning badge-sm gap-1"
-                          title={gettext("This group uses the legacy storage location")}
-                        >
-                          <.icon name="hero-archive-box" class="w-3 h-3" />
-                          {gettext("Legacy")}
-                        </span>
-                      <% end %>
                     </p>
                     <p class="text-xs text-base-content/60">
-                      {gettext("Slug")}: <code class="font-mono break-all">{blog["slug"]}</code>
-                    </p>
-                    <% blog_mode = blog["mode"] || "timestamp" %>
-                    <% blog_path =
-                      if blog_mode == "slug" do
-                        "priv/#{storage_dir}/" <> blog["slug"] <> "/<slug>/<locale>.phk"
-                      else
-                        "priv/#{storage_dir}/" <>
-                          blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
-                      end %>
-                    <p class="text-xs text-base-content/50">
-                      {gettext("Files")}: <code class="font-mono break-all">{blog_path}</code>
+                      {gettext("Slug")}: <code class="font-mono break-all">{group["slug"]}</code>
                     </p>
                   </div>
                   <div class="flex items-center gap-2">
-                    <%= if is_legacy do %>
-                      <button
-                        type="button"
-                        aria-label={gettext("Migrate Storage")}
-                        phx-click="migrate_storage"
-                        phx-value-slug={blog["slug"]}
-                        class="btn btn-warning btn-sm"
-                        title={gettext("Move from priv/blogging to priv/publishing")}
-                        data-confirm={
-                          gettext(
-                            "Migrate this group's storage from priv/blogging to priv/publishing?"
-                          )
-                        }
-                      >
-                        <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
-                        {gettext("Migrate")}
-                      </button>
-                    <% end %>
-                    <%= if blog["needs_primary_lang_migration"] do %>
-                      <% status = blog["primary_language_status"] %>
+                    <%= if group["needs_primary_lang_migration"] do %>
+                      <% status = group["primary_language_status"] %>
                       <button
                         type="button"
                         aria-label={gettext("Update Primary Language")}
                         phx-click="migrate_primary_language"
-                        phx-value-slug={blog["slug"]}
+                        phx-value-slug={group["slug"]}
                         class="btn btn-warning btn-sm"
                         title={
                           gettext(
@@ -184,16 +180,34 @@
                         </span>
                       </button>
                     <% end %>
+                    <%= if group["needs_import"] do %>
+                      <button
+                        type="button"
+                        aria-label={gettext("Migrate to Database")}
+                        phx-click="import_to_db"
+                        phx-value-slug={group["slug"]}
+                        class="btn btn-info btn-sm"
+                        title={gettext("Migrate posts to the database")}
+                        data-confirm={
+                          gettext(
+                            "Migrate all posts from this group to the database? This is safe to run multiple times."
+                          )
+                        }
+                      >
+                        <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
+                        {gettext("Migrate")}
+                      </button>
+                    <% end %>
                     <.link
                       aria-label={gettext("Open Admin")}
-                      navigate={Routes.path("/admin/publishing/#{blog["slug"]}")}
+                      navigate={Routes.path("/admin/publishing/#{group["slug"]}")}
                       class="btn btn-outline btn-sm btn-square"
                     >
                       <.icon name="hero-arrow-right" class="w-4 h-4" />
                     </.link>
                     <.link
                       aria-label={gettext("Edit")}
-                      navigate={Routes.path("/admin/settings/publishing/#{blog["slug"]}/edit")}
+                      navigate={Routes.path("/admin/settings/publishing/#{group["slug"]}/edit")}
                       class="btn btn-outline btn-sm btn-square"
                     >
                       <.icon name="hero-pencil-square" class="w-4 h-4" />
@@ -202,7 +216,7 @@
                       type="button"
                       aria-label={gettext("Delete")}
                       phx-click="remove_group"
-                      phx-value-slug={blog["slug"]}
+                      phx-value-slug={group["slug"]}
                       class="btn btn-sm btn-square btn-outline text-error hover:bg-error hover:text-error-content"
                       data-confirm={
                         gettext(
@@ -235,7 +249,9 @@
                 )}
               </p>
             </div>
-            <%= if @blogs != [] and (@file_cache_enabled or @memory_cache_enabled) do %>
+            <% any_listing_cache =
+              (@publishing == [] and @file_cache_enabled) or @memory_cache_enabled %>
+            <%= if @cache_groups != [] and any_listing_cache do %>
               <button
                 type="button"
                 phx-click="regenerate_all_caches"
@@ -248,25 +264,31 @@
           </div>
 
           <%!-- Cache Settings Toggles --%>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <%!-- File Cache Toggle --%>
-            <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
-              <div class="flex items-center gap-3">
-                <.icon name="hero-document" class="w-5 h-5 text-base-content/70" />
-                <div>
-                  <p class="font-medium">{gettext("File Cache")}</p>
-                  <p class="text-xs text-base-content/60">
-                    {gettext("Persist cache to JSON files for fast startup")}
-                  </p>
+          <div class={
+            if @publishing == [],
+              do: "grid grid-cols-1 md:grid-cols-2 gap-4",
+              else: "grid grid-cols-1 gap-4"
+          }>
+            <%!-- File Cache Toggle — only shown when still on filesystem storage --%>
+            <%= if @publishing == [] do %>
+              <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+                <div class="flex items-center gap-3">
+                  <.icon name="hero-document" class="w-5 h-5 text-base-content/70" />
+                  <div>
+                    <p class="font-medium">{gettext("File Cache")}</p>
+                    <p class="text-xs text-base-content/60">
+                      {gettext("Persist cache to JSON files for fast startup")}
+                    </p>
+                  </div>
                 </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary"
+                  checked={@file_cache_enabled}
+                  phx-click="toggle_file_cache"
+                />
               </div>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@file_cache_enabled}
-                phx-click="toggle_file_cache"
-              />
-            </div>
+            <% end %>
 
             <%!-- Memory Cache Toggle --%>
             <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
@@ -288,7 +310,7 @@
             </div>
           </div>
 
-          <%= if not @file_cache_enabled and not @memory_cache_enabled do %>
+          <%= if @publishing == [] and not @file_cache_enabled and not @memory_cache_enabled do %>
             <div class="alert alert-warning">
               <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
               <span>
@@ -298,21 +320,33 @@
               </span>
             </div>
           <% end %>
+          <%= if @publishing != [] and not @memory_cache_enabled do %>
+            <div class="alert alert-warning">
+              <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+              <span>
+                {gettext(
+                  "Memory cache is disabled. Listing pages will query the database on every request."
+                )}
+              </span>
+            </div>
+          <% end %>
 
-          <%= if @blogs == [] do %>
+          <%= if @cache_groups == [] do %>
             <div class="alert">
               <.icon name="hero-information-circle" class="w-5 h-5" />
               <span>{gettext("Create a publishing group to manage its cache.")}</span>
             </div>
           <% else %>
-            <%= if @file_cache_enabled or @memory_cache_enabled do %>
+            <% any_cache_enabled =
+              (@publishing == [] and @file_cache_enabled) or @memory_cache_enabled %>
+            <%= if any_cache_enabled do %>
               <div class="overflow-x-auto">
                 <table class="table table-zebra">
                   <thead>
                     <tr>
                       <th>{gettext("Group")}</th>
                       <th class="text-center">{gettext("Posts")}</th>
-                      <%= if @file_cache_enabled do %>
+                      <%= if @publishing == [] and @file_cache_enabled do %>
                         <th class="text-center">
                           <span class="flex items-center justify-center gap-1">
                             <.icon name="hero-document" class="w-4 h-4" />
@@ -332,10 +366,10 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <%= for blog <- @blogs do %>
-                      <% cache = @cache_status[blog["slug"]] %>
+                    <%= for group <- @cache_groups do %>
+                      <% cache = @cache_status[group["slug"]] %>
                       <tr>
-                        <td class="font-medium">{blog["name"]}</td>
+                        <td class="font-medium">{group["name"]}</td>
                         <td class="text-center">
                           <%= if cache.post_count do %>
                             <span class="font-mono text-sm">{cache.post_count}</span>
@@ -343,7 +377,7 @@
                             <span class="text-base-content/50">—</span>
                           <% end %>
                         </td>
-                        <%= if @file_cache_enabled do %>
+                        <%= if @publishing == [] and @file_cache_enabled do %>
                           <td class="text-center">
                             <%= if cache.exists do %>
                               <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
@@ -367,7 +401,7 @@
                               <button
                                 type="button"
                                 phx-click="invalidate_cache"
-                                phx-value-slug={blog["slug"]}
+                                phx-value-slug={group["slug"]}
                                 class="btn btn-ghost btn-xs text-error"
                                 title={gettext("Clear cache")}
                               >
@@ -377,7 +411,7 @@
                             <button
                               type="button"
                               phx-click="regenerate_cache"
-                              phx-value-slug={blog["slug"]}
+                              phx-value-slug={group["slug"]}
                               class="btn btn-ghost btn-xs"
                               title={gettext("Regenerate cache")}
                             >
@@ -495,8 +529,8 @@
               </div>
             </div>
 
-            <%!-- Per-Blog Render Cache Table --%>
-            <%= if @blogs != [] do %>
+            <%!-- Per-Group Render Cache Table --%>
+            <%= if @cache_groups != [] do %>
               <div class="overflow-x-auto">
                 <table class="table table-zebra">
                   <thead>
@@ -507,17 +541,17 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <%= for blog <- @blogs do %>
-                      <% slug = blog["slug"] %>
-                      <% enabled = @render_cache_per_blog[slug] %>
+                    <%= for group <- @cache_groups do %>
+                      <% slug = group["slug"] %>
+                      <% enabled = @render_cache_per_group[slug] %>
                       <tr>
-                        <td class="font-medium">{blog["name"]}</td>
+                        <td class="font-medium">{group["name"]}</td>
                         <td class="text-center">
                           <input
                             type="checkbox"
                             class="toggle toggle-primary toggle-sm"
                             checked={enabled}
-                            phx-click="toggle_blog_render_cache"
+                            phx-click="toggle_group_render_cache"
                             phx-value-slug={slug}
                           />
                         </td>
@@ -525,7 +559,7 @@
                           <%= if enabled do %>
                             <button
                               type="button"
-                              phx-click="clear_blog_render_cache"
+                              phx-click="clear_group_render_cache"
                               phx-value-slug={slug}
                               class="btn btn-ghost btn-xs text-error"
                               title={gettext("Clear cache for this group")}

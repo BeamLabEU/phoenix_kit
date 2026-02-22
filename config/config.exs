@@ -54,13 +54,13 @@ config :phoenix_kit, Oban,
 # Configure Logger metadata
 config :logger, :console,
   metadata: [
-    :blog_slug,
+    :group_slug,
     :identifier,
     :reason,
     :language,
     :user_agent,
     :path,
-    :blog,
+    :group,
     :pattern,
     :content_size,
     :error

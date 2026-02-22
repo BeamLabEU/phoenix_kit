@@ -25,6 +25,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Fields excluded from get_user_field for security/internal reasons
   @excluded_fields ~w(password current_password hashed_password __meta__ __struct__)a
@@ -319,7 +320,7 @@ defmodule PhoenixKit.Users.Auth.User do
   Confirms the account by setting `confirmed_at`.
   """
   def confirm_changeset(user) do
-    now = DateTime.truncate(DateTime.utc_now(), :second)
+    now = UtilsDate.utc_now()
     change(user, confirmed_at: now)
   end
 

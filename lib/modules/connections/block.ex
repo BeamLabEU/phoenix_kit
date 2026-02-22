@@ -36,6 +36,8 @@ defmodule PhoenixKit.Modules.Connections.Block do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   @type t :: %__MODULE__{
@@ -121,7 +123,7 @@ defmodule PhoenixKit.Modules.Connections.Block do
       put_change(
         changeset,
         :inserted_at,
-        DateTime.utc_now()
+        UtilsDate.utc_now()
       )
     end
   end

@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
       end
 
     case TranslatePostWorker.enqueue(
-           socket.assigns.blog_slug,
+           socket.assigns.group_slug,
            post_identifier,
            endpoint_id: socket.assigns.ai_selected_endpoint_id,
            version: socket.assigns.current_version,
@@ -176,7 +176,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     lang_names =
       Enum.map_join(target_languages, ", ", fn code ->
         info = Storage.get_language_info(code)
-        info[:name] || code
+        if info, do: info.name, else: code
       end)
 
     socket
@@ -246,7 +246,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   defp format_language_names(language_codes) do
     Enum.map_join(language_codes, ", ", fn code ->
       info = Storage.get_language_info(code)
-      info[:name] || code
+      if info, do: info.name, else: code
     end)
   end
 
@@ -255,7 +255,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   """
   def source_content_blank?(socket) do
     post = socket.assigns.post
-    blog_slug = socket.assigns.blog_slug
+    group_slug = socket.assigns.group_slug
 
     source_language =
       post[:primary_language] ||
@@ -277,7 +277,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
         end
 
       # Read the source language content from disk
-      case Publishing.read_post(blog_slug, post_identifier, source_language, current_version) do
+      case Publishing.read_post(group_slug, post_identifier, source_language, current_version) do
         {:ok, source_post} ->
           content = source_post.content || ""
           String.trim(content) == ""
@@ -338,19 +338,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
 
   # Extract timestamp identifier (YYYY-MM-DD/HH:MM) from a post path
   defp extract_timestamp_identifier(path) when is_binary(path) do
-    parts = String.split(path, "/", trim: true)
-
-    case parts do
-      # Versioned: [blog, date, time, version, file]
-      [_blog, date, time, _version, _file] ->
-        "#{date}/#{time}"
-
-      # Legacy: [blog, date, time, file]
-      [_blog, date, time, _file] ->
-        "#{date}/#{time}"
-
-      _ ->
-        nil
+    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
+      [_, timestamp] -> timestamp
+      nil -> nil
     end
   end
 

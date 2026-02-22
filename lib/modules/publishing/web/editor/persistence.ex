@@ -9,12 +9,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
-  alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
   require Logger
 
@@ -33,7 +34,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
       |> Map.put("content", socket.assigns.content)
 
     params =
-      case {socket.assigns.blog_mode, Map.get(params, "slug")} do
+      case {socket.assigns.group_mode, Map.get(params, "slug")} do
         {"slug", slug} when is_binary(slug) and slug != "" ->
           params
 
@@ -64,18 +65,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     url_slug = Map.get(params, "url_slug", "")
 
     if url_slug != "" do
-      blog_slug = socket.assigns.blog_slug
+      group_slug = socket.assigns.group_slug
       language = editor_language(socket.assigns)
       post_slug = socket.assigns.post.slug
 
-      case Storage.validate_url_slug(blog_slug, url_slug, language, post_slug) do
+      case Storage.validate_url_slug(group_slug, url_slug, language, post_slug) do
         {:ok, _} ->
           {:ok, params}
 
         {:error, :conflicts_with_directory_slug} ->
           # Auto-clear the url_slug from ALL translations of this post
           cleared_params = Map.put(params, "url_slug", "")
-          cleared_languages = Storage.clear_url_slug_from_post(blog_slug, post_slug, url_slug)
+          cleared_languages = DBStorage.clear_url_slug_from_post(group_slug, post_slug, url_slug)
 
           notice =
             if length(cleared_languages) > 1 do
@@ -97,7 +98,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         {:error, :slug_already_exists} ->
           # Auto-clear the url_slug from ALL translations of this post
           cleared_params = Map.put(params, "url_slug", "")
-          cleared_languages = Storage.clear_url_slug_from_post(blog_slug, post_slug, url_slug)
+          cleared_languages = DBStorage.clear_url_slug_from_post(group_slug, post_slug, url_slug)
 
           notice =
             if length(cleared_languages) > 1 do
@@ -158,25 +159,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   end
 
   defp check_background_translation_creation(socket) do
-    post = socket.assigns.post
-    expected_path = post[:path] && Storage.absolute_path(post.path)
-    file_exists = expected_path && File.exists?(expected_path)
+    target_language = socket.assigns.current_language
 
-    if file_exists do
-      case Publishing.read_post(socket.assigns.blog_slug, post.path) do
-        {:ok, real_post} ->
-          socket =
-            socket
-            |> Phoenix.Component.assign(:post, real_post)
-            |> Phoenix.Component.assign(:is_new_translation, false)
+    # Check if content was created in DB for this language.
+    # Verify the returned post's language matches — resolve_content falls back
+    # to the primary language when the requested language doesn't exist yet,
+    # which would trick us into thinking the translation was already created.
+    case re_read_post(socket, target_language, socket.assigns.post[:version]) do
+      {:ok, real_post}
+      when real_post.language == target_language and
+             real_post.content != nil and real_post.content != "" ->
+        socket =
+          socket
+          |> Phoenix.Component.assign(:post, real_post)
+          |> Phoenix.Component.assign(:is_new_translation, false)
 
-          {socket, false}
+        {socket, false}
 
-        {:error, _} ->
-          {socket, true}
-      end
-    else
-      {socket, true}
+      _ ->
+        {socket, true}
     end
   end
 
@@ -188,7 +189,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
     create_opts =
-      if socket.assigns.blog_mode == "slug" do
+      if socket.assigns.group_mode == "slug" do
         %{
           title: Map.get(params, "title"),
           slug: Map.get(params, "slug")
@@ -198,19 +199,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
       end
       |> Map.put(:scope, scope)
 
-    case Publishing.create_post(socket.assigns.blog_slug, create_opts) do
+    case Publishing.create_post(socket.assigns.group_slug, create_opts) do
       {:ok, new_post} ->
-        case Publishing.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
-          {:ok, _updated_post} = result ->
-            handle_post_update_result(socket, result, gettext("Post created and saved"), %{
-              is_new_post: false
-            })
+        uuid = new_post[:uuid]
 
-          error ->
-            handle_post_update_result(socket, error, gettext("Post created and saved"), %{
-              is_new_post: false
-            })
-        end
+        result =
+          case Publishing.update_post(socket.assigns.group_slug, new_post, params, %{scope: scope}) do
+            {:ok, updated_post} ->
+              # Preserve UUID from create_post (update_post returns FS post without it)
+              {:ok, if(uuid, do: Map.put(updated_post, :uuid, uuid), else: updated_post)}
+
+            error ->
+              error
+          end
+
+        handle_post_update_result(socket, result, gettext("Post created and saved"), %{
+          is_new_post: false
+        })
 
       {:error, error} ->
         handle_post_creation_error(socket, error, gettext("Failed to create post"))
@@ -220,26 +225,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   defp create_new_translation(socket, params) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    original_identifier =
-      case socket.assigns.blog_mode do
-        "slug" ->
-          socket.assigns.post.slug ||
-            Map.get(socket.assigns, :original_post_path, socket.assigns.post.path)
-
-        _ ->
-          Map.get(socket.assigns, :original_post_path, socket.assigns.post.path)
-      end
+    original_identifier = socket.assigns.post.slug
 
     current_version = socket.assigns[:current_version]
 
     case Publishing.add_language_to_post(
-           socket.assigns.blog_slug,
+           socket.assigns.group_slug,
            original_identifier,
            socket.assigns.current_language,
            current_version
          ) do
       {:ok, new_post} ->
-        case Publishing.update_post(socket.assigns.blog_slug, new_post, params, %{
+        case Publishing.update_post(socket.assigns.group_slug, new_post, params, %{
                scope: scope,
                is_primary_language: false
              }) do
@@ -299,12 +296,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   end
 
   defp create_new_version_from_edit(socket, params, scope) do
-    blog_slug = socket.assigns.blog_slug
+    group_slug = socket.assigns.group_slug
     post = socket.assigns.post
 
-    case Publishing.create_new_version(blog_slug, post, params, %{scope: scope}) do
+    case Publishing.create_new_version(group_slug, post, params, %{scope: scope}) do
       {:ok, new_version_post} ->
-        invalidate_post_cache(blog_slug, new_version_post)
+        invalidate_post_cache(group_slug, new_version_post)
 
         socket =
           socket
@@ -328,8 +325,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
           )
           |> Phoenix.LiveView.push_patch(
             to:
-              Routes.path(
-                "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_version_post.path)}"
+              Helpers.build_edit_url(group_slug, new_version_post,
+                version: new_version_post.version
               )
           )
 
@@ -346,8 +343,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   end
 
   defp update_post_in_place(socket, params, scope, old_path) do
-    blog_slug = socket.assigns.blog_slug
-    post = socket.assigns.post
+    group_slug = socket.assigns.group_slug
+    # Ensure the post's language matches the current editing language,
+    # not the stale language from when the post was initially loaded
+    post = %{socket.assigns.post | language: socket.assigns.current_language}
     current_version = socket.assigns[:current_version]
     # Use saved_status (on-disk status) not post.metadata.status (form-updated status)
     saved_status = socket.assigns[:saved_status] || Map.get(post.metadata, :status, "draft")
@@ -367,7 +366,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         post
       )
 
-    case Publishing.update_post(blog_slug, post, params, %{
+    case Publishing.update_post(group_slug, post, params, %{
            scope: scope,
            is_primary_language: is_primary_language
          }) do
@@ -429,19 +428,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
          post,
          current_version
        ) do
-    blog_slug = socket.assigns.blog_slug
+    group_slug = socket.assigns.group_slug
 
-    post_identifier =
-      case post.mode do
-        :timestamp -> extract_timestamp_identifier(post.path)
-        _ -> post.slug
-      end
+    post_identifier = post.slug
 
     # Use user ID so all tabs for the same user recognize their own publishes
     user_id =
       get_in(socket.assigns, [:phoenix_kit_current_scope, Access.key(:user), Access.key(:id)])
 
-    case Publishing.publish_version(blog_slug, post_identifier, current_version,
+    case Publishing.publish_version(group_slug, post_identifier, current_version,
            source_id: user_id
          ) do
       :ok ->
@@ -460,9 +455,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   end
 
   defp handle_post_save_success(socket, post, old_path) do
-    blog_slug = socket.assigns.blog_slug
+    group_slug = socket.assigns.group_slug
 
-    invalidate_post_cache(blog_slug, post)
+    invalidate_post_cache(group_slug, post)
 
     # Broadcast save to other tabs/users
     if socket.assigns[:form_key] do
@@ -479,20 +474,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         do: nil,
         else: gettext("Post saved")
 
-    # Re-read post from disk to get fresh cross-version statuses
+    # Re-read post to get fresh cross-version statuses
     current_version = socket.assigns[:current_version]
     current_language = socket.assigns[:current_language]
 
     refreshed_post =
-      case Publishing.read_post(blog_slug, post.path, current_language, current_version) do
+      case re_read_post(socket, current_language, current_version) do
         {:ok, fresh_post} ->
           fresh_post
 
         {:error, reason} ->
-          # If re-read fails, log it and update language_statuses for current language
-          # to ensure the language switcher shows the correct status
           Logger.warning(
-            "Failed to re-read post after save: #{inspect(reason)}, path: #{post.path}"
+            "Failed to re-read post after save: #{inspect(reason)}, post: #{post[:slug] || post[:path]}"
           )
 
           current_language_statuses = Map.get(post, :language_statuses, %{})
@@ -501,7 +494,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
           Map.put(post, :language_statuses, updated_statuses)
       end
 
-    form = Forms.post_form_with_primary_status(blog_slug, refreshed_post, current_version)
+    form = Forms.post_form_with_primary_status(group_slug, refreshed_post, current_version)
 
     is_published = form["status"] == "published"
 
@@ -575,7 +568,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   defp handle_post_update_result(socket, update_result, success_message, extra_assigns) do
     case update_result do
       {:ok, updated_post} ->
-        invalidate_post_cache(socket.assigns.blog_slug, updated_post)
+        invalidate_post_cache(socket.assigns.group_slug, updated_post)
 
         if socket.assigns[:form_key] do
           Logger.debug(
@@ -605,8 +598,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
           |> Phoenix.LiveView.push_event("changes-status", %{has_changes: false})
           |> Phoenix.LiveView.push_patch(
             to:
-              Routes.path(
-                "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}"
+              Helpers.build_edit_url(socket.assigns.group_slug, updated_post,
+                lang: updated_post.language,
+                version: updated_post[:version]
               )
           )
 
@@ -684,46 +678,29 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   # Helpers
   # ============================================================================
 
-  defp invalidate_post_cache(blog_slug, post) do
-    identifier =
-      case Map.get(post, :mode) do
-        :slug -> post.slug
-        :timestamp -> extract_identifier_from_path(post.path)
-        _ -> post.slug || extract_identifier_from_path(post.path)
-      end
-
-    Renderer.invalidate_cache(blog_slug, identifier, post.language)
+  defp re_read_post(socket, language \\ nil, version \\ nil) do
+    post = socket.assigns.post
+    Publishing.read_post_by_uuid(post.uuid, language, version)
   end
 
-  defp extract_identifier_from_path(path) when is_binary(path) do
-    path
-    |> String.split("/")
-    |> Enum.drop(-1)
-    |> Enum.drop(1)
-    |> Enum.join("/")
+  defp invalidate_post_cache(group_slug, post) do
+    identifier = post.slug
+
+    Renderer.invalidate_cache(group_slug, identifier, post.language)
   end
-
-  defp extract_timestamp_identifier(path) when is_binary(path) do
-    parts = String.split(path, "/", trim: true)
-
-    case parts do
-      [_blog, date, time, _version, _file] -> "#{date}/#{time}"
-      [_blog, date, time, _file] -> "#{date}/#{time}"
-      _ -> nil
-    end
-  end
-
-  defp extract_timestamp_identifier(_), do: nil
 
   defp maybe_update_current_path(socket, old_path, new_path)
        when new_path in [nil, ""] or new_path == old_path,
        do: socket
 
-  defp maybe_update_current_path(socket, _old_path, new_path) do
-    encoded = URI.encode(new_path)
+  defp maybe_update_current_path(socket, _old_path, _new_path) do
+    post = socket.assigns.post
 
     path =
-      Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{encoded}")
+      Helpers.build_edit_url(socket.assigns.group_slug, post,
+        lang: post[:language],
+        version: post[:version]
+      )
 
     socket
     |> Phoenix.Component.assign(:current_path, path)
@@ -744,16 +721,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   Reload content after AI translation completes for the current language.
   """
   def reload_translated_content(socket, flash_msg, flash_level) do
-    blog_slug = socket.assigns.blog_slug
-    post_path = socket.assigns.post.path
+    group_slug = socket.assigns.group_slug
 
-    case Publishing.read_post(blog_slug, post_path) do
+    case re_read_post(socket) do
       {:ok, updated_post} ->
         current_version = socket.assigns[:current_version]
-        form = Forms.post_form_with_primary_status(blog_slug, updated_post, current_version)
+        form = Forms.post_form_with_primary_status(group_slug, updated_post, current_version)
 
         socket
-        |> Phoenix.Component.assign(:post, %{updated_post | group: blog_slug})
+        |> Phoenix.Component.assign(:post, %{updated_post | group: group_slug})
         |> Forms.assign_form_with_tracking(form)
         |> Phoenix.Component.assign(:content, updated_post.content)
         |> Phoenix.Component.assign(:available_languages, updated_post.available_languages)
@@ -771,10 +747,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   Refresh available_languages and language_statuses (for language switcher updates).
   """
   def refresh_available_languages(socket) do
-    blog_slug = socket.assigns.blog_slug
-    post_path = socket.assigns.post.path
-
-    case Publishing.read_post(blog_slug, post_path) do
+    case re_read_post(socket) do
       {:ok, updated_post} ->
         socket
         |> Phoenix.Component.assign(:available_languages, updated_post.available_languages)
@@ -791,19 +764,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   end
 
   @doc """
-  Reload post from disk when another tab/user saves (last-save-wins).
+  Reload post when another tab/user saves (last-save-wins).
   """
-  def reload_post_from_disk(socket) do
-    blog_slug = socket.assigns.blog_slug
-    post_path = socket.assigns.post.path
+  def reload_post(socket) do
+    group_slug = socket.assigns.group_slug
     current_version = socket.assigns[:current_version]
 
-    case Publishing.read_post(blog_slug, post_path) do
+    case re_read_post(socket) do
       {:ok, updated_post} ->
-        form = Forms.post_form_with_primary_status(blog_slug, updated_post, current_version)
+        form = Forms.post_form_with_primary_status(group_slug, updated_post, current_version)
 
         socket
-        |> Phoenix.Component.assign(:post, %{updated_post | group: blog_slug})
+        |> Phoenix.Component.assign(:post, %{updated_post | group: group_slug})
         |> Forms.assign_form_with_tracking(form)
         |> Phoenix.Component.assign(:content, updated_post.content)
         |> Phoenix.Component.assign(:available_languages, updated_post.available_languages)
@@ -822,9 +794,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   end
 
   @doc """
-  Regenerates the listing cache for a blog.
+  Regenerates the listing cache for a group.
   """
-  def regenerate_listing_cache(blog_slug) do
-    ListingCache.regenerate(blog_slug)
+  def regenerate_listing_cache(group_slug) do
+    ListingCache.regenerate(group_slug)
   end
 end

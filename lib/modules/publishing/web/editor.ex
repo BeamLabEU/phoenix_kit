@@ -54,7 +54,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defdelegate featured_image_preview_url(value), to: Helpers
   defdelegate format_language_list(codes), to: Helpers
 
-  defdelegate build_editor_languages(post, blog_slug, enabled_languages, current_language),
+  defdelegate build_editor_languages(post, group_slug, enabled_languages, current_language),
     to: Helpers
 
   # ============================================================================
@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   @impl true
   def mount(params, _session, socket) do
-    blog_slug = params["blog"] || params["category"] || params["type"]
+    group_slug = params["group"] || params["category"] || params["type"]
 
     live_source =
       socket.id ||
@@ -73,8 +73,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       socket
       |> assign(:project_title, Settings.get_project_title())
       |> assign(:page_title, "Publishing Editor")
-      |> assign(:blog_slug, blog_slug)
-      |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
+      |> assign(:group_slug, group_slug)
+      |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
       |> assign(:show_media_selector, false)
       |> assign(:media_selection_mode, :single)
       |> assign(:media_selected_ids, MapSet.new())
@@ -97,7 +97,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:form, %{})
       |> assign(:post, nil)
       |> assign(:content, "")
-      |> assign(:blog_mode, nil)
+      |> assign(:group_mode, nil)
       |> assign(:current_language, nil)
       |> assign(:current_language_enabled, true)
       |> assign(:current_language_known, true)
@@ -128,14 +128,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:show_translation_confirm, false)
       |> assign(:pending_translation_languages, [])
       |> assign(:translation_warnings, [])
-      |> assign(:current_path, Routes.path("/admin/publishing/#{blog_slug}/edit"))
+      |> assign(:current_path, Routes.path("/admin/publishing/#{group_slug}/edit"))
 
     {:ok, socket}
   end
 
   @impl true
   def terminate(_reason, socket) do
-    if socket.assigns[:blog_slug] && socket.assigns[:post] && socket.assigns[:lock_owner?] do
+    if socket.assigns[:group_slug] && socket.assigns[:post] && socket.assigns[:lock_owner?] do
       Collaborative.broadcast_editor_activity(socket, :left)
     end
 
@@ -166,7 +166,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
         form_key =
           PublishingPubSub.generate_form_key(
-            socket.assigns.blog_slug,
+            socket.assigns.group_slug,
             socket.assigns.post,
             if(socket.assigns.is_new_post, do: :new, else: :edit)
           )
@@ -191,32 +191,209 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_params(%{"new" => "true"}, _uri, socket) do
-    blog_slug = socket.assigns.blog_slug
-    blog_mode = Publishing.get_group_mode(blog_slug)
+  # Match both /admin/publishing/:group/new route AND legacy ?new=true
+  def handle_params(params, _uri, %{assigns: %{live_action: :new}} = socket)
+      when not is_map_key(params, "preview_token") do
+    case ensure_db_mode(socket) do
+      {:ok, socket} -> handle_new_post(socket)
+      {:redirect, socket} -> {:noreply, socket}
+    end
+  end
+
+  def handle_params(%{"new" => "true"} = params, _uri, socket)
+      when not is_map_key(params, "preview_token") do
+    case ensure_db_mode(socket) do
+      {:ok, socket} -> handle_new_post(socket)
+      {:redirect, socket} -> {:noreply, socket}
+    end
+  end
+
+  # UUID-based route: /admin/publishing/:group/:post_uuid/edit
+  def handle_params(%{"post_uuid" => post_uuid} = params, _uri, socket)
+      when not is_map_key(params, "preview_token") do
+    case ensure_db_mode(socket) do
+      {:redirect, socket} ->
+        {:noreply, socket}
+
+      {:ok, socket} ->
+        handle_uuid_post_params(socket, post_uuid, params)
+    end
+  end
+
+  def handle_params(%{"path" => path} = params, _uri, socket)
+      when not is_map_key(params, "preview_token") do
+    case ensure_db_mode(socket) do
+      {:redirect, socket} ->
+        {:noreply, socket}
+
+      {:ok, socket} ->
+        handle_path_post_params(socket, path, params)
+    end
+  end
+
+  def handle_params(_params, _uri, socket) do
+    {:noreply, socket}
+  end
+
+  # Ensures the editor is in DB mode. Fresh installs (no FS posts) auto-flip to DB.
+  # Existing FS posts require migration before editing is allowed.
+  defp ensure_db_mode(socket) do
+    cond do
+      Publishing.db_storage?() ->
+        {:ok, socket}
+
+      Publishing.db_storage_direct?() ->
+        # Cache was stale — DB says "db" mode, refresh cache and proceed
+        {:ok, socket}
+
+      not Publishing.has_any_fs_posts?() ->
+        # Fresh install — no FS posts, auto-enable DB mode
+        Publishing.enable_db_storage!()
+        {:ok, socket}
+
+      true ->
+        group_slug = socket.assigns.group_slug
+
+        {:redirect,
+         socket
+         |> put_flash(
+           :error,
+           gettext(
+             "Posts must be migrated to the database before editing. Import your posts from the Publishing admin."
+           )
+         )
+         |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
+    end
+  end
+
+  defp handle_uuid_post_params(socket, post_uuid, params) do
+    group_slug = socket.assigns.group_slug
+    group_mode = Publishing.get_group_mode(group_slug)
+
+    version = parse_version_param(params["v"])
+    language = params["lang"]
+
+    case Publishing.read_post_by_uuid(post_uuid, language, version) do
+      {:ok, post} ->
+        all_enabled_languages = Storage.enabled_language_codes()
+
+        old_form_key = socket.assigns[:form_key]
+        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
+
+        {socket, form_key} =
+          if language && language not in post.available_languages do
+            handle_new_translation_params(
+              socket,
+              post,
+              group_slug,
+              group_mode,
+              language,
+              post.path,
+              all_enabled_languages
+            )
+          else
+            handle_existing_post_params(
+              socket,
+              post,
+              group_slug,
+              group_mode,
+              post.path,
+              all_enabled_languages
+            )
+          end
+
+        socket =
+          Collaborative.setup_collaborative_editing(socket, form_key,
+            old_form_key: old_form_key,
+            old_post_slug: old_post_slug
+          )
+
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("Post not found"))
+         |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
+    end
+  end
+
+  defp handle_path_post_params(socket, path, params) do
+    group_slug = socket.assigns.group_slug
+    group_mode = Publishing.get_group_mode(group_slug)
+
+    case Publishing.read_post(group_slug, path) do
+      {:ok, post} ->
+        all_enabled_languages = Storage.enabled_language_codes()
+        requested_lang = Map.get(params, "lang")
+
+        old_form_key = socket.assigns[:form_key]
+        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
+
+        {socket, form_key} =
+          if requested_lang && requested_lang not in post.available_languages do
+            handle_new_translation_params(
+              socket,
+              post,
+              group_slug,
+              group_mode,
+              requested_lang,
+              path,
+              all_enabled_languages
+            )
+          else
+            handle_existing_post_params(
+              socket,
+              post,
+              group_slug,
+              group_mode,
+              path,
+              all_enabled_languages
+            )
+          end
+
+        socket =
+          Collaborative.setup_collaborative_editing(socket, form_key,
+            old_form_key: old_form_key,
+            old_post_slug: old_post_slug
+          )
+
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("Post not found"))
+         |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
+    end
+  end
+
+  defp handle_new_post(socket) do
+    group_slug = socket.assigns.group_slug
+    group_mode = Publishing.get_group_mode(group_slug)
     all_enabled_languages = Storage.enabled_language_codes()
     primary_language = Storage.get_primary_language()
 
     now = DateTime.utc_now() |> DateTime.truncate(:second) |> Forms.floor_datetime_to_minute()
-    virtual_post = Helpers.build_virtual_post(blog_slug, blog_mode, primary_language, now)
+    virtual_post = Helpers.build_virtual_post(group_slug, group_mode, primary_language, now)
 
     form = Forms.post_form(virtual_post)
-    form_key = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :new)
+    form_key = PublishingPubSub.generate_form_key(group_slug, virtual_post, :new)
 
     old_form_key = socket.assigns[:form_key]
     old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
 
     socket =
       socket
-      |> assign(:blog_mode, blog_mode)
+      |> assign(:group_mode, group_mode)
       |> assign(:post, virtual_post)
-      |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
+      |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
       |> Forms.assign_form_with_tracking(form, slug_manually_set: false)
       |> assign(:content, "")
       |> assign(:available_languages, virtual_post.available_languages)
       |> assign(:all_enabled_languages, all_enabled_languages)
       |> Helpers.assign_current_language(primary_language)
-      |> assign(:current_path, Routes.path("/admin/publishing/#{blog_slug}/edit?new=true"))
+      |> assign(:current_path, Helpers.build_new_post_url(group_slug))
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, true)
       |> assign(:public_url, nil)
@@ -238,74 +415,30 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     {:noreply, socket}
   end
 
-  def handle_params(%{"path" => path} = params, _uri, socket)
-      when not is_map_key(params, "preview_token") do
-    blog_slug = socket.assigns.blog_slug
-    blog_mode = Publishing.get_group_mode(blog_slug)
+  defp parse_version_param(nil), do: nil
+  defp parse_version_param(v) when is_integer(v), do: v
 
-    case Publishing.read_post(blog_slug, path) do
-      {:ok, post} ->
-        all_enabled_languages = Storage.enabled_language_codes()
-        switch_to_lang = Map.get(params, "switch_to")
-
-        old_form_key = socket.assigns[:form_key]
-        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
-
-        {socket, form_key} =
-          if switch_to_lang && switch_to_lang not in post.available_languages do
-            handle_new_translation_params(
-              socket,
-              post,
-              blog_slug,
-              blog_mode,
-              switch_to_lang,
-              path,
-              all_enabled_languages
-            )
-          else
-            handle_existing_post_params(
-              socket,
-              post,
-              blog_slug,
-              blog_mode,
-              path,
-              all_enabled_languages
-            )
-          end
-
-        socket =
-          Collaborative.setup_collaborative_editing(socket, form_key,
-            old_form_key: old_form_key,
-            old_post_slug: old_post_slug
-          )
-
-        {:noreply, socket}
-
-      {:error, _reason} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, gettext("Post not found"))
-         |> push_navigate(to: Routes.path("/admin/publishing/#{blog_slug}"))}
+  defp parse_version_param(v) when is_binary(v) do
+    case Integer.parse(v) do
+      {n, _} -> n
+      :error -> nil
     end
   end
 
-  def handle_params(_params, _uri, socket) do
-    {:noreply, socket}
-  end
+  defp parse_version_param(_), do: nil
 
   defp handle_new_translation_params(
          socket,
          post,
-         blog_slug,
-         blog_mode,
+         group_slug,
+         group_mode,
          switch_to_lang,
-         path,
+         _path,
          all_enabled_languages
        ) do
-    new_path =
-      path
-      |> Path.dirname()
-      |> Path.join("#{switch_to_lang}.phk")
+    # DB-only: no FS path needed
+    new_path = nil
+    original_id = post.slug
 
     current_version = Map.get(post, :version, 1)
 
@@ -314,22 +447,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> Map.put(:original_language, post.language)
       |> Map.put(:path, new_path)
       |> Map.put(:language, switch_to_lang)
-      |> Map.put(:blog, blog_slug)
+      |> Map.put(:group, group_slug)
       |> Map.put(:content, "")
       |> Map.put(:metadata, Map.put(post.metadata, :title, ""))
       |> Map.put(:mode, post.mode)
       |> Map.put(:slug, post.slug)
 
-    form = Forms.post_form_with_primary_status(blog_slug, virtual_post, current_version)
-    fk = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
+    form = Forms.post_form_with_primary_status(group_slug, virtual_post, current_version)
+    fk = PublishingPubSub.generate_form_key(group_slug, virtual_post, :edit)
 
     available_versions = Map.get(post, :available_versions, [])
 
     sock =
       socket
-      |> assign(:blog_mode, blog_mode)
+      |> assign(:group_mode, group_mode)
       |> assign(:post, virtual_post)
-      |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
+      |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
       |> Forms.assign_form_with_tracking(form, slug_manually_set: false)
       |> assign(:content, "")
       |> assign(:available_languages, post.available_languages)
@@ -337,7 +470,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> Helpers.assign_current_language(switch_to_lang)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}")
+        Helpers.build_edit_url(group_slug, post,
+          lang: switch_to_lang,
+          version: current_version
+        )
       )
       |> assign(:current_version, current_version)
       |> assign(:available_versions, available_versions)
@@ -349,7 +485,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_translation, true)
-      |> assign(:original_post_path, path)
+      |> assign(:original_post_path, original_id)
       |> assign(:public_url, nil)
       |> assign(:form_key, fk)
       |> assign(:saved_status, form["status"])
@@ -361,22 +497,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp handle_existing_post_params(
          socket,
          post,
-         blog_slug,
-         blog_mode,
-         path,
+         group_slug,
+         group_mode,
+         _path,
          all_enabled_languages
        ) do
     version = Map.get(post, :version, 1)
-    form = Forms.post_form_with_primary_status(blog_slug, post, version)
-    fk = PublishingPubSub.generate_form_key(blog_slug, post, :edit)
+    form = Forms.post_form_with_primary_status(group_slug, post, version)
+    fk = PublishingPubSub.generate_form_key(group_slug, post, :edit)
 
     is_published = form["status"] == "published"
 
     sock =
       socket
-      |> assign(:blog_mode, blog_mode)
-      |> assign(:post, %{post | group: blog_slug})
-      |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
+      |> assign(:group_mode, group_mode)
+      |> assign(:post, %{post | group: group_slug})
+      |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
       |> Forms.assign_form_with_tracking(form)
       |> assign(:content, post.content)
       |> assign(:available_languages, post.available_languages)
@@ -384,7 +520,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> Helpers.assign_current_language(post.language)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}")
+        Helpers.build_edit_url(group_slug, post, version: version, lang: post.language)
       )
       |> assign(:has_pending_changes, false)
       |> assign(:public_url, Helpers.build_public_url(post, post.language))
@@ -507,7 +643,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("generate_slug_from_content", _params, socket) do
-    if socket.assigns.blog_mode == "slug" do
+    if socket.assigns.group_mode == "slug" do
       content = socket.assigns.content || ""
 
       {socket, new_form, slug_events} =
@@ -534,7 +670,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     is_new = socket.assigns[:is_new_post] || socket.assigns[:is_new_translation]
 
     if is_new do
-      Persistence.perform_save(socket)
+      try do
+        Persistence.perform_save(socket)
+      rescue
+        e ->
+          Logger.error("Editor save failed: #{Exception.message(e)}")
+
+          {:noreply,
+           put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
+      end
     else
       {:noreply, socket}
     end
@@ -546,6 +690,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_event("save", _params, socket) do
     Persistence.perform_save(socket)
+  rescue
+    e ->
+      Logger.error("Editor save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
@@ -683,7 +831,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     else
       enabled = enabled_str == "true"
       post = socket.assigns.post
-      blog_slug = socket.assigns.blog_slug
+      group_slug = socket.assigns.group_slug
 
       updated_metadata = Map.put(post.metadata, :allow_version_access, enabled)
       updated_post = %{post | metadata: updated_metadata}
@@ -691,7 +839,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       scope = socket.assigns[:phoenix_kit_current_scope]
       params = %{"allow_version_access" => enabled}
 
-      case Publishing.update_post(blog_slug, updated_post, params, %{scope: scope}) do
+      case Publishing.update_post(group_slug, updated_post, params, %{scope: scope}) do
         {:ok, saved_post} ->
           flash_msg =
             if enabled,
@@ -718,7 +866,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     else
       case Versions.read_version_post(socket, version) do
         {:ok, version_post} ->
-          {socket, old_form_key, old_post_slug, new_form_key, actual_language, new_path} =
+          {socket, old_form_key, old_post_slug, new_form_key, actual_language, _new_path} =
             Versions.apply_version_switch(
               socket,
               version,
@@ -733,14 +881,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               old_post_slug: old_post_slug
             )
 
-          {:noreply,
-           push_patch(socket,
-             to:
-               Routes.path(
-                 "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(new_path)}"
-               ),
-             replace: true
-           )}
+          post = socket.assigns.post
+
+          url =
+            Helpers.build_edit_url(socket.assigns.group_slug, post,
+              version: version,
+              lang: actual_language
+            )
+
+          {:noreply, push_patch(socket, to: url, replace: true)}
 
         {:error, _reason} ->
           {:noreply, put_flash(socket, :error, gettext("Version not found"))}
@@ -784,28 +933,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_event("migrate_to_versioned", _params, socket) do
-    case Versions.migrate_to_versioned(socket) do
-      {:ok, socket, migrated_post} ->
-        form = Forms.post_form(migrated_post)
-        socket = Forms.assign_form_with_tracking(socket, form)
-
-        {:noreply,
-         push_patch(socket,
-           to:
-             Routes.path(
-               "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(migrated_post.path)}"
-             )
-         )}
-
-      {:error, socket} ->
-        {:noreply, socket}
-
-      {:noop, socket} ->
-        {:noreply, socket}
-    end
-  end
-
   # ============================================================================
   # Handle Events - Language Switching
   # ============================================================================
@@ -820,17 +947,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("update_primary_language", _params, socket) do
-    blog_slug = socket.assigns.blog_slug
+    group_slug = socket.assigns.group_slug
     post = socket.assigns.post
 
     if post do
       primary_language = Storage.get_primary_language()
       language_name = Helpers.get_language_name(primary_language)
-      post_dir = Helpers.get_post_directory(post)
 
-      case Publishing.update_post_primary_language(blog_slug, post_dir, primary_language) do
+      case Publishing.update_post_primary_language(group_slug, post.slug, primary_language) do
         :ok ->
-          Persistence.regenerate_listing_cache(blog_slug)
+          Persistence.regenerate_listing_cache(group_slug)
 
           updated_post = Map.put(post, :primary_language, primary_language)
           enabled_languages = socket.assigns[:all_enabled_languages] || []
@@ -838,7 +964,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           editor_languages =
             Helpers.build_editor_languages(
               updated_post,
-              blog_slug,
+              group_slug,
               enabled_languages,
               socket.assigns.current_language
             )
@@ -884,7 +1010,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     {:noreply,
      push_navigate(socket,
-       to: Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/preview#{query_string}")
+       to: Routes.path("/admin/publishing/#{socket.assigns.group_slug}/preview#{query_string}")
      )}
   end
 
@@ -900,7 +1026,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     {:noreply,
      socket
      |> push_event("changes-status", %{has_changes: false})
-     |> push_navigate(to: Routes.path("/admin/publishing/#{socket.assigns.blog_slug}"))}
+     |> push_navigate(to: Routes.path("/admin/publishing/#{socket.assigns.group_slug}"))}
   end
 
   def handle_event("back_to_list", _params, socket) do
@@ -998,7 +1124,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         {:noreply, socket}
 
       true ->
-        socket = Persistence.reload_post_from_disk(socket)
+        socket = Persistence.reload_post(socket)
         {:noreply, socket}
     end
   end
@@ -1012,12 +1138,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
       if !was_owner && socket.assigns[:lock_owner?] do
         socket =
-          case Publishing.read_post(socket.assigns.blog_slug, socket.assigns.post.path) do
+          case re_read_post(socket) do
             {:ok, post} ->
               form = Forms.post_form(post)
 
               socket
-              |> assign(:post, %{post | group: socket.assigns.blog_slug})
+              |> assign(:post, %{post | group: socket.assigns.group_slug})
               |> Forms.assign_form_with_tracking(form)
               |> assign(:content, post.content)
               |> assign(:has_pending_changes, false)
@@ -1084,8 +1210,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Handle Info - Translation Events
   # ============================================================================
 
-  def handle_info({:translation_started, blog_slug, post_slug, target_languages}, socket) do
-    if socket.assigns[:blog_slug] == blog_slug &&
+  def handle_info({:translation_started, group_slug, post_slug, target_languages}, socket) do
+    if socket.assigns[:group_slug] == group_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
       {:noreply,
@@ -1100,10 +1226,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_info(
-        {:translation_progress, blog_slug, post_slug, completed, total, _last_language},
+        {:translation_progress, group_slug, post_slug, completed, total, _last_language},
         socket
       ) do
-    if socket.assigns[:blog_slug] == blog_slug &&
+    if socket.assigns[:group_slug] == group_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
       socket =
@@ -1118,8 +1244,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:translation_completed, blog_slug, post_slug, results}, socket) do
-    if socket.assigns[:blog_slug] == blog_slug &&
+  def handle_info({:translation_completed, group_slug, post_slug, results}, socket) do
+    if socket.assigns[:group_slug] == group_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
       flash_msg =
@@ -1159,11 +1285,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:translation_created, blog_slug, post_slug, language}, socket) do
-    if socket.assigns[:blog_slug] == blog_slug &&
+  def handle_info({:translation_created, group_slug, post_slug, language}, socket) do
+    if socket.assigns[:group_slug] == group_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
-      case Publishing.read_post(blog_slug, socket.assigns.post.path) do
+      case re_read_post(socket) do
         {:ok, updated_post} ->
           socket =
             socket
@@ -1191,8 +1317,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:translation_deleted, blog_slug, post_slug, language}, socket) do
-    if socket.assigns[:blog_slug] == blog_slug &&
+  def handle_info({:translation_deleted, group_slug, post_slug, language}, socket) do
+    if socket.assigns[:group_slug] == group_slug &&
          socket.assigns[:post] &&
          socket.assigns.post[:slug] == post_slug do
       available = socket.assigns[:available_languages] || []
@@ -1213,9 +1339,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Handle Info - Version Events
   # ============================================================================
 
-  def handle_info({:post_version_created, blog_slug, post_slug, version_info}, socket) do
+  def handle_info({:post_version_created, group_slug, post_slug, version_info}, socket) do
     is_our_post =
-      socket.assigns[:blog_slug] == blog_slug &&
+      socket.assigns[:group_slug] == group_slug &&
         socket.assigns[:post] &&
         socket.assigns.post[:slug] == post_slug
 
@@ -1243,14 +1369,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:post_version_deleted, blog_slug, post_slug, deleted_version}, socket) do
+  def handle_info({:post_version_deleted, group_slug, post_slug, deleted_version}, socket) do
     is_our_post =
-      socket.assigns[:blog_slug] == blog_slug &&
+      socket.assigns[:group_slug] == group_slug &&
         socket.assigns[:post] &&
         socket.assigns.post[:slug] == post_slug
 
     if is_our_post do
-      {:noreply, Versions.handle_version_deleted(socket, blog_slug, post_slug, deleted_version)}
+      {:noreply, Versions.handle_version_deleted(socket, group_slug, post_slug, deleted_version)}
     else
       {:noreply, socket}
     end
@@ -1258,11 +1384,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   # Handle version published with source_id (user ID)
   def handle_info(
-        {:post_version_published, blog_slug, post_slug, published_version, source_user_id},
+        {:post_version_published, group_slug, post_slug, published_version, source_user_id},
         socket
       ) do
     is_our_post =
-      socket.assigns[:blog_slug] == blog_slug &&
+      socket.assigns[:group_slug] == group_slug &&
         socket.assigns[:post] &&
         socket.assigns.post[:slug] == post_slug
 
@@ -1294,8 +1420,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   # Handle version published without source_id (legacy format, treat as from another editor)
-  def handle_info({:post_version_published, blog_slug, post_slug, published_version}, socket) do
-    handle_info({:post_version_published, blog_slug, post_slug, published_version, nil}, socket)
+  def handle_info({:post_version_published, group_slug, post_slug, published_version}, socket) do
+    handle_info({:post_version_published, group_slug, post_slug, published_version, nil}, socket)
   end
 
   # ============================================================================
@@ -1324,21 +1450,24 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     assign(socket, :autosave_timer, timer_ref)
   end
 
+  defp re_read_post(socket) do
+    post = socket.assigns.post
+    Publishing.read_post_by_uuid(post.uuid)
+  end
+
   defp do_switch_language(socket, new_language) do
     post = socket.assigns.post
-    blog_slug = socket.assigns.blog_slug
-    base_dir = Helpers.slug_base_dir(post, blog_slug)
-    new_path = Path.join(base_dir, "#{new_language}.phk")
+    group_slug = socket.assigns.group_slug
     file_exists = new_language in post.available_languages
 
     if file_exists do
-      switch_to_existing_language(socket, blog_slug, new_path)
+      switch_to_existing_language(socket, group_slug, new_language)
     else
-      switch_to_new_translation(socket, post, blog_slug, new_language, new_path)
+      switch_to_new_translation(socket, post, group_slug, new_language)
     end
   end
 
-  defp switch_to_existing_language(socket, blog_slug, new_path) do
+  defp switch_to_existing_language(socket, group_slug, target_language) do
     old_form_key = socket.assigns[:form_key]
 
     if old_form_key && connected?(socket) do
@@ -1348,24 +1477,34 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
     end
 
-    {:noreply,
-     push_patch(socket,
-       to: Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}")
-     )}
+    post = socket.assigns.post
+
+    url =
+      Helpers.build_edit_url(group_slug, post,
+        lang: target_language,
+        version: socket.assigns[:current_version]
+      )
+
+    {:noreply, push_patch(socket, to: url)}
   end
 
-  defp switch_to_new_translation(socket, post, blog_slug, new_language, new_path) do
+  defp switch_to_new_translation(socket, post, group_slug, new_language) do
     current_version = socket.assigns.current_version || 1
 
+    # DB-only: no FS path needed
+    new_path = nil
+
     virtual_post =
-      Helpers.build_virtual_translation(post, blog_slug, new_language, new_path, socket)
+      Helpers.build_virtual_translation(post, group_slug, new_language, new_path, socket)
 
     available_versions = socket.assigns.available_versions || []
-    new_form_key = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
+    new_form_key = PublishingPubSub.generate_form_key(group_slug, virtual_post, :edit)
     old_form_key = socket.assigns[:form_key]
     old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
 
-    form = Forms.post_form_with_primary_status(blog_slug, virtual_post, current_version)
+    form = Forms.post_form_with_primary_status(group_slug, virtual_post, current_version)
+
+    original_id = post.slug
 
     socket =
       socket
@@ -1379,7 +1518,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_translation, true)
-      |> assign(:original_post_path, post.path || post.slug)
+      |> assign(:original_post_path, original_id)
       |> assign(:form_key, new_form_key)
       |> push_event("changes-status", %{has_changes: false})
 
@@ -1388,16 +1527,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         old_post_slug: old_post_slug
       )
 
-    original_path = socket.assigns[:original_post_path] || post.path || post.slug
+    url =
+      Helpers.build_edit_url(group_slug, post, lang: new_language, version: current_version)
 
-    {:noreply,
-     push_patch(socket,
-       to:
-         Routes.path(
-           "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}"
-         ),
-       replace: true
-     )}
+    {:noreply, push_patch(socket, to: url, replace: true)}
   end
 
   defp handle_media_selected(socket, file_ids) do

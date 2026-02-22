@@ -96,6 +96,7 @@ defmodule PhoenixKit.Modules.Entities do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(draft published archived)
@@ -277,20 +278,16 @@ defmodule PhoenixKit.Modules.Entities do
   end
 
   defp maybe_set_timestamps(changeset) do
+    now = UtilsDate.utc_now()
+
     case changeset.data.__meta__.state do
       :built ->
-        now = DateTime.utc_now()
-
         changeset
         |> put_change(:date_created, now)
         |> put_change(:date_updated, now)
 
       :loaded ->
-        put_change(
-          changeset,
-          :date_updated,
-          DateTime.utc_now()
-        )
+        put_change(changeset, :date_updated, now)
     end
   end
 

@@ -1,11 +1,11 @@
-defmodule PhoenixKit.Pages.FileOperations do
+defmodule PhoenixKit.Modules.Pages.FileOperations do
   @moduledoc """
   Filesystem operations for Pages module.
 
   Handles reading, writing, listing files and folders.
   """
 
-  alias PhoenixKit.Pages.Paths
+  alias PhoenixKit.Modules.Pages.FilePaths
 
   require Logger
 
@@ -23,7 +23,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       ]}
   """
   def list_directory(relative_path \\ "/") do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
 
     # Debug logging
     Logger.debug("Pages list_directory: full_path=#{inspect(full_path)}")
@@ -75,7 +75,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       {:ok, "# Hello World"}
   """
   def read_file(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
     File.read(full_path)
   end
 
@@ -83,7 +83,7 @@ defmodule PhoenixKit.Pages.FileOperations do
   Returns the absolute filesystem path for a relative page path.
   """
   def absolute_path(relative_path) do
-    Paths.build_full_path(relative_path)
+    FilePaths.build_full_path(relative_path)
   end
 
   @doc """
@@ -97,7 +97,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       :ok
   """
   def write_file(relative_path, content) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
 
     # Ensure parent directory exists
     full_path
@@ -116,7 +116,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       :ok
   """
   def create_directory(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
     File.mkdir_p(full_path)
   end
 
@@ -129,7 +129,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       true
   """
   def exists?(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
     File.exists?(full_path)
   end
 
@@ -145,7 +145,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       false
   """
   def file_exists?(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
     File.exists?(full_path) and not File.dir?(full_path)
   end
 
@@ -161,7 +161,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       false
   """
   def directory_exists?(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
     File.dir?(full_path)
   end
 
@@ -174,7 +174,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       {:ok, %{size: 1024, mtime: ~U[2025-01-01 00:00:00Z]}}
   """
   def file_info(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
 
     case File.stat(full_path) do
       {:ok, stat} ->
@@ -204,7 +204,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       :ok
   """
   def delete(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
 
     cond do
       File.dir?(full_path) ->
@@ -229,8 +229,8 @@ defmodule PhoenixKit.Pages.FileOperations do
       :ok
   """
   def copy(source_path, dest_path) do
-    source_full = Paths.build_full_path(source_path)
-    dest_full = Paths.build_full_path(dest_path)
+    source_full = FilePaths.build_full_path(source_path)
+    dest_full = FilePaths.build_full_path(dest_path)
 
     # Only allow copying files, not directories
     if File.dir?(source_full) do
@@ -256,8 +256,8 @@ defmodule PhoenixKit.Pages.FileOperations do
       :ok
   """
   def move(source_path, dest_path) do
-    source_full = Paths.build_full_path(source_path)
-    dest_full = Paths.build_full_path(dest_path)
+    source_full = FilePaths.build_full_path(source_path)
+    dest_full = FilePaths.build_full_path(dest_path)
 
     # Ensure destination parent directory exists
     dest_full
@@ -278,7 +278,7 @@ defmodule PhoenixKit.Pages.FileOperations do
       %{files: 5, folders: 2}
   """
   def count_contents(relative_path) do
-    full_path = Paths.build_full_path(relative_path)
+    full_path = FilePaths.build_full_path(relative_path)
 
     if File.dir?(full_path) do
       do_count_contents(full_path)

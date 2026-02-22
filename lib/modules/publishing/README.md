@@ -1,6 +1,6 @@
 # Publishing Module
 
-The PhoenixKit Publishing module provides a filesystem-based content management system with multi-language support and dual storage modes. Posts are stored as `.phk` files (YAML frontmatter + Markdown content) rather than in the database, giving content creators a familiar file-based workflow with version control integration.
+The PhoenixKit Publishing module provides a database-backed content management system with multi-language support and dual URL modes (slug-based or timestamp-based). Posts are stored in PostgreSQL via four normalized tables (`publishing_groups`, `publishing_posts`, `publishing_versions`, `publishing_contents`) with UUIDv7 primary keys. A legacy filesystem reader remains for backward compatibility during migration from the older `.phk` file format.
 
 ## Quick Links
 
@@ -19,24 +19,24 @@ The publishing module includes public-facing routes for displaying published pos
 
 **Multi-language mode:**
 ```
-/{prefix}/{language}/{blog-slug}                  # Blog post listing
-/{prefix}/{language}/{blog-slug}/{post-slug}      # Slug mode post
-/{prefix}/{language}/{blog-slug}/{post-slug}/v/{version}  # Versioned slug-mode post
-/{prefix}/{language}/{blog-slug}/{date}           # Timestamp mode (date-only shortcut)
-/{prefix}/{language}/{blog-slug}/{date}/{time}    # Timestamp mode post
+/{prefix}/{language}/{group-slug}                  # Group post listing
+/{prefix}/{language}/{group-slug}/{post-slug}      # Slug mode post
+/{prefix}/{language}/{group-slug}/{post-slug}/v/{version}  # Versioned slug-mode post
+/{prefix}/{language}/{group-slug}/{date}           # Timestamp mode (date-only shortcut)
+/{prefix}/{language}/{group-slug}/{date}/{time}    # Timestamp mode post
 ```
 
 **Single-language mode** (when only one language is enabled):
 ```
-/{prefix}/{blog-slug}                             # Blog post listing
-/{prefix}/{blog-slug}/{post-slug}                 # Slug mode post
-/{prefix}/{blog-slug}/{post-slug}/v/{version}     # Versioned slug-mode post
-/{prefix}/{blog-slug}/{date}                      # Timestamp mode (date-only shortcut)
-/{prefix}/{blog-slug}/{date}/{time}               # Timestamp mode post
+/{prefix}/{group-slug}                             # Group post listing
+/{prefix}/{group-slug}/{post-slug}                 # Slug mode post
+/{prefix}/{group-slug}/{post-slug}/v/{version}     # Versioned slug-mode post
+/{prefix}/{group-slug}/{date}                      # Timestamp mode (date-only shortcut)
+/{prefix}/{group-slug}/{date}/{time}               # Timestamp mode post
 ```
 
 **Examples** (assuming `{prefix}` is `/phoenix_kit`):
-- `/phoenix_kit/en/docs` - Lists all published posts in Docs blog (English)
+- `/phoenix_kit/en/docs` - Lists all published posts in the Docs group (English)
 - `/phoenix_kit/en/docs/getting-started` - Shows specific post (slug mode)
 - `/phoenix_kit/en/news/2025-11-02/14:30` - Shows specific post (timestamp mode)
 - `/phoenix_kit/en/news/2025-11-02` - Date-only timestamp URL (auto-resolves to the first published time)
@@ -56,20 +56,20 @@ The publishing module includes public-facing routes for displaying published pos
 
 ### Language Detection
 
-The publishing module uses a multi-step detection process to determine if a URL segment is a language code or a blog slug:
+The publishing module uses a multi-step detection process to determine if a URL segment is a language code or a group slug:
 
-**Detection Flow (`detect_language_or_blog`):**
+**Detection Flow (`detect_language_or_group`):**
 1. **Enabled language** - If the segment matches an enabled language code (e.g., `en`, `fr-CA`), treat as language
 2. **Base code mapping** - If it's a 2-letter code that maps to an enabled dialect (e.g., `en` → `en-US`), treat as language
 3. **Known language pattern** - If it matches a predefined language code (even if disabled), treat as language
-4. **Content-based check** - If content exists for this language in the requested blog, treat as language
-5. **Default** - Otherwise, treat as a blog slug and use the default language
+4. **Content-based check** - If content exists for this language in the requested group, treat as language
+5. **Default** - Otherwise, treat as a group slug and use the default language
 
 **Supported Language Types:**
 - **Predefined Languages** - Languages configured in the Languages module (e.g., `en`, `fr`, `es`)
 - **Content-Based Languages** - Any `.phk` file in a post directory is treated as a valid language
 
-This allows custom language files like `af.phk` (Afrikaans) or `test.phk` to work correctly even if not predefined in the Languages module. In the **admin interface**, the language switcher shows these with a strikethrough to indicate they're not officially enabled. In the **public blog**, only enabled languages appear in the language switcher, but custom language URLs remain accessible via direct link.
+This allows custom language files like `af.phk` (Afrikaans) or `test.phk` to work correctly even if not predefined in the Languages module. In the **admin interface**, the language switcher shows these with a strikethrough to indicate they're not officially enabled. In the **public display**, only enabled languages appear in the language switcher, but custom language URLs remain accessible via direct link.
 
 **Single-Language Mode:**
 When only one language is enabled, URLs don't require the language segment:
@@ -77,17 +77,17 @@ When only one language is enabled, URLs don't require the language segment:
 
 ### Fallback Behavior
 
-Fallbacks are triggered when posts are missing (`:post_not_found`, `:unpublished`) **and** when a blog
-slug is invalid (`:blog_not_found`). Server errors or other reasons still render the standard 404 page.
+Fallbacks are triggered when posts are missing (`:post_not_found`, `:unpublished`) **and** when a group
+slug is invalid (`:group_not_found`). Server errors or other reasons still render the standard 404 page.
 
 **For slug-mode posts (`/{prefix}/en/docs/getting-started`):**
 1. Try other languages for the same post (default language first)
-2. If no published language versions exist, redirect to blog listing
+2. If no published language versions exist, redirect to group listing
 
 **For timestamp-mode posts (`/{prefix}/en/news/2025-12-24/15:30`):**
 1. Try other languages for the same date/time
 2. Try other times on the same date
-3. If no posts on that date, redirect to blog listing
+3. If no posts on that date, redirect to group listing
 
 **Fallback Priority:**
 The system tries languages in this order:
@@ -98,21 +98,21 @@ The system tries languages in this order:
 - Redirects include a flash message: "The page you requested was not found. Showing closest match."
 - Bookmarked URLs continue to work even if specific translations are removed
 - Users are never shown a 404 if any published version of the content exists
-- Invalid blog slugs fall back to the default blog listing (if one exists) before showing a 404
+- Invalid group slugs fall back to the default group listing (if one exists) before showing a 404
 
 ### Configuration
 
-Enable/disable public blog display and set pagination programmatically:
+Enable/disable public content display and set pagination programmatically:
 
 ```elixir
-# Enable public blog routes (default: true)
+# Enable public content routes (default: true)
 PhoenixKit.Settings.update_setting("publishing_public_enabled", "true")
 
 # Set posts per page in listings (default: 20)
 PhoenixKit.Settings.update_setting("publishing_posts_per_page", "20")
 ```
 
-`publishing_public_enabled` gates the entire `PhoenixKit.Modules.Publishing.Web.Controller` – set it to `"false"` to return a 404 for every public blog route. `publishing_posts_per_page` drives listing pagination.
+`publishing_public_enabled` gates the entire `PhoenixKit.Modules.Publishing.Web.Controller` – set it to `"false"` to return a 404 for every public content route. `publishing_posts_per_page` drives listing pagination.
 
 **Note:** Legacy `blogging_*` settings keys are still supported for backward compatibility. The module checks `publishing_*` keys first, then falls back to `blogging_*`.
 
@@ -120,10 +120,10 @@ PhoenixKit.Settings.update_setting("publishing_posts_per_page", "20")
 
 ### Templates
 
-Public blog templates are located in:
+Public templates are located in:
 
 - `lib/modules/publishing/web/templates/show.html.heex` - Single post view
-- `lib/modules/publishing/web/templates/index.html.heex` - Blog listing
+- `lib/modules/publishing/web/templates/index.html.heex` - Group listing
 
 ### Admin Integration
 
@@ -138,13 +138,13 @@ When editing a post in the admin interface:
 PhoenixKit ships two cache layers:
 
 1. **Listing cache** – `PhoenixKit.Modules.Publishing.ListingCache` writes summary JSON to
-   `priv/publishing/<group>/.listing_cache.json` (with `priv/blogging/` legacy fallback) and mirrors parsed data into `:persistent_term`
+   `priv/publishing/<group>/.listing_cache.json` and mirrors parsed data into `:persistent_term`
    for sub-microsecond reads. File vs memory caching can be toggled via the
-   `publishing_file_cache_enabled` / `publishing_memory_cache_enabled` settings (with legacy `blogging_*` fallback) or from the Publishing
+   `publishing_file_cache_enabled` / `publishing_memory_cache_enabled` settings or from the Publishing
    Settings UI, which also offers regenerate/clear actions per group.
 2. **Render cache** – `PhoenixKit.Modules.Publishing.Renderer` stores rendered HTML for published posts in the
    `:publishing_posts` cache (6-hour TTL) with content-hash keys, a global
-   `publishing_render_cache_enabled` toggle (with legacy `blogging_render_cache_enabled` fallback), and per-group overrides (`publishing_render_cache_enabled_<slug>`)
+   `publishing_render_cache_enabled` toggle, and per-group overrides (`publishing_render_cache_enabled_<slug>`)
    plus UI buttons to clear stats or individual group caches.
 
 Example render cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
@@ -173,20 +173,29 @@ Renderer.clear_all_cache()
 
 **Core Modules:**
 
-- **PhoenixKit.Modules.Publishing** – Main context module with mode-aware routing
-- **PhoenixKit.Modules.Publishing.Storage** – Storage layer with CRUD operations for both modes
-- **PhoenixKit.Modules.Publishing.Metadata** – YAML frontmatter parsing and serialization
+- **PhoenixKit.Modules.Publishing** – Main context module with mode-aware routing (all writes are DB-only)
+- **PhoenixKit.Modules.Publishing.DBStorage** – Database CRUD layer for groups, posts, versions, and contents
+- **PhoenixKit.Modules.Publishing.DBStorage.Mapper** – Converts DB records to the legacy map format consumed by web layer
+- **PhoenixKit.Modules.Publishing.Storage** – Read-only filesystem layer (legacy `.phk` file reads for pre-migration content)
+- **PhoenixKit.Modules.Publishing.Metadata** – YAML frontmatter parsing and serialization (used by FS reader and import workers)
+
+**Schemas (V59 migration):**
+
+- **PhoenixKit.Modules.Publishing.PublishingGroup** – Publishing group schema (name, slug, mode, data JSONB)
+- **PhoenixKit.Modules.Publishing.PublishingPost** – Post schema (group FK, slug, status, mode, data JSONB)
+- **PhoenixKit.Modules.Publishing.PublishingVersion** – Version schema (post FK, version_number, status, data JSONB)
+- **PhoenixKit.Modules.Publishing.PublishingContent** – Content/translation schema (version FK, language, title, content, url_slug, data JSONB)
 
 **Admin Interfaces:**
 
-- **PhoenixKit.Modules.Publishing.Web.Settings** – Admin interface for blog configuration
-- **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave and featured images
-- **PhoenixKit.Modules.Publishing.Web.Preview** – Live preview for blog posts
+- **PhoenixKit.Modules.Publishing.Web.Settings** – Admin interface for group configuration and DB import
+- **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave and featured images (DB-only, gated by migration)
+- **PhoenixKit.Modules.Publishing.Web.Preview** – Live preview for posts
 
 **Public Display:**
 
-- **PhoenixKit.Modules.Publishing.Web.Controller** – Public-facing routes for blog listings and posts
-- **PhoenixKit.Modules.Publishing.Web.HTML** – HTML helpers and view functions for public blog
+- **PhoenixKit.Modules.Publishing.Web.Controller** – Public-facing routes for group listings and posts
+- **PhoenixKit.Modules.Publishing.Web.HTML** – HTML helpers and view functions for public content
 
 **Rendering & Caching:**
 
@@ -199,50 +208,49 @@ Renderer.clear_all_cache()
 - **PhoenixKit.Modules.Publishing.PresenceHelpers** – Owner/spectator logic helpers
 - **PhoenixKit.Modules.Publishing.PubSub** – Real-time change broadcasting
 
+**Workers:**
+
+- **MigrateToDatabaseWorker** – Backfills filesystem posts into the database (Oban job)
+- **MigratePrimaryLanguageWorker** – Ensures primary language metadata consistency
+- **MigrateLegacyStructureWorker** – Upgrades legacy non-versioned posts to versioned structure
+
 ## Core Features
 
-- **Dual Storage Modes** – Timestamp-based (date/time folders) or slug-based (semantic URLs)
-- **Mode Immutability** – Storage mode locked at blog creation, cannot be changed
-- **Slug Mutability** – Post slugs can be changed after creation (triggers file/directory movement)
-- **Multi-Language Support** – Separate `.phk` files for each language translation
-- **Filesystem Storage** – Posts stored as files, enabling Git workflows and external tooling
-- **YAML Frontmatter** – Metadata stored as structured YAML at the top of each file
+- **Dual URL Modes** – Timestamp-based (date/time URLs) or slug-based (semantic URLs)
+- **Mode Immutability** – URL mode locked at group creation, cannot be changed
+- **Slug Mutability** – Post slugs can be changed after creation (DB update, no file movement)
+- **Multi-Language Support** – Separate content records per language, all stored in `publishing_contents` table
+- **Database Storage** – All writes go to PostgreSQL; legacy `.phk` file reading preserved for migration
 - **Markdown Content** – Full Markdown support with syntax highlighting
-- **Backward Compatibility** – Legacy blogs without mode field default to "timestamp"
+- **JSONB Metadata** – Flexible metadata via `data` JSONB columns on all four schemas
+- **Backward Compatibility** – Legacy groups without mode field default to "timestamp"
 
-## Storage Modes
+## URL Modes
+
+Each publishing group has an immutable URL mode that determines how post URLs are structured. The mode is set at creation and cannot be changed afterward. Both modes store data identically in the database.
 
 ### 1. Timestamp Mode (Default, Legacy)
 
-Posts organized by publication date and time:
+Posts addressed by publication date and time:
 
 ```
-blog-slug/
-  └── 2025-01-15/
-      └── 09:30/
-          ├── en.phk
-          ├── es.phk
-          └── fr.phk
+/{prefix}/{language}/{group}/{YYYY-MM-DD}/{HH:MM}
 ```
 
 **Characteristics:**
-- Auto-generates folder structure from `published_at` timestamp
+- URL auto-generated from `published_at` timestamp
 - No slug field in editor UI
 - Ideal for chronological content (news, announcements, changelogs)
-- Path cannot be manually controlled by user
+- URL path cannot be manually controlled by user
 
-**Example Path:** `news/2025-01-15/09:30/en.phk`
+**Example URL:** `/phoenix_kit/en/news/2025-01-15/09:30`
 
 ### 2. Slug Mode (Semantic URLs)
 
-Posts organized by semantic slug:
+Posts addressed by semantic slug:
 
 ```
-blog-slug/
-  └── getting-started/
-      ├── en.phk
-      ├── es.phk
-      └── fr.phk
+/{prefix}/{language}/{group}/{post-slug}
 ```
 
 **Characteristics:**
@@ -250,11 +258,13 @@ blog-slug/
 - Slug field visible in editor UI
 - Slug validation: lowercase letters, numbers, hyphens only
 - Ideal for documentation, guides, evergreen content
-- Slug can be changed (all language files move to new directory)
+- Slug can be changed (DB update, old URLs can redirect via `previous_url_slugs`)
 
-**Example Path:** `docs/getting-started/en.phk`
+**Example URL:** `/phoenix_kit/en/docs/getting-started`
 
 ## File Format (.phk files)
+
+> **Note:** The `.phk` format is the legacy filesystem format. New posts are stored in the database. This section documents the format for migration purposes and for understanding the `Metadata` module.
 
 PhoenixKit posts use YAML frontmatter followed by Markdown content:
 
@@ -326,7 +336,7 @@ Supported components: `Image`, `Hero`, `CTA`, `Headline`, `Subheadline`, `Video`
 
 ## Context Layer API
 
-The main context module (`publishing.ex`) routes operations based on group mode:
+The main context module (`publishing.ex`) provides the public API. All writes go to the database via `DBStorage`:
 
 ## Command-Line / IEx Usage
 
@@ -345,7 +355,7 @@ iex> Publishing.enable_system()
 
 - `Publishing` is available anywhere via the alias above.
 - `Scope` is optional but lets you stamp `created_by_*` / `updated_by_*` metadata.
-- Module settings live in `PhoenixKit.Settings` (with legacy `blogging_settings_module` support).
+- Module settings live in `PhoenixKit.Settings` (with legacy `blogging_settings_module` fallback).
 
 ### Managing publishing groups
 
@@ -360,7 +370,7 @@ iex> Publishing.trash_group("documentation")
 ```
 
 - `mode` must be `"slug"` or `"timestamp"` and is immutable after creation.
-- Publishing group directories live under `priv/publishing/<group-slug>` (with `priv/blogging` legacy fallback).
+- Groups are stored in the `publishing_groups` DB table (and synced to Settings JSON for backward compatibility).
 
 ### Creating scope-aware posts
 
@@ -373,7 +383,7 @@ iex> {:ok, post} = Publishing.create_post("news", %{scope: Scope.for_user(nil)})
 ```
 
 - Slug mode expects a title (auto-slug) or explicit `:slug`.
-- Timestamp mode ignores slug and uses current UTC time for the folder.
+- Timestamp mode ignores slug and uses current UTC time for the URL.
 - `scope` is optional; pass `Scope.for_user(nil)` for system automation.
 - Replace `MyApp.*` with your host application's modules/Repo.
 
@@ -387,7 +397,7 @@ iex> {:ok, updated} = Publishing.update_post("docs", post, %{"content" => "# v2"
 
 - Slug-mode identifiers can include versions, e.g. `"getting-started/v2/en.phk"`.
 - Timestamp-mode identifiers are `"YYYY-MM-DD/HH:MM"` paths.
-- `update_post/4` automatically moves files when slugs or timestamps change.
+- `update_post/4` updates the DB record directly; slug changes are tracked via `previous_url_slugs`.
 
 ### Versioning and translations
 
@@ -400,19 +410,19 @@ iex> :ok = Publishing.delete_version("docs", "getting-started", 1)
 ```
 
 - `create_version_from/5` creates a new version by copying from source (or blank if `nil`); publish with `publish_version/3`.
-- Languages live beside each other (`en.phk`, `es.phk`, etc.) and share cache + slug metadata.
+- Languages are stored as separate `publishing_contents` rows sharing the same version.
 
-### Filesystem + cache helpers
+### Cache helpers
 
 ```elixir
 iex> posts = Publishing.list_posts("docs")
 iex> :ok = Publishing.regenerate_cache("docs")
 iex> {:ok, cached} = Publishing.find_cached_post("docs", "getting-started")
-iex> {:ok, trash_path} = Publishing.trash_post("docs", "getting-started")
+iex> {:ok, _} = Publishing.trash_post("docs", "getting-started")
 ```
 
-- `.listing_cache.json` sits inside each blog directory; cache helpers wrap direct JSON access.
-- All destructive helpers move content into `priv/publishing/trash/...` (or `priv/blogging/trash/...` for legacy groups) so you can restore manually.
+- Listing cache uses file + `:persistent_term` for sub-microsecond reads.
+- `trash_post/2` performs a DB soft-delete (sets `deleted_at` timestamp). Trashed posts can be restored via DB if needed.
 
 ### Group Management
 
@@ -434,17 +444,17 @@ mode = Publishing.get_group_mode("docs")  # => "slug"
 # Update group name/slug
 {:ok, group} = Publishing.update_group("docs", %{"name" => "New Name", "slug" => "new-docs"})
 
-# Remove group from list (keeps files)
+# Remove group from settings list
 {:ok, _} = Publishing.remove_group("docs")
 
-# Move group to trash (renames directory with timestamp)
-{:ok, trash_path} = Publishing.trash_group("docs")
+# Trash group (soft-delete in DB, removes from settings)
+{:ok, _} = Publishing.trash_group("docs")
 
 # Get group name from slug
 name = Publishing.group_name("docs")  # => "Documentation"
 
 # Slug utilities
-slug = Publishing.slugify("My Blog Post!")  # => "my-blog-post"
+slug = Publishing.slugify("My First Post!")  # => "my-first-post"
 Publishing.valid_slug?("my-slug")  # => true
 Publishing.valid_slug?("en")       # => false (reserved language code)
 
@@ -473,13 +483,13 @@ info = Publishing.get_language_info("en")
 
 ### Post Operations
 
-The context layer automatically routes to the correct storage implementation:
+The context layer routes all writes to the database:
 
 ```elixir
-# Create post (routes by blog mode)
+# Create post (DB insert, routes by group mode for URL generation)
 {:ok, post} = Publishing.create_post("docs", %{title: "Hello World"})
 # Slug mode: auto-generates slug "hello-world"
-# Timestamp mode: uses current date/time
+# Timestamp mode: uses current date/time for URL
 
 # Create post with explicit slug and audit trail (slug mode only)
 {:ok, post} = Publishing.create_post("docs", %{
@@ -488,18 +498,18 @@ The context layer automatically routes to the correct storage implementation:
   scope: current_user_scope  # Optional: records created_by_id/email
 })
 
-# List posts (routes by blog mode)
+# List posts (routes by group mode)
 posts = Publishing.list_posts("docs")
 posts = Publishing.list_posts("docs", "es")  # With language preference
 
-# Read post (routes by blog mode)
+# Read post (routes by group mode)
 {:ok, post} = Publishing.read_post("docs", "getting-started")
 {:ok, post} = Publishing.read_post("docs", "getting-started", "es")
 
-# Update post (routes by post.mode field)
+# Update post (DB update)
 {:ok, updated} = Publishing.update_post("docs", post, %{
   "title" => "Updated Title",
-  "slug" => "new-slug",  # Slug mode: moves files
+  "slug" => "new-slug",  # Slug mode: updates DB, tracks old slug for redirects
   "content" => "Updated content..."
 }, scope: current_user_scope)  # Optional 4th arg: records updated_by_id/email
 
@@ -509,25 +519,24 @@ posts = Publishing.list_posts("docs", "es")  # With language preference
 
 ### Delete Operations
 
-All delete operations move content to a trash folder rather than permanent deletion:
+Delete operations use DB soft-deletes (setting `status` to `"archived"` or `deleted_at` timestamp):
 
 ```elixir
-# Move post to trash (all versions and languages)
-{:ok, trash_path} = Publishing.trash_post("docs", "getting-started")
-# => {:ok, "trash/docs/getting-started-2025-01-02-14-30-00"}
+# Soft-delete post (sets deleted_at, all versions and languages)
+{:ok, _} = Publishing.trash_post("docs", "getting-started")
 
 # For timestamp mode, use the date/time path
-{:ok, trash_path} = Publishing.trash_post("news", "2025-01-15/14:30")
+{:ok, _} = Publishing.trash_post("news", "2025-01-15/14:30")
 
-# Delete a specific translation (refuses if last language)
+# Archive a specific translation (refuses if last active language)
 :ok = Publishing.delete_language("docs", "getting-started", "es")
 :ok = Publishing.delete_language("docs", "getting-started", "es", 2)  # specific version
-{:error, :cannot_delete_last_language} = Publishing.delete_language("docs", "post", "en")
+{:error, :last_language} = Publishing.delete_language("docs", "post", "en")
 
-# Delete a version (moves to trash, refuses if live or last version)
+# Archive a version (refuses if live or last active version)
 :ok = Publishing.delete_version("docs", "getting-started", 1)
-{:error, :cannot_delete_live_version} = Publishing.delete_version("docs", "post", 2)
-{:error, :cannot_delete_last_version} = Publishing.delete_version("docs", "post", 1)
+{:error, :cannot_delete_live} = Publishing.delete_version("docs", "post", 2)
+{:error, :last_version} = Publishing.delete_version("docs", "post", 1)
 ```
 
 ### Versioning Operations
@@ -563,10 +572,6 @@ versions = Publishing.list_versions("docs", "getting-started")
 
 # Get the currently published version
 {:ok, version} = Publishing.get_published_version("docs", "getting-started")
-
-# Check version structure and migration
-:versioned = Publishing.detect_post_structure("/path/to/post")
-{:ok, post} = Publishing.migrate_post_to_versioned(legacy_post)
 
 # Helpers for version logic
 Publishing.content_changed?(post, params)  # => true/false
@@ -662,124 +667,93 @@ This is useful for documentation sites where users may need to reference older v
 # Check if cache exists
 Publishing.cache_exists?("docs")  # => true/false
 
-# Fast post lookup from cache (O(1) instead of filesystem scan)
+# Fast post lookup from cache (O(1) via :persistent_term)
 {:ok, post_data} = Publishing.find_cached_post("docs", "getting-started")
 {:ok, post_data} = Publishing.find_cached_post_by_path("news", "2025-01-15", "14:30")
 ```
 
-## Storage Layer Implementation
+## Storage Architecture
 
-The storage layer (`storage.ex`) provides separate implementations for each mode:
+### DB Storage (Primary — All Writes)
 
-### Slug Mode Functions
+All create/update/delete operations go through `DBStorage`:
 
 ```elixir
-# Validation (returns boolean)
-Storage.valid_slug?("hello-world")  # => true
-Storage.valid_slug?("Hello World")  # => false
+alias PhoenixKit.Modules.Publishing.DBStorage
 
-# Validation with error reason
-{:ok, "hello-world"} = Storage.validate_slug("hello-world")
-{:error, :invalid_format} = Storage.validate_slug("Hello World")
-{:error, :reserved_language_code} = Storage.validate_slug("en")
+# Posts
+{:ok, post} = DBStorage.create_post(group_uuid, %{slug: "hello", status: "draft", mode: "slug"})
+{:ok, post} = DBStorage.get_post("docs", "hello")
+{:ok, updated} = DBStorage.update_post(post, %{status: "published"})
+{:ok, deleted} = DBStorage.soft_delete_post(post)
 
-# Check if slug exists in blog
-Storage.slug_exists?("docs", "getting-started")  # => true/false
+# Versions
+{:ok, version} = DBStorage.create_version(post_uuid, %{version_number: 1, status: "draft"})
+versions = DBStorage.list_versions(post_uuid)
+{:ok, version} = DBStorage.get_version(post_uuid, 1)
 
-# Collision-free slug generation
-{:ok, slug} = Storage.generate_unique_slug("docs", "Getting Started")
-# => {:ok, "getting-started"}
-# If exists: {:ok, "getting-started-1"}, etc.
+# Contents (translations)
+{:ok, content} = DBStorage.create_content(version_uuid, %{language: "en", title: "Hello", content: "# Hello"})
+{:ok, content} = DBStorage.get_content(version_uuid, "en")
+contents = DBStorage.list_contents(version_uuid)
+```
 
-# CRUD operations
-{:ok, post} = Storage.create_post_slug_mode("docs", "Hello", "hello")
-{:ok, post} = Storage.create_post_slug_mode("docs", "Hello", "hello", %{
-  created_by_id: user.id,
-  created_by_email: user.email
-})
+The `Mapper` module converts DB records to the legacy map format that the web layer and templates consume:
+
+```elixir
+alias PhoenixKit.Modules.Publishing.DBStorage.Mapper
+
+post_map = Mapper.to_legacy_map(group, post, version, content, available_languages)
+listing_map = Mapper.to_listing_map(group, post, version, primary_content)
+```
+
+### Filesystem Storage (Read-Only — Legacy Migration)
+
+The `Storage` module provides read-only access to legacy `.phk` files for pre-migration content:
+
+```elixir
+alias PhoenixKit.Modules.Publishing.Storage
+
+# Read-only operations (used by public rendering before DB migration completes)
 {:ok, post} = Storage.read_post_slug_mode("docs", "hello", "en")
 posts = Storage.list_posts_slug_mode("docs", "en")
-{:ok, post} = Storage.update_post_slug_mode("docs", post, params)
-
-# Move post to new slug (all languages)
-{:ok, post} = Storage.move_post_to_new_slug("docs", post, "new-slug", params)
-{:ok, post} = Storage.move_post_to_new_slug("docs", post, "new-slug", params, %{
-  updated_by_id: user.id,
-  updated_by_email: user.email
-})
-
-# Add translation to existing post
-{:ok, spanish_post} = Storage.add_language_to_post_slug_mode("docs", "getting-started", "es")
-```
-
-### Timestamp Mode Functions
-
-```elixir
-# CRUD operations (legacy, still supported)
-{:ok, post} = Storage.create_post("news")
-{:ok, post} = Storage.read_post("news", "news/2025-01-15/09:30/en.phk")
 posts = Storage.list_posts("news", "en")
-{:ok, post} = Storage.update_post("news", post, params)
 
-# Add translation to existing post
-{:ok, spanish_post} = Storage.add_language_to_post("news", "news/2025-01-15/09:30", "es")
-
-# Date-based queries
-count = Storage.count_posts_on_date("news", ~D[2025-01-15])
-times = Storage.list_times_on_date("news", ~D[2025-01-15])
-# => ["09:30", "14:00", ...]
-```
-
-### Utility Functions
-
-```elixir
-# File system paths
-Storage.root_path()  # => "/path/to/app/priv/publishing" (or priv/blogging for legacy)
-Storage.absolute_path("docs/getting-started/en.phk")
-
-# Blog directory management
-Storage.ensure_blog_root("docs")  # Creates directory if needed
-Storage.rename_blog_directory("old-slug", "new-slug")
-Storage.move_blog_to_trash("docs")  # Renames with timestamp
-
-# Post/version/language deletion (moves to trash)
-{:ok, path} = Storage.trash_post("docs", "getting-started")
-:ok = Storage.delete_language("docs", "getting-started", "es", 1)
-:ok = Storage.delete_version("docs", "getting-started", 1)
+# Utility functions (still active)
+Storage.valid_slug?("hello-world")  # => true
+{:ok, "hello-world"} = Storage.validate_slug("hello-world")
+Storage.slug_exists?("docs", "getting-started")  # => true/false
+{:ok, slug} = Storage.generate_unique_slug("docs", "Getting Started")
+Storage.content_changed?(post, params)  # => true/false
+Storage.status_change_only?(post, params)  # => true/false
 
 # Language helpers
-Storage.language_filename()        # => "en.phk" (based on content language setting)
-Storage.language_filename("es")    # => "es.phk"
 Storage.enabled_language_codes()   # => ["en", "es", "fr"]
 Storage.get_language_info("en")    # => %{code: "en", name: "English", flag: "🇺🇸"}
-Storage.language_enabled?("en", ["en-US", "es"])  # => true (base code match)
-
-# Language display helpers (for UI)
-Storage.get_display_code("en-US", ["en-US", "es"])  # => "en-US"
-Storage.get_display_code("en", ["en-US", "es"])     # => "en-US" (maps to enabled dialect)
-Storage.order_languages_for_display(["fr", "en", "es"], ["en", "es"])
-# => ["en", "es", "fr"] (enabled first, then others alphabetically)
+Storage.language_enabled?("en", ["en-US", "es"])  # => true
 ```
+
+**Note:** All write functions (`create_post`, `update_post`, `trash_post`, `delete_language`, `delete_version`, etc.) have been removed from `Storage`. Use the context layer (`Publishing.*`) which routes to `DBStorage`.
 
 ## LiveView Interfaces
 
 ### Settings (`settings.ex`)
 
-Blog configuration interface at `{prefix}/admin/settings/publishing`:
+Group configuration interface at `{prefix}/admin/settings/publishing`:
 
-- Create new blogs with mode selector
-- View existing blogs with mode badges
-- Delete blogs
+- Create new groups with mode selector
+- View existing groups with mode badges
+- Delete groups
 - Configure public display settings
 
-**Blog Creation (New Blog Form):**
+**Group Creation (New Group Form):**
 - Mode selector: Radio buttons (Timestamp / Slug)
-- Warning text: "Cannot be changed after blog creation"
+- Warning text: "Cannot be changed after group creation"
 - Mode is locked permanently after creation
 
 ### Editor (`editor.ex`)
 
-Markdown editor at `{prefix}/admin/publishing/{blog}/edit`:
+Markdown editor at `{prefix}/admin/publishing/{group}/edit`:
 
 - Title input (all modes)
 - **Slug input** (slug mode only, with validation)
@@ -805,12 +779,15 @@ Posts can have an optional featured image:
 - Click "Clear" to remove the featured image
 - Stored as `featured_image_id` in frontmatter
 
+**Migration Gate:**
+
+The editor requires DB storage mode to be active. If filesystem posts exist but haven't been migrated, the editor redirects to the Publishing admin with a prompt to run the DB import. For fresh installs (no FS posts), DB mode is enabled automatically.
+
 **Mode-Specific Behavior:**
 
 **Timestamp Mode:**
 - No slug field visible
-- Virtual path shown: `blog/2025-01-15/09:30/en.phk`
-- Path auto-generated on save from `published_at`
+- URL auto-generated from `published_at`
 
 **Slug Mode:**
 - Slug field visible with validation
@@ -819,11 +796,10 @@ Posts can have an optional featured image:
 - Validation: lowercase, numbers, hyphens only
 - **Reserved slugs**: Any language code from the Languages module cannot be used as a slug to prevent routing ambiguity
 - Shows validation error for invalid slugs
-- Path preview: `blog/post-slug/en.phk`
 
 ### Preview (`preview.ex`)
 
-Live preview at `{prefix}/admin/publishing/{blog}/preview`:
+Live preview at `{prefix}/admin/publishing/{group}/preview`:
 
 - Renders Markdown content with Phoenix.Component
 - Shows metadata preview (title, status, published date)
@@ -842,7 +818,7 @@ The editor uses Phoenix.Presence to coordinate multiple users editing the same p
 
 **How It Works:**
 
-- Users join a Presence topic (e.g., `blog_edit:group-slug:post-slug`)
+- Users join a Presence topic (e.g., `publishing_edit:group-slug:post-slug`)
 - Users sorted by `joined_at` timestamp (FIFO ordering)
 - First user in sorted list = owner (`readonly?: false`)
 - All other users = spectators (`readonly?: true`)
@@ -862,34 +838,36 @@ The editor uses Phoenix.Presence to coordinate multiple users editing the same p
 
 ## Multi-Language Support
 
-Every post can have multiple language files in the same directory:
+Every post version can have multiple language translations stored as separate `publishing_contents` rows:
 
 ```
-docs/
-  └── getting-started/
-      ├── en.phk    # English (primary)
-      ├── es.phk    # Spanish translation
-      └── fr.phk    # French translation
+publishing_contents table:
+  version_uuid | language | title           | content    | url_slug
+  abc-123      | en       | Getting Started | # Getting… | getting-started
+  abc-123      | es       | Primeros Pasos  | # Primeros | primeros-pasos
+  abc-123      | fr       | Prise en Main   | # Prise…   | prise-en-main
 ```
 
 **Workflow:**
 
 1. Create primary post (e.g., English)
 2. Click language switcher → Select "Add Spanish"
-3. System creates `es.phk` with empty content and title
+3. System creates a new content record with empty content and title
 4. Fill in translated content and save
-5. All translations share same slug/path structure
+5. All translations share same post/version, each with its own `url_slug`
 
-**Post Struct Fields:**
+**Post Map Fields (Legacy Format):**
+
+The `Mapper` module converts DB records into this map format consumed by templates and the web layer:
 
 ```elixir
 %{
   group: "docs",                    # Publishing group slug
   slug: "getting-started",          # Slug mode only
+  uuid: "01234567-...",             # UUIDv7 from DB (nil for FS-only posts)
   date: ~D[2025-01-15],             # Timestamp mode only
   time: ~T[09:30:00],               # Timestamp mode only
-  path: "docs/getting-started/v1/en.phk",
-  full_path: "/var/app/content/docs/getting-started/v1/en.phk",
+  path: "docs/getting-started/v1/en.phk",  # Virtual path for compatibility
   metadata: %{
     title: "Getting Started",
     status: "published",            # "published", "draft", or "archived"
@@ -908,11 +886,11 @@ docs/
   version: 1,                       # Current version number
   available_versions: [1, 2, 3],    # All versions for this post
   version_statuses: %{1 => "archived", 2 => "archived", 3 => "published"},
-  is_legacy_structure: false        # True for pre-versioned posts
+  is_legacy_structure: false
 }
 ```
 
-**Note on `language_statuses`:** This field is preloaded when posts are fetched via `list_posts` or `read_post` to avoid redundant file reads. It maps each available language code to its publication status.
+**Note on `uuid`:** Posts read from the database have a non-nil `uuid` field. The helper `Publishing.db_post?(post)` checks this to distinguish DB posts from legacy FS posts during the migration period.
 
 ## AI Translation
 
@@ -977,7 +955,7 @@ With a default endpoint configured, you can omit the `endpoint_id` option:
 1. **Job Enqueued**: An Oban job is created in the `:default` queue
 2. **Source Read**: The primary language content is read from the specified post
 3. **AI Translation**: For each target language, the content is sent to the AI with a translation prompt
-4. **Files Created**: Translation files are created or updated (e.g., `es.phk`, `fr.phk`)
+4. **Records Created**: Translation content records are created or updated in the database
 5. **Cache Updated**: The listing cache is regenerated to include new translations
 
 ### Translation Features
@@ -1069,12 +1047,38 @@ missing_langs = ["de", "ja", "zh"]  # Languages without translation files
 
 ## Migration Path
 
-### Existing Blogs (Pre-Dual-Mode)
+### Fresh Installs
 
-All existing blogs automatically default to `"timestamp"` mode via `normalize_blogs/1`:
+New installs start with DB storage mode immediately. No filesystem content exists, so the editor is available right away.
+
+### Existing Installs (Filesystem → Database)
+
+Existing `.phk` file content must be imported into the database:
+
+1. Navigate to `{prefix}/admin/publishing` (the listing page)
+2. Click "Import to DB" for each publishing group
+3. The `MigrateToDatabaseWorker` (Oban job) reads `.phk` files and creates DB records
+4. When migration completes, the `publishing_storage` setting is auto-flipped to `"db"`
+5. The editor becomes available
+
+**Programmatic import:**
 
 ```elixir
-# Before (legacy blog without mode field)
+# Import a specific group
+PhoenixKit.Modules.Publishing.Workers.MigrateToDatabaseWorker.enqueue("docs")
+
+# Or import via the context layer
+PhoenixKit.Modules.Publishing.import_group_to_db("docs")
+```
+
+During migration, public rendering continues to read from the filesystem. After the setting flips to `"db"`, all reads switch to the database.
+
+### Existing Groups (Pre-Dual-Mode)
+
+All existing groups automatically default to `"timestamp"` mode via `normalize_groups/1`:
+
+```elixir
+# Before (legacy group without mode field)
 %{"name" => "News", "slug" => "news"}
 
 # After (normalized with default mode)
@@ -1083,44 +1087,44 @@ All existing blogs automatically default to `"timestamp"` mode via `normalize_bl
 
 No migration script needed – backward compatibility is automatic.
 
-### Creating New Blogs
+### Creating New Groups
 
 Admin chooses mode at creation time:
 
 1. Navigate to `{prefix}/admin/publishing/settings`
-2. Enter blog name: "Documentation"
+2. Enter group name: "Documentation"
 3. Select mode: **Slug** or **Timestamp**
-4. Click "Add Blog"
-5. Mode is now permanently locked for this blog
+4. Click "Add Group"
+5. Mode is now permanently locked for this group
 
 ## Test Coverage
 
-**Status:** Tests not yet implemented
+**Status:** 122+ unit tests across 6 test files (all pure-function, no database required).
 
-The publishing module is tested through integration testing in parent Phoenix applications rather than unit tests within PhoenixKit itself. This is consistent with PhoenixKit's library-first architecture (see CLAUDE.md for testing philosophy).
+**Test files:**
 
-**Recommended Testing Approach:**
-
-1. **Integration Testing** - Test publishing functionality in your parent Phoenix application
-2. **Manual Testing** - Use the admin interface at `/{prefix}/admin/publishing`
-3. **Static Analysis** - Run `mix credo --strict` and `mix dialyzer` to catch logic errors
-
-**Future Test Implementation:**
-
-When publishing tests are added, they will use an in-memory settings stub to avoid database dependencies:
-
-```elixir
-# config/test.exs
-config :phoenix_kit,
-  publishing_settings_module: PhoenixKit.Test.FakeSettings
-```
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test/modules/publishing/schema_test.exs` | 28 | All 4 schema changesets, JSONB accessors, defaults |
+| `test/modules/publishing/metadata_test.exs` | 26 | parse/serialize round-trip, title extraction, legacy XML |
+| `test/modules/publishing/mapper_test.exs` | 26 | `to_legacy_map`, `to_listing_map`, field mapping, edge cases |
+| `test/modules/publishing/pubsub_test.exs` | 13 | Topic generation, form key generation |
+| `test/modules/publishing/publishing_api_test.exs` | 20 | Module loading, slugify, valid_slug?, db_post?, extract helpers |
+| `test/modules/publishing/storage_utils_test.exs` | 9 | content_changed?, status_change_only?, should_create_new_version? |
 
 **Running Tests:**
 
 ```bash
-# Run all publishing tests (when implemented)
+# Run all publishing tests
 mix test test/modules/publishing/
+
+# Run a specific test file
+mix test test/modules/publishing/schema_test.exs
 ```
+
+**Testing Philosophy:**
+
+PhoenixKit is a library module. Unit tests cover pure functions, changesets, and data transformations. Integration tests requiring a database (CRUD operations, LiveView flows) are run in parent Phoenix applications.
 
 ## Configuration
 
@@ -1135,6 +1139,7 @@ Publishing.enabled?()  # => true/false
 # Publishing groups stored as JSON setting
 # Key: "publishing_groups" (with legacy "blogging_blogs" fallback)
 # Value: %{"blogs" => [%{"name" => "...", "slug" => "...", "mode" => "...", "type" => "..."}]}
+# Note: The inner "blogs" key is a legacy JSON key preserved for backward compatibility
 
 # Cache toggles (with legacy blogging_* fallback)
 PhoenixKit.Settings.update_setting("publishing_file_cache_enabled", "true")
@@ -1148,27 +1153,22 @@ PhoenixKit.Settings.update_setting("publishing_render_cache_enabled_docs", "fals
 config :phoenix_kit, publishing_settings_module: MyApp.CustomSettings
 ```
 
-### Storage Path
+### Storage
 
-Content is stored in the filesystem under:
+**Primary (DB):** All content is stored in PostgreSQL via the V59 migration tables:
 
-```
-priv/publishing/
-  ├── docs/
-  │   ├── getting-started/
-  │   │   ├── en.phk
-  │   │   └── es.phk
-  │   └── advanced-guide/
-  │       └── en.phk
-  └── news/
-      └── 2025-01-15/
-          └── 09:30/
-              └── en.phk
-```
+| Table | Purpose |
+|-------|---------|
+| `phoenix_kit_publishing_groups` | Publishing groups (name, slug, mode, data JSONB) |
+| `phoenix_kit_publishing_posts` | Posts (group FK, slug, status, mode, published_at) |
+| `phoenix_kit_publishing_versions` | Versions (post FK, version_number, status) |
+| `phoenix_kit_publishing_contents` | Content/translations (version FK, language, title, content, url_slug) |
 
-Default: `priv/publishing` (with automatic fallback to `priv/blogging` for existing content)
+**Legacy (FS, read-only):** Pre-migration `.phk` files in `priv/publishing/` (with `priv/blogging/` fallback) are read-only. The `MigrateToDatabaseWorker` imports these into the database. After migration completes, the `publishing_storage` setting is auto-flipped to `"db"` and the editor becomes available.
 
-Note: The path is determined by the parent application's priv directory, not PhoenixKit's dependencies folder.
+**Feature flag:** The `publishing_storage` setting controls the read path:
+- `"filesystem"` (default) — Public rendering reads from FS; editor is gated/blocked
+- `"db"` — All reads and writes use the database
 
 ## Best Practices
 
@@ -1254,7 +1254,7 @@ The slug matches a language code defined in the Languages module (e.g., `en`, `e
 
 **Solution:**
 
-Choose a different slug. Language codes are reserved to prevent URL routing ambiguity between `/{prefix}/en/blog` (language + blog) and a post with slug `en`.
+Choose a different slug. Language codes are reserved to prevent URL routing ambiguity between `/{prefix}/en/docs` (language + group) and a post with slug `en`.
 
 ---
 
@@ -1267,7 +1267,7 @@ A post with this slug already exists
 
 **Root Cause:**
 
-Another post in the same blog already uses this slug.
+Another post in the same group already uses this slug.
 
 **Solution:**
 
@@ -1304,7 +1304,7 @@ Old links still reference the previous slug.
 
 **Solution:**
 
-Slug changes move files to new directories. Update any hardcoded links:
+Slug changes update the database record. Old URLs need redirects. Update any hardcoded links:
 
 ```elixir
 # Before slug change
@@ -1319,7 +1319,7 @@ Consider implementing redirects in your application for user-facing URLs.
 
 ---
 
-### Problem: Cannot change blog mode
+### Problem: Cannot change group mode
 
 **Symptoms:**
 
@@ -1327,16 +1327,16 @@ Mode field is read-only in settings UI.
 
 **Root Cause:**
 
-Mode immutability is by design – storage mode is locked at blog creation.
+Mode immutability is by design – storage mode is locked at group creation.
 
 **Solution:**
 
 To change modes, you must:
 
-1. Create a new blog with the desired mode
-2. Manually copy `.phk` files to new blog structure
+1. Create a new group with the desired mode
+2. Manually migrate posts (via IEx or scripts) to the new group
 3. Update internal references
-4. Delete old blog
+4. Delete old group
 
 **No automatic migration is provided** – this is an infrequent operation best done manually.
 
@@ -1346,12 +1346,12 @@ To change modes, you must:
 
 **Symptoms:**
 ```
-{:error, :cannot_delete_last_language}
+{:error, :last_language}
 ```
 
 **Root Cause:**
 
-Every post must have at least one language file. You cannot delete the only remaining translation.
+Every post version must have at least one active language. You cannot archive the only remaining translation.
 
 **Solution:**
 
@@ -1373,7 +1373,7 @@ Either add another translation first, or trash the entire post:
 
 **Symptoms:**
 ```
-{:error, :cannot_delete_live_version}
+{:error, :cannot_delete_live}
 ```
 
 **Root Cause:**
@@ -1397,12 +1397,12 @@ Publish a different version first:
 
 **Symptoms:**
 ```
-{:error, :cannot_delete_last_version}
+{:error, :last_version}
 ```
 
 **Root Cause:**
 
-Every post must have at least one version. You cannot delete the only remaining version.
+Every post must have at least one active version. You cannot archive the only remaining version.
 
 **Solution:**
 
@@ -1420,18 +1420,18 @@ Each language translation can have its own SEO-friendly URL slug, enabling local
 **Example:**
 ```
 # Each language has its own URL slug
-/en/docs/getting-started   →  docs/getting-started/en.phk  (url_slug: "getting-started")
-/es/docs/primeros-pasos    →  docs/getting-started/es.phk  (url_slug: "primeros-pasos")
-/fr/docs/prise-en-main     →  docs/getting-started/fr.phk  (url_slug: "prise-en-main")
+/en/docs/getting-started   →  post slug: "getting-started", content url_slug: "getting-started"
+/es/docs/primeros-pasos    →  post slug: "getting-started", content url_slug: "primeros-pasos"
+/fr/docs/prise-en-main     →  post slug: "getting-started", content url_slug: "prise-en-main"
 ```
 
 **Key Concepts:**
 
-1. **Directory = Internal Identifier** - The post directory name (e.g., `getting-started/`) is the internal ID that ties all translations together. This never changes.
+1. **Post Slug = Internal Identifier** - The post's `slug` field in the database ties all translations together. This is the canonical identifier.
 
-2. **url_slug = Public URL** - Each translation's `.phk` file can specify its own `url_slug` in frontmatter for the public-facing URL.
+2. **url_slug = Public URL** - Each translation's `publishing_contents` row has its own `url_slug` for the public-facing URL.
 
-3. **Backward Compatible** - If no `url_slug` is set, the directory name is used (existing behavior).
+3. **Backward Compatible** - If no `url_slug` is set, the post slug is used (existing behavior).
 
 ### Setting Up Per-Language Slugs
 
@@ -1442,19 +1442,15 @@ Each language translation can have its own SEO-friendly URL slug, enabling local
 3. Enter a localized slug (e.g., `primeros-pasos` for Spanish)
 4. Save - the URL immediately updates
 
-**In Frontmatter:**
+**In Database:**
+
+The `url_slug` is stored on the `publishing_contents` record. For legacy `.phk` files, it's in the YAML frontmatter:
 
 ```yaml
 ---
 slug: getting-started
-status: published
-published_at: 2025-01-15T09:30:00Z
 url_slug: primeros-pasos
 ---
-
-# Primeros Pasos
-
-Contenido en español...
 ```
 
 **Auto-Generation:**
@@ -1543,14 +1539,13 @@ The listing cache stores per-language slug mappings for O(1) lookups:
 {:error, :slug_already_exists} = Storage.validate_url_slug("docs", "existing-slug", "es", nil)
 ```
 
-### Filesystem Fallback
+### Cold Start Fallback
 
-On cold starts (no cache), the system scans the filesystem to resolve URL slugs:
+On cold starts (no cache), the system queries the database to resolve URL slugs:
 
-1. Scans all post directories in the group
-2. Reads each language file's metadata
-3. Checks both `url_slug` and `previous_url_slugs`
-4. Returns redirect for previous slugs, resolution for current slugs
+1. Queries `publishing_contents` for matching `url_slug` or entries in `data->previous_url_slugs`
+2. Returns redirect for previous slugs, resolution for current slugs
+3. For pre-migration installs, falls back to scanning `.phk` files on the filesystem
 
 This ensures localized URLs work immediately after deployment without waiting for cache warm-up.
 
@@ -1563,7 +1558,8 @@ This ensures localized URLs work immediately after deployment without waiting fo
 
 ## Getting Help
 
-1. Review storage layer implementation: `lib/modules/publishing/storage.ex`
-2. Inspect post struct in IEx: `{:ok, post} = Publishing.read_post("docs", "slug")` → `IO.inspect(post)`
-3. Enable debug logging: `Logger.configure(level: :debug)`
-4. Search GitHub issues: <https://github.com/phoenixkit/phoenix_kit/issues>
+1. Review DB storage layer: `lib/modules/publishing/db_storage.ex`
+2. Review context module: `lib/modules/publishing/publishing.ex`
+3. Inspect post map in IEx: `{:ok, post} = Publishing.read_post("docs", "slug")` → `IO.inspect(post)`
+4. Enable debug logging: `Logger.configure(level: :debug)`
+5. Search GitHub issues: <https://github.com/phoenixkit/phoenix_kit/issues>

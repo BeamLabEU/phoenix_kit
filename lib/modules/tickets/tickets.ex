@@ -54,6 +54,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   alias PhoenixKit.Modules.Tickets.{
     Events,
@@ -587,10 +588,10 @@ defmodule PhoenixKit.Modules.Tickets do
         attrs =
           case new_status do
             "resolved" ->
-              Map.put(attrs, :resolved_at, DateTime.truncate(DateTime.utc_now(), :second))
+              Map.put(attrs, :resolved_at, UtilsDate.utc_now())
 
             "closed" ->
-              Map.put(attrs, :closed_at, DateTime.truncate(DateTime.utc_now(), :second))
+              Map.put(attrs, :closed_at, UtilsDate.utc_now())
 
             "open" ->
               Map.merge(attrs, %{resolved_at: nil, closed_at: nil})

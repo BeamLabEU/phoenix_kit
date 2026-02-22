@@ -267,7 +267,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
         # Check if upload failed and handle error
         case uploaded_results do
-          [{:ok, file_id}] when is_binary(file_id) ->
+          file_id when is_binary(file_id) ->
             # Success - reload files and auto-select
             {files, total_count} = load_files(socket, socket.assigns.current_page)
             total_pages = ceil(total_count / socket.assigns.per_page)

@@ -16,6 +16,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
   @magic_link_registration_context "magic_link_registration"
@@ -163,7 +164,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     attrs =
       attrs
       |> Map.put("email", email)
-      |> Map.put("confirmed_at", DateTime.truncate(DateTime.utc_now(), :second))
+      |> Map.put("confirmed_at", UtilsDate.utc_now())
 
     track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
 

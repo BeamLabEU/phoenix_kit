@@ -10,22 +10,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
   alias PhoenixKit.Modules.Publishing
   # alias PhoenixKit.Modules.Publishing.PageBuilder  # COMMENTED OUT: Component system
   alias PhoenixKit.Modules.Publishing.Renderer
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(params, _session, socket) do
-    blog_slug = params["blog"] || params["category"] || params["type"]
+    group_slug = params["group"] || params["category"] || params["type"]
 
     socket =
       socket
       |> assign(:project_title, Settings.get_project_title())
       |> assign(:page_title, "Preview")
-      |> assign(:blog_slug, blog_slug)
-      |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
+      |> assign(:group_slug, group_slug)
+      |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/preview")
+        Routes.path("/admin/publishing/#{group_slug}/preview")
       )
       |> assign(:rendered_content, nil)
       |> assign(:error, nil)
@@ -39,6 +40,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     cond do
       Map.has_key?(params, "preview_token") ->
         handle_preview_token(params, socket)
+
+      Map.has_key?(params, "post_uuid") ->
+        handle_uuid_preview(params, socket)
 
       Map.has_key?(params, "path") ->
         handle_saved_preview(params, socket)
@@ -54,15 +58,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
       {:ok, data} ->
         post =
-          build_preview_post(data, socket.assigns.blog_slug, socket.assigns.current_locale_base)
+          build_preview_post(data, socket.assigns.group_slug, socket.assigns.current_locale_base)
 
         case render_markdown_content(data[:content] || "") do
           {:ok, rendered_html} ->
             {:noreply,
              socket
              |> assign(:post, post)
-             |> assign(:blog_slug, post.group)
-             |> assign(:blog_name, Publishing.group_name(post.group) || post.group)
+             |> assign(:group_slug, post.group)
+             |> assign(:group_name, Publishing.group_name(post.group) || post.group)
              |> assign(:rendered_content, rendered_html)
              |> assign(:preview_token, token)
              |> assign(:preview_data, data)
@@ -73,8 +77,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
             {:noreply,
              socket
              |> assign(:post, post)
-             |> assign(:blog_slug, post.group)
-             |> assign(:blog_name, Publishing.group_name(post.group) || post.group)
+             |> assign(:group_slug, post.group)
+             |> assign(:group_name, Publishing.group_name(post.group) || post.group)
              |> assign(:rendered_content, nil)
              |> assign(:preview_token, token)
              |> assign(:preview_data, data)
@@ -89,10 +93,51 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     end
   end
 
-  defp handle_saved_preview(%{"path" => path}, socket) do
-    blog_slug = socket.assigns.blog_slug
+  defp handle_uuid_preview(%{"post_uuid" => post_uuid} = params, socket) do
+    group_slug = socket.assigns.group_slug
+    language = params["lang"]
+    version = params["v"]
 
-    case Publishing.read_post(blog_slug, path) do
+    case Publishing.read_post_by_uuid(post_uuid, language, version) do
+      {:ok, post} ->
+        case render_markdown_content(post.content) do
+          {:ok, rendered_html} ->
+            {:noreply,
+             socket
+             |> assign(:post, Map.put(post, :uuid, post_uuid))
+             |> assign(:group_slug, post.group)
+             |> assign(:group_name, Publishing.group_name(post.group) || post.group)
+             |> assign(:rendered_content, rendered_html)
+             |> assign(:preview_token, nil)
+             |> assign(:preview_data, nil)
+             |> assign(:error, nil)
+             |> assign(:preview_source, :saved)}
+
+          {:error, error_message} ->
+            {:noreply,
+             socket
+             |> assign(:post, Map.put(post, :uuid, post_uuid))
+             |> assign(:group_slug, post.group)
+             |> assign(:group_name, Publishing.group_name(post.group) || post.group)
+             |> assign(:rendered_content, nil)
+             |> assign(:preview_token, nil)
+             |> assign(:preview_data, nil)
+             |> assign(:error, error_message)
+             |> assign(:preview_source, :saved)}
+        end
+
+      {:error, _reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("Post not found"))
+         |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
+    end
+  end
+
+  defp handle_saved_preview(%{"path" => path}, socket) do
+    group_slug = socket.assigns.group_slug
+
+    case Publishing.read_post(group_slug, path) do
       {:ok, post} ->
         case render_markdown_content(post.content) do
           {:ok, rendered_html} ->
@@ -120,17 +165,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
         {:noreply,
          socket
          |> put_flash(:error, gettext("Post not found"))
-         |> push_navigate(to: Routes.path("/admin/publishing/#{blog_slug}"))}
+         |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
     end
   end
 
   defp handle_saved_preview(_params, socket), do: {:noreply, socket}
   @impl true
   def handle_event("back_to_editor", _params, socket) do
-    query = socket |> preview_return_params() |> encode_query()
+    post = socket.assigns[:post]
 
     destination =
-      Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/edit#{query}")
+      if post && post[:uuid] do
+        Helpers.build_edit_url(socket.assigns.group_slug, post,
+          lang: post[:language],
+          version: post[:version]
+        )
+      else
+        query = socket |> preview_return_params() |> encode_query()
+        Routes.path("/admin/publishing/#{socket.assigns.group_slug}/edit#{query}")
+      end
 
     {:noreply, push_navigate(socket, to: destination)}
   end
@@ -153,12 +206,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
       {:error, gettext("Failed to render markdown preview.")}
   end
 
-  defp build_preview_post(data, fallback_blog_slug, fallback_locale) do
-    blog_slug = data[:blog_slug] || fallback_blog_slug
+  defp build_preview_post(data, fallback_group_slug, fallback_locale) do
+    group_slug = data[:group_slug] || fallback_group_slug
     language = data[:language] || fallback_locale
     mode = data[:mode] || :timestamp
     metadata = extract_preview_metadata(data[:metadata] || %{})
-    path = resolve_preview_path(data[:path], blog_slug, metadata[:slug], language, mode)
+    path = resolve_preview_path(data[:path], group_slug, metadata[:slug], language, mode)
 
     available_languages = data[:available_languages] || []
 
@@ -166,7 +219,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
       [language | available_languages] |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
     %{
-      group: blog_slug,
+      group: group_slug,
       slug: metadata[:slug],
       date: nil,
       time: nil,
@@ -202,17 +255,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     end)
   end
 
-  defp resolve_preview_path(path, _blog_slug, _slug, _language, _mode)
+  defp resolve_preview_path(path, _group_slug, _slug, _language, _mode)
        when is_binary(path) and path != "" do
     path
   end
 
-  defp resolve_preview_path(_path, blog_slug, slug, language, :slug)
+  defp resolve_preview_path(_path, group_slug, slug, language, :slug)
        when is_binary(slug) and slug != "" do
-    Path.join([blog_slug, slug, "#{language}.phk"])
+    Path.join([group_slug, slug, "#{language}.phk"])
   end
 
-  defp resolve_preview_path(_, _blog_slug, _slug, _language, _mode), do: nil
+  defp resolve_preview_path(_, _group_slug, _slug, _language, _mode), do: nil
 
   defp preview_return_params(socket) do
     base =
