@@ -918,8 +918,8 @@ defmodule PhoenixKit.Modules.Emails.Event do
         DateTime.utc_now() |> DateTime.to_iso8601()
 
     case DateTime.from_iso8601(timestamp_str) do
-      {:ok, datetime, _} -> datetime
-      _ -> DateTime.utc_now()
+      {:ok, datetime, _} -> DateTime.truncate(datetime, :second)
+      _ -> UtilsDate.utc_now()
     end
   end
 

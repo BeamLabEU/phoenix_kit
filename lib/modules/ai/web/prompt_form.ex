@@ -109,24 +109,22 @@ defmodule PhoenixKit.Modules.AI.Web.PromptForm do
         AI.create_prompt(params)
       end
 
-    try do
-      case result do
-        {:ok, _prompt} ->
-          action = if socket.assigns.prompt, do: "updated", else: "created"
+    case result do
+      {:ok, _prompt} ->
+        action = if socket.assigns.prompt, do: "updated", else: "created"
 
-          {:noreply,
-           socket
-           |> put_flash(:info, "Prompt #{action} successfully")
-           |> push_navigate(to: Routes.ai_path() <> "/prompts")}
+        {:noreply,
+         socket
+         |> put_flash(:info, "Prompt #{action} successfully")
+         |> push_navigate(to: Routes.ai_path() <> "/prompts")}
 
-        {:error, changeset} ->
-          {:noreply, assign(socket, :form, to_form(changeset))}
-      end
-    rescue
-      e ->
-        require Logger
-        Logger.error("Prompt save failed: #{Exception.message(e)}")
-        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
+      {:error, changeset} ->
+        {:noreply, assign(socket, :form, to_form(changeset))}
     end
+  rescue
+    e ->
+      require Logger
+      Logger.error("Prompt save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 end

@@ -1,7 +1,8 @@
 # LiveView Form Save Handlers: Silent Crash & Data Loss Problem
 
 **Date:** 2026-02-21
-**Status:** Discovery — needs project-wide audit and fix
+**Updated:** 2026-02-22 (PR #355 + post-review fixes)
+**Status:** ✅ COMPLETE — All handlers covered and correctly placed.
 **Severity:** High — users lose form data without any error message
 
 ---
@@ -69,78 +70,43 @@ This ensures:
 
 ---
 
-## Already Fixed
+## Status: All Handlers Fixed (PR #355)
 
-| File | Form | Fixed |
-|------|------|-------|
-| `lib/modules/entities/web/entity_form.ex` | Entity add/edit | Yes |
-| `lib/modules/entities/web/data_form.ex` | Entity data add/edit | Yes |
+PR #355 (merged 2026-02-22) added try/rescue to all 15 identified handlers plus the 2 already-fixed entity forms.
+
+| File | Form | Fixed | Notes |
+|------|------|-------|-------|
+| `lib/modules/entities/web/entity_form.ex` | Entity add/edit | PR pre-#355 | |
+| `lib/modules/entities/web/data_form.ex` | Entity data add/edit | PR pre-#355 | |
+| `lib/modules/ai/web/endpoint_form.ex` | AI endpoint | PR #355 | Correct (fn-level rescue, fixed post-review) |
+| `lib/modules/ai/web/prompt_form.ex` | AI prompt | PR #355 | Correct (fn-level rescue, fixed post-review) |
+| `lib/modules/billing/web/order_form.ex` | Billing order | PR #355 | Correct (fn-level rescue, fixed post-review) |
+| `lib/modules/billing/web/subscription_form.ex` | Subscription | PR #355 | Correct |
+| `lib/modules/shop/web/product_form.ex` | Product | PR #355 | Correct (fn-level rescue) |
+| `lib/modules/shop/web/category_form.ex` | Category options | PR #355 | Correct |
+| `lib/phoenix_kit_web/live/modules/posts/edit.ex` | Post create | PR #355 | Correct |
+| `lib/phoenix_kit_web/live/modules/posts/edit.ex` | Post update | PR #355 | Correct (fn-level rescue, fixed post-review) |
+| `lib/modules/publishing/web/editor.ex` | Publishing editor | PR #355 | Correct (fn-level rescue) |
+| `lib/modules/publishing/web/edit.ex` | Group edit | PR #355 | Correct (fn-level rescue) |
+| `lib/modules/emails/web/template_editor.ex` | Email template | PR #355 | Correct |
+| `lib/modules/tickets/web/new.ex` | Ticket create | PR #355 | Correct |
+| `lib/modules/tickets/web/edit.ex` | Ticket edit | PR #355 | Correct (fn-level rescue) |
+| `lib/modules/comments/web/settings.ex` | Comment settings | PR #355 | Correct |
+| `lib/modules/entities/web/entities_settings.ex` | Entity settings | PR #355 | Correct |
+| `lib/modules/pages/web/editor.ex` | Page editor | PR #355 | Correct |
 
 ---
 
-## Needs Audit & Fix
+## Resolved: 4 Misplaced try/rescue Blocks (Fixed 2026-02-22)
 
-The following form handlers use the unprotected `case` pattern and need the `try/rescue` wrapper added. This list covers `handle_event("save", ...)` handlers that call DB operations.
+PR #355 originally placed the `try` block around only the `case result do` in 4 handlers, leaving the DB operation outside the rescue scope. Post-review, these were converted to function-level `rescue` (which covers the entire function body including the DB call) and flash messages were updated to use `gettext()`:
 
-### AI Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/ai/web/endpoint_form.ex` | `save_endpoint/2` | `AI.create_endpoint/1`, `AI.update_endpoint/2` |
-| `lib/modules/ai/web/prompt_form.ex` | `handle_event("save")` | `AI.create_prompt/1`, `AI.update_prompt/2` |
-
-### Billing Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/billing/web/order_form.ex` | `save_order/2` | `Billing.create_order/1`, `Billing.update_order/2` |
-| `lib/modules/billing/web/subscription_form.ex` | `handle_event("save")` | `Billing.create_subscription/1` |
-
-### Shop Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/shop/web/product_form.ex` | `handle_event("save")` | `Shop.create_product/1`, `Shop.update_product/2` |
-| `lib/modules/shop/web/category_form.ex` | `handle_event("save_category_option")` | `Options.update_category_options/2` |
-
-### Posts Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/phoenix_kit_web/live/modules/posts/edit.ex` | `handle_event("save")` | `Posts.create_post/1`, `Posts.update_post/2` |
-
-### Publishing Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/publishing/web/editor.ex` | `handle_event("save")` | `Persistence.perform_save/1` |
-| `lib/modules/publishing/web/edit.ex` | `handle_event("save")` | `Publishing.update_group/2` |
-
-### Emails Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/emails/web/template_editor.ex` | `handle_event("save")` | `Emails.create_template/1`, `Emails.update_template/2` |
-
-### Tickets Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/tickets/web/new.ex` | `handle_event("save")` | `Tickets.create_ticket/1` |
-| `lib/modules/tickets/web/edit.ex` | `handle_event("save")` | `Tickets.update_ticket/2` |
-
-### Settings
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/comments/web/settings.ex` | `handle_event("save")` | `Settings.update_setting/3` |
-| `lib/modules/entities/web/entities_settings.ex` | `handle_event("save")` | `Settings.update_setting/3` |
-
-### Pages Module
-
-| File | Handler | DB Operation |
-|------|---------|-------------|
-| `lib/modules/pages/web/editor.ex` | `handle_event("save")` | `FileOperations.write_file/2` (filesystem, not DB — but can still raise) |
+| File | Original Issue | Resolution |
+|------|---------------|------------|
+| `ai/web/endpoint_form.ex` | DB call outside `try` | Converted to fn-level `rescue` |
+| `ai/web/prompt_form.ex` | DB call outside `try` | Converted to fn-level `rescue` |
+| `billing/web/order_form.ex` | DB call outside `try` | Converted to fn-level `rescue` |
+| `posts/web/edit.ex` (update) | DB call outside `try` | Converted to fn-level `rescue` |
 
 ---
 

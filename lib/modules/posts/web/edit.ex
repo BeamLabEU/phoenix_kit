@@ -444,31 +444,29 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
           Posts.update_post(post, post_params)
       end
 
-    try do
-      case result do
-        {:ok, saved_post} ->
-          # Handle tags
-          if tags != [] do
-            Posts.add_tags_to_post(saved_post, tags)
-          end
+    case result do
+      {:ok, saved_post} ->
+        # Handle tags
+        if tags != [] do
+          Posts.add_tags_to_post(saved_post, tags)
+        end
 
-          {:noreply,
-           socket
-           |> put_flash(:info, "Post updated successfully")
-           |> push_navigate(to: Routes.path("/admin/posts/#{saved_post.uuid}"))}
+        {:noreply,
+         socket
+         |> put_flash(:info, "Post updated successfully")
+         |> push_navigate(to: Routes.path("/admin/posts/#{saved_post.uuid}"))}
 
-        {:error, _error} ->
-          {:noreply,
-           socket
-           |> put_flash(:error, "Failed to update post")
-           |> assign(:form, Component.to_form(post_params, as: :post))}
-      end
-    rescue
-      e ->
-        require Logger
-        Logger.error("Post save failed: #{Exception.message(e)}")
-        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
+      {:error, _error} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Failed to update post")
+         |> assign(:form, Component.to_form(post_params, as: :post))}
     end
+  rescue
+    e ->
+      require Logger
+      Logger.error("Post save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
   defp load_form_data(socket) do
