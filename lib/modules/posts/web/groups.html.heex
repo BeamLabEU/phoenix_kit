@@ -7,7 +7,11 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <.admin_page_header back={Routes.path("/admin/posts")} title="Post Groups" subtitle="Organize your posts into collections">
+    <.admin_page_header
+      back={Routes.path("/admin/posts")}
+      title="Post Groups"
+      subtitle="Organize your posts into collections"
+    >
       <:actions>
         <.link
           navigate={Routes.path("/admin/posts/groups/new")}

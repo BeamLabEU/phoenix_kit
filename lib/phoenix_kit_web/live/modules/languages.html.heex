@@ -11,7 +11,11 @@
     class="container flex flex-col mx-auto px-4 py-6"
     phx-hook="PreserveScroll"
   >
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/modules")} title="Languages" subtitle="Manage available languages for your frontend language switcher" />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/modules")}
+      title="Languages"
+      subtitle="Manage available languages for your frontend language switcher"
+    />
 
     <%!-- Tabs --%>
     <div role="tablist" class="tabs tabs-boxed bg-base-200 p-1 mb-6">

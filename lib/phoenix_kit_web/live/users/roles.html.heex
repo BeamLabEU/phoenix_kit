@@ -7,7 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/users")} title={gettext("Role Management")} subtitle={gettext("Create and manage user roles")} />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/users")}
+      title={gettext("Role Management")}
+      subtitle={gettext("Create and manage user roles")}
+    />
 
     <%!-- Action Button --%>
     <div class="flex justify-center mb-6">

@@ -11,7 +11,9 @@
     <div class="border-b border-base-300 bg-base-100">
       <div class="container mx-auto px-4 py-4">
         <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/pages")}>
-          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{Path.basename(@file_path || "")}</h1>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+            {Path.basename(@file_path || "")}
+          </h1>
           <%= if @metadata do %>
             <div class="flex items-center gap-2 text-sm text-base-content/60 mt-0.5">
               <.page_status_badge status={@metadata.status} />

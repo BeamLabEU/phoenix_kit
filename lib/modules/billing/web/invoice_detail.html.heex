@@ -9,7 +9,9 @@
     <%!-- Header --%>
     <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/billing/invoices")}>
       <div class="flex items-center gap-3">
-        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold font-mono text-base-content">{@invoice.invoice_number}</h1>
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold font-mono text-base-content">
+          {@invoice.invoice_number}
+        </h1>
         <.invoice_status_badge status={@invoice.status} size={:md} />
       </div>
       <p class="text-sm text-base-content/60 mt-0.5">

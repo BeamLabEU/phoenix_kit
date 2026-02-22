@@ -7,7 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin")} title="Modules" subtitle="Manage modules" />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin")}
+      title="Modules"
+      subtitle="Manage modules"
+    />
 
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <%!-- Storage Module --%>

@@ -7,7 +7,15 @@
   current_locale={@current_locale}
 >
   <div class="container mx-auto px-4 py-6 space-y-6">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)} title={gettext("Pages Settings")} subtitle={gettext("Control how unpublished routes are handled and manage the markdown file used for the public-facing 404 page.")} />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)}
+      title={gettext("Pages Settings")}
+      subtitle={
+        gettext(
+          "Control how unpublished routes are handled and manage the markdown file used for the public-facing 404 page."
+        )
+      }
+    />
 
     <div class="grid gap-6 lg:grid-cols-3">
       <div class="card bg-base-100 shadow-xl border border-base-200 lg:col-span-2">

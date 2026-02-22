@@ -7,7 +7,11 @@
   current_locale={assigns[:current_locale]}
 >
   <div class="p-6">
-    <.admin_page_header back={Routes.path("/admin/modules")} title="Jobs" subtitle="View background job status and history" />
+    <.admin_page_header
+      back={Routes.path("/admin/modules")}
+      title="Jobs"
+      subtitle="View background job status and history"
+    />
 
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">

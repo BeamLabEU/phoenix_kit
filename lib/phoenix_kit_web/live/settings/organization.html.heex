@@ -7,7 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container mx-auto px-4 py-6">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings")} title={gettext("Organization Settings")} subtitle={gettext("Company information shared across Legal and Billing modules")} />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings")}
+      title={gettext("Organization Settings")}
+      subtitle={gettext("Company information shared across Legal and Billing modules")}
+    />
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <%!-- Company Information --%>

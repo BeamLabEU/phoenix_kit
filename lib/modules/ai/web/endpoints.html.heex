@@ -10,14 +10,24 @@
     <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin")}>
       <%= case @active_tab do %>
         <% "endpoints" -> %>
-          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">AI Endpoints</h1>
-          <p class="text-sm text-base-content/60 mt-0.5">Manage AI provider endpoints and API configurations</p>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+            AI Endpoints
+          </h1>
+          <p class="text-sm text-base-content/60 mt-0.5">
+            Manage AI provider endpoints and API configurations
+          </p>
         <% "usage" -> %>
           <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">AI Usage</h1>
-          <p class="text-sm text-base-content/60 mt-0.5">Monitor API requests, token usage, and costs</p>
+          <p class="text-sm text-base-content/60 mt-0.5">
+            Monitor API requests, token usage, and costs
+          </p>
         <% _ -> %>
-          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">AI Endpoints</h1>
-          <p class="text-sm text-base-content/60 mt-0.5">Manage AI provider endpoints and API configurations</p>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+            AI Endpoints
+          </h1>
+          <p class="text-sm text-base-content/60 mt-0.5">
+            Manage AI provider endpoints and API configurations
+          </p>
       <% end %>
     </.admin_page_header>
 

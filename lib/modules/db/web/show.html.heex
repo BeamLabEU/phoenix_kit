@@ -8,7 +8,9 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/db")}>
-      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@schema}.{@table}</h1>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+        {@schema}.{@table}
+      </h1>
       <p class="text-sm text-base-content/60 mt-0.5">
         <.formatted_number number={@preview.approx_rows} format={:short} /> rows •
         <.file_size bytes={@preview.size_bytes} />

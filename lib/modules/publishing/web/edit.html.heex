@@ -11,7 +11,11 @@
     <.admin_page_header
       back={Routes.path("/admin/settings/publishing")}
       title={gettext("Edit Group")}
-      subtitle={gettext("Update the group's display name and slug. The slug controls the folder structure used for storing posts, so changing it will rename the underlying directory.")}
+      subtitle={
+        gettext(
+          "Update the group's display name and slug. The slug controls the folder structure used for storing posts, so changing it will rename the underlying directory."
+        )
+      }
     />
 
     <div class="max-w-2xl mx-auto space-y-6">

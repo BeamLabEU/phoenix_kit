@@ -7,7 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin")} title="User Management" subtitle="Manage user accounts and roles" />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin")}
+      title="User Management"
+      subtitle="Manage user accounts and roles"
+    />
 
     <%!-- Role Management Modal --%>
     <%= if @show_role_modal && @managing_user do %>

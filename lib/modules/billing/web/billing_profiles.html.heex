@@ -8,7 +8,9 @@
   <div class="container mx-auto px-4 py-6">
     <%!-- Header --%>
     <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/billing")}>
-      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">Billing Profiles</h1>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+        Billing Profiles
+      </h1>
       <p class="text-sm text-base-content/60 mt-0.5">{@total_count} total profiles</p>
       <:actions>
         <button phx-click="refresh" class="btn btn-ghost btn-sm">

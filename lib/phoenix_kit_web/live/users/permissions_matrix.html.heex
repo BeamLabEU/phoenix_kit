@@ -7,7 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/users/roles")} title={gettext("Permissions")} subtitle={gettext("Overview of role permissions across all modules")} />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
+      title={gettext("Permissions")}
+      subtitle={gettext("Overview of role permissions across all modules")}
+    />
 
     <%!-- Matrix Table --%>
     <div class="overflow-x-auto bg-base-100 rounded-lg border border-base-300">

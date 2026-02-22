@@ -7,7 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container mx-auto px-4 py-6 space-y-6">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings")} title="SEO Settings" subtitle="Configure environment-wide search optimization defaults and metadata directives from a single place." />
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings")}
+      title="SEO Settings"
+      subtitle="Configure environment-wide search optimization defaults and metadata directives from a single place."
+    />
 
     <div class="flex justify-center">
       <div class="card bg-base-100 shadow-xl border border-base-200 w-full max-w-3xl">

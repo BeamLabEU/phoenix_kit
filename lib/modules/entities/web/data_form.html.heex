@@ -14,7 +14,9 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/entities/#{@entity.name}/data")}>
+    <.admin_page_header back={
+      PhoenixKit.Utils.Routes.path("/admin/entities/#{@entity.name}/data")
+    }>
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
         <%= if @data_record.id do %>
           {gettext("Edit %{entity}", entity: @entity.display_name)}
