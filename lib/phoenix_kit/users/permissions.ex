@@ -78,6 +78,7 @@ defmodule PhoenixKit.Users.Permissions do
   alias PhoenixKit.Users.RolePermission
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.ScopeNotifier
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @core_section_keys ~w(dashboard users media settings modules)
   @feature_module_keys ~w(
@@ -738,7 +739,7 @@ defmodule PhoenixKit.Users.Permissions do
 
       # Bulk insert new permissions
       if MapSet.size(to_add) > 0 do
-        now = DateTime.truncate(DateTime.utc_now(), :second)
+        now = UtilsDate.utc_now()
         granted_by_int = resolve_user_id(granted_by_id)
         granted_by_uuid = resolve_user_uuid(granted_by_id)
 

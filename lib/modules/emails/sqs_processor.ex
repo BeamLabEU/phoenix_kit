@@ -45,6 +45,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Emails.Event
   alias PhoenixKit.Modules.Emails.Log
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   ## --- Public API ---
 
@@ -449,7 +450,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
 
     update_attrs = %{
       status: status,
-      bounced_at: DateTime.utc_now(),
+      bounced_at: UtilsDate.utc_now(),
       error_message: build_bounce_error_message(bounce_data)
     }
 
@@ -487,7 +488,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
 
     update_attrs = %{
       status: "complaint",
-      complained_at: DateTime.utc_now(),
+      complained_at: UtilsDate.utc_now(),
       error_message: "Spam complaint: #{complaint_type || "unknown"}"
     }
 
@@ -636,7 +637,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
 
     update_attrs = %{
       status: "rejected",
-      rejected_at: DateTime.utc_now(),
+      rejected_at: UtilsDate.utc_now(),
       error_message: build_reject_error_message(reject_data)
     }
 
@@ -680,10 +681,10 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
                    "clicked",
                    "opened"
                  ] ->
-              %{delayed_at: DateTime.utc_now()}
+              %{delayed_at: UtilsDate.utc_now()}
 
             _ ->
-              %{status: "delayed", delayed_at: DateTime.utc_now()}
+              %{status: "delayed", delayed_at: UtilsDate.utc_now()}
           end
 
         case Log.update_log(log, status_update) do
@@ -808,7 +809,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
 
     update_attrs = %{
       status: "failed",
-      failed_at: DateTime.utc_now(),
+      failed_at: UtilsDate.utc_now(),
       error_message: build_rendering_failure_message(failure_data)
     }
 
@@ -1216,12 +1217,12 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
   # Parses timestamp string to DateTime
   defp parse_timestamp(timestamp_string) when is_binary(timestamp_string) do
     case DateTime.from_iso8601(timestamp_string) do
-      {:ok, datetime, _} -> datetime
-      {:error, _} -> DateTime.utc_now()
+      {:ok, datetime, _} -> DateTime.truncate(datetime, :second)
+      {:error, _} -> UtilsDate.utc_now()
     end
   end
 
-  defp parse_timestamp(_), do: DateTime.utc_now()
+  defp parse_timestamp(_), do: UtilsDate.utc_now()
 
   # Creates error message for bounce
   defp build_bounce_error_message(bounce_data) do

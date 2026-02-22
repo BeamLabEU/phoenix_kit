@@ -102,21 +102,28 @@ defmodule PhoenixKit.Modules.Pages.Web.Editor do
     # Update metadata's updated_at timestamp
     updated_content = update_metadata_timestamp(content)
 
-    case FileOperations.write_file(file_path, updated_content) do
-      :ok ->
-        socket =
-          socket
-          |> assign(:original_content, updated_content)
-          |> assign(:file_content, updated_content)
-          |> assign(:has_changes, false)
-          |> put_flash(:info, "File saved: #{Path.basename(file_path)}")
+    try do
+      case FileOperations.write_file(file_path, updated_content) do
+        :ok ->
+          socket =
+            socket
+            |> assign(:original_content, updated_content)
+            |> assign(:file_content, updated_content)
+            |> assign(:has_changes, false)
+            |> put_flash(:info, "File saved: #{Path.basename(file_path)}")
 
-        # Notify JavaScript hook that changes have been saved
-        {:noreply, push_event(socket, "changes-status", %{has_changes: false})}
+          # Notify JavaScript hook that changes have been saved
+          {:noreply, push_event(socket, "changes-status", %{has_changes: false})}
 
-      {:error, _reason} ->
-        socket = put_flash(socket, :error, "Failed to save file")
-        {:noreply, socket}
+        {:error, _reason} ->
+          socket = put_flash(socket, :error, "Failed to save file")
+          {:noreply, socket}
+      end
+    rescue
+      e ->
+        require Logger
+        Logger.error("Page editor save failed: #{Exception.message(e)}")
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
     end
   end
 

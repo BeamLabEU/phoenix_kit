@@ -160,22 +160,29 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
             if(enable_trial && trial_days != "", do: String.to_integer(trial_days), else: 0)
         }
 
-        case Billing.create_subscription(user.uuid, attrs) do
-          {:ok, subscription} ->
-            {:noreply,
-             socket
-             |> put_flash(:info, "Subscription created successfully")
-             |> push_navigate(
-               to: Routes.path("/admin/billing/subscriptions/#{subscription.uuid}")
-             )}
+        try do
+          case Billing.create_subscription(user.uuid, attrs) do
+            {:ok, subscription} ->
+              {:noreply,
+               socket
+               |> put_flash(:info, "Subscription created successfully")
+               |> push_navigate(
+                 to: Routes.path("/admin/billing/subscriptions/#{subscription.uuid}")
+               )}
 
-          {:error, %Ecto.Changeset{} = changeset} ->
-            error_msg = format_changeset_errors(changeset)
-            {:noreply, assign(socket, :error, error_msg)}
+            {:error, %Ecto.Changeset{} = changeset} ->
+              error_msg = format_changeset_errors(changeset)
+              {:noreply, assign(socket, :error, error_msg)}
 
-          {:error, reason} ->
-            {:noreply,
-             assign(socket, :error, "Failed to create subscription: #{inspect(reason)}")}
+            {:error, reason} ->
+              {:noreply,
+               assign(socket, :error, "Failed to create subscription: #{inspect(reason)}")}
+          end
+        rescue
+          e ->
+            require Logger
+            Logger.error("Subscription save failed: #{Exception.message(e)}")
+            {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
         end
     end
   end

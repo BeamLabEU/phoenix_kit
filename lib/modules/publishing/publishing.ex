@@ -16,6 +16,7 @@ defmodule PhoenixKit.Modules.Publishing do
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Suppress dialyzer false positives for pattern matches
   @dialyzer :no_match
@@ -825,7 +826,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
     mode = get_group_mode(group_slug)
     primary_language = Storage.get_primary_language()
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = UtilsDate.utc_now()
 
     # Resolve user IDs for audit
     {created_by_uuid, created_by_id} = resolve_scope_user_ids(scope)
@@ -1456,7 +1457,7 @@ defmodule PhoenixKit.Modules.Publishing do
     # Update post status and published_at
     DBStorage.update_post(db_post, %{
       status: "published",
-      published_at: db_post.published_at || DateTime.utc_now() |> DateTime.truncate(:second)
+      published_at: db_post.published_at || UtilsDate.utc_now()
     })
 
     source_id = Keyword.get(opts, :source_id)

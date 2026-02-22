@@ -137,6 +137,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   alias PhoenixKit.Modules.Emails.{EmailBlocklist, Log}
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   import Ecto.Query
   require Logger
 
@@ -281,13 +282,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       expires_at: expires_at,
       user_id: user_id,
       user_uuid: user_uuid,
-      inserted_at: DateTime.utc_now(),
-      updated_at: DateTime.utc_now()
+      inserted_at: UtilsDate.utc_now(),
+      updated_at: UtilsDate.utc_now()
     }
 
     case repo().insert(%EmailBlocklist{} |> EmailBlocklist.changeset(blocklist_entry),
            on_conflict: [
-             set: [reason: reason, expires_at: expires_at, updated_at: DateTime.utc_now()]
+             set: [reason: reason, expires_at: expires_at, updated_at: UtilsDate.utc_now()]
            ],
            conflict_target: :email
          ) do

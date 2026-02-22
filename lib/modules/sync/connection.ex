@@ -56,6 +56,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   import Ecto.Changeset
 
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   @type t :: %__MODULE__{}
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
@@ -216,7 +217,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     connection
     |> change(%{
       status: "active",
-      approved_at: DateTime.utc_now(),
+      approved_at: UtilsDate.utc_now(),
       approved_by: admin_user_id,
       approved_by_uuid: resolve_user_uuid(admin_user_id)
     })
@@ -229,7 +230,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     connection
     |> change(%{
       status: "suspended",
-      suspended_at: DateTime.utc_now(),
+      suspended_at: UtilsDate.utc_now(),
       suspended_by: admin_user_id,
       suspended_by_uuid: resolve_user_uuid(admin_user_id),
       suspended_reason: reason
@@ -243,7 +244,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     connection
     |> change(%{
       status: "revoked",
-      revoked_at: DateTime.utc_now(),
+      revoked_at: UtilsDate.utc_now(),
       revoked_by: admin_user_id,
       revoked_by_uuid: resolve_user_uuid(admin_user_id),
       revoked_reason: reason

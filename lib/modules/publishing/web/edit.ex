@@ -99,6 +99,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
          )
          |> assign(:form, Component.to_form(params, as: :group))}
     end
+  rescue
+    e ->
+      require Logger
+      Logger.error("Group save failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
   def handle_event("cancel", _params, socket) do

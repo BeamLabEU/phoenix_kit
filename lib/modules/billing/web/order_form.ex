@@ -255,15 +255,22 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
         Billing.create_order(params)
       end
 
-    case result do
-      {:ok, order} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Order saved successfully")
-         |> push_navigate(to: Routes.path("/admin/billing/orders/#{order.uuid}"))}
+    try do
+      case result do
+        {:ok, order} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Order saved successfully")
+           |> push_navigate(to: Routes.path("/admin/billing/orders/#{order.uuid}"))}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset))}
+        {:error, changeset} ->
+          {:noreply, assign(socket, :form, to_form(changeset))}
+      end
+    rescue
+      e ->
+        require Logger
+        Logger.error("Order save failed: #{Exception.message(e)}")
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
     end
   end
 

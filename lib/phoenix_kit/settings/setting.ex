@@ -51,6 +51,7 @@ defmodule PhoenixKit.Settings.Setting do
 
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Settings that are allowed to have empty/nil values
   @optional_settings [
@@ -122,21 +123,21 @@ defmodule PhoenixKit.Settings.Setting do
     |> validate_setting_value()
     |> validate_value_exclusivity()
     |> validate_length(:module, max: 255)
-    |> put_change(:date_updated, DateTime.truncate(DateTime.utc_now(), :second))
+    |> put_change(:date_updated, UtilsDate.utc_now())
   end
 
   # Private helper to set timestamps on new records
   defp maybe_set_timestamps(changeset) do
     case changeset.data.uuid do
       nil ->
-        now = DateTime.truncate(DateTime.utc_now(), :second)
+        now = UtilsDate.utc_now()
 
         changeset
         |> put_change(:date_added, now)
         |> put_change(:date_updated, now)
 
       _uuid ->
-        put_change(changeset, :date_updated, DateTime.truncate(DateTime.utc_now(), :second))
+        put_change(changeset, :date_updated, UtilsDate.utc_now())
     end
   end
 

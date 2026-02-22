@@ -50,6 +50,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
@@ -539,9 +540,7 @@ defmodule PhoenixKit.Modules.Shop do
 
     {count, _} =
       query
-      |> repo().update_all(
-        set: [status: status, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-      )
+      |> repo().update_all(set: [status: status, updated_at: UtilsDate.utc_now()])
 
     if count > 0 do
       Events.broadcast_products_bulk_status_changed(ids, status)
@@ -582,7 +581,7 @@ defmodule PhoenixKit.Modules.Shop do
           set: [
             category_id: cat_int_id,
             category_uuid: cat_uuid,
-            updated_at: DateTime.utc_now()
+            updated_at: UtilsDate.utc_now()
           ]
         )
 
@@ -965,9 +964,7 @@ defmodule PhoenixKit.Modules.Shop do
 
     {count, _} =
       query
-      |> repo().update_all(
-        set: [status: status, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-      )
+      |> repo().update_all(set: [status: status, updated_at: UtilsDate.utc_now()])
 
     if count > 0 do
       Events.broadcast_categories_bulk_status_changed(ids, status)
@@ -995,7 +992,7 @@ defmodule PhoenixKit.Modules.Shop do
     if ids_to_update == [] do
       0
     else
-      now = DateTime.utc_now()
+      now = UtilsDate.utc_now()
 
       {count, _} =
         if is_nil(parent_uuid) do
@@ -1059,7 +1056,7 @@ defmodule PhoenixKit.Modules.Shop do
       end
 
     repo().update_all(orphan_query,
-      set: [category_id: nil, category_uuid: nil, updated_at: DateTime.utc_now()]
+      set: [category_id: nil, category_uuid: nil, updated_at: UtilsDate.utc_now()]
     )
 
     # Delete categories
@@ -2389,9 +2386,7 @@ defmodule PhoenixKit.Modules.Shop do
     {count, _} =
       Cart
       |> where([c], c.id == ^cart_id and c.status == "active")
-      |> repo().update_all(
-        set: [status: "converting", updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
-      )
+      |> repo().update_all(set: [status: "converting", updated_at: UtilsDate.utc_now()])
 
     if count == 1 do
       # Successfully locked - reload cart with new status
@@ -2405,7 +2400,7 @@ defmodule PhoenixKit.Modules.Shop do
   defp mark_cart_converted(%Cart{} = cart, order_id) do
     cart
     |> Cart.status_changeset("converted", %{
-      converted_at: DateTime.utc_now(),
+      converted_at: UtilsDate.utc_now(),
       metadata: Map.put(cart.metadata || %{}, "order_id", order_id)
     })
     |> repo().update()

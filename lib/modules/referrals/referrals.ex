@@ -71,6 +71,7 @@ defmodule PhoenixKit.Modules.Referrals do
 
   alias PhoenixKit.Modules.Referrals.ReferralCodeUsage
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
@@ -757,7 +758,7 @@ defmodule PhoenixKit.Modules.Referrals do
 
   defp maybe_set_date_created(changeset) do
     if changeset.data.__meta__.state == :built do
-      put_change(changeset, :date_created, DateTime.truncate(DateTime.utc_now(), :second))
+      put_change(changeset, :date_created, UtilsDate.utc_now())
     else
       changeset
     end
