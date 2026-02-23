@@ -76,10 +76,12 @@
 }
 
 /* ============================================================================
-   DaisyUI Label Mobile Fixes - Override DaisyUI's white-space: nowrap
+   DaisyUI Label & Form Fixes
+   Override DaisyUI's white-space: nowrap and fix form layout on mobile.
+   This is the single source of truth for DaisyUI component overrides.
    ============================================================================ */
 
-/* Direct override for DaisyUI label classes */
+/* Override DaisyUI's default label styles that break responsiveness */
 .label, .label-text, .label-text-alt {
   white-space: normal !important;
   word-break: break-word !important;
@@ -102,37 +104,6 @@
 .form-control .label .label-text-alt {
   margin-left: auto !important;
   text-align: right !important;
-}
-
-/* Mobile: label-text-alt should stack below and align left */
-@media (max-width: 768px) {
-  .form-control .label .label-text-alt {
-    margin-left: 0 !important;
-    text-align: left !important;
-    width: 100% !important;
-    font-size: 0.75rem !important;
-  }
-}
-
-/* More specific selectors to ensure override */
-body .label, body .label-text, body .label-text-alt,
-.form-control .label, .form-control .label-text, .form-control .label-text-alt,
-.daisyui .label, .daisyui .label-text, .daisyui .label-text-alt {
-  white-space: normal !important;
-  word-break: break-word !important;
-}
-
-/* Override DaisyUI utility classes */
-.whitespace-nowrap.label, .whitespace-nowrap .label,
-.whitespace-nowrap .label-text, .whitespace-nowrap .label-text-alt {
-  white-space: normal !important;
-}
-
-/* Override inline styles */
-.label[style*="white-space: nowrap"],
-.label-text[style*="white-space: nowrap"],
-.label-text-alt[style*="white-space: nowrap"] {
-  white-space: normal !important;
 }
 
 /* Fix checkbox/radio flex containers */
@@ -168,14 +139,6 @@ body .label, body .label-text, body .label-text-alt,
   .grid.grid-cols-3:not(.md\\:grid-cols-2):not(.md\\:grid-cols-3):not(.md\\:grid-cols-4),
   .grid.grid-cols-4:not(.md\\:grid-cols-2):not(.md\\:grid-cols-3):not(.md\\:grid-cols-4) {
     grid-template-columns: 1fr !important;
-  }
-}
-
-/* Mobile-specific fixes */
-@media (max-width: 768px) {
-  .label, .label-text, .label-text-alt {
-    white-space: normal !important;
-    word-break: break-word !important;
   }
 }
 
