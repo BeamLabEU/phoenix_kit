@@ -57,9 +57,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       |> assign(:selected_entity, entity)
       |> assign(:selected_entity_id, entity_id)
       |> assign(:selected_status, "all")
-      |> assign(:selected_category, "all")
       |> assign(:selected_ids, MapSet.new())
-      |> assign(:available_categories, [])
       |> assign(:search_term, "")
       |> assign(:view_mode, "table")
       |> apply_filters()
@@ -80,7 +78,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     # Extract filter params with defaults
     status = params["status"] || "all"
-    category = params["category"] || "all"
     search_term = params["search"] || ""
     view_mode = params["view"] || "table"
 
@@ -89,7 +86,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       |> assign(:selected_entity, entity)
       |> assign(:selected_entity_id, entity_id)
       |> assign(:selected_status, status)
-      |> assign(:selected_category, category)
       |> assign(:search_term, search_term)
       |> assign(:view_mode, view_mode)
       |> apply_filters()
@@ -152,7 +148,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         socket.assigns.selected_entity_id,
         socket.assigns.selected_status,
-        socket.assigns.selected_category,
         socket.assigns.search_term,
         mode
       )
@@ -184,7 +179,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         entity_id,
         socket.assigns.selected_status,
-        socket.assigns.selected_category,
         socket.assigns.search_term,
         socket.assigns.view_mode
       )
@@ -205,28 +199,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         socket.assigns.selected_entity_id,
         status,
-        socket.assigns.selected_category,
-        socket.assigns.search_term,
-        socket.assigns.view_mode
-      )
-
-    path = build_base_path(socket.assigns.selected_entity_id)
-    full_path = if params != "", do: "#{path}?#{params}", else: path
-
-    socket =
-      socket
-      |> assign(:selected_ids, MapSet.new())
-      |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
-
-    {:noreply, socket}
-  end
-
-  def handle_event("filter_by_category", %{"category" => category}, socket) do
-    params =
-      build_url_params(
-        socket.assigns.selected_entity_id,
-        socket.assigns.selected_status,
-        category,
         socket.assigns.search_term,
         socket.assigns.view_mode
       )
@@ -247,7 +219,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       build_url_params(
         socket.assigns.selected_entity_id,
         socket.assigns.selected_status,
-        socket.assigns.selected_category,
         term,
         socket.assigns.view_mode
       )
@@ -267,7 +238,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     params =
       build_url_params(
         socket.assigns.selected_entity_id,
-        "all",
         "all",
         "",
         socket.assigns.view_mode
@@ -444,31 +414,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  def handle_event(
-        "bulk_action",
-        %{"action" => "change_category", "category" => category},
-        socket
-      ) do
-    if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
-      ids = socket.assigns.selected_ids
-
-      if MapSet.size(ids) == 0 do
-        {:noreply, put_flash(socket, :error, gettext("No records selected"))}
-      else
-        {count, _} = EntityData.bulk_update_category(MapSet.to_list(ids), category)
-
-        {:noreply,
-         socket
-         |> assign(:selected_ids, MapSet.new())
-         |> refresh_data_stats()
-         |> apply_filters()
-         |> put_flash(:info, gettext("%{count} records updated", count: count))}
-      end
-    else
-      {:noreply, put_flash(socket, :error, gettext("Not authorized"))}
-    end
-  end
-
   def handle_event("bulk_action", %{"action" => "change_status", "status" => status}, socket) do
     if Scope.admin?(socket.assigns.phoenix_kit_current_scope) do
       ids = socket.assigns.selected_ids
@@ -564,7 +509,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  defp build_url_params(_entity_id, status, category, search_term, view_mode) do
+  defp build_url_params(_entity_id, status, search_term, view_mode) do
     params = []
 
     # Don't include entity_id in query params since it's in the path
@@ -572,13 +517,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     params =
       if status && status != "all" do
         [{"status", status} | params]
-      else
-        params
-      end
-
-    params =
-      if category && category != "all" do
-        [{"category", category} | params]
       else
         params
       end
@@ -603,27 +541,15 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   defp apply_filters(socket) do
     entity_id = socket.assigns[:selected_entity_id]
     status = socket.assigns[:selected_status] || "all"
-    category = socket.assigns[:selected_category] || "all"
     search_term = socket.assigns[:search_term] || ""
 
-    # Apply entity and status filters first
-    pre_category_records =
+    entity_data_records =
       EntityData.list_all_data()
       |> filter_by_entity(entity_id)
       |> filter_by_status(status)
-
-    # Extract categories BEFORE category filter so dropdown always shows all options
-    available_categories = EntityData.extract_unique_categories(pre_category_records)
-
-    # Then apply remaining filters
-    entity_data_records =
-      pre_category_records
-      |> filter_by_category(category)
       |> filter_by_search(search_term)
 
-    socket
-    |> assign(:entity_data_records, entity_data_records)
-    |> assign(:available_categories, available_categories)
+    assign(socket, :entity_data_records, entity_data_records)
   end
 
   defp filter_by_entity(records, nil), do: records
@@ -638,21 +564,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     Enum.filter(records, fn record -> record.status == status end)
   end
 
-  defp filter_by_category(records, "all"), do: records
-
-  defp filter_by_category(records, "uncategorized") do
-    Enum.filter(records, fn record ->
-      cat = get_data_field(record, "category")
-      is_nil(cat) || cat == ""
-    end)
-  end
-
-  defp filter_by_category(records, category) do
-    Enum.filter(records, fn record ->
-      get_data_field(record, "category") == category
-    end)
-  end
-
   defp filter_by_search(records, ""), do: records
 
   defp filter_by_search(records, search_term) do
@@ -662,26 +573,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       title_match = String.contains?(String.downcase(record.title || ""), search_term_lower)
       slug_match = String.contains?(String.downcase(record.slug || ""), search_term_lower)
 
-      category_match =
-        case get_data_field(record, "category") do
-          nil -> false
-          cat -> String.contains?(String.downcase(cat), search_term_lower)
-        end
-
-      title_match || slug_match || category_match
+      title_match || slug_match
     end)
-  end
-
-  # Extracts a field value from a data record, handling both flat and multilang data.
-  defp get_data_field(record, field_key) do
-    data = record.data || %{}
-
-    if Multilang.multilang_data?(data) do
-      primary = data["_primary_language"]
-      get_in(data, [primary, field_key])
-    else
-      Map.get(data, field_key)
-    end
   end
 
   defp refresh_data_stats(socket) do

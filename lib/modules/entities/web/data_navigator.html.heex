@@ -179,7 +179,7 @@
           <.icon name="hero-funnel" class="w-5 h-5" /> {gettext("Filters & Search")}
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <%!-- Status Filter --%>
           <div>
             <label class="label">
@@ -203,28 +203,6 @@
             </.form>
           </div>
 
-          <%!-- Category Filter --%>
-          <div>
-            <label class="label">
-              <span class="label-text">{gettext("Filter by Category")}</span>
-            </label>
-            <.form for={%{}} phx-change="filter_by_category">
-              <select class="select select-bordered w-full" name="category">
-                <option value="all" selected={@selected_category == "all"}>
-                  {gettext("All Categories")}
-                </option>
-                <option value="uncategorized" selected={@selected_category == "uncategorized"}>
-                  {gettext("Uncategorized")}
-                </option>
-                <%= for category <- @available_categories do %>
-                  <option value={category} selected={@selected_category == category}>
-                    {category}
-                  </option>
-                <% end %>
-              </select>
-            </.form>
-          </div>
-
           <%!-- Search --%>
           <div>
             <label class="label">
@@ -235,7 +213,7 @@
                 type="text"
                 name="search[term]"
                 value={@search_term}
-                placeholder={gettext("Search by title, slug, or category...")}
+                placeholder={gettext("Search by title or slug...")}
                 class="input input-bordered join-item flex-1"
               />
               <button type="submit" class="btn btn-primary join-item">
@@ -246,7 +224,7 @@
         </div>
 
         <%!-- Clear Filters --%>
-        <%= if @selected_status != "all" || @selected_category != "all" || @search_term != "" do %>
+        <%= if @selected_status != "all" || @search_term != "" do %>
           <div class="flex justify-end mt-4">
             <button phx-click="clear_filters" class="btn btn-outline btn-sm">
               <.icon name="hero-x-mark" class="w-4 h-4 mr-2" /> {gettext("Clear All Filters")}
@@ -335,33 +313,6 @@
                 </li>
               </ul>
             </div>
-            <%!-- Change Category Dropdown --%>
-            <%= if length(@available_categories) > 0 do %>
-              <div class="dropdown">
-                <label tabindex="0" class="btn btn-ghost btn-sm">
-                  <.icon name="hero-tag" class="w-4 h-4" />
-                  {gettext("Change Category")}
-                  <.icon name="hero-chevron-down" class="w-4 h-4" />
-                </label>
-                <ul
-                  tabindex="0"
-                  class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52 max-h-64 overflow-y-auto"
-                >
-                  <%= for category <- @available_categories do %>
-                    <li>
-                      <a
-                        phx-click="bulk_action"
-                        phx-value-action="change_category"
-                        phx-value-category={category}
-                      >
-                        {category}
-                      </a>
-                    </li>
-                  <% end %>
-                </ul>
-              </div>
-            <% end %>
-
             <div class="flex-1"></div>
             <button phx-click="deselect_all" class="btn btn-ghost btn-sm">
               <.icon name="hero-x-mark" class="w-4 h-4" /> {gettext("Clear")}
@@ -503,7 +454,6 @@
               <%= if !@selected_entity do %>
                 <.table_default_header_cell>{gettext("Entity")}</.table_default_header_cell>
               <% end %>
-              <.table_default_header_cell>{gettext("Category")}</.table_default_header_cell>
               <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
               <.table_default_header_cell>{gettext("Created")}</.table_default_header_cell>
               <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
@@ -547,24 +497,7 @@
                   </.table_default_cell>
                 <% end %>
                 <.table_default_cell>
-                  <%= case Multilang.get_primary_data(data_record.data)["category"] do %>
-                    <% nil -> %>
-                      <span class="badge badge-ghost badge-sm text-base-content/40">
-                        {gettext("Uncategorized")}
-                      </span>
-                    <% "" -> %>
-                      <span class="badge badge-ghost badge-sm text-base-content/40">
-                        {gettext("Uncategorized")}
-                      </span>
-                    <% category -> %>
-                      <span class="badge badge-primary badge-outline badge-sm h-auto">
-                        <.icon name="hero-tag" class="w-3 h-3 mr-1" />
-                        {category}
-                      </span>
-                  <% end %>
-                </.table_default_cell>
-                <.table_default_cell>
-                  <span class={"badge #{status_badge_class(data_record.status)} badge-sm h-auto"}>
+                  <span class={"badge #{status_badge_class(data_record.status)} badge-sm"}>
                     <.icon name={status_icon(data_record.status)} class="w-3 h-3 mr-1" />
                     {status_label(data_record.status)}
                   </span>
@@ -668,25 +601,6 @@
                             <.icon name="hero-link" class="w-4 h-4 inline mr-1" />
                             {data_record.slug}
                           </p>
-                        <% end %>
-
-                        <%!-- Category --%>
-                        <%= case Multilang.get_primary_data(data_record.data)["category"] do %>
-                          <% nil -> %>
-                            <span class="badge badge-ghost badge-sm text-base-content/40 mb-2">
-                              <.icon name="hero-tag" class="w-3 h-3 mr-1" />
-                              {gettext("Uncategorized")}
-                            </span>
-                          <% "" -> %>
-                            <span class="badge badge-ghost badge-sm text-base-content/40 mb-2">
-                              <.icon name="hero-tag" class="w-3 h-3 mr-1" />
-                              {gettext("Uncategorized")}
-                            </span>
-                          <% category -> %>
-                            <span class="badge badge-primary badge-outline badge-sm mb-2">
-                              <.icon name="hero-tag" class="w-3 h-3 mr-1" />
-                              {category}
-                            </span>
                         <% end %>
 
                         <%!-- Data Preview --%>

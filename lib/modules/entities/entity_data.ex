@@ -864,61 +864,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   @doc """
-  Bulk updates the category of multiple records by UUIDs.
-
-  Uses PostgreSQL jsonb_set to update the category field in the JSONB
-  data column in a single query.
-
-  Returns a tuple with the count of updated records and nil.
-
-  ## Examples
-
-      iex> PhoenixKit.Modules.Entities.EntityData.bulk_update_category(["uuid1", "uuid2"], "New Category")
-      {2, nil}
-  """
-  def bulk_update_category(uuids, category) when is_list(uuids) do
-    now = UtilsDate.utc_now()
-
-    # Handle both flat and multilang data structures.
-    # For multilang: update category in every language sub-map.
-    # For flat: update category at the top level.
-    # We detect multilang by checking for the _primary_language key.
-    from(d in __MODULE__,
-      where: d.uuid in ^uuids,
-      update: [
-        set: [
-          data:
-            fragment(
-              """
-              CASE WHEN jsonb_exists(COALESCE(?, '{}'::jsonb), '_primary_language')
-              THEN (
-                SELECT jsonb_object_agg(
-                  key,
-                  CASE
-                    WHEN jsonb_typeof(value) = 'object'
-                    THEN jsonb_set(value, '{category}', to_jsonb(?::text))
-                    ELSE value
-                  END
-                )
-                FROM jsonb_each(COALESCE(?, '{}'::jsonb))
-              )
-              ELSE jsonb_set(COALESCE(?, '{}'::jsonb), '{category}', to_jsonb(?::text))
-              END
-              """,
-              d.data,
-              ^category,
-              d.data,
-              d.data,
-              ^category
-            ),
-          date_updated: ^now
-        ]
-      ]
-    )
-    |> repo().update_all([])
-  end
-
-  @doc """
   Bulk deletes multiple records by UUIDs.
 
   Returns a tuple with the count of deleted records and nil.
@@ -931,33 +876,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   def bulk_delete(uuids) when is_list(uuids) do
     from(d in __MODULE__, where: d.uuid in ^uuids)
     |> repo().delete_all()
-  end
-
-  @doc """
-  Extracts unique categories from a list of entity data records.
-
-  Returns a sorted list of unique category values, excluding nil and empty strings.
-
-  ## Examples
-
-      iex> PhoenixKit.Modules.Entities.EntityData.extract_unique_categories(records)
-      ["Category A", "Category B", "Category C"]
-  """
-  def extract_unique_categories(entity_data_records) when is_list(entity_data_records) do
-    entity_data_records
-    |> Enum.map(fn r ->
-      data = r.data || %{}
-
-      if Multilang.multilang_data?(data) do
-        primary = data["_primary_language"]
-        get_in(data, [primary, "category"])
-      else
-        Map.get(data, "category")
-      end
-    end)
-    |> Enum.reject(&(&1 == nil || &1 == ""))
-    |> Enum.uniq()
-    |> Enum.sort()
   end
 
   @doc """

@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   require Logger
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.FieldTypes
@@ -179,6 +180,12 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
         # No form state to sync
         socket
     end
+  end
+
+  defp switch_lang_js(lang_code) do
+    JS.push("switch_language", value: %{lang: lang_code})
+    |> JS.add_class("hidden", to: "[data-translatable=fields]")
+    |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
   end
 
   def handle_event("switch_language", %{"lang" => lang_code}, socket) do

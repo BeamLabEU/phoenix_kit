@@ -146,7 +146,7 @@ Pure-function module for multi-language data transformations. No database calls 
 
 | Route | LiveView | Purpose |
 |-------|----------|---------|
-| `/admin/entities` | `entities.ex` | Dashboard listing entity blueprints, stats, actions |
+| `/admin/entities` | `entities.ex` | Dashboard listing entities with table/card views (card view auto-selected on small screens) |
 | `/admin/entities/new` / `/:id/edit` | `entity_form.ex` | Create/update entity definitions |
 | `/admin/entities/:slug/data` | `data_navigator.ex` | Table & card views of records, search, status filters |
 | `/admin/entities/:slug/data/new` / `/:id/edit` | `data_form.ex` | Create/update individual records |

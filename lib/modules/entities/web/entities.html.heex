@@ -19,42 +19,6 @@
       subtitle={gettext("Create and manage custom content types with dynamic fields")}
     />
 
-    <%!-- Stats Cards --%>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <.stat_card
-        color="primary"
-        value={@total_entities}
-        title={gettext("Total Entities")}
-        subtitle={gettext("Content types defined")}
-      >
-        <:icon>
-          <.icon name="hero-rectangle-stack" class="w-6 h-6" />
-        </:icon>
-      </.stat_card>
-
-      <.stat_card
-        color="success"
-        value={@active_entities}
-        title={gettext("Published")}
-        subtitle={gettext("Ready for data creation")}
-      >
-        <:icon>
-          <.icon name="hero-bolt" class="w-6 h-6" />
-        </:icon>
-      </.stat_card>
-
-      <.stat_card
-        color="secondary"
-        value={@total_data_records}
-        title={gettext("Data Records")}
-        subtitle={gettext("Across all entities")}
-      >
-        <:icon>
-          <.icon name="hero-circle-stack" class="w-6 h-6" />
-        </:icon>
-      </.stat_card>
-    </div>
-
     <%!-- Action Bar --%>
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
       <div>
@@ -65,8 +29,8 @@
       </div>
 
       <div class="flex gap-2 items-center">
-        <%!-- View Mode Toggle --%>
-        <div class="join">
+        <%!-- View Mode Toggle (hidden on small screens — cards are forced) --%>
+        <div class="join hidden md:flex">
           <button
             type="button"
             phx-click="toggle_view_mode"
@@ -96,185 +60,46 @@
       </div>
     </div>
 
-    <%!-- Filters Section --%>
-    <div class="card bg-base-100 shadow-xl mb-6">
-      <div class="card-body">
-        <h2 class="card-title text-xl mb-4">
-          <.icon name="hero-funnel" class="w-5 h-5" /> {gettext("Filters & Search")}
-        </h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <%!-- Status Filter --%>
-          <div>
-            <label class="label">
-              <span class="label-text">{gettext("Filter by Status")}</span>
-            </label>
-            <.form for={%{}} phx-change="filter_by_status">
-              <select class="select select-bordered w-full" name="status">
-                <option value="all" selected={@selected_status == "all"}>
-                  {gettext("All Statuses")}
-                </option>
-                <option value="published" selected={@selected_status == "published"}>
-                  {gettext("Published")}
-                </option>
-                <option value="draft" selected={@selected_status == "draft"}>
-                  {gettext("Draft")}
-                </option>
-                <option value="archived" selected={@selected_status == "archived"}>
-                  {gettext("Archived")}
-                </option>
-              </select>
-            </.form>
-          </div>
-
-          <%!-- Search --%>
-          <div>
-            <label class="label">
-              <span class="label-text">{gettext("Search Entities")}</span>
-            </label>
-            <.form for={%{}} phx-change="search" phx-submit="search" class="join w-full">
-              <input
-                type="text"
-                name="search[term]"
-                value={@search_term}
-                placeholder={gettext("Search by name or display name...")}
-                class="input input-bordered join-item flex-1"
-              />
-              <button type="submit" class="btn btn-primary join-item">
-                <.icon name="hero-magnifying-glass" class="w-4 h-4" />
-              </button>
-            </.form>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <%!-- Entities Grid --%>
     <%= if Enum.empty?(@entities) do %>
       <%!-- Empty State --%>
       <div class="card bg-base-100 shadow-xl border-2 border-dashed border-base-300">
         <div class="card-body text-center py-12">
           <div class="text-6xl mb-4 opacity-50"><.icon name="hero-cube" class="w-6 h-6" /></div>
-          <%= if @total_entities == 0 do %>
-            <%!-- No entities exist at all --%>
-            <h3 class="text-2xl font-semibold text-base-content/60 mb-4">
-              {gettext("No Entities Yet")}
-            </h3>
-            <p class="text-base-content/50 mb-6 max-w-md mx-auto">
-              {gettext(
-                "Get started by creating your first custom content type. Think brands, products, team members, or any structured content you need."
-              )}
-            </p>
-            <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/entities/new")}
-              class="btn btn-primary btn-lg"
-            >
-              <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Create Your First Entity")}
-            </.link>
-          <% else %>
-            <%= if @selected_status != "all" || @search_term != "" do %>
-              <%!-- Entities exist but filters exclude them --%>
-              <h3 class="text-2xl font-semibold text-base-content/60 mb-4">
-                {gettext("No Entities Found")}
-              </h3>
-              <p class="text-base-content/50 mb-6 max-w-md mx-auto">
-                {gettext(
-                  "No entities match your current filters. Try adjusting your search criteria or clearing the filters."
-                )}
-              </p>
-              <button phx-click="clear_filters" class="btn btn-outline btn-lg">
-                <.icon name="hero-x-mark" class="w-5 h-5 mr-2" /> {gettext("Clear Filters")}
-              </button>
-            <% else %>
-              <%!-- True empty state --%>
-              <h3 class="text-2xl font-semibold text-base-content/60 mb-4">
-                {gettext("No Entities Yet")}
-              </h3>
-              <p class="text-base-content/50 mb-6 max-w-md mx-auto">
-                {gettext(
-                  "Get started by creating your first custom content type. Think brands, products, team members, or any structured content you need."
-                )}
-              </p>
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/entities/new")}
-                class="btn btn-primary btn-lg"
-              >
-                <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext(
-                  "Create Your First Entity"
-                )}
-              </.link>
-            <% end %>
-          <% end %>
+          <h3 class="text-2xl font-semibold text-base-content/60 mb-4">
+            {gettext("No Entities Yet")}
+          </h3>
+          <p class="text-base-content/50 mb-6 max-w-md mx-auto">
+            {gettext(
+              "Get started by creating your first custom content type. Think brands, products, team members, or any structured content you need."
+            )}
+          </p>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/entities/new")}
+            class="btn btn-primary btn-lg"
+          >
+            <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Create Your First Entity")}
+          </.link>
         </div>
       </div>
     <% else %>
-      <%!-- Entities List --%>
+      <%!-- Table View: hidden on small screens, shown on md+ when table mode selected --%>
       <%= if @view_mode == "table" do %>
-        <%!-- Table View --%>
-        <.table_default variant="zebra" size="sm">
-          <.table_default_header>
-            <.table_default_row>
-              <.table_default_header_cell>{gettext("Entity")}</.table_default_header_cell>
-              <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
-              <.table_default_header_cell>{gettext("Fields")}</.table_default_header_cell>
-              <.table_default_header_cell>{gettext("Created")}</.table_default_header_cell>
-              <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
-            </.table_default_row>
-          </.table_default_header>
-          <.table_default_body>
-            <%= for entity <- @entities do %>
+        <div class="hidden md:block">
+          <.table_default variant="zebra" size="sm">
+            <.table_default_header>
               <.table_default_row>
-                <.table_default_cell>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.locale_aware_path(
-                        assigns,
-                        "/admin/entities/#{entity.name}/data"
-                      )
-                    }
-                    class="flex items-center gap-3 hover:text-primary transition-colors cursor-pointer group"
-                  >
-                    <div class="text-2xl">
-                      <%= if entity.icon do %>
-                        <.icon name={entity.icon} class="w-6 h-6" />
-                      <% else %>
-                        <.icon name="hero-cube" class="w-6 h-6" />
-                      <% end %>
-                    </div>
-                    <div>
-                      <div class="font-bold">
-                        {entity.display_name}
-                      </div>
-                      <div class="text-sm opacity-50">
-                        <.icon name="hero-link" class="w-3 h-3 inline" />
-                        {entity.name}
-                      </div>
-                      <%= if entity.description do %>
-                        <div class="text-xs opacity-50 line-clamp-1 mt-1">
-                          {entity.description}
-                        </div>
-                      <% end %>
-                    </div>
-                  </.link>
-                </.table_default_cell>
-                <.table_default_cell>
-                  <.content_status_badge status={entity.status} />
-                </.table_default_cell>
-                <.table_default_cell>
-                  <div class="flex items-center gap-1">
-                    <.icon name="hero-list-bullet" class="w-4 h-4" />
-                    <span>
-                      {length(entity.fields_definition || [])}
-                    </span>
-                  </div>
-                </.table_default_cell>
-                <.table_default_cell>
-                  <span class="text-sm">
-                    {PhoenixKit.Utils.Date.format_date_with_user_format(entity.date_created)}
-                  </span>
-                </.table_default_cell>
-                <.table_default_cell>
-                  <div class="flex gap-2">
+                <.table_default_header_cell>{gettext("Entity")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Fields")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Created")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
+              </.table_default_row>
+            </.table_default_header>
+            <.table_default_body>
+              <%= for entity <- @entities do %>
+                <.table_default_row>
+                  <.table_default_cell>
                     <.link
                       navigate={
                         PhoenixKit.Utils.Routes.locale_aware_path(
@@ -282,47 +107,100 @@
                           "/admin/entities/#{entity.name}/data"
                         )
                       }
-                      class="btn btn-ghost btn-xs"
-                      title={gettext("Go to Data")}
+                      class="flex items-center gap-3 hover:text-primary transition-colors cursor-pointer group"
                     >
-                      <.icon name="hero-arrow-right" class="w-4 h-4" />
+                      <div class="text-2xl">
+                        <%= if entity.icon do %>
+                          <.icon name={entity.icon} class="w-6 h-6" />
+                        <% else %>
+                          <.icon name="hero-cube" class="w-6 h-6" />
+                        <% end %>
+                      </div>
+                      <div>
+                        <div class="font-bold">
+                          {entity.display_name}
+                        </div>
+                        <div class="text-sm opacity-50">
+                          <.icon name="hero-link" class="w-3 h-3 inline" />
+                          {entity.name}
+                        </div>
+                        <%= if entity.description do %>
+                          <div class="text-xs opacity-50 line-clamp-1 mt-1">
+                            {entity.description}
+                          </div>
+                        <% end %>
+                      </div>
                     </.link>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.uuid}/edit")
-                      }
-                      class="btn btn-ghost btn-xs"
-                      title={gettext("Edit")}
-                    >
-                      <.icon name="hero-pencil" class="w-4 h-4" />
-                    </.link>
-                    <%= if entity.status == "archived" do %>
-                      <button
-                        class="btn btn-ghost btn-xs text-success"
-                        phx-click="restore_entity"
-                        phx-value-uuid={entity.uuid}
-                        title={gettext("Restore")}
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <.content_status_badge status={entity.status} />
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <div class="flex items-center gap-1">
+                      <.icon name="hero-list-bullet" class="w-4 h-4" />
+                      <span>
+                        {length(entity.fields_definition || [])}
+                      </span>
+                    </div>
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <span class="text-sm">
+                      {PhoenixKit.Utils.Date.format_date_with_user_format(entity.date_created)}
+                    </span>
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <div class="flex gap-2">
+                      <.link
+                        navigate={
+                          PhoenixKit.Utils.Routes.locale_aware_path(
+                            assigns,
+                            "/admin/entities/#{entity.name}/data"
+                          )
+                        }
+                        class="btn btn-ghost btn-xs"
+                        title={gettext("Go to Data")}
                       >
-                        <.icon name="hero-arrow-path" class="w-4 h-4" />
-                      </button>
-                    <% else %>
-                      <button
-                        class="btn btn-ghost btn-xs text-error"
-                        phx-click="archive_entity"
-                        phx-value-uuid={entity.uuid}
-                        title={gettext("Archive")}
+                        <.icon name="hero-arrow-right" class="w-4 h-4" />
+                      </.link>
+                      <.link
+                        navigate={
+                          PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.uuid}/edit")
+                        }
+                        class="btn btn-ghost btn-xs"
+                        title={gettext("Edit")}
                       >
-                        <.icon name="hero-trash" class="w-4 h-4" />
-                      </button>
-                    <% end %>
-                  </div>
-                </.table_default_cell>
-              </.table_default_row>
-            <% end %>
-          </.table_default_body>
-        </.table_default>
-      <% else %>
-        <%!-- Card View --%>
+                        <.icon name="hero-pencil" class="w-4 h-4" />
+                      </.link>
+                      <%= if entity.status == "archived" do %>
+                        <button
+                          class="btn btn-ghost btn-xs text-success"
+                          phx-click="restore_entity"
+                          phx-value-uuid={entity.uuid}
+                          title={gettext("Restore")}
+                        >
+                          <.icon name="hero-arrow-path" class="w-4 h-4" />
+                        </button>
+                      <% else %>
+                        <button
+                          class="btn btn-ghost btn-xs text-error"
+                          phx-click="archive_entity"
+                          phx-value-uuid={entity.uuid}
+                          title={gettext("Archive")}
+                        >
+                          <.icon name="hero-trash" class="w-4 h-4" />
+                        </button>
+                      <% end %>
+                    </div>
+                  </.table_default_cell>
+                </.table_default_row>
+              <% end %>
+            </.table_default_body>
+          </.table_default>
+        </div>
+      <% end %>
+
+      <%!-- Card View: always shown on small screens, shown on md+ when card mode selected --%>
+      <div class={if @view_mode == "table", do: "md:hidden", else: ""}>
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <%= for entity <- @entities do %>
             <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
@@ -426,7 +304,7 @@
             </div>
           <% end %>
         </div>
-      <% end %>
+      </div>
     <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
