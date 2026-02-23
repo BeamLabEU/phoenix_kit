@@ -152,7 +152,7 @@ Removing `get_system_stats()` calls from `mount`, `archive_entity`, `restore_ent
 
 ## Checklist
 
-- [ ] Replace inline `style` with Tailwind classes (Issue #3)
-- [ ] Consider defensive `current_base_path` (Issue #4)
+- [x] Replace inline `style` with Tailwind classes (Issue #3) — fixed in `ee87514d`
+- [x] Consider defensive `current_base_path` (Issue #4) — fixed in `ee87514d`
 - [ ] (Follow-up) Add locale-aware slug lookup for full multilingual URL support
 - [ ] (Follow-up) Evaluate dual-render payload if entity counts grow
