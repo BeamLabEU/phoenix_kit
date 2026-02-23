@@ -3,7 +3,7 @@
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title}
 >
-  <div class="flex items-center justify-center py-8 min-h-[80vh]">
+  <div class="flex items-center justify-center px-4 py-8 min-h-[80vh]">
     <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
       <div class="card-body">
         <h1 class="text-2xl font-bold text-center mb-2">Complete Your Registration</h1>
@@ -106,7 +106,7 @@
                   name="referral_code"
                   type="text"
                   class={[
-                    "input input-bordered",
+                    "input w-full",
                     (@referral_code_error ||
                        (@check_errors && @referral_codes_required &&
                           (is_nil(@referral_code) || @referral_code == ""))) && "input-error"
