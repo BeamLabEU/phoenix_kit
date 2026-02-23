@@ -81,8 +81,7 @@
             <% compact = length(@language_tabs) > 5 %>
             <div
               role="tablist"
-              class="inline-flex flex-wrap items-center bg-base-200 rounded-box mb-4"
-              style="gap: 4px; padding: 4px;"
+              class="inline-flex flex-wrap items-center gap-1 p-1 bg-base-200 rounded-box mb-4"
             >
               <%= if compact do %>
                 <%= for {tab, idx} <- Enum.with_index(@language_tabs) do %>

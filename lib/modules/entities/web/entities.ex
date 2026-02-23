@@ -97,6 +97,6 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
   # Extracts the base path (without query string) from the current URL,
   # which already includes the correct locale and prefix segments.
   defp current_base_path(socket) do
-    socket.assigns.url_path |> URI.parse() |> Map.get(:path)
+    (socket.assigns[:url_path] || "") |> URI.parse() |> Map.get(:path) || "/"
   end
 end
