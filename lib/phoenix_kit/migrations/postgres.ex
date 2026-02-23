@@ -462,11 +462,20 @@ defmodule PhoenixKit.Migrations.Postgres do
   - One content row per language (mirrors filesystem one-file-per-language model)
   - Seeds `publishing_storage` setting (default: "filesystem")
 
-  ### V60 - Email Templates UUID FK Columns ⚡ LATEST
+  ### V60 - Email Templates UUID FK Columns
   - Adds `created_by_user_uuid` and `updated_by_user_uuid` columns to phoenix_kit_email_templates
   - Fixes schema/migration mismatch where Template schema referenced UUID columns never created
   - Idempotent: checks column existence before adding (safe for fresh installs where V15 now includes them)
   - Resolves fresh install crash at V30 caused by V15 seed query failing on missing columns
+
+  ### V61 - UUID Column Safety Net (V40 Flush Fix) ⚡ LATEST
+  - Adds missing `uuid` column to 6 tables that V40 silently skipped due to Ecto command buffering
+  - Root cause: V40 used `repo().query()` (immediate) for table existence checks, but V32-V39 table
+    creation commands were still buffered (not yet flushed). V31's `flush()` was the last flush before V40.
+  - Tables fixed: admin_notes, ai_requests, subscriptions, payment_provider_configs, webhook_events, sync_transfers
+  - Also adds `created_by_uuid` FK column to phoenix_kit_scheduled_jobs
+  - V40 now includes `flush()` at start of `up()` to prevent recurrence on new installations
+  - All operations idempotent — safe on any installation
 
   ## Migration Paths
 
@@ -526,7 +535,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 60
+  @current_version 61
   @default_prefix "public"
 
   @doc false

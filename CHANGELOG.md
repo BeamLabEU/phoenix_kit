@@ -1,3 +1,12 @@
+## 1.7.45 - 2026-02-23
+- Fix V40 migration silently skipping V32-V39 tables due to Ecto command buffering
+  - Root cause: `repo().query()` (immediate) couldn't see buffered table creation commands
+  - V31's `flush()` was the last flush before V40, creating a clean V31/V32 split
+  - Add `flush()` to V40 and V56 to prevent recurrence on new installations
+- Add V61 migration: uuid column safety net for 6 tables missed by V40
+  - Tables fixed: admin_notes, ai_requests, subscriptions, payment_provider_configs, webhook_events, sync_transfers
+  - Also adds `created_by_uuid` FK column to phoenix_kit_scheduled_jobs
+
 ## 1.7.44 - 2026-02-23
 - Add Publishing module: DB storage, public post rendering, and i18n support
 - Add unified `admin_page_header` component, replace all per-page admin headers

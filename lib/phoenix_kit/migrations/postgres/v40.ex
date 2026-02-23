@@ -171,6 +171,13 @@ defmodule PhoenixKit.Migrations.Postgres.V40 do
   def up(%{prefix: prefix} = opts) do
     escaped_prefix = Map.get(opts, :escaped_prefix, prefix)
 
+    # Step 0: Flush all pending migration commands from earlier versions.
+    # V32-V39 table creation commands may still be buffered (Ecto migration
+    # commands are not executed immediately — they queue until flush() or
+    # callback return). Our table_exists? checks use repo().query() which
+    # executes immediately and won't see unbuffered tables.
+    flush()
+
     # Step 1: Ensure pgcrypto extension exists
     execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
