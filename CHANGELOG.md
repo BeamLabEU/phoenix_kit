@@ -1,4 +1,9 @@
 ## 1.7.45 - 2026-02-23
+- Fix auth forms mobile overflow on small screens (px-4 added to all form containers)
+- Fix daisyUI v5 compliance: remove deprecated `input-bordered` from `<.input>` component and all auth templates
+- Fix `<.header>` hardcoded `text-zinc-*` colors replaced with semantic `text-base-content` for dark theme support
+- Convert forgot_password, reset_password, confirmation, confirmation_instructions to unified card layout
+- Add missing `LayoutWrapper.app_layout` wrapper to confirmation form
 - Fix V40 migration silently skipping V32-V39 tables due to Ecto command buffering
   - Root cause: `repo().query()` (immediate) couldn't see buffered table creation commands
   - V31's `flush()` was the last flush before V40, creating a clean V31/V32 split
