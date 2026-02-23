@@ -72,7 +72,7 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`. **NEVER ment
 
 ### Version Management
 
-**Current Version**: 1.7.44 (mix.exs) | **Migration Version**: V59
+**Current Version**: 1.7.45 (mix.exs) | **Migration Version**: V61
 
 Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 

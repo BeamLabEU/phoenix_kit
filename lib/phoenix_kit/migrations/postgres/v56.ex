@@ -196,6 +196,9 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
   def up(%{prefix: prefix} = opts) do
     escaped_prefix = Map.get(opts, :escaped_prefix, prefix)
 
+    # Flush pending commands so repo().query() table checks see all tables
+    flush()
+
     # Ensure uuid_generate_v7() function exists (created in V40, but be safe)
     execute("""
     CREATE OR REPLACE FUNCTION uuid_generate_v7()
