@@ -627,7 +627,13 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   # Always apply URL prefix via Routes.path
   # When locale is nil, use :none to skip locale prefix but still apply URL prefix
-  defp build_path(path, nil), do: Routes.path(path, locale: :none)
+  defp build_path(path, nil) do
+    if String.starts_with?(path, "/admin") do
+      Routes.path(path)
+    else
+      Routes.path(path, locale: :none)
+    end
+  end
 
   defp build_path(path, locale) do
     if String.starts_with?(path, "/admin") do
