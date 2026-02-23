@@ -1,3 +1,26 @@
+## 1.7.44 - 2026-02-23
+- Add Publishing module: DB storage, public post rendering, and i18n support
+- Add unified `admin_page_header` component, replace all per-page admin headers
+- Add try/rescue to all form save handlers to prevent silent data loss on validation errors
+- Add skeleton loading placeholders for entity language tab switching
+- Add "Update Entity" submit button at top of entity form for quicker saves
+- Add responsive card view to entities listing, remove stats/filters
+- Memoize `IbanData.all_specs/0` with compile-time module attribute for performance
+- Auto-register built-in comment resource handlers
+- Make entity slug translatable and move it into Entity Information section
+- Move multilang info alert above language tabs with improved explanation
+- Tighten language tab spacing, replace daisyUI tab classes with compact utilities
+- Remove hardcoded category column, filter, and bulk action from data navigator
+- Fix CommentsComponent crash on post detail page
+- Fix Entity update crash from DateTime microseconds in `:utc_datetime` fields
+- Fix `email_templates` schema/migration mismatch breaking fresh installs
+- Fix locale disappearing from admin URLs on sidebar navigation
+- Fix badge component height on mobile devices
+- Fix cached plan error spam during migrations with column type changes
+- Fix CSS specificity debt and inline styles replaced with Tailwind classes
+- Fix mobile responsiveness across admin panel
+- Replace remaining `DateTime.utc_now()` with `UtilsDate.utc_now()` in all DB write contexts
+
 ## 1.7.43 - 2026-02-18
 - Standardize all schemas to `:utc_datetime` and `DateTime.utc_now()` across 73 files
   - Replace `:utc_datetime_usec` with `:utc_datetime` and `NaiveDateTime` with `DateTime`
