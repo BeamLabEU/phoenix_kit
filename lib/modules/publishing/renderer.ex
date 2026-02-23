@@ -9,10 +9,10 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   require Logger
 
   alias Phoenix.HTML.Safe
-  alias PhoenixKit.Modules.Publishing.Components.EntityForm
-  alias PhoenixKit.Modules.Publishing.Components.Image
-  alias PhoenixKit.Modules.Publishing.Components.Video
   alias PhoenixKit.Modules.Publishing.PageBuilder
+  alias PhoenixKit.Modules.Shared.Components.EntityForm
+  alias PhoenixKit.Modules.Shared.Components.Image
+  alias PhoenixKit.Modules.Shared.Components.Video
   alias PhoenixKit.Settings
 
   @cache_name :publishing_posts

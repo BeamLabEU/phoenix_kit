@@ -348,7 +348,7 @@ The EntityForm is a function component (not a LiveComponent), so use it directly
 <EntityForm entity_slug="contact_form" />
 
 <%# Or call the render function directly in regular .heex templates %>
-<PhoenixKit.Modules.Publishing.Components.EntityForm.render
+<PhoenixKit.Modules.Shared.Components.EntityForm.render
   attributes={%{"entity_slug" => "contact_form"}}
 />
 ```

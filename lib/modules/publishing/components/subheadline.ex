@@ -1,18 +1,9 @@
 defmodule PhoenixKit.Modules.Publishing.Components.Subheadline do
   @moduledoc """
-  Subheadline component for supporting text.
+  Delegates to `PhoenixKit.Modules.Shared.Components.Subheadline`.
+
+  Kept for backward compatibility with external consumers.
   """
-  use Phoenix.Component
 
-  attr :content, :string, required: true
-  attr :attributes, :map, default: %{}
-  attr :variant, :string, default: "default"
-
-  def render(assigns) do
-    ~H"""
-    <p class="text-lg md:text-xl text-base-content/70 leading-relaxed">
-      {@content}
-    </p>
-    """
-  end
+  defdelegate render(assigns), to: PhoenixKit.Modules.Shared.Components.Subheadline
 end

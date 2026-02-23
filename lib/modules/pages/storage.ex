@@ -31,6 +31,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
   alias PhoenixKit.Modules.Pages.Storage.Slugs
   alias PhoenixKit.Modules.Pages.Storage.Versions
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -467,8 +468,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
     audit_meta = Map.new(audit_meta)
 
     now =
-      DateTime.utc_now()
-      |> DateTime.truncate(:second)
+      UtilsDate.utc_now()
       |> Helpers.floor_to_minute()
 
     date = DateTime.to_date(now)
@@ -775,7 +775,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
 
   def create_post_slug_mode(group_slug, title, preferred_slug, audit_meta) do
     audit_meta = Map.new(audit_meta)
-    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    now = UtilsDate.utc_now()
 
     case Slugs.generate_unique_slug(group_slug, title || "", preferred_slug) do
       {:ok, post_slug} ->
@@ -1402,7 +1402,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
   end
 
   defp create_blank_version(group_slug, post_slug, params, audit_meta) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = UtilsDate.utc_now()
     post_path = Path.join([Paths.group_path(group_slug), post_slug])
     versions = Versions.list_versions(group_slug, post_slug)
     new_version = if versions == [], do: 1, else: Enum.max(versions) + 1
@@ -1447,7 +1447,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
   end
 
   defp create_version_from_source(group_slug, post_slug, source_version, params, audit_meta) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = UtilsDate.utc_now()
     post_path = Path.join([Paths.group_path(group_slug), post_slug])
     source_dir = Path.join(post_path, "v#{source_version}")
     versions = Versions.list_versions(group_slug, post_slug)
@@ -1539,7 +1539,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
 
   def create_new_version(group_slug, source_post, params, audit_meta) do
     audit_meta = Map.new(audit_meta)
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = UtilsDate.utc_now()
 
     case source_post.mode do
       :slug ->
@@ -1833,7 +1833,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
 
   defp do_migrate_post_to_versioned(post, post_dir, language) do
     v1_dir = Path.join(post_dir, "v1")
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = UtilsDate.utc_now()
 
     with :ok <- File.mkdir_p(v1_dir),
          {:ok, phk_files} <- list_phk_files(post_dir),

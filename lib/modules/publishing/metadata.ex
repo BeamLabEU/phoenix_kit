@@ -15,6 +15,8 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
   ```
   """
 
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @type metadata :: %{
           status: String.t(),
           title: String.t(),
@@ -132,7 +134,7 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
   """
   @spec default_metadata() :: metadata()
   def default_metadata do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = UtilsDate.utc_now()
 
     %{
       status: "draft",

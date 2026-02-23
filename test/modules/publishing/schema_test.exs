@@ -282,7 +282,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
 
       assert "can't be blank" in errors_on(changeset, :version_id)
       assert "can't be blank" in errors_on(changeset, :language)
-      assert "can't be blank" in errors_on(changeset, :title)
+      # title defaults to "" via default_if_nil, so it's not required
       # status has default "draft"
     end
 

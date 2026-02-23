@@ -10,9 +10,9 @@ defmodule PhoenixKit.Modules.Pages.Renderer do
 
   alias Phoenix.HTML.Safe
   alias PhoenixKit.Modules.Pages.PageBuilder
-  alias PhoenixKit.Modules.Publishing.Components.EntityForm
-  alias PhoenixKit.Modules.Publishing.Components.Image
-  alias PhoenixKit.Modules.Publishing.Components.Video
+  alias PhoenixKit.Modules.Shared.Components.EntityForm
+  alias PhoenixKit.Modules.Shared.Components.Image
+  alias PhoenixKit.Modules.Shared.Components.Video
   alias PhoenixKit.Settings
 
   @cache_name :pages_posts

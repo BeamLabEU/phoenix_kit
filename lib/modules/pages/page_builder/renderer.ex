@@ -1,9 +1,6 @@
 defmodule PhoenixKit.Modules.Pages.PageBuilder.Renderer do
   @moduledoc """
   Renders AST nodes to HTML by delegating to component modules.
-
-  NOTE: This is preserved code from the Publishing module's filesystem layer.
-  Component references point to Publishing.Components.* which still exist there.
   """
 
   @doc """
@@ -37,20 +34,19 @@ defmodule PhoenixKit.Modules.Pages.PageBuilder.Renderer do
   end
 
   # Resolve component type to module
-  # NOTE: These reference Publishing.Components.* which still exist in the Publishing module
-  defp resolve_component(:page), do: {:ok, PhoenixKit.Modules.Publishing.Components.Page}
-  defp resolve_component(:hero), do: {:ok, PhoenixKit.Modules.Publishing.Components.Hero}
-  defp resolve_component(:headline), do: {:ok, PhoenixKit.Modules.Publishing.Components.Headline}
+  defp resolve_component(:page), do: {:ok, PhoenixKit.Modules.Shared.Components.Page}
+  defp resolve_component(:hero), do: {:ok, PhoenixKit.Modules.Shared.Components.Hero}
+  defp resolve_component(:headline), do: {:ok, PhoenixKit.Modules.Shared.Components.Headline}
 
   defp resolve_component(:subheadline),
-    do: {:ok, PhoenixKit.Modules.Publishing.Components.Subheadline}
+    do: {:ok, PhoenixKit.Modules.Shared.Components.Subheadline}
 
-  defp resolve_component(:cta), do: {:ok, PhoenixKit.Modules.Publishing.Components.CTA}
-  defp resolve_component(:image), do: {:ok, PhoenixKit.Modules.Publishing.Components.Image}
-  defp resolve_component(:video), do: {:ok, PhoenixKit.Modules.Publishing.Components.Video}
+  defp resolve_component(:cta), do: {:ok, PhoenixKit.Modules.Shared.Components.CTA}
+  defp resolve_component(:image), do: {:ok, PhoenixKit.Modules.Shared.Components.Image}
+  defp resolve_component(:video), do: {:ok, PhoenixKit.Modules.Shared.Components.Video}
 
   defp resolve_component(:entityform),
-    do: {:ok, PhoenixKit.Modules.Publishing.Components.EntityForm}
+    do: {:ok, PhoenixKit.Modules.Shared.Components.EntityForm}
 
   defp resolve_component(_), do: {:error, :not_found}
 
