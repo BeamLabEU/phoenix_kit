@@ -11,24 +11,11 @@
     class="container flex flex-col mx-auto px-4 py-6"
     phx-hook="PreserveScroll"
   >
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Modules
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Languages</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          Manage available languages for your frontend language switcher
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/modules")}
+      title="Languages"
+      subtitle="Manage available languages for your frontend language switcher"
+    />
 
     <%!-- Tabs --%>
     <div role="tablist" class="tabs tabs-boxed bg-base-200 p-1 mb-6">
@@ -71,10 +58,10 @@
                 <h4 class="font-semibold">Enabled Languages</h4>
                 <div class="flex items-center gap-3 text-xs text-base-content/60">
                   <span class="flex items-center gap-1">
-                    <span class="badge badge-secondary badge-xs"></span> Default
+                    <span class="badge badge-secondary badge-xs h-auto"></span> Default
                   </span>
                   <span class="flex items-center gap-1">
-                    <span class="badge badge-primary badge-xs"></span> Enabled
+                    <span class="badge badge-primary badge-xs h-auto"></span> Enabled
                   </span>
                 </div>
               </div>
@@ -195,11 +182,13 @@
                                     {language.native}
                                     <span class="text-base-content/60">({language.name})</span>
                                   </span>
-                                  <span class="badge badge-outline badge-xs">
+                                  <span class="badge badge-outline badge-xs h-auto">
                                     {language.code}
                                   </span>
                                   <%= if language.code == @default_code do %>
-                                    <span class="badge badge-primary badge-xs">Default</span>
+                                    <span class="badge badge-primary badge-xs h-auto">
+                                      Default
+                                    </span>
                                   <% end %>
                                 </div>
                                 <div class="flex items-center gap-2">

@@ -13,39 +13,28 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/entities")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Entities")}
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <%= if @selected_entity do %>
-          <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-            {@selected_entity.display_name_plural || @selected_entity.display_name}
-          </h1>
-          <p class="text-base sm:text-lg text-base-content">
-            {gettext("Browse and manage your %{entity}",
-              entity:
-                String.downcase(
-                  @selected_entity.display_name_plural || @selected_entity.display_name
-                )
-            )}
-          </p>
-        <% else %>
-          <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-            {gettext("Data Navigator")}
-          </h1>
-          <p class="text-base sm:text-lg text-base-content">
-            {gettext("Browse and manage all entity data records across your system")}
-          </p>
-        <% end %>
-      </div>
-    </header>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/entities")}>
+      <%= if @selected_entity do %>
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+          {@selected_entity.display_name_plural || @selected_entity.display_name}
+        </h1>
+        <p class="text-sm text-base-content/60 mt-0.5">
+          {gettext("Browse and manage your %{entity}",
+            entity:
+              String.downcase(
+                @selected_entity.display_name_plural || @selected_entity.display_name
+              )
+          )}
+        </p>
+      <% else %>
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+          {gettext("Data Navigator")}
+        </h1>
+        <p class="text-sm text-base-content/60 mt-0.5">
+          {gettext("Browse and manage all entity data records across your system")}
+        </p>
+      <% end %>
+    </.admin_page_header>
 
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -552,7 +541,7 @@
                 </.table_default_cell>
                 <%= if !@selected_entity do %>
                   <.table_default_cell>
-                    <span class="badge badge-outline badge-sm">
+                    <span class="badge badge-outline badge-sm h-auto">
                       {get_entity_name(@entities, data_record.entity_id)}
                     </span>
                   </.table_default_cell>
@@ -568,14 +557,14 @@
                         {gettext("Uncategorized")}
                       </span>
                     <% category -> %>
-                      <span class="badge badge-primary badge-outline badge-sm">
+                      <span class="badge badge-primary badge-outline badge-sm h-auto">
                         <.icon name="hero-tag" class="w-3 h-3 mr-1" />
                         {category}
                       </span>
                   <% end %>
                 </.table_default_cell>
                 <.table_default_cell>
-                  <span class={"badge #{status_badge_class(data_record.status)} badge-sm"}>
+                  <span class={"badge #{status_badge_class(data_record.status)} badge-sm h-auto"}>
                     <.icon name={status_icon(data_record.status)} class="w-3 h-3 mr-1" />
                     {status_label(data_record.status)}
                   </span>

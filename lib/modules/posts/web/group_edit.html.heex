@@ -7,27 +7,16 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/posts/groups")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Groups
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          <%= if @group.uuid do %>
-            Edit your group details and settings
-          <% else %>
-            Create a new collection to organize your posts
-          <% end %>
-        </p>
-      </div>
-    </header>
+    <.admin_page_header back={Routes.path("/admin/posts/groups")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        <%= if @group.uuid do %>
+          Edit your group details and settings
+        <% else %>
+          Create a new collection to organize your posts
+        <% end %>
+      </p>
+    </.admin_page_header>
 
     <%!-- Main Content --%>
     <div class="max-w-3xl mx-auto">

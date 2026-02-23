@@ -40,8 +40,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
-  import PhoenixKitWeb.Components.Core.Icons, only: [icon_arrow_left: 1]
-
   @default_per_page 25
   @max_per_page 100
 

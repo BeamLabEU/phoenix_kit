@@ -7,26 +7,12 @@
   project_title={@project_title}
 >
   <div class="container mx-auto px-4 py-8 max-w-4xl">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")}
-        class="btn btn-outline mb-4"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dimensions
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center mb-8">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-2">
-          {@page_title}
-        </h1>
-        <p class="text-base sm:text-lg text-base-content/70">
-          Configure dimension presets for automatic file variant generation
-        </p>
-      </div>
-    </header>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        Configure dimension presets for automatic file variant generation
+      </p>
+    </.admin_page_header>
 
     <%!-- Form Section --%>
     <div class="card bg-base-100 shadow-xl">

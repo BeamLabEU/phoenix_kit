@@ -7,16 +7,14 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-base-content mb-2">
-        {@project_title} {gettext("Dashboard")}
-      </h1>
-      <p class="text-base-content/70">
-        {gettext("Welcome to the %{project_title} administration panel",
+    <.admin_page_header
+      title={"#{@project_title} #{gettext("Dashboard")}"}
+      subtitle={
+        gettext("Welcome to the %{project_title} administration panel",
           project_title: @project_title
-        )}
-      </p>
-    </div>
+        )
+      }
+    />
 
     <%!-- Admin Menu Actions --%>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">

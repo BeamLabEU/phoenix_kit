@@ -142,10 +142,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
           <%!-- Back Button --%>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{@entity.name}/data")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+            class="btn btn-ghost btn-sm absolute left-0 top-0 -mb-12"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" />
-            {gettext("Back to %{entity} Data", entity: @entity.display_name)}
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
 
           <%!-- Title Section --%>

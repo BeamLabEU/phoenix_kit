@@ -7,22 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">User Management</h1>
-        <p class="text-base sm:text-lg text-base-content">Manage user accounts and roles</p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin")}
+      title="User Management"
+      subtitle="Manage user accounts and roles"
+    />
 
     <%!-- Role Management Modal --%>
     <%= if @show_role_modal && @managing_user do %>
@@ -55,7 +44,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                       <.role_badge role={role} size={:sm} />
                       <%= if role.is_system_role do %>
-                        <span class="badge badge-outline badge-xs">System</span>
+                        <span class="badge badge-outline badge-xs h-auto">System</span>
                       <% end %>
                       <%= if role.description do %>
                         <span class="text-sm text-base-content/70">- {role.description}</span>
@@ -178,7 +167,7 @@
                               <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-medium link link-hover">{user.email}</span>
                                 <%= if user.id == @phoenix_kit_current_user.id do %>
-                                  <span class="badge badge-info badge-xs">you</span>
+                                  <span class="badge badge-info badge-xs h-auto">you</span>
                                 <% end %>
                               </div>
                               <%= if user.username do %>
@@ -206,20 +195,20 @@
                               />
                             <% end %>
                             <%= if Enum.empty?(user_roles) do %>
-                              <span class="badge badge-ghost badge-sm">No roles</span>
+                              <span class="badge badge-ghost badge-sm h-auto">No roles</span>
                             <% end %>
                           </div>
                         <% column_id == "status" -> %>
                           <div class="flex flex-col gap-1">
                             <%= if user.confirmed_at do %>
-                              <span class="badge badge-success badge-sm">Confirmed</span>
+                              <span class="badge badge-success badge-sm h-auto">Confirmed</span>
                             <% else %>
-                              <span class="badge badge-warning badge-sm">Pending</span>
+                              <span class="badge badge-warning badge-sm h-auto">Pending</span>
                             <% end %>
                             <%= if user.is_active do %>
-                              <span class="badge badge-outline badge-xs">Active</span>
+                              <span class="badge badge-outline badge-xs h-auto">Active</span>
                             <% else %>
-                              <span class="badge badge-error badge-xs">Inactive</span>
+                              <span class="badge badge-error badge-xs h-auto">Inactive</span>
                             <% end %>
                           </div>
                         <% column_id == "registered" -> %>
@@ -247,7 +236,7 @@
                               <%= if user.registration_country || user.registration_region || user.registration_city || user.registration_ip do %>
                                 <%= if user.registration_country do %>
                                   <div class="flex items-center gap-1">
-                                    <span class="badge badge-outline badge-xs">
+                                    <span class="badge badge-outline badge-xs h-auto">
                                       {user.registration_country}
                                     </span>
                                   </div>

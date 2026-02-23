@@ -6,24 +6,11 @@
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/emails")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon_arrow_left /> Back to Emails
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Email Queue</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          Real-time monitoring and queue management
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={Routes.path("/admin/emails")}
+      title="Email Queue"
+      subtitle="Real-time monitoring and queue management"
+    />
 
     <%!-- Action Buttons --%>
     <div class="flex justify-between items-center gap-2 mb-6">
@@ -294,7 +281,7 @@
                   <.table_default_row>
                     <.table_default_cell>
                       <div class={[
-                        "badge badge-sm",
+                        "badge badge-sm h-auto",
                         (email.status == "sent" && "badge-success") ||
                           (email.status == "failed" &&
                              "badge-error") || "badge-warning"

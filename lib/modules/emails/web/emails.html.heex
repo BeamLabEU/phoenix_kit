@@ -6,24 +6,11 @@
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon_arrow_left /> Back to Dashboard
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Emails</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          Monitor and track all outgoing emails
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={Routes.path("/admin")}
+      title="Emails"
+      subtitle="Monitor and track all outgoing emails"
+    />
 
     <%!-- Statistics Summary --%>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -289,31 +276,31 @@
                               <div class="text-xs font-medium mb-2">Legend:</div>
                               <div class="flex flex-col gap-1.5">
                                 <div class="flex items-center gap-2">
-                                  <span class="badge badge-ghost badge-xs"></span>
+                                  <span class="badge badge-ghost badge-xs h-auto"></span>
                                   <span class="text-xs">Queued</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                  <span class="badge badge-info badge-xs"></span>
+                                  <span class="badge badge-info badge-xs h-auto"></span>
                                   <span class="text-xs">Sent</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                  <span class="badge badge-success badge-xs"></span>
+                                  <span class="badge badge-success badge-xs h-auto"></span>
                                   <span class="text-xs">Delivered</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                  <span class="badge badge-primary badge-xs"></span>
+                                  <span class="badge badge-primary badge-xs h-auto"></span>
                                   <span class="text-xs">Opened</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                  <span class="badge badge-secondary badge-xs"></span>
+                                  <span class="badge badge-secondary badge-xs h-auto"></span>
                                   <span class="text-xs">Clicked</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                  <span class="badge badge-warning badge-xs"></span>
+                                  <span class="badge badge-warning badge-xs h-auto"></span>
                                   <span class="text-xs">Delayed</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                  <span class="badge badge-error badge-xs"></span>
+                                  <span class="badge badge-error badge-xs h-auto"></span>
                                   <span class="text-xs">Error</span>
                                 </div>
                               </div>
@@ -374,7 +361,9 @@
                           <div class="space-y-1">
                             <div class="font-medium text-sm">{log.to}</div>
                             <%= if log.user_id do %>
-                              <div class="badge badge-ghost badge-xs">User #{log.user_id}</div>
+                              <div class="badge badge-ghost badge-xs h-auto">
+                                User #{log.user_id}
+                              </div>
                             <% end %>
                           </div>
                         <% "subject" -> %>
@@ -390,15 +379,21 @@
                               is_map(log.message_tags) &&
                                 Map.get(log.message_tags, "source_module") %>
                             <%= if source_module do %>
-                              <div class="badge badge-accent badge-xs">{source_module}</div>
+                              <div class="badge badge-accent badge-xs h-auto">
+                                {source_module}
+                              </div>
                             <% end %>
                             <%!-- Campaign badge (primary) --%>
                             <%= if log.campaign_id do %>
-                              <div class="badge badge-primary badge-xs">{log.campaign_id}</div>
+                              <div class="badge badge-primary badge-xs h-auto">
+                                {log.campaign_id}
+                              </div>
                             <% end %>
                             <%!-- Template name badge (outline) --%>
                             <%= if log.template_name do %>
-                              <div class="badge badge-outline badge-xs">{log.template_name}</div>
+                              <div class="badge badge-outline badge-xs h-auto">
+                                {log.template_name}
+                              </div>
                             <% end %>
                             <% has_details =
                               source_module || log.campaign_id || log.template_name %>

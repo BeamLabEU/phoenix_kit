@@ -267,9 +267,9 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
         <header class="w-full relative mb-8">
           <.link
             navigate={Routes.path("/admin/shop/settings")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+            class="btn btn-ghost btn-sm"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
           <div class="text-center pt-10 sm:pt-0">
             <h1 class="text-3xl font-bold text-base-content">Product Options</h1>

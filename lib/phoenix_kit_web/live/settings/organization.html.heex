@@ -7,21 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container mx-auto px-4 py-6">
-    <%!-- Header --%>
-    <div class="flex items-center gap-4 mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-      <div>
-        <h1 class="text-3xl font-bold">{gettext("Organization Settings")}</h1>
-        <p class="text-base-content/60 mt-1">
-          {gettext("Company information shared across Legal and Billing modules")}
-        </p>
-      </div>
-    </div>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings")}
+      title={gettext("Organization Settings")}
+      subtitle={gettext("Company information shared across Legal and Billing modules")}
+    />
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <%!-- Company Information --%>

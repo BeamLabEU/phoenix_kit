@@ -6,38 +6,24 @@
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/emails")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon_arrow_left /> Back to Emails
-      </.link>
+    <.admin_page_header
+      back={Routes.path("/admin/emails")}
+      title="Email Templates"
+      subtitle="Manage and organize your email templates"
+    >
+      <:actions>
+        <.link
+          navigate={Routes.path("/admin/emails/templates/new")}
+          class="btn btn-primary btn-sm"
+        >
+          <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New Template
+        </.link>
 
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">Email Templates</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          Manage and organize your email templates
-        </p>
-      </div>
-    </header>
-
-    <%!-- Action Buttons --%>
-    <div class="flex justify-end gap-2 mb-6">
-      <.link
-        navigate={Routes.path("/admin/emails/templates/new")}
-        class="btn btn-primary btn-sm"
-      >
-        <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New Template
-      </.link>
-
-      <.button phx-click="refresh" class="btn btn-outline btn-sm">
-        <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
-      </.button>
-    </div>
+        <.button phx-click="refresh" class="btn btn-outline btn-sm">
+          <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
+        </.button>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Statistics Summary --%>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -186,7 +172,7 @@
                       <div class="font-medium text-sm">{template.display_name}</div>
                       <div class="text-xs text-base-content/70">{template.name}</div>
                       <%= if template.is_system do %>
-                        <div class="badge badge-info badge-xs">System</div>
+                        <div class="badge badge-info badge-xs h-auto">System</div>
                       <% end %>
                     </div>
                   </.table_default_cell>
@@ -209,7 +195,7 @@
                   <%!-- Category Column --%>
                   <.table_default_cell>
                     <%= if template.is_system do %>
-                      <div class="badge badge-ghost badge-sm">
+                      <div class="badge badge-ghost badge-sm h-auto">
                         {String.capitalize(template.category)}
                       </div>
                     <% else %>

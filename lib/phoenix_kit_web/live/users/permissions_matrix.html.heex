@@ -7,33 +7,18 @@
   current_locale={@current_locale}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Roles")}
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          {gettext("Permissions")}
-        </h1>
-        <p class="text-base sm:text-lg text-base-content/70">
-          {gettext("Overview of role permissions across all modules")}
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
+      title={gettext("Permissions")}
+      subtitle={gettext("Overview of role permissions across all modules")}
+    />
 
     <%!-- Matrix Table --%>
     <div class="overflow-x-auto bg-base-100 rounded-lg border border-base-300">
       <table class="table table-sm">
         <thead>
           <tr class="bg-base-300 text-base-content">
-            <th class="sticky left-0 bg-base-300 z-10 min-w-[180px]">{gettext("Module")}</th>
+            <th class="sticky left-0 bg-base-300 z-0 whitespace-nowrap">{gettext("Module")}</th>
             <%= for role <- @roles do %>
               <th class="text-center min-w-[100px]">
                 <.pk_link navigate="/admin/users/roles" class="link link-hover">
@@ -48,7 +33,7 @@
           <tr class="bg-primary/10">
             <td
               colspan={length(@roles) + 1}
-              class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
+              class="bg-primary/10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
               {gettext("Core Sections")}
             </td>
@@ -56,7 +41,7 @@
           <%= for {key, idx} <- Enum.with_index(@core_keys) do %>
             <tr class={if(rem(idx, 2) == 1, do: "bg-base-200", else: "")}>
               <td class={[
-                "sticky left-0 z-10 font-medium",
+                "sticky left-0 z-[1] font-medium whitespace-nowrap",
                 if(rem(idx, 2) == 1, do: "bg-base-200", else: "bg-base-100")
               ]}>
                 {PhoenixKit.Users.Permissions.module_label(key)}
@@ -99,7 +84,7 @@
           <tr class="bg-primary/10">
             <td
               colspan={length(@roles) + 1}
-              class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
+              class="bg-primary/10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
             >
               {gettext("Feature Modules")}
             </td>
@@ -107,7 +92,7 @@
           <%= for {key, idx} <- Enum.with_index(@feature_keys) do %>
             <tr class={if(rem(idx, 2) == 1, do: "bg-base-200", else: "")}>
               <td class={[
-                "sticky left-0 z-10 font-medium",
+                "sticky left-0 z-[1] font-medium whitespace-nowrap",
                 if(rem(idx, 2) == 1, do: "bg-base-200", else: "bg-base-100")
               ]}>
                 {PhoenixKit.Users.Permissions.module_label(key)}
@@ -150,7 +135,7 @@
             <tr class="bg-primary/10">
               <td
                 colspan={length(@roles) + 1}
-                class="sticky left-0 bg-primary/10 z-10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
+                class="bg-primary/10 font-semibold text-xs uppercase tracking-wide text-primary py-2"
               >
                 {gettext("Custom")}
               </td>
@@ -158,7 +143,7 @@
             <%= for {key, idx} <- Enum.with_index(@custom_keys) do %>
               <tr class={if(rem(idx, 2) == 1, do: "bg-base-200", else: "")}>
                 <td class={[
-                  "sticky left-0 z-10 font-medium",
+                  "sticky left-0 z-0 font-medium",
                   if(rem(idx, 2) == 1, do: "bg-base-200", else: "bg-base-100")
                 ]}>
                   {PhoenixKit.Users.Permissions.module_label(key)}
@@ -200,7 +185,7 @@
 
           <%!-- Summary Row --%>
           <tr class="bg-base-300 font-semibold text-base-content">
-            <td class="sticky left-0 bg-base-300 z-10">
+            <td class="sticky left-0 bg-base-300 z-[1] whitespace-nowrap">
               {gettext("Total")}
             </td>
             <%= for role <- @roles do %>

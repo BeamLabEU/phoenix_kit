@@ -6,26 +6,14 @@
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.path("/admin/emails")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon_arrow_left /> Back to Emails
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          Email Details #{@email_id}
-        </h1>
-        <%= if @email_log do %>
-          <p class="text-base sm:text-lg text-base-content">{@email_log.to}</p>
-        <% end %>
-      </div>
-    </header>
+    <.admin_page_header back={Routes.path("/admin/emails")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+        Email Details #{@email_id}
+      </h1>
+      <%= if @email_log do %>
+        <p class="text-sm text-base-content/60 mt-0.5">{@email_log.to}</p>
+      <% end %>
+    </.admin_page_header>
 
     <%!-- Main Content --%>
     <div class="email-details-container">
@@ -119,7 +107,7 @@
                         <div>
                           <label class="text-sm font-medium text-base-content/70">Template</label>
                           <div class="flex items-center gap-2">
-                            <span class="badge badge-primary badge-sm">
+                            <span class="badge badge-primary badge-sm h-auto">
                               {@email_log.template_name}
                             </span>
                             <button
@@ -144,7 +132,9 @@
 
                       <div>
                         <label class="text-sm font-medium text-base-content/70">Provider</label>
-                        <div class="badge badge-outline badge-sm">{@email_log.provider}</div>
+                        <div class="badge badge-outline badge-sm h-auto">
+                          {@email_log.provider}
+                        </div>
                       </div>
 
                       <div>
@@ -190,7 +180,7 @@
                     <div class="border-t pt-4 mt-4">
                       <label class="text-sm font-medium text-base-content/70">Campaign</label>
                       <div class="flex items-center gap-2 mt-1">
-                        <span class="badge badge-secondary badge-sm">
+                        <span class="badge badge-secondary badge-sm h-auto">
                           {@email_log.campaign_id}
                         </span>
                         <button
@@ -408,7 +398,7 @@
                       <%= for {key, value} <- @email_log.message_tags do %>
                         <div class="flex justify-between items-center text-sm">
                           <span class="font-medium">{key}</span>
-                          <span class="badge badge-outline badge-xs">{value}</span>
+                          <span class="badge badge-outline badge-xs h-auto">{value}</span>
                         </div>
                       <% end %>
                     </div>
@@ -463,7 +453,7 @@
               The email with ID {@email_id} could not be found.
             </p>
             <.link navigate={Routes.path("/admin/emails")} class="btn btn-primary">
-              Back to Emails
+              <.icon name="hero-arrow-left" class="w-4 h-4" />
             </.link>
           </div>
         <% end %>

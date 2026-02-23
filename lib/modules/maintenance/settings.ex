@@ -124,9 +124,9 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
           <%!-- Back Button --%>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+            class="btn btn-ghost btn-sm"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Modules
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
           </.link>
           <%!-- Title Section --%>
           <div class="text-center">

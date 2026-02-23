@@ -7,14 +7,12 @@
 >
   <div class="container mx-auto px-4 py-6">
     <%!-- Header --%>
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-      <div>
-        <h1 class="text-3xl font-bold">Billing Dashboard</h1>
-        <p class="text-base-content/60 mt-1">
-          Overview of orders, invoices, and billing activity
-        </p>
-      </div>
-      <div class="flex gap-2">
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin")}
+      title="Billing Dashboard"
+      subtitle="Overview of orders, invoices, and billing activity"
+    >
+      <:actions>
         <button phx-click="refresh" class="btn btn-ghost btn-sm">
           <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
         </button>
@@ -24,8 +22,8 @@
         >
           <.icon name="hero-plus" class="w-4 h-4" /> New Order
         </.link>
-      </div>
-    </div>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

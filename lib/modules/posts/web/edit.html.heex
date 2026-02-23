@@ -6,13 +6,8 @@
   project_title={@project_title}
 >
   <div class="p-6">
-    <%!-- Back Button --%>
-    <.link
-      navigate={Routes.path("/admin/posts")}
-      class="btn btn-outline btn-sm mb-4"
-    >
-      <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Posts
-    </.link>
+    <%!-- Header Section --%>
+    <.admin_page_header back={Routes.path("/admin/posts")} />
 
     <.form
       for={@form}
@@ -104,7 +99,7 @@
                           />
                           <%!-- Featured badge on first image --%>
                           <%= if media.position == 1 do %>
-                            <div class="absolute top-1 left-1 badge badge-primary badge-xs">
+                            <div class="absolute top-1 left-1 badge badge-primary badge-xs h-auto">
                               Featured
                             </div>
                           <% end %>

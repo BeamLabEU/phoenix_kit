@@ -7,25 +7,17 @@
 >
   <div class="container mx-auto px-4 py-6">
     <%!-- Header --%>
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-      <div class="flex items-center gap-4">
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices")}
-          class="btn btn-ghost btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" />
-        </.link>
-        <div>
-          <div class="flex items-center gap-3">
-            <h1 class="text-3xl font-bold font-mono">{@invoice.invoice_number}</h1>
-            <.invoice_status_badge status={@invoice.status} size={:md} />
-          </div>
-          <p class="text-base-content/60 mt-1">
-            Created <.time_ago datetime={@invoice.inserted_at} />
-          </p>
-        </div>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/billing/invoices")}>
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold font-mono text-base-content">
+          {@invoice.invoice_number}
+        </h1>
+        <.invoice_status_badge status={@invoice.status} size={:md} />
       </div>
-      <div class="flex gap-2 flex-wrap">
+      <p class="text-sm text-base-content/60 mt-0.5">
+        Created <.time_ago datetime={@invoice.inserted_at} />
+      </p>
+      <:actions>
         <%!-- Send/Resend Invoice - available for all except void --%>
         <%= if @invoice.status != "void" do %>
           <button phx-click="open_send_modal" class="btn btn-info btn-sm">
@@ -129,8 +121,8 @@
             <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Receipt
           </button>
         <% end %>
-      </div>
-    </div>
+      </:actions>
+    </.admin_page_header>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <%!-- Main Content --%>

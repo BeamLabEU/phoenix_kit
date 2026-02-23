@@ -7,13 +7,7 @@
   current_locale={@current_locale}
 >
   <div class="p-6">
-    <%!-- Back Button --%>
-    <.link
-      navigate={Routes.path("/admin/media")}
-      class="btn btn-outline btn-sm mb-4"
-    >
-      <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Media
-    </.link>
+    <.admin_page_header back={Routes.path("/admin/users/media")} title="Media Detail" />
 
     <%= if @file_data do %>
       <%!-- Main Layout: 3/4 Preview + 1/4 Info --%>
@@ -195,7 +189,7 @@
                         <span class="text-base-content/50 italic">None</span>
                       <% else %>
                         <%= for tag <- @file_data.tags do %>
-                          <span class="badge badge-sm">{tag}</span>
+                          <span class="badge badge-sm h-auto">{tag}</span>
                         <% end %>
                       <% end %>
                     </div>
@@ -347,7 +341,7 @@
             The file you're looking for doesn't exist or has been deleted.
           </p>
           <.link navigate={Routes.path("/admin/media")} class="btn btn-primary btn-sm mt-4">
-            Back to Media Library
+            <.icon name="hero-arrow-left" class="w-4 h-4" /> Library
           </.link>
         </div>
       </div>

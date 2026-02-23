@@ -7,28 +7,16 @@
   current_locale={assigns[:current_locale]}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={Routes.ai_path() <> "/endpoints"}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Endpoints
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          <%= if @endpoint do %>
-            Update your AI endpoint configuration
-          <% else %>
-            Create a new AI endpoint with provider credentials, model selection, and parameters
-          <% end %>
-        </p>
-      </div>
-    </header>
+    <.admin_page_header back={Routes.ai_path() <> "/endpoints"}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        <%= if @endpoint do %>
+          Update your AI endpoint configuration
+        <% else %>
+          Create a new AI endpoint with provider credentials, model selection, and parameters
+        <% end %>
+      </p>
+    </.admin_page_header>
 
     <%!-- Form Content (constrained width) --%>
     <div class="max-w-3xl mx-auto">
@@ -187,14 +175,14 @@
                         <div class="flex flex-wrap gap-2 mt-3">
                           <%!-- Provider --%>
                           <% provider = current_model_id |> String.split("/") |> List.first() %>
-                          <span class="badge badge-outline badge-sm">
+                          <span class="badge badge-outline badge-sm h-auto">
                             <.icon name="hero-building-office-2" class="w-3 h-3 mr-1" />
                             {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(provider)}
                           </span>
 
                           <%!-- Context Length --%>
                           <%= if @selected_model.context_length do %>
-                            <span class="badge badge-outline badge-sm">
+                            <span class="badge badge-outline badge-sm h-auto">
                               <.icon name="hero-document-text" class="w-3 h-3 mr-1" />
                               {format_number(@selected_model.context_length)} ctx
                             </span>
@@ -202,7 +190,7 @@
 
                           <%!-- Max Completion Tokens --%>
                           <%= if @selected_model.max_completion_tokens do %>
-                            <span class="badge badge-outline badge-sm">
+                            <span class="badge badge-outline badge-sm h-auto">
                               <.icon name="hero-pencil" class="w-3 h-3 mr-1" />
                               {format_number(@selected_model.max_completion_tokens)} max output
                             </span>
@@ -212,7 +200,7 @@
                           <%= if @selected_model.pricing do %>
                             <% pricing = @selected_model.pricing %>
                             <%= if pricing["prompt"] do %>
-                              <span class="badge badge-success badge-outline badge-sm">
+                              <span class="badge badge-success badge-outline badge-sm h-auto">
                                 <% prompt_price =
                                   if is_binary(pricing["prompt"]),
                                     do: String.to_float(pricing["prompt"]),
@@ -223,7 +211,7 @@
                               </span>
                             <% end %>
                             <%= if pricing["completion"] do %>
-                              <span class="badge badge-warning badge-outline badge-sm">
+                              <span class="badge badge-warning badge-outline badge-sm h-auto">
                                 <% completion_price =
                                   if is_binary(pricing["completion"]),
                                     do: String.to_float(pricing["completion"]),
@@ -399,14 +387,14 @@
                                 <div class="flex flex-wrap gap-1 mt-2">
                                   <%!-- Context Length --%>
                                   <%= if model.context_length do %>
-                                    <span class="badge badge-outline badge-xs">
+                                    <span class="badge badge-outline badge-xs h-auto">
                                       {format_number(model.context_length)} ctx
                                     </span>
                                   <% end %>
 
                                   <%!-- Max Output --%>
                                   <%= if model.max_completion_tokens do %>
-                                    <span class="badge badge-outline badge-xs">
+                                    <span class="badge badge-outline badge-xs h-auto">
                                       {format_number(model.max_completion_tokens)} out
                                     </span>
                                   <% end %>
@@ -417,7 +405,7 @@
                                       if is_binary(pricing["prompt"]),
                                         do: String.to_float(pricing["prompt"]),
                                         else: pricing["prompt"] %>
-                                    <span class="badge badge-success badge-outline badge-xs">
+                                    <span class="badge badge-success badge-outline badge-xs h-auto">
                                       ${Float.round(prompt_price * 1_000_000, 2)}/M in
                                     </span>
                                   <% end %>
@@ -426,7 +414,7 @@
                                       if is_binary(pricing["completion"]),
                                         do: String.to_float(pricing["completion"]),
                                         else: pricing["completion"] %>
-                                    <span class="badge badge-warning badge-outline badge-xs">
+                                    <span class="badge badge-warning badge-outline badge-xs h-auto">
                                       ${Float.round(completion_price * 1_000_000, 2)}/M out
                                     </span>
                                   <% end %>

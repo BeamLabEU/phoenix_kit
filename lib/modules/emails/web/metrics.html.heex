@@ -6,25 +6,11 @@
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button --%>
-      <.link
-        navigate={Routes.path("/admin")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon_arrow_left /> Back to Admin
-      </.link>
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          Email Dashboard
-        </h1>
-        <p class="text-base sm:text-lg text-base-content/70">
-          Comprehensive email performance metrics and insights
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={Routes.path("/admin")}
+      title="Email Dashboard"
+      subtitle="Comprehensive email performance metrics and insights"
+    />
     <%!-- Controls Section --%>
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
       <%!-- Period Selection --%>
@@ -284,7 +270,7 @@
                         </.table_default_cell>
                         <.table_default_cell>
                           <span class={[
-                            "badge badge-sm",
+                            "badge badge-sm h-auto",
                             ((stats.delivery_rate || 0) >= 95 && "badge-success") ||
                               ((stats.delivery_rate || 0) >= 85 && "badge-warning") ||
                               "badge-error"

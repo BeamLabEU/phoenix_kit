@@ -31,8 +31,6 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  import PhoenixKitWeb.Components.Core.Icons, only: [icon_arrow_left: 1]
-
   ## --- Lifecycle Callbacks ---
 
   @impl true

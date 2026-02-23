@@ -13,25 +13,11 @@
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Modules")}
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          {gettext("Entities Settings")}
-        </h1>
-        <p class="text-base sm:text-lg text-base-content">
-          {gettext("Configure the entities system behavior and preferences")}
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/modules")}
+      title={gettext("Entities Settings")}
+      subtitle={gettext("Configure the entities system behavior and preferences")}
+    />
 
     <%!-- System Status Card --%>
     <div class="card bg-base-100 shadow-xl mb-6">
@@ -218,7 +204,10 @@
                         <span class="font-medium">{entity.display_name}</span>
                         <span class="text-xs text-base-content/50">({entity.name})</span>
                         <%= if entity.file_exists do %>
-                          <span class="badge badge-ghost badge-xs" title={gettext("File exists")}>
+                          <span
+                            class="badge badge-ghost badge-xs h-auto"
+                            title={gettext("File exists")}
+                          >
                             <.icon name="hero-document-check" class="w-3 h-3" />
                           </span>
                         <% end %>
@@ -412,13 +401,21 @@
                         <span class="font-semibold">{gettext("Definition")}</span>
                         <%= case entity.definition.action do %>
                           <% :create -> %>
-                            <span class="badge badge-success badge-sm">{gettext("NEW")}</span>
+                            <span class="badge badge-success badge-sm h-auto">
+                              {gettext("NEW")}
+                            </span>
                           <% :identical -> %>
-                            <span class="badge badge-ghost badge-sm">{gettext("IDENTICAL")}</span>
+                            <span class="badge badge-ghost badge-sm h-auto">
+                              {gettext("IDENTICAL")}
+                            </span>
                           <% :conflict -> %>
-                            <span class="badge badge-warning badge-sm">{gettext("CHANGED")}</span>
+                            <span class="badge badge-warning badge-sm h-auto">
+                              {gettext("CHANGED")}
+                            </span>
                           <% _ -> %>
-                            <span class="badge badge-error badge-sm">{gettext("ERROR")}</span>
+                            <span class="badge badge-error badge-sm h-auto">
+                              {gettext("ERROR")}
+                            </span>
                         <% end %>
                       </div>
                       <select
@@ -497,19 +494,19 @@
                               <td>
                                 <%= case record.action do %>
                                   <% :create -> %>
-                                    <span class="badge badge-success badge-xs">
+                                    <span class="badge badge-success badge-xs h-auto">
                                       {gettext("NEW")}
                                     </span>
                                   <% :identical -> %>
-                                    <span class="badge badge-ghost badge-xs">
+                                    <span class="badge badge-ghost badge-xs h-auto">
                                       {gettext("IDENTICAL")}
                                     </span>
                                   <% :conflict -> %>
-                                    <span class="badge badge-warning badge-xs">
+                                    <span class="badge badge-warning badge-xs h-auto">
                                       {gettext("CHANGED")}
                                     </span>
                                   <% _ -> %>
-                                    <span class="badge badge-error badge-xs">
+                                    <span class="badge badge-error badge-xs h-auto">
                                       {gettext("ERROR")}
                                     </span>
                                 <% end %>

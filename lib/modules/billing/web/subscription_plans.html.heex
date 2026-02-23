@@ -7,26 +7,20 @@
 >
   <div class="container mx-auto px-4 py-6">
     <%!-- Header --%>
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-      <div class="flex items-center gap-4">
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/billing")}
+      title="Subscription Plans"
+      subtitle="Manage pricing and features for subscriptions"
+    >
+      <:actions>
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
-          class="btn btn-ghost btn-sm"
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans/new")}
+          class="btn btn-primary btn-sm"
         >
-          <.icon name="hero-arrow-left" class="w-4 h-4" />
+          <.icon name="hero-plus" class="w-4 h-4" /> Create Plan
         </.link>
-        <div>
-          <h1 class="text-3xl font-bold">Subscription Plans</h1>
-          <p class="text-base-content/60 mt-1">Manage pricing and features for subscriptions</p>
-        </div>
-      </div>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans/new")}
-        class="btn btn-primary btn-sm"
-      >
-        <.icon name="hero-plus" class="w-4 h-4" /> Create Plan
-      </.link>
-    </div>
+      </:actions>
+    </.admin_page_header>
 
     <%!-- Navigation Tabs --%>
     <div class="tabs tabs-boxed bg-base-200 p-1 mb-6">
@@ -88,7 +82,7 @@
                   <h2 class="card-title">
                     {plan.name}
                     <%= if !plan.active do %>
-                      <span class="badge badge-neutral badge-sm">Inactive</span>
+                      <span class="badge badge-neutral badge-sm h-auto">Inactive</span>
                     <% end %>
                   </h2>
                   <p class="text-sm text-base-content/60">{plan.description}</p>

@@ -252,9 +252,9 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
   defp enabled_class(true), do: "badge-success"
   defp enabled_class(false), do: "badge-neutral"
 
-  # Size classes
-  defp size_class(:xs), do: "badge-xs"
-  defp size_class(:sm), do: "badge-sm"
-  defp size_class(:md), do: "badge-md"
-  defp size_class(:lg), do: "badge-lg"
+  # Size classes — h-auto allows badge to expand when text wraps on mobile
+  defp size_class(:xs), do: "badge-xs h-auto"
+  defp size_class(:sm), do: "badge-sm h-auto"
+  defp size_class(:md), do: "badge-md h-auto"
+  defp size_class(:lg), do: "badge-lg h-auto"
 end

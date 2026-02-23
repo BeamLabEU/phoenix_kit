@@ -6,29 +6,7 @@
   project_title={@project_title}
 >
   <div class="container mx-auto px-4 py-6">
-    <%!-- Header with Back Button --%>
-    <div class="mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/tickets")}
-        class="btn btn-ghost btn-sm gap-2"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
-        Back to Tickets
-      </.link>
-    </div>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/tickets")} />
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <%!-- Main Content --%>
@@ -215,7 +193,7 @@
                 <h2 class="card-title text-warning">
                   Internal Notes ({length(@internal_notes)})
                 </h2>
-                <span class="badge badge-warning badge-sm">Staff Only</span>
+                <span class="badge badge-warning badge-sm h-auto">Staff Only</span>
               </div>
 
               <%!-- Internal Notes List --%>
@@ -299,13 +277,13 @@
               <div class="mt-1">
                 <%= case @ticket.status do %>
                   <% "open" -> %>
-                    <span class="badge badge-info badge-lg">Open</span>
+                    <span class="badge badge-info badge-lg h-auto">Open</span>
                   <% "in_progress" -> %>
-                    <span class="badge badge-warning badge-lg">In Progress</span>
+                    <span class="badge badge-warning badge-lg h-auto">In Progress</span>
                   <% "resolved" -> %>
-                    <span class="badge badge-success badge-lg">Resolved</span>
+                    <span class="badge badge-success badge-lg h-auto">Resolved</span>
                   <% "closed" -> %>
-                    <span class="badge badge-lg">Closed</span>
+                    <span class="badge badge-lg h-auto">Closed</span>
                 <% end %>
               </div>
             </div>
@@ -450,7 +428,7 @@
                   <div>
                     <div>
                       <%= if entry.from_status do %>
-                        <span class="badge badge-xs">{entry.from_status}</span> →
+                        <span class="badge badge-xs h-auto">{entry.from_status}</span> →
                       <% end %>
                       <span class="badge badge-xs badge-primary">{entry.to_status}</span>
                     </div>

@@ -7,24 +7,11 @@
   current_locale={@current_locale}
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">User Settings</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          Manage user registration, defaults, and custom fields
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings")}
+      title="User Settings"
+      subtitle="Manage user registration, defaults, and custom fields"
+    />
 
     <%!-- Settings Form --%>
     <div class="max-w-2xl mx-auto space-y-6">
@@ -431,7 +418,7 @@
                           </div>
                         </.table_default_cell>
                         <.table_default_cell>
-                          <span class="badge badge-sm">{field["type"]}</span>
+                          <span class="badge badge-sm h-auto">{field["type"]}</span>
                         </.table_default_cell>
                         <.table_default_cell>
                           <%= if field["required"] do %>

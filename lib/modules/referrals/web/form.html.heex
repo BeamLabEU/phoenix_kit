@@ -6,28 +6,16 @@
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <%!-- Back Button (Left aligned) --%>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/users/referral-codes")}
-        class="btn btn-outline btn-primary btn-sm"
-      >
-        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Referrals
-      </.link>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
-        <p class="text-base sm:text-lg text-base-content">
-          <%= if @mode == :new do %>
-            Create a new referral code for user registration
-          <% else %>
-            Edit referral code details
-          <% end %>
-        </p>
-      </div>
-    </header>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/users/referral-codes")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        <%= if @mode == :new do %>
+          Create a new referral code for user registration
+        <% else %>
+          Edit referral code details
+        <% end %>
+      </p>
+    </.admin_page_header>
 
     <%!-- Referral Code Form --%>
     <div class="max-w-2xl mx-auto">

@@ -8,58 +8,44 @@
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
-    <header class="w-full mb-6">
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <%!-- Back Button (Left aligned) --%>
-        <.link
-          navigate={Routes.path("/admin")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
-        </.link>
-
-        <div class="flex gap-2">
-          <% needs_migration =
-            (@fs_group_count > 0 and @empty_state?) or
-              Enum.any?(@dashboard_insights, & &1.needs_import) %>
-          <%= if needs_migration do %>
-            <button
-              type="button"
-              phx-click="import_all_to_db"
-              class="btn btn-info btn-sm"
-              title={gettext("Migrate all groups and posts from filesystem to database storage")}
-              data-confirm={
-                gettext(
-                  "Migrate all publishing groups and their posts to database storage? Existing DB records will be updated."
-                )
-              }
-            >
-              <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
-              {gettext("Migrate All to Database")}
-            </button>
-          <% else %>
-            <.link
-              navigate={Routes.path("/admin/settings/publishing/new")}
-              class="btn btn-primary btn-sm"
-            >
-              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
-            </.link>
-          <% end %>
-        </div>
-      </div>
-
-      <%!-- Title Section --%>
-      <div class="text-center">
-        <h1 class="text-2xl sm:text-4xl font-bold text-base-content mb-3">
-          {gettext("Publishing")}
-        </h1>
-        <p class="text-base sm:text-lg text-base-content">
-          {gettext(
-            "Monitor publishing activity, jump into group workspaces, and guide your team toward new content opportunities."
-          )}
-        </p>
-      </div>
-    </header>
+    <.admin_page_header
+      back={Routes.path("/admin")}
+      title={gettext("Publishing")}
+      subtitle={
+        gettext(
+          "Monitor publishing activity, jump into group workspaces, and guide your team toward new content opportunities."
+        )
+      }
+    >
+      <:actions>
+        <% needs_migration =
+          (@fs_group_count > 0 and @empty_state?) or
+            Enum.any?(@dashboard_insights, & &1.needs_import) %>
+        <%= if needs_migration do %>
+          <button
+            type="button"
+            phx-click="import_all_to_db"
+            class="btn btn-info btn-sm"
+            title={gettext("Migrate all groups and posts from filesystem to database storage")}
+            data-confirm={
+              gettext(
+                "Migrate all publishing groups and their posts to database storage? Existing DB records will be updated."
+              )
+            }
+          >
+            <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
+            {gettext("Migrate All to Database")}
+          </button>
+        <% else %>
+          <.link
+            navigate={Routes.path("/admin/settings/publishing/new")}
+            class="btn btn-primary btn-sm"
+          >
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Group")}
+          </.link>
+        <% end %>
+      </:actions>
+    </.admin_page_header>
 
     <div class="space-y-8">
       <%= if @empty_state? do %>

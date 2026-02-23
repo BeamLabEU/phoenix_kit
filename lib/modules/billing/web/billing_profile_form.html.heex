@@ -7,24 +7,16 @@
 >
   <div class="container mx-auto px-4 py-6 max-w-4xl">
     <%!-- Header --%>
-    <div class="flex items-center gap-4 mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}
-        class="btn btn-ghost btn-sm"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-      </.link>
-      <div>
-        <h1 class="text-2xl font-bold">{@page_title}</h1>
-        <p class="text-base-content/60">
-          <%= if @profile do %>
-            Edit billing profile details
-          <% else %>
-            Create a new billing profile for a user
-          <% end %>
-        </p>
-      </div>
-    </div>
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        <%= if @profile do %>
+          Edit billing profile details
+        <% else %>
+          Create a new billing profile for a user
+        <% end %>
+      </p>
+    </.admin_page_header>
 
     <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
       <%!-- User Selection --%>

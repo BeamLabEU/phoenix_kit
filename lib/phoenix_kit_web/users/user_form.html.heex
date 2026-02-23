@@ -11,9 +11,9 @@
       <%!-- Back Button (Left aligned) --%>
       <.link
         navigate={PhoenixKit.Utils.Routes.path("/admin/users")}
-        class="btn btn-outline btn-primary btn-sm"
+        class="btn btn-ghost btn-sm"
       >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Users
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Users
       </.link>
 
       <%!-- Title Section --%>
@@ -63,7 +63,7 @@
                     </div>
                     <%!-- Pending Badge --%>
                     <%= if @pending_avatar_file_id do %>
-                      <div class="absolute top-2 right-2 badge badge-warning badge-sm">
+                      <div class="absolute top-2 right-2 badge badge-warning badge-sm h-auto">
                         Pending
                       </div>
                     <% end %>
@@ -251,9 +251,9 @@
               <label class="label">
                 <span class="label-text font-semibold">Account Status</span>
                 <%= if @user.is_active do %>
-                  <span class="badge badge-success badge-sm">Active</span>
+                  <span class="badge badge-success badge-sm h-auto">Active</span>
                 <% else %>
-                  <span class="badge badge-error badge-sm">Inactive</span>
+                  <span class="badge badge-error badge-sm h-auto">Inactive</span>
                 <% end %>
               </label>
 
@@ -326,7 +326,7 @@
                           />
                         <% end %>
                         <%= if Enum.empty?(@user_roles) do %>
-                          <span class="badge badge-ghost badge-sm">No roles assigned</span>
+                          <span class="badge badge-ghost badge-sm h-auto">No roles assigned</span>
                         <% end %>
                       </div>
                     </div>
@@ -410,7 +410,7 @@
                               <div class="flex-1 flex flex-wrap items-center gap-2">
                                 <.role_badge role={role} size={:sm} />
                                 <%= if role.is_system_role do %>
-                                  <span class="badge badge-outline badge-xs">System</span>
+                                  <span class="badge badge-outline badge-xs h-auto">System</span>
                                 <% end %>
                                 <%= if role.description do %>
                                   <span class="text-xs text-base-content/70">
@@ -418,7 +418,9 @@
                                   </span>
                                 <% end %>
                                 <%= if owner_role? do %>
-                                  <span class="badge badge-warning badge-xs">Protected</span>
+                                  <span class="badge badge-warning badge-xs h-auto">
+                                    Protected
+                                  </span>
                                 <% end %>
                               </div>
                             </a>
