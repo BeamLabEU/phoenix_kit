@@ -1452,24 +1452,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
           # Validate base code exists in predefined language list AND is enabled
           DialectMapper.valid_base_code?(locale) and locale_allowed?(locale) ->
-            # If this is the default language, redirect to clean URL (no prefix needed)
-            if locale == get_default_admin_language() do
-              redirect_default_locale_to_clean_url(conn, locale)
-            else
-              # Non-default language: process normally with locale prefix
-              current_user = get_user_for_locale_resolution(conn)
-              full_dialect = DialectMapper.resolve_dialect(locale, current_user)
-
-              # Set Gettext to full dialect for translations
-              Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
-
-              # Store in session for LiveView mount
-              # Process dictionary storage is no longer needed
-              conn
-              |> assign(:current_locale_base, locale)
-              |> assign(:current_locale, full_dialect)
-              |> put_session(:phoenix_kit_locale_base, locale)
-            end
+            process_valid_locale(conn, locale)
 
           # Valid predefined but not enabled → redirect to default
           DialectMapper.valid_base_code?(locale) ->
@@ -1638,8 +1621,35 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
+  # Process a validated and enabled locale.
+  # For non-admin paths: redirect default locale to clean URL (no prefix needed).
+  # Admin paths ALWAYS keep the locale in the URL to stay within the
+  # :phoenix_kit_admin_locale live_session and avoid full-page reloads.
+  defp process_valid_locale(conn, locale) do
+    if locale == get_default_admin_language() and not admin_request?(conn) do
+      redirect_default_locale_to_clean_url(conn, locale)
+    else
+      current_user = get_user_for_locale_resolution(conn)
+      full_dialect = DialectMapper.resolve_dialect(locale, current_user)
+
+      Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
+
+      conn
+      |> assign(:current_locale_base, locale)
+      |> assign(:current_locale, full_dialect)
+      |> put_session(:phoenix_kit_locale_base, locale)
+    end
+  end
+
+  # Check if the request path is an admin path.
+  # Admin paths must keep the locale in the URL to stay within the
+  # :phoenix_kit_admin_locale live_session boundary.
+  defp admin_request?(conn) do
+    String.contains?(conn.request_path, "/admin")
+  end
+
   # Redirects default language URLs to clean URLs (no locale prefix)
-  # Example: /phoenix_kit/en/admin → /phoenix_kit/admin
+  # Example: /phoenix_kit/en/dashboard → /phoenix_kit/dashboard
   # Uses 301 permanent redirect for SEO - tells browsers/search engines the clean URL is canonical
   defp redirect_default_locale_to_clean_url(conn, locale) do
     # Remove /en/ from path: /phoenix_kit/en/admin → /phoenix_kit/admin

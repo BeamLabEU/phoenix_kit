@@ -101,7 +101,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
     # For admin pages, render simplified layout without parent headers
     if admin_page?(assigns) do
-      render_admin_only_layout(assigns)
+      if get_layout_config() do
+        # Parent layout provides the HTML shell (head, assets, CSRF, etc.)
+        render_admin_with_parent(assigns)
+      else
+        # Standalone: full HTML document for PhoenixKit without parent app
+        render_admin_only_layout(assigns)
+      end
     else
       case get_layout_config() do
         {module, function} when is_atom(module) and is_atom(function) ->
@@ -596,6 +602,19 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     # Just render content without wrapper - layout comes from router
     ~H"""
     {render_slot(@inner_block)}
+    """
+  end
+
+  # Render admin pages when a parent layout provides the HTML shell.
+  # Content only — root layout (from put_root_layout) supplies head, assets, CSRF, etc.
+  defp render_admin_with_parent(assigns) do
+    assigns = wrap_inner_block_with_admin_nav_if_needed(assigns)
+
+    ~H"""
+    <main class="min-h-screen bg-base-100 transition-colors">
+      <.flash_group flash={@flash} />
+      {render_slot(@inner_block)}
+    </main>
     """
   end
 

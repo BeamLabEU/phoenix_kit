@@ -76,28 +76,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportShow do
       page_title={@page_title}
     >
       <div class="container mx-auto px-4 py-6 max-w-4xl">
-        <%!-- Header with back button --%>
-        <header class="mb-6 flex items-center gap-4">
-          <.link
-            navigate={Routes.path("/admin/shop/imports")}
-            class="btn btn-ghost btn-sm"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4" />
-          </.link>
-          <h1 class="text-2xl font-bold flex-1">Import Details</h1>
-          <span class={[
-            "badge",
-            case @import.status do
-              "pending" -> "badge-warning"
-              "processing" -> "badge-info"
-              "completed" -> "badge-success"
-              "failed" -> "badge-error"
-              _ -> "badge-ghost"
-            end
-          ]}>
-            {@import.status}
-          </span>
-        </header>
+        <.admin_page_header back={Routes.path("/admin/shop/imports")} title="Import Details">
+          <:actions>
+            <span class={[
+              "badge",
+              case @import.status do
+                "pending" -> "badge-warning"
+                "processing" -> "badge-info"
+                "completed" -> "badge-success"
+                "failed" -> "badge-error"
+                _ -> "badge-ghost"
+              end
+            ]}>
+              {@import.status}
+            </span>
+          </:actions>
+        </.admin_page_header>
 
         <%!-- Metadata card --%>
         <div class="card bg-base-100 shadow mb-6">

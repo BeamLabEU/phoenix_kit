@@ -59,7 +59,8 @@ dashboard_tabs =
   assigns[:dashboard_tabs] ||
     PhoenixKit.Dashboard.Registry.get_tabs_with_active(
       assigns[:url_path] || "/dashboard",
-      scope: assigns[:phoenix_kit_current_scope]
+      scope: assigns[:phoenix_kit_current_scope],
+      level: :user
     )
 
 # Get viewer counts if presence is enabled

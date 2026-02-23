@@ -13,7 +13,7 @@ defmodule PhoenixKit.Utils.Routes do
 
   # List of path prefixes that should NEVER have a locale added.
   # This should be kept in sync with @reserved_segments in LocaleExtractor plug.
-  @reserved_prefixes ~w(/admin /api /webhooks /assets /static /files /images /fonts /js /css /sitemap)
+  @reserved_prefixes ~w(/api /webhooks /assets /static /files /images /fonts /js /css /sitemap)
 
   @doc """
   Returns the configured PhoenixKit URL prefix.
@@ -35,12 +35,19 @@ defmodule PhoenixKit.Utils.Routes do
     url_prefix = PhoenixKit.Config.get_url_prefix()
     base_path = if url_prefix === "/", do: "", else: url_prefix
 
-    # Reserved paths NEVER get a locale prefix to prevent crossing
-    # live_session boundaries and breaking layouts.
-    if reserved_path?(url_path) do
-      "#{base_path}#{url_path}"
-    else
-      build_localized_path(base_path, url_path, opts)
+    cond do
+      # Admin paths ALWAYS get locale prefix to stay within the
+      # :phoenix_kit_admin_locale live_session and avoid full-page reloads.
+      admin_path?(url_path) ->
+        locale = resolve_locale(opts)
+        build_admin_path(base_path, url_path, locale)
+
+      # Reserved paths (API, webhooks, assets) NEVER get a locale prefix.
+      reserved_path?(url_path) ->
+        "#{base_path}#{url_path}"
+
+      true ->
+        build_localized_path(base_path, url_path, opts)
     end
   end
 
@@ -73,6 +80,19 @@ defmodule PhoenixKit.Utils.Routes do
       "#{base_path}/#{locale_value}#{url_path}"
     end
   end
+
+  # Check if a path is an admin path.
+  defp admin_path?(url_path), do: String.starts_with?(url_path, "/admin")
+
+  # Admin paths ALWAYS include locale (even default locale) to match the
+  # :phoenix_kit_admin_locale live_session scope (/:locale/admin/*).
+  # This prevents live_session boundary crossings that cause full-page reloads.
+  defp build_admin_path(base_path, url_path, :none), do: "#{base_path}#{url_path}"
+
+  defp build_admin_path(base_path, url_path, locale) when is_binary(locale),
+    do: "#{base_path}/#{locale}#{url_path}"
+
+  defp build_admin_path(base_path, url_path, _), do: "#{base_path}#{url_path}"
 
   # Check if a path starts with one of the reserved prefixes.
   defp reserved_path?(path) do

@@ -63,6 +63,10 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
   slot :actions
 
   def admin_page_header(assigns) do
+    if assigns[:back] && assigns[:back_click] do
+      raise ArgumentError, "admin_page_header: cannot set both `back` and `back_click`"
+    end
+
     ~H"""
     <header class="mb-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

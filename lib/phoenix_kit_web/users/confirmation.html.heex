@@ -1,15 +1,41 @@
-<div class="mx-auto max-w-sm">
-  <.header class="text-center">Confirm Account</.header>
-
-  <.simple_form for={@form} id="confirmation_form" phx-submit="confirm_account">
-    <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
-    <:actions>
-      <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
-    </:actions>
-  </.simple_form>
-
-  <p class="text-center mt-4">
-    <.link href={Routes.path("/users/register")}>Register</.link>
-    | <.link href={Routes.path("/users/log-in")}>Log in</.link>
-  </p>
-</div>
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Confirm Account"
+>
+  <div class="flex items-center justify-center px-4 py-8 min-h-[80vh]">
+    <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
+      <div class="card-body">
+        <h1 class="text-2xl font-bold text-center mb-6">Confirm Account</h1>
+        <.form for={@form} id="confirmation_form" phx-submit="confirm_account">
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend sr-only">Account Confirmation</legend>
+            <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
+            <button
+              type="submit"
+              phx-disable-with="Confirming..."
+              class="btn btn-primary w-full transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Confirm my account <span aria-hidden="true">→</span>
+            </button>
+          </fieldset>
+        </.form>
+        <div class="text-center mt-4 text-sm">
+          <.link
+            href={Routes.path("/users/register")}
+            class="font-semibold text-primary hover:underline"
+          >
+            Register
+          </.link>
+          <span class="mx-2 text-base-content/40">|</span>
+          <.link
+            href={Routes.path("/users/log-in")}
+            class="font-semibold text-primary hover:underline"
+          >
+            Log in
+          </.link>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -3,7 +3,7 @@
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title="{@project_title} - Sign in"
 >
-  <div class="flex items-center justify-center py-8 min-h-[80vh]">
+  <div class="flex items-center justify-center px-4 py-8 min-h-[80vh]">
     <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
       <div class="card-body">
         <h1 class="text-2xl font-bold text-center mb-6">
@@ -29,7 +29,7 @@
               id="user_email_or_username"
               name="user[email_or_username]"
               type="text"
-              class="input input-bordered w-full transition-colors focus:input-primary"
+              class="input w-full transition-colors focus:input-primary"
               placeholder={gettext("Enter your email or username")}
               value={@form.params["email_or_username"] || ""}
               autocomplete="username"
@@ -47,7 +47,7 @@
               id="user_password"
               name="user[password]"
               type="password"
-              class="input input-bordered w-full transition-colors focus:input-primary"
+              class="input w-full transition-colors focus:input-primary"
               placeholder={gettext("Enter your password")}
               autocomplete="current-password"
               required
