@@ -798,26 +798,15 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-6xl">
-        <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">CSV Import</h1>
-              <p class="text-base-content/70 mt-1">
-                Import products from CSV files
-                <%= if @format_name do %>
-                  <span class="badge badge-primary badge-outline badge-sm ml-2">{@format_name}</span>
-                <% end %>
-              </p>
-            </div>
-          </div>
-        </header>
+        <.admin_page_header back={Routes.path("/admin/shop")}>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">CSV Import</h1>
+          <p class="text-sm sm:text-base text-base-content/60 mt-0.5">
+            Import products from CSV files
+            <%= if @format_name do %>
+              <span class="badge badge-primary badge-outline badge-sm ml-2">{@format_name}</span>
+            <% end %>
+          </p>
+        </.admin_page_header>
 
         <%!-- Import Wizard Card --%>
         <div class="card bg-base-100 shadow-xl mb-6">

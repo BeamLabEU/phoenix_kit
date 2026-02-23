@@ -686,23 +686,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
-        <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop/products")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
-              <p class="text-base-content/70 mt-1">
-                {if @live_action == :new, do: "Create a new product", else: "Edit product details"}
-              </p>
-            </div>
-          </div>
-        </header>
+        <.admin_page_header back={Routes.path("/admin/shop/products")}>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+          <p class="text-sm sm:text-base text-base-content/60 mt-0.5">
+            {if @live_action == :new, do: "Create a new product", else: "Edit product details"}
+          </p>
+        </.admin_page_header>
 
         <%!-- Form --%>
         <.form
