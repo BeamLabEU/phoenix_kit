@@ -62,9 +62,12 @@ defmodule PhoenixKit.Modules.AI do
       {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.AI.Endpoint
   alias PhoenixKit.Modules.AI.Prompt
   alias PhoenixKit.Modules.AI.Request
@@ -165,6 +168,7 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Checks if the AI module is enabled.
   """
+  @impl PhoenixKit.Module
   def enabled? do
     Settings.get_setting_cached("ai_enabled", "false") == "true"
   end
@@ -172,6 +176,7 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Enables the AI module.
   """
+  @impl PhoenixKit.Module
   def enable_system do
     Settings.update_setting("ai_enabled", "true")
   end
@@ -179,6 +184,7 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Disables the AI module.
   """
+  @impl PhoenixKit.Module
   def disable_system do
     Settings.update_setting("ai_enabled", "false")
   end
@@ -186,6 +192,7 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Gets the AI module configuration with statistics.
   """
+  @impl PhoenixKit.Module
   def get_config do
     %{
       enabled: enabled?(),
@@ -193,6 +200,75 @@ defmodule PhoenixKit.Modules.AI do
       total_requests: count_requests(),
       total_tokens: sum_tokens()
     }
+  end
+
+  # ===========================================
+  # MODULE BEHAVIOUR CALLBACKS
+  # ===========================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "ai"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "AI"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "ai",
+      label: "AI",
+      icon: "hero-sparkles",
+      description: "AI endpoints, prompts, and usage tracking"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      %Tab{
+        id: :admin_ai,
+        label: "AI",
+        icon: "hero-cpu-chip",
+        path: "/admin/ai",
+        priority: 550,
+        level: :admin,
+        permission: "ai",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false
+      },
+      %Tab{
+        id: :admin_ai_endpoints,
+        label: "Endpoints",
+        icon: "hero-server-stack",
+        path: "/admin/ai/endpoints",
+        priority: 551,
+        level: :admin,
+        permission: "ai",
+        parent: :admin_ai
+      },
+      %Tab{
+        id: :admin_ai_prompts,
+        label: "Prompts",
+        icon: "hero-document-text",
+        path: "/admin/ai/prompts",
+        priority: 552,
+        level: :admin,
+        permission: "ai",
+        parent: :admin_ai
+      },
+      %Tab{
+        id: :admin_ai_usage,
+        label: "Usage",
+        icon: "hero-chart-bar",
+        path: "/admin/ai/usage",
+        priority: 553,
+        level: :admin,
+        permission: "ai",
+        parent: :admin_ai
+      }
+    ]
   end
 
   # ===========================================

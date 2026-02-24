@@ -50,7 +50,11 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, ticket} = Tickets.resolve_ticket(ticket, current_user, "Fixed in v2.0.1")
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
+
+  alias PhoenixKit.Dashboard.Tab
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -68,6 +72,7 @@ defmodule PhoenixKit.Modules.Tickets do
   # Module Status
   # ============================================================================
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the Tickets module is enabled.
 
@@ -80,6 +85,7 @@ defmodule PhoenixKit.Modules.Tickets do
     Settings.get_boolean_setting("tickets_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Tickets module.
 
@@ -94,6 +100,7 @@ defmodule PhoenixKit.Modules.Tickets do
     result
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Tickets module.
 
@@ -115,6 +122,7 @@ defmodule PhoenixKit.Modules.Tickets do
     end
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current Tickets module configuration and stats.
 
@@ -151,6 +159,77 @@ defmodule PhoenixKit.Modules.Tickets do
   rescue
     _ -> 0
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "tickets"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Tickets"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "tickets",
+      label: "Tickets",
+      icon: "hero-ticket",
+      description: "Support ticket management and customer communication"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_tickets,
+        label: "Tickets",
+        icon: "hero-ticket",
+        path: "/admin/tickets",
+        priority: 620,
+        level: :admin,
+        permission: "tickets",
+        match: :prefix,
+        group: :admin_modules
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_tickets,
+        label: "Tickets",
+        icon: "hero-ticket",
+        path: "/admin/settings/tickets",
+        priority: 923,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "tickets"
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def user_dashboard_tabs do
+    [
+      Tab.new!(
+        id: :dashboard_tickets,
+        label: "My Tickets",
+        icon: "hero-ticket",
+        path: "/dashboard/tickets",
+        priority: 800,
+        match: :prefix,
+        group: :account
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def route_module, do: PhoenixKitWeb.Routes.TicketsRoutes
 
   # ============================================================================
   # Ticket CRUD Operations

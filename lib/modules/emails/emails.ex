@@ -94,7 +94,10 @@ defmodule PhoenixKit.Modules.Emails do
         aws_ses_configuration_set: "my-app-system"
   """
 
+  use PhoenixKit.Module
+
   alias PhoenixKit.Config.AWS
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Emails.{Event, Log, SQSProcessor}
   alias PhoenixKit.Settings
 
@@ -675,6 +678,7 @@ defmodule PhoenixKit.Modules.Emails do
 
   ## --- System Settings ---
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the email system is enabled.
 
@@ -689,6 +693,7 @@ defmodule PhoenixKit.Modules.Emails do
     Settings.get_boolean_setting("email_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the email system.
 
@@ -703,6 +708,7 @@ defmodule PhoenixKit.Modules.Emails do
     Settings.update_boolean_setting_with_module("email_enabled", true, "email_system")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the email system.
 
@@ -716,6 +722,119 @@ defmodule PhoenixKit.Modules.Emails do
   def disable_system do
     Settings.update_boolean_setting_with_module("email_enabled", false, "email_system")
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "emails"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Emails"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "emails",
+      label: "Emails",
+      icon: "hero-envelope",
+      description: "Email delivery tracking, templates, and analytics"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_emails,
+        label: "Emails",
+        icon: "hero-envelope",
+        path: "/admin/emails/dashboard",
+        priority: 510,
+        level: :admin,
+        permission: "emails",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false,
+        subtab_indent: "pl-4"
+      ),
+      Tab.new!(
+        id: :admin_emails_dashboard,
+        label: "Dashboard",
+        icon: "hero-chart-bar-square",
+        path: "/admin/emails/dashboard",
+        priority: 511,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      ),
+      Tab.new!(
+        id: :admin_emails_list,
+        label: "Emails",
+        icon: "hero-inbox-stack",
+        path: "/admin/emails",
+        priority: 512,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails,
+        match: :exact
+      ),
+      Tab.new!(
+        id: :admin_emails_templates,
+        label: "Templates",
+        icon: "hero-document-duplicate",
+        path: "/admin/emails/templates",
+        priority: 513,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      ),
+      Tab.new!(
+        id: :admin_emails_queue,
+        label: "Queue",
+        icon: "hero-queue-list",
+        path: "/admin/emails/queue",
+        priority: 514,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      ),
+      Tab.new!(
+        id: :admin_emails_blocklist,
+        label: "Blocklist",
+        icon: "hero-no-symbol",
+        path: "/admin/emails/blocklist",
+        priority: 515,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_emails,
+        label: "Emails",
+        icon: "hero-envelope",
+        path: "/admin/settings/emails",
+        priority: 925,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "emails"
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def children, do: [PhoenixKit.Modules.Emails.Supervisor]
+
+  @impl PhoenixKit.Module
+  def route_module, do: PhoenixKitWeb.Routes.EmailsRoutes
 
   @doc """
   Checks if full email body saving is enabled.
@@ -1336,6 +1455,7 @@ defmodule PhoenixKit.Modules.Emails do
     }
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current email system configuration.
 

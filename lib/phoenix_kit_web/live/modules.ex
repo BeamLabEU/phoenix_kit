@@ -3,940 +3,90 @@ defmodule PhoenixKitWeb.Live.Modules do
   Admin modules management LiveView for PhoenixKit.
 
   Displays available system modules and their configuration status.
+  All module references are resolved at runtime via the ModuleRegistry,
+  so removing or adding modules requires no changes to this file.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Admin.Events
-  alias PhoenixKit.Jobs
-  alias PhoenixKit.Modules.AI
-  alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Comments
-  alias PhoenixKit.Modules.Connections
-  alias PhoenixKit.Modules.DB
-  alias PhoenixKit.Modules.Emails
-  alias PhoenixKit.Modules.Entities
-  alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Legal
-  alias PhoenixKit.Modules.Maintenance
-  alias PhoenixKit.Modules.Pages
-  alias PhoenixKit.Modules.Posts
-  alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Referrals
-  alias PhoenixKit.Modules.SEO
-  alias PhoenixKit.Modules.Shop
-  alias PhoenixKit.Modules.Sitemap
-  alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Sync
-  alias PhoenixKit.Modules.Tickets
+  alias PhoenixKit.ModuleDiscovery
+  alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
+  # ============================================================================
+  # Mount
+  # ============================================================================
+
   def mount(_params, _session, socket) do
-    # Set locale for LiveView process
     if connected?(socket), do: Events.subscribe_to_modules()
 
-    # Get project title from settings cache
     project_title = Settings.get_project_title()
-
-    # Load module states
-    referral_codes_config = Referrals.get_config()
-    email_config = Emails.get_config()
-    languages_config = Languages.get_config()
-    entities_config = Entities.get_config()
-    pages_enabled = Pages.enabled?()
-    publishing_enabled = Publishing.enabled?()
-    under_construction_config = Maintenance.get_config()
-    seo_config = SEO.get_config()
-    storage_config = Storage.get_config()
-    sitemap_config = Sitemap.get_config()
-    billing_config = Billing.get_config()
-    posts_config = Posts.get_config()
-    comments_config = Comments.get_config()
-    ai_config = AI.get_config()
-    db_sync_config = Sync.get_config()
-    tickets_config = Tickets.get_config()
-    connections_config = Connections.get_config()
-    jobs_config = Jobs.get_config()
-    legal_config = Legal.get_config()
-    db_explorer_config = DB.get_config()
-    shop_config = Shop.get_config()
+    module_configs = load_all_module_configs()
 
     scope = socket.assigns[:phoenix_kit_current_scope]
     accessible = if scope, do: Scope.accessible_modules(scope), else: MapSet.new()
+
+    external_modules = load_external_modules(module_configs)
 
     socket =
       socket
       |> assign(:page_title, "Modules")
       |> assign(:project_title, project_title)
       |> assign(:accessible_modules, accessible)
-      |> assign(:referral_codes_enabled, referral_codes_config.enabled)
-      |> assign(:referral_codes_required, referral_codes_config.required)
-      |> assign(:max_uses_per_code, referral_codes_config.max_uses_per_code)
-      |> assign(:max_codes_per_user, referral_codes_config.max_codes_per_user)
-      |> assign(:email_enabled, email_config.enabled)
-      |> assign(:email_save_body, email_config.save_body)
-      |> assign(:email_ses_events, email_config.ses_events)
-      |> assign(:email_retention_days, email_config.retention_days)
-      |> assign(:languages_enabled, languages_config.enabled)
-      |> assign(:languages_count, languages_config.language_count)
-      |> assign(:languages_enabled_count, languages_config.enabled_count)
-      |> assign(:languages_default, languages_config.default_language)
-      |> assign(:entities_enabled, entities_config.enabled)
-      |> assign(:entities_count, entities_config.entity_count)
-      |> assign(:entities_total_data, entities_config.total_data_count)
-      |> assign(:pages_enabled, pages_enabled)
-      |> assign(:publishing_enabled, publishing_enabled)
-      |> assign(:under_construction_module_enabled, under_construction_config.module_enabled)
-      |> assign(:under_construction_enabled, under_construction_config.enabled)
-      |> assign(:under_construction_header, under_construction_config.header)
-      |> assign(:under_construction_subtext, under_construction_config.subtext)
-      |> assign(:storage_enabled, storage_config.module_enabled)
-      |> assign(:storage_buckets_count, storage_config.buckets_count)
-      |> assign(:storage_active_buckets_count, storage_config.active_buckets_count)
-      |> assign(:seo_module_enabled, seo_config.module_enabled)
-      |> assign(:seo_no_index_enabled, seo_config.no_index_enabled)
-      |> assign(:sitemap_enabled, sitemap_config.enabled)
-      |> assign(:sitemap_url_count, sitemap_config.url_count)
-      |> assign(:sitemap_last_generated, sitemap_config.last_generated)
-      |> assign(:sitemap_schedule_enabled, sitemap_config.schedule_enabled)
-      |> assign(:billing_enabled, billing_config.enabled)
-      |> assign(:billing_orders_count, billing_config.orders_count)
-      |> assign(:billing_invoices_count, billing_config.invoices_count)
-      |> assign(:billing_currencies_count, billing_config.currencies_count)
-      |> assign(:ai_enabled, ai_config.enabled)
-      |> assign(:ai_endpoints_count, ai_config.endpoints_count)
-      |> assign(:ai_total_requests, ai_config.total_requests)
-      |> assign(:posts_enabled, posts_config.enabled)
-      |> assign(:posts_total, posts_config.total_posts)
-      |> assign(:posts_published, posts_config.published_posts)
-      |> assign(:posts_draft, posts_config.draft_posts)
-      |> assign(:comments_enabled, comments_config.enabled)
-      |> assign(:comments_total, comments_config.total_comments)
-      |> assign(:comments_published, comments_config.published_comments)
-      |> assign(:comments_pending, comments_config.pending_comments)
-      |> assign(:sync_enabled, db_sync_config.enabled)
-      |> assign(:sync_active_sessions, db_sync_config.active_sessions)
-      |> assign(:tickets_enabled, tickets_config.enabled)
-      |> assign(:tickets_total, tickets_config.total_tickets)
-      |> assign(:tickets_open, tickets_config.open_tickets)
-      |> assign(:tickets_in_progress, tickets_config.in_progress_tickets)
-      |> assign(:connections_enabled, connections_config.enabled)
-      |> assign(:connections_follows_count, connections_config.follows_count)
-      |> assign(:connections_connections_count, connections_config.connections_count)
-      |> assign(:connections_blocks_count, connections_config.blocks_count)
-      |> assign(:jobs_enabled, jobs_config.enabled)
-      |> assign(:jobs_stats, jobs_config.stats)
-      |> assign(:legal_enabled, legal_config.enabled)
-      |> assign(:publishing_enabled_for_legal, legal_config.publishing_enabled)
-      |> assign(:db_explorer_enabled, db_explorer_config.enabled)
-      |> assign(:db_explorer_table_count, db_explorer_config.table_count)
-      |> assign(:db_explorer_total_rows, db_explorer_config.approx_rows)
-      |> assign(:db_explorer_total_size, db_explorer_config.total_size_bytes)
-      |> assign(:db_explorer_database_size, db_explorer_config.database_size_bytes)
-      |> assign(:shop_enabled, shop_config.enabled)
-      |> assign(:shop_products_count, shop_config.products_count)
-      |> assign(:shop_categories_count, shop_config.categories_count)
+      |> assign(:module_configs, module_configs)
+      |> assign(:external_modules, external_modules)
 
     {:ok, socket}
   end
 
-  def handle_event("toggle_referral_codes", _params, socket) do
-    # Since we're sending "toggle", we just flip the current state
-    new_enabled = !socket.assigns.referral_codes_enabled
+  # ============================================================================
+  # Toggle Events
+  # ============================================================================
 
-    result =
-      if new_enabled do
-        Referrals.enable_system()
-      else
-        Referrals.disable_system()
-      end
+  # Special cases with inter-module dependencies
+  def handle_event("toggle_module", %{"key" => "billing"}, socket), do: toggle_billing(socket)
+  def handle_event("toggle_module", %{"key" => "legal"}, socket), do: toggle_legal(socket)
+  def handle_event("toggle_module", %{"key" => "shop"}, socket), do: toggle_shop(socket)
 
-    case result do
-      {:ok, _setting} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("referrals"),
-          else: Events.broadcast_module_disabled("referrals")
+  # Generic toggle for all other modules
+  def handle_event("toggle_module", %{"key" => key}, socket) do
+    generic_toggle(socket, key)
+  end
 
-        socket =
-          socket
-          |> assign(:referral_codes_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Referral codes enabled",
-              else: "Referral codes disabled"
-            )
-          )
+  # ============================================================================
+  # PubSub Handlers
+  # ============================================================================
 
-        {:noreply, socket}
+  def handle_info({:module_enabled, module_key}, socket) do
+    {:noreply, reload_module_config(socket, module_key)}
+  end
 
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update referral codes")
-        {:noreply, socket}
+  def handle_info({:module_disabled, module_key}, socket) do
+    {:noreply, reload_module_config(socket, module_key)}
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  # ============================================================================
+  # Helpers (used in template)
+  # ============================================================================
+
+  @doc "Safely get a module config value, returning default if module not loaded."
+  def mcfg(module_configs, key, field, default \\ nil) do
+    case module_configs[key] do
+      nil -> default
+      config -> Map.get(config, field, default)
     end
   end
 
-  def handle_event("toggle_emails", _params, socket) do
-    # Toggle email system
-    new_enabled = !socket.assigns.email_enabled
-
-    result =
-      if new_enabled do
-        Emails.enable_system()
-      else
-        Emails.disable_system()
-      end
-
-    case result do
-      {:ok, _setting} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("emails"),
-          else: Events.broadcast_module_disabled("emails")
-
-        socket =
-          socket
-          |> assign(:email_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Email system enabled",
-              else: "Email system disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update email system")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_languages", _params, socket) do
-    # Toggle languages
-    new_enabled = !socket.assigns.languages_enabled
-
-    result =
-      if new_enabled do
-        Languages.enable_system()
-      else
-        Languages.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("languages"),
-          else: Events.broadcast_module_disabled("languages")
-
-        # Reload languages configuration to get fresh data
-        languages_config = Languages.get_config()
-
-        socket =
-          socket
-          |> assign(:languages_enabled, new_enabled)
-          |> assign(:languages_count, languages_config.language_count)
-          |> assign(:languages_enabled_count, languages_config.enabled_count)
-          |> assign(:languages_default, languages_config.default_language)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Languages enabled with default English",
-              else: "Languages disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update languages")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_entities", _params, socket) do
-    # Toggle entities system
-    new_enabled = !socket.assigns.entities_enabled
-
-    result =
-      if new_enabled do
-        Entities.enable_system()
-      else
-        Entities.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("entities"),
-          else: Events.broadcast_module_disabled("entities")
-
-        # Reload entities configuration to get fresh data
-        entities_config = Entities.get_config()
-
-        socket =
-          socket
-          |> assign(:entities_enabled, new_enabled)
-          |> assign(:entities_count, entities_config.entity_count)
-          |> assign(:entities_total_data, entities_config.total_data_count)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Entities system enabled",
-              else: "Entities system disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update entities system")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_seo_module", _params, socket) do
-    new_enabled = !socket.assigns.seo_module_enabled
-
-    result =
-      if new_enabled do
-        SEO.enable_module()
-      else
-        SEO.disable_module()
-      end
-
-    case result do
-      {:ok, _setting} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("seo"),
-          else: Events.broadcast_module_disabled("seo")
-
-        seo_no_index_enabled =
-          if new_enabled do
-            SEO.no_index_enabled?()
-          else
-            false
-          end
-
-        message =
-          if new_enabled do
-            "SEO module enabled - configure options in Settings → SEO"
-          else
-            "SEO module disabled and search directives reset"
-          end
-
-        socket =
-          socket
-          |> assign(:seo_module_enabled, new_enabled)
-          |> assign(:seo_no_index_enabled, seo_no_index_enabled)
-          |> put_flash(:info, message)
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update SEO module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_publishing", _params, socket) do
-    new_enabled = !socket.assigns.publishing_enabled
-
-    result =
-      if new_enabled do
-        Publishing.enable_system()
-      else
-        Publishing.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("publishing"),
-          else: Events.broadcast_module_disabled("publishing")
-
-        socket =
-          socket
-          |> assign(:publishing_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Publishing module enabled",
-              else: "Publishing module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to update publishing module")}
-    end
-  end
-
-  def handle_event("toggle_pages", _params, socket) do
-    # Toggle pages system
-    new_enabled = !socket.assigns.pages_enabled
-
-    result =
-      if new_enabled do
-        Pages.enable_system()
-      else
-        Pages.disable_system()
-      end
-
-    case result do
-      {:ok, _setting} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("pages"),
-          else: Events.broadcast_module_disabled("pages")
-
-        socket =
-          socket
-          |> assign(:pages_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Pages module enabled",
-              else: "Pages module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update pages module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_under_construction", _params, socket) do
-    # Toggle under construction module (settings page access)
-    new_module_enabled = !socket.assigns.under_construction_module_enabled
-
-    result =
-      if new_module_enabled do
-        Maintenance.enable_module()
-      else
-        Maintenance.disable_module()
-      end
-
-    case result do
-      {:ok, _setting} ->
-        if new_module_enabled,
-          do: Events.broadcast_module_enabled("maintenance"),
-          else: Events.broadcast_module_disabled("maintenance")
-
-        socket =
-          socket
-          |> assign(:under_construction_module_enabled, new_module_enabled)
-          |> put_flash(
-            :info,
-            if(new_module_enabled,
-              do: "Maintenance mode module enabled - configure settings to activate",
-              else: "Maintenance mode module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update maintenance mode module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_sitemap", _params, socket) do
-    new_enabled = !socket.assigns.sitemap_enabled
-
-    result =
-      if new_enabled do
-        Sitemap.enable_system()
-      else
-        Sitemap.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("sitemap"),
-          else: Events.broadcast_module_disabled("sitemap")
-
-        sitemap_config = Sitemap.get_config()
-
-        socket =
-          socket
-          |> assign(:sitemap_enabled, new_enabled)
-          |> assign(:sitemap_url_count, sitemap_config.url_count)
-          |> assign(:sitemap_last_generated, sitemap_config.last_generated)
-          |> assign(:sitemap_schedule_enabled, sitemap_config.schedule_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Sitemap module enabled",
-              else: "Sitemap module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update sitemap module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_billing", _params, socket) do
-    new_enabled = !socket.assigns.billing_enabled
-
-    # If disabling Billing and Shop is enabled, disable Shop first
-    shop_was_disabled =
-      if not new_enabled and socket.assigns[:shop_enabled] do
-        Shop.disable_system()
-        true
-      else
-        false
-      end
-
-    result =
-      if new_enabled do
-        Billing.enable_system()
-      else
-        Billing.disable_system()
-      end
-
-    case result do
-      :ok ->
-        if new_enabled do
-          Events.broadcast_module_enabled("billing")
-        else
-          Events.broadcast_module_disabled("billing")
-          if shop_was_disabled, do: Events.broadcast_module_disabled("shop")
-        end
-
-        billing_config = Billing.get_config()
-
-        socket =
-          socket
-          |> assign(:billing_enabled, new_enabled)
-          |> assign(:billing_orders_count, billing_config.orders_count)
-          |> assign(:billing_invoices_count, billing_config.invoices_count)
-          |> assign(:billing_currencies_count, billing_config.currencies_count)
-          |> then(fn s -> if shop_was_disabled, do: assign(s, :shop_enabled, false), else: s end)
-          |> put_flash(
-            :info,
-            if(new_enabled, do: "Billing module enabled", else: "Billing module disabled")
-          )
-
-        {:noreply, socket}
-
-      _ ->
-        socket = put_flash(socket, :error, "Failed to update billing module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_ai", _params, socket) do
-    new_enabled = !socket.assigns.ai_enabled
-
-    result =
-      if new_enabled do
-        AI.enable_system()
-      else
-        AI.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("ai"),
-          else: Events.broadcast_module_disabled("ai")
-
-        ai_config = AI.get_config()
-
-        socket =
-          socket
-          |> assign(:ai_enabled, new_enabled)
-          |> assign(:ai_endpoints_count, ai_config.endpoints_count)
-          |> assign(:ai_total_requests, ai_config.total_requests)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "AI module enabled",
-              else: "AI module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update AI module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_posts", _params, socket) do
-    new_enabled = !socket.assigns.posts_enabled
-
-    result =
-      if new_enabled do
-        Posts.enable_system()
-      else
-        Posts.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("posts"),
-          else: Events.broadcast_module_disabled("posts")
-
-        posts_config = Posts.get_config()
-
-        socket =
-          socket
-          |> assign(:posts_enabled, new_enabled)
-          |> assign(:posts_total, posts_config.total_posts)
-          |> assign(:posts_published, posts_config.published_posts)
-          |> assign(:posts_draft, posts_config.draft_posts)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Posts module enabled",
-              else: "Posts module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update posts module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_comments", _params, socket) do
-    new_enabled = !socket.assigns.comments_enabled
-
-    result =
-      if new_enabled do
-        Comments.enable_system()
-      else
-        Comments.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("comments"),
-          else: Events.broadcast_module_disabled("comments")
-
-        comments_config = Comments.get_config()
-
-        socket =
-          socket
-          |> assign(:comments_enabled, new_enabled)
-          |> assign(:comments_total, comments_config.total_comments)
-          |> assign(:comments_published, comments_config.published_comments)
-          |> assign(:comments_pending, comments_config.pending_comments)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Comments module enabled",
-              else: "Comments module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update comments module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_sync", _params, socket) do
-    new_enabled = !socket.assigns.sync_enabled
-
-    result =
-      if new_enabled do
-        Sync.enable_system()
-      else
-        Sync.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("sync"),
-          else: Events.broadcast_module_disabled("sync")
-
-        sync_config = Sync.get_config()
-
-        socket =
-          socket
-          |> assign(:sync_enabled, new_enabled)
-          |> assign(:sync_active_sessions, sync_config.active_sessions)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Sync module enabled",
-              else: "Sync module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update DB Sync module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_db_explorer", _params, socket) do
-    new_enabled = !socket.assigns.db_explorer_enabled
-
-    result =
-      if new_enabled do
-        DB.enable_system()
-      else
-        DB.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        config = DB.get_config()
-
-        if config.enabled,
-          do: Events.broadcast_module_enabled("db"),
-          else: Events.broadcast_module_disabled("db")
-
-        socket =
-          socket
-          |> assign(:db_explorer_enabled, config.enabled)
-          |> assign(:db_explorer_table_count, config.table_count)
-          |> assign(:db_explorer_total_rows, config.approx_rows)
-          |> assign(:db_explorer_total_size, config.total_size_bytes)
-          |> assign(:db_explorer_database_size, config.database_size_bytes)
-          |> put_flash(
-            :info,
-            if(config.enabled,
-              do: "DB Explorer enabled",
-              else: "DB Explorer disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to update DB Explorer")}
-    end
-  end
-
-  def handle_event("toggle_tickets", _params, socket) do
-    new_enabled = !socket.assigns.tickets_enabled
-
-    result =
-      if new_enabled do
-        Tickets.enable_system()
-      else
-        Tickets.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("tickets"),
-          else: Events.broadcast_module_disabled("tickets")
-
-        tickets_config = Tickets.get_config()
-
-        socket =
-          socket
-          |> assign(:tickets_enabled, new_enabled)
-          |> assign(:tickets_total, tickets_config.total_tickets)
-          |> assign(:tickets_open, tickets_config.open_tickets)
-          |> assign(:tickets_in_progress, tickets_config.in_progress_tickets)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Tickets module enabled",
-              else: "Tickets module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update tickets module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_connections", _params, socket) do
-    new_enabled = !socket.assigns.connections_enabled
-
-    result =
-      if new_enabled do
-        Connections.enable_system()
-      else
-        Connections.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("connections"),
-          else: Events.broadcast_module_disabled("connections")
-
-        connections_config = Connections.get_config()
-
-        socket =
-          socket
-          |> assign(:connections_enabled, new_enabled)
-          |> assign(:connections_follows_count, connections_config.follows_count)
-          |> assign(:connections_connections_count, connections_config.connections_count)
-          |> assign(:connections_blocks_count, connections_config.blocks_count)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Connections module enabled",
-              else: "Connections module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update connections module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_jobs", _params, socket) do
-    new_enabled = !socket.assigns.jobs_enabled
-
-    result =
-      if new_enabled do
-        Jobs.enable_system()
-      else
-        Jobs.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        if new_enabled,
-          do: Events.broadcast_module_enabled("jobs"),
-          else: Events.broadcast_module_disabled("jobs")
-
-        jobs_config = Jobs.get_config()
-
-        socket =
-          socket
-          |> assign(:jobs_enabled, new_enabled)
-          |> assign(:jobs_stats, jobs_config.stats)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Jobs module enabled",
-              else: "Jobs module disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update Jobs module")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("toggle_legal", _params, socket) do
-    if socket.assigns.legal_enabled do
-      case Legal.disable_system() do
-        {:ok, _} ->
-          Events.broadcast_module_disabled("legal")
-
-          {:noreply,
-           socket
-           |> assign(:legal_enabled, false)
-           |> put_flash(:info, gettext("Legal module disabled"))}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to disable Legal module"))}
-      end
-    else
-      case Legal.enable_system() do
-        {:ok, _} ->
-          Events.broadcast_module_enabled("legal")
-
-          {:noreply,
-           socket
-           |> assign(:legal_enabled, true)
-           |> put_flash(:info, gettext("Legal module enabled"))}
-
-        {:error, :publishing_required} ->
-          {:noreply, put_flash(socket, :error, gettext("Please enable Publishing module first"))}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}
-      end
-    end
-  end
-
-  def handle_event("toggle_shop", _params, socket) do
-    if socket.assigns.shop_enabled do
-      # Disabling
-      case Shop.disable_system() do
-        :ok ->
-          Events.broadcast_module_disabled("shop")
-
-          {:noreply,
-           socket
-           |> assign(:shop_enabled, false)
-           |> put_flash(:info, gettext("E-Commerce module disabled"))}
-
-        _ ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to disable E-Commerce module"))}
-      end
-    else
-      # Enabling - check if Billing is enabled first
-      if socket.assigns.billing_enabled do
-        case Shop.enable_system() do
-          :ok ->
-            Events.broadcast_module_enabled("shop")
-            shop_config = Shop.get_config()
-
-            {:noreply,
-             socket
-             |> assign(:shop_enabled, true)
-             |> assign(:shop_products_count, shop_config.products_count)
-             |> assign(:shop_categories_count, shop_config.categories_count)
-             |> put_flash(:info, gettext("E-Commerce module enabled"))}
-
-          _ ->
-            {:noreply,
-             socket
-             |> assign(:shop_enabled, false)
-             |> put_flash(:error, gettext("Failed to enable E-Commerce module"))}
-        end
-      else
-        {:noreply,
-         socket
-         |> assign(:shop_enabled, false)
-         |> put_flash(:error, gettext("Please enable Billing module first"))}
-      end
-    end
-  end
-
-  # Format ISO8601 timestamp string to user-friendly format with system timezone
   def format_timestamp(nil), do: "Never"
 
   def format_timestamp(iso_string) when is_binary(iso_string) do
     case DateTime.from_iso8601(iso_string) do
       {:ok, dt, _} ->
-        # Use fake user with nil timezone to get system timezone from Settings
         fake_user = %{user_timezone: nil}
         date_str = UtilsDate.format_date_with_user_timezone(dt, fake_user)
         time_str = UtilsDate.format_time_with_user_timezone(dt, fake_user)
@@ -974,204 +124,263 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   def format_bytes(_), do: "0 B"
 
-  # --- PubSub Handlers ---
+  # ============================================================================
+  # Private — Generic Toggle
+  # ============================================================================
 
-  def handle_info({:module_enabled, module_key}, socket) do
-    {:noreply, reload_module_config(socket, module_key)}
+  defp generic_toggle(socket, key) do
+    mod = ModuleRegistry.get_by_key(key)
+
+    if is_nil(mod) do
+      {:noreply, put_flash(socket, :error, "Module not found")}
+    else
+      configs = socket.assigns.module_configs
+      current_config = configs[key] || %{}
+      currently_enabled = current_config[:enabled] || current_config[:module_enabled] || false
+      new_enabled = !currently_enabled
+
+      result =
+        if new_enabled do
+          mod.enable_system()
+        else
+          mod.disable_system()
+        end
+
+      case normalize_result(result) do
+        :ok ->
+          if new_enabled,
+            do: Events.broadcast_module_enabled(key),
+            else: Events.broadcast_module_disabled(key)
+
+          config = mod.get_config()
+          configs = Map.put(socket.assigns.module_configs, key, config)
+
+          socket =
+            socket
+            |> assign(:module_configs, configs)
+            |> assign(:external_modules, load_external_modules(configs))
+            |> put_flash(
+              :info,
+              "#{mod.module_name()} #{if new_enabled, do: "enabled", else: "disabled"}"
+            )
+
+          {:noreply, socket}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to update #{mod.module_name()}")}
+      end
+    end
   end
 
-  def handle_info({:module_disabled, module_key}, socket) do
-    {:noreply, reload_module_config(socket, module_key)}
+  # ============================================================================
+  # Private — Special Toggle Handlers
+  # ============================================================================
+
+  defp toggle_billing(socket) do
+    configs = socket.assigns.module_configs
+    billing_config = configs["billing"] || %{}
+    new_enabled = !(billing_config[:enabled] || false)
+
+    shop_was_disabled = maybe_disable_shop_first(new_enabled, configs)
+    billing_mod = ModuleRegistry.get_by_key("billing")
+    result = if new_enabled, do: billing_mod.enable_system(), else: billing_mod.disable_system()
+
+    case normalize_result(result) do
+      :ok ->
+        broadcast_billing_events(new_enabled, shop_was_disabled)
+
+        updated_configs =
+          reload_configs(configs, ["billing"] ++ if(shop_was_disabled, do: ["shop"], else: []))
+
+        socket =
+          socket
+          |> assign(:module_configs, updated_configs)
+          |> put_flash(
+            :info,
+            if(new_enabled, do: "Billing module enabled", else: "Billing module disabled")
+          )
+
+        {:noreply, socket}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Failed to update billing module")}
+    end
   end
 
-  def handle_info(_msg, socket), do: {:noreply, socket}
+  defp maybe_disable_shop_first(true, _configs), do: false
 
-  defp reload_module_config(socket, "referrals") do
-    config = Referrals.get_config()
+  defp maybe_disable_shop_first(false, configs) do
+    shop_config = configs["shop"] || %{}
 
-    socket
-    |> assign(:referral_codes_enabled, config.enabled)
-    |> assign(:referral_codes_required, config.required)
-    |> assign(:max_uses_per_code, config.max_uses_per_code)
-    |> assign(:max_codes_per_user, config.max_codes_per_user)
+    if shop_config[:enabled] do
+      shop_mod = ModuleRegistry.get_by_key("shop")
+      if shop_mod, do: shop_mod.disable_system()
+      true
+    else
+      false
+    end
   end
 
-  defp reload_module_config(socket, "emails") do
-    config = Emails.get_config()
-
-    socket
-    |> assign(:email_enabled, config.enabled)
-    |> assign(:email_save_body, config.save_body)
-    |> assign(:email_ses_events, config.ses_events)
-    |> assign(:email_retention_days, config.retention_days)
+  defp broadcast_billing_events(true, _shop_was_disabled) do
+    Events.broadcast_module_enabled("billing")
   end
 
-  defp reload_module_config(socket, "languages") do
-    config = Languages.get_config()
-
-    socket
-    |> assign(:languages_enabled, config.enabled)
-    |> assign(:languages_count, config.language_count)
-    |> assign(:languages_enabled_count, config.enabled_count)
-    |> assign(:languages_default, config.default_language)
+  defp broadcast_billing_events(false, shop_was_disabled) do
+    Events.broadcast_module_disabled("billing")
+    if shop_was_disabled, do: Events.broadcast_module_disabled("shop")
   end
 
-  defp reload_module_config(socket, "entities") do
-    config = Entities.get_config()
+  defp reload_configs(configs, keys) do
+    Enum.reduce(keys, configs, fn key, acc ->
+      mod = ModuleRegistry.get_by_key(key)
 
-    socket
-    |> assign(:entities_enabled, config.enabled)
-    |> assign(:entities_count, config.entity_count)
-    |> assign(:entities_total_data, config.total_data_count)
+      if mod && Code.ensure_loaded?(mod) && function_exported?(mod, :get_config, 0),
+        do: Map.put(acc, key, mod.get_config()),
+        else: acc
+    end)
   end
 
-  defp reload_module_config(socket, "seo") do
-    config = SEO.get_config()
+  defp toggle_legal(socket) do
+    configs = socket.assigns.module_configs
+    legal_config = configs["legal"] || %{}
+    currently_enabled = legal_config[:enabled] || false
+    legal_mod = ModuleRegistry.get_by_key("legal")
 
-    socket
-    |> assign(:seo_module_enabled, config.module_enabled)
-    |> assign(:seo_no_index_enabled, config.no_index_enabled)
+    if currently_enabled do
+      case legal_mod.disable_system() do
+        {:ok, _} ->
+          Events.broadcast_module_disabled("legal")
+          config = legal_mod.get_config()
+
+          {:noreply,
+           socket
+           |> update(:module_configs, &Map.put(&1, "legal", config))
+           |> put_flash(:info, gettext("Legal module disabled"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to disable Legal module"))}
+      end
+    else
+      case legal_mod.enable_system() do
+        {:ok, _} ->
+          Events.broadcast_module_enabled("legal")
+          config = legal_mod.get_config()
+
+          {:noreply,
+           socket
+           |> update(:module_configs, &Map.put(&1, "legal", config))
+           |> put_flash(:info, gettext("Legal module enabled"))}
+
+        {:error, :publishing_required} ->
+          {:noreply, put_flash(socket, :error, gettext("Please enable Publishing module first"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}
+      end
+    end
   end
 
-  defp reload_module_config(socket, "publishing") do
-    assign(socket, :publishing_enabled, Publishing.enabled?())
+  defp toggle_shop(socket) do
+    configs = socket.assigns.module_configs
+    shop_config = configs["shop"] || %{}
+    shop_enabled = shop_config[:enabled] || false
+    billing_enabled = (configs["billing"] || %{})[:enabled] || false
+    shop_mod = ModuleRegistry.get_by_key("shop")
+
+    if shop_enabled do
+      case normalize_result(shop_mod.disable_system()) do
+        :ok ->
+          Events.broadcast_module_disabled("shop")
+          config = shop_mod.get_config()
+
+          {:noreply,
+           socket
+           |> update(:module_configs, &Map.put(&1, "shop", config))
+           |> put_flash(:info, gettext("E-Commerce module disabled"))}
+
+        _ ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to disable E-Commerce module"))}
+      end
+    else
+      if billing_enabled do
+        case normalize_result(shop_mod.enable_system()) do
+          :ok ->
+            Events.broadcast_module_enabled("shop")
+            config = shop_mod.get_config()
+
+            {:noreply,
+             socket
+             |> update(:module_configs, &Map.put(&1, "shop", config))
+             |> put_flash(:info, gettext("E-Commerce module enabled"))}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to enable E-Commerce module"))}
+        end
+      else
+        {:noreply, put_flash(socket, :error, gettext("Please enable Billing module first"))}
+      end
+    end
   end
 
-  defp reload_module_config(socket, "pages") do
-    assign(socket, :pages_enabled, Pages.enabled?())
+  # ============================================================================
+  # Private — Config Loading
+  # ============================================================================
+
+  defp load_all_module_configs do
+    ModuleRegistry.all_modules()
+    |> Enum.reduce(%{}, fn mod, acc ->
+      with true <- Code.ensure_loaded?(mod),
+           true <- function_exported?(mod, :module_key, 0),
+           true <- function_exported?(mod, :get_config, 0) do
+        Map.put(acc, mod.module_key(), mod.get_config())
+      else
+        _ -> acc
+      end
+    end)
   end
 
-  defp reload_module_config(socket, "maintenance") do
-    config = Maintenance.get_config()
+  defp reload_module_config(socket, key) do
+    mod = ModuleRegistry.get_by_key(key)
 
-    socket
-    |> assign(:under_construction_module_enabled, config.module_enabled)
-    |> assign(:under_construction_enabled, config.enabled)
-    |> assign(:under_construction_header, config.header)
-    |> assign(:under_construction_subtext, config.subtext)
+    if mod && Code.ensure_loaded?(mod) && function_exported?(mod, :get_config, 0) do
+      config = mod.get_config()
+      configs = Map.put(socket.assigns.module_configs, key, config)
+
+      socket
+      |> assign(:module_configs, configs)
+      |> assign(:external_modules, load_external_modules(configs))
+    else
+      socket
+    end
   end
 
-  defp reload_module_config(socket, "sitemap") do
-    config = Sitemap.get_config()
+  defp normalize_result(:ok), do: :ok
+  defp normalize_result({:ok, _}), do: :ok
+  defp normalize_result({:error, reason}), do: {:error, reason}
+  defp normalize_result(error), do: {:error, error}
 
-    socket
-    |> assign(:sitemap_enabled, config.enabled)
-    |> assign(:sitemap_url_count, config.url_count)
-    |> assign(:sitemap_last_generated, config.last_generated)
-    |> assign(:sitemap_schedule_enabled, config.schedule_enabled)
+  # Build list of external/plugin modules (auto-discovered from deps).
+  # Each entry has the info needed to render a generic module card.
+  defp load_external_modules(module_configs) do
+    ModuleDiscovery.discover_external_modules()
+    |> Enum.filter(fn mod ->
+      Code.ensure_loaded?(mod) and function_exported?(mod, :module_key, 0)
+    end)
+    |> Enum.map(fn mod ->
+      key = mod.module_key()
+      config = module_configs[key] || %{}
+      perm = if function_exported?(mod, :permission_metadata, 0), do: mod.permission_metadata()
+
+      %{
+        module: mod,
+        key: key,
+        name: mod.module_name(),
+        icon: (perm && perm[:icon]) || "hero-puzzle-piece",
+        description: (perm && perm[:description]) || "External module",
+        enabled: config[:enabled] || false,
+        version: if(function_exported?(mod, :version, 0), do: mod.version(), else: "0.0.0")
+      }
+    end)
+    |> Enum.sort_by(& &1.name)
   end
-
-  defp reload_module_config(socket, "billing") do
-    config = Billing.get_config()
-
-    socket
-    |> assign(:billing_enabled, config.enabled)
-    |> assign(:billing_orders_count, config.orders_count)
-    |> assign(:billing_invoices_count, config.invoices_count)
-    |> assign(:billing_currencies_count, config.currencies_count)
-  end
-
-  defp reload_module_config(socket, "ai") do
-    config = AI.get_config()
-
-    socket
-    |> assign(:ai_enabled, config.enabled)
-    |> assign(:ai_endpoints_count, config.endpoints_count)
-    |> assign(:ai_total_requests, config.total_requests)
-  end
-
-  defp reload_module_config(socket, "posts") do
-    config = Posts.get_config()
-
-    socket
-    |> assign(:posts_enabled, config.enabled)
-    |> assign(:posts_total, config.total_posts)
-    |> assign(:posts_published, config.published_posts)
-    |> assign(:posts_draft, config.draft_posts)
-  end
-
-  defp reload_module_config(socket, "comments") do
-    config = Comments.get_config()
-
-    socket
-    |> assign(:comments_enabled, config.enabled)
-    |> assign(:comments_total, config.total_comments)
-    |> assign(:comments_published, config.published_comments)
-    |> assign(:comments_pending, config.pending_comments)
-  end
-
-  defp reload_module_config(socket, "sync") do
-    config = Sync.get_config()
-
-    socket
-    |> assign(:sync_enabled, config.enabled)
-    |> assign(:sync_active_sessions, config.active_sessions)
-  end
-
-  defp reload_module_config(socket, "db") do
-    config = DB.get_config()
-
-    socket
-    |> assign(:db_explorer_enabled, config.enabled)
-    |> assign(:db_explorer_table_count, config.table_count)
-    |> assign(:db_explorer_total_rows, config.approx_rows)
-    |> assign(:db_explorer_total_size, config.total_size_bytes)
-    |> assign(:db_explorer_database_size, config.database_size_bytes)
-  end
-
-  defp reload_module_config(socket, "tickets") do
-    config = Tickets.get_config()
-
-    socket
-    |> assign(:tickets_enabled, config.enabled)
-    |> assign(:tickets_total, config.total_tickets)
-    |> assign(:tickets_open, config.open_tickets)
-    |> assign(:tickets_in_progress, config.in_progress_tickets)
-  end
-
-  defp reload_module_config(socket, "connections") do
-    config = Connections.get_config()
-
-    socket
-    |> assign(:connections_enabled, config.enabled)
-    |> assign(:connections_follows_count, config.follows_count)
-    |> assign(:connections_connections_count, config.connections_count)
-    |> assign(:connections_blocks_count, config.blocks_count)
-  end
-
-  defp reload_module_config(socket, "jobs") do
-    config = Jobs.get_config()
-
-    socket
-    |> assign(:jobs_enabled, config.enabled)
-    |> assign(:jobs_stats, config.stats)
-  end
-
-  defp reload_module_config(socket, "legal") do
-    config = Legal.get_config()
-
-    socket
-    |> assign(:legal_enabled, config.enabled)
-    |> assign(:publishing_enabled_for_legal, config.publishing_enabled)
-  end
-
-  defp reload_module_config(socket, "shop") do
-    config = Shop.get_config()
-
-    socket
-    |> assign(:shop_enabled, config.enabled)
-    |> assign(:shop_products_count, config.products_count)
-    |> assign(:shop_categories_count, config.categories_count)
-  end
-
-  defp reload_module_config(socket, "storage") do
-    config = Storage.get_config()
-
-    socket
-    |> assign(:storage_enabled, config.module_enabled)
-    |> assign(:storage_buckets_count, config.buckets_count)
-    |> assign(:storage_active_buckets_count, config.active_buckets_count)
-  end
-
-  defp reload_module_config(socket, _unknown), do: socket
 end

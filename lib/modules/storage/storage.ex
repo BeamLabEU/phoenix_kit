@@ -21,6 +21,8 @@ defmodule PhoenixKit.Modules.Storage do
   functionality for file management across PhoenixKit.
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
 
@@ -724,6 +726,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   # ===== CONFIGURATION =====
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current storage configuration.
   """
@@ -739,6 +742,35 @@ defmodule PhoenixKit.Modules.Storage do
       default_bucket_id: get_default_bucket_id(),
       buckets_count: length(buckets),
       active_buckets_count: active_count
+    }
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "storage"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Storage"
+
+  @impl PhoenixKit.Module
+  def enabled?, do: module_enabled?()
+
+  @impl PhoenixKit.Module
+  def enable_system, do: {:ok, :always_enabled}
+
+  @impl PhoenixKit.Module
+  def disable_system, do: {:ok, :always_enabled}
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "storage",
+      label: "Storage",
+      icon: "hero-circle-stack",
+      description: "Distributed file storage with multi-location redundancy"
     }
   end
 

@@ -28,9 +28,12 @@ defmodule PhoenixKit.Modules.Shop do
   Order line_items include shop metadata for product tracking.
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Billing.PaymentOption
@@ -58,6 +61,7 @@ defmodule PhoenixKit.Modules.Shop do
   # SYSTEM ENABLE/DISABLE
   # ============================================
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the shop system is enabled.
   """
@@ -65,6 +69,7 @@ defmodule PhoenixKit.Modules.Shop do
     Settings.get_setting_cached("shop_enabled", "false") == "true"
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the shop system.
   """
@@ -73,6 +78,7 @@ defmodule PhoenixKit.Modules.Shop do
     refresh_dashboard_tabs()
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the shop system.
   """
@@ -88,6 +94,7 @@ defmodule PhoenixKit.Modules.Shop do
     end
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Returns the current shop configuration.
   """
@@ -139,6 +146,149 @@ defmodule PhoenixKit.Modules.Shop do
   def get_default_currency do
     Billing.get_default_currency()
   end
+
+  # ============================================
+  # MODULE BEHAVIOUR CALLBACKS
+  # ============================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "shop"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "E-Commerce"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "shop",
+      label: "E-Commerce",
+      icon: "hero-shopping-cart",
+      description: "Product catalog, orders, and e-commerce management"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_shop,
+        label: "E-Commerce",
+        icon: "hero-shopping-bag",
+        path: "/admin/shop",
+        priority: 530,
+        level: :admin,
+        permission: "shop",
+        match: :exact,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false
+      ),
+      Tab.new!(
+        id: :admin_shop_dashboard,
+        label: "Dashboard",
+        icon: "hero-home",
+        path: "/admin/shop",
+        priority: 531,
+        level: :admin,
+        permission: "shop",
+        parent: :admin_shop,
+        match: :exact
+      ),
+      Tab.new!(
+        id: :admin_shop_products,
+        label: "Products",
+        icon: "hero-cube",
+        path: "/admin/shop/products",
+        priority: 532,
+        level: :admin,
+        permission: "shop",
+        parent: :admin_shop
+      ),
+      Tab.new!(
+        id: :admin_shop_categories,
+        label: "Categories",
+        icon: "hero-folder",
+        path: "/admin/shop/categories",
+        priority: 533,
+        level: :admin,
+        permission: "shop",
+        parent: :admin_shop
+      ),
+      Tab.new!(
+        id: :admin_shop_shipping,
+        label: "Shipping",
+        icon: "hero-truck",
+        path: "/admin/shop/shipping",
+        priority: 534,
+        level: :admin,
+        permission: "shop",
+        parent: :admin_shop
+      ),
+      Tab.new!(
+        id: :admin_shop_carts,
+        label: "Carts",
+        icon: "hero-shopping-cart",
+        path: "/admin/shop/carts",
+        priority: 535,
+        level: :admin,
+        permission: "shop",
+        parent: :admin_shop
+      ),
+      Tab.new!(
+        id: :admin_shop_imports,
+        label: "CSV Import",
+        icon: "hero-cloud-arrow-up",
+        path: "/admin/shop/imports",
+        priority: 536,
+        level: :admin,
+        permission: "shop",
+        parent: :admin_shop
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_shop,
+        label: "E-Commerce",
+        icon: "hero-shopping-bag",
+        path: "/admin/shop/settings",
+        priority: 927,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "shop"
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def user_dashboard_tabs do
+    [
+      Tab.new!(
+        id: :dashboard_shop,
+        label: "Shop",
+        icon: "hero-building-storefront",
+        path: "/shop",
+        priority: 300,
+        match: :prefix,
+        group: :shop
+      ),
+      Tab.new!(
+        id: :dashboard_cart,
+        label: "My Cart",
+        icon: "hero-shopping-cart",
+        path: "/cart",
+        priority: 310,
+        match: :prefix,
+        group: :shop
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def route_module, do: PhoenixKitWeb.Routes.ShopRoutes
 
   # ============================================
   # PRODUCTS

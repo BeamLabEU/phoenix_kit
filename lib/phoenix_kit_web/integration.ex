@@ -434,28 +434,36 @@ defmodule PhoenixKitWeb.Integration do
   # Generates all admin routes
   defmacro phoenix_kit_admin_routes(suffix) do
     session_name = :"phoenix_kit_admin#{suffix}"
+    plugin_session_name = :"phoenix_kit_plugins#{suffix}"
 
     # Auto-generate routes for custom admin tabs that specify live_view
     # Skip when compiling PhoenixKit's own dev/test router — parent modules don't exist
     custom_admin_routes = compile_custom_admin_routes(__CALLER__.module)
 
+    # Plugin module routes get their own live_session with admin layout
+    # so plugin LiveViews don't need to wrap with LayoutWrapper themselves
+    plugin_admin_routes = compile_plugin_admin_routes(__CALLER__.module)
+
     # Get external route module AST outside quote to avoid require/alias inside quote
-    emails_admin = EmailsRoutes.admin_routes()
+    emails_admin = safe_route_call(EmailsRoutes, :admin_routes, [])
 
     {tickets_admin, publishing_admin, referrals_admin} =
       if suffix == :_locale do
         {
-          TicketsRoutes.admin_locale_routes(),
-          PublishingRoutes.admin_locale_routes(),
-          ReferralsRoutes.admin_locale_routes()
+          safe_route_call(TicketsRoutes, :admin_locale_routes, []),
+          safe_route_call(PublishingRoutes, :admin_locale_routes, []),
+          safe_route_call(ReferralsRoutes, :admin_locale_routes, [])
         }
       else
         {
-          TicketsRoutes.admin_routes(),
-          PublishingRoutes.admin_routes(),
-          ReferralsRoutes.admin_routes()
+          safe_route_call(TicketsRoutes, :admin_routes, []),
+          safe_route_call(PublishingRoutes, :admin_routes, []),
+          safe_route_call(ReferralsRoutes, :admin_routes, [])
         }
       end
+
+    # External route modules with complex routes (beyond simple admin tabs)
+    external_admin_routes = compile_external_admin_routes(suffix)
 
     quote do
       live_session unquote(session_name),
@@ -767,8 +775,27 @@ defmodule PhoenixKitWeb.Integration do
           # Tabs with live_view: {Module, :action} get auto-generated routes
           # in the shared admin live_session for seamless navigation
           unquote_splicing(custom_admin_routes)
+
+          # External route modules (complex multi-page routes)
+          unquote_splicing(external_admin_routes)
         end
       end
+
+      # Plugin modules get their own live_session with admin layout auto-applied.
+      # Plugin LiveViews just render content — no LayoutWrapper wrapping needed.
+      unquote(
+        if plugin_admin_routes != [] do
+          quote do
+            live_session unquote(plugin_session_name),
+              layout: {PhoenixKitWeb.Layouts, :admin},
+              on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+              scope "/", alias: false do
+                (unquote_splicing(plugin_admin_routes))
+              end
+            end
+          end
+        end
+      )
     end
   end
 
@@ -816,6 +843,15 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  @doc false
+  def compile_plugin_admin_routes(caller_module) do
+    if caller_module == PhoenixKitWeb.Router do
+      []
+    else
+      compile_module_admin_routes()
+    end
+  end
+
   defp compile_custom_admin_routes_internal do
     case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
       tabs when is_list(tabs) ->
@@ -824,25 +860,119 @@ defmodule PhoenixKitWeb.Integration do
           is_map(tab) and Map.has_key?(tab, :live_view) and
             match?({module, _action} when is_atom(module), tab.live_view)
         end)
-        |> Enum.map(fn tab ->
-          {module, action} = tab.live_view
-          path = tab[:path] || raise "Tab #{tab[:id]} has :live_view but no :path"
-
-          route_opts =
-            case tab[:id] do
-              nil -> []
-              id -> [as: id]
-            end
-
-          quote do
-            live unquote(path), unquote(module), unquote(action), unquote(route_opts)
-          end
-        end)
+        |> Enum.map(&tab_to_route/1)
 
       _ ->
         []
     end
   end
+
+  # Auto-discover admin routes from external PhoenixKit modules.
+  # Uses beam file scanning (same pattern as protocol consolidation) — zero config needed.
+  # Modules declare their admin tabs with live_view field for route auto-generation.
+  defp compile_module_admin_routes do
+    PhoenixKit.ModuleDiscovery.discover_external_modules()
+    |> Enum.flat_map(fn mod ->
+      case Code.ensure_compiled(mod) do
+        {:module, _} ->
+          if function_exported?(mod, :admin_tabs, 0) do
+            mod.admin_tabs()
+            |> Enum.filter(&tab_has_live_view?/1)
+            |> Enum.map(&tab_struct_to_route/1)
+          else
+            []
+          end
+
+        _ ->
+          []
+      end
+    end)
+  end
+
+  defp tab_has_live_view?(%{live_view: {mod, _action}}) when is_atom(mod), do: true
+  defp tab_has_live_view?(_), do: false
+
+  defp tab_struct_to_route(%{live_view: {module, action}, path: path, id: id}) do
+    route_opts = if id, do: [as: id], else: []
+
+    quote do
+      live unquote(path), unquote(module), unquote(action), unquote(route_opts)
+    end
+  end
+
+  defp tab_to_route(tab) do
+    {module, action} = tab.live_view
+    path = tab[:path] || raise "Tab #{tab[:id]} has :live_view but no :path"
+    route_opts = if tab[:id], do: [as: tab[:id]], else: []
+
+    quote do
+      live unquote(path), unquote(module), unquote(action), unquote(route_opts)
+    end
+  end
+
+  # Safely call a route module function at compile time.
+  # Returns empty AST if the module isn't available (allows safe extraction).
+  @doc false
+  def safe_route_call(mod, fun, args) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} when is_atom(fun) ->
+        if function_exported?(mod, fun, length(args)),
+          do: apply(mod, fun, args),
+          else: quote(do: nil)
+
+      _ ->
+        quote(do: nil)
+    end
+  end
+
+  # Compile admin routes from external route modules configured via:
+  #   config :phoenix_kit, :route_modules, [MyApp.Routes.CustomRoutes]
+  # Each module should implement admin_routes/0 or admin_locale_routes/0
+  @doc false
+  def compile_external_admin_routes(suffix) do
+    fun = if suffix == :_locale, do: :admin_locale_routes, else: :admin_routes
+
+    Application.get_env(:phoenix_kit, :route_modules, [])
+    |> Enum.flat_map(&collect_admin_routes(&1, fun))
+  end
+
+  defp collect_admin_routes(mod, fun) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} -> resolve_admin_routes(mod, fun)
+      _ -> []
+    end
+  end
+
+  defp resolve_admin_routes(mod, fun) do
+    cond do
+      function_exported?(mod, fun, 0) -> normalize_routes(apply(mod, fun, []))
+      function_exported?(mod, :admin_routes, 0) -> normalize_routes(mod.admin_routes())
+      true -> []
+    end
+  end
+
+  # Compile public routes from external route modules.
+  # Each module should implement public_routes/1 (receives url_prefix).
+  @doc false
+  def compile_external_public_routes(url_prefix) do
+    Application.get_env(:phoenix_kit, :route_modules, [])
+    |> Enum.flat_map(&collect_public_routes(&1, url_prefix))
+  end
+
+  defp collect_public_routes(mod, url_prefix) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} ->
+        if function_exported?(mod, :public_routes, 1),
+          do: normalize_routes(mod.public_routes(url_prefix)),
+          else: []
+
+      _ ->
+        []
+    end
+  end
+
+  defp normalize_routes(routes) when is_list(routes), do: routes
+  defp normalize_routes(route), do: [route]
 
   # ============================================================================
   # Route Scope Generators
@@ -918,11 +1048,15 @@ defmodule PhoenixKitWeb.Integration do
     pattern = "[a-z]{2}(?:-[A-Za-z0-9]{2,})?"
 
     # Call route generators BEFORE quote block (aliases work in this context)
-    emails_routes = EmailsRoutes.generate(url_prefix)
-    publishing_routes = PublishingRoutes.generate(url_prefix)
-    tickets_routes = TicketsRoutes.generate(url_prefix)
-    shop_public_routes = ShopRoutes.generate_public_routes(url_prefix)
-    blog_routes = BlogRoutes.generate(url_prefix)
+    # Uses safe_route_call/3 so modules can be safely extracted to separate packages
+    emails_routes = safe_route_call(EmailsRoutes, :generate, [url_prefix])
+    publishing_routes = safe_route_call(PublishingRoutes, :generate, [url_prefix])
+    tickets_routes = safe_route_call(TicketsRoutes, :generate, [url_prefix])
+    shop_public_routes = safe_route_call(ShopRoutes, :generate_public_routes, [url_prefix])
+    blog_routes = safe_route_call(BlogRoutes, :generate, [url_prefix])
+
+    # External route modules with public/non-admin routes
+    external_public_routes = compile_external_public_routes(url_prefix)
 
     quote do
       # Generate pipeline definitions
@@ -947,6 +1081,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate blog routes (after other routes to prevent conflicts)
       unquote(blog_routes)
+
+      # External route modules with public routes
+      unquote_splicing(external_public_routes)
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())

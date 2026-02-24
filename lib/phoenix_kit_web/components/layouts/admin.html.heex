@@ -1,0 +1,17 @@
+<%!--
+  PhoenixKit Admin Layout
+
+  Used automatically for plugin module routes. Wraps the plugin's rendered
+  content with the admin sidebar/header via LayoutWrapper.app_layout.
+
+  Plugin LiveViews don't need to wrap their own templates — this layout
+  handles the admin chrome automatically.
+--%>
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  current_path={assigns[:url_path] || assigns[:current_path]}
+  current_locale={assigns[:current_locale]}
+>
+  {@inner_content}
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

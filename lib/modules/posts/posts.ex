@@ -45,8 +45,12 @@ defmodule PhoenixKit.Modules.Posts do
       })
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
+
+  alias PhoenixKit.Dashboard.Tab
 
   alias PhoenixKit.Modules.Posts.{
     Post,
@@ -71,6 +75,7 @@ defmodule PhoenixKit.Modules.Posts do
   # Module Status
   # ============================================================================
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the Posts module is enabled.
 
@@ -83,6 +88,7 @@ defmodule PhoenixKit.Modules.Posts do
     Settings.get_boolean_setting("posts_enabled", true)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Posts module.
 
@@ -95,6 +101,7 @@ defmodule PhoenixKit.Modules.Posts do
     Settings.update_boolean_setting_with_module("posts_enabled", true, "posts")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Posts module.
 
@@ -107,6 +114,7 @@ defmodule PhoenixKit.Modules.Posts do
     Settings.update_boolean_setting_with_module("posts_enabled", false, "posts")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current Posts module configuration and stats.
 
@@ -136,6 +144,82 @@ defmodule PhoenixKit.Modules.Posts do
     |> repo().aggregate(:count)
   rescue
     _ -> 0
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "posts"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Posts"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "posts",
+      label: "Posts",
+      icon: "hero-document-text",
+      description: "Blog posts, categories, and content publishing"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_posts,
+        label: "Posts",
+        icon: "hero-document-text",
+        path: "/admin/posts",
+        priority: 580,
+        level: :admin,
+        permission: "posts",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false
+      ),
+      Tab.new!(
+        id: :admin_posts_all,
+        label: "All Posts",
+        icon: "hero-newspaper",
+        path: "/admin/posts",
+        priority: 581,
+        level: :admin,
+        permission: "posts",
+        parent: :admin_posts,
+        match: :exact
+      ),
+      Tab.new!(
+        id: :admin_posts_groups,
+        label: "Groups",
+        icon: "hero-folder",
+        path: "/admin/posts/groups",
+        priority: 582,
+        level: :admin,
+        permission: "posts",
+        parent: :admin_posts
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_posts,
+        label: "Posts",
+        icon: "hero-newspaper",
+        path: "/admin/settings/posts",
+        priority: 922,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "posts"
+      )
+    ]
   end
 
   # ============================================================================
