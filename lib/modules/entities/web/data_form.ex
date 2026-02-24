@@ -281,18 +281,18 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       # On secondary language tabs, preserve primary-language fields that aren't in the form
       data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
 
-      # Strip lang_title/lang_slug — only used by inject helpers, not schema fields
-      data_params =
-        data_params
-        |> Map.delete("lang_title")
-        |> Map.delete("lang_slug")
-
       case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
         {:ok, validated_data} ->
           validated_data =
             validated_data
             |> inject_title_into_form_data(data_params, current_lang, socket.assigns)
             |> inject_slug_into_form_data(data_params, current_lang, socket.assigns)
+
+          # Strip lang_title/lang_slug after injection — not schema fields
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
 
           final_data = merge_multilang_data(socket.assigns, current_lang, validated_data)
           params = Map.put(data_params, "data", final_data)
@@ -312,6 +312,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         {:error, errors} ->
           # Preserve full multilang data in both changeset and broadcast
           error_data = merge_multilang_data(socket.assigns, current_lang, form_data)
+
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
+
           error_params = Map.put(data_params, "data", error_data)
 
           changeset =
@@ -349,12 +355,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       # On secondary language tabs, preserve primary-language fields that aren't in the form
       data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
 
-      # Strip lang_title/lang_slug — only used by inject helpers, not schema fields
-      data_params =
-        data_params
-        |> Map.delete("lang_title")
-        |> Map.delete("lang_slug")
-
       # Validate the form data against entity field definitions
       case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
         {:ok, validated_data} ->
@@ -362,6 +362,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
             validated_data
             |> inject_title_into_form_data(data_params, current_lang, socket.assigns)
             |> inject_slug_into_form_data(data_params, current_lang, socket.assigns)
+
+          # Strip lang_title/lang_slug after injection — not schema fields
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
 
           final_data = merge_multilang_data(socket.assigns, current_lang, validated_data)
 
@@ -424,6 +430,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         {:error, errors} ->
           # Preserve full multilang data in both changeset and broadcast
           error_data = merge_multilang_data(socket.assigns, current_lang, form_data)
+
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
+
           error_params = Map.put(data_params, "data", error_data)
 
           changeset =
