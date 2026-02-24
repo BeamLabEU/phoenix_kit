@@ -177,9 +177,16 @@
             aria-busy="true"
             aria-label={gettext("Loading language content")}
           >
-            <div class="space-y-2">
-              <div class="skeleton h-4 w-36"></div>
-              <div class="skeleton h-12 w-full"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <div class="skeleton h-4 w-24"></div>
+                <div class="skeleton h-12 w-full"></div>
+              </div>
+              <div class="space-y-2">
+                <div class="skeleton h-4 w-32"></div>
+                <div class="skeleton h-12 w-full"></div>
+                <div class="skeleton h-3 w-48"></div>
+              </div>
             </div>
             <div class="divider my-2"></div>
             <div class="space-y-4">
@@ -200,52 +207,123 @@
           >
             <div class="divider mx-6 my-0"></div>
 
-            <%!-- Tab content: Title (translatable) --%>
+            <%!-- Tab content: Title & Slug (translatable) --%>
+            <% lang_data =
+              Multilang.get_raw_language_data(
+                Ecto.Changeset.get_field(@changeset, :data),
+                @current_lang
+              ) %>
             <div class="card-body pt-4 pb-4">
               <h3 class="text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-3">
                 <.icon name="hero-information-circle" class="w-4 h-4 inline -mt-0.5" />
                 {gettext("Basic Information")}
               </h3>
 
-              <div>
-                <%= if @current_lang == @primary_language do %>
-                  <.label for="phoenix_kit_entity_data_title">
-                    {gettext("Title")} *
-                  </.label>
-                  <input
-                    type="text"
-                    name="phoenix_kit_entity_data[title]"
-                    id="phoenix_kit_entity_data_title"
-                    value={Ecto.Changeset.get_field(@changeset, :title) || ""}
-                    placeholder={gettext("Enter a title for this record")}
-                    class="input input-bordered w-full"
-                    phx-debounce="300"
-                    required
-                    disabled={@readonly?}
-                  />
-                <% else %>
-                  <% lang_data =
-                    Multilang.get_raw_language_data(
-                      Ecto.Changeset.get_field(@changeset, :data),
-                      @current_lang
-                    ) %>
-                  <.label for={"phoenix_kit_entity_data_title_#{@current_lang}"}>
-                    {gettext("Title")}
-                  </.label>
-                  <input
-                    type="text"
-                    name="phoenix_kit_entity_data[lang_title]"
-                    id={"phoenix_kit_entity_data_title_#{@current_lang}"}
-                    value={lang_data["_title"]}
-                    placeholder={
-                      Ecto.Changeset.get_field(@changeset, :title) ||
-                        gettext("Enter a title for this record")
-                    }
-                    class="input input-bordered w-full"
-                    phx-debounce="300"
-                    disabled={@readonly?}
-                  />
-                <% end %>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <%!-- Title --%>
+                <div>
+                  <%= if @current_lang == @primary_language do %>
+                    <.label for="phoenix_kit_entity_data_title">
+                      {gettext("Title")} *
+                    </.label>
+                    <input
+                      type="text"
+                      name="phoenix_kit_entity_data[title]"
+                      id="phoenix_kit_entity_data_title"
+                      value={Ecto.Changeset.get_field(@changeset, :title) || ""}
+                      placeholder={gettext("Enter a title for this record")}
+                      class="input input-bordered w-full"
+                      phx-debounce="300"
+                      required
+                      disabled={@readonly?}
+                    />
+                  <% else %>
+                    <.label for={"phoenix_kit_entity_data_title_#{@current_lang}"}>
+                      {gettext("Title")}
+                    </.label>
+                    <input
+                      type="text"
+                      name="phoenix_kit_entity_data[lang_title]"
+                      id={"phoenix_kit_entity_data_title_#{@current_lang}"}
+                      value={lang_data["_title"]}
+                      placeholder={
+                        Ecto.Changeset.get_field(@changeset, :title) ||
+                          gettext("Enter a title for this record")
+                      }
+                      class="input input-bordered w-full"
+                      phx-debounce="300"
+                      disabled={@readonly?}
+                    />
+                  <% end %>
+                </div>
+
+                <%!-- Slug (translatable) --%>
+                <div>
+                  <%= if @current_lang == @primary_language do %>
+                    <.label for="phoenix_kit_entity_data_slug">
+                      {gettext("Slug")}
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-xs ml-2"
+                        phx-click="generate_slug"
+                        title={gettext("Generate from title")}
+                        disabled={@readonly?}
+                      >
+                        <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                      </button>
+                    </.label>
+                    <input
+                      type="text"
+                      name="phoenix_kit_entity_data[slug]"
+                      id="phoenix_kit_entity_data_slug"
+                      value={Ecto.Changeset.get_field(@changeset, :slug) || ""}
+                      placeholder={gettext("auto-generated-slug")}
+                      class="input input-bordered w-full"
+                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                      title={gettext("Use lowercase letters, numbers, and hyphens only.")}
+                      phx-debounce="300"
+                      disabled={@readonly?}
+                    />
+                    <.label class="label">
+                      <span class="label-text-alt">
+                        {gettext("Leave empty to auto-generate from title")}
+                      </span>
+                    </.label>
+                  <% else %>
+                    <.label for={"phoenix_kit_entity_data_slug_#{@current_lang}"}>
+                      {gettext("Slug")}
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-xs ml-2"
+                        phx-click="generate_slug"
+                        title={gettext("Generate from title")}
+                        disabled={@readonly?}
+                      >
+                        <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                      </button>
+                    </.label>
+                    <input
+                      type="text"
+                      name="phoenix_kit_entity_data[lang_slug]"
+                      id={"phoenix_kit_entity_data_slug_#{@current_lang}"}
+                      value={lang_data["_slug"]}
+                      placeholder={
+                        Ecto.Changeset.get_field(@changeset, :slug) ||
+                          gettext("auto-generated-slug")
+                      }
+                      class="input input-bordered w-full"
+                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                      title={gettext("Use lowercase letters, numbers, and hyphens only.")}
+                      phx-debounce="300"
+                      disabled={@readonly?}
+                    />
+                    <.label class="label">
+                      <span class="label-text-alt">
+                        {gettext("Leave empty to use the primary language slug")}
+                      </span>
+                    </.label>
+                  <% end %>
+                </div>
               </div>
             </div>
 
@@ -279,47 +357,6 @@
             </h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <%!-- Slug with Generator --%>
-              <div>
-                <.label for="phoenix_kit_entity_data_slug">
-                  {gettext("Slug (URL-friendly identifier)")}
-                  <% slug_disabled =
-                    @readonly? ||
-                      (@multilang_enabled && @current_lang != @primary_language) %>
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-xs ml-2"
-                    phx-click="generate_slug"
-                    title={
-                      if slug_disabled && @multilang_enabled &&
-                           @current_lang != @primary_language,
-                         do: gettext("Slug is generated from the primary language title"),
-                         else: gettext("Generate from title")
-                    }
-                    disabled={slug_disabled}
-                  >
-                    <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
-                  </button>
-                </.label>
-                <input
-                  type="text"
-                  name="phoenix_kit_entity_data[slug]"
-                  id="phoenix_kit_entity_data_slug"
-                  value={Ecto.Changeset.get_field(@changeset, :slug) || ""}
-                  placeholder={gettext("auto-generated-slug")}
-                  class="input input-bordered w-full"
-                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                  title={gettext("Use lowercase letters, numbers, and hyphens only.")}
-                  phx-debounce="300"
-                  disabled={@readonly?}
-                />
-                <.label class="label">
-                  <span class="label-text-alt">
-                    {gettext("Leave empty to auto-generate from title")}
-                  </span>
-                </.label>
-              </div>
-
               <%!-- Status --%>
               <div>
                 <.label for="phoenix_kit_entity_data_status">{gettext("Status")}</.label>

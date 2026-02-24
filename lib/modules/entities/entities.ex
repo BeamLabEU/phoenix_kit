@@ -808,7 +808,7 @@ defmodule PhoenixKit.Modules.Entities do
         priority: 540,
         level: :admin,
         permission: "entities",
-        match: :exact,
+        match: :prefix,
         group: :admin_modules,
         subtab_display: :when_active,
         highlight_with_subtabs: false,
