@@ -4,7 +4,7 @@ This folder contains comprehensive guides to help developers work with PhoenixKi
 
 ## For External Users (Using PhoenixKit as a Dependency)
 
-### [Integration Guide](2025-12-03-integration.md) ⭐ Start Here
+### [Integration Guide](integration.md) ⭐ Start Here
 
 **The essential guide for developers using PhoenixKit as a Hex dependency.** Covers:
 - Quick start installation
@@ -21,7 +21,7 @@ This folder contains comprehensive guides to help developers work with PhoenixKi
 
 ## Available Guides
 
-### [Making Pages Live: Real-time Updates & Collaborative Editing](2025-10-09-making-pages-live.md)
+### [Making Pages Live: Real-time Updates & Collaborative Editing](making-pages-live.md)
 
 Learn how to add real-time functionality to LiveView pages, including:
 - PubSub event broadcasting
@@ -35,24 +35,6 @@ Learn how to add real-time functionality to LiveView pages, including:
 - Implementing collaborative form editing
 - Building live dashboards or detail pages
 - Setting up presence tracking for any resource
-
-### [Module System: Building PhoenixKit Modules](2026-02-24-module-system.md)
-
-The complete guide to PhoenixKit's plugin architecture. Covers:
-- How auto-discovery works (beam file scanning)
-- All required and optional callbacks with examples
-- Tab definitions (admin, settings, user dashboard)
-- Permission metadata and role-based access
-- Supervisor children and boot ordering
-- Route integration for external packages
-- Enable/disable patterns including cascades
-- Critical pitfalls for developers and AI agents
-
-**Use this guide when:**
-- Building a new internal module
-- Creating an external `phoenix_kit_*` hex package
-- Debugging why a module tab is not appearing
-- Understanding how the permission system connects to modules
 
 ---
 
