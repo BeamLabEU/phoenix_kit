@@ -264,10 +264,18 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
     # or any module permission that provides settings tabs
     Scope.has_module_access?(scope, "settings") or
       Scope.has_module_access?(scope, "media") or
-      Enum.any?(ModuleRegistry.all_feature_keys(), &Scope.has_module_access?(scope, &1))
+      Enum.any?(settings_tab_permissions(), &Scope.has_module_access?(scope, &1))
   rescue
     error ->
       Logger.warning("[AdminTabs] settings_visible?/1 failed: #{Exception.message(error)}")
       false
+  end
+
+  # Returns permission keys from modules that actually provide settings tabs
+  defp settings_tab_permissions do
+    ModuleRegistry.all_settings_tabs()
+    |> Enum.map(& &1.permission)
+    |> Enum.filter(&is_binary/1)
+    |> Enum.uniq()
   end
 end

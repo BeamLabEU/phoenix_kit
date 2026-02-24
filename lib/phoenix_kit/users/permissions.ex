@@ -911,10 +911,13 @@ defmodule PhoenixKit.Users.Permissions do
     _ -> :ok
   end
 
-  # Auto-grants a custom permission key to the Admin system role.
-  # Stores a flag in phoenix_kit_settings so that if Owner later revokes
-  # the key, it won't be re-granted on next application restart.
-  defp auto_grant_to_admin_roles(key) do
+  @doc """
+  Auto-grants a permission key to the Admin system role.
+  Stores a flag in phoenix_kit_settings so that if Owner later revokes
+  the key, it won't be re-granted on next application restart.
+  """
+  @spec auto_grant_to_admin_roles(String.t()) :: :ok
+  def auto_grant_to_admin_roles(key) do
     flag_key = "auto_granted_perm:#{key}"
 
     # If already auto-granted before, respect any manual changes

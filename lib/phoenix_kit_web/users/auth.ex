@@ -578,6 +578,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       Scope.admin?(scope) ->
         socket = attach_locale_hook(socket)
         socket = maybe_subscribe_to_module_events(socket)
+        socket = maybe_apply_plugin_layout(socket)
         enforce_admin_view_permission(socket, scope)
 
       true ->
@@ -922,6 +923,28 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp handle_module_refresh(_msg, socket), do: {:cont, socket}
+
+  # Auto-apply admin layout for external plugin LiveViews.
+  # Core views (PhoenixKitWeb.* and PhoenixKit.Modules.*) handle layout
+  # via LayoutWrapper in their templates. External plugin views need it applied
+  # at the session level so plugin authors don't need to wrap anything.
+  defp maybe_apply_plugin_layout(socket) do
+    view = socket.view
+
+    if external_plugin_view?(view) do
+      put_in(socket.private[:live_layout], {PhoenixKitWeb.Layouts, :admin})
+    else
+      socket
+    end
+  end
+
+  defp external_plugin_view?(view) do
+    case Module.split(view) do
+      ["PhoenixKitWeb" | _] -> false
+      ["PhoenixKit" | _] -> false
+      _ -> true
+    end
+  end
 
   # Priority-ordered list of admin sections to try when redirecting
   # a user who lacks access to the requested page.
