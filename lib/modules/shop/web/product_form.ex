@@ -257,7 +257,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
     product_params =
       product_params
-      |> Map.put("featured_image_id", featured_id)
+      |> Map.put("featured_image_uuid", featured_id)
       |> Map.put("image_ids", gallery_ids)
 
     # Build localized field attrs from main form values and translations
