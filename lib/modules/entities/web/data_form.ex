@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   use PhoenixKitWeb, :live_view
   on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Events
@@ -365,22 +366,36 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
           try do
             case save_data_record(socket, params) do
-              {:ok, _data_record} ->
-                # Presence will automatically clean up when LiveView process terminates
-                # Redirect to entity-specific data navigator after successful creation/update
-                entity_name = socket.assigns.entity.name
+              {:ok, saved_record} ->
+                if socket.assigns.data_record.id do
+                  # Update — stay on page, refresh changeset from saved record
+                  changeset = EntityData.change(saved_record)
 
-                socket =
-                  socket
-                  |> put_flash(:info, gettext("Data record saved successfully"))
-                  |> push_navigate(
-                    to:
-                      Routes.path("/admin/entities/#{entity_name}/data",
-                        locale: socket.assigns.current_locale_base
-                      )
-                  )
+                  socket =
+                    socket
+                    |> assign(:data_record, saved_record)
+                    |> assign(:changeset, changeset)
+                    |> put_flash(:info, gettext("Data record saved successfully"))
+                    |> broadcast_data_form_state(params)
 
-                {:noreply, socket}
+                  {:noreply, socket}
+                else
+                  # Create — navigate to the edit page for the new record
+                  entity_name = socket.assigns.entity.name
+
+                  socket =
+                    socket
+                    |> put_flash(:info, gettext("Data record created successfully"))
+                    |> push_navigate(
+                      to:
+                        Routes.path(
+                          "/admin/entities/#{entity_name}/data/#{saved_record.uuid}/edit",
+                          locale: socket.assigns.current_locale_base
+                        )
+                    )
+
+                  {:noreply, socket}
+                end
 
               {:error, %Ecto.Changeset{} = changeset} ->
                 socket =
@@ -546,6 +561,10 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         {:noreply, socket}
 
       socket.assigns.data_record.id != data_id ->
+        {:noreply, socket}
+
+      # Ignore our own saves — the save handler already refreshes state
+      socket.assigns[:lock_owner?] ->
         {:noreply, socket}
 
       true ->
@@ -988,6 +1007,17 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   defp normalize_record_key(key) when is_atom(key), do: Atom.to_string(key)
   defp normalize_record_key(key) when is_binary(key), do: key
   defp normalize_record_key(key), do: to_string(key)
+
+  defp switch_lang_js(lang_code, current_lang) do
+    if lang_code == current_lang do
+      # Already on this tab — no-op to prevent skeleton ghosts
+      %JS{}
+    else
+      JS.push("switch_language", value: %{lang: lang_code})
+      |> JS.add_class("hidden", to: "[data-translatable=fields]")
+      |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
+    end
+  end
 
   defp auto_generate_entity_slug(_entity_id, _record_id, title) when title in [nil, ""], do: ""
 

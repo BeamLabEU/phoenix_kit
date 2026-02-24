@@ -182,10 +182,15 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     end
   end
 
-  defp switch_lang_js(lang_code) do
-    JS.push("switch_language", value: %{lang: lang_code})
-    |> JS.add_class("hidden", to: "[data-translatable=fields]")
-    |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
+  defp switch_lang_js(lang_code, current_lang) do
+    if lang_code == current_lang do
+      # Already on this tab — no-op to prevent skeleton ghosts
+      %JS{}
+    else
+      JS.push("switch_language", value: %{lang: lang_code})
+      |> JS.add_class("hidden", to: "[data-translatable=fields]")
+      |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
+    end
   end
 
   def handle_event("switch_language", %{"lang" => lang_code}, socket) do
@@ -208,7 +213,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       existing_data =
         current_data
         |> Map.from_struct()
-        |> Map.drop([:__meta__, :creator, :inserted_at, :updated_at])
+        |> Map.drop([:__meta__, :creator, :entity_data, :id, :uuid, :date_created, :date_updated])
         |> Enum.into(%{}, fn {k, v} -> {to_string(k), v} end)
 
       # Merge existing data with new params (new params override existing)
@@ -276,6 +281,17 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   def handle_event("save", %{"entities" => entity_params}, socket) do
     if socket.assigns[:lock_owner?] do
+      # Merge existing changeset data into params to preserve fields not on current tab
+      current_data = Ecto.Changeset.apply_changes(socket.assigns.changeset)
+
+      existing_data =
+        current_data
+        |> Map.from_struct()
+        |> Map.drop([:__meta__, :creator, :entity_data, :id, :uuid, :date_created, :date_updated])
+        |> Enum.into(%{}, fn {k, v} -> {to_string(k), v} end)
+
+      entity_params = Map.merge(existing_data, entity_params)
+
       # Add current fields to entity params
       entity_params = Map.put(entity_params, "fields_definition", socket.assigns.fields)
 
@@ -296,16 +312,32 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
       try do
         case save_entity(socket, entity_params) do
-          {:ok, _saved_entity} ->
-            # Presence will automatically clean up when LiveView process terminates
-            locale = socket.assigns[:current_locale] || "en"
+          {:ok, saved_entity} ->
+            if socket.assigns.entity.id do
+              # Update — stay on page, refresh changeset from saved entity
+              changeset = Entities.change_entity(saved_entity)
 
-            socket =
-              socket
-              |> put_flash(:info, gettext("Entity saved successfully"))
-              |> push_navigate(to: Routes.path("/admin/entities", locale: locale))
+              socket =
+                socket
+                |> assign(:entity, saved_entity)
+                |> assign(:changeset, changeset)
+                |> assign(:fields, saved_entity.fields_definition || [])
+                |> put_flash(:info, gettext("Entity saved successfully"))
 
-            {:noreply, socket}
+              reply_with_broadcast(socket)
+            else
+              # Create — navigate to the edit page for the new entity
+              locale = socket.assigns[:current_locale] || "en"
+
+              socket =
+                socket
+                |> put_flash(:info, gettext("Entity created successfully"))
+                |> push_navigate(
+                  to: Routes.path("/admin/entities/#{saved_entity.uuid}/edit", locale: locale)
+                )
+
+              {:noreply, socket}
+            end
 
           {:error, %Ecto.Changeset{} = changeset} ->
             socket = assign(socket, :changeset, changeset)
@@ -1009,28 +1041,33 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   def handle_info({:entity_updated, entity_id}, socket) do
     if socket.assigns.entity.id == entity_id do
-      entity = Entities.get_entity!(entity_id)
-      locale = socket.assigns[:current_locale] || "en"
-
-      # If entity was archived or unpublished, redirect to entities list
-      if entity.status != "published" do
-        {:noreply,
-         socket
-         |> put_flash(
-           :warning,
-           gettext("Entity '%{name}' was %{status} in another session.",
-             name: entity.display_name,
-             status: entity.status
-           )
-         )
-         |> redirect(to: Routes.path("/admin/entities", locale: locale))}
-      else
-        socket =
-          socket
-          |> refresh_entity_state(entity)
-          |> put_flash(:info, gettext("Entity updated in another session."))
-
+      # Ignore our own saves — the save handler already refreshes state
+      if socket.assigns[:lock_owner?] do
         {:noreply, socket}
+      else
+        entity = Entities.get_entity!(entity_id)
+        locale = socket.assigns[:current_locale] || "en"
+
+        # If entity was archived or unpublished, redirect to entities list
+        if entity.status != "published" do
+          {:noreply,
+           socket
+           |> put_flash(
+             :warning,
+             gettext("Entity '%{name}' was %{status} in another session.",
+               name: entity.display_name,
+               status: entity.status
+             )
+           )
+           |> redirect(to: Routes.path("/admin/entities", locale: locale))}
+        else
+          socket =
+            socket
+            |> refresh_entity_state(entity)
+            |> put_flash(:info, gettext("Entity updated in another session."))
+
+          {:noreply, socket}
+        end
       end
     else
       {:noreply, socket}
@@ -1279,7 +1316,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     existing_data =
       current_data
       |> Map.from_struct()
-      |> Map.drop([:__meta__, :creator, :inserted_at, :updated_at])
+      |> Map.drop([:__meta__, :creator, :entity_data, :id, :uuid, :date_created, :date_updated])
       |> Enum.into(%{}, fn {k, v} -> {to_string(k), v} end)
 
     # Merge existing data with new params (new params override existing)
