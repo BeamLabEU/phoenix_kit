@@ -326,7 +326,7 @@ config :phoenix_kit, :password_requirements,
 
 ### Optional Auth
 
-OAuth & Magic Link registration: See `dev_docs/guides/oauth_and_magic_link_setup.md`.
+OAuth & Magic Link registration: See `dev_docs/guides/2025-10-17-oauth-and-magic-link-setup.md`.
 
 ## Key File Structure
 

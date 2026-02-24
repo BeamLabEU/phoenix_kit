@@ -90,7 +90,7 @@ This ensures:
 - V40 Migration: `lib/phoenix_kit/migrations/postgres/v40.ex` (lines 143-146)
 - UUID Helper: `lib/phoenix_kit/uuid.ex`
 - Pattern Example: `lib/phoenix_kit/users/auth/user.ex` (lines 54, 170-175)
-- Migration Guide: `dev_docs/guides/uuid_migration.md`
+- Migration Guide: `dev_docs/guides/2025-12-25-uuid-migration.md`
 
 ---
 
