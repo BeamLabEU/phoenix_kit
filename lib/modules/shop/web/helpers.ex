@@ -106,17 +106,17 @@ defmodule PhoenixKit.Modules.Shop.Web.Helpers do
   def parse_page(_), do: 1
 
   # ---------------------------------------------------------------------------
-  # Image helpers (for catalog list pages - uses featured_image_id)
+  # Image helpers (for catalog list pages - uses featured_image_uuid)
   # ---------------------------------------------------------------------------
 
   @doc """
   Get the first image URL for a product.
 
-  Handles Storage-based images (new format with featured_image_id or image_ids)
+  Handles Storage-based images (new format with featured_image_uuid or image_ids)
   and legacy URL-based images (Shopify imports).
   Returns nil if no image is available.
   """
-  def first_image(%{featured_image_id: id}) when is_binary(id) do
+  def first_image(%{featured_image_uuid: id}) when is_binary(id) do
     get_storage_image_url(id, "small")
   end
 

@@ -6,16 +6,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Billing.Currency
-  alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.SlugResolver
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar
   alias PhoenixKit.Modules.Shop.Web.Components.FilterHelpers
-  alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Modules.Shop.Web.Components.ShopCards
+  alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
+  alias PhoenixKit.Modules.Shop.Web.Helpers
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -23,7 +21,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   def mount(%{"slug" => slug} = params, _session, socket) do
     # Determine language: use URL locale param if present, otherwise default
     # This ensures /shop/... always uses default language, not session
-    current_language = get_language_from_params_or_default(params)
+    current_language = Helpers.get_language_from_params_or_default(params)
 
     case Shop.get_category_by_slug_localized(slug, current_language, preload: [:parent]) do
       {:error, :not_found} ->
@@ -39,7 +37,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
       {:ok, category} ->
         per_page = 24
-        page = parse_page(params["page"])
+        page = Helpers.parse_page(params["page"])
 
         # Load storefront filters
         {enabled_filters, filter_values} =
@@ -115,7 +113,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    page = parse_page(params["page"])
+    page = Helpers.parse_page(params["page"])
     active_filters = FilterHelpers.parse_filter_params(params, socket.assigns.enabled_filters)
     filter_opts = FilterHelpers.build_query_opts(active_filters, socket.assigns.enabled_filters)
 
@@ -176,7 +174,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
       {:ok, category, _matched_lang} ->
         # Found category - redirect to best enabled language that has a slug
-        case best_redirect_language(category.slug || %{}) do
+        case Helpers.best_redirect_language(category.slug || %{}) do
           nil ->
             {:ok,
              socket
@@ -187,7 +185,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
             slug = SlugResolver.category_slug(category, redirect_lang)
 
             {:ok,
-             push_navigate(socket, to: build_lang_url("/shop/category/#{slug}", redirect_lang))}
+             push_navigate(socket,
+               to: Helpers.build_lang_url("/shop/category/#{slug}", redirect_lang)
+             )}
         end
     end
   end
@@ -235,8 +235,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
 
   @impl true
   def render(assigns) do
+    assigns =
+      if assigns.authenticated do
+        assign(assigns, :sidebar_after_shop, shop_sidebar(assigns))
+      else
+        assigns
+      end
+
     ~H"""
-    <.shop_layout {assigns}>
+    <ShopLayouts.shop_layout {assigns} show_sidebar={true}>
       <div class="p-6 max-w-7xl mx-auto">
         <%!-- Breadcrumbs --%>
         <div class="breadcrumbs text-sm mb-6">
@@ -322,7 +329,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
           <% else %>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               <%= for product <- @products do %>
-                <.product_card
+                <ShopCards.product_card
                   product={product}
                   currency={@currency}
                   language={@current_language}
@@ -331,13 +338,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
               <% end %>
             </div>
 
-            <.shop_pagination
+            <ShopCards.shop_pagination
               page={@page}
               total_pages={@total_pages}
               total_products={@total_products}
               per_page={@per_page}
-              category={@category}
-              current_language={@current_language}
+              base_path={Shop.category_url(@category, @current_language)}
               active_filters={@active_filters}
               enabled_filters={@enabled_filters}
             />
@@ -399,7 +405,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
               <% else %>
                 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                   <%= for product <- @products do %>
-                    <.product_card
+                    <ShopCards.product_card
                       product={product}
                       currency={@currency}
                       language={@current_language}
@@ -408,13 +414,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
                   <% end %>
                 </div>
 
-                <.shop_pagination
+                <ShopCards.shop_pagination
                   page={@page}
                   total_pages={@total_pages}
                   total_products={@total_products}
                   per_page={@per_page}
-                  category={@category}
-                  current_language={@current_language}
+                  base_path={Shop.category_url(@category, @current_language)}
                   active_filters={@active_filters}
                   enabled_filters={@enabled_filters}
                 />
@@ -423,32 +428,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
           </div>
         <% end %>
       </div>
-    </.shop_layout>
-    """
-  end
-
-  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
-  slot :inner_block, required: true
-
-  defp shop_layout(assigns) do
-    # For authenticated users, render filters + categories in dashboard sidebar
-    assigns =
-      if assigns.authenticated do
-        assign(assigns, :sidebar_after_shop, shop_sidebar(assigns))
-      else
-        assigns
-      end
-
-    ~H"""
-    <%= if @authenticated do %>
-      <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Layouts.dashboard>
-    <% else %>
-      <.shop_public_layout {assigns}>
-        {render_slot(@inner_block)}
-      </.shop_public_layout>
-    <% end %>
+    </ShopLayouts.shop_layout>
     """
   end
 
@@ -467,250 +447,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
     />
     """
   end
-
-  # Public shop layout with wide container for guests
-  slot :inner_block, required: true
-
-  defp shop_public_layout(assigns) do
-    ~H"""
-    <div class="min-h-screen bg-base-100">
-      <%!-- Simple navbar for shop --%>
-      <nav class="navbar bg-base-100 shadow-sm border-b border-base-200">
-        <div class="navbar-start">
-          <.link navigate="/" class="btn btn-ghost text-xl">
-            <.icon name="hero-home" class="w-5 h-5" />
-          </.link>
-        </div>
-        <div class="navbar-center">
-          <.link navigate={Shop.catalog_url(@current_language)} class="btn btn-ghost text-xl">
-            <.icon name="hero-shopping-bag" class="w-5 h-5 mr-2" /> Shop
-          </.link>
-        </div>
-        <div class="navbar-end gap-2">
-          <.language_switcher_dropdown
-            current_locale={@current_language}
-            current_path={@current_path}
-          />
-          <.link navigate={Shop.cart_url(@current_language)} class="btn btn-ghost btn-circle">
-            <.icon name="hero-shopping-cart" class="w-5 h-5" />
-          </.link>
-          <.link navigate={Routes.path("/users/log-in")} class="btn btn-primary btn-sm">
-            Sign In
-          </.link>
-        </div>
-      </nav>
-
-      <%!-- Flash messages --%>
-      <.flash_group flash={@flash} />
-
-      <%!-- Wide content area --%>
-      <main class="py-6">
-        {render_slot(@inner_block)}
-      </main>
-    </div>
-    """
-  end
-
-  attr :product, :map, required: true
-  attr :currency, :any, required: true
-  attr :language, :string, default: "en"
-  attr :filter_qs, :string, default: ""
-
-  defp product_card(assigns) do
-    # Get localized values
-    assigns =
-      assigns
-      |> assign(:product_title, Translations.get(assigns.product, :title, assigns.language))
-      |> assign(:product_url, Shop.product_url(assigns.product, assigns.language))
-
-    ~H"""
-    <.link
-      navigate={@product_url <> @filter_qs}
-      class="card bg-base-100 shadow-md hover:shadow-lg transition-all hover:-translate-y-1"
-    >
-      <figure class="h-48 bg-base-200">
-        <%= if first_image(@product) do %>
-          <img
-            src={first_image(@product)}
-            alt={@product_title}
-            class="w-full h-full object-cover"
-          />
-        <% else %>
-          <div class="w-full h-full flex items-center justify-center">
-            <.icon name="hero-cube" class="w-16 h-16 opacity-30" />
-          </div>
-        <% end %>
-      </figure>
-      <div class="card-body p-4">
-        <h3 class="card-title text-base line-clamp-2">{@product_title}</h3>
-
-        <div class="flex items-center gap-2">
-          <span class="text-lg font-bold text-primary">
-            {format_price(@product.price, @currency)}
-          </span>
-          <%= if @product.compare_at_price && Decimal.compare(@product.compare_at_price, @product.price) == :gt do %>
-            <span class="text-sm text-base-content/40 line-through">
-              {format_price(@product.compare_at_price, @currency)}
-            </span>
-          <% end %>
-        </div>
-      </div>
-    </.link>
-    """
-  end
-
-  # Storage-based images (new format)
-  defp first_image(%{featured_image_id: id}) when is_binary(id) do
-    get_storage_image_url(id, "small")
-  end
-
-  defp first_image(%{image_ids: [id | _]}) when is_binary(id) do
-    get_storage_image_url(id, "small")
-  end
-
-  # Legacy URL-based images (Shopify imports)
-  defp first_image(%{images: [%{"src" => src} | _]}), do: src
-  defp first_image(%{images: [first | _]}) when is_binary(first), do: first
-  defp first_image(_), do: nil
-
-  # Get signed URL for Storage image
-  defp get_storage_image_url(file_id, variant) do
-    case Storage.get_file(file_id) do
-      %{uuid: uuid} ->
-        case Storage.get_file_instance_by_name(uuid, variant) do
-          nil ->
-            case Storage.get_file_instance_by_name(uuid, "original") do
-              nil -> nil
-              _instance -> URLSigner.signed_url(file_id, "original")
-            end
-
-          _instance ->
-            URLSigner.signed_url(file_id, variant)
-        end
-
-      nil ->
-        nil
-    end
-  end
-
-  defp format_price(nil, _currency), do: "-"
-
-  defp format_price(price, %Currency{} = currency) do
-    Currency.format_amount(price, currency)
-  end
-
-  defp format_price(price, nil) do
-    "$#{Decimal.round(price, 2)}"
-  end
-
-  # Determine language from URL params - use locale param if present, otherwise default
-  # This ensures non-localized routes (/shop/...) always use default language,
-  # regardless of what's stored in session from previous visits
-  defp get_language_from_params_or_default(%{"locale" => locale}) when is_binary(locale) do
-    DialectMapper.resolve_dialect(locale, nil)
-  end
-
-  defp get_language_from_params_or_default(_params) do
-    Translations.default_language()
-  end
-
-  # Find the best enabled language that has a slug for this entity.
-  # Prefers the default language, then checks other enabled languages.
-  defp best_redirect_language(slug_map) when slug_map == %{}, do: nil
-
-  defp best_redirect_language(slug_map) do
-    enabled = Languages.get_enabled_languages()
-    default_first = Enum.sort_by(enabled, fn l -> if l.is_default, do: 0, else: 1 end)
-
-    Enum.find_value(default_first, fn lang ->
-      code = lang.code
-      base = DialectMapper.extract_base(code)
-      if Map.has_key?(slug_map, code) or Map.has_key?(slug_map, base), do: code
-    end)
-  end
-
-  # Build a localized URL path, adding language prefix for non-default languages.
-  # Delegates to Routes.path which handles default vs non-default consistently.
-  defp build_lang_url(path, lang) do
-    base = DialectMapper.extract_base(lang)
-    Routes.path(path, locale: base)
-  end
-
-  # Pagination UI component
-  attr :page, :integer, required: true
-  attr :total_pages, :integer, required: true
-  attr :total_products, :integer, required: true
-  attr :per_page, :integer, required: true
-  attr :category, :map, required: true
-  attr :current_language, :string, required: true
-  attr :active_filters, :map, default: %{}
-  attr :enabled_filters, :list, default: []
-
-  defp shop_pagination(assigns) do
-    remaining = assigns.total_products - assigns.page * assigns.per_page
-    base_path = Shop.category_url(assigns.category, assigns.current_language)
-
-    assigns =
-      assigns
-      |> assign(:remaining, max(0, remaining))
-      |> assign(:has_more, assigns.page < assigns.total_pages)
-      |> assign(:base_path, base_path)
-
-    ~H"""
-    <%= if @total_pages > 1 do %>
-      <div class="mt-8 space-y-4">
-        <%!-- Load More Button --%>
-        <%= if @has_more do %>
-          <div class="flex justify-center">
-            <button phx-click="load_more" class="btn btn-primary btn-lg gap-2">
-              <.icon name="hero-arrow-down" class="w-5 h-5" /> Show More
-              <span class="badge badge-ghost">{@remaining}</span>
-            </button>
-          </div>
-        <% end %>
-
-        <%!-- Page Links for SEO and direct access --%>
-        <nav class="flex flex-wrap justify-center gap-2 text-sm">
-          <%= for p <- 1..@total_pages do %>
-            <.link
-              patch={
-                FilterHelpers.build_filter_url(@base_path, @active_filters, @enabled_filters, page: p)
-              }
-              class={[
-                "px-3 py-1 rounded transition-colors",
-                if(p <= @page,
-                  do: "bg-primary text-primary-content",
-                  else: "bg-base-200 hover:bg-base-300 text-base-content/70"
-                )
-              ]}
-            >
-              {p}
-            </.link>
-          <% end %>
-        </nav>
-
-        <%!-- Status text --%>
-        <p class="text-center text-sm text-base-content/50">
-          Showing {min(@page * @per_page, @total_products)} of {@total_products} products
-        </p>
-      </div>
-    <% end %>
-    """
-  end
-
-  # Parse page param with validation
-  defp parse_page(nil), do: 1
-  defp parse_page(""), do: 1
-
-  defp parse_page(page) when is_binary(page) do
-    case Integer.parse(page) do
-      {p, ""} when p > 0 -> p
-      _ -> 1
-    end
-  end
-
-  defp parse_page(page) when is_integer(page) and page > 0, do: page
-  defp parse_page(_), do: 1
 
   # Build category path with filter params and optional page
   defp build_filter_path(assigns, active_filters, opts \\ []) do
