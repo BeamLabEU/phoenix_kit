@@ -1,3 +1,7 @@
+## 1.7.47 - 2026-02-24
+- Fix V13 migration down/0 to use `remove_if_exists` instead of `remove` for idempotency
+  - Fixes "column aws_message_id does not exist" error when rolling back V13
+
 ## 1.7.46 - 2026-02-24
 - Add plugin module system with `PhoenixKit.Module` behaviour, `ModuleRegistry`, and zero-config auto-discovery
   - 5 required + 8 optional callbacks with sensible defaults via `use PhoenixKit.Module`
