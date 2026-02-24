@@ -160,7 +160,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   def create_email_log(%Email{} = email, opts \\ []) do
     log_attrs = extract_email_data(email, opts)
 
-    Emails.create_log(log_attrs)
+    Emails.create_log(Map.from_struct(log_attrs))
   end
 
   @doc """

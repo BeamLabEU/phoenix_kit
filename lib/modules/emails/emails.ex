@@ -1598,6 +1598,8 @@ defmodule PhoenixKit.Modules.Emails do
       {:ok, %Log{}}
   """
   def create_log(attrs \\ %{}) do
+    attrs = if is_struct(attrs), do: Map.from_struct(attrs), else: attrs
+
     if enabled?() and should_log_email?(attrs) do
       # Add system-level defaults
       attrs =
