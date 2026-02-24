@@ -281,6 +281,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       # On secondary language tabs, preserve primary-language fields that aren't in the form
       data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
 
+      # Strip lang_title/lang_slug — only used by inject helpers, not schema fields
+      data_params =
+        data_params
+        |> Map.delete("lang_title")
+        |> Map.delete("lang_slug")
+
       case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
         {:ok, validated_data} ->
           validated_data =
