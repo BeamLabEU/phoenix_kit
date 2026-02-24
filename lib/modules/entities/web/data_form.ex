@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   use PhoenixKitWeb, :live_view
   on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Events
@@ -271,9 +272,11 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
       current_lang = socket.assigns[:current_lang]
 
-      # Inject _title into form data so it flows through merge_multilang_data
+      # Inject _title and _slug into form data so they flow through merge_multilang_data
       form_data =
-        inject_title_into_form_data(form_data, data_params, current_lang, socket.assigns)
+        form_data
+        |> inject_title_into_form_data(data_params, current_lang, socket.assigns)
+        |> inject_slug_into_form_data(data_params, current_lang, socket.assigns)
 
       # On secondary language tabs, preserve primary-language fields that aren't in the form
       data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
@@ -281,12 +284,15 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
         {:ok, validated_data} ->
           validated_data =
-            inject_title_into_form_data(
-              validated_data,
-              data_params,
-              current_lang,
-              socket.assigns
-            )
+            validated_data
+            |> inject_title_into_form_data(data_params, current_lang, socket.assigns)
+            |> inject_slug_into_form_data(data_params, current_lang, socket.assigns)
+
+          # Strip lang_title/lang_slug after injection — not schema fields
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
 
           final_data = merge_multilang_data(socket.assigns, current_lang, validated_data)
           params = Map.put(data_params, "data", final_data)
@@ -306,6 +312,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         {:error, errors} ->
           # Preserve full multilang data in both changeset and broadcast
           error_data = merge_multilang_data(socket.assigns, current_lang, form_data)
+
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
+
           error_params = Map.put(data_params, "data", error_data)
 
           changeset =
@@ -334,26 +346,28 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
       current_lang = socket.assigns[:current_lang]
 
-      # Inject _title into form data so it flows through merge_multilang_data
+      # Inject _title and _slug into form data so they flow through merge_multilang_data
       form_data =
-        inject_title_into_form_data(form_data, data_params, current_lang, socket.assigns)
+        form_data
+        |> inject_title_into_form_data(data_params, current_lang, socket.assigns)
+        |> inject_slug_into_form_data(data_params, current_lang, socket.assigns)
 
       # On secondary language tabs, preserve primary-language fields that aren't in the form
       data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
-
-      # Strip lang_title — it's only used by inject_title_into_form_data, not a schema field
-      data_params = Map.delete(data_params, "lang_title")
 
       # Validate the form data against entity field definitions
       case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
         {:ok, validated_data} ->
           validated_data =
-            inject_title_into_form_data(
-              validated_data,
-              data_params,
-              current_lang,
-              socket.assigns
-            )
+            validated_data
+            |> inject_title_into_form_data(data_params, current_lang, socket.assigns)
+            |> inject_slug_into_form_data(data_params, current_lang, socket.assigns)
+
+          # Strip lang_title/lang_slug after injection — not schema fields
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
 
           final_data = merge_multilang_data(socket.assigns, current_lang, validated_data)
 
@@ -365,22 +379,36 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
           try do
             case save_data_record(socket, params) do
-              {:ok, _data_record} ->
-                # Presence will automatically clean up when LiveView process terminates
-                # Redirect to entity-specific data navigator after successful creation/update
-                entity_name = socket.assigns.entity.name
+              {:ok, saved_record} ->
+                if socket.assigns.data_record.id do
+                  # Update — stay on page, refresh changeset from saved record
+                  changeset = EntityData.change(saved_record)
 
-                socket =
-                  socket
-                  |> put_flash(:info, gettext("Data record saved successfully"))
-                  |> push_navigate(
-                    to:
-                      Routes.path("/admin/entities/#{entity_name}/data",
-                        locale: socket.assigns.current_locale_base
-                      )
-                  )
+                  socket =
+                    socket
+                    |> assign(:data_record, saved_record)
+                    |> assign(:changeset, changeset)
+                    |> put_flash(:info, gettext("Data record saved successfully"))
+                    |> broadcast_data_form_state(params)
 
-                {:noreply, socket}
+                  {:noreply, socket}
+                else
+                  # Create — navigate to the edit page for the new record
+                  entity_name = socket.assigns.entity.name
+
+                  socket =
+                    socket
+                    |> put_flash(:info, gettext("Data record created successfully"))
+                    |> push_navigate(
+                      to:
+                        Routes.path(
+                          "/admin/entities/#{entity_name}/data/#{saved_record.uuid}/edit",
+                          locale: socket.assigns.current_locale_base
+                        )
+                    )
+
+                  {:noreply, socket}
+                end
 
               {:error, %Ecto.Changeset{} = changeset} ->
                 socket =
@@ -402,6 +430,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         {:error, errors} ->
           # Preserve full multilang data in both changeset and broadcast
           error_data = merge_multilang_data(socket.assigns, current_lang, form_data)
+
+          data_params =
+            data_params
+            |> Map.delete("lang_title")
+            |> Map.delete("lang_slug")
+
           error_params = Map.put(data_params, "data", error_data)
 
           changeset =
@@ -466,50 +500,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   def handle_event("generate_slug", _params, socket) do
     if socket.assigns[:lock_owner?] do
-      changeset = socket.assigns.changeset
-      entity_id = socket.assigns.entity.id
-      record_id = socket.assigns.data_record.id
-
-      # Get title from changeset (includes both changes and original data)
-      title = Ecto.Changeset.get_field(changeset, :title) || ""
-
-      # Don't generate if title is empty
-      if title == "" do
-        {:noreply, socket}
-      else
-        # Generate slug from title using shared utility
-        slug = auto_generate_entity_slug(entity_id, record_id, title)
-
-        # Get ALL current field values from the changeset
-        # This includes both changed values and original struct values
-        entity_id = Ecto.Changeset.get_field(changeset, :entity_id)
-        status = Ecto.Changeset.get_field(changeset, :status) || "draft"
-        data = Ecto.Changeset.get_field(changeset, :data) || %{}
-        created_by = Ecto.Changeset.get_field(changeset, :created_by)
-
-        # Build complete params map with ALL required fields
-        params = %{
-          "entity_id" => entity_id,
-          "title" => title,
-          "slug" => slug,
-          "status" => status,
-          "data" => data,
-          "created_by" => created_by
-        }
-
-        # Update changeset with generated slug while preserving all other fields
-        changeset =
-          socket.assigns.data_record
-          |> EntityData.change(params)
-          |> Map.put(:action, :validate)
-
-        socket =
-          socket
-          |> assign(:changeset, changeset)
-          |> broadcast_data_form_state(params)
-
-        {:noreply, socket}
-      end
+      do_generate_slug(socket)
     else
       {:noreply, socket}
     end
@@ -546,6 +537,10 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         {:noreply, socket}
 
       socket.assigns.data_record.id != data_id ->
+        {:noreply, socket}
+
+      # Ignore our own saves — the save handler already refreshes state
+      socket.assigns[:lock_owner?] ->
         {:noreply, socket}
 
       true ->
@@ -679,7 +674,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     end
   end
 
-  # Seeds `_title` into the JSONB data column for existing records on mount.
+  # Seeds `_title` and `_slug` into the JSONB data column for existing records on mount.
   # Handles backwards compat: migrates from metadata["translations"] to data[lang]["_title"].
   defp seed_title_in_data(changeset, data_record) do
     data = Ecto.Changeset.get_field(changeset, :data) || %{}
@@ -688,14 +683,38 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       primary = data["_primary_language"]
       primary_data = Map.get(data, primary, %{})
 
-      if Map.has_key?(primary_data, "_title") do
-        changeset
-      else
-        title = Ecto.Changeset.get_field(changeset, :title)
-        do_seed_title(changeset, data, data_record, primary, primary_data, title)
-      end
+      changeset =
+        if Map.has_key?(primary_data, "_title") do
+          changeset
+        else
+          title = Ecto.Changeset.get_field(changeset, :title)
+          do_seed_title(changeset, data, data_record, primary, primary_data, title)
+        end
+
+      # Also seed _slug if not already present
+      seed_slug_in_data(changeset)
     else
       changeset
+    end
+  end
+
+  defp seed_slug_in_data(changeset) do
+    data = Ecto.Changeset.get_field(changeset, :data) || %{}
+    primary = data["_primary_language"]
+    primary_data = Map.get(data, primary, %{})
+
+    if Map.has_key?(primary_data, "_slug") do
+      changeset
+    else
+      slug = Ecto.Changeset.get_field(changeset, :slug)
+
+      if is_binary(slug) and slug != "" do
+        updated_primary = Map.put(primary_data, "_slug", slug)
+        data = Map.put(data, primary, updated_primary)
+        Ecto.Changeset.put_change(changeset, :data, data)
+      else
+        changeset
+      end
     end
   end
 
@@ -827,6 +846,113 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
         case Multilang.get_raw_language_data(existing_data, current_lang) do
           %{"_title" => existing_title} -> Map.put(form_data, "_title", existing_title)
+          _ -> form_data
+        end
+      end
+    else
+      form_data
+    end
+  end
+
+  defp do_generate_slug(socket) do
+    changeset = socket.assigns.changeset
+    current_lang = socket.assigns[:current_lang]
+    primary = socket.assigns[:primary_language]
+    is_secondary = socket.assigns[:multilang_enabled] && current_lang != primary
+    title = slug_source_title(changeset, is_secondary, current_lang)
+
+    if title == "" do
+      {:noreply, socket}
+    else
+      {params, changeset} = build_slug_params(socket, title, is_secondary, current_lang)
+
+      socket =
+        socket
+        |> assign(:changeset, changeset)
+        |> broadcast_data_form_state(params)
+
+      {:noreply, socket}
+    end
+  end
+
+  defp slug_source_title(changeset, true = _secondary, current_lang) do
+    data = Ecto.Changeset.get_field(changeset, :data) || %{}
+
+    case Multilang.get_language_data(data, current_lang) do
+      %{"_title" => lang_title} when is_binary(lang_title) and lang_title != "" -> lang_title
+      _ -> Ecto.Changeset.get_field(changeset, :title) || ""
+    end
+  end
+
+  defp slug_source_title(changeset, _primary, _current_lang) do
+    Ecto.Changeset.get_field(changeset, :title) || ""
+  end
+
+  defp build_slug_params(socket, title, is_secondary, current_lang) do
+    changeset = socket.assigns.changeset
+    db_entity_id = Ecto.Changeset.get_field(changeset, :entity_id)
+    db_title = Ecto.Changeset.get_field(changeset, :title) || ""
+    status = Ecto.Changeset.get_field(changeset, :status) || "draft"
+    data = Ecto.Changeset.get_field(changeset, :data) || %{}
+    created_by = Ecto.Changeset.get_field(changeset, :created_by)
+
+    {slug, data} =
+      compute_slug_and_data(socket, title, is_secondary, current_lang, changeset, data)
+
+    params = %{
+      "entity_id" => db_entity_id,
+      "title" => db_title,
+      "slug" => slug,
+      "status" => status,
+      "data" => data,
+      "created_by" => created_by
+    }
+
+    changeset =
+      socket.assigns.data_record
+      |> EntityData.change(params)
+      |> Map.put(:action, :validate)
+
+    {params, changeset}
+  end
+
+  defp compute_slug_and_data(_socket, title, true = _secondary, current_lang, changeset, data) do
+    slug_text = Slug.slugify(title)
+    lang_data = Multilang.get_raw_language_data(data, current_lang)
+    updated_lang = Map.put(lang_data, "_slug", slug_text)
+    updated_data = Multilang.put_language_data(data, current_lang, updated_lang)
+    {Ecto.Changeset.get_field(changeset, :slug), updated_data}
+  end
+
+  defp compute_slug_and_data(socket, title, _primary, _current_lang, _changeset, data) do
+    entity_id = socket.assigns.entity.id
+    record_id = socket.assigns.data_record.id
+    slug_text = auto_generate_entity_slug(entity_id, record_id, title)
+    {slug_text, data}
+  end
+
+  # Injects _slug into form data map so it flows through merge_multilang_data/3.
+  # On primary tab: _slug comes from data_params["slug"] (the DB column field).
+  # On secondary tab: _slug comes from data_params["lang_slug"] (separate input).
+  defp inject_slug_into_form_data(form_data, data_params, current_lang, assigns) do
+    if assigns[:multilang_enabled] == true do
+      primary = assigns[:primary_language]
+
+      slug =
+        if current_lang == primary do
+          data_params["slug"]
+        else
+          data_params["lang_slug"]
+        end
+
+      if is_binary(slug) do
+        Map.put(form_data, "_slug", slug)
+      else
+        # No slug submitted — preserve existing _slug from JSONB data
+        existing_data = Ecto.Changeset.get_field(assigns.changeset, :data) || %{}
+
+        case Multilang.get_raw_language_data(existing_data, current_lang) do
+          %{"_slug" => existing_slug} -> Map.put(form_data, "_slug", existing_slug)
           _ -> form_data
         end
       end
@@ -988,6 +1114,17 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   defp normalize_record_key(key) when is_atom(key), do: Atom.to_string(key)
   defp normalize_record_key(key) when is_binary(key), do: key
   defp normalize_record_key(key), do: to_string(key)
+
+  defp switch_lang_js(lang_code, current_lang) do
+    if lang_code == current_lang do
+      # Already on this tab — no-op to prevent skeleton ghosts
+      %JS{}
+    else
+      JS.push("switch_language", value: %{lang: lang_code})
+      |> JS.add_class("hidden", to: "[data-translatable=fields]")
+      |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
+    end
+  end
 
   defp auto_generate_entity_slug(_entity_id, _record_id, title) when title in [nil, ""], do: ""
 

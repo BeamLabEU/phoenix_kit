@@ -92,8 +92,6 @@ defmodule PhoenixKit.Migrations.Postgres.V62 do
     escaped_prefix = if prefix && prefix != "public", do: prefix, else: "public"
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
 
-    flush()
-
     for {table, old_col, new_col} <- Enum.reverse(@tables_and_columns) do
       execute("""
       DO $$ BEGIN

@@ -115,7 +115,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   Priority:
   1. Storage media (image_id) if available
-  2. Featured product's featured_image_id (requires :featured_product preloaded)
+  2. Featured product's featured_image_uuid (requires :featured_product preloaded)
   3. Featured product's legacy featured_image URL (requires :featured_product preloaded)
   4. nil if no image
 

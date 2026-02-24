@@ -855,9 +855,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           :ok
 
         js_path ->
-          # First, ensure vendor files are up to date
-          copy_vendor_files(js_path)
-
           # Update JS file - fix old paths and add hooks if missing
           content = File.read!(js_path)
 
@@ -881,58 +878,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       error ->
         # Non-critical error - log and continue
         Mix.shell().info("ℹ️  Could not update JS integration: #{inspect(error)}")
-    end
-
-    # Copy PhoenixKit JS files to vendor directory
-    defp copy_vendor_files(js_path) do
-      vendor_dir = js_path |> Path.dirname() |> Path.join("vendor")
-      File.mkdir_p!(vendor_dir)
-
-      source_dir = get_phoenix_kit_assets_dir()
-      source_files = ["phoenix_kit.js", "phoenix_kit_sortable.js"]
-
-      Enum.each(source_files, fn file ->
-        source_path = Path.join(source_dir, file)
-        dest_path = Path.join(vendor_dir, file)
-
-        if File.exists?(source_path) do
-          content = File.read!(source_path)
-
-          # Only write if different or doesn't exist
-          should_write =
-            !File.exists?(dest_path) or File.read!(dest_path) != content
-
-          if should_write do
-            File.write!(dest_path, content)
-            Mix.shell().info("  📦 Updated #{dest_path}")
-          end
-        end
-      end)
-    end
-
-    # Get the path to PhoenixKit's static assets directory
-    defp get_phoenix_kit_assets_dir do
-      # Use :code.priv_dir to get the actual priv directory of the phoenix_kit application
-      # This works for both Hex packages and local path dependencies
-      case :code.priv_dir(:phoenix_kit) do
-        {:error, _} ->
-          # Fallback: try common locations
-          possible_paths = [
-            "deps/phoenix_kit/priv/static/assets",
-            Path.join([Mix.Project.deps_path(), "phoenix_kit", "priv", "static", "assets"])
-          ]
-
-          Enum.find(possible_paths, &File.dir?/1) || List.first(possible_paths)
-
-        priv_dir ->
-          assets_path = Path.join([to_string(priv_dir), "static", "assets"])
-
-          if File.dir?(assets_path) do
-            assets_path
-          else
-            "deps/phoenix_kit/priv/static/assets"
-          end
-      end
     end
 
     # Check if migration can be run interactively
