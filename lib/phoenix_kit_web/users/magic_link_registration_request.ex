@@ -10,20 +10,27 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Users.Auth
 
   @impl true
   def mount(_params, _session, socket) do
-    # Get project title from settings (with Config fallback)
-    project_title = PhoenixKit.Settings.get_project_title()
+    case Auth.maybe_redirect_authenticated(socket) do
+      {:redirect, socket} ->
+        {:ok, socket}
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Register via Magic Link")
-     |> assign(:project_title, project_title)
-     |> assign(:email, "")
-     |> assign(:email_sent, false)
-     |> assign(:error_message, nil)
-     |> assign(:loading, false)}
+      :cont ->
+        # Get project title from settings (with Config fallback)
+        project_title = PhoenixKit.Settings.get_project_title()
+
+        {:ok,
+         socket
+         |> assign(:page_title, "Register via Magic Link")
+         |> assign(:project_title, project_title)
+         |> assign(:email, "")
+         |> assign(:email_sent, false)
+         |> assign(:error_message, nil)
+         |> assign(:loading, false)}
+    end
   end
 
   @impl true

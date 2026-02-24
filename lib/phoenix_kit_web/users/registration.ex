@@ -18,6 +18,16 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Utils.Routes
 
   def mount(_params, session, socket) do
+    case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
+      {:redirect, socket} ->
+        {:ok, socket}
+
+      :cont ->
+        do_mount(session, socket)
+    end
+  end
+
+  defp do_mount(session, socket) do
     # Check if registration is allowed
     allow_registration = Settings.get_boolean_setting("allow_registration", true)
 

@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="{@project_title} - Sign in"
+  page_title={"#{@project_title} - Sign in"}
 >
   <div class="flex items-center justify-center px-4 py-8 min-h-[80vh]">
     <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
@@ -63,7 +63,7 @@
 
             <div class="text-center mt-2">
               <.link
-                href={Routes.path("/users/reset-password")}
+                navigate={Routes.path("/users/reset-password")}
                 class="text-sm font-semibold text-primary hover:underline"
               >
                 {gettext("Forgot your password?")}

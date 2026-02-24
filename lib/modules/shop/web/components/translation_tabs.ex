@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.TranslationTabs do
     assigns = assign(assigns, :languages_with_status, languages_with_status)
 
     ~H"""
-    <div class={["tabs tabs-bordered", @class]}>
+    <div class={["tabs tabs-border", @class]}>
       <%= for lang <- @languages_with_status do %>
         <% code = lang.code %>
         <% name = lang.name || code %>
@@ -163,22 +163,22 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.TranslationTabs do
     assigns = assign(assigns, :field_name, field_name)
 
     ~H"""
-    <div class="form-control w-full">
-      <label class="label">
-        <span class="label-text font-medium">{@field.label}</span>
-        <span class="label-text-alt text-base-content/50">{String.upcase(@language)}</span>
-      </label>
+    <fieldset class="fieldset w-full">
+      <legend class="fieldset-legend">
+        <span class="font-medium">{@field.label}</span>
+        <span class="text-base-content/50 font-normal ml-2">{String.upcase(@language)}</span>
+      </legend>
       <%= case @field.type do %>
         <% :textarea -> %>
           <textarea
             name={@field_name}
-            class="textarea textarea-bordered w-full h-24 focus:textarea-primary"
+            class="textarea w-full h-24 focus:textarea-primary"
             placeholder={@field[:placeholder] || ""}
           >{@value}</textarea>
         <% :html -> %>
           <textarea
             name={@field_name}
-            class="textarea textarea-bordered w-full h-32 focus:textarea-primary font-mono text-sm"
+            class="textarea w-full h-32 focus:textarea-primary font-mono text-sm"
             placeholder={@field[:placeholder] || "HTML content..."}
           >{@value}</textarea>
         <% _ -> %>
@@ -186,16 +186,14 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.TranslationTabs do
             type="text"
             name={@field_name}
             value={@value}
-            class="input input-bordered w-full focus:input-primary"
+            class="input w-full focus:input-primary"
             placeholder={@field[:placeholder] || ""}
           />
       <% end %>
       <%= if @field[:hint] do %>
-        <label class="label py-1">
-          <span class="label-text-alt text-base-content/50">{@field.hint}</span>
-        </label>
+        <p class="fieldset-label text-base-content/50">{@field.hint}</p>
       <% end %>
-    </div>
+    </fieldset>
     """
   end
 

@@ -10,12 +10,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Billing.BillingProfile
   alias PhoenixKit.Modules.Billing.CountryData
-  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
+  alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
+  alias PhoenixKit.Modules.Shop.Web.Helpers
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -516,7 +516,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   @impl true
   def render(assigns) do
     ~H"""
-    <.shop_layout {assigns}>
+    <ShopLayouts.shop_layout {assigns}>
       <div class="p-6 max-w-6xl mx-auto">
         <div class="flex items-center justify-between mb-8">
           <h1 class="text-3xl font-bold">Checkout</h1>
@@ -599,30 +599,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           </div>
         </div>
       </div>
-    </.shop_layout>
-    """
-  end
-
-  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
-  slot :inner_block, required: true
-
-  defp shop_layout(assigns) do
-    ~H"""
-    <%= if @authenticated do %>
-      <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Layouts.dashboard>
-    <% else %>
-      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-        flash={@flash}
-        phoenix_kit_current_scope={@phoenix_kit_current_scope}
-        current_path={@url_path}
-        current_locale={@current_locale}
-        page_title={@page_title}
-      >
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
-    <% end %>
+    </ShopLayouts.shop_layout>
     """
   end
 
@@ -796,116 +773,106 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     ~H"""
     <form phx-change="update_billing" class="space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="form-control">
-          <label class="label"><span class="label-text">First Name *</span></label>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">First Name *</legend>
           <input
             type="text"
             name="billing[first_name]"
             value={@billing_data["first_name"]}
-            class={["input input-bordered", @form_errors[:first_name] && "input-error"]}
+            class={["input", @form_errors[:first_name] && "input-error"]}
             required
           />
           <%= if @form_errors[:first_name] do %>
-            <label class="label">
-              <span class="label-text-alt text-error">{@form_errors[:first_name]}</span>
-            </label>
+            <p class="fieldset-label text-error">{@form_errors[:first_name]}</p>
           <% end %>
-        </div>
+        </fieldset>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Last Name *</span></label>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Last Name *</legend>
           <input
             type="text"
             name="billing[last_name]"
             value={@billing_data["last_name"]}
-            class={["input input-bordered", @form_errors[:last_name] && "input-error"]}
+            class={["input", @form_errors[:last_name] && "input-error"]}
             required
           />
           <%= if @form_errors[:last_name] do %>
-            <label class="label">
-              <span class="label-text-alt text-error">{@form_errors[:last_name]}</span>
-            </label>
+            <p class="fieldset-label text-error">{@form_errors[:last_name]}</p>
           <% end %>
-        </div>
+        </fieldset>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Email *</span></label>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Email *</legend>
           <input
             type="email"
             name="billing[email]"
             value={@billing_data["email"]}
-            class={["input input-bordered", @form_errors[:email] && "input-error"]}
+            class={["input", @form_errors[:email] && "input-error"]}
             required
           />
           <%= if @form_errors[:email] do %>
-            <label class="label">
-              <span class="label-text-alt text-error">{@form_errors[:email]}</span>
-            </label>
+            <p class="fieldset-label text-error">{@form_errors[:email]}</p>
           <% end %>
-        </div>
+        </fieldset>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Phone</span></label>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Phone</legend>
           <input
             type="tel"
             name="billing[phone]"
             value={@billing_data["phone"]}
-            class="input input-bordered"
+            class="input"
           />
-        </div>
+        </fieldset>
       </div>
 
-      <div class="form-control">
-        <label class="label"><span class="label-text">Address *</span></label>
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">Address *</legend>
         <input
           type="text"
           name="billing[address_line1]"
           value={@billing_data["address_line1"]}
-          class={["input input-bordered", @form_errors[:address_line1] && "input-error"]}
+          class={["input", @form_errors[:address_line1] && "input-error"]}
           placeholder="Street address"
           required
         />
         <%= if @form_errors[:address_line1] do %>
-          <label class="label">
-            <span class="label-text-alt text-error">{@form_errors[:address_line1]}</span>
-          </label>
+          <p class="fieldset-label text-error">{@form_errors[:address_line1]}</p>
         <% end %>
-      </div>
+      </fieldset>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="form-control">
-          <label class="label"><span class="label-text">City *</span></label>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">City *</legend>
           <input
             type="text"
             name="billing[city]"
             value={@billing_data["city"]}
-            class={["input input-bordered", @form_errors[:city] && "input-error"]}
+            class={["input", @form_errors[:city] && "input-error"]}
             required
           />
           <%= if @form_errors[:city] do %>
-            <label class="label">
-              <span class="label-text-alt text-error">{@form_errors[:city]}</span>
-            </label>
+            <p class="fieldset-label text-error">{@form_errors[:city]}</p>
           <% end %>
-        </div>
+        </fieldset>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Postal Code</span></label>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Postal Code</legend>
           <input
             type="text"
             name="billing[postal_code]"
             value={@billing_data["postal_code"]}
-            class="input input-bordered"
+            class="input"
           />
-        </div>
+        </fieldset>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Country *</span></label>
+        <fieldset class="fieldset">
+          <legend class="fieldset-legend">Country *</legend>
           <select
             name="billing[country]"
-            class={["select select-bordered", @form_errors[:country] && "select-error"]}
+            class={["select", @form_errors[:country] && "select-error"]}
             required
           >
             <option value="">Select country...</option>
@@ -916,11 +883,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
             <% end %>
           </select>
           <%= if @form_errors[:country] do %>
-            <label class="label">
-              <span class="label-text-alt text-error">{@form_errors[:country]}</span>
-            </label>
+            <p class="fieldset-label text-error">{@form_errors[:country]}</p>
           <% end %>
-        </div>
+        </fieldset>
       </div>
     </form>
     """
@@ -1151,11 +1116,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
         <% end %>
         <button
           phx-click="confirm_order"
-          class={["btn btn-primary btn-lg", @processing && "loading"]}
+          class={["btn btn-primary btn-lg"]}
           disabled={@processing}
         >
           <%= if @processing do %>
-            Processing...
+            <span class="loading loading-spinner loading-sm"></span> Processing...
           <% else %>
             <.icon name="hero-check" class="w-5 h-5 mr-2" /> Confirm Order
           <% end %>
@@ -1220,44 +1185,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
   # Helpers
 
-  defp profile_display_name(%BillingProfile{type: "company"} = profile) do
-    profile.company_name || "#{profile.first_name} #{profile.last_name}"
-  end
-
-  defp profile_display_name(%BillingProfile{} = profile) do
-    "#{profile.first_name} #{profile.last_name}"
-  end
-
-  defp profile_address(%BillingProfile{} = profile) do
-    [profile.address_line1, profile.city, profile.postal_code, profile.country]
-    |> Enum.filter(& &1)
-    |> Enum.join(", ")
-  end
-
-  defp format_price(nil, _currency), do: "-"
-
-  defp format_price(amount, %Currency{} = currency) do
-    Currency.format_amount(amount, currency)
-  end
-
-  defp format_price(amount, nil) do
-    "$#{Decimal.round(amount, 2)}"
-  end
-
-  defp get_current_user(socket) do
-    case socket.assigns[:phoenix_kit_current_scope] do
-      %{user: %{id: _} = user} -> user
-      _ -> nil
-    end
-  end
-
-  # Convert key to human-readable format: "material_type" -> "Material Type"
-  defp humanize_key(key) when is_binary(key) do
-    key
-    |> String.replace("_", " ")
-    |> String.split(" ")
-    |> Enum.map_join(" ", &String.capitalize/1)
-  end
-
-  defp humanize_key(key), do: to_string(key)
+  defp profile_display_name(profile), do: Helpers.profile_display_name(profile)
+  defp profile_address(profile), do: Helpers.profile_address(profile)
+  defp format_price(amount, currency), do: Helpers.format_price(amount, currency)
+  defp humanize_key(key), do: Helpers.humanize_key(key)
+  defp get_current_user(socket), do: Helpers.get_current_user(socket)
 end

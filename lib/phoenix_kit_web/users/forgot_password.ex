@@ -7,11 +7,15 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
   """
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, form: to_form(%{}, as: "user"))}
+    case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
+      {:redirect, socket} -> {:ok, socket}
+      :cont -> {:ok, assign(socket, form: to_form(%{}, as: "user"))}
+    end
   end
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do
@@ -41,5 +45,9 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
          |> put_flash(:error, "Too many password reset requests. Please try again later.")
          |> redirect(to: Routes.path("/users/log-in"))}
     end
+  end
+
+  defp show_dev_notice? do
+    Config.mailer_local?()
   end
 end

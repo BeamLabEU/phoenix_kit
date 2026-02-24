@@ -6,8 +6,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
+  alias PhoenixKit.Modules.Shop.Web.Helpers
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
@@ -24,12 +25,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
     end
   end
 
-  defp get_current_user(socket) do
-    case socket.assigns[:phoenix_kit_current_scope] do
-      %{user: %{id: _} = u} -> u
-      _ -> nil
-    end
-  end
+  defp get_current_user(socket), do: Helpers.get_current_user(socket)
 
   defp handle_order_access(socket, order, user) do
     if has_order_access?(order, user) do
@@ -103,7 +99,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
   @impl true
   def render(assigns) do
     ~H"""
-    <.shop_layout {assigns}>
+    <ShopLayouts.shop_layout {assigns}>
       <div class="p-6 max-w-3xl mx-auto">
         <%!-- Success Header --%>
         <div class="text-center mb-8">
@@ -272,58 +268,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
           <% end %>
         </div>
       </div>
-    </.shop_layout>
-    """
-  end
-
-  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
-  slot :inner_block, required: true
-
-  defp shop_layout(assigns) do
-    ~H"""
-    <%= if @authenticated do %>
-      <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Layouts.dashboard>
-    <% else %>
-      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-        flash={@flash}
-        phoenix_kit_current_scope={@phoenix_kit_current_scope}
-        current_path={@url_path}
-        current_locale={@current_locale}
-        page_title={@page_title}
-      >
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
-    <% end %>
+    </ShopLayouts.shop_layout>
     """
   end
 
   # Helpers
 
-  defp profile_display_name(%{type: "company"} = profile) do
-    profile.company_name || "#{profile.first_name} #{profile.last_name}"
-  end
-
-  defp profile_display_name(profile) do
-    "#{profile.first_name} #{profile.last_name}"
-  end
-
-  defp profile_address(profile) do
-    [profile.address_line1, profile.city, profile.postal_code, profile.country]
-    |> Enum.filter(& &1)
-    |> Enum.join(", ")
-  end
-
-  defp format_price(nil, _currency), do: "-"
-
-  defp format_price(amount, %Currency{} = currency) do
-    Currency.format_amount(amount, currency)
-  end
-
-  defp format_price(amount, nil) do
-    "$#{Decimal.round(amount, 2)}"
-  end
+  defp profile_display_name(profile), do: Helpers.profile_display_name(profile)
+  defp profile_address(profile), do: Helpers.profile_address(profile)
+  defp format_price(amount, currency), do: Helpers.format_price(amount, currency)
 
   defp format_price_string(nil), do: "-"
   defp format_price_string(amount) when is_binary(amount), do: "$#{amount}"

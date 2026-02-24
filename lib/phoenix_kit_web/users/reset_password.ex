@@ -11,18 +11,24 @@ defmodule PhoenixKitWeb.Users.ResetPassword do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    socket = assign_user_and_token(socket, params)
+    case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
+      {:redirect, socket} ->
+        {:ok, socket}
 
-    form_source =
-      case socket.assigns do
-        %{user: user} ->
-          Auth.change_user_password(user)
+      :cont ->
+        socket = assign_user_and_token(socket, params)
 
-        _ ->
-          %{}
-      end
+        form_source =
+          case socket.assigns do
+            %{user: user} ->
+              Auth.change_user_password(user)
 
-    {:ok, assign_form(socket, form_source), temporary_assigns: [form: nil]}
+            _ ->
+              %{}
+          end
+
+        {:ok, assign_form(socket, form_source), temporary_assigns: [form: nil]}
+    end
   end
 
   # Do not log in the user after reset password to avoid a
