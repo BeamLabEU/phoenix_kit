@@ -50,9 +50,12 @@ defmodule PhoenixKit.Modules.Comments do
   - `dislike_comment/2`, `undislike_comment/2`, `comment_disliked_by?/2`
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Comments.Comment
   alias PhoenixKit.Modules.Comments.CommentDislike
   alias PhoenixKit.Modules.Comments.CommentLike
@@ -65,21 +68,25 @@ defmodule PhoenixKit.Modules.Comments do
   # Module Status
   # ============================================================================
 
+  @impl PhoenixKit.Module
   @doc "Checks if the Comments module is enabled."
   def enabled? do
     Settings.get_boolean_setting("comments_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc "Enables the Comments module."
   def enable_system do
     Settings.update_boolean_setting_with_module("comments_enabled", true, "comments")
   end
 
+  @impl PhoenixKit.Module
   @doc "Disables the Comments module."
   def disable_system do
     Settings.update_boolean_setting_with_module("comments_enabled", false, "comments")
   end
 
+  @impl PhoenixKit.Module
   @doc "Gets the Comments module configuration with statistics."
   def get_config do
     %{
@@ -101,6 +108,59 @@ defmodule PhoenixKit.Modules.Comments do
   @doc "Returns the configured maximum comment length."
   def get_max_length do
     Settings.get_setting("comments_max_length", "10000") |> String.to_integer()
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "comments"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Comments"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "comments",
+      label: "Comments",
+      icon: "hero-chat-bubble-left-right",
+      description: "Comment moderation, threading, and reactions across all content types"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_comments,
+        label: "Comments",
+        icon: "hero-chat-bubble-left-right",
+        path: "/admin/comments",
+        priority: 590,
+        level: :admin,
+        permission: "comments",
+        match: :prefix,
+        group: :admin_modules
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_comments,
+        label: "Comments",
+        icon: "hero-chat-bubble-left-right",
+        path: "/admin/settings/comments",
+        priority: 924,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "comments"
+      )
+    ]
   end
 
   # ============================================================================

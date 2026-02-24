@@ -6,6 +6,9 @@ defmodule PhoenixKit.Modules.SEO do
   `noindex, nofollow` directive for staging environments, and will be extended
   with additional SEO options in the future.
   """
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Settings
 
   @module_enabled_key "seo_module_enabled"
@@ -69,6 +72,7 @@ defmodule PhoenixKit.Modules.SEO do
     Settings.update_boolean_setting_with_module(@no_index_key, enabled?, @module_name)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Returns configuration metadata for dashboard cards and settings pages.
   """
@@ -77,5 +81,50 @@ defmodule PhoenixKit.Modules.SEO do
       module_enabled: module_enabled?(),
       no_index_enabled: no_index_enabled?()
     }
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "seo"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "SEO"
+
+  @impl PhoenixKit.Module
+  def enabled?, do: module_enabled?()
+
+  @impl PhoenixKit.Module
+  def enable_system, do: enable_module()
+
+  @impl PhoenixKit.Module
+  def disable_system, do: disable_module()
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "seo",
+      label: "SEO",
+      icon: "hero-magnifying-glass",
+      description: "Meta tags, Open Graph, and search optimization"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_seo,
+        label: "SEO",
+        icon: "hero-magnifying-glass-circle",
+        path: "/admin/settings/seo",
+        priority: 930,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "seo"
+      )
+    ]
   end
 end

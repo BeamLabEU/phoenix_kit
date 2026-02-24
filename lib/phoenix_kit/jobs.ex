@@ -31,10 +31,15 @@ defmodule PhoenixKit.Jobs do
       PhoenixKit.Jobs.disable_system()
   """
 
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Dashboard.Tab
+
   @enabled_key "jobs_enabled"
 
   ## System Control Functions
 
+  @impl PhoenixKit.Module
   @doc """
   Returns true when the Jobs module is enabled.
 
@@ -52,6 +57,7 @@ defmodule PhoenixKit.Jobs do
     settings_call(:get_boolean_setting, [@enabled_key, false])
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Jobs module.
 
@@ -65,6 +71,7 @@ defmodule PhoenixKit.Jobs do
     settings_call(:update_boolean_setting, [@enabled_key, true])
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Jobs module.
 
@@ -80,6 +87,7 @@ defmodule PhoenixKit.Jobs do
 
   ## Configuration Functions
 
+  @impl PhoenixKit.Module
   @doc """
   Returns the current Jobs module configuration as a map.
 
@@ -124,7 +132,7 @@ defmodule PhoenixKit.Jobs do
         import Ecto.Query
 
         query =
-          from(j in "oban_jobs",
+          from(j in Oban.Job,
             group_by: j.state,
             select: {j.state, count(j.id)}
           )
@@ -149,6 +157,43 @@ defmodule PhoenixKit.Jobs do
     else
       default_stats()
     end
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "jobs"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Jobs"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "jobs",
+      label: "Jobs",
+      icon: "hero-clock",
+      description: "Background job queues and task scheduling"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_jobs,
+        label: "Jobs",
+        icon: "hero-queue-list",
+        path: "/admin/jobs",
+        priority: 610,
+        level: :admin,
+        permission: "jobs",
+        match: :prefix,
+        group: :admin_modules
+      )
+    ]
   end
 
   ## Private Helper Functions

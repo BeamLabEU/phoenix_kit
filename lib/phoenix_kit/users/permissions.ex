@@ -69,6 +69,7 @@ defmodule PhoenixKit.Users.Permissions do
   require Logger
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
@@ -81,12 +82,6 @@ defmodule PhoenixKit.Users.Permissions do
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @core_section_keys ~w(dashboard users media settings modules)
-  @feature_module_keys ~w(
-    billing shop emails entities tickets posts comments ai
-    sync publishing referrals sitemap seo maintenance
-    storage languages connections legal db jobs
-  )
-  @all_module_keys @core_section_keys ++ @feature_module_keys
 
   # Persistent term keys for runtime-registered custom permission keys
   @custom_keys_pterm {PhoenixKit, :custom_permission_keys}
@@ -98,29 +93,7 @@ defmodule PhoenixKit.Users.Permissions do
   @max_icon_length 60
   @max_description_length 255
 
-  # Maps feature module keys to their {Module, :enabled_function} for checking enabled status
-  @feature_enabled_checks %{
-    "billing" => {PhoenixKit.Modules.Billing, :enabled?},
-    "shop" => {PhoenixKit.Modules.Shop, :enabled?},
-    "emails" => {PhoenixKit.Modules.Emails, :enabled?},
-    "entities" => {PhoenixKit.Modules.Entities, :enabled?},
-    "tickets" => {PhoenixKit.Modules.Tickets, :enabled?},
-    "posts" => {PhoenixKit.Modules.Posts, :enabled?},
-    "comments" => {PhoenixKit.Modules.Comments, :enabled?},
-    "ai" => {PhoenixKit.Modules.AI, :enabled?},
-    "sync" => {PhoenixKit.Modules.Sync, :enabled?},
-    "publishing" => {PhoenixKit.Modules.Publishing, :enabled?},
-    "referrals" => {PhoenixKit.Modules.Referrals, :enabled?},
-    "sitemap" => {PhoenixKit.Modules.Sitemap, :enabled?},
-    "seo" => {PhoenixKit.Modules.SEO, :module_enabled?},
-    "maintenance" => {PhoenixKit.Modules.Maintenance, :enabled?},
-    "storage" => {PhoenixKit.Modules.Storage, :module_enabled?},
-    "languages" => {PhoenixKit.Modules.Languages, :enabled?},
-    "connections" => {PhoenixKit.Modules.Connections, :enabled?},
-    "legal" => {PhoenixKit.Modules.Legal, :enabled?},
-    "db" => {PhoenixKit.Modules.DB, :enabled?},
-    "jobs" => {PhoenixKit.Jobs, :enabled?}
-  }
+  # Feature enabled checks are now resolved at runtime via ModuleRegistry.feature_enabled_checks/0
 
   # --- Custom Permission Keys ---
 
@@ -147,7 +120,7 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec register_custom_key(String.t(), keyword()) :: :ok
   def register_custom_key(key, opts \\ []) when is_binary(key) do
-    if key in @all_module_keys do
+    if key in @core_section_keys or key in ModuleRegistry.all_feature_keys() do
       raise ArgumentError,
             "Cannot register custom permission key #{inspect(key)}: conflicts with built-in key"
     end
@@ -160,19 +133,6 @@ defmodule PhoenixKit.Users.Permissions do
     if String.length(key) > @max_key_length do
       raise ArgumentError,
             "Permission key #{inspect(key)} exceeds max length of #{@max_key_length}"
-    end
-
-    current = custom_keys_map()
-
-    if Map.has_key?(current, key) do
-      Logger.warning(
-        "[Permissions] Custom permission key #{inspect(key)} re-registered, overriding previous metadata"
-      )
-    else
-      if map_size(current) >= @max_custom_keys do
-        raise ArgumentError,
-              "Cannot register more than #{@max_custom_keys} custom permission keys"
-      end
     end
 
     meta = %{
@@ -192,6 +152,23 @@ defmodule PhoenixKit.Users.Permissions do
         |> coerce_string("")
         |> String.slice(0, @max_description_length)
     }
+
+    # Note: persistent_term has no CAS, so concurrent register_custom_key calls
+    # could theoretically exceed the limit by 1-2 keys. This is acceptable since
+    # registration only happens at app startup, not at runtime.
+    # Re-registration of existing keys is always allowed (override).
+    current = custom_keys_map()
+
+    if not Map.has_key?(current, key) and map_size(current) >= @max_custom_keys do
+      raise ArgumentError,
+            "Cannot register more than #{@max_custom_keys} custom permission keys"
+    end
+
+    if Map.has_key?(current, key) do
+      Logger.warning(
+        "[Permissions] Custom permission key #{inspect(key)} re-registered, overriding previous metadata"
+      )
+    end
 
     :persistent_term.put(@custom_keys_pterm, Map.put(current, key, meta))
 
@@ -293,15 +270,15 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Returns all built-in and custom permission keys as a list. See `enabled_module_keys/0` for filtered MapSet variant."
   @spec all_module_keys() :: [String.t()]
-  def all_module_keys, do: @all_module_keys ++ custom_keys()
+  def all_module_keys, do: @core_section_keys ++ feature_module_keys() ++ custom_keys()
 
   @doc "Returns the 5 core section keys."
   @spec core_section_keys() :: [String.t()]
   def core_section_keys, do: @core_section_keys
 
-  @doc "Returns the 20 feature module keys."
+  @doc "Returns the feature module keys from the registry."
   @spec feature_module_keys() :: [String.t()]
-  def feature_module_keys, do: @feature_module_keys
+  def feature_module_keys, do: ModuleRegistry.all_feature_keys()
 
   @doc """
   Returns module keys that are currently enabled (core sections + enabled feature modules + custom keys)
@@ -314,7 +291,7 @@ defmodule PhoenixKit.Users.Permissions do
   @spec enabled_module_keys() :: MapSet.t()
   def enabled_module_keys do
     enabled_features =
-      @feature_module_keys
+      feature_module_keys()
       |> Enum.filter(&do_feature_enabled?/1)
 
     MapSet.new(@core_section_keys ++ enabled_features ++ custom_keys())
@@ -322,8 +299,11 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc "Checks whether `key` is a known permission key (built-in or custom)."
   @spec valid_module_key?(String.t()) :: boolean()
-  def valid_module_key?(key) when is_binary(key),
-    do: key in @all_module_keys or Map.has_key?(custom_keys_map(), key)
+  def valid_module_key?(key) when is_binary(key) do
+    key in @core_section_keys or
+      key in ModuleRegistry.all_feature_keys() or
+      Map.has_key?(custom_keys_map(), key)
+  end
 
   def valid_module_key?(_), do: false
 
@@ -339,7 +319,7 @@ defmodule PhoenixKit.Users.Permissions do
   def feature_enabled?(key) when key in @core_section_keys, do: true
 
   def feature_enabled?(key) when is_binary(key) do
-    case Map.get(@feature_enabled_checks, key) do
+    case Map.get(ModuleRegistry.feature_enabled_checks(), key) do
       {mod, fun} ->
         Code.ensure_loaded?(mod) && apply(mod, fun, [])
 
@@ -351,115 +331,62 @@ defmodule PhoenixKit.Users.Permissions do
     _ -> false
   end
 
-  @labels %{
+  # Core section metadata (always present, not from registry)
+  @core_labels %{
     "dashboard" => "Dashboard",
     "users" => "Users",
     "media" => "Media",
     "settings" => "Settings",
-    "modules" => "Modules",
-    "billing" => "Billing",
-    "shop" => "E-Commerce",
-    "emails" => "Emails",
-    "entities" => "Entities",
-    "tickets" => "Tickets",
-    "posts" => "Posts",
-    "comments" => "Comments",
-    "ai" => "AI",
-    "sync" => "Sync",
-    "publishing" => "Publishing",
-    "referrals" => "Referrals",
-    "sitemap" => "Sitemap",
-    "seo" => "SEO",
-    "maintenance" => "Maintenance",
-    "storage" => "Storage",
-    "languages" => "Languages",
-    "connections" => "Connections",
-    "legal" => "Legal",
-    "db" => "DB",
-    "jobs" => "Jobs"
+    "modules" => "Modules"
+  }
+
+  @core_icons %{
+    "dashboard" => "hero-home",
+    "users" => "hero-users",
+    "media" => "hero-photo",
+    "settings" => "hero-cog-6-tooth",
+    "modules" => "hero-squares-2x2"
+  }
+
+  @core_descriptions %{
+    "dashboard" => "Overview statistics, charts, and system health",
+    "users" => "User accounts, roles, and access management",
+    "media" => "File uploads, image processing, and storage buckets",
+    "settings" => "General, organization, and user preference settings",
+    "modules" => "Enable, disable, and configure feature modules"
   }
 
   @doc "Returns a human-readable label for a module key."
   @spec module_label(String.t()) :: String.t()
   def module_label(key) do
-    case Map.get(@labels, key) do
-      nil -> custom_key_metadata(key)[:label] || String.capitalize(key)
-      label -> label
-    end
+    Map.get_lazy(@core_labels, key, fn ->
+      case Map.get(ModuleRegistry.permission_labels(), key) do
+        nil -> custom_key_metadata(key)[:label] || String.capitalize(key)
+        label -> label
+      end
+    end)
   end
-
-  @icons %{
-    "dashboard" => "hero-home",
-    "users" => "hero-users",
-    "media" => "hero-photo",
-    "settings" => "hero-cog-6-tooth",
-    "modules" => "hero-squares-2x2",
-    "billing" => "hero-credit-card",
-    "shop" => "hero-shopping-cart",
-    "emails" => "hero-envelope",
-    "entities" => "hero-cube-transparent",
-    "tickets" => "hero-ticket",
-    "posts" => "hero-document-text",
-    "comments" => "hero-chat-bubble-left-right",
-    "ai" => "hero-sparkles",
-    "sync" => "hero-arrow-path",
-    "publishing" => "hero-document-duplicate",
-    "referrals" => "hero-gift",
-    "sitemap" => "hero-map",
-    "seo" => "hero-magnifying-glass",
-    "maintenance" => "hero-wrench-screwdriver",
-    "storage" => "hero-circle-stack",
-    "languages" => "hero-language",
-    "connections" => "hero-link",
-    "legal" => "hero-scale",
-    "db" => "hero-server-stack",
-    "jobs" => "hero-clock"
-  }
 
   @doc "Returns a Heroicon name for a module key."
   @spec module_icon(String.t()) :: String.t()
   def module_icon(key) do
-    case Map.get(@icons, key) do
-      nil -> custom_key_metadata(key)[:icon] || "hero-squares-2x2"
-      icon -> icon
-    end
+    Map.get_lazy(@core_icons, key, fn ->
+      case Map.get(ModuleRegistry.permission_icons(), key) do
+        nil -> custom_key_metadata(key)[:icon] || "hero-squares-2x2"
+        icon -> icon
+      end
+    end)
   end
-
-  @descriptions %{
-    "dashboard" => "Overview statistics, charts, and system health",
-    "users" => "User accounts, roles, and access management",
-    "media" => "File uploads, image processing, and storage buckets",
-    "settings" => "General, organization, and user preference settings",
-    "modules" => "Enable, disable, and configure feature modules",
-    "billing" => "Payment providers, subscriptions, and invoices",
-    "shop" => "Product catalog, orders, and e-commerce management",
-    "emails" => "Email delivery tracking, templates, and analytics",
-    "entities" => "Dynamic content types and custom data structures",
-    "tickets" => "Support ticket management and customer communication",
-    "posts" => "Blog posts, categories, and content publishing",
-    "comments" => "Comment moderation, threading, and reactions across all content types",
-    "ai" => "AI endpoints, prompts, and usage tracking",
-    "sync" => "Peer-to-peer data synchronization and replication",
-    "publishing" => "Filesystem-based CMS pages and multi-language content",
-    "referrals" => "Referral codes, tracking, and reward programs",
-    "sitemap" => "XML sitemap generation and search engine indexing",
-    "seo" => "Meta tags, Open Graph, and search optimization",
-    "maintenance" => "Maintenance mode and under-construction pages",
-    "storage" => "Distributed file storage with multi-location redundancy",
-    "languages" => "Multi-language support and locale management",
-    "connections" => "External service connections and integrations",
-    "legal" => "Legal pages, terms of service, and privacy policies",
-    "db" => "Database explorer and schema inspection",
-    "jobs" => "Background job queues and task scheduling"
-  }
 
   @doc "Returns a short description for a module key."
   @spec module_description(String.t()) :: String.t()
   def module_description(key) do
-    case Map.get(@descriptions, key) do
-      nil -> custom_key_metadata(key)[:description] || ""
-      desc -> desc
-    end
+    Map.get_lazy(@core_descriptions, key, fn ->
+      case Map.get(ModuleRegistry.permission_descriptions(), key) do
+        nil -> custom_key_metadata(key)[:description] || ""
+        desc -> desc
+      end
+    end)
   end
 
   # --- Query API ---
@@ -653,6 +580,15 @@ defmodule PhoenixKit.Users.Permissions do
     # Resolve both integer and UUID forms for dual-write
     role_int = resolve_role_id(role_id)
     role_uuid = resolve_role_uuid(role_id)
+
+    if is_nil(role_uuid) do
+      {:error, :role_not_found}
+    else
+      grant_permission_insert(repo, role_int, role_uuid, module_key, granted_by_id)
+    end
+  end
+
+  defp grant_permission_insert(repo, role_int, role_uuid, module_key, granted_by_id) do
     granted_by_int = resolve_user_id(granted_by_id)
     granted_by_uuid = resolve_user_uuid(granted_by_id)
 
@@ -670,8 +606,8 @@ defmodule PhoenixKit.Users.Permissions do
     )
     |> tap(fn
       {:ok, %{uuid: uuid}} when not is_nil(uuid) ->
-        Events.broadcast_permission_granted(role_id, module_key)
-        notify_affected_users(role_id)
+        Events.broadcast_permission_granted(role_uuid, module_key)
+        notify_affected_users(role_uuid)
 
       _ ->
         :ok
@@ -879,7 +815,7 @@ defmodule PhoenixKit.Users.Permissions do
   end
 
   defp do_feature_enabled?(key) do
-    case Map.get(@feature_enabled_checks, key) do
+    case Map.get(ModuleRegistry.feature_enabled_checks(), key) do
       {mod, fun} ->
         Code.ensure_loaded?(mod) && apply(mod, fun, [])
 

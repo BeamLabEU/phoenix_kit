@@ -6,8 +6,11 @@ defmodule PhoenixKit.Modules.Publishing do
   for creating timestamped or slug-based markdown posts with multi-language support.
   """
 
+  use PhoenixKit.Module
+
   require Logger
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.DualWrite
@@ -335,6 +338,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   @type group :: map()
 
+  @impl PhoenixKit.Module
   @doc """
   Returns true when the publishing module is enabled.
   Checks new key first, falls back to legacy key.
@@ -347,6 +351,7 @@ defmodule PhoenixKit.Modules.Publishing do
       settings_call(:get_boolean_setting, [@legacy_enabled_key, false])
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the publishing module.
   Always writes to the new key.
@@ -356,6 +361,7 @@ defmodule PhoenixKit.Modules.Publishing do
     settings_call(:update_boolean_setting, [@publishing_enabled_key, true])
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the publishing module.
   Always writes to the new key.
@@ -435,6 +441,124 @@ defmodule PhoenixKit.Modules.Publishing do
     # Don't let cache cleanup failure prevent the mode switch
     _ -> :ok
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "publishing"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Publishing"
+
+  @impl PhoenixKit.Module
+  def get_config do
+    %{
+      enabled: enabled?(),
+      storage_mode: storage_mode(),
+      groups_count: length(list_groups())
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "publishing",
+      label: "Publishing",
+      icon: "hero-document-duplicate",
+      description: "Filesystem-based CMS pages and multi-language content"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_publishing,
+        label: "Publishing",
+        icon: "hero-document-text",
+        path: "/admin/publishing",
+        priority: 600,
+        level: :admin,
+        permission: "publishing",
+        match: :exact,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false,
+        dynamic_children: &__MODULE__.publishing_children/1
+      )
+    ]
+  end
+
+  @doc "Dynamic children function for Publishing sidebar tabs."
+  def publishing_children(_scope) do
+    groups = load_publishing_groups_for_tabs()
+
+    groups
+    |> Enum.with_index()
+    |> Enum.map(fn {group, idx} ->
+      slug = group["slug"] || ""
+      name = group["name"] || slug
+      hash = :erlang.phash2(slug) |> Integer.to_string(16) |> String.downcase()
+      sanitized = slug |> String.replace(~r/[^a-zA-Z0-9_]/, "_") |> String.slice(0, 50)
+
+      %Tab{
+        id: :"admin_publishing_#{sanitized}_#{hash}",
+        label: name,
+        icon: "hero-document-text",
+        path: "/admin/publishing/#{slug}",
+        priority: 601 + idx,
+        level: :admin,
+        permission: "publishing",
+        match: :prefix,
+        parent: :admin_publishing
+      }
+    end)
+  rescue
+    _ -> []
+  end
+
+  defp load_publishing_groups_for_tabs do
+    alias PhoenixKit.Settings
+
+    publishing_enabled =
+      Settings.get_boolean_setting("publishing_enabled", false) or
+        Settings.get_boolean_setting("blogging_enabled", false)
+
+    if publishing_enabled do
+      alias PhoenixKit.Modules.Publishing.DBStorage
+
+      DBStorage.list_groups()
+      |> Enum.map(fn g -> %{"name" => g.name, "slug" => g.slug} end)
+    else
+      []
+    end
+  rescue
+    _ -> []
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_publishing,
+        label: "Publishing",
+        icon: "hero-document-text",
+        path: "/admin/settings/publishing",
+        priority: 921,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "publishing"
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def children, do: [PhoenixKit.Modules.Publishing.Presence]
+
+  @impl PhoenixKit.Module
+  def route_module, do: PhoenixKitWeb.Routes.PublishingRoutes
 
   @doc """
   Returns all configured publishing groups.

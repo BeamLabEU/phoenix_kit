@@ -40,8 +40,11 @@ defmodule PhoenixKit.Modules.Billing do
       {:ok, invoice} = Billing.mark_invoice_paid(invoice)
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Billing.BillingProfile
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Modules.Billing.Currency
@@ -60,27 +63,32 @@ defmodule PhoenixKit.Modules.Billing do
   # SYSTEM ENABLE/DISABLE
   # ============================================
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the billing system is enabled.
   """
   def enabled? do
-    Settings.get_setting_cached("billing_enabled", "false") == "true"
+    Settings.get_boolean_setting("billing_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the billing system.
   """
   def enable_system do
-    Settings.update_setting("billing_enabled", "true")
+    result = Settings.update_boolean_setting_with_module("billing_enabled", true, "billing")
     refresh_dashboard_tabs()
+    result
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the billing system.
   """
   def disable_system do
-    Settings.update_setting("billing_enabled", "false")
+    result = Settings.update_boolean_setting_with_module("billing_enabled", false, "billing")
     refresh_dashboard_tabs()
+    result
   end
 
   defp refresh_dashboard_tabs do
@@ -90,6 +98,178 @@ defmodule PhoenixKit.Modules.Billing do
     end
   end
 
+  # ============================================
+  # MODULE BEHAVIOUR CALLBACKS
+  # ============================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "billing"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Billing"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "billing",
+      label: "Billing",
+      icon: "hero-credit-card",
+      description: "Payment providers, subscriptions, and invoices"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_billing,
+        label: "Billing",
+        icon: "hero-banknotes",
+        path: "/admin/billing",
+        priority: 520,
+        level: :admin,
+        permission: "billing",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false
+      ),
+      Tab.new!(
+        id: :admin_billing_dashboard,
+        label: "Dashboard",
+        icon: "hero-chart-bar-square",
+        path: "/admin/billing",
+        priority: 521,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing,
+        match: :exact
+      ),
+      Tab.new!(
+        id: :admin_billing_orders,
+        label: "Orders",
+        icon: "hero-shopping-bag",
+        path: "/admin/billing/orders",
+        priority: 522,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      ),
+      Tab.new!(
+        id: :admin_billing_invoices,
+        label: "Invoices",
+        icon: "hero-document-text",
+        path: "/admin/billing/invoices",
+        priority: 523,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      ),
+      Tab.new!(
+        id: :admin_billing_transactions,
+        label: "Transactions",
+        icon: "hero-arrows-right-left",
+        path: "/admin/billing/transactions",
+        priority: 524,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      ),
+      Tab.new!(
+        id: :admin_billing_subscriptions,
+        label: "Subscriptions",
+        icon: "hero-arrow-path",
+        path: "/admin/billing/subscriptions",
+        priority: 525,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      ),
+      Tab.new!(
+        id: :admin_billing_plans,
+        label: "Plans",
+        icon: "hero-rectangle-stack",
+        path: "/admin/billing/plans",
+        priority: 526,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      ),
+      Tab.new!(
+        id: :admin_billing_profiles,
+        label: "Billing Profiles",
+        icon: "hero-identification",
+        path: "/admin/billing/profiles",
+        priority: 527,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      ),
+      Tab.new!(
+        id: :admin_billing_currencies,
+        label: "Currencies",
+        icon: "hero-currency-dollar",
+        path: "/admin/billing/currencies",
+        priority: 528,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      ),
+      Tab.new!(
+        id: :admin_billing_providers,
+        label: "Payment Providers",
+        icon: "hero-credit-card",
+        path: "/admin/settings/billing/providers",
+        priority: 529,
+        level: :admin,
+        permission: "billing",
+        parent: :admin_billing
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_billing,
+        label: "Billing",
+        icon: "hero-banknotes",
+        path: "/admin/settings/billing",
+        priority: 926,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "billing",
+        match: :exact
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def user_dashboard_tabs do
+    [
+      Tab.new!(
+        id: :dashboard_orders,
+        label: "My Orders",
+        icon: "hero-shopping-bag",
+        path: "/dashboard/orders",
+        priority: 200,
+        match: :prefix,
+        group: :main
+      ),
+      Tab.new!(
+        id: :dashboard_billing_profiles,
+        label: "Billing Profiles",
+        icon: "hero-identification",
+        path: "/dashboard/billing-profiles",
+        priority: 850,
+        match: :prefix,
+        group: :account
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
   @doc """
   Returns the current billing configuration.
   """

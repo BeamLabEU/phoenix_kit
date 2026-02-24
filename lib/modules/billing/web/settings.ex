@@ -76,9 +76,6 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
   def handle_event("toggle_billing", _params, socket) do
     new_enabled = !socket.assigns.billing_enabled
 
-    # If disabling Billing and Shop is enabled, disable Shop first
-    if not new_enabled and shop_enabled?(), do: Shop.disable_system()
-
     result =
       if new_enabled do
         Billing.enable_system()
@@ -87,7 +84,10 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
       end
 
     case result do
-      :ok ->
+      {:ok, _} ->
+        # Disable Shop after Billing succeeds to avoid orphaned state on failure
+        if not new_enabled and shop_enabled?(), do: Shop.disable_system()
+
         {:noreply,
          socket
          |> assign(:billing_enabled, new_enabled)

@@ -63,13 +63,10 @@ defmodule PhoenixKit.Dashboard.Registry do
   require Logger
 
   alias PhoenixKit.Dashboard.{AdminTabs, Badge, Group, Tab}
+  alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.Modules.Entities
   alias PhoenixKit.PubSubHelper
   alias PhoenixKit.Users.Permissions
-
-  # Suppress warnings about optional modules (loaded conditionally)
-  @compile {:no_warn_undefined, PhoenixKit.Modules.Tickets}
-  @compile {:no_warn_undefined, PhoenixKit.Modules.Billing}
-  @compile {:no_warn_undefined, PhoenixKit.Modules.Shop}
 
   @ets_table :phoenix_kit_dashboard_tabs
   @pubsub_topic "phoenix_kit:dashboard:tabs"
@@ -632,7 +629,11 @@ defmodule PhoenixKit.Dashboard.Registry do
   @impl true
   def handle_info({event, _entity_id}, state)
       when event in [:entity_created, :entity_updated, :entity_deleted] do
-    AdminTabs.invalidate_entities_cache()
+    if Code.ensure_loaded?(Entities) and
+         function_exported?(Entities, :invalidate_entities_cache, 0) do
+      Entities.invalidate_entities_cache()
+    end
+
     broadcast_refresh()
     {:noreply, state}
   end
@@ -753,82 +754,9 @@ defmodule PhoenixKit.Dashboard.Registry do
       )
     ]
 
-    # Add tickets tab if module is enabled (checking at runtime)
-    defaults =
-      if tickets_enabled?() do
-        ticket_tab =
-          Tab.new!(
-            id: :dashboard_tickets,
-            label: "My Tickets",
-            icon: "hero-ticket",
-            path: "/dashboard/tickets",
-            priority: 800,
-            match: :prefix,
-            group: :account
-          )
-
-        defaults ++ [ticket_tab]
-      else
-        defaults
-      end
-
-    # Add billing tabs if module is enabled
-    defaults =
-      if billing_enabled?() do
-        billing_tabs = [
-          Tab.new!(
-            id: :dashboard_orders,
-            label: "My Orders",
-            icon: "hero-shopping-bag",
-            path: "/dashboard/orders",
-            priority: 200,
-            match: :prefix,
-            group: :main
-          ),
-          Tab.new!(
-            id: :dashboard_billing_profiles,
-            label: "Billing Profiles",
-            icon: "hero-identification",
-            path: "/dashboard/billing-profiles",
-            priority: 850,
-            match: :prefix,
-            group: :account
-          )
-        ]
-
-        defaults ++ billing_tabs
-      else
-        defaults
-      end
-
-    # Add shop tabs if module is enabled
-    defaults =
-      if shop_enabled?() do
-        shop_tabs = [
-          Tab.new!(
-            id: :dashboard_shop,
-            label: "Shop",
-            icon: "hero-building-storefront",
-            path: "/shop",
-            priority: 300,
-            match: :prefix,
-            group: :shop
-          ),
-          Tab.new!(
-            id: :dashboard_cart,
-            label: "My Cart",
-            icon: "hero-shopping-cart",
-            path: "/cart",
-            priority: 310,
-            match: :prefix,
-            group: :shop
-          )
-        ]
-
-        defaults ++ shop_tabs
-      else
-        defaults
-      end
+    # Add user dashboard tabs from enabled modules via registry
+    module_tabs = enabled_user_dashboard_tabs()
+    defaults = defaults ++ module_tabs
 
     # Default groups
     groups = [
@@ -927,38 +855,17 @@ defmodule PhoenixKit.Dashboard.Registry do
     |> Enum.sort_by(& &1.priority)
   end
 
-  defp tickets_enabled? do
-    Code.ensure_loaded?(PhoenixKit.Modules.Tickets) and
-      function_exported?(PhoenixKit.Modules.Tickets, :enabled?, 0) and
-      call_tickets_enabled()
+  # Collect user dashboard tabs from all enabled modules via registry
+  defp enabled_user_dashboard_tabs do
+    ModuleRegistry.enabled_modules()
+    |> Enum.flat_map(fn mod ->
+      if function_exported?(mod, :user_dashboard_tabs, 0),
+        do: mod.user_dashboard_tabs(),
+        else: []
+    end)
   rescue
-    _ -> false
+    _ -> []
   end
-
-  defp billing_enabled? do
-    Code.ensure_loaded?(PhoenixKit.Modules.Billing) and
-      function_exported?(PhoenixKit.Modules.Billing, :enabled?, 0) and
-      call_billing_enabled()
-  rescue
-    _ -> false
-  end
-
-  defp shop_enabled? do
-    Code.ensure_loaded?(PhoenixKit.Modules.Shop) and
-      function_exported?(PhoenixKit.Modules.Shop, :enabled?, 0) and
-      call_shop_enabled()
-  rescue
-    _ -> false
-  end
-
-  # credo:disable-for-next-line Credo.Check.Design.AliasUsage
-  defp call_tickets_enabled, do: PhoenixKit.Modules.Tickets.enabled?()
-
-  # credo:disable-for-next-line Credo.Check.Design.AliasUsage
-  defp call_billing_enabled, do: PhoenixKit.Modules.Billing.enabled?()
-
-  # credo:disable-for-next-line Credo.Check.Design.AliasUsage
-  defp call_shop_enabled, do: PhoenixKit.Modules.Shop.enabled?()
 
   # --- Admin Tab Loading ---
 
