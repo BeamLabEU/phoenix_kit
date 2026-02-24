@@ -335,35 +335,7 @@ defmodule PhoenixKitWeb.Integration do
 
       # Shop public routes are generated via generate_shop_public_routes/1 helper
       # This supports locale-prefixed URLs (/:locale/shop/...) with language switching
-
-      # Shop user dashboard routes (requires authentication)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
-
-        live_session :phoenix_kit_shop_user,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
-            as: :shop_user_orders
-
-          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
-            as: :shop_user_order_details
-
-          live "/dashboard/billing-profiles",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
-               :index,
-               as: :user_billing_profiles
-
-          live "/dashboard/billing-profiles/new",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-               :new,
-               as: :user_billing_profile_new
-
-          live "/dashboard/billing-profiles/:id/edit",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-               :edit,
-               as: :user_billing_profile_edit
-        end
-      end
+      # Shop user dashboard routes are now in phoenix_kit_authenticated_routes/1.
     end
   end
 
@@ -391,13 +363,26 @@ defmodule PhoenixKitWeb.Integration do
   # compile time by ~50% for router files.
   # ============================================================================
 
-  # Generates authentication routes (register, login, magic-link, reset-password)
-  defmacro phoenix_kit_auth_routes(suffix) do
-    session_name = :"phoenix_kit_redirect_if_user_is_authenticated#{suffix}"
+  # Generates unified public routes (auth + confirmation + shop) in a single live_session.
+  # Auth LiveViews handle the redirect-if-authenticated check in their own mount/3,
+  # so the shared session uses the permissive :phoenix_kit_mount_current_scope hook.
+  # Shop routes are included here so all public pages share one WebSocket session,
+  # enabling seamless LiveView navigation across auth, confirmation, and shop pages.
+  defmacro phoenix_kit_public_routes(suffix) do
+    session_name = :"phoenix_kit_public#{suffix}"
+
+    # Get shop live route declarations at compile time (no scope/pipeline wrappers)
+    shop_live_routes =
+      if suffix == :_locale do
+        ShopRoutes.public_live_locale_routes()
+      else
+        ShopRoutes.public_live_routes()
+      end
 
     quote do
       live_session unquote(session_name),
-        on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_redirect_if_authenticated_scope}] do
+        on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+        # Auth pages — redirect-if-authenticated handled in each LiveView's mount/3
         live "/users/register", Users.Registration, :new, as: :user_registration
 
         live "/users/register/magic-link", Users.MagicLinkRegistrationRequest, :new,
@@ -412,21 +397,18 @@ defmodule PhoenixKitWeb.Integration do
 
         live "/users/reset-password/:token", Users.ResetPassword, :edit,
           as: :user_reset_password_edit
-      end
-    end
-  end
 
-  # Generates user confirmation routes
-  defmacro phoenix_kit_confirmation_routes(suffix) do
-    session_name = :"phoenix_kit_current_user#{suffix}"
-
-    quote do
-      live_session unquote(session_name),
-        on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+        # Confirmation pages — no redirect check needed
         live "/users/confirm/:token", Users.Confirmation, :edit, as: :user_confirmation
 
         live "/users/confirm", Users.ConfirmationInstructions, :new,
           as: :user_confirmation_instructions
+
+        # Shop public pages — same session for seamless auth → shop navigation
+        # Full module names required (no PhoenixKitWeb alias in shop namespace)
+        scope "/", alias: false do
+          unquote(shop_live_routes)
+        end
       end
     end
   end
@@ -772,7 +754,68 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
-  # Generates user dashboard routes (conditional on config)
+  # Generates unified authenticated user routes: dashboard + shop user + tickets user.
+  # All routes share one live_session for seamless navigation within the user dashboard.
+  # Module routes use alias: false since they live outside the PhoenixKitWeb namespace.
+  defmacro phoenix_kit_authenticated_routes(suffix) do
+    session_name = :"phoenix_kit_authenticated#{suffix}"
+
+    quote do
+      live_session unquote(session_name),
+        on_mount: [
+          {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+          {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+        ] do
+        # Core dashboard routes (conditional on config)
+        if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
+          live "/dashboard", Live.Dashboard.Index, :index
+          live "/dashboard/settings", Live.Dashboard.Settings, :edit
+
+          live "/dashboard/settings/confirm-email/:token",
+               Live.Dashboard.Settings,
+               :confirm_email
+        end
+
+        # Module user pages (full module names — no PhoenixKitWeb alias)
+        scope "/", alias: false do
+          # Shop user pages
+          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+            as: :shop_user_orders
+
+          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+            as: :shop_user_order_details
+
+          live "/dashboard/billing-profiles",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+               :index,
+               as: :user_billing_profiles
+
+          live "/dashboard/billing-profiles/new",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :new,
+               as: :user_billing_profile_new
+
+          live "/dashboard/billing-profiles/:id/edit",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :edit,
+               as: :user_billing_profile_edit
+
+          # Tickets user pages
+          live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
+            as: :tickets_user_list
+
+          live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
+            as: :tickets_user_new
+
+          live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
+            as: :tickets_user_details
+        end
+      end
+    end
+  end
+
+  # Generates user dashboard routes (conditional on config).
+  # @deprecated Use phoenix_kit_authenticated_routes/1 instead.
   defmacro phoenix_kit_dashboard_routes(suffix) do
     session_name = :"phoenix_kit_user_dashboard#{suffix}"
 
@@ -851,10 +894,17 @@ defmodule PhoenixKitWeb.Integration do
   # Helper function to generate localized routes
   defp generate_localized_routes(url_prefix, pattern) do
     quote do
-      # Localized scope with locale parameter
+      # Localized scope: public routes (no plug-level auth check) + admin
+      # :phoenix_kit_shop_session is included so the cart session is available
+      # on all public pages; the plug is a no-op when Shop module is disabled.
       scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb,
         locale: ~r/^(#{unquote(pattern)})$/ do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_shop_session,
+          :phoenix_kit_locale_validation
+        ]
 
         # POST routes for authentication (needed for locale-prefixed form submissions)
         post "/users/log-in", Users.Session, :create
@@ -869,10 +919,21 @@ defmodule PhoenixKitWeb.Integration do
         # Magic Link Registration
         get "/users/register/verify/:token", Users.MagicLinkRegistrationVerify, :verify
 
-        phoenix_kit_auth_routes(:_locale)
-        phoenix_kit_confirmation_routes(:_locale)
+        phoenix_kit_public_routes(:_locale)
         phoenix_kit_admin_routes(:_locale)
-        phoenix_kit_dashboard_routes(:_locale)
+      end
+
+      # Localized scope: authenticated user routes (plug-level auth check)
+      scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb,
+        locale: ~r/^(#{unquote(pattern)})$/ do
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_require_authenticated,
+          :phoenix_kit_locale_validation
+        ]
+
+        phoenix_kit_authenticated_routes(:_locale)
       end
     end
   end
@@ -880,14 +941,31 @@ defmodule PhoenixKitWeb.Integration do
   # Helper function to generate non-localized routes
   defp generate_non_localized_routes(url_prefix) do
     quote do
-      # Non-localized scope for backward compatibility (defaults to "en")
+      # Non-localized scope: public routes (no plug-level auth check) + admin
+      # :phoenix_kit_shop_session is included so the cart session is available
+      # on all public pages; the plug is a no-op when Shop module is disabled.
       scope unquote(url_prefix), PhoenixKitWeb do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_shop_session,
+          :phoenix_kit_locale_validation
+        ]
 
-        phoenix_kit_auth_routes(:"")
-        phoenix_kit_confirmation_routes(:"")
+        phoenix_kit_public_routes(:"")
         phoenix_kit_admin_routes(:"")
-        phoenix_kit_dashboard_routes(:"")
+      end
+
+      # Non-localized scope: authenticated user routes (plug-level auth check)
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_require_authenticated,
+          :phoenix_kit_locale_validation
+        ]
+
+        phoenix_kit_authenticated_routes(:"")
       end
     end
   end
@@ -921,7 +999,6 @@ defmodule PhoenixKitWeb.Integration do
     emails_routes = EmailsRoutes.generate(url_prefix)
     publishing_routes = PublishingRoutes.generate(url_prefix)
     tickets_routes = TicketsRoutes.generate(url_prefix)
-    shop_public_routes = ShopRoutes.generate_public_routes(url_prefix)
     blog_routes = BlogRoutes.generate(url_prefix)
 
     quote do
@@ -941,9 +1018,6 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
-
-      # Generate shop public routes (with locale support)
-      unquote(shop_public_routes)
 
       # Generate blog routes (after other routes to prevent conflicts)
       unquote(blog_routes)

@@ -7,61 +7,66 @@ defmodule PhoenixKitWeb.Routes.ShopRoutes do
   """
 
   @doc """
-  Returns quoted code for shop public routes.
+  Returns quoted `live` route declarations for non-localized shop public pages.
+
+  These declarations are included directly inside the unified `:phoenix_kit_public`
+  live_session defined in `phoenix_kit_public_routes/1` in `PhoenixKitWeb.Integration`.
+  Routes use full module names (alias: false) and non-localized route aliases.
   """
-  def generate_public_routes(url_prefix) do
+  def public_live_routes do
     quote do
-      # Localized shop routes (with :locale prefix)
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [
-          :browser,
-          :phoenix_kit_auto_setup,
-          :phoenix_kit_shop_session,
-          :phoenix_kit_locale_validation
-        ]
+      live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog
 
-        live_session :phoenix_kit_shop_public_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
-          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index,
-            as: :shop_catalog_localized
+      live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
+        as: :shop_category
 
-          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
-            as: :shop_category_localized
+      live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
+        as: :shop_product
 
-          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
-            as: :shop_product_localized
+      live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
+      live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index, as: :shop_checkout
 
-          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart_localized
+      live "/checkout/complete/:uuid", PhoenixKit.Modules.Shop.Web.CheckoutComplete, :show,
+        as: :shop_checkout_complete
+    end
+  end
 
-          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index,
-            as: :shop_checkout_localized
+  @doc """
+  Returns quoted `live` route declarations for localized shop public pages.
 
-          live "/checkout/complete/:uuid", PhoenixKit.Modules.Shop.Web.CheckoutComplete, :show,
-            as: :shop_checkout_complete_localized
-        end
-      end
+  These declarations are included directly inside the unified `:phoenix_kit_public_locale`
+  live_session defined in `phoenix_kit_public_routes/1` in `PhoenixKitWeb.Integration`.
+  Routes use full module names (alias: false) and localized route aliases.
+  """
+  def public_live_locale_routes do
+    quote do
+      live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog_localized
 
-      # Non-localized shop routes (default language - no prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_shop_session]
+      live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
+        as: :shop_category_localized
 
-        live_session :phoenix_kit_shop_public,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
-          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog
+      live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
+        as: :shop_product_localized
 
-          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
-            as: :shop_category
+      live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart_localized
 
-          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
-            as: :shop_product
+      live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index,
+        as: :shop_checkout_localized
 
-          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
-          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index, as: :shop_checkout
+      live "/checkout/complete/:uuid", PhoenixKit.Modules.Shop.Web.CheckoutComplete, :show,
+        as: :shop_checkout_complete_localized
+    end
+  end
 
-          live "/checkout/complete/:uuid", PhoenixKit.Modules.Shop.Web.CheckoutComplete, :show,
-            as: :shop_checkout_complete
-        end
-      end
+  @doc """
+  Returns quoted code for shop public routes.
+
+  Shop public routes are now included in the unified `:phoenix_kit_public` live_session
+  via `phoenix_kit_public_routes/1` in `PhoenixKitWeb.Integration`. This function
+  returns an empty block for backward compatibility.
+  """
+  def generate_public_routes(_url_prefix) do
+    quote do
     end
   end
 end

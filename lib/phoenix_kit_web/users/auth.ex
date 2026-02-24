@@ -359,6 +359,23 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   @doc """
+  Checks if the current user is authenticated and returns a redirect socket if so.
+
+  Used by auth pages (login, register, etc.) that should not be accessible
+  to already-authenticated users when placed in a shared public live_session.
+
+  Returns `{:redirect, redirected_socket}` if authenticated (caller should halt),
+  or `:cont` if not authenticated (caller should proceed with normal mount).
+  """
+  def maybe_redirect_authenticated(socket) do
+    if Scope.authenticated?(socket.assigns[:phoenix_kit_current_scope]) do
+      {:redirect, Phoenix.LiveView.redirect(socket, to: "/")}
+    else
+      :cont
+    end
+  end
+
+  @doc """
   Handles mounting and authenticating the phoenix_kit_current_user in LiveViews.
 
   ## `on_mount` arguments
