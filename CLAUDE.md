@@ -242,7 +242,7 @@ Or enable via Admin UI at `/{prefix}/admin/modules`.
 
 ### UUIDv7
 
-See `dev_docs/uuid_migration_instructions_v3.md` for full guide.
+See `dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md` for full guide.
 
 - Integer `id` is **deprecated** (V56+) — use `.uuid` for new code
 - `belongs_to` with UUID FKs **MUST** include `references: :uuid`

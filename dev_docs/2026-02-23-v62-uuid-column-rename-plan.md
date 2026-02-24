@@ -11,7 +11,7 @@
 
 Rename all UUID-type database columns that still use the `_id` suffix to `_uuid`.
 
-**Naming convention** (from `dev_docs/2026-02-17-uuid-migration-instructions-v3.md`):
+**Naming convention** (from `dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md`):
 - `_id` suffix = integer (legacy, deprecated, will be dropped after cutover)
 - `_uuid` suffix = UUID type
 

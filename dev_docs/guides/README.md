@@ -147,6 +147,8 @@ Future guides to add:
 - ✅ **AWS Email Setup** - Email infrastructure automation
 - ✅ **Auth Header Integration** - Authentication header patterns
 - ✅ **Module System** - Building internal and external PhoenixKit modules
+- ✅ **UUID Migration Guide** - UUIDv7 migration patterns and conventions
+- ✅ **Plugin System Architecture** - Architecture reference for the plugin module system
 
 ## Feedback
 
