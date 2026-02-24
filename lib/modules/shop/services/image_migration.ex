@@ -60,7 +60,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
-            is_nil(p.featured_image_id) and
+            is_nil(p.featured_image_uuid) and
             fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
         order_by: [asc: p.inserted_at]
       )
@@ -87,7 +87,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
-            is_nil(p.featured_image_id) and
+            is_nil(p.featured_image_uuid) and
             fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
         select: count(p.id)
       )
@@ -109,7 +109,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     query =
       from(p in Product,
         where:
-          not is_nil(p.featured_image_id) or
+          not is_nil(p.featured_image_uuid) or
             fragment("array_length(?, 1) > 0", p.image_ids),
         select: count(p.id)
       )
@@ -266,7 +266,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   ## Examples
 
       iex> migrate_product(product_id, user_id)
-      {:ok, %Product{featured_image_id: "uuid-1", image_ids: ["uuid-1", "uuid-2"]}}
+      {:ok, %Product{featured_image_uuid: "uuid-1", image_ids: ["uuid-1", "uuid-2"]}}
 
   """
   @spec migrate_product(String.t(), String.t() | integer()) ::
@@ -316,7 +316,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   end
 
   defp has_storage_images?(product) do
-    not is_nil(product.featured_image_id) or
+    not is_nil(product.featured_image_uuid) or
       (is_list(product.image_ids) and product.image_ids != [])
   end
 
@@ -384,8 +384,8 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   end
 
   defp update_product_images(product, url_to_file_id) do
-    # Map featured_image to featured_image_id
-    featured_image_id = Map.get(url_to_file_id, product.featured_image)
+    # Map featured_image to featured_image_uuid
+    featured_image_uuid = Map.get(url_to_file_id, product.featured_image)
 
     # Map legacy images to image_ids, preserving order from original images array
     image_ids =
@@ -399,12 +399,12 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
       |> Enum.reject(&is_nil/1)
 
     # Use first image_id as featured if not set
-    featured_image_id = featured_image_id || List.first(image_ids)
+    featured_image_uuid = featured_image_uuid || List.first(image_ids)
 
     # Ensure featured image is first in image_ids (no duplicates)
     image_ids =
-      if featured_image_id && featured_image_id in image_ids do
-        [featured_image_id | Enum.reject(image_ids, &(&1 == featured_image_id))]
+      if featured_image_uuid && featured_image_uuid in image_ids do
+        [featured_image_uuid | Enum.reject(image_ids, &(&1 == featured_image_uuid))]
       else
         image_ids
       end
@@ -413,7 +413,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     metadata = update_image_mappings(product.metadata, url_to_file_id)
 
     attrs = %{
-      featured_image_id: featured_image_id,
+      featured_image_uuid: featured_image_uuid,
       image_ids: image_ids,
       metadata: metadata,
       # Clear legacy fields after successful migration

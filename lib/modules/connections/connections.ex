@@ -58,6 +58,8 @@ defmodule PhoenixKit.Modules.Connections do
   - Blocking is one-way (A blocks B doesn't mean B blocks A)
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
 
   alias PhoenixKit.Modules.Connections.Block
@@ -71,6 +73,7 @@ defmodule PhoenixKit.Modules.Connections do
 
   # ===== MODULE STATUS =====
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the Connections module is enabled.
 
@@ -83,6 +86,7 @@ defmodule PhoenixKit.Modules.Connections do
     Settings.get_boolean_setting("connections_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Connections module.
   """
@@ -90,6 +94,7 @@ defmodule PhoenixKit.Modules.Connections do
     Settings.update_boolean_setting("connections_enabled", true)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Connections module.
   """
@@ -97,6 +102,7 @@ defmodule PhoenixKit.Modules.Connections do
     Settings.update_boolean_setting("connections_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Returns the Connections module configuration.
 
@@ -129,6 +135,26 @@ defmodule PhoenixKit.Modules.Connections do
       connections_count: get_total_connections_count(),
       pending_count: get_total_pending_count(),
       blocks_count: get_total_blocks_count()
+    }
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "connections"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Connections"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "connections",
+      label: "Connections",
+      icon: "hero-link",
+      description: "External service connections and integrations"
     }
   end
 

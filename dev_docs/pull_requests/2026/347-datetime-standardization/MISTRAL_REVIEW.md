@@ -103,7 +103,7 @@ The V58 migration appears to be well-designed with:
 
 ## Compliance with Original Plan
 
-The implementation is **95%+ complete** and aligns well with the original plan from `dev_docs/2026-02-15-datetime-inconsistency-report.md`:
+The implementation is **95%+ complete** and aligns well with the original plan from `dev_docs/audits/2026-02-15-datetime-inconsistency-report.md`:
 
 - ✅ Phase 1: Schema standardization to `:utc_datetime` - Mostly complete
 - ✅ Phase 2: V58 migration for database columns - Complete

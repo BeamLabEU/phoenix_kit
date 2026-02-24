@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
     # legacy
     field :product_id, :integer
     belongs_to :product, Product, foreign_key: :product_uuid, references: :uuid, type: UUIDv7
+    field :variant_uuid, UUIDv7
 
     # Snapshot
     field :product_title, :string
@@ -83,6 +84,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
       :cart_uuid,
       :product_id,
       :product_uuid,
+      :variant_uuid,
       :product_title,
       :product_slug,
       :product_sku,
@@ -149,7 +151,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   end
 
   # Get product image URL, preferring new Storage system over legacy
-  defp get_product_image_url(%Product{featured_image_id: id}) when is_binary(id) do
+  defp get_product_image_url(%Product{featured_image_uuid: id}) when is_binary(id) do
     alias PhoenixKit.Modules.Storage.URLSigner
 
     try do

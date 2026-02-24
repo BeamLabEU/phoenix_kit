@@ -135,6 +135,7 @@ defmodule PhoenixKit.Modules.AI.Request do
     belongs_to :prompt, Prompt, foreign_key: :prompt_uuid, references: :uuid, type: UUIDv7
     # Legacy account_id field (backward compatibility, no association since Account was removed)
     field :account_id, :integer
+    field :account_uuid, UUIDv7
     # legacy
     field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
@@ -155,6 +156,7 @@ defmodule PhoenixKit.Modules.AI.Request do
       :prompt_uuid,
       :prompt_name,
       :account_id,
+      :account_uuid,
       :user_id,
       :user_uuid,
       :slot_index,

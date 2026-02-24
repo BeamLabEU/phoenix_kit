@@ -43,7 +43,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :description, :map, default: %{}
 
     # Non-localized fields
-    field :image_id, Ecto.UUID
+    field :image_uuid, Ecto.UUID
     field :position, :integer, default: 0
     field :status, :string, default: "active"
     field :metadata, :map, default: %{}
@@ -86,7 +86,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :name,
       :slug,
       :description,
-      :image_id,
+      :image_uuid,
       :featured_product_id,
       :featured_product_uuid,
       :parent_id,
@@ -115,7 +115,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   Priority:
   1. Storage media (image_id) if available
-  2. Featured product's featured_image_id (requires :featured_product preloaded)
+  2. Featured product's featured_image_uuid (requires :featured_product preloaded)
   3. Featured product's legacy featured_image URL (requires :featured_product preloaded)
   4. nil if no image
 
@@ -125,15 +125,15 @@ defmodule PhoenixKit.Modules.Shop.Category do
   def get_image_url(category, opts \\ [])
 
   # Priority 1: direct Storage image
-  def get_image_url(%__MODULE__{image_id: image_id}, opts)
-      when is_binary(image_id) and image_id != "" do
+  def get_image_url(%__MODULE__{image_uuid: image_uuid}, opts)
+      when is_binary(image_uuid) and image_uuid != "" do
     size = Keyword.get(opts, :size, "large")
-    URLSigner.signed_url(image_id, size)
+    URLSigner.signed_url(image_uuid, size)
   end
 
   # Priority 2: featured product's Storage image (preloaded)
   def get_image_url(
-        %__MODULE__{featured_product: %{featured_image_id: fid}},
+        %__MODULE__{featured_product: %{featured_image_uuid: fid}},
         opts
       )
       when is_binary(fid) and fid != "" do

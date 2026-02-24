@@ -86,7 +86,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:show_opt_modal, false)
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
-    |> assign(:image_id, category.image_id)
+    |> assign(:image_id, category.image_uuid)
     |> assign(:product_options, product_options)
     |> assign_translation_state(category)
   end
@@ -141,7 +141,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
   @impl true
   def handle_event("save", %{"category" => category_params}, socket) do
     # Add Storage image_id from socket assigns
-    category_params = Map.put(category_params, "image_id", socket.assigns.image_id)
+    category_params = Map.put(category_params, "image_uuid", socket.assigns.image_id)
 
     # Build localized field attrs from main form values and translations
     category_params =

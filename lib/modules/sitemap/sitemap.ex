@@ -99,6 +99,10 @@ defmodule PhoenixKit.Modules.Sitemap do
       PhoenixKit.Modules.Sitemap.invalidate_cache()
   """
 
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Dashboard.Tab
+
   require Logger
 
   @enabled_key "sitemap_enabled"
@@ -142,6 +146,7 @@ defmodule PhoenixKit.Modules.Sitemap do
 
   ## System Control Functions
 
+  @impl PhoenixKit.Module
   @doc """
   Returns true when the sitemap module is enabled.
 
@@ -159,6 +164,7 @@ defmodule PhoenixKit.Modules.Sitemap do
     settings_call(:get_boolean_setting, [@enabled_key, false])
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the sitemap module.
 
@@ -172,6 +178,7 @@ defmodule PhoenixKit.Modules.Sitemap do
     settings_call(:update_boolean_setting, [@enabled_key, true])
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the sitemap module.
 
@@ -209,6 +216,7 @@ defmodule PhoenixKit.Modules.Sitemap do
 
   ## Configuration Functions
 
+  @impl PhoenixKit.Module
   @doc """
   Returns the current sitemap configuration as a map.
 
@@ -716,6 +724,42 @@ defmodule PhoenixKit.Modules.Sitemap do
 
     # Store as JSON map in value_json (jsonb) - wraps list in map since value_json is :map type
     settings_call(:update_json_setting, [@module_stats_key, %{"modules" => stats}])
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "sitemap"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Sitemap"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "sitemap",
+      label: "Sitemap",
+      icon: "hero-map",
+      description: "XML sitemap generation and search engine indexing"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_sitemap,
+        label: "Sitemap",
+        icon: "hero-map",
+        path: "/admin/settings/sitemap",
+        priority: 931,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "sitemap"
+      )
+    ]
   end
 
   ## Private Helper Functions

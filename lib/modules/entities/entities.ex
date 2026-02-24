@@ -85,9 +85,12 @@ defmodule PhoenixKit.Modules.Entities do
   """
 
   use Ecto.Schema
+  use PhoenixKit.Module
+
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.Mirror.Exporter
@@ -692,6 +695,7 @@ defmodule PhoenixKit.Modules.Entities do
     end
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the entities system is enabled.
 
@@ -706,6 +710,7 @@ defmodule PhoenixKit.Modules.Entities do
     Settings.get_boolean_setting("entities_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the entities system.
 
@@ -720,6 +725,7 @@ defmodule PhoenixKit.Modules.Entities do
     Settings.update_boolean_setting_with_module("entities_enabled", true, "entities")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the entities system.
 
@@ -749,6 +755,7 @@ defmodule PhoenixKit.Modules.Entities do
     Settings.get_integer_setting("entities_max_per_user", 100)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current entities system configuration.
 
@@ -769,6 +776,144 @@ defmodule PhoenixKit.Modules.Entities do
       total_data_count: count_all_entity_data()
     }
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "entities"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Entities"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "entities",
+      label: "Entities",
+      icon: "hero-cube-transparent",
+      description: "Dynamic content types and custom data structures"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_entities,
+        label: "Entities",
+        icon: "hero-cube",
+        path: "/admin/entities",
+        priority: 540,
+        level: :admin,
+        permission: "entities",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false,
+        dynamic_children: &__MODULE__.entities_children/1
+      )
+    ]
+  end
+
+  # ETS cache TTL for entity summaries (30 seconds)
+  @entities_cache_ttl_ms 30_000
+  @entities_cache_key :entities_children_cache
+
+  @doc """
+  Invalidates the cached entity summaries in the Dashboard Registry's ETS table.
+  Called when entity lifecycle PubSub events are received.
+  """
+  @spec invalidate_entities_cache() :: :ok
+  def invalidate_entities_cache do
+    alias PhoenixKit.Dashboard.Registry, as: DashboardRegistry
+
+    if DashboardRegistry.initialized?() do
+      :ets.delete(DashboardRegistry.ets_table(), @entities_cache_key)
+    end
+
+    :ok
+  end
+
+  @doc "Dynamic children function for Entities sidebar tabs."
+  def entities_children(_scope) do
+    cached_entity_summaries()
+    |> Enum.with_index()
+    |> Enum.map(fn {entity, idx} ->
+      %Tab{
+        id:
+          String.to_atom(
+            "admin_entity_#{entity.name}_#{:erlang.phash2(entity.name) |> Integer.to_string(16) |> String.downcase()}"
+          ),
+        label: entity.display_name_plural || entity.display_name,
+        icon: entity.icon || "hero-cube",
+        path: "/admin/entities/#{entity.name}/data",
+        priority: 541 + idx,
+        level: :admin,
+        permission: "entities",
+        match: :prefix,
+        parent: :admin_entities
+      }
+    end)
+  rescue
+    _ -> []
+  end
+
+  defp cached_entity_summaries do
+    alias PhoenixKit.Dashboard.Registry, as: DashboardRegistry
+
+    if DashboardRegistry.initialized?() do
+      case :ets.lookup(DashboardRegistry.ets_table(), @entities_cache_key) do
+        [{@entities_cache_key, entities, timestamp}]
+        when is_integer(timestamp) ->
+          if System.monotonic_time(:millisecond) - timestamp < @entities_cache_ttl_ms do
+            entities
+          else
+            fetch_and_cache_entities()
+          end
+
+        _ ->
+          fetch_and_cache_entities()
+      end
+    else
+      list_entity_summaries()
+    end
+  end
+
+  defp fetch_and_cache_entities do
+    alias PhoenixKit.Dashboard.Registry, as: DashboardRegistry
+    entities = list_entity_summaries()
+
+    if DashboardRegistry.initialized?() do
+      :ets.insert(
+        DashboardRegistry.ets_table(),
+        {@entities_cache_key, entities, System.monotonic_time(:millisecond)}
+      )
+    end
+
+    entities
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_entities,
+        label: "Entities",
+        icon: "hero-cube",
+        path: "/admin/settings/entities",
+        priority: 935,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "entities",
+        match: :prefix
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def children, do: [PhoenixKit.Modules.Entities.Presence]
 
   # ============================================================================
   # Per-Entity Mirror Settings

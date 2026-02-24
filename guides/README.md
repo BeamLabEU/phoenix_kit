@@ -36,6 +36,8 @@ Learn how to add real-time functionality to LiveView pages, including:
 - Building live dashboards or detail pages
 - Setting up presence tracking for any resource
 
+---
+
 ## Guide Purpose
 
 These guides are designed to:
@@ -126,6 +128,9 @@ Future guides to add:
 - ✅ **OAuth & Magic Link Setup** - Authentication providers
 - ✅ **AWS Email Setup** - Email infrastructure automation
 - ✅ **Auth Header Integration** - Authentication header patterns
+- ✅ **Module System** - Building internal and external PhoenixKit modules
+- ✅ **UUID Migration Guide** - UUIDv7 migration patterns and conventions
+- ✅ **Plugin System Architecture** - Architecture reference for the plugin module system
 
 ## Feedback
 

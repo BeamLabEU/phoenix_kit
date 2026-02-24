@@ -384,7 +384,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc "Lists all content rows for a version."
   def list_contents(version_uuid) do
     from(c in PublishingContent,
-      where: c.version_id == ^version_uuid,
+      where: c.version_uuid == ^version_uuid,
       order_by: [asc: c.language]
     )
     |> repo().all()
@@ -393,7 +393,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc "Lists available languages for a version."
   def list_languages(version_uuid) do
     from(c in PublishingContent,
-      where: c.version_id == ^version_uuid,
+      where: c.version_uuid == ^version_uuid,
       select: c.language,
       order_by: [asc: c.language]
     )
@@ -469,10 +469,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   @doc "Upserts content by version_id + language."
   def upsert_content(attrs) do
-    version_id = Map.get(attrs, :version_id) || Map.get(attrs, "version_id")
+    version_uuid = Map.get(attrs, :version_uuid) || Map.get(attrs, "version_uuid")
     language = Map.get(attrs, :language) || Map.get(attrs, "language")
 
-    case get_content(version_id, language) do
+    case get_content(version_uuid, language) do
       nil -> create_content(attrs)
       content -> update_content(content, attrs)
     end

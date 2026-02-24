@@ -28,8 +28,8 @@ Three independent improvements bundled into one PR:
 
 ## Tracks
 
-- `dev_docs/2026-02-17-datetime-standardization-plan.md` — Step 5 now **100% COMPLETE**
-- `dev_docs/2026-02-21-liveview-form-error-handling.md` — All handlers covered and correctly placed
+- `dev_docs/plans/2026-02-17-datetime-standardization-plan.md` — Step 5 now **100% COMPLETE**
+- `dev_docs/investigations/2026-02-21-liveview-form-error-handling.md` — All handlers covered and correctly placed
 
 ## Review
 

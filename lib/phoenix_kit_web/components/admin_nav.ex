@@ -572,10 +572,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to get admin languages from settings
-  # Returns empty list if Languages module is disabled
+  # Returns empty list if Languages module is disabled or not loaded
   defp get_admin_languages do
-    # If Languages module is not enabled, return empty list to hide dropdown
-    if Languages.enabled?() do
+    # If Languages module is not loaded or not enabled, return empty list
+    if Code.ensure_loaded?(Languages) and Languages.enabled?() do
       # Read admin languages from settings cache (not all enabled languages)
       # Note: admin_languages is stored as JSON string in value column
       admin_languages_json =
@@ -608,9 +608,13 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   # Helper function to get language flag emoji
   defp get_language_flag(code) when is_binary(code) do
-    case Languages.get_predefined_language(code) do
-      %{flag: flag} -> flag
-      nil -> "🌐"
+    if Code.ensure_loaded?(Languages) do
+      case Languages.get_predefined_language(code) do
+        %{flag: flag} -> flag
+        nil -> "🌐"
+      end
+    else
+      "🌐"
     end
   end
 
@@ -624,7 +628,11 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     admin_base_codes = Enum.map(admin_language_codes, &DialectMapper.extract_base/1)
 
     # Get frontend language codes from the Language Module
-    frontend_language_codes = Languages.enabled_locale_codes()
+    frontend_language_codes =
+      if Code.ensure_loaded?(Languages),
+        do: Languages.enabled_locale_codes(),
+        else: []
+
     frontend_base_codes = Enum.map(frontend_language_codes, &DialectMapper.extract_base/1)
 
     # Accept language if it's valid in EITHER admin or frontend (both full and base codes)

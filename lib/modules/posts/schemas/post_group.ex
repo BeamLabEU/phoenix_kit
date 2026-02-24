@@ -56,7 +56,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
           name: String.t(),
           slug: String.t(),
           description: String.t() | nil,
-          cover_image_id: UUIDv7.t() | nil,
+          cover_image_uuid: UUIDv7.t() | nil,
           post_count: integer(),
           is_public: boolean(),
           position: integer(),
@@ -81,11 +81,15 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
       type: UUIDv7
 
     field :user_id, :integer
-    belongs_to :cover_image, PhoenixKit.Modules.Storage.File, references: :uuid, type: UUIDv7
+
+    belongs_to :cover_image, PhoenixKit.Modules.Storage.File,
+      foreign_key: :cover_image_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     many_to_many :posts, PhoenixKit.Modules.Posts.Post,
       join_through: PhoenixKit.Modules.Posts.PostGroupAssignment,
-      join_keys: [group_id: :uuid, post_id: :uuid]
+      join_keys: [group_uuid: :uuid, post_uuid: :uuid]
 
     timestamps(type: :utc_datetime)
   end
@@ -115,7 +119,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
       :name,
       :slug,
       :description,
-      :cover_image_id,
+      :cover_image_uuid,
       :is_public,
       :position,
       :post_count
@@ -131,7 +135,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
     |> validate_number(:position, greater_than_or_equal_to: 0)
     |> validate_number(:post_count, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:user_uuid)
-    |> foreign_key_constraint(:cover_image_id)
+    |> foreign_key_constraint(:cover_image_uuid)
     |> unique_constraint([:user_id, :slug],
       name: :phoenix_kit_post_groups_user_id_slug_index,
       message: "you already have a group with this slug"

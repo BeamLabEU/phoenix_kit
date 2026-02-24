@@ -28,7 +28,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          group_id: UUIDv7.t(),
+          group_uuid: UUIDv7.t(),
           slug: String.t(),
           status: String.t(),
           mode: String.t(),
@@ -58,7 +58,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
     field :data, :map, default: %{}
 
     belongs_to :group, PhoenixKit.Modules.Publishing.PublishingGroup,
-      foreign_key: :group_id,
+      foreign_key: :group_uuid,
       references: :uuid,
       type: UUIDv7
 
@@ -76,7 +76,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
 
     field :updated_by_id, :integer
 
-    has_many :versions, PhoenixKit.Modules.Publishing.PublishingVersion, foreign_key: :post_id
+    has_many :versions, PhoenixKit.Modules.Publishing.PublishingVersion, foreign_key: :post_uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -87,7 +87,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
   def changeset(post, attrs) do
     post
     |> cast(attrs, [
-      :group_id,
+      :group_uuid,
       :slug,
       :status,
       :mode,
@@ -102,14 +102,14 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       :updated_by_id,
       :data
     ])
-    |> validate_required([:group_id, :slug, :status, :mode, :primary_language])
+    |> validate_required([:group_uuid, :slug, :status, :mode, :primary_language])
     |> validate_inclusion(:status, ["draft", "published", "archived", "scheduled"])
     |> validate_inclusion(:mode, ["timestamp", "slug"])
     |> validate_length(:slug, max: 500)
     |> validate_length(:primary_language, max: 10)
     |> validate_scheduled_at()
-    |> unique_constraint([:group_id, :slug], name: :idx_publishing_posts_group_slug)
-    |> foreign_key_constraint(:group_id, name: :fk_publishing_posts_group)
+    |> unique_constraint([:group_uuid, :slug], name: :idx_publishing_posts_group_slug)
+    |> foreign_key_constraint(:group_uuid, name: :fk_publishing_posts_group)
     |> foreign_key_constraint(:created_by_uuid, name: :fk_publishing_posts_created_by)
     |> foreign_key_constraint(:updated_by_uuid, name: :fk_publishing_posts_updated_by)
   end

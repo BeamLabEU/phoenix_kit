@@ -21,6 +21,8 @@ defmodule PhoenixKit.Modules.Storage do
   functionality for file management across PhoenixKit.
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
 
@@ -154,11 +156,11 @@ defmodule PhoenixKit.Modules.Storage do
   Returns total size of all files stored in this bucket by summing up all
   file instances that have locations in this bucket.
   """
-  def calculate_bucket_usage(bucket_id) do
+  def calculate_bucket_usage(bucket_uuid) do
     from(fl in FileLocation,
       join: fi in FileInstance,
-      on: fl.file_instance_id == fi.uuid,
-      where: fl.bucket_id == ^bucket_id and fl.status == "active",
+      on: fl.file_instance_uuid == fi.uuid,
+      where: fl.bucket_uuid == ^bucket_uuid and fl.status == "active",
       select: fragment("SUM(? / (1024 * 1024))", fi.size)
     )
     |> repo().one()
@@ -624,9 +626,9 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Returns a list of file instances for a given file.
   """
-  def list_file_instances(file_id) do
+  def list_file_instances(file_uuid) do
     FileInstance
-    |> where([fi], fi.file_id == ^file_id)
+    |> where([fi], fi.file_uuid == ^file_uuid)
     |> order_by(asc: :variant_name)
     |> repo().all()
   end
@@ -648,12 +650,12 @@ defmodule PhoenixKit.Modules.Storage do
 
   Returns a list of bucket IDs from the file_locations for the given file instance.
   """
-  def get_file_instance_bucket_ids(file_instance_id) do
+  def get_file_instance_bucket_ids(file_instance_uuid) do
     import Ecto.Query
 
     FileLocation
-    |> where([fl], fl.file_instance_id == ^file_instance_id and fl.status == "active")
-    |> select([fl], fl.bucket_id)
+    |> where([fl], fl.file_instance_uuid == ^file_instance_uuid and fl.status == "active")
+    |> select([fl], fl.bucket_uuid)
     |> repo().all()
   end
 
@@ -724,6 +726,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   # ===== CONFIGURATION =====
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current storage configuration.
   """
@@ -739,6 +742,35 @@ defmodule PhoenixKit.Modules.Storage do
       default_bucket_id: get_default_bucket_id(),
       buckets_count: length(buckets),
       active_buckets_count: active_count
+    }
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "storage"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Storage"
+
+  @impl PhoenixKit.Module
+  def enabled?, do: module_enabled?()
+
+  @impl PhoenixKit.Module
+  def enable_system, do: {:ok, :always_enabled}
+
+  @impl PhoenixKit.Module
+  def disable_system, do: {:ok, :always_enabled}
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "storage",
+      label: "Storage",
+      icon: "hero-circle-stack",
+      description: "Distributed file storage with multi-location redundancy"
     }
   end
 
@@ -1279,13 +1311,13 @@ defmodule PhoenixKit.Modules.Storage do
     recreate_file_instances(existing_file, source_path, file_hash, user_id, original_filename)
   end
 
-  defp delete_file_instances_for_file(file_id) do
+  defp delete_file_instances_for_file(file_uuid) do
     # Delete all file instances for a file (to clean up broken ones)
     {deleted_count, _} =
-      from(fi in FileInstance, where: fi.file_id == ^file_id)
+      from(fi in FileInstance, where: fi.file_uuid == ^file_uuid)
       |> repo().delete_all()
 
-    Logger.info("Deleted #{deleted_count} file instances for file_id: #{file_id}")
+    Logger.info("Deleted #{deleted_count} file instances for file_uuid: #{file_uuid}")
     deleted_count
   end
 
@@ -1392,11 +1424,11 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  defp delete_variant_instances(file_id) do
+  defp delete_variant_instances(file_uuid) do
     # Delete only the variant instances (not the original), to clean up broken ones
     {deleted_count, _} =
       from(fi in FileInstance,
-        where: fi.file_id == ^file_id and fi.variant_name != "original"
+        where: fi.file_uuid == ^file_uuid and fi.variant_name != "original"
       )
       |> repo().delete_all()
 
@@ -1484,8 +1516,8 @@ defmodule PhoenixKit.Modules.Storage do
   # Query builders for file listing
   defp maybe_filter_by_bucket(query, nil), do: query
 
-  defp maybe_filter_by_bucket(query, bucket_id) do
-    where(query, [f], f.bucket_id == ^bucket_id)
+  defp maybe_filter_by_bucket(query, bucket_uuid) do
+    where(query, [f], f.bucket_uuid == ^bucket_uuid)
   end
 
   defp maybe_order_by(query, nil), do: order_by(query, [f], desc: f.inserted_at)

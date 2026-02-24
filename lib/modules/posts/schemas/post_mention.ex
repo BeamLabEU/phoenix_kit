@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          post_id: UUIDv7.t(),
+          post_uuid: UUIDv7.t(),
           user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           mention_type: String.t(),
@@ -52,7 +52,10 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
   schema "phoenix_kit_post_mentions" do
     field :mention_type, :string, default: "mention"
 
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid, type: UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post,
+      foreign_key: :post_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -80,12 +83,12 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
   """
   def changeset(mention, attrs) do
     mention
-    |> cast(attrs, [:post_id, :user_id, :user_uuid, :mention_type])
-    |> validate_required([:post_id, :user_uuid, :mention_type])
+    |> cast(attrs, [:post_uuid, :user_id, :user_uuid, :mention_type])
+    |> validate_required([:post_uuid, :user_uuid, :mention_type])
     |> validate_inclusion(:mention_type, ["contributor", "mention"])
-    |> foreign_key_constraint(:post_id)
+    |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:post_id, :user_id],
+    |> unique_constraint([:post_uuid, :user_id],
       name: :phoenix_kit_post_mentions_post_id_user_id_index,
       message: "user already mentioned in this post"
     )

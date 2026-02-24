@@ -11,7 +11,7 @@
 
 ## Summary
 
-Large-scale refactoring PR that converts 20 plain maps acting as de-facto structs into proper Elixir structs with `@enforce_keys`, `@type t()`, and `defstruct`. Backed by a thorough audit document (`dev_docs/2026-02-16-struct-vs-map-audit.md`) that categorizes 27 map shapes into 3 tiers. Includes 4 follow-up fix commits for consumer-side access pattern bugs discovered during verification.
+Large-scale refactoring PR that converts 20 plain maps acting as de-facto structs into proper Elixir structs with `@enforce_keys`, `@type t()`, and `defstruct`. Backed by a thorough audit document (`dev_docs/audits/2026-02-16-struct-vs-map-audit.md`) that categorizes 27 map shapes into 3 tiers. Includes 4 follow-up fix commits for consumer-side access pattern bugs discovered during verification.
 
 ## Verdict: Approve with observations
 
@@ -158,7 +158,7 @@ The dual clause handles both local struct and wire-protocol string-keyed map. Go
 
 4. **`IbanData.all_specs/0` constructs structs on every call**: Converts the entire `@iban_specs` map (92 countries) to structs each time. Consider memoizing with a module attribute if this is called frequently.
 
-5. **Audit doc location**: `dev_docs/2026-02-16-struct-vs-map-audit.md` is placed flat in `dev_docs/` root rather than in the PR directory. This is fine since it's a living reference document rather than a PR review file, but worth noting the distinction.
+5. **Audit doc location**: `dev_docs/audits/2026-02-16-struct-vs-map-audit.md` is placed flat in `dev_docs/` root rather than in the PR directory. This is fine since it's a living reference document rather than a PR review file, but worth noting the distinction.
 
 ---
 

@@ -45,8 +45,12 @@ defmodule PhoenixKit.Modules.Posts do
       })
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
+
+  alias PhoenixKit.Dashboard.Tab
 
   alias PhoenixKit.Modules.Posts.{
     Post,
@@ -71,6 +75,7 @@ defmodule PhoenixKit.Modules.Posts do
   # Module Status
   # ============================================================================
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the Posts module is enabled.
 
@@ -83,6 +88,7 @@ defmodule PhoenixKit.Modules.Posts do
     Settings.get_boolean_setting("posts_enabled", true)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Posts module.
 
@@ -95,6 +101,7 @@ defmodule PhoenixKit.Modules.Posts do
     Settings.update_boolean_setting_with_module("posts_enabled", true, "posts")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Posts module.
 
@@ -107,6 +114,7 @@ defmodule PhoenixKit.Modules.Posts do
     Settings.update_boolean_setting_with_module("posts_enabled", false, "posts")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current Posts module configuration and stats.
 
@@ -136,6 +144,82 @@ defmodule PhoenixKit.Modules.Posts do
     |> repo().aggregate(:count)
   rescue
     _ -> 0
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "posts"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Posts"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "posts",
+      label: "Posts",
+      icon: "hero-document-text",
+      description: "Blog posts, categories, and content publishing"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_posts,
+        label: "Posts",
+        icon: "hero-document-text",
+        path: "/admin/posts",
+        priority: 580,
+        level: :admin,
+        permission: "posts",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false
+      ),
+      Tab.new!(
+        id: :admin_posts_all,
+        label: "All Posts",
+        icon: "hero-newspaper",
+        path: "/admin/posts",
+        priority: 581,
+        level: :admin,
+        permission: "posts",
+        parent: :admin_posts,
+        match: :exact
+      ),
+      Tab.new!(
+        id: :admin_posts_groups,
+        label: "Groups",
+        icon: "hero-folder",
+        path: "/admin/posts/groups",
+        priority: 582,
+        level: :admin,
+        permission: "posts",
+        parent: :admin_posts
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_posts,
+        label: "Posts",
+        icon: "hero-newspaper",
+        path: "/admin/settings/posts",
+        priority: 922,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "posts"
+      )
+    ]
   end
 
   # ============================================================================
@@ -787,7 +871,7 @@ defmodule PhoenixKit.Modules.Posts do
   def post_liked_by?(post_uuid, user_uuid) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
       repo().exists?(
-        from(l in PostLike, where: l.post_id == ^post_uuid and l.user_uuid == ^user_uuid)
+        from(l in PostLike, where: l.post_uuid == ^post_uuid and l.user_uuid == ^user_uuid)
       )
     else
       false
@@ -820,7 +904,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_likes(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(l in PostLike, where: l.post_id == ^post_uuid, order_by: [desc: l.inserted_at])
+    from(l in PostLike, where: l.post_uuid == ^post_uuid, order_by: [desc: l.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -947,7 +1031,7 @@ defmodule PhoenixKit.Modules.Posts do
   def post_disliked_by?(post_uuid, user_uuid) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
       repo().exists?(
-        from(d in PostDislike, where: d.post_id == ^post_uuid and d.user_uuid == ^user_uuid)
+        from(d in PostDislike, where: d.post_uuid == ^post_uuid and d.user_uuid == ^user_uuid)
       )
     else
       false
@@ -980,7 +1064,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_dislikes(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(d in PostDislike, where: d.post_id == ^post_uuid, order_by: [desc: d.inserted_at])
+    from(d in PostDislike, where: d.post_uuid == ^post_uuid, order_by: [desc: d.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1434,8 +1518,8 @@ defmodule PhoenixKit.Modules.Posts do
 
     from(p in Post,
       join: ga in PostGroupAssignment,
-      on: ga.post_id == p.uuid,
-      where: ga.group_id == ^group_uuid,
+      on: ga.post_uuid == p.uuid,
+      where: ga.group_uuid == ^group_uuid,
       order_by: [asc: ga.position]
     )
     |> repo().all()
@@ -1560,7 +1644,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_mentions(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(m in PostMention, where: m.post_id == ^post_uuid)
+    from(m in PostMention, where: m.post_uuid == ^post_uuid)
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1655,7 +1739,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_media(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:file])
 
-    from(m in PostMedia, where: m.post_id == ^post_uuid, order_by: [asc: m.position])
+    from(m in PostMedia, where: m.post_uuid == ^post_uuid, order_by: [asc: m.position])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1678,13 +1762,13 @@ defmodule PhoenixKit.Modules.Posts do
       # Two-pass approach to avoid unique constraint violations on (post_id, position)
       # Pass 1: Set all positions to negative values (temporary)
       Enum.each(file_uuid_positions, fn {file_uuid, position} ->
-        from(m in PostMedia, where: m.post_id == ^post_uuid and m.file_id == ^file_uuid)
+        from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.file_uuid == ^file_uuid)
         |> repo().update_all(set: [position: -position])
       end)
 
       # Pass 2: Set the correct positive positions
       Enum.each(file_uuid_positions, fn {file_uuid, position} ->
-        from(m in PostMedia, where: m.post_id == ^post_uuid and m.file_id == ^file_uuid)
+        from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.file_uuid == ^file_uuid)
         |> repo().update_all(set: [position: position])
       end)
     end)
@@ -1710,7 +1794,7 @@ defmodule PhoenixKit.Modules.Posts do
   def set_featured_image(post_uuid, file_uuid) do
     repo().transaction(fn ->
       # Remove existing featured image if present
-      from(m in PostMedia, where: m.post_id == ^post_uuid and m.position == 1)
+      from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.position == 1)
       |> repo().delete_all()
 
       # Insert new featured image at position 1
@@ -1744,7 +1828,7 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def get_featured_image(post_uuid) do
     from(m in PostMedia,
-      where: m.post_id == ^post_uuid and m.position == 1,
+      where: m.post_uuid == ^post_uuid and m.position == 1,
       preload: [:file]
     )
     |> repo().one()
@@ -1767,7 +1851,7 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def remove_featured_image(post_uuid) do
     {count, _} =
-      from(m in PostMedia, where: m.post_id == ^post_uuid and m.position == 1)
+      from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.position == 1)
       |> repo().delete_all()
 
     {:ok, count}

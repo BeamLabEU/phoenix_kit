@@ -132,11 +132,11 @@ defmodule PhoenixKit.Modules.Posts.Post do
 
     field :user_id, :integer
 
-    has_many :media, PhoenixKit.Modules.Posts.PostMedia, foreign_key: :post_id
-    has_many :likes, PhoenixKit.Modules.Posts.PostLike, foreign_key: :post_id
-    has_many :dislikes, PhoenixKit.Modules.Posts.PostDislike, foreign_key: :post_id
-    has_many :comments, PhoenixKit.Modules.Posts.PostComment, foreign_key: :post_id
-    has_many :mentions, PhoenixKit.Modules.Posts.PostMention, foreign_key: :post_id
+    has_many :media, PhoenixKit.Modules.Posts.PostMedia, foreign_key: :post_uuid
+    has_many :likes, PhoenixKit.Modules.Posts.PostLike, foreign_key: :post_uuid
+    has_many :dislikes, PhoenixKit.Modules.Posts.PostDislike, foreign_key: :post_uuid
+    has_many :comments, PhoenixKit.Modules.Posts.PostComment, foreign_key: :post_uuid
+    has_many :mentions, PhoenixKit.Modules.Posts.PostMention, foreign_key: :post_uuid
 
     many_to_many :tags, PhoenixKit.Modules.Posts.PostTag,
       join_through: PhoenixKit.Modules.Posts.PostTagAssignment,
