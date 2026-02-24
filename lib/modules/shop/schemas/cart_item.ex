@@ -43,6 +43,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
     # legacy
     field :product_id, :integer
     belongs_to :product, Product, foreign_key: :product_uuid, references: :uuid, type: UUIDv7
+    field :variant_uuid, UUIDv7
 
     # Snapshot
     field :product_title, :string
@@ -83,6 +84,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
       :cart_uuid,
       :product_id,
       :product_uuid,
+      :variant_uuid,
       :product_title,
       :product_slug,
       :product_sku,

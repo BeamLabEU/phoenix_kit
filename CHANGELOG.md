@@ -1,3 +1,12 @@
+## 1.7.49 - 2026-02-24
+- Add V63 migration: UUID companion column safety net round 2
+  - Add `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)
+  - Add `account_uuid` companion to `phoenix_kit_ai_requests` (backfilled from ai_accounts)
+  - Add `matched_email_log_uuid` to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
+  - Add `subscription_uuid` to `phoenix_kit_invoices` (backfilled from subscriptions)
+  - Add `variant_uuid` to `phoenix_kit_shop_cart_items` (nullable, no variants table)
+  - Update Invoice, AI Request, and CartItem schemas with new uuid companion fields
+
 ## 1.7.48 - 2026-02-24
 - Add V62 migration: rename 35 UUID-typed FK columns from `_id` suffix to `_uuid` suffix
   - Enforces naming convention: `_id` = integer (legacy/deprecated), `_uuid` = UUID
