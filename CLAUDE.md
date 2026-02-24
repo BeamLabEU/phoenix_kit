@@ -119,7 +119,7 @@ put_change(changeset, :updated_at, UtilsDate.utc_now())
 Repo.update_all(query, set: [updated_at: UtilsDate.utc_now()])
 ```
 
-**Why:** `:utc_datetime` fields reject microseconds. `DateTime.utc_now()` returns microsecond precision. `UtilsDate.utc_now()` truncates to seconds automatically. See `dev_docs/2026-02-17-datetime-standardization-plan.md` for full context.
+**Why:** `:utc_datetime` fields reject microseconds. `DateTime.utc_now()` returns microsecond precision. `UtilsDate.utc_now()` truncates to seconds automatically. See `dev_docs/plans/2026-02-17-datetime-standardization-plan.md` for full context.
 
 ### URL Prefix and Navigation (IMPORTANT)
 

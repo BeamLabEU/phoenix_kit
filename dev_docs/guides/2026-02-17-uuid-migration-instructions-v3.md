@@ -548,7 +548,7 @@ Cross-referenced every schema against `uuid_fk_columns.ex`. Found and fixed 15 i
 
 This is a **naming convention enforcement pass** — data is correct, queries work. The renames are DB-only + schema/context code updates, no data migration needed.
 
-Full plan: `dev_docs/2026-02-23-v62-uuid-column-rename-plan.md` (25 tables, 35 column renames across Posts, Comments, Tickets, Storage, Publishing, Shop, and Scheduled Jobs modules).
+Full plan: `dev_docs/plans/2026-02-23-v62-uuid-column-rename-plan.md` (25 tables, 35 column renames across Posts, Comments, Tickets, Storage, Publishing, Shop, and Scheduled Jobs modules).
 
 ### Future: Drop integer columns
 - Add NOT NULL constraints and FK constraints on UUID FK columns
@@ -568,8 +568,8 @@ Full plan: `dev_docs/2026-02-23-v62-uuid-column-rename-plan.md` (25 tables, 35 c
 | `dev_docs/uuid_remaining_fixes.md` | Phase 3 inventory (all items resolved, historical reference) |
 | `dev_docs/uuid_migration_instructions.md` | V1 of this document (detailed reference) |
 | `dev_docs/uuid_migration_instructions_v2.md` | V2 of this document |
-| `dev_docs/2026-02-23-v62-uuid-column-rename-plan.md` | V62 plan: rename UUID-typed `_id` columns to `_uuid` |
-| `dev_docs/2026-02-23-uuid_migration_audit_corrected.md` | Root cause analysis of V40 buffering bug + V61 fixes |
+| `dev_docs/plans/2026-02-23-v62-uuid-column-rename-plan.md` | V62 plan: rename UUID-typed `_id` columns to `_uuid` |
+| `dev_docs/audits/2026-02-23-uuid_migration_audit_corrected.md` | Root cause analysis of V40 buffering bug + V61 fixes |
 
 ## Template & Handler UUID Checklist
 

@@ -262,4 +262,4 @@ No new tests were added for these fixes. Recommended regression tests:
 
 - Parent PR #347 — The `:utc_datetime_usec` → `:utc_datetime` schema migration
 - CLAUDE.md — Should reference truncation requirement once helper is implemented
-- `dev_docs/2026-02-15-datetime-inconsistency-report.md` — Related datetime analysis
+- `dev_docs/audits/2026-02-15-datetime-inconsistency-report.md` — Related datetime analysis
