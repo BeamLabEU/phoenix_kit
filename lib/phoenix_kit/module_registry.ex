@@ -89,12 +89,8 @@ defmodule PhoenixKit.ModuleRegistry do
   @doc "Collect all admin tabs from all registered modules."
   @spec all_admin_tabs() :: [PhoenixKit.Dashboard.Tab.t()]
   def all_admin_tabs do
-    tabs =
-      all_modules()
-      |> Enum.flat_map(&safe_call(&1, :admin_tabs, []))
-
-    warn_duplicate_tab_ids(tabs)
-    tabs
+    all_modules()
+    |> Enum.flat_map(&safe_call(&1, :admin_tabs, []))
   end
 
   @doc "Collect all settings tabs from all registered modules."
@@ -255,7 +251,8 @@ defmodule PhoenixKit.ModuleRegistry do
   # Private
   # ============================================================================
 
-  # Validate all modules at startup — check for duplicate keys and permission mismatches.
+  # Validate all modules at startup — check for duplicate keys, permission mismatches,
+  # duplicate tab IDs, and tabs missing permission fields.
   defp validate_modules(modules) do
     modules
     |> Enum.reduce(%{}, fn mod, acc ->
@@ -265,6 +262,10 @@ defmodule PhoenixKit.ModuleRegistry do
     |> then(fn _seen -> :ok end)
 
     Enum.each(modules, &validate_permission_key_match/1)
+
+    all_tabs = Enum.flat_map(modules, &safe_call(&1, :admin_tabs, []))
+    warn_duplicate_tab_ids(all_tabs)
+    warn_tabs_missing_permission(modules)
   end
 
   # Validate a single module being registered at runtime.
@@ -368,6 +369,22 @@ defmodule PhoenixKit.ModuleRegistry do
     end)
   end
 
+  # Warn about admin tabs that have permission_metadata but no :permission field on tabs.
+  # Custom roles will see the tab in the sidebar but get denied on click.
+  defp warn_tabs_missing_permission(modules) do
+    for mod <- modules,
+        perm_meta = safe_call(mod, :permission_metadata, nil),
+        perm_meta != nil,
+        tab <- safe_call(mod, :admin_tabs, []),
+        is_nil(Map.get(tab, :permission)) do
+      Logger.warning(
+        "[ModuleRegistry] #{inspect(mod)} tab #{inspect(tab.id)} has no :permission field. " <>
+          "Custom roles will see the tab but get denied on click. " <>
+          "Add permission: #{inspect(perm_meta.key)} to the tab definition."
+      )
+    end
+  end
+
   # Safely call an optional callback on a module, returning the default
   # if the module isn't loaded or doesn't export the function.
   @spec safe_call(module(), atom(), term()) :: term()
@@ -380,7 +397,8 @@ defmodule PhoenixKit.ModuleRegistry do
   rescue
     error ->
       Logger.warning(
-        "[ModuleRegistry] #{inspect(mod)}.#{fun}/0 failed: #{Exception.message(error)}"
+        "[ModuleRegistry] #{inspect(mod)}.#{fun}/0 failed: #{Exception.message(error)}. " <>
+          "Check that all required fields are valid (e.g. Tab paths must start with \"/\")."
       )
 
       default
