@@ -577,6 +577,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
       Scope.admin?(scope) ->
         socket = attach_locale_hook(socket)
+        socket = maybe_subscribe_to_module_events(socket)
         enforce_admin_view_permission(socket, scope)
 
       true ->
@@ -894,6 +895,33 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp handle_scope_refresh(_msg, socket), do: {:cont, socket}
+
+  # Subscribe to module enable/disable events so the admin sidebar updates
+  # in real-time when modules are toggled. Follows the scope refresh pattern.
+  defp maybe_subscribe_to_module_events(
+         %{assigns: %{phoenix_kit_module_hook_attached?: true}} = socket
+       ),
+       do: socket
+
+  defp maybe_subscribe_to_module_events(socket) do
+    Events.subscribe_to_modules()
+
+    socket
+    |> attach_hook(:phoenix_kit_module_refresh, :handle_info, &handle_module_refresh/2)
+    |> Phoenix.Component.assign(:phoenix_kit_module_hook_attached?, true)
+  end
+
+  defp handle_module_refresh({:module_enabled, _key}, socket) do
+    {:halt,
+     Phoenix.Component.assign(socket, :phoenix_kit_modules_version, System.unique_integer())}
+  end
+
+  defp handle_module_refresh({:module_disabled, _key}, socket) do
+    {:halt,
+     Phoenix.Component.assign(socket, :phoenix_kit_modules_version, System.unique_integer())}
+  end
+
+  defp handle_module_refresh(_msg, socket), do: {:cont, socket}
 
   # Priority-ordered list of admin sections to try when redirecting
   # a user who lacks access to the requested page.
