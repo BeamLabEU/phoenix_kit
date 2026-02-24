@@ -170,7 +170,7 @@ defmodule PhoenixKit.Modules.AI do
   """
   @impl PhoenixKit.Module
   def enabled? do
-    Settings.get_setting_cached("ai_enabled", "false") == "true"
+    Settings.get_boolean_setting("ai_enabled", false)
   end
 
   @doc """
@@ -178,7 +178,7 @@ defmodule PhoenixKit.Modules.AI do
   """
   @impl PhoenixKit.Module
   def enable_system do
-    Settings.update_setting("ai_enabled", "true")
+    Settings.update_boolean_setting_with_module("ai_enabled", true, "ai")
   end
 
   @doc """
@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.AI do
   """
   @impl PhoenixKit.Module
   def disable_system do
-    Settings.update_setting("ai_enabled", "false")
+    Settings.update_boolean_setting_with_module("ai_enabled", false, "ai")
   end
 
   @doc """

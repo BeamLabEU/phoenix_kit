@@ -46,14 +46,12 @@ defmodule PhoenixKitWeb.Live.Modules do
   # Toggle Events
   # ============================================================================
 
-  # Special cases with inter-module dependencies
-  def handle_event("toggle_module", %{"key" => "billing"}, socket), do: toggle_billing(socket)
-  def handle_event("toggle_module", %{"key" => "legal"}, socket), do: toggle_legal(socket)
-  def handle_event("toggle_module", %{"key" => "shop"}, socket), do: toggle_shop(socket)
-
-  # Generic toggle for all other modules
+  # All toggle events go through authorize_toggle/2 first.
   def handle_event("toggle_module", %{"key" => key}, socket) do
-    generic_toggle(socket, key)
+    case authorize_toggle(socket, key) do
+      :ok -> dispatch_toggle(socket, key)
+      {:error, :access_denied} -> {:noreply, put_flash(socket, :error, "Access denied")}
+    end
   end
 
   # ============================================================================
@@ -125,6 +123,27 @@ defmodule PhoenixKitWeb.Live.Modules do
   def format_bytes(_), do: "0 B"
 
   # ============================================================================
+  # Private — Authorization
+  # ============================================================================
+
+  defp authorize_toggle(socket, key) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    if scope &&
+         (Scope.system_role?(scope) || MapSet.member?(socket.assigns.accessible_modules, key)) do
+      :ok
+    else
+      {:error, :access_denied}
+    end
+  end
+
+  # Special cases with inter-module dependencies
+  defp dispatch_toggle(socket, "billing"), do: toggle_billing(socket)
+  defp dispatch_toggle(socket, "legal"), do: toggle_legal(socket)
+  defp dispatch_toggle(socket, "shop"), do: toggle_shop(socket)
+  defp dispatch_toggle(socket, key), do: generic_toggle(socket, key)
+
+  # ============================================================================
   # Private — Generic Toggle
   # ============================================================================
 
@@ -181,12 +200,13 @@ defmodule PhoenixKitWeb.Live.Modules do
     billing_config = configs["billing"] || %{}
     new_enabled = !(billing_config[:enabled] || false)
 
-    shop_was_disabled = maybe_disable_shop_first(new_enabled, configs)
     billing_mod = ModuleRegistry.get_by_key("billing")
     result = if new_enabled, do: billing_mod.enable_system(), else: billing_mod.disable_system()
 
     case normalize_result(result) do
       :ok ->
+        # Disable shop AFTER billing succeeds to avoid orphaned state on failure
+        shop_was_disabled = maybe_disable_shop_first(new_enabled, configs)
         broadcast_billing_events(new_enabled, shop_was_disabled)
 
         updated_configs =

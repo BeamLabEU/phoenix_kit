@@ -66,7 +66,7 @@ defmodule PhoenixKit.Modules.Shop do
   Checks if the shop system is enabled.
   """
   def enabled? do
-    Settings.get_setting_cached("shop_enabled", "false") == "true"
+    Settings.get_boolean_setting("shop_enabled", false)
   end
 
   @impl PhoenixKit.Module
@@ -74,8 +74,9 @@ defmodule PhoenixKit.Modules.Shop do
   Enables the shop system.
   """
   def enable_system do
-    Settings.update_setting("shop_enabled", "true")
+    result = Settings.update_boolean_setting_with_module("shop_enabled", true, "shop")
     refresh_dashboard_tabs()
+    result
   end
 
   @impl PhoenixKit.Module
@@ -83,8 +84,9 @@ defmodule PhoenixKit.Modules.Shop do
   Disables the shop system.
   """
   def disable_system do
-    Settings.update_setting("shop_enabled", "false")
+    result = Settings.update_boolean_setting_with_module("shop_enabled", false, "shop")
     refresh_dashboard_tabs()
+    result
   end
 
   defp refresh_dashboard_tabs do

@@ -999,6 +999,11 @@ defmodule PhoenixKitWeb.Users.Auth do
     case permission_key_for_admin_view(socket.view) do
       nil ->
         # Unmapped views: fail-closed for custom roles, allow Admin/Owner
+        Logger.debug(
+          "[Auth] Admin view #{inspect(socket.view)} has no permission mapping — " <>
+            "allowing system roles, denying custom roles"
+        )
+
         if Scope.system_role?(scope) do
           {:cont, socket}
         else

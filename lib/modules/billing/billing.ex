@@ -68,7 +68,7 @@ defmodule PhoenixKit.Modules.Billing do
   Checks if the billing system is enabled.
   """
   def enabled? do
-    Settings.get_setting_cached("billing_enabled", "false") == "true"
+    Settings.get_boolean_setting("billing_enabled", false)
   end
 
   @impl PhoenixKit.Module
@@ -76,8 +76,9 @@ defmodule PhoenixKit.Modules.Billing do
   Enables the billing system.
   """
   def enable_system do
-    Settings.update_setting("billing_enabled", "true")
+    result = Settings.update_boolean_setting_with_module("billing_enabled", true, "billing")
     refresh_dashboard_tabs()
+    result
   end
 
   @impl PhoenixKit.Module
@@ -85,8 +86,9 @@ defmodule PhoenixKit.Modules.Billing do
   Disables the billing system.
   """
   def disable_system do
-    Settings.update_setting("billing_enabled", "false")
+    result = Settings.update_boolean_setting_with_module("billing_enabled", false, "billing")
     refresh_dashboard_tabs()
+    result
   end
 
   defp refresh_dashboard_tabs do

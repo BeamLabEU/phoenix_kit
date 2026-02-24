@@ -153,7 +153,9 @@ defmodule PhoenixKit.Users.Permissions do
         |> String.slice(0, @max_description_length)
     }
 
-    # Atomic read-check-write to avoid TOCTOU race on the key limit.
+    # Note: persistent_term has no CAS, so concurrent register_custom_key calls
+    # could theoretically exceed the limit by 1-2 keys. This is acceptable since
+    # registration only happens at app startup, not at runtime.
     # Re-registration of existing keys is always allowed (override).
     current = custom_keys_map()
 
