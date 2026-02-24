@@ -1,7 +1,7 @@
 # PhoenixKit Plugin System Architecture
 
 **Date**: 2026-02-23 (updated 2026-02-24)
-**Status**: Phase 1 complete, Phase 2 (zero-config auto-discovery) in research
+**Status**: Phase 1 + Phase 2 complete
 
 ## Overview
 
@@ -34,7 +34,7 @@ All 21 internal modules implement `use PhoenixKit.Module`, which provides:
 
 GenServer using `:persistent_term` for zero-cost reads. Loads modules from two sources:
 1. **Internal modules** — hardcoded list in `internal_modules/0` (the ONE place that enumerates all 21 bundled modules)
-2. **External modules** — currently `Application.get_env(:phoenix_kit, :modules, [])`, targeted for replacement with auto-discovery
+2. **External modules** — auto-discovered from beam files via `PhoenixKit.ModuleDiscovery`, with `Application.get_env(:phoenix_kit, :modules, [])` as fallback
 
 Provides aggregated queries: `all_admin_tabs/0`, `all_settings_tabs/0`, `all_permission_metadata/0`, `feature_enabled_checks/0`, `get_by_key/1`, etc.
 
@@ -52,15 +52,21 @@ Seven core files that previously hardcoded references to all 21 modules now use 
 | `admin_nav.ex` | Added `Code.ensure_loaded?` guards for Languages module |
 | `integration.ex` | `safe_route_call/3` guards, `compile_module_admin_routes/0` for auto-route generation |
 
-## How External Modules Work (Current — Phase 1)
+## How External Modules Work
 
 ### Installation (Parent App)
 
-```elixir
-# mix.exs — add the dep
-{:phoenix_kit_hello_world, path: "../phoenix_kit_hello_world"}
+With Phase 2 (zero-config auto-discovery), just add the dep:
 
-# config.exs — register the module (ONE line)
+```elixir
+# mix.exs — add the dep. That's it.
+{:phoenix_kit_hello_world, path: "../phoenix_kit_hello_world"}
+```
+
+The config fallback still works for backwards compatibility:
+
+```elixir
+# config.exs — optional, only if beam scanning doesn't work
 config :phoenix_kit, :modules, [PhoenixKitHelloWorld]
 ```
 
@@ -121,13 +127,30 @@ config :phoenix_kit, :route_modules, [MyApp.Routes.ComplexRoutes]
 ```
 These modules implement `admin_routes/0` and/or `public_routes/1`.
 
+### Plugin Admin Layout (Auto-Wrapping)
+
+Plugin LiveViews are automatically wrapped with the admin layout (sidebar, header) via a separate `live_session` in `integration.ex`. Plugin authors write zero layout boilerplate — just a plain LiveView with content.
+
+The layout is at `lib/phoenix_kit_web/components/layouts/admin.html.heex` and wraps content with `LayoutWrapper.app_layout`.
+
+### Live Sidebar Updates
+
+When a module is enabled/disabled, the admin sidebar updates in real-time across all open admin pages. This works via:
+
+1. Module toggle broadcasts `{:module_enabled, key}` / `{:module_disabled, key}` via PubSub
+2. `on_mount(:phoenix_kit_ensure_admin)` in `auth.ex` subscribes all admin LiveViews to module events
+3. A `handle_info` hook bumps `:phoenix_kit_modules_version` assign, triggering re-render
+4. The sidebar component re-evaluates `Registry.get_admin_tabs()` which checks `Permissions.feature_enabled?()`
+
+This follows the same pattern as the existing scope refresh hook for role/permission changes.
+
 ---
 
-## Phase 2: Zero-Config Auto-Discovery (Research)
+## Phase 2: Zero-Config Auto-Discovery (Implemented)
 
-### The Goal
+### The Goal (Achieved)
 
-Eliminate the config line entirely. The developer experience should be:
+Eliminate the config line entirely. The developer experience is now:
 
 ```elixir
 # mix.exs — add the dep. That's it.
@@ -465,15 +488,20 @@ def discover_external_modules do
 end
 ```
 
-### Open Questions
+### Resolved Questions
 
-1. **Is `:application.loaded_applications()` reliable during router macro expansion?** Deps should be loaded by then, but needs testing across Elixir versions (1.16, 1.17, 1.18, 1.19).
+1. **`:application.loaded_applications()` reliability** — Works correctly during router macro expansion. Deps are loaded by that point. Tested on Elixir 1.18.4.
 
-2. **Can `:beam_lib.chunks(mod_atom, [:attributes])` resolve the module atom to a beam file during compilation?** When passed an atom, `:beam_lib` uses `:code.which(mod)` to find the file. This may not work if the module isn't on the code path yet. Alternative: scan `_build/` directory paths directly.
+2. **`:beam_lib.chunks(mod_atom, [:attributes])`** — Works when passed a charlist path from `:code.which(mod)`. For modules not yet on the code path, `Code.ensure_loaded/1` is called first, then `:code.which/1` is re-checked. The implementation handles all edge cases including Elixir 1.19's lazy module loading.
 
-3. **Performance at scale** — If a project has 50 deps and 5 depend on phoenix_kit, scanning ~50-200 modules is trivial. But what about umbrella apps with many apps?
+3. **Performance at scale** — Negligible. Only scans apps that explicitly depend on `:phoenix_kit`, not all deps.
 
-4. **Recompilation triggers** — If a new plugin dep is added, does the parent app's router recompile? It should, since adding a dep triggers a full recompile. But needs verification.
+4. **Recompilation triggers** — Adding a new dep triggers a full recompile, so router picks up new plugins automatically.
+
+### Remaining Open Questions
+
+1. **Umbrella apps** — Beam scanning should work in umbrella projects, but hasn't been verified.
+2. **Hot code reload** — `persistent_term` doesn't auto-update on hot reload. The registry would need to be restarted to pick up new modules during development (handled by recompilation).
 
 ---
 
@@ -482,9 +510,12 @@ end
 | Component | Path |
 |-----------|------|
 | Module behaviour | `lib/phoenix_kit/module.ex` |
+| Module discovery | `lib/phoenix_kit/module_discovery.ex` |
 | Module registry | `lib/phoenix_kit/module_registry.ex` |
 | Internal module list | `lib/phoenix_kit/module_registry.ex` → `internal_modules/0` |
 | Route generation | `lib/phoenix_kit_web/integration.ex` → `compile_module_admin_routes/0` |
+| Plugin admin layout | `lib/phoenix_kit_web/components/layouts/admin.html.heex` |
+| Live sidebar hook | `lib/phoenix_kit_web/users/auth.ex` → `maybe_subscribe_to_module_events/1` |
 | Tab struct (with live_view) | `lib/phoenix_kit/dashboard/tab.ex` |
 | Hello World demo | `../phoenix_kit_hello_world/` |
 
