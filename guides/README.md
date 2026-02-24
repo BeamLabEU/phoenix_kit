@@ -36,6 +36,26 @@ Learn how to add real-time functionality to LiveView pages, including:
 - Building live dashboards or detail pages
 - Setting up presence tracking for any resource
 
+### [Module System: Building PhoenixKit Modules](module_system.md)
+
+The complete guide to PhoenixKit's plugin architecture. Covers:
+- How auto-discovery works (beam file scanning)
+- All required and optional callbacks with examples
+- Tab definitions (admin, settings, user dashboard)
+- Permission metadata and role-based access
+- Supervisor children and boot ordering
+- Route integration for external packages
+- Enable/disable patterns including cascades
+- Critical pitfalls for developers and AI agents
+
+**Use this guide when:**
+- Building a new internal module
+- Creating an external `phoenix_kit_*` hex package
+- Debugging why a module tab is not appearing
+- Understanding how the permission system connects to modules
+
+---
+
 ## Guide Purpose
 
 These guides are designed to:
@@ -126,6 +146,7 @@ Future guides to add:
 - ✅ **OAuth & Magic Link Setup** - Authentication providers
 - ✅ **AWS Email Setup** - Email infrastructure automation
 - ✅ **Auth Header Integration** - Authentication header patterns
+- ✅ **Module System** - Building internal and external PhoenixKit modules
 
 ## Feedback
 
