@@ -91,7 +91,6 @@
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/editor\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/editor\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/preview\.ex:.*pattern_match/,
 
   # Publishing Controller submodules - with-chain type inference false positives
@@ -106,7 +105,6 @@
 
   # Publishing Workers - with-chain type inference false positives
   # Dialyzer incorrectly infers read_post only returns errors in certain contexts
-  ~r/lib\/modules\/publishing\/workers\/migrate_legacy_structure_worker\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/workers\/migrate_to_database_worker\.ex:.*pattern_match/,
@@ -155,12 +153,8 @@
   # Pre-existing false positive unrelated to UUID migration
   {"lib/modules/entities/entities.ex", :pattern_match},
 
-  # UUID FK columns migration - prefix parameter is typed as binary() by Dialyzer
-  # but nil is a valid runtime value (no prefix configured)
-  {"lib/phoenix_kit/migrations/uuid_fk_columns.ex", :pattern_match},
-
   # ExUnit.CaseTemplate macro generates calls to internal ExUnit functions
-  # that Dialyzer cannot resolve (Elixir 1.18+ internal API changes)
+  # that Dialyzer cannot resolve (Erlang 27 only; resolved in Erlang 28)
   {"test/support/conn_case.ex", :unknown_function},
   {"test/support/data_case.ex", :unknown_function}
 ]

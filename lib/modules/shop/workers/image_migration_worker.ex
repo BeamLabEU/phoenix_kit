@@ -193,8 +193,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
       Logger.warning("No images were successfully downloaded for product #{product.id}")
       {:error, :no_images_downloaded}
     else
-      # Map featured_image to featured_image_id
-      featured_image_id = Map.get(url_to_file_id, product.featured_image)
+      # Map featured_image to featured_image_uuid
+      featured_image_uuid = Map.get(url_to_file_id, product.featured_image)
 
       # Map legacy images to image_ids, preserving order from original images array
       image_ids =
@@ -207,13 +207,13 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
         |> Enum.map(&Map.get(url_to_file_id, &1))
         |> Enum.reject(&is_nil/1)
 
-      # If no featured_image_id but we have image_ids, use the first one
-      featured_image_id = featured_image_id || List.first(image_ids)
+      # If no featured_image_uuid but we have image_ids, use the first one
+      featured_image_uuid = featured_image_uuid || List.first(image_ids)
 
       # Ensure featured image is first in image_ids (no duplicates)
       image_ids =
-        if featured_image_id && featured_image_id in image_ids do
-          [featured_image_id | Enum.reject(image_ids, &(&1 == featured_image_id))]
+        if featured_image_uuid && featured_image_uuid in image_ids do
+          [featured_image_uuid | Enum.reject(image_ids, &(&1 == featured_image_uuid))]
         else
           image_ids
         end
@@ -222,7 +222,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
       metadata = update_image_mappings(product.metadata, url_to_file_id)
 
       attrs = %{
-        featured_image_id: featured_image_id,
+        featured_image_uuid: featured_image_uuid,
         image_ids: image_ids,
         metadata: metadata,
         # Clear legacy fields after successful migration
@@ -234,7 +234,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
         {:ok, updated_product} ->
           Logger.info(
             "Successfully migrated images for product #{product.id}: " <>
-              "featured_image_id=#{featured_image_id}, image_ids=#{length(image_ids)}"
+              "featured_image_uuid=#{featured_image_uuid}, image_ids=#{length(image_ids)}"
           )
 
           broadcast_complete(product.id, length(image_ids))

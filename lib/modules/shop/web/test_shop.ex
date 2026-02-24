@@ -249,7 +249,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
                   <.icon name="hero-photo" class="w-4 h-4 inline" /> Storage Images
                 </h3>
                 <ul class="text-sm space-y-1 text-base-content/70">
-                  <li>featured_image_id - main product image</li>
+                  <li>featured_image_uuid - main product image</li>
                   <li>image_ids[] - gallery images</li>
                   <li>Media selector integration</li>
                   <li>URL signing for secure access</li>

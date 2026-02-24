@@ -727,7 +727,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   # Get product thumbnail - prefers Storage images over legacy URLs
-  defp get_product_thumbnail(%{featured_image_id: id}) when is_binary(id) do
+  defp get_product_thumbnail(%{featured_image_uuid: id}) when is_binary(id) do
     get_storage_image_url(id, "small")
   end
 
