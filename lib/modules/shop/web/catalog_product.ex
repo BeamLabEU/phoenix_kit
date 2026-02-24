@@ -1088,7 +1088,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     end
   end
 
-  defp first_image(%{featured_image_id: id}) when is_binary(id) do
+  defp first_image(%{featured_image_uuid: id}) when is_binary(id) do
     get_storage_image_url(id, "large")
   end
 

@@ -91,7 +91,7 @@
                   <button
                     type="button"
                     role="tab"
-                    phx-click={switch_lang_js(tab.code)}
+                    phx-click={switch_lang_js(tab.code, @current_lang)}
                     title={tab.name}
                     class={[
                       "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
@@ -113,7 +113,7 @@
                     <button
                       type="button"
                       role="tab"
-                      phx-click={switch_lang_js(tab.code)}
+                      phx-click={switch_lang_js(tab.code, @current_lang)}
                       class={[
                         "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all font-medium cursor-pointer",
                         @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
@@ -130,7 +130,7 @@
                     <button
                       type="button"
                       role="tab"
-                      phx-click={switch_lang_js(tab.code)}
+                      phx-click={switch_lang_js(tab.code, @current_lang)}
                       class={[
                         "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
                         @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
