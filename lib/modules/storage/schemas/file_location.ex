@@ -76,8 +76,8 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
           status: String.t(),
           priority: integer(),
           last_verified_at: DateTime.t() | nil,
-          file_instance_id: UUIDv7.t() | nil,
-          bucket_id: UUIDv7.t() | nil,
+          file_instance_uuid: UUIDv7.t() | nil,
+          bucket_uuid: UUIDv7.t() | nil,
           file_instance:
             PhoenixKit.Modules.Storage.FileInstance.t() | Ecto.Association.NotLoaded.t(),
           bucket: PhoenixKit.Modules.Storage.Bucket.t() | Ecto.Association.NotLoaded.t(),
@@ -91,8 +91,13 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
     field :priority, :integer, default: 0
     field :last_verified_at, :utc_datetime
 
-    belongs_to :file_instance, PhoenixKit.Modules.Storage.FileInstance, references: :uuid
-    belongs_to :bucket, PhoenixKit.Modules.Storage.Bucket, references: :uuid
+    belongs_to :file_instance, PhoenixKit.Modules.Storage.FileInstance,
+      foreign_key: :file_instance_uuid,
+      references: :uuid
+
+    belongs_to :bucket, PhoenixKit.Modules.Storage.Bucket,
+      foreign_key: :bucket_uuid,
+      references: :uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -118,14 +123,14 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
       :status,
       :priority,
       :last_verified_at,
-      :file_instance_id,
-      :bucket_id
+      :file_instance_uuid,
+      :bucket_uuid
     ])
-    |> validate_required([:path, :file_instance_id, :bucket_id])
+    |> validate_required([:path, :file_instance_uuid, :bucket_uuid])
     |> validate_inclusion(:status, ["active", "syncing", "failed", "deleted"])
     |> validate_number(:priority, greater_than_or_equal_to: 0)
-    |> foreign_key_constraint(:file_instance_id)
-    |> foreign_key_constraint(:bucket_id)
+    |> foreign_key_constraint(:file_instance_uuid)
+    |> foreign_key_constraint(:bucket_uuid)
   end
 
   @doc """

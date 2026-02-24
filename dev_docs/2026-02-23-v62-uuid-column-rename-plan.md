@@ -1,9 +1,9 @@
 # V62: UUID Column Rename Plan (`_id` → `_uuid`)
 
 **Date:** 2026-02-23
-**Status:** Ready for implementation
+**Status:** Implemented ✓
 **Depends on:** V61 (uuid safety net migration, merged to main)
-**Current version:** 1.7.45 / V61
+**Current version:** 1.7.48 / V62
 
 ---
 

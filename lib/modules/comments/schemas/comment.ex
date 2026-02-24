@@ -32,10 +32,10 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           resource_type: String.t(),
-          resource_id: Ecto.UUID.t(),
+          resource_uuid: Ecto.UUID.t(),
           user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
-          parent_id: UUIDv7.t() | nil,
+          parent_uuid: UUIDv7.t() | nil,
           content: String.t(),
           status: String.t(),
           depth: integer(),
@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
 
   schema "phoenix_kit_comments" do
     field :resource_type, :string
-    field :resource_id, Ecto.UUID
+    field :resource_uuid, Ecto.UUID
     field :content, :string
     field :status, :string, default: "published"
     field :depth, :integer, default: 0
@@ -63,9 +63,13 @@ defmodule PhoenixKit.Modules.Comments.Comment do
       type: UUIDv7
 
     field :user_id, :integer
-    belongs_to :parent, __MODULE__, references: :uuid, type: UUIDv7
 
-    has_many :children, __MODULE__, foreign_key: :parent_id
+    belongs_to :parent, __MODULE__,
+      foreign_key: :parent_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    has_many :children, __MODULE__, foreign_key: :parent_uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -84,28 +88,28 @@ defmodule PhoenixKit.Modules.Comments.Comment do
     comment
     |> cast(attrs, [
       :resource_type,
-      :resource_id,
+      :resource_uuid,
       :user_id,
       :user_uuid,
-      :parent_id,
+      :parent_uuid,
       :content,
       :status,
       :depth
     ])
-    |> validate_required([:resource_type, :resource_id, :user_uuid, :content])
+    |> validate_required([:resource_type, :resource_uuid, :user_uuid, :content])
     |> validate_inclusion(:status, ["published", "hidden", "deleted", "pending"])
     |> validate_length(:content, min: 1, max: 10_000)
     |> validate_length(:resource_type, max: 50)
     |> foreign_key_constraint(:user_uuid)
-    |> foreign_key_constraint(:parent_id)
+    |> foreign_key_constraint(:parent_uuid)
   end
 
   @doc "Check if comment is a reply (has parent)."
-  def reply?(%__MODULE__{parent_id: nil}), do: false
+  def reply?(%__MODULE__{parent_uuid: nil}), do: false
   def reply?(%__MODULE__{}), do: true
 
   @doc "Check if comment is top-level (no parent)."
-  def top_level?(%__MODULE__{parent_id: nil}), do: true
+  def top_level?(%__MODULE__{parent_uuid: nil}), do: true
   def top_level?(%__MODULE__{}), do: false
 
   @doc "Check if comment is published."

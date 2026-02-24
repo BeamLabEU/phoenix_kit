@@ -543,8 +543,15 @@ Cross-referenced every schema against `uuid_fk_columns.ex`. Found and fixed 15 i
 - Fixed role_permission.ex unique constraint name to match V56 index
 - All quality checks pass: format, compile (0 warnings), credo --strict (0 issues), dialyzer (0 new errors)
 
+### V62: Column naming cleanup — COMPLETE ✓
+35 UUID-typed FK columns renamed from `_id` suffix to `_uuid` suffix (e.g. `post_comments.post_id`, `file_instances.file_id`, `ticket_attachments.comment_id`). These store UUID values but violate the naming convention (`_id` = integer, `_uuid` = UUID).
+
+This is a **naming convention enforcement pass** — data is correct, queries work. The renames are DB-only + schema/context code updates, no data migration needed.
+
+Full plan: `dev_docs/2026-02-23-v62-uuid-column-rename-plan.md` (25 tables, 35 column renames across Posts, Comments, Tickets, Storage, Publishing, Shop, and Scheduled Jobs modules).
+
 ### Future: Drop integer columns
-- V57+: Add NOT NULL constraints and FK constraints on UUID FK columns
+- Add NOT NULL constraints and FK constraints on UUID FK columns
 - Deprecation warnings for parent apps using integer `.id` field
 - Eventually drop integer FK columns and integer `id` columns in a 2.0 release
 
@@ -561,6 +568,8 @@ Cross-referenced every schema against `uuid_fk_columns.ex`. Found and fixed 15 i
 | `dev_docs/uuid_remaining_fixes.md` | Phase 3 inventory (all items resolved, historical reference) |
 | `dev_docs/uuid_migration_instructions.md` | V1 of this document (detailed reference) |
 | `dev_docs/uuid_migration_instructions_v2.md` | V2 of this document |
+| `dev_docs/2026-02-23-v62-uuid-column-rename-plan.md` | V62 plan: rename UUID-typed `_id` columns to `_uuid` |
+| `dev_docs/2026-02-23-uuid_migration_audit_corrected.md` | Root cause analysis of V40 buffering bug + V61 fixes |
 
 ## Template & Handler UUID Checklist
 

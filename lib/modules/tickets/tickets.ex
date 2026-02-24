@@ -855,7 +855,7 @@ defmodule PhoenixKit.Modules.Tickets do
       case repo().delete(comment) do
         {:ok, deleted} ->
           unless comment.is_internal do
-            decrement_comment_count(comment.ticket_id)
+            decrement_comment_count(comment.ticket_uuid)
           end
 
           deleted
@@ -884,7 +884,7 @@ defmodule PhoenixKit.Modules.Tickets do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_id == ^ticket_id and c.is_internal == false,
+      where: c.ticket_uuid == ^ticket_id and c.is_internal == false,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -899,7 +899,7 @@ defmodule PhoenixKit.Modules.Tickets do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_id == ^ticket_id,
+      where: c.ticket_uuid == ^ticket_id,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -913,7 +913,7 @@ defmodule PhoenixKit.Modules.Tickets do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_id == ^ticket_id and c.is_internal == true,
+      where: c.ticket_uuid == ^ticket_id and c.is_internal == true,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -921,10 +921,10 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp maybe_calculate_depth(attrs) do
-    parent_id = Map.get(attrs, "parent_id") || Map.get(attrs, :parent_id)
+    parent_uuid = Map.get(attrs, "parent_uuid") || Map.get(attrs, :parent_uuid)
 
-    if parent_id do
-      parent = repo().get!(TicketComment, parent_id)
+    if parent_uuid do
+      parent = repo().get!(TicketComment, parent_uuid)
       Map.put(attrs, "depth", parent.depth + 1)
     else
       Map.put(attrs, "depth", 0)
@@ -1014,7 +1014,7 @@ defmodule PhoenixKit.Modules.Tickets do
     preloads = Keyword.get(opts, :preload, [:file])
 
     from(a in TicketAttachment,
-      where: a.ticket_id == ^ticket_id and is_nil(a.comment_id),
+      where: a.ticket_uuid == ^ticket_id and is_nil(a.comment_uuid),
       order_by: [asc: a.position]
     )
     |> repo().all()
@@ -1028,7 +1028,7 @@ defmodule PhoenixKit.Modules.Tickets do
     preloads = Keyword.get(opts, :preload, [:file])
 
     from(a in TicketAttachment,
-      where: a.comment_id == ^comment_id,
+      where: a.comment_uuid == ^comment_id,
       order_by: [asc: a.position]
     )
     |> repo().all()
@@ -1037,7 +1037,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp next_ticket_attachment_position(ticket_id) do
     from(a in TicketAttachment,
-      where: a.ticket_id == ^ticket_id and is_nil(a.comment_id),
+      where: a.ticket_uuid == ^ticket_id and is_nil(a.comment_uuid),
       select: coalesce(max(a.position), 0)
     )
     |> repo().one()
@@ -1046,7 +1046,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp next_comment_attachment_position(comment_id) do
     from(a in TicketAttachment,
-      where: a.comment_id == ^comment_id,
+      where: a.comment_uuid == ^comment_id,
       select: coalesce(max(a.position), 0)
     )
     |> repo().one()
@@ -1064,7 +1064,7 @@ defmodule PhoenixKit.Modules.Tickets do
     preloads = Keyword.get(opts, :preload, [:changed_by])
 
     from(h in TicketStatusHistory,
-      where: h.ticket_id == ^ticket_id,
+      where: h.ticket_uuid == ^ticket_id,
       order_by: [asc: h.inserted_at]
     )
     |> repo().all()

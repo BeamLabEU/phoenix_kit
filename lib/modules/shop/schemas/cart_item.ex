@@ -149,7 +149,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   end
 
   # Get product image URL, preferring new Storage system over legacy
-  defp get_product_image_url(%Product{featured_image_id: id}) when is_binary(id) do
+  defp get_product_image_url(%Product{featured_image_uuid: id}) when is_binary(id) do
     alias PhoenixKit.Modules.Storage.URLSigner
 
     try do

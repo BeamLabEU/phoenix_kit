@@ -332,7 +332,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp has_storage_images?(product) do
-    not is_nil(product.featured_image_id) or
+    not is_nil(product.featured_image_uuid) or
       (is_list(product.image_ids) and product.image_ids != [])
   end
 

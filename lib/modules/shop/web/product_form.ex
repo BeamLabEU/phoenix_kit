@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
     # Build unified image list: featured first, then gallery (for unified drag-and-drop UI)
     gallery_ids = product.image_ids || []
-    featured_id = product.featured_image_id
+    featured_id = product.featured_image_uuid
     all_image_ids = build_all_image_ids(featured_id, gallery_ids)
     valid_image_ids = all_image_ids
 

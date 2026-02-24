@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
                       <%= for product <- @products do %>
                         <% price_specs = Shop.get_price_affecting_specs(product) %>
                         <% has_storage_images =
-                          product.featured_image_id != nil or (product.image_ids || []) != [] %>
+                          product.featured_image_uuid != nil or (product.image_ids || []) != [] %>
                         <% default_lang = Translations.default_language() %>
                         <tr>
                           <td>

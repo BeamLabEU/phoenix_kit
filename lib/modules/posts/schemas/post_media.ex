@@ -38,8 +38,8 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          post_id: UUIDv7.t(),
-          file_id: UUIDv7.t(),
+          post_uuid: UUIDv7.t(),
+          file_uuid: UUIDv7.t(),
           position: integer(),
           caption: String.t() | nil,
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
@@ -52,8 +52,8 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
     field :position, :integer
     field :caption, :string
 
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid
-    belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, foreign_key: :post_uuid, references: :uuid
+    belongs_to :file, PhoenixKit.Modules.Storage.File, foreign_key: :file_uuid, references: :uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -74,12 +74,12 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
   """
   def changeset(media, attrs) do
     media
-    |> cast(attrs, [:post_id, :file_id, :position, :caption])
-    |> validate_required([:post_id, :file_id, :position])
+    |> cast(attrs, [:post_uuid, :file_uuid, :position, :caption])
+    |> validate_required([:post_uuid, :file_uuid, :position])
     |> validate_number(:position, greater_than: 0)
-    |> foreign_key_constraint(:post_id)
-    |> foreign_key_constraint(:file_id)
-    |> unique_constraint([:post_id, :position],
+    |> foreign_key_constraint(:post_uuid)
+    |> foreign_key_constraint(:file_uuid)
+    |> unique_constraint([:post_uuid, :position],
       name: :phoenix_kit_post_media_post_id_position_index,
       message: "position already taken for this post"
     )

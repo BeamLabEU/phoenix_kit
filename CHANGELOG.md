@@ -1,3 +1,11 @@
+## 1.7.48 - 2026-02-24
+- Add V62 migration: rename 35 UUID-typed FK columns from `_id` suffix to `_uuid` suffix
+  - Enforces naming convention: `_id` = integer (legacy/deprecated), `_uuid` = UUID
+  - Groups: Posts module (15 renames), Comments (4), Tickets (6), Storage (3), Publishing (3), Shop (3), Scheduled Jobs (1)
+  - No data migration — columns already held correct UUID values, pure rename
+  - All DB operations idempotent (IF EXISTS guards) — safe on installs with optional modules disabled
+  - Update all Ecto schemas, context files, web files, and tests to use new field names
+
 ## 1.7.47 - 2026-02-24
 - Fix V13 migration down/0 to use `remove_if_exists` instead of `remove` for idempotency
   - Fixes "column aws_message_id does not exist" error when rolling back V13

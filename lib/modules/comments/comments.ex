@@ -203,7 +203,7 @@ defmodule PhoenixKit.Modules.Comments do
       attrs =
         attrs
         |> Map.put(:resource_type, resource_type)
-        |> Map.put(:resource_id, resource_id)
+        |> Map.put(:resource_uuid, resource_id)
         |> Map.put(:user_id, user_int_id)
         |> Map.put(:user_uuid, user_uuid)
         |> maybe_calculate_depth()
@@ -247,7 +247,7 @@ defmodule PhoenixKit.Modules.Comments do
           notify_resource_handler(
             :on_comment_deleted,
             comment.resource_type,
-            comment.resource_id,
+            comment.resource_uuid,
             deleted
           )
 
@@ -296,7 +296,7 @@ defmodule PhoenixKit.Modules.Comments do
       from(c in Comment,
         where:
           c.resource_type == ^resource_type and
-            c.resource_id == ^resource_id and
+            c.resource_uuid == ^resource_id and
             c.status == "published",
         order_by: [asc: c.inserted_at],
         preload: [:user]
@@ -320,7 +320,7 @@ defmodule PhoenixKit.Modules.Comments do
 
     query =
       from(c in Comment,
-        where: c.resource_type == ^resource_type and c.resource_id == ^resource_id,
+        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_id,
         order_by: [asc: c.inserted_at]
       )
 
@@ -337,7 +337,7 @@ defmodule PhoenixKit.Modules.Comments do
 
     query =
       from(c in Comment,
-        where: c.resource_type == ^resource_type and c.resource_id == ^resource_id
+        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_id
       )
 
     query = if status, do: where(query, [c], c.status == ^status), else: query
@@ -449,7 +449,7 @@ defmodule PhoenixKit.Modules.Comments do
   """
   def resolve_resource_context(comments) do
     comments
-    |> Enum.group_by(& &1.resource_type, & &1.resource_id)
+    |> Enum.group_by(& &1.resource_type, & &1.resource_uuid)
     |> Enum.reduce(%{}, fn {resource_type, ids}, acc ->
       resolved = resolve_for_type(resource_type, Enum.uniq(ids))
 
@@ -565,7 +565,7 @@ defmodule PhoenixKit.Modules.Comments do
   def comment_liked_by?(comment_id, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
       repo().exists?(
-        from(l in CommentLike, where: l.comment_id == ^comment_id and l.user_uuid == ^user_id)
+        from(l in CommentLike, where: l.comment_uuid == ^comment_id and l.user_uuid == ^user_id)
       )
     else
       case Integer.parse(user_id) do
@@ -579,7 +579,7 @@ defmodule PhoenixKit.Modules.Comments do
   def list_comment_likes(comment_id, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(l in CommentLike, where: l.comment_id == ^comment_id, order_by: [desc: l.inserted_at])
+    from(l in CommentLike, where: l.comment_uuid == ^comment_id, order_by: [desc: l.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -661,7 +661,9 @@ defmodule PhoenixKit.Modules.Comments do
   def comment_disliked_by?(comment_id, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
       repo().exists?(
-        from(d in CommentDislike, where: d.comment_id == ^comment_id and d.user_uuid == ^user_id)
+        from(d in CommentDislike,
+          where: d.comment_uuid == ^comment_id and d.user_uuid == ^user_id
+        )
       )
     else
       case Integer.parse(user_id) do
@@ -676,7 +678,7 @@ defmodule PhoenixKit.Modules.Comments do
     preloads = Keyword.get(opts, :preload, [])
 
     from(d in CommentDislike,
-      where: d.comment_id == ^comment_id,
+      where: d.comment_uuid == ^comment_id,
       order_by: [desc: d.inserted_at]
     )
     |> repo().all()
@@ -688,7 +690,7 @@ defmodule PhoenixKit.Modules.Comments do
   # ============================================================================
 
   defp maybe_calculate_depth(attrs) do
-    case Map.get(attrs, :parent_id) do
+    case Map.get(attrs, :parent_uuid) do
       nil ->
         Map.put(attrs, :depth, 0)
 
@@ -704,7 +706,7 @@ defmodule PhoenixKit.Modules.Comments do
     comment_map = Map.new(comments, &{&1.uuid, &1})
 
     comments
-    |> Enum.filter(&(&1.parent_id == nil))
+    |> Enum.filter(&(&1.parent_uuid == nil))
     |> Enum.map(&add_children(&1, comment_map))
   end
 
@@ -712,7 +714,7 @@ defmodule PhoenixKit.Modules.Comments do
     children =
       comment_map
       |> Map.values()
-      |> Enum.filter(&(&1.parent_id == comment.uuid))
+      |> Enum.filter(&(&1.parent_uuid == comment.uuid))
       |> Enum.map(&add_children(&1, comment_map))
 
     Map.put(comment, :children, children)
