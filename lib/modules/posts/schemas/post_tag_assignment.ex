@@ -24,8 +24,8 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
   @primary_key false
 
   @type t :: %__MODULE__{
-          post_id: UUIDv7.t(),
-          tag_id: UUIDv7.t(),
+          post_uuid: UUIDv7.t(),
+          tag_uuid: UUIDv7.t(),
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           tag: PhoenixKit.Modules.Posts.PostTag.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
@@ -34,11 +34,13 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
 
   schema "phoenix_kit_post_tag_assignments" do
     belongs_to :post, PhoenixKit.Modules.Posts.Post,
+      foreign_key: :post_uuid,
       references: :uuid,
       type: UUIDv7,
       primary_key: true
 
     belongs_to :tag, PhoenixKit.Modules.Posts.PostTag,
+      foreign_key: :tag_uuid,
       references: :uuid,
       type: UUIDv7,
       primary_key: true
@@ -60,11 +62,11 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
   """
   def changeset(assignment, attrs) do
     assignment
-    |> cast(attrs, [:post_id, :tag_id])
-    |> validate_required([:post_id, :tag_id])
-    |> foreign_key_constraint(:post_id)
-    |> foreign_key_constraint(:tag_id)
-    |> unique_constraint([:post_id, :tag_id],
+    |> cast(attrs, [:post_uuid, :tag_uuid])
+    |> validate_required([:post_uuid, :tag_uuid])
+    |> foreign_key_constraint(:post_uuid)
+    |> foreign_key_constraint(:tag_uuid)
+    |> unique_constraint([:post_uuid, :tag_uuid],
       name: :phoenix_kit_post_tag_assignments_post_id_tag_id_index,
       message: "tag already assigned to this post"
     )

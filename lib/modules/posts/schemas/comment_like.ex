@@ -11,7 +11,7 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          comment_id: UUIDv7.t(),
+          comment_uuid: UUIDv7.t(),
           user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           comment: PhoenixKit.Modules.Posts.PostComment.t() | Ecto.Association.NotLoaded.t(),
@@ -21,7 +21,10 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
         }
 
   schema "phoenix_kit_comment_likes" do
-    belongs_to :comment, PhoenixKit.Modules.Posts.PostComment, references: :uuid, type: UUIDv7
+    belongs_to :comment, PhoenixKit.Modules.Posts.PostComment,
+      foreign_key: :comment_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -47,11 +50,11 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
   """
   def changeset(like, attrs) do
     like
-    |> cast(attrs, [:comment_id, :user_id, :user_uuid])
-    |> validate_required([:comment_id, :user_uuid])
-    |> foreign_key_constraint(:comment_id)
+    |> cast(attrs, [:comment_uuid, :user_id, :user_uuid])
+    |> validate_required([:comment_uuid, :user_uuid])
+    |> foreign_key_constraint(:comment_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:comment_id, :user_id],
+    |> unique_constraint([:comment_uuid, :user_id],
       name: :phoenix_kit_comment_likes_comment_id_user_id_index,
       message: "you have already liked this comment"
     )

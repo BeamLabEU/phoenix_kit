@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          ticket_id: UUIDv7.t(),
+          ticket_uuid: UUIDv7.t(),
           changed_by_uuid: UUIDv7.t(),
           changed_by_id: integer() | nil,
           from_status: String.t() | nil,
@@ -74,7 +74,11 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
     field :from_status, :string
     field :to_status, :string
     field :reason, :string
-    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, references: :uuid, type: UUIDv7
+
+    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket,
+      foreign_key: :ticket_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     belongs_to :changed_by, PhoenixKit.Users.Auth.User,
       foreign_key: :changed_by_uuid,
@@ -100,16 +104,16 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
   def changeset(history, attrs) do
     history
     |> cast(attrs, [
-      :ticket_id,
+      :ticket_uuid,
       :changed_by_id,
       :changed_by_uuid,
       :from_status,
       :to_status,
       :reason
     ])
-    |> validate_required([:ticket_id, :changed_by_uuid, :to_status])
+    |> validate_required([:ticket_uuid, :changed_by_uuid, :to_status])
     |> validate_length(:reason, max: 1000)
-    |> foreign_key_constraint(:ticket_id)
+    |> foreign_key_constraint(:ticket_uuid)
     |> foreign_key_constraint(:changed_by_uuid)
   end
 

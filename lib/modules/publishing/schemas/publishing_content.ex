@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          version_id: UUIDv7.t(),
+          version_uuid: UUIDv7.t(),
           language: String.t(),
           title: String.t(),
           content: String.t() | nil,
@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
     field :data, :map, default: %{}
 
     belongs_to :version, PhoenixKit.Modules.Publishing.PublishingVersion,
-      foreign_key: :version_id,
+      foreign_key: :version_uuid,
       references: :uuid,
       type: UUIDv7
 
@@ -57,10 +57,10 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
   """
   def changeset(content, attrs) do
     content
-    |> cast(attrs, [:version_id, :language, :title, :content, :status, :url_slug, :data],
+    |> cast(attrs, [:version_uuid, :language, :title, :content, :status, :url_slug, :data],
       empty_values: []
     )
-    |> validate_required([:version_id, :language, :status])
+    |> validate_required([:version_uuid, :language, :status])
     |> default_if_nil(:title, "")
     |> default_if_nil(:content, "")
     |> normalize_empty_to_nil(:url_slug)
@@ -68,10 +68,10 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
     |> validate_length(:language, max: 10)
     |> validate_length(:title, max: 500)
     |> validate_length(:url_slug, max: 500)
-    |> unique_constraint([:version_id, :language],
+    |> unique_constraint([:version_uuid, :language],
       name: :idx_publishing_contents_version_language
     )
-    |> foreign_key_constraint(:version_id, name: :fk_publishing_contents_version)
+    |> foreign_key_constraint(:version_uuid, name: :fk_publishing_contents_version)
   end
 
   defp default_if_nil(changeset, field, default) do

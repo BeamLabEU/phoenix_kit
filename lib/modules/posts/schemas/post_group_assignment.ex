@@ -33,8 +33,8 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
   @primary_key false
 
   @type t :: %__MODULE__{
-          post_id: UUIDv7.t(),
-          group_id: UUIDv7.t(),
+          post_uuid: UUIDv7.t(),
+          group_uuid: UUIDv7.t(),
           position: integer(),
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           group: PhoenixKit.Modules.Posts.PostGroup.t() | Ecto.Association.NotLoaded.t(),
@@ -46,11 +46,13 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
     field :position, :integer, default: 0
 
     belongs_to :post, PhoenixKit.Modules.Posts.Post,
+      foreign_key: :post_uuid,
       references: :uuid,
       type: UUIDv7,
       primary_key: true
 
     belongs_to :group, PhoenixKit.Modules.Posts.PostGroup,
+      foreign_key: :group_uuid,
       references: :uuid,
       type: UUIDv7,
       primary_key: true
@@ -73,12 +75,12 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
   """
   def changeset(assignment, attrs) do
     assignment
-    |> cast(attrs, [:post_id, :group_id, :position])
-    |> validate_required([:post_id, :group_id])
+    |> cast(attrs, [:post_uuid, :group_uuid, :position])
+    |> validate_required([:post_uuid, :group_uuid])
     |> validate_number(:position, greater_than_or_equal_to: 0)
-    |> foreign_key_constraint(:post_id)
-    |> foreign_key_constraint(:group_id)
-    |> unique_constraint([:post_id, :group_id],
+    |> foreign_key_constraint(:post_uuid)
+    |> foreign_key_constraint(:group_uuid)
+    |> unique_constraint([:post_uuid, :group_uuid],
       name: :phoenix_kit_post_group_assignments_post_id_group_id_index,
       message: "post already in this group"
     )

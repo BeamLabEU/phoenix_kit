@@ -17,6 +17,9 @@ defmodule PhoenixKit.Modules.DB do
   Use `ensure_trigger/2` to set up the trigger for a table.
   """
 
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
 
@@ -34,6 +37,7 @@ defmodule PhoenixKit.Modules.DB do
 
   @textual_types ~w(text character varying character citext json jsonb uuid inet)
 
+  @impl PhoenixKit.Module
   @doc """
   Whether the DB explorer module is enabled.
   """
@@ -41,6 +45,7 @@ defmodule PhoenixKit.Modules.DB do
     Settings.get_boolean_setting(@enabled_key, false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enable the DB explorer module.
   """
@@ -48,6 +53,7 @@ defmodule PhoenixKit.Modules.DB do
     Settings.update_boolean_setting_with_module(@enabled_key, true, @module_name)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disable the DB explorer module.
   """
@@ -55,6 +61,7 @@ defmodule PhoenixKit.Modules.DB do
     Settings.update_boolean_setting_with_module(@enabled_key, false, @module_name)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Returns configuration metadata for the admin dashboard card.
   """
@@ -69,6 +76,46 @@ defmodule PhoenixKit.Modules.DB do
       database_size_bytes: stats.database_size_bytes
     }
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "db"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "DB"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "db",
+      label: "DB",
+      icon: "hero-server-stack",
+      description: "Database explorer and schema inspection"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_db,
+        label: "DB",
+        icon: "hero-table-cells",
+        path: "/admin/db",
+        priority: 570,
+        level: :admin,
+        permission: "db",
+        match: :exact,
+        group: :admin_modules
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def children, do: [PhoenixKit.Modules.DB.Listener]
 
   @doc """
   Aggregated Postgres stats for all user tables.

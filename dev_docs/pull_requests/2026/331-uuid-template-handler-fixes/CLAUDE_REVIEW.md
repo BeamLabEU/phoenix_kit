@@ -51,7 +51,7 @@ All changes were verified against schemas and context functions:
 
 ### Documentation Addition
 
-The PR added a valuable "Template & Handler UUID Checklist" to `dev_docs/uuid_migration_instructions_v3.md` covering:
+The PR added a valuable "Template & Handler UUID Checklist" to `dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md` covering:
 - Pattern 1 vs Pattern 2 schema identification (48 vs 27 schemas)
 - Template usage priority table (URL interpolation, phx-value, select options, etc.)
 - Handler patterns to fix (Integer.parse, Enum.find by .id, Repo.get on UUID-PK)

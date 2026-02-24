@@ -43,7 +43,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          post_id: UUIDv7.t(),
+          post_uuid: UUIDv7.t(),
           user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           ip_address: String.t() | nil,
@@ -62,7 +62,10 @@ defmodule PhoenixKit.Modules.Posts.PostView do
     field :session_id, :string
     field :viewed_at, :utc_datetime
 
-    belongs_to :post, PhoenixKit.Modules.Posts.Post, references: :uuid, type: UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post,
+      foreign_key: :post_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -89,7 +92,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
   def changeset(view, attrs) do
     view
     |> cast(attrs, [
-      :post_id,
+      :post_uuid,
       :user_id,
       :user_uuid,
       :ip_address,
@@ -97,9 +100,9 @@ defmodule PhoenixKit.Modules.Posts.PostView do
       :session_id,
       :viewed_at
     ])
-    |> validate_required([:post_id, :viewed_at])
+    |> validate_required([:post_uuid, :viewed_at])
     |> validate_viewed_at_not_future()
-    |> foreign_key_constraint(:post_id)
+    |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:user_uuid)
   end
 

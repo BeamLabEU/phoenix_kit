@@ -94,7 +94,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
           width: integer() | nil,
           height: integer() | nil,
           processing_status: String.t(),
-          file_id: UUIDv7.t() | nil,
+          file_uuid: UUIDv7.t() | nil,
           file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
           locations:
             [PhoenixKit.Modules.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
@@ -113,8 +113,8 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
     field :height, :integer
     field :processing_status, :string, default: "pending"
 
-    belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
-    has_many :locations, PhoenixKit.Modules.Storage.FileLocation, foreign_key: :file_instance_id
+    belongs_to :file, PhoenixKit.Modules.Storage.File, foreign_key: :file_uuid, references: :uuid
+    has_many :locations, PhoenixKit.Modules.Storage.FileLocation, foreign_key: :file_instance_uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -151,7 +151,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
       :width,
       :height,
       :processing_status,
-      :file_id
+      :file_uuid
     ])
     |> validate_required([
       :variant_name,
@@ -160,16 +160,16 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
       :ext,
       :checksum,
       :size,
-      :file_id
+      :file_uuid
     ])
     |> validate_inclusion(:processing_status, ["pending", "processing", "completed", "failed"])
     |> validate_number(:size, greater_than: 0)
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)
-    |> unique_constraint([:file_id, :variant_name],
+    |> unique_constraint([:file_uuid, :variant_name],
       name: :phoenix_kit_file_instances_file_id_variant_name_index
     )
-    |> foreign_key_constraint(:file_id)
+    |> foreign_key_constraint(:file_uuid)
   end
 
   @doc """

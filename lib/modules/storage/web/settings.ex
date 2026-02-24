@@ -336,10 +336,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
         repo.one(
           from f in Storage.File,
             join: fi in Storage.FileInstance,
-            on: fi.file_id == f.uuid,
+            on: fi.file_uuid == f.uuid,
             join: fl in Storage.FileLocation,
-            on: fl.file_instance_id == fi.uuid,
-            where: fl.bucket_id == ^bucket.uuid and fl.status == "active",
+            on: fl.file_instance_uuid == fi.uuid,
+            where: fl.bucket_uuid == ^bucket.uuid and fl.status == "active",
             select: count(f.uuid, :distinct)
         )
 

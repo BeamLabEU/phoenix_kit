@@ -72,7 +72,7 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`. **NEVER ment
 
 ### Version Management
 
-**Current Version**: 1.7.45 (mix.exs) | **Migration Version**: V61
+**Current Version**: 1.7.48 (mix.exs) | **Migration Version**: V62
 
 Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
@@ -119,7 +119,7 @@ put_change(changeset, :updated_at, UtilsDate.utc_now())
 Repo.update_all(query, set: [updated_at: UtilsDate.utc_now()])
 ```
 
-**Why:** `:utc_datetime` fields reject microseconds. `DateTime.utc_now()` returns microsecond precision. `UtilsDate.utc_now()` truncates to seconds automatically. See `dev_docs/2026-02-17-datetime-standardization-plan.md` for full context.
+**Why:** `:utc_datetime` fields reject microseconds. `DateTime.utc_now()` returns microsecond precision. `UtilsDate.utc_now()` truncates to seconds automatically. See `dev_docs/plans/2026-02-17-datetime-standardization-plan.md` for full context.
 
 ### URL Prefix and Navigation (IMPORTANT)
 
@@ -242,7 +242,7 @@ Or enable via Admin UI at `/{prefix}/admin/modules`.
 
 ### UUIDv7
 
-See `dev_docs/uuid_migration_instructions_v3.md` for full guide.
+See `dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md` for full guide.
 
 - Integer `id` is **deprecated** (V56+) — use `.uuid` for new code
 - `belongs_to` with UUID FKs **MUST** include `references: :uuid`
@@ -326,7 +326,7 @@ config :phoenix_kit, :password_requirements,
 
 ### Optional Auth
 
-OAuth & Magic Link registration: See `guides/oauth_and_magic_link_setup.md`.
+OAuth & Magic Link registration: See `dev_docs/guides/2025-10-17-oauth-and-magic-link-setup.md`.
 
 ## Key File Structure
 

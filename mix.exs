@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.45"
+  @version "1.7.49"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -166,14 +166,14 @@ defmodule PhoenixKit.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
-        "guides/integration.md",
-        "guides/oauth_and_magic_link_setup.md",
-        "guides/aws_email_setup.md",
-        "guides/making-pages-live.md",
-        "guides/phk_publishing_format.md",
-        "guides/AUTH_HEADER_INTEGRATION.md",
-        "guides/draggable_list_component.md",
-        "guides/README.md",
+        "dev_docs/guides/2025-12-03-integration.md",
+        "dev_docs/guides/2025-10-17-oauth-and-magic-link-setup.md",
+        "dev_docs/guides/2025-10-24-aws-email-setup.md",
+        "dev_docs/guides/2025-10-09-making-pages-live.md",
+        "dev_docs/guides/2025-10-30-phk-publishing-format.md",
+        "dev_docs/guides/2025-09-13-auth-header-integration.md",
+        "dev_docs/guides/2025-12-10-draggable-list-component.md",
+        "dev_docs/guides/README.md",
         "lib/phoenix_kit/dashboard/ADMIN_README.md"
       ],
       groups_for_extras: [

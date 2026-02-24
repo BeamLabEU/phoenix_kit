@@ -5,6 +5,8 @@ defmodule PhoenixKit.Modules.Pages do
   Provides filesystem operations for creating, editing, and organizing
   files and folders in a web-based interface.
   """
+  use PhoenixKit.Module
+
   require Logger
 
   alias PhoenixKit.Modules.Pages.FileOperations
@@ -14,6 +16,7 @@ defmodule PhoenixKit.Modules.Pages do
   @not_found_enabled_key "pages_handle_not_found"
   @not_found_path_key "pages_not_found_page"
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if Pages module is enabled.
 
@@ -26,6 +29,7 @@ defmodule PhoenixKit.Modules.Pages do
     PhoenixKit.Settings.get_boolean_setting("pages_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Pages module.
   """
@@ -33,6 +37,7 @@ defmodule PhoenixKit.Modules.Pages do
     PhoenixKit.Settings.update_boolean_setting("pages_enabled", true)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Pages module.
   """
@@ -139,4 +144,14 @@ defmodule PhoenixKit.Modules.Pages do
       "/path/to/app/priv/static/pages"
   """
   def root_path, do: FilePaths.root_path()
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "pages"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Pages"
 end

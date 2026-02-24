@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          post_id: UUIDv7.t(),
+          post_uuid: UUIDv7.t(),
           version_number: integer(),
           status: String.t(),
           created_by_uuid: UUIDv7.t() | nil,
@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
     field :data, :map, default: %{}
 
     belongs_to :post, PhoenixKit.Modules.Publishing.PublishingPost,
-      foreign_key: :post_id,
+      foreign_key: :post_uuid,
       references: :uuid,
       type: UUIDv7
 
@@ -52,7 +52,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
 
     field :created_by_id, :integer
 
-    has_many :contents, PhoenixKit.Modules.Publishing.PublishingContent, foreign_key: :version_id
+    has_many :contents, PhoenixKit.Modules.Publishing.PublishingContent,
+      foreign_key: :version_uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -63,18 +64,20 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
   def changeset(version, attrs) do
     version
     |> cast(attrs, [
-      :post_id,
+      :post_uuid,
       :version_number,
       :status,
       :created_by_uuid,
       :created_by_id,
       :data
     ])
-    |> validate_required([:post_id, :version_number, :status])
+    |> validate_required([:post_uuid, :version_number, :status])
     |> validate_inclusion(:status, ["draft", "published", "archived"])
     |> validate_number(:version_number, greater_than: 0)
-    |> unique_constraint([:post_id, :version_number], name: :idx_publishing_versions_post_number)
-    |> foreign_key_constraint(:post_id, name: :fk_publishing_versions_post)
+    |> unique_constraint([:post_uuid, :version_number],
+      name: :idx_publishing_versions_post_number
+    )
+    |> foreign_key_constraint(:post_uuid, name: :fk_publishing_versions_post)
     |> foreign_key_constraint(:created_by_uuid, name: :fk_publishing_versions_created_by)
   end
 

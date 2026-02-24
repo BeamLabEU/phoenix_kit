@@ -105,6 +105,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
     # legacy
     field :order_id, :integer
     belongs_to :order, Order, foreign_key: :order_uuid, references: :uuid, type: UUIDv7
+    field :subscription_uuid, UUIDv7
     has_many :transactions, Transaction, foreign_key: :invoice_uuid, references: :uuid
 
     timestamps(type: :utc_datetime)
@@ -120,6 +121,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
       :user_uuid,
       :order_id,
       :order_uuid,
+      :subscription_uuid,
       :invoice_number,
       :status,
       :subtotal,

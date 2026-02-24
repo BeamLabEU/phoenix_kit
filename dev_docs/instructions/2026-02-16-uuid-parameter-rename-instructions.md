@@ -1,7 +1,7 @@
 # UUID Parameter Rename & Integer Rejection — Agent Instructions
 
 **Date:** 2026-02-16
-**Context:** PR #340 completed the Pattern 2 schema migration. The migration guide (`dev_docs/uuid_migration_instructions_v3.md` V3.3) now mandates UUID-first parameter naming and hard errors on integer inputs. This document tells you what code to change.
+**Context:** PR #340 completed the Pattern 2 schema migration. The migration guide (`dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md` V3.3) now mandates UUID-first parameter naming and hard errors on integer inputs. This document tells you what code to change.
 
 ## The Rule
 

@@ -94,7 +94,10 @@ defmodule PhoenixKit.Modules.Languages do
       }
   """
 
+  use PhoenixKit.Module
+
   alias PhoenixKit.Config
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Languages.Language
   alias PhoenixKit.Settings
 
@@ -135,6 +138,7 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## --- System Management Functions ---
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the language module is enabled.
 
@@ -149,6 +153,7 @@ defmodule PhoenixKit.Modules.Languages do
     Settings.get_boolean_setting(@enabled_key, false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the language module and creates default configuration.
 
@@ -182,6 +187,7 @@ defmodule PhoenixKit.Modules.Languages do
     end
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the language module.
 
@@ -198,6 +204,7 @@ defmodule PhoenixKit.Modules.Languages do
     Settings.update_boolean_setting_with_module(@enabled_key, false, @module_name)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the complete language module configuration.
 
@@ -227,6 +234,42 @@ defmodule PhoenixKit.Modules.Languages do
       enabled_count: length(enabled_languages),
       default_language: default_language
     }
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "languages"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Languages"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "languages",
+      label: "Languages",
+      icon: "hero-language",
+      description: "Multi-language support and locale management"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_languages,
+        label: "Languages",
+        icon: "hero-language",
+        path: "/admin/settings/languages",
+        priority: 928,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "languages"
+      )
+    ]
   end
 
   ## --- Language Management Functions ---

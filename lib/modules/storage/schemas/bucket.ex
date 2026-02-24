@@ -110,7 +110,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
     field :priority, :integer, default: 0
     field :max_size_mb, :integer
 
-    has_many :file_locations, PhoenixKit.Modules.Storage.FileLocation, foreign_key: :bucket_id
+    has_many :file_locations, PhoenixKit.Modules.Storage.FileLocation, foreign_key: :bucket_uuid
 
     timestamps(type: :utc_datetime)
   end

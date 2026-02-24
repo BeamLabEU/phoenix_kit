@@ -1,3 +1,39 @@
+## 1.7.49 - 2026-02-24
+- Add V63 migration: UUID companion column safety net round 2
+  - Add `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)
+  - Add `account_uuid` companion to `phoenix_kit_ai_requests` (backfilled from ai_accounts)
+  - Add `matched_email_log_uuid` to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
+  - Add `subscription_uuid` to `phoenix_kit_invoices` (backfilled from subscriptions)
+  - Add `variant_uuid` to `phoenix_kit_shop_cart_items` (nullable, no variants table)
+  - Update Invoice, AI Request, and CartItem schemas with new uuid companion fields
+
+## 1.7.48 - 2026-02-24
+- Add V62 migration: rename 35 UUID-typed FK columns from `_id` suffix to `_uuid` suffix
+  - Enforces naming convention: `_id` = integer (legacy/deprecated), `_uuid` = UUID
+  - Groups: Posts module (15 renames), Comments (4), Tickets (6), Storage (3), Publishing (3), Shop (3), Scheduled Jobs (1)
+  - No data migration — columns already held correct UUID values, pure rename
+  - All DB operations idempotent (IF EXISTS guards) — safe on installs with optional modules disabled
+  - Update all Ecto schemas, context files, web files, and tests to use new field names
+
+## 1.7.47 - 2026-02-24
+- Fix V13 migration down/0 to use `remove_if_exists` instead of `remove` for idempotency
+  - Fixes "column aws_message_id does not exist" error when rolling back V13
+
+## 1.7.46 - 2026-02-24
+- Add plugin module system with `PhoenixKit.Module` behaviour, `ModuleRegistry`, and zero-config auto-discovery
+  - 5 required + 8 optional callbacks with sensible defaults via `use PhoenixKit.Module`
+  - Auto-discovers external modules by scanning `.beam` files for `@phoenix_kit_module` attribute
+  - All 21 internal modules now implement the behaviour, removing 786 lines of hardcoded tab enumeration
+  - External module admin routes auto-generated at compile time from `admin_tabs` with `live_view` field
+- Add live sidebar updates via PubSub when modules are enabled/disabled
+- Add server-side authorization on module toggle events (prevents crafted WebSocket bypass)
+- Add startup validation: duplicate module keys, permission key mismatches, duplicate tab IDs, missing permission fields
+- Add compile-time warnings for route module and LiveView compilation failures
+- Standardize AI, Billing, and Shop to use `update_boolean_setting_with_module/3` (consistent with all other modules)
+- Fix billing→shop cascade: shop now disabled after billing toggle succeeds (prevents orphaned state)
+- Fix `Tab.permission_granted?/2` to handle atom permission keys instead of silently bypassing checks
+- Fix `static_children/0` to catch module `children/0` failures instead of crashing the supervisor
+
 ## 1.7.45 - 2026-02-23
 - Fix auth forms mobile overflow on small screens (px-4 added to all form containers)
 - Fix daisyUI v5 compliance: remove deprecated `input-bordered` from `<.input>` component and all auth templates

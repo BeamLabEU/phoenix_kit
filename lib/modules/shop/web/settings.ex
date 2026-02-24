@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
         end
 
       case result do
-        :ok ->
+        {:ok, _} ->
           socket =
             socket
             |> assign(:enabled, new_enabled)

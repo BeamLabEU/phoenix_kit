@@ -594,6 +594,8 @@ defmodule PhoenixKitWeb.Users.Auth do
 
       Scope.admin?(scope) ->
         socket = attach_locale_hook(socket)
+        socket = maybe_subscribe_to_module_events(socket)
+        socket = maybe_apply_plugin_layout(socket)
         enforce_admin_view_permission(socket, scope)
 
       true ->
@@ -912,6 +914,55 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp handle_scope_refresh(_msg, socket), do: {:cont, socket}
 
+  # Subscribe to module enable/disable events so the admin sidebar updates
+  # in real-time when modules are toggled. Follows the scope refresh pattern.
+  defp maybe_subscribe_to_module_events(
+         %{assigns: %{phoenix_kit_module_hook_attached?: true}} = socket
+       ),
+       do: socket
+
+  defp maybe_subscribe_to_module_events(socket) do
+    Events.subscribe_to_modules()
+
+    socket
+    |> attach_hook(:phoenix_kit_module_refresh, :handle_info, &handle_module_refresh/2)
+    |> Phoenix.Component.assign(:phoenix_kit_module_hook_attached?, true)
+  end
+
+  defp handle_module_refresh({:module_enabled, _key}, socket) do
+    {:halt,
+     Phoenix.Component.assign(socket, :phoenix_kit_modules_version, System.unique_integer())}
+  end
+
+  defp handle_module_refresh({:module_disabled, _key}, socket) do
+    {:halt,
+     Phoenix.Component.assign(socket, :phoenix_kit_modules_version, System.unique_integer())}
+  end
+
+  defp handle_module_refresh(_msg, socket), do: {:cont, socket}
+
+  # Auto-apply admin layout for external plugin LiveViews.
+  # Core views (PhoenixKitWeb.* and PhoenixKit.Modules.*) handle layout
+  # via LayoutWrapper in their templates. External plugin views need it applied
+  # at the session level so plugin authors don't need to wrap anything.
+  defp maybe_apply_plugin_layout(socket) do
+    view = socket.view
+
+    if external_plugin_view?(view) do
+      put_in(socket.private[:live_layout], {PhoenixKitWeb.Layouts, :admin})
+    else
+      socket
+    end
+  end
+
+  defp external_plugin_view?(view) do
+    case Module.split(view) do
+      ["PhoenixKitWeb" | _] -> false
+      ["PhoenixKit" | _] -> false
+      _ -> true
+    end
+  end
+
   # Priority-ordered list of admin sections to try when redirecting
   # a user who lacks access to the requested page.
   # Priority-ordered fallback routes for redirecting users who lack access.
@@ -988,6 +1039,11 @@ defmodule PhoenixKitWeb.Users.Auth do
     case permission_key_for_admin_view(socket.view) do
       nil ->
         # Unmapped views: fail-closed for custom roles, allow Admin/Owner
+        Logger.debug(
+          "[Auth] Admin view #{inspect(socket.view)} has no permission mapping — " <>
+            "allowing system roles, denying custom roles"
+        )
+
         if Scope.system_role?(scope) do
           {:cont, socket}
         else

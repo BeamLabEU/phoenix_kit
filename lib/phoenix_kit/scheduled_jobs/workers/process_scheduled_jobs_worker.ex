@@ -52,7 +52,7 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
       Enum.each(pending_jobs, fn job ->
         Logger.debug(
-          "ProcessScheduledJobsWorker: Job #{job.id} - type=#{job.job_type}, resource=#{job.resource_type}/#{job.resource_id}, scheduled_at=#{job.scheduled_at}"
+          "ProcessScheduledJobsWorker: Job #{job.id} - type=#{job.job_type}, resource=#{job.resource_type}/#{job.resource_uuid}, scheduled_at=#{job.scheduled_at}"
         )
       end)
     end

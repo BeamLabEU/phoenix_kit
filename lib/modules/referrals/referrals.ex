@@ -66,9 +66,12 @@ defmodule PhoenixKit.Modules.Referrals do
   """
 
   use Ecto.Schema
+  use PhoenixKit.Module
+
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Referrals.ReferralCodeUsage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -499,6 +502,7 @@ defmodule PhoenixKit.Modules.Referrals do
 
   ## --- System Settings ---
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the referral codes system is enabled.
 
@@ -527,6 +531,7 @@ defmodule PhoenixKit.Modules.Referrals do
     Settings.get_boolean_setting("referral_codes_required", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the referral codes system.
 
@@ -541,6 +546,7 @@ defmodule PhoenixKit.Modules.Referrals do
     Settings.update_boolean_setting_with_module("referral_codes_enabled", true, "referral_codes")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the referral codes system.
 
@@ -640,6 +646,7 @@ defmodule PhoenixKit.Modules.Referrals do
     )
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current referral codes system configuration.
 
@@ -658,6 +665,45 @@ defmodule PhoenixKit.Modules.Referrals do
       max_codes_per_user: get_max_codes_per_user()
     }
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "referrals"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Referrals"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "referrals",
+      label: "Referrals",
+      icon: "hero-gift",
+      description: "Referral codes, tracking, and reward programs"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_referrals,
+        label: "Referrals",
+        icon: "hero-gift",
+        path: "/admin/settings/referral-codes",
+        priority: 920,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "referrals"
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def route_module, do: PhoenixKitWeb.Routes.ReferralsRoutes
 
   @doc """
   Gets codes that are currently valid for use.

@@ -468,13 +468,29 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Idempotent: checks column existence before adding (safe for fresh installs where V15 now includes them)
   - Resolves fresh install crash at V30 caused by V15 seed query failing on missing columns
 
-  ### V61 - UUID Column Safety Net (V40 Flush Fix) ⚡ LATEST
+  ### V61 - UUID Column Safety Net (V40 Flush Fix)
   - Adds missing `uuid` column to 6 tables that V40 silently skipped due to Ecto command buffering
   - Root cause: V40 used `repo().query()` (immediate) for table existence checks, but V32-V39 table
     creation commands were still buffered (not yet flushed). V31's `flush()` was the last flush before V40.
   - Tables fixed: admin_notes, ai_requests, subscriptions, payment_provider_configs, webhook_events, sync_transfers
   - Also adds `created_by_uuid` FK column to phoenix_kit_scheduled_jobs
   - V40 now includes `flush()` at start of `up()` to prevent recurrence on new installations
+  - All operations idempotent — safe on any installation
+
+  ### V62 - UUID Column Naming Cleanup (`_id` → `_uuid`)
+  - Renames 35 UUID-typed FK columns from `_id` suffix to `_uuid` suffix
+  - Enforces naming convention: `_id` = integer (legacy/deprecated), `_uuid` = UUID
+  - Groups: Posts (15), Comments (4), Tickets (6), Storage (3), Publishing (3), Shop (3), Scheduled Jobs (1)
+  - No data migration — columns already hold correct UUID values, pure rename
+  - All operations idempotent (IF EXISTS guards) — safe if module tables don't exist
+  - PostgreSQL auto-updates FK/index column references; constraint object names are unchanged
+
+  ### V63 - UUID Companion Column Safety Net Round 2 ⚡ LATEST
+  - Adds `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)
+  - Adds `account_uuid` companion to `phoenix_kit_ai_requests` (backfilled from ai_accounts)
+  - Adds `matched_email_log_uuid` companion to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
+  - Adds `subscription_uuid` companion to `phoenix_kit_invoices` (backfilled from subscriptions)
+  - Adds `variant_uuid` companion to `phoenix_kit_shop_cart_items` (nullable, no variants table to backfill from)
   - All operations idempotent — safe on any installation
 
   ## Migration Paths
@@ -535,7 +551,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 61
+  @current_version 63
   @default_prefix "public"
 
   @doc false

@@ -37,6 +37,9 @@ defmodule PhoenixKit.Modules.Maintenance do
       # => %{module_enabled: true, enabled: true, header: "...", subtext: "..."}
   """
 
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Settings
 
   @default_header "Maintenance Mode"
@@ -74,6 +77,7 @@ defmodule PhoenixKit.Modules.Maintenance do
     Settings.update_boolean_setting("maintenance_module_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if Maintenance mode is enabled.
 
@@ -86,6 +90,7 @@ defmodule PhoenixKit.Modules.Maintenance do
     Settings.get_boolean_setting("maintenance_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Maintenance mode.
 
@@ -95,6 +100,7 @@ defmodule PhoenixKit.Modules.Maintenance do
     Settings.update_boolean_setting("maintenance_enabled", true)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Maintenance mode.
 
@@ -142,6 +148,7 @@ defmodule PhoenixKit.Modules.Maintenance do
     Settings.update_setting("maintenance_subtext", subtext)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the configuration for the Maintenance module.
 
@@ -168,5 +175,41 @@ defmodule PhoenixKit.Modules.Maintenance do
       header: get_header(),
       subtext: get_subtext()
     }
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "maintenance"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Maintenance"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "maintenance",
+      label: "Maintenance",
+      icon: "hero-wrench-screwdriver",
+      description: "Maintenance mode and under-construction pages"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_maintenance,
+        label: "Maintenance",
+        icon: "hero-wrench-screwdriver",
+        path: "/admin/settings/maintenance",
+        priority: 932,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "maintenance"
+      )
+    ]
   end
 end

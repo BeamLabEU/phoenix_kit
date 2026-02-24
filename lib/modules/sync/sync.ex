@@ -69,6 +69,9 @@ defmodule PhoenixKit.Modules.Sync do
       {:ok, result} = PhoenixKit.Modules.Sync.Client.transfer(client, "users", strategy: :skip)
   """
 
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Sync.DataExporter
   alias PhoenixKit.Modules.Sync.DataImporter
   alias PhoenixKit.Modules.Sync.SchemaInspector
@@ -84,6 +87,7 @@ defmodule PhoenixKit.Modules.Sync do
   # SYSTEM CONTROL
   # ===========================================
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the Sync module is enabled.
   """
@@ -92,6 +96,7 @@ defmodule PhoenixKit.Modules.Sync do
     Settings.get_boolean_setting(@enabled_key, false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the Sync module.
   """
@@ -100,6 +105,7 @@ defmodule PhoenixKit.Modules.Sync do
     Settings.update_boolean_setting_with_module(@enabled_key, true, @module_name)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the Sync module.
   """
@@ -108,6 +114,7 @@ defmodule PhoenixKit.Modules.Sync do
     Settings.update_boolean_setting_with_module(@enabled_key, false, @module_name)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the Sync module configuration with statistics.
 
@@ -126,6 +133,79 @@ defmodule PhoenixKit.Modules.Sync do
       incoming_password_set: incoming_password_set?()
     }
   end
+
+  # ===========================================
+  # MODULE BEHAVIOUR CALLBACKS
+  # ===========================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "sync"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Sync"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "sync",
+      label: "Sync",
+      icon: "hero-arrow-path",
+      description: "Peer-to-peer data synchronization and replication"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_sync,
+        label: "Sync",
+        icon: "hero-arrows-right-left",
+        path: "/admin/sync",
+        priority: 560,
+        level: :admin,
+        permission: "sync",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false
+      ),
+      Tab.new!(
+        id: :admin_sync_overview,
+        label: "Overview",
+        icon: "hero-home",
+        path: "/admin/sync",
+        priority: 561,
+        level: :admin,
+        permission: "sync",
+        parent: :admin_sync,
+        match: :exact
+      ),
+      Tab.new!(
+        id: :admin_sync_connections,
+        label: "Connections",
+        icon: "hero-link",
+        path: "/admin/sync/connections",
+        priority: 562,
+        level: :admin,
+        permission: "sync",
+        parent: :admin_sync
+      ),
+      Tab.new!(
+        id: :admin_sync_history,
+        label: "History",
+        icon: "hero-clock",
+        path: "/admin/sync/history",
+        priority: 563,
+        level: :admin,
+        permission: "sync",
+        parent: :admin_sync
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def children, do: [PhoenixKit.Modules.Sync.SessionStore]
 
   # ===========================================
   # INCOMING CONNECTION SETTINGS

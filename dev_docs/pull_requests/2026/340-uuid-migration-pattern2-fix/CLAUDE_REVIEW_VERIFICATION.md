@@ -217,4 +217,4 @@ lib/modules/posts/web/groups.ex
 ---
 
 *Report generated: 2026-02-16*  
-*Migration guide reference: dev_docs/uuid_migration_instructions_v3.md*
+*Migration guide reference: dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md*
