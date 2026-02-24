@@ -266,37 +266,44 @@ defmodule PhoenixKitWeb.Live.Modules do
     currently_enabled = legal_config[:enabled] || false
     legal_mod = ModuleRegistry.get_by_key("legal")
 
-    if currently_enabled do
-      case legal_mod.disable_system() do
-        {:ok, _} ->
-          Events.broadcast_module_disabled("legal")
-          config = legal_mod.get_config()
+    result =
+      if currently_enabled,
+        do: legal_mod.disable_system(),
+        else: legal_mod.enable_system()
 
-          {:noreply,
-           socket
-           |> update(:module_configs, &Map.put(&1, "legal", config))
-           |> put_flash(:info, gettext("Legal module disabled"))}
+    case result do
+      {:error, :publishing_required} ->
+        {:noreply, put_flash(socket, :error, gettext("Please enable Publishing module first"))}
 
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to disable Legal module"))}
-      end
-    else
-      case legal_mod.enable_system() do
-        {:ok, _} ->
-          Events.broadcast_module_enabled("legal")
-          config = legal_mod.get_config()
+      other ->
+        case normalize_result(other) do
+          :ok ->
+            if currently_enabled,
+              do: Events.broadcast_module_disabled("legal"),
+              else: Events.broadcast_module_enabled("legal")
 
-          {:noreply,
-           socket
-           |> update(:module_configs, &Map.put(&1, "legal", config))
-           |> put_flash(:info, gettext("Legal module enabled"))}
+            config = legal_mod.get_config()
 
-        {:error, :publishing_required} ->
-          {:noreply, put_flash(socket, :error, gettext("Please enable Publishing module first"))}
+            label =
+              if currently_enabled,
+                do: gettext("Legal module disabled"),
+                else: gettext("Legal module enabled")
 
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}
-      end
+            {:noreply,
+             socket
+             |> update(:module_configs, &Map.put(&1, "legal", config))
+             |> put_flash(:info, label)}
+
+          {:error, _} ->
+            action = if currently_enabled, do: "disable", else: "enable"
+
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext("Failed to %{action} Legal module", action: action)
+             )}
+        end
     end
   end
 

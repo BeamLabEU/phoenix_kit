@@ -889,7 +889,21 @@ defmodule PhoenixKitWeb.Integration do
     end)
   end
 
-  defp tab_has_live_view?(%{live_view: {mod, _action}}) when is_atom(mod), do: true
+  defp tab_has_live_view?(%{live_view: {mod, _action}}) when is_atom(mod) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} ->
+        true
+
+      {:error, reason} ->
+        IO.warn(
+          "[PhoenixKit] Tab references LiveView #{inspect(mod)} which failed to compile: " <>
+            "#{inspect(reason)}. Route will be skipped."
+        )
+
+        false
+    end
+  end
+
   defp tab_has_live_view?(_), do: false
 
   defp tab_struct_to_route(%{live_view: {module, action}, path: path, id: id}) do

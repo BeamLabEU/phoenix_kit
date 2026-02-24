@@ -89,8 +89,12 @@ defmodule PhoenixKit.ModuleRegistry do
   @doc "Collect all admin tabs from all registered modules."
   @spec all_admin_tabs() :: [PhoenixKit.Dashboard.Tab.t()]
   def all_admin_tabs do
-    all_modules()
-    |> Enum.flat_map(&safe_call(&1, :admin_tabs, []))
+    tabs =
+      all_modules()
+      |> Enum.flat_map(&safe_call(&1, :admin_tabs, []))
+
+    warn_duplicate_tab_ids(tabs)
+    tabs
   end
 
   @doc "Collect all settings tabs from all registered modules."
@@ -223,6 +227,7 @@ defmodule PhoenixKit.ModuleRegistry do
   @impl true
   def init(_opts) do
     modules = load_modules()
+    validate_modules(modules)
     :persistent_term.put(@pterm_key, modules)
     {:ok, %{modules: modules}}
   end
@@ -232,6 +237,7 @@ defmodule PhoenixKit.ModuleRegistry do
     if module in modules do
       {:reply, :ok, state}
     else
+      validate_module(module, modules)
       updated = modules ++ [module]
       :persistent_term.put(@pterm_key, updated)
       {:reply, :ok, %{state | modules: updated}}
@@ -248,6 +254,68 @@ defmodule PhoenixKit.ModuleRegistry do
   # ============================================================================
   # Private
   # ============================================================================
+
+  # Validate all modules at startup — check for duplicate keys and permission mismatches.
+  defp validate_modules(modules) do
+    modules
+    |> Enum.reduce(%{}, fn mod, acc ->
+      key = safe_call(mod, :module_key, nil)
+      if is_nil(key), do: acc, else: check_duplicate_key(mod, key, acc)
+    end)
+    |> then(fn _seen -> :ok end)
+
+    Enum.each(modules, &validate_permission_key_match/1)
+  end
+
+  # Validate a single module being registered at runtime.
+  defp validate_module(module, existing_modules) do
+    key = safe_call(module, :module_key, nil)
+
+    if key do
+      existing_keys =
+        existing_modules
+        |> Enum.map(&safe_call(&1, :module_key, nil))
+        |> Enum.reject(&is_nil/1)
+
+      if key in existing_keys do
+        Logger.warning(
+          "[ModuleRegistry] Duplicate module_key #{inspect(key)} — " <>
+            "#{inspect(module)} conflicts with an existing module. " <>
+            "One will shadow the other in get_by_key/1 lookups."
+        )
+      end
+    end
+
+    validate_permission_key_match(module)
+  end
+
+  defp check_duplicate_key(mod, key, seen) do
+    case Map.get(seen, key) do
+      nil ->
+        Map.put(seen, key, mod)
+
+      existing_mod ->
+        Logger.warning(
+          "[ModuleRegistry] Duplicate module_key #{inspect(key)} — " <>
+            "#{inspect(mod)} and #{inspect(existing_mod)} both declare it. " <>
+            "One will shadow the other in get_by_key/1 lookups."
+        )
+
+        seen
+    end
+  end
+
+  defp validate_permission_key_match(mod) do
+    with key when is_binary(key) <- safe_call(mod, :module_key, nil),
+         %{key: perm_key} <- safe_call(mod, :permission_metadata, nil),
+         true <- perm_key != key do
+      Logger.warning(
+        "[ModuleRegistry] #{inspect(mod)} permission_metadata key #{inspect(perm_key)} " <>
+          "does not match module_key #{inspect(key)}. " <>
+          "This will cause permission checks and toggle events to use different keys."
+      )
+    end
+  end
 
   defp load_modules do
     internal = internal_modules()
@@ -282,6 +350,22 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Tickets,
       PhoenixKit.Jobs
     ]
+  end
+
+  defp warn_duplicate_tab_ids(tabs) do
+    tabs
+    |> Enum.map(& &1.id)
+    |> Enum.frequencies()
+    |> Enum.each(fn
+      {id, count} when count > 1 ->
+        Logger.warning(
+          "[ModuleRegistry] Duplicate admin tab ID #{inspect(id)} found #{count} times. " <>
+            "This will cause unpredictable sidebar behavior."
+        )
+
+      _ ->
+        :ok
+    end)
   end
 
   # Safely call an optional callback on a module, returning the default
