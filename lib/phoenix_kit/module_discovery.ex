@@ -138,11 +138,11 @@ defmodule PhoenixKit.ModuleDiscovery do
     end
   end
 
-  # Using String.to_atom/1 is safe here — we're scanning known ebin directories
-  # of apps that depend on :phoenix_kit, so these atoms are expected to exist.
+  # Using String.to_existing_atom/1 — any module with @phoenix_kit_module attribute
+  # will already exist as an atom (it's in the app's module list).
   defp beam_file_to_module(path) do
     path
     |> Path.basename(".beam")
-    |> String.to_atom()
+    |> String.to_existing_atom()
   end
 end
