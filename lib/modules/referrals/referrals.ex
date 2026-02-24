@@ -692,7 +692,7 @@ defmodule PhoenixKit.Modules.Referrals do
       Tab.new!(
         id: :admin_settings_referrals,
         label: "Referrals",
-        icon: "hero-ticket",
+        icon: "hero-gift",
         path: "/admin/settings/referral-codes",
         priority: 920,
         level: :admin,

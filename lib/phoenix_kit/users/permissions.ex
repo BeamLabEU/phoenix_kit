@@ -576,6 +576,15 @@ defmodule PhoenixKit.Users.Permissions do
     # Resolve both integer and UUID forms for dual-write
     role_int = resolve_role_id(role_id)
     role_uuid = resolve_role_uuid(role_id)
+
+    if is_nil(role_uuid) do
+      {:error, :role_not_found}
+    else
+      grant_permission_insert(repo, role_int, role_uuid, module_key, granted_by_id)
+    end
+  end
+
+  defp grant_permission_insert(repo, role_int, role_uuid, module_key, granted_by_id) do
     granted_by_int = resolve_user_id(granted_by_id)
     granted_by_uuid = resolve_user_uuid(granted_by_id)
 
@@ -593,8 +602,8 @@ defmodule PhoenixKit.Users.Permissions do
     )
     |> tap(fn
       {:ok, %{uuid: uuid}} when not is_nil(uuid) ->
-        Events.broadcast_permission_granted(role_id, module_key)
-        notify_affected_users(role_id)
+        Events.broadcast_permission_granted(role_uuid, module_key)
+        notify_affected_users(role_uuid)
 
       _ ->
         :ok

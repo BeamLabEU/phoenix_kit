@@ -838,28 +838,24 @@ defmodule PhoenixKit.Modules.Entities do
 
   @doc "Dynamic children function for Entities sidebar tabs."
   def entities_children(_scope) do
-    if function_exported?(__MODULE__, :list_entity_summaries, 0) do
-      cached_entity_summaries()
-      |> Enum.with_index()
-      |> Enum.map(fn {entity, idx} ->
-        %Tab{
-          id:
-            String.to_atom(
-              "admin_entity_#{entity.name}_#{:erlang.phash2(entity.name) |> Integer.to_string(16) |> String.downcase()}"
-            ),
-          label: entity.display_name_plural || entity.display_name,
-          icon: entity.icon || "hero-cube",
-          path: "/admin/entities/#{entity.name}/data",
-          priority: 541 + idx,
-          level: :admin,
-          permission: "entities",
-          match: :prefix,
-          parent: :admin_entities
-        }
-      end)
-    else
-      []
-    end
+    cached_entity_summaries()
+    |> Enum.with_index()
+    |> Enum.map(fn {entity, idx} ->
+      %Tab{
+        id:
+          String.to_atom(
+            "admin_entity_#{entity.name}_#{:erlang.phash2(entity.name) |> Integer.to_string(16) |> String.downcase()}"
+          ),
+        label: entity.display_name_plural || entity.display_name,
+        icon: entity.icon || "hero-cube",
+        path: "/admin/entities/#{entity.name}/data",
+        priority: 541 + idx,
+        level: :admin,
+        permission: "entities",
+        match: :prefix,
+        parent: :admin_entities
+      }
+    end)
   rescue
     _ -> []
   end

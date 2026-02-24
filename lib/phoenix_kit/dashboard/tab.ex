@@ -241,6 +241,7 @@ defmodule PhoenixKit.Dashboard.Tab do
       external: get_attr(attrs, :external) || false,
       new_tab: get_attr(attrs, :new_tab) || false,
       attention: parse_attention(get_attr(attrs, :attention)),
+      live_view: get_attr(attrs, :live_view),
       metadata: get_attr(attrs, :metadata) || %{},
       inserted_at: DateTime.utc_now()
     }

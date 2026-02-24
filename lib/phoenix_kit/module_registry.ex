@@ -70,10 +70,20 @@ defmodule PhoenixKit.ModuleRegistry do
   @spec enabled_modules() :: [module()]
   def enabled_modules do
     Enum.filter(all_modules(), fn mod ->
-      Code.ensure_loaded?(mod) and function_exported?(mod, :enabled?, 0) and mod.enabled?()
+      Code.ensure_loaded?(mod) and function_exported?(mod, :enabled?, 0) and
+        safe_enabled?(mod)
     end)
+  end
+
+  defp safe_enabled?(mod) do
+    mod.enabled?()
   rescue
-    _ -> []
+    error ->
+      Logger.warning(
+        "[ModuleRegistry] #{inspect(mod)}.enabled?/0 failed: #{Exception.message(error)}"
+      )
+
+      false
   end
 
   @doc "Collect all admin tabs from all registered modules."
@@ -187,8 +197,7 @@ defmodule PhoenixKit.ModuleRegistry do
   """
   @spec static_children() :: [Supervisor.child_spec()]
   def static_children do
-    (internal_modules() ++ PhoenixKit.ModuleDiscovery.discover_external_modules())
-    |> Enum.uniq()
+    load_modules()
     |> Enum.flat_map(fn mod ->
       if Code.ensure_loaded?(mod) and function_exported?(mod, :children, 0) do
         mod.children()
@@ -206,25 +215,25 @@ defmodule PhoenixKit.ModuleRegistry do
   def init(_opts) do
     modules = load_modules()
     :persistent_term.put(@pterm_key, modules)
-    {:ok, %{}}
+    {:ok, %{modules: modules}}
   end
 
   @impl true
-  def handle_call({:register, module}, _from, state) do
-    current = :persistent_term.get(@pterm_key, [])
-
-    unless module in current do
-      :persistent_term.put(@pterm_key, current ++ [module])
+  def handle_call({:register, module}, _from, %{modules: modules} = state) do
+    if module in modules do
+      {:reply, :ok, state}
+    else
+      updated = modules ++ [module]
+      :persistent_term.put(@pterm_key, updated)
+      {:reply, :ok, %{state | modules: updated}}
     end
-
-    {:reply, :ok, state}
   end
 
   @impl true
-  def handle_call({:unregister, module}, _from, state) do
-    current = :persistent_term.get(@pterm_key, [])
-    :persistent_term.put(@pterm_key, List.delete(current, module))
-    {:reply, :ok, state}
+  def handle_call({:unregister, module}, _from, %{modules: modules} = state) do
+    updated = List.delete(modules, module)
+    :persistent_term.put(@pterm_key, updated)
+    {:reply, :ok, %{state | modules: updated}}
   end
 
   # ============================================================================

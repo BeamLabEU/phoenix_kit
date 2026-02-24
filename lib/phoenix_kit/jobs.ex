@@ -132,7 +132,7 @@ defmodule PhoenixKit.Jobs do
         import Ecto.Query
 
         query =
-          from(j in "oban_jobs",
+          from(j in Oban.Job,
             group_by: j.state,
             select: {j.state, count(j.id)}
           )
