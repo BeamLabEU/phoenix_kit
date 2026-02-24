@@ -90,27 +90,28 @@ defmodule PhoenixKit.Migrations.Postgres.V13 do
   """
   def down(%{prefix: prefix} = _opts) do
     # Remove partial unique constraint on aws_message_id
-    drop_if_exists unique_index(:phoenix_kit_email_logs, [:aws_message_id],
+    drop_if_exists index(
+                     :phoenix_kit_email_logs,
+                     [:aws_message_id],
                      prefix: prefix,
-                     name: "phoenix_kit_email_logs_aws_message_id_index",
-                     where: "aws_message_id IS NOT NULL"
+                     name: :phoenix_kit_email_logs_aws_message_id_index
                    )
 
     # Remove enhancements from phoenix_kit_email_logs table
     alter table(:phoenix_kit_email_logs, prefix: prefix) do
-      remove :aws_message_id
-      remove :bounced_at
-      remove :complained_at
-      remove :opened_at
-      remove :clicked_at
+      remove_if_exists :aws_message_id, :string
+      remove_if_exists :bounced_at, :utc_datetime_usec
+      remove_if_exists :complained_at, :utc_datetime_usec
+      remove_if_exists :opened_at, :utc_datetime_usec
+      remove_if_exists :clicked_at, :utc_datetime_usec
     end
 
     # Remove enhancements from phoenix_kit_email_events table
     alter table(:phoenix_kit_email_events, prefix: prefix) do
-      remove :reject_reason
-      remove :delay_type
-      remove :subscription_type
-      remove :failure_reason
+      remove_if_exists :reject_reason, :string
+      remove_if_exists :delay_type, :string
+      remove_if_exists :subscription_type, :string
+      remove_if_exists :failure_reason, :string
     end
 
     # Update version comment on phoenix_kit table
