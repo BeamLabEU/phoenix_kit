@@ -13,7 +13,7 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
 
   ## Token Generation
 
-  Token = first 4 chars of MD5(file_id:instance_name + secret_key_base)
+  Token = first 4 chars of MD5(file_uuid:instance_name + secret_key_base)
 
   This ensures:
   - Prevents file enumeration (can't guess URLs)
@@ -24,14 +24,14 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
 
   ## Examples
 
-      iex> file_id = "018e3c4a-9f6b-7890-abcd-ef1234567890"
-      iex> PhoenixKit.Modules.Storage.URLSigner.signed_url(file_id, "thumbnail")
+      iex> file_uuid = "018e3c4a-9f6b-7890-abcd-ef1234567890"
+      iex> PhoenixKit.Modules.Storage.URLSigner.signed_url(file_uuid, "thumbnail")
       "/file/018e3c4a-9f6b-7890-abcd-ef1234567890/thumbnail/a3f2"
 
-      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", "a3f2")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_uuid, "thumbnail", "a3f2")
       true
 
-      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", "xxxx")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_uuid, "thumbnail", "xxxx")
       false
   """
 
@@ -40,22 +40,22 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
 
   ## Arguments
 
-  - `file_id` (binary) - File UUID v7
+  - `file_uuid` (binary) - File UUID v7
   - `instance_name` (binary) - Variant name (e.g., "thumbnail", "medium", "large")
 
   ## Returns
 
-  A relative URL path with prefix: `{url_prefix}/file/{file_id}/{instance_name}/{token}`
+  A relative URL path with prefix: `{url_prefix}/file/{file_uuid}/{instance_name}/{token}`
 
   ## Examples
 
       iex> PhoenixKit.Modules.Storage.URLSigner.signed_url("018e3c4a-9f6b-7890", "thumbnail")
       "/phoenix_kit/file/018e3c4a-9f6b-7890/thumbnail/abc1"  # With default prefix
   """
-  def signed_url(file_id, instance_name, opts \\ [])
-      when is_binary(file_id) and is_binary(instance_name) do
-    token = generate_token(file_id, instance_name)
-    file_path = "/file/#{file_id}/#{instance_name}/#{token}"
+  def signed_url(file_uuid, instance_name, opts \\ [])
+      when is_binary(file_uuid) and is_binary(instance_name) do
+    token = generate_token(file_uuid, instance_name)
+    file_path = "/file/#{file_uuid}/#{instance_name}/#{token}"
     locale_option = Keyword.get(opts, :locale, :none)
     Routes.path(file_path, locale: locale_option)
   end
@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
 
   ## Arguments
 
-  - `file_id` (binary) - File UUID v7
+  - `file_uuid` (binary) - File UUID v7
   - `instance_name` (binary) - Variant name
   - `token` (binary) - 4-character token from URL
 
@@ -75,17 +75,17 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
 
   ## Examples
 
-      iex> file_id = "018e3c4a-9f6b-7890"
-      iex> token = PhoenixKit.Modules.Storage.URLSigner.generate_token(file_id, "thumbnail")
-      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", token)
+      iex> file_uuid = "018e3c4a-9f6b-7890"
+      iex> token = PhoenixKit.Modules.Storage.URLSigner.generate_token(file_uuid, "thumbnail")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_uuid, "thumbnail", token)
       true
 
-      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", "xxxx")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_uuid, "thumbnail", "xxxx")
       false
   """
-  def verify_token(file_id, instance_name, token)
-      when is_binary(file_id) and is_binary(instance_name) and is_binary(token) do
-    expected_token = generate_token(file_id, instance_name)
+  def verify_token(file_uuid, instance_name, token)
+      when is_binary(file_uuid) and is_binary(instance_name) and is_binary(token) do
+    expected_token = generate_token(file_uuid, instance_name)
     # Use constant-time comparison to prevent timing attacks
     secure_compare(expected_token, token)
   end
@@ -97,7 +97,7 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
 
   ## Arguments
 
-  - `file_id` (binary) - File UUID v7
+  - `file_uuid` (binary) - File UUID v7
   - `instance_name` (binary) - Variant name
 
   ## Returns
@@ -109,9 +109,9 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
       iex> PhoenixKit.Modules.Storage.URLSigner.generate_token("018e3c4a", "thumbnail")
       "abc1"
   """
-  def generate_token(file_id, instance_name)
-      when is_binary(file_id) and is_binary(instance_name) do
-    data = "#{file_id}:#{instance_name}"
+  def generate_token(file_uuid, instance_name)
+      when is_binary(file_uuid) and is_binary(instance_name) do
+    data = "#{file_uuid}:#{instance_name}"
 
     # Get secret_key_base if available, otherwise just use data without secret
     secret_key_base = get_secret_key_base()

@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Storage.FileServer do
 
   ## Arguments
 
-  - `file_id` (binary) - File UUID v7
+  - `file_uuid` (binary) - File UUID v7
   - `instance_name` (binary) - Variant name (e.g., "thumbnail", "medium")
 
   ## Returns
@@ -78,14 +78,14 @@ defmodule PhoenixKit.Modules.Storage.FileServer do
         ]
       }}
   """
-  def get_file_location(file_id, instance_name)
-      when is_binary(file_id) and is_binary(instance_name) do
+  def get_file_location(file_uuid, instance_name)
+      when is_binary(file_uuid) and is_binary(instance_name) do
     repo = get_repo()
 
     # Query for file instance with all its locations
     query =
       from fi in FileInstance,
-        where: fi.file_id == ^file_id and fi.variant_name == ^instance_name,
+        where: fi.file_uuid == ^file_uuid and fi.variant_name == ^instance_name,
         preload: [
           locations: [
             bucket: []

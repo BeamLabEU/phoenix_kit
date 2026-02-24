@@ -74,8 +74,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
     # Build unified image list: featured first, then gallery (for unified drag-and-drop UI)
     gallery_ids = product.image_ids || []
-    featured_id = product.featured_image_id
-    all_image_ids = build_all_image_ids(featured_id, gallery_ids)
+    featured_uuid = product.featured_image_uuid
+    all_image_ids = build_all_image_ids(featured_uuid, gallery_ids)
     valid_image_ids = all_image_ids
 
     # Clean stale image mappings (images that no longer exist)
@@ -252,12 +252,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
     # Extract featured and gallery from unified image list
     all_images = socket.assigns.all_image_ids
-    featured_id = List.first(all_images)
+    featured_uuid = List.first(all_images)
     gallery_ids = Enum.drop(all_images, 1)
 
     product_params =
       product_params
-      |> Map.put("featured_image_id", featured_id)
+      |> Map.put("featured_image_uuid", featured_uuid)
       |> Map.put("image_ids", gallery_ids)
 
     # Build localized field attrs from main form values and translations
@@ -1766,8 +1766,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   # Build unified image list from featured + gallery (featured always first)
   defp build_all_image_ids(nil, gallery_ids), do: Enum.uniq(gallery_ids)
 
-  defp build_all_image_ids(featured_id, gallery_ids) do
-    [featured_id | Enum.reject(gallery_ids, &(&1 == featured_id))]
+  defp build_all_image_ids(featured_uuid, gallery_ids) do
+    [featured_uuid | Enum.reject(gallery_ids, &(&1 == featured_uuid))]
     |> Enum.uniq()
   end
 

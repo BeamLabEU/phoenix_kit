@@ -138,7 +138,7 @@ defmodule PhoenixKit.Modules.Storage.File do
       type: UUIDv7
 
     field :user_id, :integer
-    has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_id
+    has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_uuid
 
     timestamps(type: :utc_datetime)
   end

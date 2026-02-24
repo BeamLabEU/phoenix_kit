@@ -32,7 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # Load storage settings from database (using basic function to avoid cache issues)
     redundancy_copies = Settings.get_setting("storage_redundancy_copies", "1")
     auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
-    default_bucket_id = Settings.get_setting("storage_default_bucket_id", nil)
+    default_bucket_uuid = Settings.get_setting("storage_default_bucket_uuid", nil)
 
     # Calculate maximum redundancy based on available buckets
     active_buckets = Enum.count(buckets, & &1.enabled)
@@ -58,7 +58,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:bucket_file_counts, bucket_file_counts)
       |> assign(:redundancy_copies, current_redundancy)
       |> assign(:auto_generate_variants, auto_generate_variants == "true")
-      |> assign(:default_bucket_id, default_bucket_id)
+      |> assign(:default_bucket_uuid, default_bucket_uuid)
       |> assign(:active_buckets_count, active_buckets)
       |> assign(:max_redundancy, max_redundancy)
       |> assign(:form_redundancy, form_redundancy)
@@ -239,14 +239,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     end
   end
 
-  def handle_event("update_default_bucket", %{"bucket_id" => bucket_id}, socket) do
-    new_value = if bucket_id == "", do: nil, else: bucket_id
+  def handle_event("update_default_bucket", %{"bucket_id" => bucket_uuid}, socket) do
+    new_value = if bucket_uuid == "", do: nil, else: bucket_uuid
 
-    case Settings.update_setting("storage_default_bucket_id", new_value) do
+    case Settings.update_setting("storage_default_bucket_uuid", new_value) do
       {:ok, _setting} ->
         socket =
           socket
-          |> assign(:default_bucket_id, new_value)
+          |> assign(:default_bucket_uuid, new_value)
           |> put_flash(:info, "Default bucket updated")
 
         {:noreply, socket}
@@ -257,8 +257,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     end
   end
 
-  def handle_event("delete_bucket", %{"id" => bucket_id}, socket) do
-    bucket = Storage.get_bucket(bucket_id)
+  def handle_event("delete_bucket", %{"id" => bucket_uuid}, socket) do
+    bucket = Storage.get_bucket(bucket_uuid)
 
     case Storage.delete_bucket(bucket) do
       {:ok, _bucket} ->
@@ -336,10 +336,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
         repo.one(
           from f in Storage.File,
             join: fi in Storage.FileInstance,
-            on: fi.file_id == f.uuid,
+            on: fi.file_uuid == f.uuid,
             join: fl in Storage.FileLocation,
-            on: fl.file_instance_id == fi.uuid,
-            where: fl.bucket_id == ^bucket.uuid and fl.status == "active",
+            on: fl.file_instance_uuid == fi.uuid,
+            where: fl.bucket_uuid == ^bucket.uuid and fl.status == "active",
             select: count(f.uuid, :distinct)
         )
 
@@ -365,7 +365,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # Reload storage settings
     redundancy_copies = Settings.get_setting("storage_redundancy_copies", "1")
     auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
-    default_bucket_id = Settings.get_setting("storage_default_bucket_id", nil)
+    default_bucket_uuid = Settings.get_setting("storage_default_bucket_uuid", nil)
 
     # Recalculate max redundancy
     active_buckets_count = Enum.count(buckets, & &1.enabled)
@@ -377,7 +377,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     |> assign(:bucket_file_counts, bucket_file_counts)
     |> assign(:redundancy_copies, current_redundancy)
     |> assign(:auto_generate_variants, auto_generate_variants == "true")
-    |> assign(:default_bucket_id, default_bucket_id)
+    |> assign(:default_bucket_uuid, default_bucket_uuid)
     |> assign(:active_buckets_count, active_buckets_count)
     |> assign(:max_redundancy, max_redundancy)
     |> assign(:form_redundancy, current_redundancy)

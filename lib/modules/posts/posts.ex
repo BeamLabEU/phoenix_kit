@@ -702,17 +702,17 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_like_post(post_id, user_uuid, user_int_id) do
+  defp do_like_post(post_uuid, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostLike{}
            |> PostLike.changeset(%{
-             post_id: post_id,
+             post_uuid: post_uuid,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, like} ->
-          increment_like_count(%Post{uuid: post_id})
+          increment_like_count(%Post{uuid: post_uuid})
           like
 
         {:error, changeset} ->
@@ -754,15 +754,15 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_unlike_post(post_id, user_uuid) do
+  defp do_unlike_post(post_uuid, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostLike, post_id: post_id, user_uuid: user_uuid) do
+      case repo().get_by(PostLike, post_uuid: post_uuid, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         like ->
           {:ok, _} = repo().delete(like)
-          decrement_like_count(%Post{uuid: post_id})
+          decrement_like_count(%Post{uuid: post_uuid})
           like
       end
     end)
@@ -787,7 +787,7 @@ defmodule PhoenixKit.Modules.Posts do
   def post_liked_by?(post_uuid, user_uuid) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
       repo().exists?(
-        from(l in PostLike, where: l.post_id == ^post_uuid and l.user_uuid == ^user_uuid)
+        from(l in PostLike, where: l.post_uuid == ^post_uuid and l.user_uuid == ^user_uuid)
       )
     else
       false
@@ -820,7 +820,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_likes(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(l in PostLike, where: l.post_id == ^post_uuid, order_by: [desc: l.inserted_at])
+    from(l in PostLike, where: l.post_uuid == ^post_uuid, order_by: [desc: l.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -862,17 +862,17 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_dislike_post(post_id, user_uuid, user_int_id) do
+  defp do_dislike_post(post_uuid, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostDislike{}
            |> PostDislike.changeset(%{
-             post_id: post_id,
+             post_uuid: post_uuid,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, dislike} ->
-          increment_dislike_count(%Post{uuid: post_id})
+          increment_dislike_count(%Post{uuid: post_uuid})
           dislike
 
         {:error, changeset} ->
@@ -914,15 +914,15 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_undislike_post(post_id, user_uuid) do
+  defp do_undislike_post(post_uuid, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostDislike, post_id: post_id, user_uuid: user_uuid) do
+      case repo().get_by(PostDislike, post_uuid: post_uuid, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         dislike ->
           {:ok, _} = repo().delete(dislike)
-          decrement_dislike_count(%Post{uuid: post_id})
+          decrement_dislike_count(%Post{uuid: post_uuid})
           dislike
       end
     end)
@@ -947,7 +947,7 @@ defmodule PhoenixKit.Modules.Posts do
   def post_disliked_by?(post_uuid, user_uuid) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
       repo().exists?(
-        from(d in PostDislike, where: d.post_id == ^post_uuid and d.user_uuid == ^user_uuid)
+        from(d in PostDislike, where: d.post_uuid == ^post_uuid and d.user_uuid == ^user_uuid)
       )
     else
       false
@@ -980,7 +980,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_dislikes(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(d in PostDislike, where: d.post_id == ^post_uuid, order_by: [desc: d.inserted_at])
+    from(d in PostDislike, where: d.post_uuid == ^post_uuid, order_by: [desc: d.inserted_at])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1096,7 +1096,7 @@ defmodule PhoenixKit.Modules.Posts do
       iex> add_tags_to_post(post, ["elixir", "phoenix"])
       {:ok, [%PostTag{}, %PostTag{}]}
   """
-  def add_tags_to_post(%Post{uuid: post_id}, tag_names) when is_list(tag_names) do
+  def add_tags_to_post(%Post{uuid: post_uuid}, tag_names) when is_list(tag_names) do
     repo().transaction(fn ->
       tags =
         Enum.map(tag_names, fn name ->
@@ -1109,7 +1109,7 @@ defmodule PhoenixKit.Modules.Posts do
 
       Enum.each(tags, fn tag ->
         %PostTagAssignment{}
-        |> PostTagAssignment.changeset(%{post_id: post_id, tag_id: tag.uuid})
+        |> PostTagAssignment.changeset(%{post_uuid: post_uuid, tag_uuid: tag.uuid})
         |> repo().insert(on_conflict: :nothing)
 
         # Increment tag usage
@@ -1135,7 +1135,7 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, %PostTagAssignment{}}
   """
   def remove_tag_from_post(post_uuid, tag_uuid) do
-    case repo().get_by(PostTagAssignment, post_id: post_uuid, tag_id: tag_uuid) do
+    case repo().get_by(PostTagAssignment, post_uuid: post_uuid, tag_uuid: tag_uuid) do
       nil ->
         {:error, :not_found}
 
@@ -1332,8 +1332,8 @@ defmodule PhoenixKit.Modules.Posts do
     repo().transaction(fn ->
       case %PostGroupAssignment{}
            |> PostGroupAssignment.changeset(%{
-             post_id: post_uuid,
-             group_id: group_uuid,
+             post_uuid: post_uuid,
+             group_uuid: group_uuid,
              position: position
            })
            |> repo().insert() do
@@ -1365,7 +1365,7 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, %PostGroupAssignment{}}
   """
   def remove_post_from_group(post_uuid, group_uuid) do
-    case repo().get_by(PostGroupAssignment, post_id: post_uuid, group_id: group_uuid) do
+    case repo().get_by(PostGroupAssignment, post_uuid: post_uuid, group_uuid: group_uuid) do
       nil ->
         {:error, :not_found}
 
@@ -1434,8 +1434,8 @@ defmodule PhoenixKit.Modules.Posts do
 
     from(p in Post,
       join: ga in PostGroupAssignment,
-      on: ga.post_id == p.uuid,
-      where: ga.group_id == ^group_uuid,
+      on: ga.post_uuid == p.uuid,
+      where: ga.group_uuid == ^group_uuid,
       order_by: [asc: ga.position]
     )
     |> repo().all()
@@ -1492,7 +1492,7 @@ defmodule PhoenixKit.Modules.Posts do
     if UUIDUtils.valid?(user_uuid) do
       %PostMention{}
       |> PostMention.changeset(%{
-        post_id: post_uuid,
+        post_uuid: post_uuid,
         user_id: resolve_user_id(user_uuid),
         user_uuid: user_uuid,
         mention_type: mention_type
@@ -1536,8 +1536,8 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_remove_mention(post_id, user_uuid) do
-    case repo().get_by(PostMention, post_id: post_id, user_uuid: user_uuid) do
+  defp do_remove_mention(post_uuid, user_uuid) do
+    case repo().get_by(PostMention, post_uuid: post_uuid, user_uuid: user_uuid) do
       nil -> {:error, :not_found}
       mention -> repo().delete(mention)
     end
@@ -1560,7 +1560,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_mentions(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(m in PostMention, where: m.post_id == ^post_uuid)
+    from(m in PostMention, where: m.post_uuid == ^post_uuid)
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1591,8 +1591,8 @@ defmodule PhoenixKit.Modules.Posts do
 
     %PostMedia{}
     |> PostMedia.changeset(%{
-      post_id: post_uuid,
-      file_id: file_uuid,
+      post_uuid: post_uuid,
+      file_uuid: file_uuid,
       position: position,
       caption: caption
     })
@@ -1613,7 +1613,7 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, %PostMedia{}}
   """
   def detach_media(post_uuid, file_uuid) do
-    case repo().get_by(PostMedia, post_id: post_uuid, file_id: file_uuid) do
+    case repo().get_by(PostMedia, post_uuid: post_uuid, file_uuid: file_uuid) do
       nil -> {:error, :not_found}
       media -> repo().delete(media)
     end
@@ -1655,7 +1655,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_post_media(post_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:file])
 
-    from(m in PostMedia, where: m.post_id == ^post_uuid, order_by: [asc: m.position])
+    from(m in PostMedia, where: m.post_uuid == ^post_uuid, order_by: [asc: m.position])
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -1675,16 +1675,16 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def reorder_media(post_uuid, file_uuid_positions) when is_map(file_uuid_positions) do
     repo().transaction(fn ->
-      # Two-pass approach to avoid unique constraint violations on (post_id, position)
+      # Two-pass approach to avoid unique constraint violations on (post_uuid, position)
       # Pass 1: Set all positions to negative values (temporary)
       Enum.each(file_uuid_positions, fn {file_uuid, position} ->
-        from(m in PostMedia, where: m.post_id == ^post_uuid and m.file_id == ^file_uuid)
+        from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.file_uuid == ^file_uuid)
         |> repo().update_all(set: [position: -position])
       end)
 
       # Pass 2: Set the correct positive positions
       Enum.each(file_uuid_positions, fn {file_uuid, position} ->
-        from(m in PostMedia, where: m.post_id == ^post_uuid and m.file_id == ^file_uuid)
+        from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.file_uuid == ^file_uuid)
         |> repo().update_all(set: [position: position])
       end)
     end)
@@ -1710,14 +1710,14 @@ defmodule PhoenixKit.Modules.Posts do
   def set_featured_image(post_uuid, file_uuid) do
     repo().transaction(fn ->
       # Remove existing featured image if present
-      from(m in PostMedia, where: m.post_id == ^post_uuid and m.position == 1)
+      from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.position == 1)
       |> repo().delete_all()
 
       # Insert new featured image at position 1
       case %PostMedia{}
            |> PostMedia.changeset(%{
-             post_id: post_uuid,
-             file_id: file_uuid,
+             post_uuid: post_uuid,
+             file_uuid: file_uuid,
              position: 1
            })
            |> repo().insert() do
@@ -1744,7 +1744,7 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def get_featured_image(post_uuid) do
     from(m in PostMedia,
-      where: m.post_id == ^post_uuid and m.position == 1,
+      where: m.post_uuid == ^post_uuid and m.position == 1,
       preload: [:file]
     )
     |> repo().one()
@@ -1767,7 +1767,7 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def remove_featured_image(post_uuid) do
     {count, _} =
-      from(m in PostMedia, where: m.post_id == ^post_uuid and m.position == 1)
+      from(m in PostMedia, where: m.post_uuid == ^post_uuid and m.position == 1)
       |> repo().delete_all()
 
     {:ok, count}

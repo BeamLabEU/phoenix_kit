@@ -162,28 +162,28 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     end
   end
 
-  defp store_variant_file(variant_path, variant_name, storage_path, file_id) do
+  defp store_variant_file(variant_path, variant_name, storage_path, file_uuid) do
     Logger.info("Storing variant #{variant_name} to storage buckets at path: #{storage_path}")
 
     # Get the bucket IDs from the original file instance if available
     opts =
-      case file_id do
+      case file_uuid do
         nil ->
           [generate_variants: false, path_prefix: storage_path]
 
-        file_id ->
+        file_uuid ->
           # Get the original instance's bucket IDs
-          case Storage.get_file_instance_by_name(file_id, "original") do
+          case Storage.get_file_instance_by_name(file_uuid, "original") do
             %Storage.FileInstance{uuid: original_instance_id} ->
-              bucket_ids = Storage.get_file_instance_bucket_ids(original_instance_id)
+              bucket_uuids = Storage.get_file_instance_bucket_uuids(original_instance_id)
 
-              if Enum.empty?(bucket_ids) do
+              if Enum.empty?(bucket_uuids) do
                 [generate_variants: false, path_prefix: storage_path]
               else
                 [
                   generate_variants: false,
                   path_prefix: storage_path,
-                  force_bucket_ids: bucket_ids
+                  force_bucket_ids: bucket_uuids
                 ]
               end
 
@@ -221,15 +221,15 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
           width: stats.width,
           height: stats.height,
           processing_status: "completed",
-          file_id: file.uuid
+          file_uuid: file.uuid
         }
 
         Storage.create_file_instance(instance_attrs)
     end
   end
 
-  defp create_variant_file_locations(instance, bucket_ids, storage_path) do
-    case Storage.create_file_locations_for_instance(instance.uuid, bucket_ids, storage_path) do
+  defp create_variant_file_locations(instance, bucket_uuids, storage_path) do
+    case Storage.create_file_locations_for_instance(instance.uuid, bucket_uuids, storage_path) do
       {:ok, locations} ->
         {:ok, locations}
 

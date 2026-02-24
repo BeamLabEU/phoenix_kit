@@ -140,7 +140,7 @@
               <img
                 src={
                   PhoenixKit.Modules.Storage.URLSigner.signed_url(
-                    featured_image.file_id,
+                    featured_image.file_uuid,
                     "original"
                   )
                 }
@@ -162,7 +162,7 @@
                 <div class="aspect-square rounded-lg overflow-hidden">
                   <img
                     src={
-                      PhoenixKit.Modules.Storage.URLSigner.signed_url(media.file_id, "original")
+                      PhoenixKit.Modules.Storage.URLSigner.signed_url(media.file_uuid, "original")
                     }
                     alt={media.file && media.file.original_file_name}
                     class="w-full h-full object-cover"

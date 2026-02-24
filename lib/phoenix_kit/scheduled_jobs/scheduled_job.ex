@@ -36,7 +36,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
     field :job_type, :string
     field :handler_module, :string
     field :resource_type, :string
-    field :resource_id, :binary_id
+    field :resource_uuid, :binary_id
     field :scheduled_at, :utc_datetime
     field :executed_at, :utc_datetime
     field :status, :string, default: "pending"
@@ -59,7 +59,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
       :job_type,
       :handler_module,
       :resource_type,
-      :resource_id,
+      :resource_uuid,
       :scheduled_at,
       :args,
       :priority,
@@ -70,7 +70,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
       :job_type,
       :handler_module,
       :resource_type,
-      :resource_id,
+      :resource_uuid,
       :scheduled_at
     ])
     |> validate_inclusion(:status, @statuses)

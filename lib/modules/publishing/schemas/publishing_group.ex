@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
     field :position, :integer, default: 0
     field :data, :map, default: %{}
 
-    has_many :posts, PhoenixKit.Modules.Publishing.PublishingPost, foreign_key: :group_id
+    has_many :posts, PhoenixKit.Modules.Publishing.PublishingPost, foreign_key: :group_uuid
 
     timestamps(type: :utc_datetime)
   end

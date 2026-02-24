@@ -44,9 +44,9 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          ticket_id: UUIDv7.t() | nil,
-          comment_id: UUIDv7.t() | nil,
-          file_id: UUIDv7.t(),
+          ticket_uuid: UUIDv7.t() | nil,
+          comment_uuid: UUIDv7.t() | nil,
+          file_uuid: UUIDv7.t(),
           position: integer(),
           caption: String.t() | nil,
           ticket: PhoenixKit.Modules.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t() | nil,
@@ -61,9 +61,17 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
     field :position, :integer
     field :caption, :string
 
-    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, references: :uuid
-    belongs_to :comment, PhoenixKit.Modules.Tickets.TicketComment, references: :uuid
-    belongs_to :file, PhoenixKit.Modules.Storage.File, references: :uuid
+    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket,
+      foreign_key: :ticket_uuid,
+      references: :uuid
+
+    belongs_to :comment, PhoenixKit.Modules.Tickets.TicketComment,
+      foreign_key: :comment_uuid,
+      references: :uuid
+
+    belongs_to :file, PhoenixKit.Modules.Storage.File,
+      foreign_key: :file_uuid,
+      references: :uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -84,25 +92,27 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
   """
   def changeset(attachment, attrs) do
     attachment
-    |> cast(attrs, [:ticket_id, :comment_id, :file_id, :position, :caption])
-    |> validate_required([:file_id, :position])
+    |> cast(attrs, [:ticket_uuid, :comment_uuid, :file_uuid, :position, :caption])
+    |> validate_required([:file_uuid, :position])
     |> validate_number(:position, greater_than: 0)
     |> validate_parent_reference()
-    |> foreign_key_constraint(:ticket_id)
-    |> foreign_key_constraint(:comment_id)
-    |> foreign_key_constraint(:file_id)
+    |> foreign_key_constraint(:ticket_uuid)
+    |> foreign_key_constraint(:comment_uuid)
+    |> foreign_key_constraint(:file_uuid)
   end
 
   @doc """
   Check if attachment is attached to a ticket directly.
   """
-  def ticket_attachment?(%__MODULE__{ticket_id: ticket_id}) when not is_nil(ticket_id), do: true
+  def ticket_attachment?(%__MODULE__{ticket_uuid: ticket_uuid}) when not is_nil(ticket_uuid),
+    do: true
+
   def ticket_attachment?(_), do: false
 
   @doc """
   Check if attachment is attached to a comment.
   """
-  def comment_attachment?(%__MODULE__{comment_id: comment_id}) when not is_nil(comment_id),
+  def comment_attachment?(%__MODULE__{comment_uuid: comment_uuid}) when not is_nil(comment_uuid),
     do: true
 
   def comment_attachment?(_), do: false
@@ -110,15 +120,15 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
   # Private Functions
 
   defp validate_parent_reference(changeset) do
-    ticket_id = get_field(changeset, :ticket_id)
-    comment_id = get_field(changeset, :comment_id)
+    ticket_uuid = get_field(changeset, :ticket_uuid)
+    comment_uuid = get_field(changeset, :comment_uuid)
 
-    case {ticket_id, comment_id} do
+    case {ticket_uuid, comment_uuid} do
       {nil, nil} ->
-        add_error(changeset, :ticket_id, "either ticket_id or comment_id must be set")
+        add_error(changeset, :ticket_uuid, "either ticket_uuid or comment_uuid must be set")
 
       {id, cid} when not is_nil(id) and not is_nil(cid) ->
-        add_error(changeset, :comment_id, "cannot set both ticket_id and comment_id")
+        add_error(changeset, :comment_uuid, "cannot set both ticket_uuid and comment_uuid")
 
       _ ->
         changeset

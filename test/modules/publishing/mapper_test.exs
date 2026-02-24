@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
   defp build_post(group, attrs \\ %{}) do
     %PublishingPost{
       uuid: UUIDv7.generate(),
-      group_id: group.uuid,
+      group_uuid: group.uuid,
       group: group,
       slug: "hello-world",
       status: "published",
@@ -43,7 +43,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
   defp build_version(post, attrs \\ %{}) do
     %PublishingVersion{
       uuid: UUIDv7.generate(),
-      post_id: post.uuid,
+      post_uuid: post.uuid,
       version_number: 1,
       status: "published",
       data: %{},
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
   defp build_content(version, attrs \\ %{}) do
     %PublishingContent{
       uuid: UUIDv7.generate(),
-      version_id: version.uuid,
+      version_uuid: version.uuid,
       language: "en",
       title: "Hello World",
       content: "# Hello World\n\nThis is the content.",

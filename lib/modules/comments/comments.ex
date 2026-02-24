@@ -143,7 +143,7 @@ defmodule PhoenixKit.Modules.Comments do
       attrs =
         attrs
         |> Map.put(:resource_type, resource_type)
-        |> Map.put(:resource_id, resource_id)
+        |> Map.put(:resource_uuid, resource_id)
         |> Map.put(:user_id, user_int_id)
         |> Map.put(:user_uuid, user_uuid)
         |> maybe_calculate_depth()
@@ -187,7 +187,7 @@ defmodule PhoenixKit.Modules.Comments do
           notify_resource_handler(
             :on_comment_deleted,
             comment.resource_type,
-            comment.resource_id,
+            comment.resource_uuid,
             deleted
           )
 
@@ -236,7 +236,7 @@ defmodule PhoenixKit.Modules.Comments do
       from(c in Comment,
         where:
           c.resource_type == ^resource_type and
-            c.resource_id == ^resource_id and
+            c.resource_uuid == ^resource_id and
             c.status == "published",
         order_by: [asc: c.inserted_at],
         preload: [:user]
@@ -260,7 +260,7 @@ defmodule PhoenixKit.Modules.Comments do
 
     query =
       from(c in Comment,
-        where: c.resource_type == ^resource_type and c.resource_id == ^resource_id,
+        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_id,
         order_by: [asc: c.inserted_at]
       )
 
@@ -277,7 +277,7 @@ defmodule PhoenixKit.Modules.Comments do
 
     query =
       from(c in Comment,
-        where: c.resource_type == ^resource_type and c.resource_id == ^resource_id
+        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_id
       )
 
     query = if status, do: where(query, [c], c.status == ^status), else: query
@@ -302,9 +302,9 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "Bulk-updates status for multiple comment IDs."
-  def bulk_update_status(comment_ids, status)
-      when is_list(comment_ids) and status in ["published", "hidden", "deleted", "pending"] do
-    from(c in Comment, where: c.uuid in ^comment_ids)
+  def bulk_update_status(comment_uuids, status)
+      when is_list(comment_uuids) and status in ["published", "hidden", "deleted", "pending"] do
+    from(c in Comment, where: c.uuid in ^comment_uuids)
     |> repo().update_all(set: [status: status, updated_at: UtilsDate.utc_now()])
   end
 
@@ -389,7 +389,7 @@ defmodule PhoenixKit.Modules.Comments do
   """
   def resolve_resource_context(comments) do
     comments
-    |> Enum.group_by(& &1.resource_type, & &1.resource_id)
+    |> Enum.group_by(& &1.resource_type, & &1.resource_uuid)
     |> Enum.reduce(%{}, fn {resource_type, ids}, acc ->
       resolved = resolve_for_type(resource_type, Enum.uniq(ids))
 
@@ -433,32 +433,32 @@ defmodule PhoenixKit.Modules.Comments do
   # ============================================================================
 
   @doc "User likes a comment. Creates like record and increments counter."
-  def like_comment(comment_id, user_id) when is_binary(user_id) do
+  def like_comment(comment_uuid, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
-      do_like_comment(comment_id, user_id, resolve_user_id(user_id))
+      do_like_comment(comment_uuid, user_id, resolve_user_id(user_id))
     else
       case Integer.parse(user_id) do
-        {int_id, ""} -> like_comment(comment_id, int_id)
+        {int_id, ""} -> like_comment(comment_uuid, int_id)
         _ -> {:error, :invalid_user_id}
       end
     end
   end
 
-  def like_comment(comment_id, user_id) when is_integer(user_id) do
-    do_like_comment(comment_id, resolve_user_uuid(user_id), user_id)
+  def like_comment(comment_uuid, user_id) when is_integer(user_id) do
+    do_like_comment(comment_uuid, resolve_user_uuid(user_id), user_id)
   end
 
-  defp do_like_comment(comment_id, user_uuid, user_int_id) do
+  defp do_like_comment(comment_uuid, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %CommentLike{}
            |> CommentLike.changeset(%{
-             comment_id: comment_id,
+             comment_uuid: comment_uuid,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, like} ->
-          increment_comment_like_count(comment_id)
+          increment_comment_like_count(comment_uuid)
           like
 
         {:error, changeset} ->
@@ -468,58 +468,61 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "User unlikes a comment. Deletes like record and decrements counter."
-  def unlike_comment(comment_id, user_id) when is_binary(user_id) do
+  def unlike_comment(comment_uuid, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
-      do_unlike_comment(comment_id, user_id)
+      do_unlike_comment(comment_uuid, user_id)
     else
       case Integer.parse(user_id) do
-        {int_id, ""} -> unlike_comment(comment_id, int_id)
+        {int_id, ""} -> unlike_comment(comment_uuid, int_id)
         _ -> {:error, :invalid_user_id}
       end
     end
   end
 
-  def unlike_comment(comment_id, user_id) when is_integer(user_id) do
-    do_unlike_comment(comment_id, resolve_user_uuid(user_id))
+  def unlike_comment(comment_uuid, user_id) when is_integer(user_id) do
+    do_unlike_comment(comment_uuid, resolve_user_uuid(user_id))
   end
 
-  defp do_unlike_comment(comment_id, user_uuid) do
+  defp do_unlike_comment(comment_uuid, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(CommentLike, comment_id: comment_id, user_uuid: user_uuid) do
+      case repo().get_by(CommentLike, comment_uuid: comment_uuid, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         like ->
           {:ok, _} = repo().delete(like)
-          decrement_comment_like_count(comment_id)
+          decrement_comment_like_count(comment_uuid)
           like
       end
     end)
   end
 
   @doc "Checks if a user has liked a comment."
-  def comment_liked_by?(comment_id, user_id) when is_integer(user_id) do
-    comment_liked_by?(comment_id, resolve_user_uuid(user_id))
+  def comment_liked_by?(comment_uuid, user_id) when is_integer(user_id) do
+    comment_liked_by?(comment_uuid, resolve_user_uuid(user_id))
   end
 
-  def comment_liked_by?(comment_id, user_id) when is_binary(user_id) do
+  def comment_liked_by?(comment_uuid, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
       repo().exists?(
-        from(l in CommentLike, where: l.comment_id == ^comment_id and l.user_uuid == ^user_id)
+        from(l in CommentLike, where: l.comment_uuid == ^comment_uuid and l.user_uuid == ^user_id)
       )
     else
       case Integer.parse(user_id) do
-        {int_id, ""} -> comment_liked_by?(comment_id, int_id)
+        {int_id, ""} -> comment_liked_by?(comment_uuid, int_id)
         _ -> false
       end
     end
   end
 
   @doc "Lists all likes for a comment."
-  def list_comment_likes(comment_id, opts \\ []) do
+  def list_comment_likes(comment_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
-    from(l in CommentLike, where: l.comment_id == ^comment_id, order_by: [desc: l.inserted_at])
+    from(l in CommentLike,
+      where: l.comment_uuid == ^comment_uuid,
+      order_by: [desc: l.inserted_at]
+    )
     |> repo().all()
     |> repo().preload(preloads)
   end
@@ -529,32 +532,32 @@ defmodule PhoenixKit.Modules.Comments do
   # ============================================================================
 
   @doc "User dislikes a comment. Creates dislike record and increments counter."
-  def dislike_comment(comment_id, user_id) when is_binary(user_id) do
+  def dislike_comment(comment_uuid, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
-      do_dislike_comment(comment_id, user_id, resolve_user_id(user_id))
+      do_dislike_comment(comment_uuid, user_id, resolve_user_id(user_id))
     else
       case Integer.parse(user_id) do
-        {int_id, ""} -> dislike_comment(comment_id, int_id)
+        {int_id, ""} -> dislike_comment(comment_uuid, int_id)
         _ -> {:error, :invalid_user_id}
       end
     end
   end
 
-  def dislike_comment(comment_id, user_id) when is_integer(user_id) do
-    do_dislike_comment(comment_id, resolve_user_uuid(user_id), user_id)
+  def dislike_comment(comment_uuid, user_id) when is_integer(user_id) do
+    do_dislike_comment(comment_uuid, resolve_user_uuid(user_id), user_id)
   end
 
-  defp do_dislike_comment(comment_id, user_uuid, user_int_id) do
+  defp do_dislike_comment(comment_uuid, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %CommentDislike{}
            |> CommentDislike.changeset(%{
-             comment_id: comment_id,
+             comment_uuid: comment_uuid,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, dislike} ->
-          increment_comment_dislike_count(comment_id)
+          increment_comment_dislike_count(comment_uuid)
           dislike
 
         {:error, changeset} ->
@@ -564,59 +567,61 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "User removes dislike from a comment. Deletes dislike record and decrements counter."
-  def undislike_comment(comment_id, user_id) when is_binary(user_id) do
+  def undislike_comment(comment_uuid, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
-      do_undislike_comment(comment_id, user_id)
+      do_undislike_comment(comment_uuid, user_id)
     else
       case Integer.parse(user_id) do
-        {int_id, ""} -> undislike_comment(comment_id, int_id)
+        {int_id, ""} -> undislike_comment(comment_uuid, int_id)
         _ -> {:error, :invalid_user_id}
       end
     end
   end
 
-  def undislike_comment(comment_id, user_id) when is_integer(user_id) do
-    do_undislike_comment(comment_id, resolve_user_uuid(user_id))
+  def undislike_comment(comment_uuid, user_id) when is_integer(user_id) do
+    do_undislike_comment(comment_uuid, resolve_user_uuid(user_id))
   end
 
-  defp do_undislike_comment(comment_id, user_uuid) do
+  defp do_undislike_comment(comment_uuid, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(CommentDislike, comment_id: comment_id, user_uuid: user_uuid) do
+      case repo().get_by(CommentDislike, comment_uuid: comment_uuid, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         dislike ->
           {:ok, _} = repo().delete(dislike)
-          decrement_comment_dislike_count(comment_id)
+          decrement_comment_dislike_count(comment_uuid)
           dislike
       end
     end)
   end
 
   @doc "Checks if a user has disliked a comment."
-  def comment_disliked_by?(comment_id, user_id) when is_integer(user_id) do
-    comment_disliked_by?(comment_id, resolve_user_uuid(user_id))
+  def comment_disliked_by?(comment_uuid, user_id) when is_integer(user_id) do
+    comment_disliked_by?(comment_uuid, resolve_user_uuid(user_id))
   end
 
-  def comment_disliked_by?(comment_id, user_id) when is_binary(user_id) do
+  def comment_disliked_by?(comment_uuid, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
       repo().exists?(
-        from(d in CommentDislike, where: d.comment_id == ^comment_id and d.user_uuid == ^user_id)
+        from(d in CommentDislike,
+          where: d.comment_uuid == ^comment_uuid and d.user_uuid == ^user_id
+        )
       )
     else
       case Integer.parse(user_id) do
-        {int_id, ""} -> comment_disliked_by?(comment_id, int_id)
+        {int_id, ""} -> comment_disliked_by?(comment_uuid, int_id)
         _ -> false
       end
     end
   end
 
   @doc "Lists all dislikes for a comment."
-  def list_comment_dislikes(comment_id, opts \\ []) do
+  def list_comment_dislikes(comment_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
     from(d in CommentDislike,
-      where: d.comment_id == ^comment_id,
+      where: d.comment_uuid == ^comment_uuid,
       order_by: [desc: d.inserted_at]
     )
     |> repo().all()
@@ -628,7 +633,7 @@ defmodule PhoenixKit.Modules.Comments do
   # ============================================================================
 
   defp maybe_calculate_depth(attrs) do
-    case Map.get(attrs, :parent_id) do
+    case Map.get(attrs, :parent_uuid) do
       nil ->
         Map.put(attrs, :depth, 0)
 
@@ -644,7 +649,7 @@ defmodule PhoenixKit.Modules.Comments do
     comment_map = Map.new(comments, &{&1.uuid, &1})
 
     comments
-    |> Enum.filter(&(&1.parent_id == nil))
+    |> Enum.filter(&(&1.parent_uuid == nil))
     |> Enum.map(&add_children(&1, comment_map))
   end
 
@@ -652,29 +657,29 @@ defmodule PhoenixKit.Modules.Comments do
     children =
       comment_map
       |> Map.values()
-      |> Enum.filter(&(&1.parent_id == comment.uuid))
+      |> Enum.filter(&(&1.parent_uuid == comment.uuid))
       |> Enum.map(&add_children(&1, comment_map))
 
     Map.put(comment, :children, children)
   end
 
-  defp increment_comment_like_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id)
+  defp increment_comment_like_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid)
     |> repo().update_all(inc: [like_count: 1])
   end
 
-  defp decrement_comment_like_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id and c.like_count > 0)
+  defp decrement_comment_like_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid and c.like_count > 0)
     |> repo().update_all(inc: [like_count: -1])
   end
 
-  defp increment_comment_dislike_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id)
+  defp increment_comment_dislike_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid)
     |> repo().update_all(inc: [dislike_count: 1])
   end
 
-  defp decrement_comment_dislike_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id and c.dislike_count > 0)
+  defp decrement_comment_dislike_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid and c.dislike_count > 0)
     |> repo().update_all(inc: [dislike_count: -1])
   end
 

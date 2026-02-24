@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
   defp already_migrated?(product) do
     # Check if product has any storage-based images
-    has_featured_image_id = not is_nil(product.featured_image_id)
+    has_featured_image_id = not is_nil(product.featured_image_uuid)
     has_image_ids = is_list(product.image_ids) and product.image_ids != []
 
     has_featured_image_id or has_image_ids

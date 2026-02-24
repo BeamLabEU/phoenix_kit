@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
       changeset = PublishingPost.changeset(%PublishingPost{}, %{})
       refute changeset.valid?
 
-      assert "can't be blank" in errors_on(changeset, :group_id)
+      assert "can't be blank" in errors_on(changeset, :group_uuid)
       assert "can't be blank" in errors_on(changeset, :slug)
       # status, mode, primary_language have schema defaults so they won't be blank
     end
@@ -119,7 +119,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "changeset validates status inclusion" do
       changeset =
         PublishingPost.changeset(%PublishingPost{}, %{
-          group_id: UUIDv7.generate(),
+          group_uuid: UUIDv7.generate(),
           slug: "test",
           status: "invalid",
           mode: "slug",
@@ -133,7 +133,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "changeset accepts valid statuses" do
       for status <- ["draft", "published", "archived", "scheduled"] do
         attrs = %{
-          group_id: UUIDv7.generate(),
+          group_uuid: UUIDv7.generate(),
           slug: "test",
           status: status,
           mode: "slug",
@@ -157,7 +157,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "changeset requires scheduled_at when status is scheduled" do
       changeset =
         PublishingPost.changeset(%PublishingPost{}, %{
-          group_id: UUIDv7.generate(),
+          group_uuid: UUIDv7.generate(),
           slug: "test",
           status: "scheduled",
           mode: "slug",
@@ -223,7 +223,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
       changeset = PublishingVersion.changeset(%PublishingVersion{}, %{})
       refute changeset.valid?
 
-      assert "can't be blank" in errors_on(changeset, :post_id)
+      assert "can't be blank" in errors_on(changeset, :post_uuid)
       assert "can't be blank" in errors_on(changeset, :version_number)
       # status has default "draft"
     end
@@ -231,7 +231,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "changeset validates status inclusion" do
       changeset =
         PublishingVersion.changeset(%PublishingVersion{}, %{
-          post_id: UUIDv7.generate(),
+          post_uuid: UUIDv7.generate(),
           version_number: 1,
           status: "invalid"
         })
@@ -243,7 +243,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "changeset validates version_number > 0" do
       changeset =
         PublishingVersion.changeset(%PublishingVersion{}, %{
-          post_id: UUIDv7.generate(),
+          post_uuid: UUIDv7.generate(),
           version_number: 0,
           status: "draft"
         })
@@ -280,7 +280,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
       changeset = PublishingContent.changeset(%PublishingContent{}, %{})
       refute changeset.valid?
 
-      assert "can't be blank" in errors_on(changeset, :version_id)
+      assert "can't be blank" in errors_on(changeset, :version_uuid)
       assert "can't be blank" in errors_on(changeset, :language)
       # title defaults to "" via default_if_nil, so it's not required
       # status has default "draft"
@@ -289,7 +289,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "changeset validates status inclusion" do
       changeset =
         PublishingContent.changeset(%PublishingContent{}, %{
-          version_id: UUIDv7.generate(),
+          version_uuid: UUIDv7.generate(),
           language: "en",
           title: "Test",
           status: "invalid"
@@ -302,7 +302,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "changeset accepts valid content" do
       changeset =
         PublishingContent.changeset(%PublishingContent{}, %{
-          version_id: UUIDv7.generate(),
+          version_uuid: UUIDv7.generate(),
           language: "en",
           title: "Test Post",
           status: "draft",

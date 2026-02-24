@@ -60,7 +60,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
-            is_nil(p.featured_image_id) and
+            is_nil(p.featured_image_uuid) and
             fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
         order_by: [asc: p.inserted_at]
       )
@@ -87,7 +87,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
-            is_nil(p.featured_image_id) and
+            is_nil(p.featured_image_uuid) and
             fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
         select: count(p.id)
       )
@@ -109,7 +109,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     query =
       from(p in Product,
         where:
-          not is_nil(p.featured_image_id) or
+          not is_nil(p.featured_image_uuid) or
             fragment("array_length(?, 1) > 0", p.image_ids),
         select: count(p.id)
       )
@@ -316,7 +316,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   end
 
   defp has_storage_images?(product) do
-    not is_nil(product.featured_image_id) or
+    not is_nil(product.featured_image_uuid) or
       (is_list(product.image_ids) and product.image_ids != [])
   end
 
@@ -413,7 +413,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     metadata = update_image_mappings(product.metadata, url_to_file_id)
 
     attrs = %{
-      featured_image_id: featured_image_id,
+      featured_image_uuid: featured_image_id,
       image_ids: image_ids,
       metadata: metadata,
       # Clear legacy fields after successful migration

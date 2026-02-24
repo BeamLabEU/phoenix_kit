@@ -1099,7 +1099,7 @@ defmodule PhoenixKit.Modules.Shop do
   category with :featured_product preloaded.
   """
   def ensure_featured_product(
-        %Category{featured_product_id: nil, image_id: nil, uuid: cat_uuid} = cat
+        %Category{featured_product_id: nil, image_uuid: nil, uuid: cat_uuid} = cat
       ) do
     case find_default_featured_product(cat_uuid) do
       nil ->
@@ -1123,7 +1123,7 @@ defmodule PhoenixKit.Modules.Shop do
       where: p.category_uuid == ^category_uuid,
       where: p.status == "active",
       where:
-        not is_nil(p.featured_image_id) or
+        not is_nil(p.featured_image_uuid) or
           (not is_nil(p.featured_image) and p.featured_image != ""),
       order_by: [asc: p.inserted_at],
       limit: 1,
@@ -1163,7 +1163,7 @@ defmodule PhoenixKit.Modules.Shop do
       where: p.category_id == ^category_id,
       where: p.status == "active",
       where:
-        not is_nil(p.featured_image_id) or
+        not is_nil(p.featured_image_uuid) or
           (not is_nil(p.featured_image) and p.featured_image != ""),
       order_by: [asc: p.id],
       select: {p.title, p.uuid}
@@ -1176,7 +1176,7 @@ defmodule PhoenixKit.Modules.Shop do
         where: p.category_uuid == ^category_id,
         where: p.status == "active",
         where:
-          not is_nil(p.featured_image_id) or
+          not is_nil(p.featured_image_uuid) or
             (not is_nil(p.featured_image) and p.featured_image != ""),
         order_by: [asc: p.id],
         select: {p.title, p.uuid}

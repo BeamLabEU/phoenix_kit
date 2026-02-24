@@ -621,12 +621,12 @@ defmodule PhoenixKit.Modules.Tickets do
     end
   end
 
-  defp create_status_history(ticket_id, changed_by_id, from_status, to_status, reason) do
+  defp create_status_history(ticket_uuid, changed_by_id, from_status, to_status, reason) do
     changed_by_uuid = if is_integer(changed_by_id), do: resolve_user_uuid(changed_by_id)
 
     %TicketStatusHistory{}
     |> TicketStatusHistory.changeset(%{
-      ticket_id: ticket_id,
+      ticket_uuid: ticket_uuid,
       changed_by_id: changed_by_id,
       changed_by_uuid: changed_by_uuid,
       from_status: from_status,
@@ -645,7 +645,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Parameters
 
-  - `ticket_id` - ID of the ticket
+  - `ticket_uuid` - ID of the ticket
   - `user_id` - ID of the commenter
   - `attrs` - Comment attributes (content, optional parent_id)
 
@@ -654,26 +654,26 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> create_comment(ticket.uuid, user_id, %{content: "Thanks for looking into this!"})
       {:ok, %TicketComment{}}
   """
-  def create_comment(ticket_id, user_id, attrs) when is_binary(user_id) do
+  def create_comment(ticket_uuid, user_id, attrs) when is_binary(user_id) do
     case Integer.parse(user_id) do
       {int_id, ""} ->
-        create_comment(ticket_id, int_id, attrs)
+        create_comment(ticket_uuid, int_id, attrs)
 
       _ ->
         case Auth.get_user(user_id) do
-          %{id: int_id} -> create_comment(ticket_id, int_id, attrs)
+          %{id: int_id} -> create_comment(ticket_uuid, int_id, attrs)
           nil -> {:error, :invalid_user_id}
         end
     end
   end
 
-  def create_comment(ticket_id, user_id, attrs) when is_integer(user_id) do
+  def create_comment(ticket_uuid, user_id, attrs) when is_integer(user_id) do
     user_uuid = resolve_user_uuid(user_id)
 
     attrs =
       attrs
       |> ensure_string_keys()
-      |> Map.put("ticket_id", ticket_id)
+      |> Map.put("ticket_uuid", ticket_uuid)
       |> Map.put("user_id", user_id)
       |> Map.put("user_uuid", user_uuid)
       |> Map.put("is_internal", false)
@@ -685,10 +685,10 @@ defmodule PhoenixKit.Modules.Tickets do
            |> TicketComment.changeset(attrs)
            |> repo().insert() do
         {:ok, comment} ->
-          increment_comment_count(ticket_id)
+          increment_comment_count(ticket_uuid)
 
           # Load ticket for broadcast
-          ticket = repo().get(Ticket, ticket_id)
+          ticket = repo().get(Ticket, ticket_uuid)
 
           # Broadcast comment created event
           Events.broadcast_comment_created(comment, ticket)
@@ -706,7 +706,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Parameters
 
-  - `ticket_id` - ID of the ticket
+  - `ticket_uuid` - ID of the ticket
   - `user_id` - ID of the staff member
   - `attrs` - Note attributes (content)
 
@@ -715,26 +715,26 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> create_internal_note(ticket.uuid, staff_id, %{content: "Customer seems frustrated"})
       {:ok, %TicketComment{is_internal: true}}
   """
-  def create_internal_note(ticket_id, user_id, attrs) when is_binary(user_id) do
+  def create_internal_note(ticket_uuid, user_id, attrs) when is_binary(user_id) do
     case Integer.parse(user_id) do
       {int_id, ""} ->
-        create_internal_note(ticket_id, int_id, attrs)
+        create_internal_note(ticket_uuid, int_id, attrs)
 
       _ ->
         case Auth.get_user(user_id) do
-          %{id: int_id} -> create_internal_note(ticket_id, int_id, attrs)
+          %{id: int_id} -> create_internal_note(ticket_uuid, int_id, attrs)
           nil -> {:error, :invalid_user_id}
         end
     end
   end
 
-  def create_internal_note(ticket_id, user_id, attrs) when is_integer(user_id) do
+  def create_internal_note(ticket_uuid, user_id, attrs) when is_integer(user_id) do
     user_uuid = resolve_user_uuid(user_id)
 
     attrs =
       attrs
       |> ensure_string_keys()
-      |> Map.put("ticket_id", ticket_id)
+      |> Map.put("ticket_uuid", ticket_uuid)
       |> Map.put("user_id", user_id)
       |> Map.put("user_uuid", user_uuid)
       |> Map.put("is_internal", true)
@@ -747,7 +747,7 @@ defmodule PhoenixKit.Modules.Tickets do
     |> case do
       {:ok, comment} ->
         # Load ticket for broadcast
-        ticket = repo().get(Ticket, ticket_id)
+        ticket = repo().get(Ticket, ticket_uuid)
 
         # Broadcast internal note created event
         Events.broadcast_internal_note_created(comment, ticket)
@@ -776,7 +776,7 @@ defmodule PhoenixKit.Modules.Tickets do
       case repo().delete(comment) do
         {:ok, deleted} ->
           unless comment.is_internal do
-            decrement_comment_count(comment.ticket_id)
+            decrement_comment_count(comment.ticket_uuid)
           end
 
           deleted
@@ -801,11 +801,11 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists public comments for a ticket (excludes internal notes).
   """
-  def list_public_comments(ticket_id, opts \\ []) do
+  def list_public_comments(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_id == ^ticket_id and c.is_internal == false,
+      where: c.ticket_uuid == ^ticket_uuid and c.is_internal == false,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -816,11 +816,11 @@ defmodule PhoenixKit.Modules.Tickets do
   Lists all comments for a ticket (includes internal notes).
   For staff use only.
   """
-  def list_all_comments(ticket_id, opts \\ []) do
+  def list_all_comments(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_id == ^ticket_id,
+      where: c.ticket_uuid == ^ticket_uuid,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -830,11 +830,11 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists only internal notes for a ticket.
   """
-  def list_internal_notes(ticket_id, opts \\ []) do
+  def list_internal_notes(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_id == ^ticket_id and c.is_internal == true,
+      where: c.ticket_uuid == ^ticket_uuid and c.is_internal == true,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -842,7 +842,7 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp maybe_calculate_depth(attrs) do
-    parent_id = Map.get(attrs, "parent_id") || Map.get(attrs, :parent_id)
+    parent_id = Map.get(attrs, "parent_uuid") || Map.get(attrs, :parent_uuid)
 
     if parent_id do
       parent = repo().get!(TicketComment, parent_id)
@@ -852,13 +852,13 @@ defmodule PhoenixKit.Modules.Tickets do
     end
   end
 
-  defp increment_comment_count(ticket_id) do
-    from(t in Ticket, where: t.uuid == ^ticket_id)
+  defp increment_comment_count(ticket_uuid) do
+    from(t in Ticket, where: t.uuid == ^ticket_uuid)
     |> repo().update_all(inc: [comment_count: 1])
   end
 
-  defp decrement_comment_count(ticket_id) do
-    from(t in Ticket, where: t.uuid == ^ticket_id)
+  defp decrement_comment_count(ticket_uuid) do
+    from(t in Ticket, where: t.uuid == ^ticket_uuid)
     |> repo().update_all(inc: [comment_count: -1])
   end
 
@@ -878,7 +878,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Parameters
 
-  - `ticket_id` - ID of the ticket
+  - `ticket_uuid` - ID of the ticket
   - `file_id` - ID of the uploaded file
   - `opts` - Options
     - `:position` - Display order (default: auto-calculated)
@@ -889,14 +889,14 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> add_attachment_to_ticket(ticket.uuid, file.uuid, caption: "Error screenshot")
       {:ok, %TicketAttachment{}}
   """
-  def add_attachment_to_ticket(ticket_id, file_id, opts \\ []) do
-    position = Keyword.get(opts, :position) || next_ticket_attachment_position(ticket_id)
+  def add_attachment_to_ticket(ticket_uuid, file_uuid, opts \\ []) do
+    position = Keyword.get(opts, :position) || next_ticket_attachment_position(ticket_uuid)
     caption = Keyword.get(opts, :caption)
 
     %TicketAttachment{}
     |> TicketAttachment.changeset(%{
-      ticket_id: ticket_id,
-      file_id: file_id,
+      ticket_uuid: ticket_uuid,
+      file_uuid: file_uuid,
       position: position,
       caption: caption
     })
@@ -906,14 +906,14 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Attaches a file to a comment.
   """
-  def add_attachment_to_comment(comment_id, file_id, opts \\ []) do
-    position = Keyword.get(opts, :position) || next_comment_attachment_position(comment_id)
+  def add_attachment_to_comment(comment_uuid, file_uuid, opts \\ []) do
+    position = Keyword.get(opts, :position) || next_comment_attachment_position(comment_uuid)
     caption = Keyword.get(opts, :caption)
 
     %TicketAttachment{}
     |> TicketAttachment.changeset(%{
-      comment_id: comment_id,
-      file_id: file_id,
+      comment_uuid: comment_uuid,
+      file_uuid: file_uuid,
       position: position,
       caption: caption
     })
@@ -931,11 +931,11 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists attachments for a ticket.
   """
-  def list_ticket_attachments(ticket_id, opts \\ []) do
+  def list_ticket_attachments(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:file])
 
     from(a in TicketAttachment,
-      where: a.ticket_id == ^ticket_id and is_nil(a.comment_id),
+      where: a.ticket_uuid == ^ticket_uuid and is_nil(a.comment_uuid),
       order_by: [asc: a.position]
     )
     |> repo().all()
@@ -945,29 +945,29 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists attachments for a comment.
   """
-  def list_comment_attachments(comment_id, opts \\ []) do
+  def list_comment_attachments(comment_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:file])
 
     from(a in TicketAttachment,
-      where: a.comment_id == ^comment_id,
+      where: a.comment_uuid == ^comment_uuid,
       order_by: [asc: a.position]
     )
     |> repo().all()
     |> repo().preload(preloads)
   end
 
-  defp next_ticket_attachment_position(ticket_id) do
+  defp next_ticket_attachment_position(ticket_uuid) do
     from(a in TicketAttachment,
-      where: a.ticket_id == ^ticket_id and is_nil(a.comment_id),
+      where: a.ticket_uuid == ^ticket_uuid and is_nil(a.comment_uuid),
       select: coalesce(max(a.position), 0)
     )
     |> repo().one()
     |> Kernel.+(1)
   end
 
-  defp next_comment_attachment_position(comment_id) do
+  defp next_comment_attachment_position(comment_uuid) do
     from(a in TicketAttachment,
-      where: a.comment_id == ^comment_id,
+      where: a.comment_uuid == ^comment_uuid,
       select: coalesce(max(a.position), 0)
     )
     |> repo().one()
@@ -981,11 +981,11 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Gets the status history for a ticket.
   """
-  def get_status_history(ticket_id, opts \\ []) do
+  def get_status_history(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:changed_by])
 
     from(h in TicketStatusHistory,
-      where: h.ticket_id == ^ticket_id,
+      where: h.ticket_uuid == ^ticket_uuid,
       order_by: [asc: h.inserted_at]
     )
     |> repo().all()

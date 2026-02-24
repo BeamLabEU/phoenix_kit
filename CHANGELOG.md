@@ -1,3 +1,18 @@
+## 1.7.46 - 2026-02-24
+- Add V62 migration: rename 35 UUID-type columns from `_id` suffix to `_uuid` suffix across 25 tables
+  - Enforces naming convention: `_id` = integer (legacy), `_uuid` = UUID
+  - Groups: Posts (15 cols), Comments (4), Tickets (6), Storage (3), Publishing (3), Shop (3), Scheduled Jobs (1)
+  - Also renames 9 indexes whose names embedded old column names
+  - All operations idempotent with IF EXISTS guards; skips tables from disabled modules
+- Update all context, query, and web files to use renamed schema fields
+  - Posts: PostLike, PostDislike, PostTagAssignment, PostGroupAssignment, PostMention, PostMedia queries and changesets
+  - Comments: resource_uuid, parent_uuid, comment_uuid throughout likes/dislikes/tree building/web
+  - Tickets: ticket_uuid, comment_uuid, file_uuid in all changeset attrs and queries
+  - Storage: file_uuid, bucket_uuid, file_instance_uuid across storage.ex, file_server, variant_generator, url_signer, process_file_job (including Oban job arg key)
+  - Publishing: post_uuid, version_uuid in db_storage.ex queries and changesets
+  - Shop: image_uuid, featured_image_uuid, file_uuid in web forms and image migration service
+- Apply consistent `_uuid` variable naming for all local variables holding UUID values
+
 ## 1.7.45 - 2026-02-23
 - Fix V40 migration silently skipping V32-V39 tables due to Ecto command buffering
   - Root cause: `repo().query()` (immediate) couldn't see buffered table creation commands

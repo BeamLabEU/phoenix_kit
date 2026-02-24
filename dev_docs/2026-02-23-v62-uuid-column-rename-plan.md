@@ -1,9 +1,9 @@
 # V62: UUID Column Rename Plan (`_id` → `_uuid`)
 
 **Date:** 2026-02-23
-**Status:** Ready for implementation
+**Status:** Complete ✅
 **Depends on:** V61 (uuid safety net migration, merged to main)
-**Current version:** 1.7.45 / V61
+**Completed version:** 1.7.46 / V62
 
 ---
 
@@ -453,18 +453,135 @@ end
 
 ## Execution Order
 
-1. **Create V62 migration file** (`lib/phoenix_kit/migrations/postgres/v62.ex`)
-2. **Update `postgres.ex`** — bump `@current_version` to 62, add V62 docs
-3. **Update ALL schema files** (see Schema File Reference above)
-4. **Search & update ALL context/query files** (use ast-grep + rg)
-5. **Update unique constraint names in schemas** that reference old column names
-6. **Compile** — `mix compile --warnings-as-errors` (will catch missed references)
-7. **Format** — `mix format`
-8. **Credo** — `mix credo --strict`
-9. **Test** — `mix test`
-10. **Update version** — `mix.exs` to 1.7.46, `CHANGELOG.md`, `CLAUDE.md`
+1. ~~**Create V62 migration file**~~ ✅ Done (`lib/phoenix_kit/migrations/postgres/v62.ex`)
+2. ~~**Update `postgres.ex`**~~ ✅ Done — bumped `@current_version` to 62, added V62 docs
+3. ~~**Update ALL schema files**~~ ✅ Done (see details below)
+4. ~~**Search & update ALL context/query files**~~ ✅ Done — full audit + all runtime refs fixed; also renamed UUID-holding variables from `_id` to `_uuid` throughout
+5. ~~**Update unique constraint names in schemas**~~ ✅ Done — 9 indexes renamed in V62 migration + schema files updated
+6. ~~**Compile**~~ ✅ Done — `mix compile --warnings-as-errors` passes clean
+7. ~~**Format**~~ ✅ Done — `mix format` clean
+8. ~~**Credo**~~ ✅ Done — `mix credo --strict` 0 issues
+9. ~~**Test**~~ ✅ Done — `mix test` 425/425 pass, 0 failures
+10. ~~**Update version**~~ ✅ Done — `mix.exs` → 1.7.46, `CHANGELOG.md` entry added, `CLAUDE.md` version updated
 
 **Important:** Steps 2-4 must happen together. The migration renames DB columns, and the schema/context changes match. If only one side is updated, the app breaks.
+
+---
+
+## Implementation Progress
+
+### Step 1-2: V62 Migration + postgres.ex ✅
+
+- Created `lib/phoenix_kit/migrations/postgres/v62.ex` with all 35 column renames
+- Bumped `@current_version` from 61 to 62 in `postgres.ex`
+- Added V62 version docs entry
+
+### Step 3: Schema Files ✅
+
+Updated 24 schema files across 7 module groups. For each schema:
+- `belongs_to` — added explicit `foreign_key: :xxx_uuid`
+- `has_many` / `many_to_many` — updated `foreign_key:` / `join_keys:` references
+- `field` declarations — renamed (e.g., `field :image_id` → `field :image_uuid`)
+- `@type` definitions — renamed field atoms
+- `cast()` / `validate_required()` — renamed field atoms
+- `foreign_key_constraint()` / `unique_constraint()` — renamed field atoms
+- Pattern matches (e.g., `reply?`, `top_level?`, `ticket_attachment?`) — renamed struct keys
+
+**Parent schemas also updated** (these hold `has_many` pointing to the renamed child FKs):
+- `post.ex` — 5 `has_many` + 2 `many_to_many` join_keys
+- `ticket.ex` — 3 `has_many`
+- `file.ex` — 1 `has_many`
+- `bucket.ex` — 1 `has_many`
+- `publishing_group.ex` — 1 `has_many`
+
+### Step 4: Context/Query Files ✅
+
+Full audit (using ast-grep + rg) + all runtime references fixed across all 7 module groups.
+
+**Pass 1 — compile-blocking refs (earlier):**
+- `shop.ex` — struct pattern match + query refs (`featured_image_id`)
+- `cart_item.ex` — struct pattern match (`featured_image_id`)
+- `comments.ex` — `comment.resource_id`
+- `tickets.ex` — `comment.ticket_id`
+- `scheduled_jobs.ex` — changeset key + query/struct refs (`resource_id`)
+- `process_scheduled_jobs_worker.ex` — string interpolation `job.resource_id`
+
+**Pass 2 — full runtime audit fixed:**
+
+| File | Changes |
+|------|---------|
+| `posts/posts.ex` | PostLike/PostDislike/PostTagAssignment/PostGroupAssignment/PostMention/PostMedia changeset attrs and queries; `add_post_to_group`, `remove_post_from_group` |
+| `posts/web/edit.ex` | `file_id` struct access and pattern match |
+| `posts/web/edit.html.heex` | `file_id` in draggable list `item_id`, URLSigner, `phx-value-id` |
+| `posts/web/details.html.heex` | `file_id` in URLSigner calls (featured + gallery) |
+| `comments/comments.ex` | `resource_id` → `resource_uuid` in changeset/queries; `comment_id` → `comment_uuid` in like/dislike ops; `parent_id` → `parent_uuid` in depth calc and tree building |
+| `comments/web/comments_component.ex` | `parent_id:` key in attrs map |
+| `comments/web/index.ex` | `comment.resource_id` |
+| `comments/web/index.html.heex` | `comment.resource_id` (×2) |
+| `tickets/tickets.ex` | `ticket_id`, `comment_id`, `file_id` in all changeset attrs and queries |
+| `tickets/web/details.html.heex` | `file_id` in media selector `selected_ids` |
+| `storage/storage.ex` | `file_id`, `bucket_id`, `file_instance_id` in all queries and changeset attrs |
+| `storage/web/settings.ex` | join conditions (`file_id`, `file_instance_id`, `bucket_id`) |
+| `storage/services/file_server.ex` | query where clause |
+| `publishing/db_storage.ex` | `post_id`, `version_id` in all queries and changeset attrs; `upsert_content` key lookup |
+| `shop/web/category_form.ex` | `image_id` socket assign + params |
+| `shop/web/product_form.ex` | `featured_image_id` struct access + params |
+| `shop/web/product_detail.ex` | `file_id` template access |
+| `shop/services/image_migration.ex` | `featured_image_id` in 5 query/changeset locations |
+| `shop/workers/image_migration_worker.ex` | `featured_image_id` struct access |
+
+**Pass 3 — UUID variable naming convention (`_id` → `_uuid` for variables holding UUIDs):**
+
+| File | Variables renamed |
+|------|-----------------|
+| `posts/posts.ex` | `post_id` → `post_uuid` in `do_like_post`, `do_unlike_post`, `do_dislike_post`, `do_undislike_post`, `add_tags_to_post`, `do_remove_mention` |
+| `comments/comments.ex` | `comment_id` → `comment_uuid` globally (all function params + locals) |
+| `tickets/tickets.ex` | `ticket_id` → `ticket_uuid`, `comment_id` → `comment_uuid`, `file_id` → `file_uuid` globally |
+| `storage/storage.ex` | `file_id` → `file_uuid`, `bucket_id` → `bucket_uuid`, `file_instance_id` → `file_instance_uuid` globally (excluding DB settings key `"storage_default_bucket_id"` and Manager interface key `storage_info.bucket_ids`) |
+| `storage/services/file_server.ex` | `file_id` → `file_uuid` |
+| `storage/services/variant_generator.ex` | `file_id` → `file_uuid`; local `bucket_ids` → `bucket_uuids`; updated call to renamed `get_file_instance_bucket_uuids/1` |
+| `storage/services/url_signer.ex` | `file_id` → `file_uuid` |
+| `storage/workers/process_file_job.ex` | `file_id` → `file_uuid` (including Oban job arg key `"file_uuid"`) |
+| `storage/web/settings.ex` | `default_bucket_id` → `default_bucket_uuid`; event handler locals |
+| `storage/web/settings.html.heex` | `@default_bucket_id` → `@default_bucket_uuid` |
+| `shop/web/category_form.ex` | `image_id` socket assign → `image_uuid` globally |
+| `shop/web/product_form.ex` | `featured_id` → `featured_uuid` globally |
+
+**Publishing module note:** `featured_image_id` references in the publishing editor are JSON metadata keys
+stored in the `data` JSONB field — not DB columns. Correctly left unchanged.
+
+### Test Files ✅
+
+Updated test files that referenced old field names:
+- `test/modules/publishing/schema_test.exs` — all `:group_id`, `:post_id`, `:version_id` attrs
+- `test/modules/publishing/mapper_test.exs` — struct construction attrs
+
+### Step 5: Index Renames ✅
+
+Added `ALTER INDEX IF EXISTS ... RENAME TO ...` blocks to V62's `up/1` (and reverse in `down/1`) for 9 indexes whose names embedded old UUID column names. Updated the corresponding `unique_constraint` name atoms in 9 schema files.
+
+| Old index name | New index name |
+|----------------|---------------|
+| `phoenix_kit_post_likes_post_id_user_id_index` | `phoenix_kit_post_likes_post_uuid_user_id_index` |
+| `phoenix_kit_post_dislikes_post_id_user_id_index` | `phoenix_kit_post_dislikes_post_uuid_user_id_index` |
+| `phoenix_kit_post_mentions_post_id_user_id_index` | `phoenix_kit_post_mentions_post_uuid_user_id_index` |
+| `phoenix_kit_post_media_post_id_position_index` | `phoenix_kit_post_media_post_uuid_position_index` |
+| `phoenix_kit_post_tag_assignments_post_id_tag_id_index` | `phoenix_kit_post_tag_assignments_post_uuid_tag_uuid_index` |
+| `phoenix_kit_post_group_assignments_post_id_group_id_index` | `phoenix_kit_post_group_assignments_post_uuid_group_uuid_index` |
+| `phoenix_kit_comment_likes_comment_id_user_id_index` | `phoenix_kit_comment_likes_comment_uuid_user_id_index` |
+| `phoenix_kit_comment_dislikes_comment_id_user_id_index` | `phoenix_kit_comment_dislikes_comment_uuid_user_id_index` |
+| `phoenix_kit_file_instances_file_id_variant_name_index` | `phoenix_kit_file_instances_file_uuid_variant_name_index` |
+
+**Left unchanged** (names don't embed UUID column names):
+- `phoenix_kit_post_groups_user_id_slug_index` — `user_id` is an INTEGER column, not part of V62
+- `idx_publishing_contents_version_language` — custom name, no column name embedded
+- `fk_publishing_contents_version` — FK constraint with custom name
+
+### Step 10: Version Bump ✅
+
+- `mix.exs` → `1.7.46`
+- `CHANGELOG.md` → added `1.7.46 - 2026-02-24` entry
+- `CLAUDE.md` → updated version to `1.7.46` / `V62`
 
 ---
 
