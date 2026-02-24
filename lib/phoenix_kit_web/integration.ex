@@ -434,7 +434,7 @@ defmodule PhoenixKitWeb.Integration do
   # Generates all admin routes
   defmacro phoenix_kit_admin_routes(suffix) do
     session_name = :"phoenix_kit_admin#{suffix}"
-    plugin_session_name = :"phoenix_kit_plugins#{suffix}"
+    _plugin_session_name = :"phoenix_kit_plugins#{suffix}"
 
     # Auto-generate routes for custom admin tabs that specify live_view
     # Skip when compiling PhoenixKit's own dev/test router — parent modules don't exist
@@ -778,24 +778,12 @@ defmodule PhoenixKitWeb.Integration do
 
           # External route modules (complex multi-page routes)
           unquote_splicing(external_admin_routes)
+
+          # Plugin module routes (in same live_session for seamless navigation).
+          # Admin layout is auto-applied via on_mount for external plugin views.
+          unquote_splicing(plugin_admin_routes)
         end
       end
-
-      # Plugin modules get their own live_session with admin layout auto-applied.
-      # Plugin LiveViews just render content — no LayoutWrapper wrapping needed.
-      unquote(
-        if plugin_admin_routes != [] do
-          quote do
-            live_session unquote(plugin_session_name),
-              layout: {PhoenixKitWeb.Layouts, :admin},
-              on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-              scope "/", alias: false do
-                (unquote_splicing(plugin_admin_routes))
-              end
-            end
-          end
-        end
-      )
     end
   end
 
@@ -870,23 +858,30 @@ defmodule PhoenixKitWeb.Integration do
   # Auto-discover admin routes from external PhoenixKit modules.
   # Uses beam file scanning (same pattern as protocol consolidation) — zero config needed.
   # Modules declare their admin tabs with live_view field for route auto-generation.
+  # Collects both admin_tabs and settings_tabs for complete route coverage.
   defp compile_module_admin_routes do
     PhoenixKit.ModuleDiscovery.discover_external_modules()
     |> Enum.flat_map(fn mod ->
       case Code.ensure_compiled(mod) do
         {:module, _} ->
-          if function_exported?(mod, :admin_tabs, 0) do
-            mod.admin_tabs()
-            |> Enum.filter(&tab_has_live_view?/1)
-            |> Enum.map(&tab_struct_to_route/1)
-          else
-            []
-          end
+          admin = collect_module_tabs(mod, :admin_tabs)
+          settings = collect_module_tabs(mod, :settings_tabs)
+          admin ++ settings
 
         _ ->
           []
       end
     end)
+  end
+
+  defp collect_module_tabs(mod, callback) do
+    if function_exported?(mod, callback, 0) do
+      apply(mod, callback, [])
+      |> Enum.filter(&tab_has_live_view?/1)
+      |> Enum.map(&tab_struct_to_route/1)
+    else
+      []
+    end
   end
 
   defp tab_has_live_view?(%{live_view: {mod, _action}}) when is_atom(mod) do

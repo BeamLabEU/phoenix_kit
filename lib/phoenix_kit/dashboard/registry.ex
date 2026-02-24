@@ -500,7 +500,8 @@ defmodule PhoenixKit.Dashboard.Registry do
         auto_register_custom_permission(%{
           permission: tab.permission,
           label: tab.label,
-          icon: tab.icon
+          icon: tab.icon,
+          live_view: tab.live_view
         })
       end
     end)
@@ -878,6 +879,16 @@ defmodule PhoenixKit.Dashboard.Registry do
     Enum.each(tabs, fn tab ->
       :ets.insert(@ets_table, {{:tab, tab.id}, tab})
       :ets.insert(@ets_table, {{:namespace, :phoenix_kit_admin, tab.id}, true})
+
+      # Cache live_view → permission mapping for module tabs so auth can enforce permissions
+      if tab.level == :admin and is_binary(tab.permission) do
+        auto_register_custom_permission(%{
+          permission: tab.permission,
+          label: tab.label,
+          icon: tab.icon,
+          live_view: tab.live_view
+        })
+      end
     end)
 
     # Merge admin groups with existing groups
@@ -930,6 +941,12 @@ defmodule PhoenixKit.Dashboard.Registry do
         icon: Map.get(tab_config, :icon),
         description: Map.get(tab_config, :description)
       )
+    end
+
+    # Auto-grant feature module keys to Admin role (register_custom_key
+    # handles this for custom keys, but feature module keys skip that path)
+    if perm != "" and perm in builtin_keys do
+      Permissions.auto_grant_to_admin_roles(perm)
     end
 
     # Cache live_view module → permission mapping regardless of key type
