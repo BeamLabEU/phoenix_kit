@@ -920,7 +920,12 @@ defmodule PhoenixKitWeb.Integration do
           do: apply(mod, fun, args),
           else: quote(do: nil)
 
-      _ ->
+      {:error, reason} ->
+        IO.warn(
+          "[PhoenixKit] Route module #{inspect(mod)} failed to compile: #{inspect(reason)}. " <>
+            "Its routes will be unavailable."
+        )
+
         quote(do: nil)
     end
   end

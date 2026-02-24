@@ -135,19 +135,6 @@ defmodule PhoenixKit.Users.Permissions do
             "Permission key #{inspect(key)} exceeds max length of #{@max_key_length}"
     end
 
-    current = custom_keys_map()
-
-    if Map.has_key?(current, key) do
-      Logger.warning(
-        "[Permissions] Custom permission key #{inspect(key)} re-registered, overriding previous metadata"
-      )
-    else
-      if map_size(current) >= @max_custom_keys do
-        raise ArgumentError,
-              "Cannot register more than #{@max_custom_keys} custom permission keys"
-      end
-    end
-
     meta = %{
       label:
         opts
@@ -165,6 +152,21 @@ defmodule PhoenixKit.Users.Permissions do
         |> coerce_string("")
         |> String.slice(0, @max_description_length)
     }
+
+    # Atomic read-check-write to avoid TOCTOU race on the key limit.
+    # Re-registration of existing keys is always allowed (override).
+    current = custom_keys_map()
+
+    if not Map.has_key?(current, key) and map_size(current) >= @max_custom_keys do
+      raise ArgumentError,
+            "Cannot register more than #{@max_custom_keys} custom permission keys"
+    end
+
+    if Map.has_key?(current, key) do
+      Logger.warning(
+        "[Permissions] Custom permission key #{inspect(key)} re-registered, overriding previous metadata"
+      )
+    end
 
     :persistent_term.put(@custom_keys_pterm, Map.put(current, key, meta))
 

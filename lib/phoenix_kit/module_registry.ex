@@ -200,7 +200,16 @@ defmodule PhoenixKit.ModuleRegistry do
     load_modules()
     |> Enum.flat_map(fn mod ->
       if Code.ensure_loaded?(mod) and function_exported?(mod, :children, 0) do
-        mod.children()
+        try do
+          mod.children()
+        rescue
+          error ->
+            Logger.warning(
+              "[ModuleRegistry] #{inspect(mod)}.children/0 failed: #{Exception.message(error)}"
+            )
+
+            []
+        end
       else
         []
       end

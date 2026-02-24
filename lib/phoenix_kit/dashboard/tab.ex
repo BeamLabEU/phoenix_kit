@@ -488,6 +488,13 @@ defmodule PhoenixKit.Dashboard.Tab do
     _ -> false
   end
 
+  def permission_granted?(%__MODULE__{permission: permission}, scope)
+      when is_atom(permission) do
+    Scope.has_module_access?(scope, Atom.to_string(permission))
+  rescue
+    _ -> false
+  end
+
   def permission_granted?(_, _), do: true
 
   @doc """

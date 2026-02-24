@@ -10,7 +10,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  current_path={assigns[:url_path] || assigns[:current_path]}
+  current_path={assigns[:url_path] || assigns[:current_path] || "/admin"}
   current_locale={assigns[:current_locale]}
 >
   {@inner_content}
