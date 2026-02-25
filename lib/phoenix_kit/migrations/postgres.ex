@@ -228,7 +228,7 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ### V33 - Payment Providers and Subscriptions
   - Phoenix_kit_payment_methods for saved payment methods (cards, wallets)
-  - Phoenix_kit_subscription_plans for subscription pricing plans
+  - Phoenix_kit_subscription_types for subscription pricing types
   - Phoenix_kit_subscriptions for user subscription management
   - Phoenix_kit_payment_provider_configs for provider credentials
   - Phoenix_kit_webhook_events for idempotent webhook processing
@@ -485,11 +485,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - All operations idempotent (IF EXISTS guards) — safe if module tables don't exist
   - PostgreSQL auto-updates FK/index column references; constraint object names are unchanged
 
-  ### V63 - UUID Companion Column Safety Net Round 2 ⚡ LATEST
+  ### V63 - UUID Companion Column Safety Net Round 2
   - Adds `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)
   - Adds `account_uuid` companion to `phoenix_kit_ai_requests` (backfilled from ai_accounts)
   - Adds `matched_email_log_uuid` companion to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
   - Adds `subscription_uuid` companion to `phoenix_kit_invoices` (backfilled from subscriptions)
+
+  ### V64 - Rename SubscriptionPlan → SubscriptionType ⚡ LATEST
+  - Renames `phoenix_kit_subscription_plans` table → `phoenix_kit_subscription_types`
+  - Renames unique slug index accordingly
+  - Renames `plan_id` / `plan_uuid` FK columns in `phoenix_kit_subscriptions`
+    to `subscription_type_id` / `subscription_type_uuid`
+  - All operations idempotent (IF EXISTS guards)
   - Adds `variant_uuid` companion to `phoenix_kit_shop_cart_items` (nullable, no variants table to backfill from)
   - All operations idempotent — safe on any installation
 
@@ -551,7 +558,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 63
+  @current_version 64
   @default_prefix "public"
 
   @doc false

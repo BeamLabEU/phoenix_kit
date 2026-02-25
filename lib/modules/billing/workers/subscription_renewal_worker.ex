@@ -51,7 +51,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     unique: [period: 3600]
 
   alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionPlan}
+  alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionType}
   alias PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
@@ -106,15 +106,15 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
   defp process_subscription_renewal(%Subscription{} = subscription) do
     repo = RepoHelper.repo()
 
-    with {:ok, subscription} <- repo.preload(subscription, [:plan, :payment_method]),
+    with {:ok, subscription} <- repo.preload(subscription, [:subscription_type, :payment_method]),
          {:ok, invoice} <- create_renewal_invoice(subscription),
          {:ok, _} <- charge_payment_method(subscription, invoice) do
       # Payment successful - extend period
-      plan = subscription.plan
+      plan = subscription.subscription_type
       new_period_start = subscription.current_period_end
 
       new_period_end =
-        SubscriptionPlan.next_billing_date(plan, DateTime.to_date(new_period_start))
+        SubscriptionType.next_billing_date(plan, DateTime.to_date(new_period_start))
 
       subscription
       |> Subscription.activate_changeset(datetime_from_date(new_period_end))
@@ -129,17 +129,17 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     end
   end
 
-  defp create_renewal_invoice(%Subscription{plan: nil}) do
+  defp create_renewal_invoice(%Subscription{subscription_type: nil}) do
     {:error, :no_plan}
   end
 
   defp create_renewal_invoice(%Subscription{} = subscription) do
-    plan = subscription.plan
+    plan = subscription.subscription_type
 
     line_items = [
       %{
         "name" => "#{plan.name} subscription",
-        "description" => "#{SubscriptionPlan.interval_description(plan)}",
+        "description" => "#{SubscriptionType.interval_description(plan)}",
         "quantity" => 1,
         "unit_price" => plan.price,
         "total" => plan.price

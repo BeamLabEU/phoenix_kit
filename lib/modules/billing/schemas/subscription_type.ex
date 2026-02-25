@@ -1,30 +1,30 @@
-defmodule PhoenixKit.Modules.Billing.SubscriptionPlan do
+defmodule PhoenixKit.Modules.Billing.SubscriptionType do
   @moduledoc """
-  Schema for subscription plans (pricing tiers).
+  Schema for subscription types (pricing tiers).
 
-  Subscription plans define the pricing, billing interval, and features
-  available at each tier. Plans are managed internally and used to
+  Subscription types define the pricing, billing interval, and features
+  available at each tier. Types are managed internally and used to
   create subscriptions.
 
   ## Fields
 
   - `name` - Display name (e.g., "Basic", "Pro", "Enterprise")
-  - `code` - Unique identifier code (e.g., "basic", "pro")
+  - `slug` - Unique identifier (e.g., "basic", "pro")
   - `description` - Marketing description
   - `price` - Price per billing period (Decimal)
   - `currency` - Three-letter currency code (default: "EUR")
   - `interval` - Billing interval: "day", "week", "month", "year"
   - `interval_count` - Number of intervals (e.g., 3 months)
   - `trial_days` - Free trial period in days (default: 0)
-  - `features` - JSON map of features included in this plan
-  - `active` - Whether this plan is available for new subscriptions
-  - `sort_order` - Display order in plan listings
+  - `features` - JSON map of features included in this type
+  - `active` - Whether this type is available for new subscriptions
+  - `sort_order` - Display order in type listings
 
   ## Examples
 
-      %SubscriptionPlan{
+      %SubscriptionType{
         name: "Professional",
-        code: "pro",
+        slug: "pro",
         price: Decimal.new("29.99"),
         currency: "EUR",
         interval: "month",
@@ -44,7 +44,7 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionPlan do
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
-  schema "phoenix_kit_subscription_plans" do
+  schema "phoenix_kit_subscription_types" do
     field :id, :integer, read_after_writes: true
     field :name, :string
     field :slug, :string
@@ -63,19 +63,19 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionPlan do
   end
 
   @doc """
-  Creates a changeset for a subscription plan.
+  Creates a changeset for a subscription type.
 
   ## Required fields
-  - `name` - Plan display name
-  - `slug` - Unique plan identifier (URL-friendly)
+  - `name` - Display name
+  - `slug` - Unique identifier (URL-friendly)
   - `price` - Price per period
 
   ## Optional fields
   - `description`, `currency`, `interval`, `interval_count`
   - `trial_days`, `features`, `active`, `sort_order`, `metadata`
   """
-  def changeset(plan, attrs) do
-    plan
+  def changeset(type, attrs) do
+    type
     |> cast(attrs, [
       :name,
       :slug,
@@ -101,7 +101,7 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionPlan do
   end
 
   @doc """
-  Returns the billing period in days for this plan.
+  Returns the billing period in days for this subscription type.
   """
   def billing_period_days(%__MODULE__{interval: interval, interval_count: count}) do
     base_days =
@@ -159,22 +159,22 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionPlan do
   end
 
   @doc """
-  Lists all active subscription plans ordered by sort_order.
+  Lists all active subscription types ordered by sort_order.
   """
   def list_active do
     import Ecto.Query
 
-    from(p in __MODULE__,
-      where: p.active == true,
-      order_by: [asc: p.sort_order, asc: p.name]
+    from(t in __MODULE__,
+      where: t.active == true,
+      order_by: [asc: t.sort_order, asc: t.name]
     )
     |> RepoHelper.repo().all()
   end
 
   @doc """
-  Gets a plan by its code.
+  Gets a subscription type by its slug.
   """
-  def get_by_code(code) do
-    RepoHelper.repo().get_by(__MODULE__, code: code)
+  def get_by_slug(slug) do
+    RepoHelper.repo().get_by(__MODULE__, slug: slug)
   end
 end

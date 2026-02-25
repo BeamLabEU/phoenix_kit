@@ -186,10 +186,10 @@ defmodule PhoenixKit.Modules.Billing do
         parent: :admin_billing
       ),
       Tab.new!(
-        id: :admin_billing_plans,
-        label: "Plans",
+        id: :admin_billing_subscription_types,
+        label: "Subscription Types",
         icon: "hero-rectangle-stack",
-        path: "/admin/billing/plans",
+        path: "/admin/billing/subscription-types",
         priority: 526,
         level: :admin,
         permission: "billing",
@@ -2703,7 +2703,7 @@ defmodule PhoenixKit.Modules.Billing do
   # SUBSCRIPTIONS
   # ============================================
 
-  alias PhoenixKit.Modules.Billing.{PaymentMethod, Subscription, SubscriptionPlan}
+  alias PhoenixKit.Modules.Billing.{PaymentMethod, Subscription, SubscriptionType}
 
   @doc """
   Lists all subscriptions for a user.
@@ -2844,30 +2844,32 @@ defmodule PhoenixKit.Modules.Billing do
 
   - `user_id` - The user creating the subscription
   - `attrs` - Subscription attributes:
-    - `:plan_id` - Required: subscription plan ID
+    - `:subscription_type_id` - Required: subscription type ID
     - `:billing_profile_id` - Optional: billing profile to use
     - `:payment_method_id` - Optional: saved payment method for renewals
-    - `:trial_days` - Optional: override plan's trial days
+    - `:trial_days` - Optional: override type's trial days
 
   ## Examples
 
-      Billing.create_subscription(user.id, %{plan_id: plan.id})
-      Billing.create_subscription(user.id, %{plan_id: plan.id, trial_days: 14})
+      Billing.create_subscription(user.id, %{subscription_type_id: type.id})
+      Billing.create_subscription(user.id, %{subscription_type_id: type.id, trial_days: 14})
   """
   def create_subscription(user_id, attrs) do
-    plan_id = attrs[:plan_id] || attrs["plan_id"]
+    type_id =
+      attrs[:subscription_type_id] || attrs["subscription_type_id"] ||
+        attrs[:plan_uuid] || attrs["plan_uuid"]
 
-    with {:ok, plan} <- get_subscription_plan(plan_id) do
-      trial_days = attrs[:trial_days] || plan.trial_days || 0
+    with {:ok, type} <- get_subscription_type(type_id) do
+      trial_days = attrs[:trial_days] || type.trial_days || 0
       now = UtilsDate.utc_now()
 
       {status, trial_end, period_start, period_end} =
         if trial_days > 0 do
           trial_end = DateTime.add(now, trial_days, :day)
-          period_end = SubscriptionPlan.next_billing_date(plan, DateTime.to_date(trial_end))
+          period_end = SubscriptionType.next_billing_date(type, DateTime.to_date(trial_end))
           {"trialing", trial_end, now, datetime_from_date(period_end)}
         else
-          period_end = SubscriptionPlan.next_billing_date(plan, Date.utc_today())
+          period_end = SubscriptionType.next_billing_date(type, Date.utc_today())
           {"active", nil, now, datetime_from_date(period_end)}
         end
 
@@ -2884,8 +2886,8 @@ defmodule PhoenixKit.Modules.Billing do
       subscription_attrs = %{
         user_id: user_id,
         user_uuid: extract_user_uuid(user_id),
-        plan_id: plan.id,
-        plan_uuid: plan.uuid,
+        subscription_type_id: type.id,
+        subscription_type_uuid: type.uuid,
         billing_profile_id: billing_profile_id,
         billing_profile_uuid: billing_profile_uuid,
         payment_method_id: payment_method_id,
@@ -2964,23 +2966,26 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   @doc """
-  Changes a subscription's plan.
+  Changes a subscription's type.
 
-  By default, the new plan takes effect at the next billing cycle.
+  By default, the new type takes effect at the next billing cycle.
   """
-  def change_subscription_plan(%Subscription{} = subscription, new_plan_id, _opts \\ []) do
-    old_plan_id = subscription.plan_id
+  def change_subscription_type(%Subscription{} = subscription, new_type_id, _opts \\ []) do
+    old_type_id = subscription.subscription_type_id
 
-    plan_uuid = resolve_plan_uuid(new_plan_id)
+    type_uuid = resolve_subscription_type_uuid(new_type_id)
 
     result =
       subscription
-      |> Ecto.Changeset.change(%{plan_id: new_plan_id, plan_uuid: plan_uuid})
+      |> Ecto.Changeset.change(%{
+        subscription_type_id: new_type_id,
+        subscription_type_uuid: type_uuid
+      })
       |> repo().update()
 
     case result do
       {:ok, updated_subscription} ->
-        Events.broadcast_subscription_plan_changed(updated_subscription, old_plan_id, new_plan_id)
+        Events.broadcast_subscription_type_changed(updated_subscription, old_type_id, new_type_id)
         {:ok, updated_subscription}
 
       error ->
@@ -2989,29 +2994,29 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   # ============================================
-  # SUBSCRIPTION PLANS
+  # SUBSCRIPTION TYPES
   # ============================================
 
   @doc """
-  Lists all subscription plans.
+  Lists all subscription types.
 
   ## Options
 
-  - `:active_only` - Only return active plans (default: true)
+  - `:active_only` - Only return active types (default: true)
   """
-  def list_subscription_plans(opts \\ []) do
+  def list_subscription_types(opts \\ []) do
     import Ecto.Query
 
     active_only = Keyword.get(opts, :active_only, true)
 
     query =
-      from(p in SubscriptionPlan,
-        order_by: [asc: p.sort_order, asc: p.name]
+      from(t in SubscriptionType,
+        order_by: [asc: t.sort_order, asc: t.name]
       )
 
     query =
       if active_only do
-        from(p in query, where: p.active == true)
+        from(t in query, where: t.active == true)
       else
         query
       end
@@ -3020,73 +3025,75 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   @doc """
-  Gets a subscription plan by ID or UUID.
+  Gets a subscription type by ID or UUID.
   """
-  def get_subscription_plan(id) when is_integer(id) do
-    case repo().get_by(SubscriptionPlan, id: id) do
-      nil -> {:error, :plan_not_found}
-      plan -> {:ok, plan}
+  def get_subscription_type(id) when is_integer(id) do
+    case repo().get_by(SubscriptionType, id: id) do
+      nil -> {:error, :subscription_type_not_found}
+      type -> {:ok, type}
     end
   end
 
-  def get_subscription_plan(id) when is_binary(id) do
-    plan =
+  def get_subscription_type(id) when is_binary(id) do
+    type =
       if UUIDUtils.valid?(id) do
-        repo().get_by(SubscriptionPlan, uuid: id)
+        repo().get_by(SubscriptionType, uuid: id)
       else
         case Integer.parse(id) do
-          {int_id, ""} -> repo().get_by(SubscriptionPlan, id: int_id)
+          {int_id, ""} -> repo().get_by(SubscriptionType, id: int_id)
           _ -> nil
         end
       end
 
-    case plan do
-      nil -> {:error, :plan_not_found}
-      plan -> {:ok, plan}
+    case type do
+      nil -> {:error, :subscription_type_not_found}
+      type -> {:ok, type}
     end
   end
 
-  def get_subscription_plan(_), do: {:error, :plan_not_found}
+  def get_subscription_type(_), do: {:error, :subscription_type_not_found}
 
   @doc """
-  Gets a subscription plan by code.
+  Gets a subscription type by slug.
   """
-  def get_subscription_plan_by_code(code) do
-    case repo().get_by(SubscriptionPlan, code: code) do
-      nil -> {:error, :plan_not_found}
-      plan -> {:ok, plan}
+  def get_subscription_type_by_slug(slug) do
+    case repo().get_by(SubscriptionType, slug: slug) do
+      nil -> {:error, :subscription_type_not_found}
+      type -> {:ok, type}
     end
   end
 
   @doc """
-  Creates a subscription plan.
+  Creates a subscription type.
   """
-  def create_subscription_plan(attrs) do
-    %SubscriptionPlan{}
-    |> SubscriptionPlan.changeset(attrs)
+  def create_subscription_type(attrs) do
+    %SubscriptionType{}
+    |> SubscriptionType.changeset(attrs)
     |> repo().insert()
   end
 
   @doc """
-  Updates a subscription plan.
+  Updates a subscription type.
   """
-  def update_subscription_plan(%SubscriptionPlan{} = plan, attrs) do
-    plan
-    |> SubscriptionPlan.changeset(attrs)
+  def update_subscription_type(%SubscriptionType{} = type, attrs) do
+    type
+    |> SubscriptionType.changeset(attrs)
     |> repo().update()
   end
 
   @doc """
-  Deletes a subscription plan.
+  Deletes a subscription type.
 
-  Plans with active subscriptions cannot be deleted.
+  Types with active subscriptions cannot be deleted.
   """
-  def delete_subscription_plan(%SubscriptionPlan{} = plan) do
+  def delete_subscription_type(%SubscriptionType{} = type) do
     import Ecto.Query
 
     active_count =
       from(s in Subscription,
-        where: s.plan_uuid == ^plan.uuid and s.status in ["active", "trialing", "past_due"],
+        where:
+          s.subscription_type_uuid == ^type.uuid and
+            s.status in ["active", "trialing", "past_due"],
         select: count(s.uuid)
       )
       |> repo().one()
@@ -3094,7 +3101,7 @@ defmodule PhoenixKit.Modules.Billing do
     if active_count > 0 do
       {:error, :has_active_subscriptions}
     else
-      repo().delete(plan)
+      repo().delete(type)
     end
   end
 
@@ -3342,19 +3349,20 @@ defmodule PhoenixKit.Modules.Billing do
 
   defp resolve_payment_method_uuid(_), do: nil
 
-  # Resolves subscription plan UUID from integer id (dual-write)
-  defp resolve_plan_uuid(id) when is_integer(id) do
-    from(sp in SubscriptionPlan, where: sp.id == ^id, select: sp.uuid) |> repo().one()
+  # Resolves subscription type UUID from integer id (dual-write)
+  defp resolve_subscription_type_uuid(id) when is_integer(id) do
+    import Ecto.Query
+    from(st in SubscriptionType, where: st.id == ^id, select: st.uuid) |> repo().one()
   end
 
-  defp resolve_plan_uuid(id) when is_binary(id) do
+  defp resolve_subscription_type_uuid(id) when is_binary(id) do
     case Ecto.UUID.cast(id) do
       {:ok, _} -> id
       :error -> nil
     end
   end
 
-  defp resolve_plan_uuid(_), do: nil
+  defp resolve_subscription_type_uuid(_), do: nil
 
   defp maybe_mark_linked_order_paid(%{order_id: nil}), do: :ok
 

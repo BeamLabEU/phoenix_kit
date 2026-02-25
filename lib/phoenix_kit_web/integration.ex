@@ -572,18 +572,20 @@ defmodule PhoenixKitWeb.Integration do
                :show,
                as: :billing_subscription_detail
 
-          live "/admin/billing/plans", PhoenixKit.Modules.Billing.Web.SubscriptionPlans, :index,
-            as: :billing_plans
+          live "/admin/billing/subscription-types",
+               PhoenixKit.Modules.Billing.Web.SubscriptionTypes,
+               :index,
+               as: :billing_subscription_types
 
-          live "/admin/billing/plans/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+          live "/admin/billing/subscription-types/new",
+               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
                :new,
-               as: :billing_plan_new
+               as: :billing_subscription_type_new
 
-          live "/admin/billing/plans/:id/edit",
-               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+          live "/admin/billing/subscription-types/:id/edit",
+               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
                :edit,
-               as: :billing_plan_edit
+               as: :billing_subscription_type_edit
 
           live "/admin/billing/profiles", PhoenixKit.Modules.Billing.Web.BillingProfiles, :index,
             as: :billing_profiles
