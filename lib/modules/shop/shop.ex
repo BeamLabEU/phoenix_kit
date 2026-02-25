@@ -1257,7 +1257,7 @@ defmodule PhoenixKit.Modules.Shop do
       nil ->
         cat
 
-      {_product_id, product_uuid} ->
+      product_uuid ->
         {:ok, updated} =
           update_category(cat, %{
             featured_product_uuid: product_uuid
@@ -1278,7 +1278,7 @@ defmodule PhoenixKit.Modules.Shop do
           (not is_nil(p.featured_image) and p.featured_image != ""),
       order_by: [asc: p.inserted_at],
       limit: 1,
-      select: {p.id, p.uuid}
+      select: p.uuid
     )
     |> repo().one()
   end
