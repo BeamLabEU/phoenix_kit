@@ -57,9 +57,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
     field :metadata, :map, default: %{}
 
     # Association
-    # legacy
-    field :user_id, :integer
-
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
       references: :uuid,
@@ -86,7 +83,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
       :status,
       :label,
       :metadata,
-      :user_id,
       :user_uuid
     ])
     |> validate_required([:provider, :provider_payment_method_id, :user_uuid])

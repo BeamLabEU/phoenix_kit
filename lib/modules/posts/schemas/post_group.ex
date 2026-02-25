@@ -51,7 +51,6 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           name: String.t(),
           slug: String.t(),
@@ -79,8 +78,6 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
       foreign_key: :user_uuid,
       references: :uuid,
       type: UUIDv7
-
-    field :user_id, :integer
 
     belongs_to :cover_image, PhoenixKit.Modules.Storage.File,
       foreign_key: :cover_image_uuid,
@@ -114,7 +111,6 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
   def changeset(group, attrs) do
     group
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
       :name,
       :slug,
@@ -151,7 +147,9 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
   @doc """
   Check if user owns the group.
   """
-  def user_owns?(%__MODULE__{user_id: user_id}, user_id), do: true
+  def user_owns?(%__MODULE__{user_uuid: user_uuid}, user_uuid) when not is_nil(user_uuid),
+    do: true
+
   def user_owns?(_, _), do: false
 
   # Private Functions

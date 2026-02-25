@@ -81,7 +81,6 @@ defmodule PhoenixKit.Modules.Posts.Post do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           title: String.t(),
           sub_title: String.t() | nil,
@@ -130,8 +129,6 @@ defmodule PhoenixKit.Modules.Posts.Post do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     has_many :media, PhoenixKit.Modules.Posts.PostMedia, foreign_key: :post_uuid
     has_many :likes, PhoenixKit.Modules.Posts.PostLike, foreign_key: :post_uuid
     has_many :dislikes, PhoenixKit.Modules.Posts.PostDislike, foreign_key: :post_uuid
@@ -172,7 +169,6 @@ defmodule PhoenixKit.Modules.Posts.Post do
   def changeset(post, attrs) do
     post
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
       :title,
       :sub_title,

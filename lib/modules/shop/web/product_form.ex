@@ -164,7 +164,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     new_category_id = product_params["category_uuid"] || product_params["category_id"]
 
     old_category_id =
-      socket.assigns.product.category_uuid || to_string(socket.assigns.product.category_id)
+      socket.assigns.product.category_uuid
 
     socket =
       if new_category_id != old_category_id do
@@ -1969,7 +1969,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   defp get_schema_for_category_id(category_id) when is_binary(category_id) do
     category = Shop.get_category!(category_id)
-    product = %Product{category: category, category_id: category.id, category_uuid: category.uuid}
+    product = %Product{category: category, category_uuid: category.uuid}
     Options.get_option_schema_for_product(product)
   rescue
     _ -> Options.get_enabled_global_options()

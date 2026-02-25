@@ -1864,12 +1864,12 @@ defmodule PhoenixKit.Modules.Posts do
   defp maybe_filter_by_user(query, nil), do: query
 
   defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
-    where(query, [p], p.user_id == ^user_id)
+    where(query, [p], fragment("user_id = ?", ^user_id))
   end
 
   defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
     case Integer.parse(user_id) do
-      {int_id, ""} -> where(query, [p], p.user_id == ^int_id)
+      {int_id, ""} -> where(query, [p], fragment("user_id = ?", ^int_id))
       _ -> where(query, [p], p.user_uuid == ^user_id)
     end
   end

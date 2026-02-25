@@ -1361,7 +1361,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   def list_invoices_for_order(order_id) when is_integer(order_id) do
     Invoice
-    |> where([i], i.order_id == ^order_id)
+    |> where([i], fragment("order_id = ?", ^order_id))
     |> order_by([i], desc: i.inserted_at)
     |> repo().all()
   end
@@ -2356,7 +2356,7 @@ defmodule PhoenixKit.Modules.Billing do
         where(query, [t], t.invoice_uuid == ^invoice_uuid)
 
       invoice_id = opts[:invoice_id] ->
-        where(query, [t], t.invoice_id == ^invoice_id)
+        where(query, [t], fragment("invoice_id = ?", ^invoice_id))
 
       true ->
         query
@@ -2409,7 +2409,7 @@ defmodule PhoenixKit.Modules.Billing do
           where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
 
         invoice_id = opts[:invoice_id] ->
-          where(count_query, [t], t.invoice_id == ^invoice_id)
+          where(count_query, [t], fragment("invoice_id = ?", ^invoice_id))
 
         true ->
           count_query
@@ -2637,7 +2637,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   def calculate_invoice_paid_amount(invoice_id) when is_integer(invoice_id) do
     Transaction
-    |> where([t], t.invoice_id == ^invoice_id)
+    |> where([t], fragment("invoice_id = ?", ^invoice_id))
     |> select([t], sum(t.amount))
     |> repo().one()
     |> case do
@@ -2959,18 +2959,23 @@ defmodule PhoenixKit.Modules.Billing do
   By default, the new plan takes effect at the next billing cycle.
   """
   def change_subscription_plan(%Subscription{} = subscription, new_plan_id, _opts \\ []) do
-    old_plan_id = subscription.plan_id
+    old_plan_uuid = subscription.plan_uuid
 
     plan_uuid = resolve_plan_uuid(new_plan_id)
 
     result =
       subscription
-      |> Ecto.Changeset.change(%{plan_id: new_plan_id, plan_uuid: plan_uuid})
+      |> Ecto.Changeset.change(%{plan_uuid: plan_uuid})
       |> repo().update()
 
     case result do
       {:ok, updated_subscription} ->
-        Events.broadcast_subscription_plan_changed(updated_subscription, old_plan_id, new_plan_id)
+        Events.broadcast_subscription_plan_changed(
+          updated_subscription,
+          old_plan_uuid,
+          new_plan_id
+        )
+
         {:ok, updated_subscription}
 
       error ->

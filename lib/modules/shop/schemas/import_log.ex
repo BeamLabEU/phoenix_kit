@@ -54,8 +54,6 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     field :completed_at, :utc_datetime
 
     # Associations
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -66,7 +64,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   """
   def create_changeset(import_log \\ %__MODULE__{}, attrs) do
     import_log
-    |> cast(attrs, [:filename, :file_path, :options, :user_id, :user_uuid])
+    |> cast(attrs, [:filename, :file_path, :options, :user_uuid])
     |> validate_required([:filename])
   end
 

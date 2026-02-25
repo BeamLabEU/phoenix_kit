@@ -13,7 +13,6 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           post_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           parent_uuid: UUIDv7.t() | nil,
           content: String.t(),
@@ -49,8 +48,6 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     belongs_to :parent, __MODULE__,
       foreign_key: :parent_uuid,
       references: :uuid,
@@ -80,7 +77,7 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
   """
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:post_uuid, :user_id, :user_uuid, :parent_uuid, :content, :status, :depth])
+    |> cast(attrs, [:post_uuid, :user_uuid, :parent_uuid, :content, :status, :depth])
     |> validate_required([:post_uuid, :user_uuid, :content])
     |> validate_inclusion(:status, ["published", "hidden", "deleted", "pending"])
     |> validate_length(:content, min: 1, max: 10_000)

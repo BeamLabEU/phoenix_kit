@@ -99,11 +99,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
     field :paid_at, :utc_datetime
     field :voided_at, :utc_datetime
 
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
-    # legacy
-    field :order_id, :integer
     belongs_to :order, Order, foreign_key: :order_uuid, references: :uuid, type: UUIDv7
     field :subscription_uuid, UUIDv7
     has_many :transactions, Transaction, foreign_key: :invoice_uuid, references: :uuid
@@ -117,9 +113,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   def changeset(invoice, attrs) do
     invoice
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
-      :order_id,
       :order_uuid,
       :subscription_uuid,
       :invoice_number,
@@ -220,9 +214,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
     payment_terms = Keyword.get(opts, :payment_terms)
 
     %__MODULE__{
-      user_id: order.user_id,
       user_uuid: order.user_uuid,
-      order_id: order.id,
       order_uuid: order.uuid,
       invoice_number: invoice_number,
       status: "draft",

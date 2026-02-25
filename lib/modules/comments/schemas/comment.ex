@@ -33,7 +33,6 @@ defmodule PhoenixKit.Modules.Comments.Comment do
           uuid: UUIDv7.t() | nil,
           resource_type: String.t(),
           resource_uuid: Ecto.UUID.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           parent_uuid: UUIDv7.t() | nil,
           content: String.t(),
@@ -62,8 +61,6 @@ defmodule PhoenixKit.Modules.Comments.Comment do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     belongs_to :parent, __MODULE__,
       foreign_key: :parent_uuid,
       references: :uuid,
@@ -89,7 +86,6 @@ defmodule PhoenixKit.Modules.Comments.Comment do
     |> cast(attrs, [
       :resource_type,
       :resource_uuid,
-      :user_id,
       :user_uuid,
       :parent_uuid,
       :content,

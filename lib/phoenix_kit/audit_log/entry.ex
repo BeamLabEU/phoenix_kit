@@ -21,9 +21,7 @@ defmodule PhoenixKit.AuditLog.Entry do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          target_user_id: integer(),
           target_user_uuid: UUIDv7.t() | nil,
-          admin_user_id: integer(),
           admin_user_uuid: UUIDv7.t() | nil,
           action: String.t(),
           ip_address: String.t() | nil,
@@ -48,9 +46,7 @@ defmodule PhoenixKit.AuditLog.Entry do
 
   schema "phoenix_kit_audit_logs" do
     field :id, :integer, read_after_writes: true
-    field :target_user_id, :integer
     field :target_user_uuid, UUIDv7
-    field :admin_user_id, :integer
     field :admin_user_uuid, UUIDv7
     field :action, :string
     field :ip_address, :string
@@ -76,9 +72,7 @@ defmodule PhoenixKit.AuditLog.Entry do
   def changeset(entry, attrs) do
     entry
     |> cast(attrs, [
-      :target_user_id,
       :target_user_uuid,
-      :admin_user_id,
       :admin_user_uuid,
       :action,
       :ip_address,

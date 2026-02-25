@@ -108,7 +108,6 @@ defmodule PhoenixKit.Modules.Storage.File do
           status: String.t(),
           metadata: map() | nil,
           user_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           instances:
             [PhoenixKit.Modules.Storage.FileInstance.t()] | Ecto.Association.NotLoaded.t(),
@@ -137,7 +136,6 @@ defmodule PhoenixKit.Modules.Storage.File do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
     has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_uuid
 
     timestamps(type: :utc_datetime)
@@ -183,7 +181,6 @@ defmodule PhoenixKit.Modules.Storage.File do
       :duration,
       :status,
       :metadata,
-      :user_id,
       :user_uuid
     ])
     |> validate_required([

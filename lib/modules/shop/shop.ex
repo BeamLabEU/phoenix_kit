@@ -897,9 +897,9 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def product_counts_by_category do
     Product
-    |> where([p], not is_nil(p.category_id))
-    |> group_by([p], p.category_id)
-    |> select([p], {p.category_id, count(p.id)})
+    |> where([p], not is_nil(p.category_uuid))
+    |> group_by([p], p.category_uuid)
+    |> select([p], {p.category_uuid, count(p.uuid)})
     |> repo().all()
     |> Map.new()
   rescue
@@ -1204,11 +1204,11 @@ defmodule PhoenixKit.Modules.Shop do
       if uuid_ids? do
         Product |> where([p], p.category_uuid in ^ids)
       else
-        Product |> where([p], p.category_id in ^ids)
+        Product |> where([p], fragment("category_id") in ^ids)
       end
 
     repo().update_all(orphan_query,
-      set: [category_id: nil, category_uuid: nil, updated_at: UtilsDate.utc_now()]
+      set: [category_uuid: nil, updated_at: UtilsDate.utc_now()]
     )
 
     # Delete categories
@@ -1251,16 +1251,15 @@ defmodule PhoenixKit.Modules.Shop do
   category with :featured_product preloaded.
   """
   def ensure_featured_product(
-        %Category{featured_product_id: nil, image_uuid: nil, uuid: cat_uuid} = cat
+        %Category{featured_product_uuid: nil, image_uuid: nil, uuid: cat_uuid} = cat
       ) do
     case find_default_featured_product(cat_uuid) do
       nil ->
         cat
 
-      {product_id, product_uuid} ->
+      {_product_id, product_uuid} ->
         {:ok, updated} =
           update_category(cat, %{
-            featured_product_id: product_id,
             featured_product_uuid: product_uuid
           })
 
@@ -1312,7 +1311,7 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp category_product_options_query(category_id) when is_integer(category_id) do
     from(p in Product,
-      where: p.category_id == ^category_id,
+      where: fragment("category_id = ?", ^category_id),
       where: p.status == "active",
       where:
         not is_nil(p.featured_image_uuid) or
@@ -1828,9 +1827,7 @@ defmodule PhoenixKit.Modules.Shop do
           |> CartItem.changeset(%{quantity: quantity})
           |> repo().update!()
 
-        cart =
-          (item.cart_uuid && repo().get_by!(Cart, uuid: item.cart_uuid)) ||
-            repo().get_by!(Cart, id: item.cart_id)
+        cart = repo().get_by!(Cart, uuid: item.cart_uuid)
 
         updated_cart = recalculate_cart_totals!(cart)
         {updated_cart, updated_item}
@@ -1857,12 +1854,9 @@ defmodule PhoenixKit.Modules.Shop do
     result =
       repo().transaction(fn ->
         cart_uuid = item.cart_uuid
-        cart_id = item.cart_id
         repo().delete!(item)
 
-        cart =
-          (cart_uuid && repo().get_by!(Cart, uuid: cart_uuid)) ||
-            repo().get_by!(Cart, id: cart_id)
+        cart = repo().get_by!(Cart, uuid: cart_uuid)
 
         recalculate_cart_totals!(cart)
       end)
@@ -2311,7 +2305,7 @@ defmodule PhoenixKit.Modules.Shop do
       Enum.empty?(cart.items) ->
         {:error, :cart_empty}
 
-      is_nil(cart.shipping_method_id) and is_nil(cart.shipping_method_uuid) ->
+      is_nil(cart.shipping_method_uuid) ->
         {:error, :no_shipping_method}
 
       true ->
@@ -2376,7 +2370,6 @@ defmodule PhoenixKit.Modules.Shop do
         "cart_id" => cart.id,
         "cart_uuid" => cart.uuid,
         "shipping_country" => shipping_country,
-        "shipping_method_id" => cart.shipping_method_id,
         "shipping_method_uuid" => cart.shipping_method_uuid
       }
     }
@@ -2425,12 +2418,13 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   # Resolve user for checkout: logged-in user or create guest user
-  defp resolve_checkout_user(%Cart{user_id: user_id} = cart, _opts) when not is_nil(user_id) do
+  defp resolve_checkout_user(%Cart{user_uuid: user_uuid} = cart, _opts)
+       when not is_nil(user_uuid) do
     # Cart already has a user (logged-in checkout)
-    {:ok, user_id, cart}
+    {:ok, user_uuid, cart}
   end
 
-  defp resolve_checkout_user(%Cart{user_id: nil} = cart, opts) do
+  defp resolve_checkout_user(%Cart{user_uuid: nil} = cart, opts) do
     # Check if logged-in user_id was passed in opts (user is logged in but has guest cart)
     case Keyword.get(opts, :user_id) do
       user_id when not is_nil(user_id) ->
@@ -2633,14 +2627,14 @@ defmodule PhoenixKit.Modules.Shop do
       where(query, [p], p.category_uuid == ^id)
     else
       case Integer.parse(id) do
-        {int_id, ""} -> where(query, [p], p.category_id == ^int_id)
+        {int_id, ""} -> where(query, [p], fragment("category_id = ?", ^int_id))
         _ -> query
       end
     end
   end
 
   defp filter_by_category(query, id) when is_integer(id) do
-    where(query, [p], p.category_id == ^id)
+    where(query, [p], fragment("category_id = ?", ^id))
   end
 
   defp filter_by_visible_categories(query, false), do: query
@@ -2721,8 +2715,8 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp filter_by_parent(query, :skip), do: query
-  defp filter_by_parent(query, nil), do: where(query, [c], is_nil(c.parent_id))
-  defp filter_by_parent(query, id), do: where(query, [c], c.parent_id == ^id)
+  defp filter_by_parent(query, nil), do: where(query, [c], is_nil(c.parent_uuid))
+  defp filter_by_parent(query, id), do: where(query, [c], fragment("parent_id = ?", ^id))
 
   defp filter_by_parent_uuid(query, :skip), do: query
   defp filter_by_parent_uuid(query, nil), do: where(query, [c], is_nil(c.parent_uuid))
@@ -2831,11 +2825,8 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp calculate_shipping(cart, subtotal, total_weight) do
-    if cart.shipping_method_uuid || cart.shipping_method_id do
-      shipping_method =
-        (cart.shipping_method_uuid &&
-           repo().get_by(ShippingMethod, uuid: cart.shipping_method_uuid)) ||
-          repo().get_by(ShippingMethod, id: cart.shipping_method_id)
+    if cart.shipping_method_uuid do
+      shipping_method = repo().get_by(ShippingMethod, uuid: cart.shipping_method_uuid)
 
       case shipping_method do
         nil ->

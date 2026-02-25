@@ -45,7 +45,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
     field :last_error, :string
     field :args, :map, default: %{}
     field :priority, :integer, default: 0
-    field :created_by_id, :integer
+    field :created_by_uuid, UUIDv7
 
     timestamps(type: :utc_datetime)
   end
@@ -64,7 +64,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
       :args,
       :priority,
       :max_attempts,
-      :created_by_id
+      :created_by_uuid
     ])
     |> validate_required([
       :job_type,

@@ -121,8 +121,6 @@ defmodule PhoenixKit.Modules.Billing.Order do
     field :paid_at, :utc_datetime
     field :cancelled_at, :utc_datetime
 
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     belongs_to :billing_profile, BillingProfile,

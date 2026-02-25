@@ -264,7 +264,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   # Used to exclude empty categories (all products archived/draft) from sitemap.
   defp active_product_category_ids do
     Shop.list_products(status: "active", exclude_hidden_categories: true)
-    |> Enum.map(& &1.category_id)
+    |> Enum.map(& &1.category_uuid)
     |> Enum.reject(&is_nil/1)
     |> MapSet.new()
   end

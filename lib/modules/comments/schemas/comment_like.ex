@@ -12,7 +12,6 @@ defmodule PhoenixKit.Modules.Comments.CommentLike do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           comment_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           comment: PhoenixKit.Modules.Comments.Comment.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
@@ -30,8 +29,6 @@ defmodule PhoenixKit.Modules.Comments.CommentLike do
       foreign_key: :user_uuid,
       references: :uuid,
       type: UUIDv7
-
-    field :user_id, :integer
 
     timestamps(type: :utc_datetime)
   end

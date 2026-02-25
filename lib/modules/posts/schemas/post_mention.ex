@@ -40,7 +40,6 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           post_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           mention_type: String.t(),
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
@@ -62,8 +61,6 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     timestamps(type: :utc_datetime)
   end
 
@@ -83,7 +80,7 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
   """
   def changeset(mention, attrs) do
     mention
-    |> cast(attrs, [:post_uuid, :user_id, :user_uuid, :mention_type])
+    |> cast(attrs, [:post_uuid, :user_uuid, :mention_type])
     |> validate_required([:post_uuid, :user_uuid, :mention_type])
     |> validate_inclusion(:mention_type, ["contributor", "mention"])
     |> foreign_key_constraint(:post_uuid)
