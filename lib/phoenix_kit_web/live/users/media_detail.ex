@@ -146,7 +146,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   defp load_file_instances(file_id, repo) do
     FileInstance
-    |> where([fi], fi.file_id == ^file_id)
+    |> where([fi], fi.file_uuid == ^file_id)
     |> repo.all()
   end
 

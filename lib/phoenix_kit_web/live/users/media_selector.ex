@@ -282,10 +282,10 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
     instances_by_file =
       if Enum.any?(file_ids) do
         from(fi in FileInstance,
-          where: fi.file_id in ^file_ids
+          where: fi.file_uuid in ^file_ids
         )
         |> repo.all()
-        |> Enum.group_by(& &1.file_id)
+        |> Enum.group_by(& &1.file_uuid)
       else
         %{}
       end
