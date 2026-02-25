@@ -64,14 +64,43 @@
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex justify-between items-center mb-4">
-            <div class="flex items-center gap-3">
-              <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
+            <div class="flex items-center gap-3 flex-wrap">
+              <h2 class="card-title text-xl">
+                <%= if @filter_orphaned do %>
+                  Orphaned Files ({@total_count})
+                <% else %>
+                  Uploaded Files ({@total_count})
+                <% end %>
+              </h2>
               <%= unless @show_upload do %>
                 <button
                   phx-click="toggle_upload"
                   class="btn btn-sm btn-primary gap-2"
                 >
                   <.icon name="hero-plus" class="w-4 h-4" /> Add Media
+                </button>
+              <% end %>
+              <button
+                phx-click="toggle_orphan_filter"
+                class={[
+                  "btn btn-sm gap-2",
+                  if(@filter_orphaned, do: "btn-warning", else: "btn-ghost")
+                ]}
+              >
+                <.icon name="hero-funnel" class="w-4 h-4" />
+                <%= if @filter_orphaned do %>
+                  Showing orphaned ({@orphaned_count})
+                <% else %>
+                  Find orphaned ({@orphaned_count})
+                <% end %>
+              </button>
+              <%= if @filter_orphaned && @total_count > 0 do %>
+                <button
+                  phx-click="delete_all_orphaned"
+                  data-confirm={"Delete all #{@total_count} orphaned files?"}
+                  class="btn btn-sm btn-error gap-2"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4" /> Delete all orphaned
                 </button>
               <% end %>
             </div>

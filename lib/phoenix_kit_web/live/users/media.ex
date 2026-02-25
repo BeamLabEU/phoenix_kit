@@ -44,6 +44,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:show_upload, false)
       |> assign(:last_uploaded_file_ids, [])
       |> assign(:has_buckets, has_buckets)
+      |> assign(:filter_orphaned, false)
+      |> assign(:orphaned_count, 0)
 
     {:ok, socket}
   end
@@ -66,9 +68,23 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     per_page = 50
     page = String.to_integer(params["page"] || "1")
 
-    # Load existing files from database with pagination
-    {existing_files, total_count} = load_existing_files(page, per_page)
+    filter_orphaned = socket.assigns[:filter_orphaned] || false
+
+    {existing_files, total_count} =
+      if filter_orphaned do
+        load_orphaned_files(page, per_page)
+      else
+        load_existing_files(page, per_page)
+      end
+
     total_pages = ceil(total_count / per_page)
+
+    orphaned_count =
+      if filter_orphaned do
+        total_count
+      else
+        Storage.count_orphaned_files()
+      end
 
     socket =
       socket
@@ -77,8 +93,43 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:per_page, per_page)
       |> assign(:total_pages, total_pages)
       |> assign(:total_count, total_count)
+      |> assign(:orphaned_count, orphaned_count)
 
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_orphan_filter", _params, socket) do
+    filter_orphaned = !socket.assigns.filter_orphaned
+    per_page = socket.assigns.per_page || 50
+
+    {files, total_count} =
+      if filter_orphaned do
+        load_orphaned_files(1, per_page)
+      else
+        load_existing_files(1, per_page)
+      end
+
+    orphaned_count = if filter_orphaned, do: total_count, else: Storage.count_orphaned_files()
+
+    {:noreply,
+     socket
+     |> assign(:filter_orphaned, filter_orphaned)
+     |> assign(:uploaded_files, files)
+     |> assign(:current_page, 1)
+     |> assign(:total_pages, ceil(total_count / per_page))
+     |> assign(:total_count, total_count)
+     |> assign(:orphaned_count, orphaned_count)}
+  end
+
+  def handle_event("delete_all_orphaned", _params, socket) do
+    orphan_uuids =
+      Storage.find_orphaned_files()
+      |> Enum.map(& &1.uuid)
+
+    Storage.queue_file_cleanup(orphan_uuids)
+
+    {:noreply,
+     put_flash(socket, :info, "#{length(orphan_uuids)} orphaned files queued for deletion")}
   end
 
   def handle_event("toggle_upload", _params, socket) do
@@ -196,6 +247,46 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   defp file_icon("pdf"), do: "hero-document-text"
   defp file_icon("document"), do: "hero-document"
   defp file_icon(_), do: "hero-document-arrow-down"
+
+  # Load orphaned files with pagination
+  defp load_orphaned_files(page, per_page) do
+    repo = PhoenixKit.Config.get_repo()
+    offset = (page - 1) * per_page
+    total_count = Storage.count_orphaned_files()
+
+    files = Storage.find_orphaned_files(limit: per_page, offset: offset)
+    file_ids = Enum.map(files, & &1.uuid)
+
+    instances_by_file =
+      if file_ids != [] do
+        from(fi in FileInstance,
+          where: fi.file_uuid in ^file_ids
+        )
+        |> repo.all()
+        |> Enum.group_by(& &1.file_uuid)
+      else
+        %{}
+      end
+
+    existing_files =
+      Enum.map(files, fn file ->
+        instances = Map.get(instances_by_file, file.uuid, [])
+        urls = generate_urls_from_instances(instances, file.uuid)
+
+        %{
+          file_id: file.uuid,
+          filename: file.original_file_name || file.file_name || "Unknown",
+          original_filename: file.original_file_name,
+          file_type: file.file_type,
+          mime_type: file.mime_type,
+          size: file.size || 0,
+          status: file.status,
+          urls: urls
+        }
+      end)
+
+    {existing_files, total_count}
+  end
 
   # Load existing files from database with pagination
   defp load_existing_files(page, per_page) do
