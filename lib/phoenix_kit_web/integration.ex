@@ -416,7 +416,6 @@ defmodule PhoenixKitWeb.Integration do
   # Generates all admin routes
   defmacro phoenix_kit_admin_routes(suffix) do
     session_name = :"phoenix_kit_admin#{suffix}"
-    _plugin_session_name = :"phoenix_kit_plugins#{suffix}"
 
     # Auto-generate routes for custom admin tabs that specify live_view
     # Skip when compiling PhoenixKit's own dev/test router — parent modules don't exist

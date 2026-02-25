@@ -104,7 +104,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       if multilang_enabled and data_record.id do
         changeset
         |> rekey_data_on_mount()
-        |> seed_title_in_data(data_record)
+        |> seed_translatable_fields(data_record)
       else
         changeset
       end
@@ -676,7 +676,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   # Seeds `_title` and `_slug` into the JSONB data column for existing records on mount.
   # Handles backwards compat: migrates from metadata["translations"] to data[lang]["_title"].
-  defp seed_title_in_data(changeset, data_record) do
+  defp seed_translatable_fields(changeset, data_record) do
     data = Ecto.Changeset.get_field(changeset, :data) || %{}
 
     if Multilang.multilang_data?(data) do
@@ -916,8 +916,17 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     {params, changeset}
   end
 
-  defp compute_slug_and_data(_socket, title, true = _secondary, current_lang, changeset, data) do
-    slug_text = Slug.slugify(title)
+  defp compute_slug_and_data(socket, title, true = _secondary, current_lang, changeset, data) do
+    entity_id = socket.assigns.entity.id
+    record_id = socket.assigns.data_record.id
+
+    slug_text =
+      title
+      |> Slug.slugify()
+      |> Slug.ensure_unique(
+        &EntityData.secondary_slug_exists?(entity_id, current_lang, &1, record_id)
+      )
+
     lang_data = Multilang.get_raw_language_data(data, current_lang)
     updated_lang = Map.put(lang_data, "_slug", slug_text)
     updated_data = Multilang.put_language_data(data, current_lang, updated_lang)

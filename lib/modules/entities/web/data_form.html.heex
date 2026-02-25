@@ -261,7 +261,7 @@
                 <div>
                   <%= if @current_lang == @primary_language do %>
                     <.label for="phoenix_kit_entity_data_slug">
-                      {gettext("Slug")}
+                      {gettext("Slug (URL-friendly identifier)")}
                       <button
                         type="button"
                         class="btn btn-ghost btn-xs ml-2"
@@ -291,7 +291,7 @@
                     </.label>
                   <% else %>
                     <.label for={"phoenix_kit_entity_data_slug_#{@current_lang}"}>
-                      {gettext("Slug")}
+                      {gettext("Slug (URL-friendly identifier)")}
                       <button
                         type="button"
                         class="btn btn-ghost btn-xs ml-2"
