@@ -78,8 +78,6 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
     field :user_id, :integer
 
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
-    # legacy
-    field :billing_profile_id, :integer
 
     belongs_to :billing_profile, BillingProfile,
       foreign_key: :billing_profile_uuid,
@@ -117,9 +115,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       :renewal_attempts,
       :last_renewal_attempt_at,
       :metadata,
-      :user_id,
       :user_uuid,
-      :billing_profile_id,
       :billing_profile_uuid,
       :plan_id,
       :plan_uuid,

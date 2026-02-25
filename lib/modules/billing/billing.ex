@@ -1176,17 +1176,17 @@ defmodule PhoenixKit.Modules.Billing do
 
   defp maybe_set_billing_snapshot(attrs) do
     # Check both atom and string keys
-    profile_id = Map.get(attrs, :billing_profile_id) || Map.get(attrs, "billing_profile_id")
+    profile_uuid = Map.get(attrs, :billing_profile_uuid) || Map.get(attrs, "billing_profile_uuid")
 
-    case profile_id do
+    case profile_uuid do
       nil ->
         attrs
 
       "" ->
         attrs
 
-      id ->
-        profile = get_billing_profile!(id)
+      uuid ->
+        profile = get_billing_profile!(uuid)
 
         attrs
         |> Map.put("billing_snapshot", BillingProfile.to_snapshot(profile))
@@ -1194,24 +1194,25 @@ defmodule PhoenixKit.Modules.Billing do
     end
   end
 
-  # Updates billing_snapshot if billing_profile_id changed or snapshot is empty
+  # Updates billing_snapshot if billing_profile_uuid changed or snapshot is empty
   defp maybe_update_billing_snapshot(%Order{} = order, attrs) do
-    new_profile_id = Map.get(attrs, :billing_profile_id) || Map.get(attrs, "billing_profile_id")
+    new_profile_uuid =
+      Map.get(attrs, :billing_profile_uuid) || Map.get(attrs, "billing_profile_uuid")
 
     cond do
-      # No billing_profile_id in attrs - no change
-      is_nil(new_profile_id) ->
+      # No billing_profile_uuid in attrs - no change
+      is_nil(new_profile_uuid) ->
         attrs
 
       # Empty string means clearing the profile
-      new_profile_id == "" ->
+      new_profile_uuid == "" ->
         attrs
         |> Map.put("billing_snapshot", %{})
-        |> Map.put("billing_profile_id", nil)
+        |> Map.put("billing_profile_uuid", nil)
 
-      # Profile ID present - update snapshot if changed or empty
+      # Profile UUID present - update snapshot if changed or empty
       true ->
-        profile = get_billing_profile!(new_profile_id)
+        profile = get_billing_profile!(new_profile_uuid)
 
         snapshot_empty? = is_nil(order.billing_snapshot) || order.billing_snapshot == %{}
 
@@ -2845,8 +2846,8 @@ defmodule PhoenixKit.Modules.Billing do
   - `user_id` - The user creating the subscription
   - `attrs` - Subscription attributes:
     - `:plan_id` - Required: subscription plan ID
-    - `:billing_profile_id` - Optional: billing profile to use
-    - `:payment_method_id` - Optional: saved payment method for renewals
+    - `:billing_profile_uuid` - Optional: billing profile to use
+    - `:payment_method_uuid` - Optional: saved payment method for renewals
     - `:trial_days` - Optional: override plan's trial days
 
   ## Examples
@@ -2871,24 +2872,13 @@ defmodule PhoenixKit.Modules.Billing do
           {"active", nil, now, datetime_from_date(period_end)}
         end
 
-      billing_profile_id = attrs[:billing_profile_id]
-
-      billing_profile_uuid =
-        attrs[:billing_profile_uuid] || resolve_billing_profile_uuid(billing_profile_id)
-
-      payment_method_id = attrs[:payment_method_id]
-
-      payment_method_uuid =
-        attrs[:payment_method_uuid] || resolve_payment_method_uuid(payment_method_id)
+      billing_profile_uuid = attrs[:billing_profile_uuid]
+      payment_method_uuid = attrs[:payment_method_uuid]
 
       subscription_attrs = %{
-        user_id: user_id,
         user_uuid: extract_user_uuid(user_id),
-        plan_id: plan.id,
         plan_uuid: plan.uuid,
-        billing_profile_id: billing_profile_id,
         billing_profile_uuid: billing_profile_uuid,
-        payment_method_id: payment_method_id,
         payment_method_uuid: payment_method_uuid,
         status: status,
         current_period_start: period_start,
@@ -3328,21 +3318,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   defp extract_user_uuid(_), do: nil
 
-  # Resolves billing profile UUID from integer id (dual-write)
-  defp resolve_billing_profile_uuid(id) when is_integer(id) do
-    from(bp in BillingProfile, where: bp.id == ^id, select: bp.uuid) |> repo().one()
-  end
-
-  defp resolve_billing_profile_uuid(_), do: nil
-
-  # Resolves payment method UUID from integer id (dual-write)
-  defp resolve_payment_method_uuid(id) when is_integer(id) do
-    from(pm in PaymentMethod, where: pm.id == ^id, select: pm.uuid) |> repo().one()
-  end
-
-  defp resolve_payment_method_uuid(_), do: nil
-
-  # Resolves subscription plan UUID from integer id (dual-write)
+  # Resolves subscription plan UUID from various input types
   defp resolve_plan_uuid(id) when is_integer(id) do
     from(sp in SubscriptionPlan, where: sp.id == ^id, select: sp.uuid) |> repo().one()
   end
