@@ -267,7 +267,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc "Gets the latest version for a post."
   def get_latest_version(post_uuid) do
     from(v in PublishingVersion,
-      where: v.post_id == ^post_uuid,
+      where: v.post_uuid == ^post_uuid,
       order_by: [desc: v.version_number],
       limit: 1
     )
@@ -277,7 +277,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc "Gets a specific version by post and version number."
   def get_version(post_uuid, version_number) do
     repo().get_by(PublishingVersion,
-      post_id: post_uuid,
+      post_uuid: post_uuid,
       version_number: version_number
     )
   end
@@ -285,7 +285,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc "Lists all versions for a post, ordered by version number."
   def list_versions(post_uuid) do
     from(v in PublishingVersion,
-      where: v.post_id == ^post_uuid,
+      where: v.post_uuid == ^post_uuid,
       order_by: [asc: v.version_number]
     )
     |> repo().all()
@@ -295,7 +295,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   def next_version_number(post_uuid) do
     result =
       from(v in PublishingVersion,
-        where: v.post_id == ^post_uuid,
+        where: v.post_uuid == ^post_uuid,
         select: max(v.version_number)
       )
       |> repo().one()
@@ -326,7 +326,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     new_number = next_version_number(post_uuid)
 
     case create_version(%{
-           post_id: post_uuid,
+           post_uuid: post_uuid,
            version_number: new_number,
            status: "draft",
            created_by_uuid: opts[:created_by_uuid],
@@ -341,7 +341,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   defp copy_contents_to_version(source_version_uuid, target_version_uuid) do
     for content <- list_contents(source_version_uuid) do
       case create_content(%{
-             version_id: target_version_uuid,
+             version_uuid: target_version_uuid,
              language: content.language,
              title: content.title,
              content: content.content,
@@ -376,7 +376,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc "Gets content for a specific version and language."
   def get_content(version_uuid, language) do
     repo().get_by(PublishingContent,
-      version_id: version_uuid,
+      version_uuid: version_uuid,
       language: language
     )
   end
@@ -454,7 +454,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         contents =
           from(c in PublishingContent,
             join: v in assoc(c, :version),
-            where: v.post_id == ^db_post.uuid and c.url_slug == ^url_slug_to_clear,
+            where: v.post_uuid == ^db_post.uuid and c.url_slug == ^url_slug_to_clear,
             select: {c, c.language}
           )
           |> repo().all()

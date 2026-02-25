@@ -140,11 +140,11 @@ defmodule PhoenixKit.Modules.Posts.Post do
 
     many_to_many :tags, PhoenixKit.Modules.Posts.PostTag,
       join_through: PhoenixKit.Modules.Posts.PostTagAssignment,
-      join_keys: [post_id: :uuid, tag_id: :uuid]
+      join_keys: [post_uuid: :uuid, tag_uuid: :uuid]
 
     many_to_many :groups, PhoenixKit.Modules.Posts.PostGroup,
       join_through: PhoenixKit.Modules.Posts.PostGroupAssignment,
-      join_keys: [post_id: :uuid, group_id: :uuid]
+      join_keys: [post_uuid: :uuid, group_uuid: :uuid]
 
     timestamps(type: :utc_datetime)
   end

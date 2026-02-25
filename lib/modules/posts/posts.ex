@@ -790,7 +790,7 @@ defmodule PhoenixKit.Modules.Posts do
     repo().transaction(fn ->
       case %PostLike{}
            |> PostLike.changeset(%{
-             post_id: post_id,
+             post_uuid: post_id,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
@@ -840,7 +840,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp do_unlike_post(post_id, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostLike, post_id: post_id, user_uuid: user_uuid) do
+      case repo().get_by(PostLike, post_uuid: post_id, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
@@ -950,7 +950,7 @@ defmodule PhoenixKit.Modules.Posts do
     repo().transaction(fn ->
       case %PostDislike{}
            |> PostDislike.changeset(%{
-             post_id: post_id,
+             post_uuid: post_id,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
@@ -1000,7 +1000,7 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp do_undislike_post(post_id, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostDislike, post_id: post_id, user_uuid: user_uuid) do
+      case repo().get_by(PostDislike, post_uuid: post_id, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
@@ -1193,7 +1193,7 @@ defmodule PhoenixKit.Modules.Posts do
 
       Enum.each(tags, fn tag ->
         %PostTagAssignment{}
-        |> PostTagAssignment.changeset(%{post_id: post_id, tag_id: tag.uuid})
+        |> PostTagAssignment.changeset(%{post_uuid: post_id, tag_uuid: tag.uuid})
         |> repo().insert(on_conflict: :nothing)
 
         # Increment tag usage
@@ -1219,7 +1219,7 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, %PostTagAssignment{}}
   """
   def remove_tag_from_post(post_uuid, tag_uuid) do
-    case repo().get_by(PostTagAssignment, post_id: post_uuid, tag_id: tag_uuid) do
+    case repo().get_by(PostTagAssignment, post_uuid: post_uuid, tag_uuid: tag_uuid) do
       nil ->
         {:error, :not_found}
 
@@ -1416,8 +1416,8 @@ defmodule PhoenixKit.Modules.Posts do
     repo().transaction(fn ->
       case %PostGroupAssignment{}
            |> PostGroupAssignment.changeset(%{
-             post_id: post_uuid,
-             group_id: group_uuid,
+             post_uuid: post_uuid,
+             group_uuid: group_uuid,
              position: position
            })
            |> repo().insert() do
@@ -1449,7 +1449,7 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, %PostGroupAssignment{}}
   """
   def remove_post_from_group(post_uuid, group_uuid) do
-    case repo().get_by(PostGroupAssignment, post_id: post_uuid, group_id: group_uuid) do
+    case repo().get_by(PostGroupAssignment, post_uuid: post_uuid, group_uuid: group_uuid) do
       nil ->
         {:error, :not_found}
 
@@ -1576,7 +1576,7 @@ defmodule PhoenixKit.Modules.Posts do
     if UUIDUtils.valid?(user_uuid) do
       %PostMention{}
       |> PostMention.changeset(%{
-        post_id: post_uuid,
+        post_uuid: post_uuid,
         user_id: resolve_user_id(user_uuid),
         user_uuid: user_uuid,
         mention_type: mention_type
@@ -1621,7 +1621,7 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   defp do_remove_mention(post_id, user_uuid) do
-    case repo().get_by(PostMention, post_id: post_id, user_uuid: user_uuid) do
+    case repo().get_by(PostMention, post_uuid: post_id, user_uuid: user_uuid) do
       nil -> {:error, :not_found}
       mention -> repo().delete(mention)
     end
@@ -1675,8 +1675,8 @@ defmodule PhoenixKit.Modules.Posts do
 
     %PostMedia{}
     |> PostMedia.changeset(%{
-      post_id: post_uuid,
-      file_id: file_uuid,
+      post_uuid: post_uuid,
+      file_uuid: file_uuid,
       position: position,
       caption: caption
     })
@@ -1697,7 +1697,7 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, %PostMedia{}}
   """
   def detach_media(post_uuid, file_uuid) do
-    case repo().get_by(PostMedia, post_id: post_uuid, file_id: file_uuid) do
+    case repo().get_by(PostMedia, post_uuid: post_uuid, file_uuid: file_uuid) do
       nil -> {:error, :not_found}
       media -> repo().delete(media)
     end
@@ -1800,8 +1800,8 @@ defmodule PhoenixKit.Modules.Posts do
       # Insert new featured image at position 1
       case %PostMedia{}
            |> PostMedia.changeset(%{
-             post_id: post_uuid,
-             file_id: file_uuid,
+             post_uuid: post_uuid,
+             file_uuid: file_uuid,
              position: 1
            })
            |> repo().insert() do
