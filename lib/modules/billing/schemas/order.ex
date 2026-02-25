@@ -124,8 +124,6 @@ defmodule PhoenixKit.Modules.Billing.Order do
     # legacy
     field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
-    # legacy
-    field :billing_profile_id, :integer
 
     belongs_to :billing_profile, BillingProfile,
       foreign_key: :billing_profile_uuid,
@@ -145,9 +143,7 @@ defmodule PhoenixKit.Modules.Billing.Order do
   def changeset(order, attrs) do
     order
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
-      :billing_profile_id,
       :billing_profile_uuid,
       :order_number,
       :status,
@@ -184,14 +180,14 @@ defmodule PhoenixKit.Modules.Billing.Order do
     |> foreign_key_constraint(:billing_profile_uuid)
   end
 
-  # Guest orders must have billing_snapshot with email when no billing_profile_id
+  # Guest orders must have billing_snapshot with email when no billing_profile_uuid
   defp validate_guest_order_billing(changeset) do
-    billing_profile_id = get_field(changeset, :billing_profile_id)
+    billing_profile_uuid = get_field(changeset, :billing_profile_uuid)
     billing_snapshot = get_field(changeset, :billing_snapshot)
 
     cond do
       # Has billing profile - OK
-      not is_nil(billing_profile_id) ->
+      not is_nil(billing_profile_uuid) ->
         changeset
 
       # No billing profile but has billing snapshot with email - OK (guest order)

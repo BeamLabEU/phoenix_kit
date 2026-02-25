@@ -2285,7 +2285,7 @@ defmodule PhoenixKit.Modules.Shop do
 
   ## Options
 
-  - `billing_profile_id: id` - Use existing billing profile (for logged-in users)
+  - `billing_profile_uuid: uuid` - Use existing billing profile (for logged-in users)
   - `billing_data: map` - Use direct billing data (for guest checkout)
 
   ## Returns
@@ -2330,12 +2330,6 @@ defmodule PhoenixKit.Modules.Shop do
       {:ok, {:ok, order}} -> {:ok, order}
       {:error, reason} -> {:error, reason}
     end
-  end
-
-  # Legacy support: convert_cart_to_order(cart, billing_profile_id)
-  def convert_cart_to_order(%Cart{} = cart, billing_profile_id)
-      when is_integer(billing_profile_id) do
-    convert_cart_to_order(cart, billing_profile_id: billing_profile_id)
   end
 
   defp validate_cart_convertible(%Cart{} = cart) do
@@ -2389,11 +2383,11 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp build_order_attrs(%Cart{} = cart, line_items, opts) do
-    billing_profile_id = Keyword.get(opts, :billing_profile_id)
+    billing_profile_uuid = Keyword.get(opts, :billing_profile_uuid)
     billing_data = Keyword.get(opts, :billing_data)
 
     # Get shipping country from billing data or cart
-    shipping_country = get_shipping_country(billing_profile_id, billing_data, cart)
+    shipping_country = get_shipping_country(billing_profile_uuid, billing_data, cart)
 
     # Use string keys to match Billing.maybe_set_order_number behavior
     base_attrs = %{
@@ -2418,8 +2412,8 @@ defmodule PhoenixKit.Modules.Shop do
 
     cond do
       # Logged-in user with billing profile
-      not is_nil(billing_profile_id) ->
-        Map.put(base_attrs, "billing_profile_id", billing_profile_id)
+      not is_nil(billing_profile_uuid) ->
+        Map.put(base_attrs, "billing_profile_uuid", billing_profile_uuid)
 
       # Guest checkout with billing data - clean up _unused_ keys from LiveView
       is_map(billing_data) ->
@@ -2432,19 +2426,20 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   # Get shipping country from billing profile, billing data, or cart
-  defp get_shipping_country(billing_profile_id, _billing_data, cart)
-       when not is_nil(billing_profile_id) do
-    case Billing.get_billing_profile(billing_profile_id) do
+  defp get_shipping_country(billing_profile_uuid, _billing_data, cart)
+       when not is_nil(billing_profile_uuid) do
+    case Billing.get_billing_profile(billing_profile_uuid) do
       %{country: country} when is_binary(country) -> country
       _ -> cart.shipping_country
     end
   end
 
-  defp get_shipping_country(_billing_profile_id, billing_data, cart) when is_map(billing_data) do
+  defp get_shipping_country(_billing_profile_uuid, billing_data, cart)
+       when is_map(billing_data) do
     billing_data["country"] || cart.shipping_country
   end
 
-  defp get_shipping_country(_billing_profile_id, _billing_data, cart) do
+  defp get_shipping_country(_billing_profile_uuid, _billing_data, cart) do
     cart.shipping_country
   end
 

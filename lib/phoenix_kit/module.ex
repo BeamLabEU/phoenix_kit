@@ -67,7 +67,9 @@ defmodule PhoenixKit.Module do
 
   All optional callbacks have sensible defaults provided by `use PhoenixKit.Module`:
 
-  - `get_config/0` - Module stats/config map (default: `%{enabled: enabled?()}`)
+  - `get_config/0` - Module stats/config map (default: `%{enabled: enabled?()}`).
+    The default calls `enabled?()` which may hit the database. External modules
+    with expensive config should override this with a cached implementation.
   - `permission_metadata/0` - Permission key, label, icon, description (default: `nil`)
   - `admin_tabs/0` - Admin navigation tabs (default: `[]`)
   - `settings_tabs/0` - Settings subtabs (default: `[]`)

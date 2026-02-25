@@ -147,7 +147,6 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     ]
 
     invoice_attrs = %{
-      billing_profile_id: subscription.billing_profile_id,
       billing_profile_uuid: subscription.billing_profile_uuid,
       currency: plan.currency,
       status: "sent",

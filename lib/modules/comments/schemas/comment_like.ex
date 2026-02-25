@@ -39,15 +39,15 @@ defmodule PhoenixKit.Modules.Comments.CommentLike do
   @doc """
   Changeset for creating a comment like.
 
-  Unique constraint on (comment_id, user_id) — one like per user per comment.
+  Unique constraint on (comment_uuid, user_uuid) — one like per user per comment.
   """
   def changeset(like, attrs) do
     like
-    |> cast(attrs, [:comment_uuid, :user_id, :user_uuid])
+    |> cast(attrs, [:comment_uuid, :user_uuid])
     |> validate_required([:comment_uuid, :user_uuid])
     |> foreign_key_constraint(:comment_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:comment_uuid, :user_id],
+    |> unique_constraint([:comment_uuid, :user_uuid],
       name: :uq_comments_likes_comment_user,
       message: "you have already liked this comment"
     )

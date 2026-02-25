@@ -39,15 +39,15 @@ defmodule PhoenixKit.Modules.Comments.CommentDislike do
   @doc """
   Changeset for creating a comment dislike.
 
-  Unique constraint on (comment_id, user_id) — one dislike per user per comment.
+  Unique constraint on (comment_uuid, user_uuid) — one dislike per user per comment.
   """
   def changeset(dislike, attrs) do
     dislike
-    |> cast(attrs, [:comment_uuid, :user_id, :user_uuid])
+    |> cast(attrs, [:comment_uuid, :user_uuid])
     |> validate_required([:comment_uuid, :user_uuid])
     |> foreign_key_constraint(:comment_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:comment_uuid, :user_id],
+    |> unique_constraint([:comment_uuid, :user_uuid],
       name: :uq_comments_dislikes_comment_user,
       message: "you have already disliked this comment"
     )

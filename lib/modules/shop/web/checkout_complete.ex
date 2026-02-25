@@ -75,8 +75,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
     |> assign(:authenticated, authenticated)
   end
 
-  defp get_billing_profile(%{billing_profile_id: nil}), do: nil
-  defp get_billing_profile(%{billing_profile_id: id}), do: Billing.get_billing_profile(id)
+  defp get_billing_profile(%{billing_profile_uuid: nil}), do: nil
+  defp get_billing_profile(%{billing_profile_uuid: uuid}), do: Billing.get_billing_profile(uuid)
 
   defp check_guest_order(%{user_id: nil} = order) do
     email = get_in(order.billing_snapshot, ["email"])

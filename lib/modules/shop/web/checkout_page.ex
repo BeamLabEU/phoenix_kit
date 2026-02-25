@@ -377,7 +377,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
         [billing_data: socket.assigns.billing_data, user_id: user_id]
       else
         # Logged-in user with existing profile
-        [billing_profile_id: socket.assigns.selected_profile_id, user_id: user_id]
+        [billing_profile_uuid: socket.assigns.selected_profile_id, user_id: user_id]
       end
 
     case Shop.convert_cart_to_order(cart, opts) do
