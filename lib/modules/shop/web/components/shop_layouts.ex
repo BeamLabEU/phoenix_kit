@@ -83,6 +83,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.ShopLayouts do
   attr :url_path, :string, required: true
   attr :current_locale, :string, required: true
   attr :page_title, :string, required: true
+  attr :sidebar_after_shop, :any, default: nil
   # Used when show_sidebar is true (catalog/category/product pages)
   attr :current_language, :string, default: nil
   attr :current_path, :string, default: nil

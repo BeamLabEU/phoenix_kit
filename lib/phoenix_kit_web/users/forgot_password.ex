@@ -7,7 +7,6 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Config
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
@@ -45,9 +44,5 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
          |> put_flash(:error, "Too many password reset requests. Please try again later.")
          |> redirect(to: Routes.path("/users/log-in"))}
     end
-  end
-
-  defp show_dev_notice? do
-    Config.mailer_local?()
   end
 end

@@ -9,7 +9,6 @@ defmodule PhoenixKitWeb.Users.Login do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Presence
-  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.IpAddress
@@ -65,10 +64,6 @@ defmodule PhoenixKitWeb.Users.Login do
 
         {:ok, socket, temporary_assigns: [form: form]}
     end
-  end
-
-  defp show_dev_notice? do
-    Config.mailer_local?()
   end
 
   defp generate_session_id do

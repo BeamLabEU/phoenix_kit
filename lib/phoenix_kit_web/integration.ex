@@ -775,6 +775,13 @@ defmodule PhoenixKitWeb.Integration do
   defmacro phoenix_kit_authenticated_routes(suffix) do
     session_name = :"phoenix_kit_authenticated#{suffix}"
 
+    module_routes =
+      if suffix == :_locale do
+        authenticated_live_locale_routes()
+      else
+        authenticated_live_routes()
+      end
+
     quote do
       live_session unquote(session_name),
         on_mount: [
@@ -793,39 +800,81 @@ defmodule PhoenixKitWeb.Integration do
 
         # Module user pages (full module names — no PhoenixKitWeb alias)
         scope "/", alias: false do
-          # Shop user pages
-          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
-            as: :shop_user_orders
-
-          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
-            as: :shop_user_order_details
-
-          live "/dashboard/billing-profiles",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
-               :index,
-               as: :user_billing_profiles
-
-          live "/dashboard/billing-profiles/new",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-               :new,
-               as: :user_billing_profile_new
-
-          live "/dashboard/billing-profiles/:id/edit",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-               :edit,
-               as: :user_billing_profile_edit
-
-          # Tickets user pages
-          live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
-            as: :tickets_user_list
-
-          live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
-            as: :tickets_user_new
-
-          live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
-            as: :tickets_user_details
+          unquote(module_routes)
         end
       end
+    end
+  end
+
+  defp authenticated_live_routes do
+    quote do
+      # Shop user pages
+      live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+        as: :shop_user_orders
+
+      live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+        as: :shop_user_order_details
+
+      live "/dashboard/billing-profiles",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+           :index,
+           as: :user_billing_profiles
+
+      live "/dashboard/billing-profiles/new",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :new,
+           as: :user_billing_profile_new
+
+      live "/dashboard/billing-profiles/:id/edit",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :edit,
+           as: :user_billing_profile_edit
+
+      # Tickets user pages
+      live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
+        as: :tickets_user_list
+
+      live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
+        as: :tickets_user_new
+
+      live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
+        as: :tickets_user_details
+    end
+  end
+
+  defp authenticated_live_locale_routes do
+    quote do
+      # Shop user pages (locale variants — distinct aliases to avoid duplicate route names)
+      live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+        as: :shop_user_orders_locale
+
+      live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+        as: :shop_user_order_details_locale
+
+      live "/dashboard/billing-profiles",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+           :index,
+           as: :user_billing_profiles_locale
+
+      live "/dashboard/billing-profiles/new",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :new,
+           as: :user_billing_profile_new_locale
+
+      live "/dashboard/billing-profiles/:id/edit",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :edit,
+           as: :user_billing_profile_edit_locale
+
+      # Tickets user pages (locale variants)
+      live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
+        as: :tickets_user_list_locale
+
+      live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
+        as: :tickets_user_new_locale
+
+      live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
+        as: :tickets_user_details_locale
     end
   end
 

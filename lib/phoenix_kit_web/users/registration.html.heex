@@ -160,14 +160,7 @@
         </div>
 
         <%!-- Development Mode Notice --%>
-        <div :if={show_dev_notice?()} class="alert alert-info text-sm mt-4">
-          <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
-          <span>
-            Development mode: Check
-            <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
-            for confirmation emails
-          </span>
-        </div>
+        <.dev_mailbox_notice />
       </div>
     </div>
   </div>

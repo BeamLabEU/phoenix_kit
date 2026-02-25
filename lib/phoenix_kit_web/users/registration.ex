@@ -9,7 +9,6 @@ defmodule PhoenixKitWeb.Users.Registration do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Presence
-  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -223,10 +222,6 @@ defmodule PhoenixKitWeb.Users.Registration do
             {:ok, code}
         end
     end
-  end
-
-  defp show_dev_notice? do
-    Config.mailer_local?()
   end
 
   defp generate_session_id do

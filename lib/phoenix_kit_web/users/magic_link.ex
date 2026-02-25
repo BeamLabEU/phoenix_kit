@@ -13,7 +13,6 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Presence
-  alias PhoenixKit.Config
   alias PhoenixKit.Mailer
   alias PhoenixKit.Users.MagicLink
   alias PhoenixKit.Utils.IpAddress
@@ -137,10 +136,6 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   # Simple email validation
   defp valid_email?(email) when is_binary(email) do
     String.match?(email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
-  end
-
-  defp show_dev_notice? do
-    Config.mailer_local?()
   end
 
   defp generate_session_id do

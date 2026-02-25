@@ -369,7 +369,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   """
   def maybe_redirect_authenticated(socket) do
     if Scope.authenticated?(socket.assigns[:phoenix_kit_current_scope]) do
-      {:redirect, Phoenix.LiveView.redirect(socket, to: "/")}
+      {:redirect, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
     else
       :cont
     end
