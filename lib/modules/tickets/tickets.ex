@@ -700,12 +700,12 @@ defmodule PhoenixKit.Modules.Tickets do
     end
   end
 
-  defp create_status_history(ticket_id, changed_by_id, from_status, to_status, reason) do
+  defp create_status_history(ticket_uuid, changed_by_id, from_status, to_status, reason) do
     changed_by_uuid = if is_integer(changed_by_id), do: resolve_user_uuid(changed_by_id)
 
     %TicketStatusHistory{}
     |> TicketStatusHistory.changeset(%{
-      ticket_id: ticket_id,
+      ticket_uuid: ticket_uuid,
       changed_by_id: changed_by_id,
       changed_by_uuid: changed_by_uuid,
       from_status: from_status,
@@ -968,14 +968,14 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> add_attachment_to_ticket(ticket.uuid, file.uuid, caption: "Error screenshot")
       {:ok, %TicketAttachment{}}
   """
-  def add_attachment_to_ticket(ticket_id, file_id, opts \\ []) do
-    position = Keyword.get(opts, :position) || next_ticket_attachment_position(ticket_id)
+  def add_attachment_to_ticket(ticket_uuid, file_uuid, opts \\ []) do
+    position = Keyword.get(opts, :position) || next_ticket_attachment_position(ticket_uuid)
     caption = Keyword.get(opts, :caption)
 
     %TicketAttachment{}
     |> TicketAttachment.changeset(%{
-      ticket_id: ticket_id,
-      file_id: file_id,
+      ticket_uuid: ticket_uuid,
+      file_uuid: file_uuid,
       position: position,
       caption: caption
     })
@@ -985,14 +985,14 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Attaches a file to a comment.
   """
-  def add_attachment_to_comment(comment_id, file_id, opts \\ []) do
-    position = Keyword.get(opts, :position) || next_comment_attachment_position(comment_id)
+  def add_attachment_to_comment(comment_uuid, file_uuid, opts \\ []) do
+    position = Keyword.get(opts, :position) || next_comment_attachment_position(comment_uuid)
     caption = Keyword.get(opts, :caption)
 
     %TicketAttachment{}
     |> TicketAttachment.changeset(%{
-      comment_id: comment_id,
-      file_id: file_id,
+      comment_uuid: comment_uuid,
+      file_uuid: file_uuid,
       position: position,
       caption: caption
     })
