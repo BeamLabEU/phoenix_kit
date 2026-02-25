@@ -485,13 +485,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - All operations idempotent (IF EXISTS guards) — safe if module tables don't exist
   - PostgreSQL auto-updates FK/index column references; constraint object names are unchanged
 
-  ### V63 - UUID Companion Column Safety Net Round 2 ⚡ LATEST
+  ### V63 - UUID Companion Column Safety Net Round 2
   - Adds `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)
   - Adds `account_uuid` companion to `phoenix_kit_ai_requests` (backfilled from ai_accounts)
   - Adds `matched_email_log_uuid` companion to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
   - Adds `subscription_uuid` companion to `phoenix_kit_invoices` (backfilled from subscriptions)
   - Adds `variant_uuid` companion to `phoenix_kit_shop_cart_items` (nullable, no variants table to backfill from)
   - All operations idempotent — safe on any installation
+
+  ### V64 - Fix user token check constraint for UUID-only inserts ⚡ LATEST
+  - Drops V16's `user_id_required_for_non_registration_tokens` constraint (checks `user_id`)
+  - Adds `user_uuid_required_for_non_registration_tokens` constraint (checks `user_uuid`)
+  - Fixes login crash after UUID cleanup removed `user_id` from UserToken schema
 
   ## Migration Paths
 
@@ -551,7 +556,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 63
+  @current_version 64
   @default_prefix "public"
 
   @doc false
