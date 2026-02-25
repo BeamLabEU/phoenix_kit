@@ -86,7 +86,12 @@ defmodule PhoenixKit.ModuleRegistry do
       false
   end
 
-  @doc "Collect all admin tabs from all registered modules."
+  @doc """
+  Collect all admin tabs from all registered modules.
+
+  Note: iterates all modules and calls `admin_tabs/0` on each call.
+  For cached access in rendering paths, use `PhoenixKit.Dashboard.Registry.get_admin_tabs/0`.
+  """
   @spec all_admin_tabs() :: [PhoenixKit.Dashboard.Tab.t()]
   def all_admin_tabs do
     all_modules()

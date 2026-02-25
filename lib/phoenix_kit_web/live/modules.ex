@@ -234,8 +234,27 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     if shop_config[:enabled] do
       shop_mod = ModuleRegistry.get_by_key("shop")
-      if shop_mod, do: shop_mod.disable_system()
-      true
+
+      if shop_mod do
+        case shop_mod.disable_system() do
+          :ok ->
+            true
+
+          {:ok, _} ->
+            true
+
+          error ->
+            require Logger
+
+            Logger.warning(
+              "Failed to disable shop module during billing cascade: #{inspect(error)}"
+            )
+
+            false
+        end
+      else
+        false
+      end
     else
       false
     end

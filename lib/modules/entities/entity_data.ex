@@ -610,6 +610,38 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   @doc """
+  Checks if a secondary language slug exists for another record within the same entity.
+
+  Queries the JSONB `data` column for `data->lang_code->>'_slug'` matches.
+  Used for uniqueness checks on translated slugs.
+  """
+  def secondary_slug_exists?(entity_id, lang_code, slug, exclude_record_id) do
+    import Ecto.Query, only: [from: 2]
+
+    query =
+      from(ed in __MODULE__,
+        where: fragment("(? -> ? ->> '_slug') = ?", ed.data, ^lang_code, ^slug),
+        select: ed.id
+      )
+
+    query =
+      if is_binary(entity_id) do
+        from(ed in query, where: ed.entity_uuid == ^entity_id)
+      else
+        from(ed in query, where: ed.entity_id == ^entity_id)
+      end
+
+    query =
+      if exclude_record_id do
+        from(ed in query, where: ed.id != ^exclude_record_id)
+      else
+        query
+      end
+
+    repo().exists?(query)
+  end
+
+  @doc """
   Creates an entity data record.
 
   ## Examples
