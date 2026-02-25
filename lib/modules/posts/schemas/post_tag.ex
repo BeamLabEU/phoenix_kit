@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Posts.PostTag do
 
     many_to_many :posts, PhoenixKit.Modules.Posts.Post,
       join_through: PhoenixKit.Modules.Posts.PostTagAssignment,
-      join_keys: [tag_id: :uuid, post_id: :uuid]
+      join_keys: [tag_uuid: :uuid, post_uuid: :uuid]
 
     timestamps(type: :utc_datetime)
   end

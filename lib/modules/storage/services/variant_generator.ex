@@ -221,7 +221,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
           width: stats.width,
           height: stats.height,
           processing_status: "completed",
-          file_id: file.uuid
+          file_uuid: file.uuid
         }
 
         Storage.create_file_instance(instance_attrs)

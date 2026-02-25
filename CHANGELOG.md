@@ -1,3 +1,15 @@
+## 1.7.50 - 2026-02-25
+- Fix `defp show_dev_notice?` CLAUDE.md violation: replace private helper with `<.dev_mailbox_notice>` Phoenix Component
+  - New component at `lib/phoenix_kit_web/components/core/dev_notice.ex` with `message` and `class` attrs
+  - Removed from `login.ex`, `registration.ex`, `magic_link.ex`, `forgot_password.ex`, `dashboard/settings.ex`
+  - Updated all corresponding HEEX templates to use `<.dev_mailbox_notice>`
+- Fix duplicate route alias compilation warnings in `phoenix_kit_authenticated_routes/1`
+  - Split module-scope routes into `authenticated_live_routes/0` and `authenticated_live_locale_routes/0`
+  - Locale variants now use `_locale` suffix (e.g. `:shop_user_orders_locale`)
+- Fix undeclared `sidebar_after_shop` attr in `shop_layout/1` component
+- Fix `maybe_redirect_authenticated/1` hardcoded `"/"` redirect — use `signed_in_path(socket)` consistently
+- Fix double `Map.from_struct` in `Emails.Interceptor.create_email_log/2` — redundant call removed
+
 ## 1.7.49 - 2026-02-24
 - Add V63 migration: UUID companion column safety net round 2
   - Add `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)

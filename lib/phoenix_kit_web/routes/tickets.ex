@@ -7,42 +7,13 @@ defmodule PhoenixKitWeb.Routes.TicketsRoutes do
 
   @doc """
   Returns quoted code for tickets user routes (non-admin).
+
+  User-facing ticket routes are now included in `phoenix_kit_authenticated_routes/1`
+  in `PhoenixKitWeb.Integration` for seamless navigation with other dashboard pages.
+  This function returns an empty block for backward compatibility.
   """
-  def generate(url_prefix) do
+  def generate(_url_prefix) do
     quote do
-      # Localized tickets user dashboard routes
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
-
-        live_session :phoenix_kit_tickets_user_localized,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
-            as: :tickets_user_list_localized
-
-          live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
-            as: :tickets_user_new_localized
-
-          live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
-            as: :tickets_user_details_localized
-        end
-      end
-
-      # Non-localized tickets user dashboard routes
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
-
-        live_session :phoenix_kit_tickets_user,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
-            as: :tickets_user_list
-
-          live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
-            as: :tickets_user_new
-
-          live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
-            as: :tickets_user_details
-        end
-      end
     end
   end
 

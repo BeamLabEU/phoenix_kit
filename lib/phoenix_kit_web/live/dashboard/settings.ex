@@ -9,7 +9,6 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
   require Logger
 
-  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -487,10 +486,6 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
     end
   end
 
-  defp show_dev_notice? do
-    Config.mailer_local?()
-  end
-
   # OAuth helper functions
 
   defp get_available_oauth_providers(oauth_providers) do
@@ -655,17 +650,8 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
     ~H"""
     <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
       <div class="max-w-6xl mx-auto">
-        <!-- Development Mode Notice -->
-        <div :if={show_dev_notice?()} class="mb-6">
-          <div class="alert alert-info flex w-full sm:w-fit">
-            <.icon name="hero-information-circle" class="stroke-current shrink-0 h-6 w-6" />
-            <span>
-              Development mode: Check
-              <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
-              for confirmation emails
-            </span>
-          </div>
-        </div>
+        <%!-- Development Mode Notice --%>
+        <.dev_mailbox_notice class="mb-6 flex w-full sm:w-fit" />
 
         <div class="mb-8">
           <h1 class="text-3xl font-bold text-base-content mb-2">Settings</h1>

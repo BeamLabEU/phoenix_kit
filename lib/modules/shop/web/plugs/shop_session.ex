@@ -9,6 +9,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Plugs.ShopSession do
 
   import Plug.Conn
 
+  alias PhoenixKit.Modules.Shop
+
   @cookie_name "shop_session_id"
   # 30 days
   @cookie_max_age 60 * 60 * 24 * 30
@@ -16,20 +18,24 @@ defmodule PhoenixKit.Modules.Shop.Web.Plugs.ShopSession do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    # First try to get from cookie (most reliable)
-    # Then fall back to session
-    session_id = get_shop_session_id(conn)
+    if Shop.enabled?() do
+      # First try to get from cookie (most reliable)
+      # Then fall back to session
+      session_id = get_shop_session_id(conn)
 
-    case session_id do
-      nil ->
-        new_id = generate_session_id()
+      case session_id do
+        nil ->
+          new_id = generate_session_id()
 
-        conn
-        |> put_resp_cookie(@cookie_name, new_id, max_age: @cookie_max_age, http_only: true)
-        |> put_session("shop_session_id", new_id)
+          conn
+          |> put_resp_cookie(@cookie_name, new_id, max_age: @cookie_max_age, http_only: true)
+          |> put_session("shop_session_id", new_id)
 
-      existing_id ->
-        put_session(conn, "shop_session_id", existing_id)
+        existing_id ->
+          put_session(conn, "shop_session_id", existing_id)
+      end
+    else
+      conn
     end
   end
 

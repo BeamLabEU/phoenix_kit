@@ -222,10 +222,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     instances_by_file =
       if file_ids != [] do
         from(fi in FileInstance,
-          where: fi.file_id in ^file_ids
+          where: fi.file_uuid in ^file_ids
         )
         |> repo.all()
-        |> Enum.group_by(& &1.file_id)
+        |> Enum.group_by(& &1.file_uuid)
       else
         %{}
       end

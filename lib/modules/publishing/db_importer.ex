@@ -253,7 +253,7 @@ defmodule PhoenixKit.Modules.Publishing.DBImporter do
     existing = DBStorage.get_post(db_group.slug, post[:slug])
 
     attrs = %{
-      group_id: db_group.uuid,
+      group_uuid: db_group.uuid,
       slug: post[:slug],
       status: post[:metadata][:status] || "draft",
       mode: to_string(post[:mode] || db_group.mode),
@@ -279,7 +279,7 @@ defmodule PhoenixKit.Modules.Publishing.DBImporter do
     status = Map.get(version_statuses, version_num, "draft")
 
     version_attrs = %{
-      post_id: db_post.uuid,
+      post_uuid: db_post.uuid,
       version_number: version_num,
       status: to_string(status)
     }
@@ -340,7 +340,7 @@ defmodule PhoenixKit.Modules.Publishing.DBImporter do
     case result do
       {:ok, read_post} ->
         DBStorage.upsert_content(%{
-          version_id: db_version.uuid,
+          version_uuid: db_version.uuid,
           language: language,
           title: read_post[:metadata][:title] || "Untitled",
           content: read_post[:content] || "",

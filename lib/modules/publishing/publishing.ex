@@ -970,7 +970,7 @@ defmodule PhoenixKit.Modules.Publishing do
     with {:ok, post_slug} <- slug_result do
       # Build post attributes
       post_attrs = %{
-        group_id: group.uuid,
+        group_uuid: group.uuid,
         slug: post_slug,
         status: "draft",
         mode: mode,
@@ -996,7 +996,7 @@ defmodule PhoenixKit.Modules.Publishing do
       with {:ok, db_post} <- DBStorage.create_post(post_attrs),
            {:ok, db_version} <-
              DBStorage.create_version(%{
-               post_id: db_post.uuid,
+               post_uuid: db_post.uuid,
                version_number: 1,
                status: "draft",
                created_by_uuid: created_by_uuid,
@@ -1004,7 +1004,7 @@ defmodule PhoenixKit.Modules.Publishing do
              }),
            {:ok, _content} <-
              DBStorage.create_content(%{
-               version_id: db_version.uuid,
+               version_uuid: db_version.uuid,
                language: primary_language,
                title: fetch_option(opts, :title) || "",
                content: fetch_option(opts, :content) || "",
@@ -1261,7 +1261,7 @@ defmodule PhoenixKit.Modules.Publishing do
          nil <- DBStorage.get_content(version.uuid, language_code),
          {:ok, _content} <-
            DBStorage.create_content(%{
-             version_id: version.uuid,
+             version_uuid: version.uuid,
              language: language_code,
              title: "Untitled",
              content: "",
@@ -1412,7 +1412,7 @@ defmodule PhoenixKit.Modules.Publishing do
       end
 
     DBStorage.upsert_content(%{
-      version_id: version.uuid,
+      version_uuid: version.uuid,
       language: language,
       title: new_title,
       content: content,
@@ -1637,7 +1637,7 @@ defmodule PhoenixKit.Modules.Publishing do
         # Blank version — create empty version with primary language content
         with {:ok, db_version} <-
                DBStorage.create_version(%{
-                 post_id: db_post.uuid,
+                 post_uuid: db_post.uuid,
                  version_number: DBStorage.next_version_number(db_post.uuid),
                  status: "draft",
                  created_by_uuid: created_by_uuid,
@@ -1645,7 +1645,7 @@ defmodule PhoenixKit.Modules.Publishing do
                }),
              {:ok, _content} <-
                DBStorage.create_content(%{
-                 version_id: db_version.uuid,
+                 version_uuid: db_version.uuid,
                  language: db_post.primary_language,
                  title: "",
                  content: "",

@@ -13,47 +13,53 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
 
   @impl true
   def mount(%{"token" => token}, _session, socket) do
-    case MagicLinkRegistration.verify_registration_token(token) do
-      {:ok, email} ->
-        # Get referral codes configuration
-        referral_codes_config = Referrals.get_config()
+    case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
+      {:redirect, socket} ->
+        {:ok, socket}
 
-        # Generate username suggestion from email
-        suggested_username = User.generate_username_from_email(email)
+      :cont ->
+        case MagicLinkRegistration.verify_registration_token(token) do
+          {:ok, email} ->
+            # Get referral codes configuration
+            referral_codes_config = Referrals.get_config()
 
-        changeset =
-          Auth.change_user_registration(%User{
-            email: email,
-            username: suggested_username
-          })
+            # Generate username suggestion from email
+            suggested_username = User.generate_username_from_email(email)
 
-        # Extract IP address for geolocation
-        ip_address =
-          case get_connect_info(socket, :peer_data) do
-            %{address: {a, b, c, d}} -> "#{a}.#{b}.#{c}.#{d}"
-            %{address: address} -> to_string(address)
-            _ -> "unknown"
-          end
+            changeset =
+              Auth.change_user_registration(%User{
+                email: email,
+                username: suggested_username
+              })
 
-        {:ok,
-         socket
-         |> assign(:page_title, "Complete Registration")
-         |> assign(:token, token)
-         |> assign(:email, email)
-         |> assign(:ip_address, ip_address)
-         |> assign(:referral_codes_enabled, referral_codes_config.enabled)
-         |> assign(:referral_codes_required, referral_codes_config.required)
-         |> assign(:referral_code, nil)
-         |> assign(:referral_code_error, nil)
-         |> assign(:trigger_submit, false)
-         |> assign(:check_errors, false)
-         |> assign_form(changeset)}
+            # Extract IP address for geolocation
+            ip_address =
+              case get_connect_info(socket, :peer_data) do
+                %{address: {a, b, c, d}} -> "#{a}.#{b}.#{c}.#{d}"
+                %{address: address} -> to_string(address)
+                _ -> "unknown"
+              end
 
-      {:error, _} ->
-        {:ok,
-         socket
-         |> put_flash(:error, "Registration link is invalid or has expired.")
-         |> redirect(to: Routes.path("/users/register"))}
+            {:ok,
+             socket
+             |> assign(:page_title, "Complete Registration")
+             |> assign(:token, token)
+             |> assign(:email, email)
+             |> assign(:ip_address, ip_address)
+             |> assign(:referral_codes_enabled, referral_codes_config.enabled)
+             |> assign(:referral_codes_required, referral_codes_config.required)
+             |> assign(:referral_code, nil)
+             |> assign(:referral_code_error, nil)
+             |> assign(:trigger_submit, false)
+             |> assign(:check_errors, false)
+             |> assign_form(changeset)}
+
+          {:error, _} ->
+            {:ok,
+             socket
+             |> put_flash(:error, "Registration link is invalid or has expired.")
+             |> redirect(to: Routes.path("/users/register"))}
+        end
     end
   end
 
