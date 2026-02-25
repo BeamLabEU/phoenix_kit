@@ -642,7 +642,7 @@ defmodule PhoenixKit.Modules.Storage do
   Gets a file instance by file ID and variant name.
   """
   def get_file_instance_by_name(file_id, variant_name) do
-    repo().get_by(FileInstance, file_id: file_id, variant_name: variant_name)
+    repo().get_by(FileInstance, file_uuid: file_id, variant_name: variant_name)
   end
 
   @doc """
@@ -1241,7 +1241,7 @@ defmodule PhoenixKit.Modules.Storage do
               checksum: file_checksum,
               size: get_file_size(source_path),
               processing_status: "completed",
-              file_id: file.uuid
+              file_uuid: file.uuid
             }
 
             case create_file_instance(original_instance_attrs) do
@@ -1360,7 +1360,7 @@ defmodule PhoenixKit.Modules.Storage do
           checksum: file_checksum,
           size: file_size,
           processing_status: "completed",
-          file_id: file.uuid
+          file_uuid: file.uuid
         }
 
         case create_file_instance(original_instance_attrs) do
@@ -1620,7 +1620,7 @@ defmodule PhoenixKit.Modules.Storage do
       # Will be populated if we can detect dimensions
       height: nil,
       processing_status: "completed",
-      file_id: file.uuid
+      file_uuid: file.uuid
     }
 
     case create_file_instance(original_instance_attrs) do
@@ -1712,8 +1712,8 @@ defmodule PhoenixKit.Modules.Storage do
           path: file_path,
           status: "active",
           priority: 0,
-          file_instance_id: file_instance_id,
-          bucket_id: bucket_id
+          file_instance_uuid: file_instance_id,
+          bucket_uuid: bucket_id
         }
 
         case repo().insert(%FileLocation{} |> FileLocation.changeset(location_attrs)) do
