@@ -15,7 +15,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
-  alias PhoenixKit.Modules.Shop.Web.Helpers
+
+  import PhoenixKit.Modules.Shop.Web.Helpers,
+    only: [
+      format_price: 2,
+      humanize_key: 1,
+      profile_display_name: 1,
+      profile_address: 1,
+      get_current_user: 1
+    ]
+
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -1182,12 +1191,4 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     </div>
     """
   end
-
-  # Helpers
-
-  defp profile_display_name(profile), do: Helpers.profile_display_name(profile)
-  defp profile_address(profile), do: Helpers.profile_address(profile)
-  defp format_price(amount, currency), do: Helpers.format_price(amount, currency)
-  defp humanize_key(key), do: Helpers.humanize_key(key)
-  defp get_current_user(socket), do: Helpers.get_current_user(socket)
 end

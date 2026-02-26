@@ -786,17 +786,17 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_like_post(post_id, user_uuid, user_int_id) do
+  defp do_like_post(post_uuid, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostLike{}
            |> PostLike.changeset(%{
-             post_uuid: post_id,
+             post_uuid: post_uuid,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, like} ->
-          increment_like_count(%Post{uuid: post_id})
+          increment_like_count(%Post{uuid: post_uuid})
           like
 
         {:error, changeset} ->
@@ -838,15 +838,15 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_unlike_post(post_id, user_uuid) do
+  defp do_unlike_post(post_uuid, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostLike, post_uuid: post_id, user_uuid: user_uuid) do
+      case repo().get_by(PostLike, post_uuid: post_uuid, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         like ->
           {:ok, _} = repo().delete(like)
-          decrement_like_count(%Post{uuid: post_id})
+          decrement_like_count(%Post{uuid: post_uuid})
           like
       end
     end)
@@ -946,17 +946,17 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_dislike_post(post_id, user_uuid, user_int_id) do
+  defp do_dislike_post(post_uuid, user_uuid, user_int_id) do
     repo().transaction(fn ->
       case %PostDislike{}
            |> PostDislike.changeset(%{
-             post_uuid: post_id,
+             post_uuid: post_uuid,
              user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
         {:ok, dislike} ->
-          increment_dislike_count(%Post{uuid: post_id})
+          increment_dislike_count(%Post{uuid: post_uuid})
           dislike
 
         {:error, changeset} ->
@@ -998,15 +998,15 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_undislike_post(post_id, user_uuid) do
+  defp do_undislike_post(post_uuid, user_uuid) do
     repo().transaction(fn ->
-      case repo().get_by(PostDislike, post_uuid: post_id, user_uuid: user_uuid) do
+      case repo().get_by(PostDislike, post_uuid: post_uuid, user_uuid: user_uuid) do
         nil ->
           repo().rollback(:not_found)
 
         dislike ->
           {:ok, _} = repo().delete(dislike)
-          decrement_dislike_count(%Post{uuid: post_id})
+          decrement_dislike_count(%Post{uuid: post_uuid})
           dislike
       end
     end)
@@ -1620,8 +1620,8 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_remove_mention(post_id, user_uuid) do
-    case repo().get_by(PostMention, post_uuid: post_id, user_uuid: user_uuid) do
+  defp do_remove_mention(post_uuid, user_uuid) do
+    case repo().get_by(PostMention, post_uuid: post_uuid, user_uuid: user_uuid) do
       nil -> {:error, :not_found}
       mention -> repo().delete(mention)
     end

@@ -15,7 +15,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
-  alias PhoenixKit.Modules.Shop.Web.Helpers
+
+  import PhoenixKit.Modules.Shop.Web.Helpers,
+    only: [format_price: 2, humanize_key: 1, get_current_user: 1]
 
   @impl true
   def mount(_params, session, socket) do
@@ -26,7 +28,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     current_language = socket.assigns[:current_locale] || Translations.default_language()
 
     # Get current user if logged in
-    user = Helpers.get_current_user(socket)
+    user = get_current_user(socket)
     user_id = if user, do: user.id, else: nil
     user_uuid = if user, do: user.uuid, else: nil
 
@@ -512,9 +514,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   defp generate_session_id do
     :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
   end
-
-  defp format_price(amount, currency), do: Helpers.format_price(amount, currency)
-  defp humanize_key(key), do: Helpers.humanize_key(key)
 
   defp product_item_url(item, language) do
     base = DialectMapper.extract_base(language)
