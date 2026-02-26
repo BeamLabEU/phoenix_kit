@@ -649,9 +649,9 @@ defmodule PhoenixKit.Modules.Emails.SQSWorker do
     if config.aws_access_key_id != "" and config.aws_secret_access_key != "" and
          config.aws_region != "" do
       [
-        access_key_id: config.aws_access_key_id,
-        secret_access_key: config.aws_secret_access_key,
-        region: config.aws_region
+        access_key_id: String.trim(config.aws_access_key_id),
+        secret_access_key: String.trim(config.aws_secret_access_key),
+        region: String.trim(config.aws_region)
       ]
     else
       # If AWS credentials are not configured, use empty list
