@@ -31,9 +31,6 @@ defmodule PhoenixKit.Modules.Connections.BlockHistory do
       references: :uuid,
       type: UUIDv7
 
-    field :blocker_id, :integer
-    field :blocked_id, :integer
-
     field :action, :string
     field :reason, :string
     field :inserted_at, :utc_datetime
@@ -46,7 +43,7 @@ defmodule PhoenixKit.Modules.Connections.BlockHistory do
   """
   def changeset(history, attrs) do
     history
-    |> cast(attrs, [:blocker_uuid, :blocked_uuid, :blocker_id, :blocked_id, :action, :reason])
+    |> cast(attrs, [:blocker_uuid, :blocked_uuid, :action, :reason])
     |> validate_required([:blocker_uuid, :blocked_uuid, :action])
     |> validate_inclusion(:action, @actions)
     |> put_timestamp()

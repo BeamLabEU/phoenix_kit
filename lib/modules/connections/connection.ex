@@ -15,8 +15,6 @@ defmodule PhoenixKit.Modules.Connections.Connection do
 
   - `requester_uuid` - UUID of the user who initiated the connection request
   - `recipient_uuid` - UUID of the user who received the request
-  - `requester_id` - Integer ID (deprecated, dual-write only)
-  - `recipient_id` - Integer ID (deprecated, dual-write only)
   - `status` - Current status of the connection
   - `requested_at` - When the request was sent
   - `responded_at` - When the recipient responded (nil if pending)
@@ -65,8 +63,6 @@ defmodule PhoenixKit.Modules.Connections.Connection do
           uuid: UUIDv7.t() | nil,
           requester_uuid: UUIDv7.t(),
           recipient_uuid: UUIDv7.t(),
-          requester_id: integer() | nil,
-          recipient_id: integer() | nil,
           status: status(),
           requested_at: DateTime.t(),
           responded_at: DateTime.t() | nil,
@@ -86,9 +82,6 @@ defmodule PhoenixKit.Modules.Connections.Connection do
       foreign_key: :recipient_uuid,
       references: :uuid,
       type: UUIDv7
-
-    field :requester_id, :integer
-    field :recipient_id, :integer
 
     field :status, :string, default: "pending"
     field :requested_at, :utc_datetime
@@ -126,8 +119,6 @@ defmodule PhoenixKit.Modules.Connections.Connection do
     |> cast(attrs, [
       :requester_uuid,
       :recipient_uuid,
-      :requester_id,
-      :recipient_id,
       :status,
       :requested_at,
       :responded_at

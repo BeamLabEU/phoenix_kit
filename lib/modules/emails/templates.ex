@@ -223,7 +223,6 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     |> Template.changeset(attrs)
     |> Template.version_changeset(%{
       version: template.version + 1,
-      updated_by_user_id: attrs[:updated_by_user_id],
       updated_by_user_uuid: attrs[:updated_by_user_uuid]
     })
     |> repo().update()
@@ -285,7 +284,6 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
     update_template(template, %{
       status: "archived",
-      updated_by_user_id: user_id,
       updated_by_user_uuid: user_uuid
     })
   end
@@ -304,7 +302,6 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
     update_template(template, %{
       status: "active",
-      updated_by_user_id: user_id,
       updated_by_user_uuid: user_uuid
     })
   end
@@ -332,7 +329,6 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       variables: template.variables,
       metadata: Map.merge(template.metadata, %{"cloned_from" => template.uuid}),
       is_system: false,
-      created_by_user_id: attrs[:created_by_user_id],
       created_by_user_uuid: attrs[:created_by_user_uuid]
     }
 

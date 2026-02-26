@@ -494,3 +494,5 @@ ORDER BY table_name, column_name;
 ```
 
 Expected result: empty (or only `uuid` identity columns, which don't have `_id` suffix).
+
+**Update 2026-02-26:** V62 migration completed successfully. All UUID-type columns now use `_uuid` suffix. The codebase cleanup to remove legacy integer `_id` fields from schemas has also been completed in a subsequent phase. See `2026-02-25-uuid-id-field-removal-plan.md` for details on the code-level cleanup that followed the database migration.

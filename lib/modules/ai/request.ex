@@ -13,7 +13,6 @@ defmodule PhoenixKit.Modules.AI.Request do
   - `prompt_uuid`: Foreign key to the AI prompt used (if request used a prompt template)
   - `prompt_name`: Denormalized prompt name for historical display
   - `user_uuid`: Foreign key to the user who made the request (nullable if user deleted)
-  - `endpoint_id`, `prompt_id`, `account_id`, `user_id`: Legacy integer fields (backward compatibility)
   - `slot_index`: Which slot was used (deprecated, for backward compatibility)
 
   ### Request Details
@@ -80,12 +79,8 @@ defmodule PhoenixKit.Modules.AI.Request do
   @derive {Jason.Encoder,
            only: [
              :uuid,
-             :endpoint_id,
              :endpoint_name,
-             :prompt_id,
              :prompt_name,
-             :account_id,
-             :user_id,
              :slot_index,
              :model,
              :request_type,
@@ -107,10 +102,8 @@ defmodule PhoenixKit.Modules.AI.Request do
     # Prompt tracking (when request uses a prompt template)
     field :prompt_name, :string
 
-    # Legacy fields (for backward compatibility)
-    field :slot_index, :integer
-
     # Request details
+    field :slot_index, :integer
     field :model, :string
     field :request_type, :string, default: "chat"
     field :input_tokens, :integer, default: 0
@@ -123,17 +116,9 @@ defmodule PhoenixKit.Modules.AI.Request do
     field :metadata, :map, default: %{}
 
     # Associations
-    # legacy
-    field :endpoint_id, :integer
     belongs_to :endpoint, Endpoint, foreign_key: :endpoint_uuid, references: :uuid, type: UUIDv7
-    # legacy
-    field :prompt_id, :integer
     belongs_to :prompt, Prompt, foreign_key: :prompt_uuid, references: :uuid, type: UUIDv7
-    # Legacy account_id field (backward compatibility, no association since Account was removed)
-    field :account_id, :integer
     field :account_uuid, UUIDv7
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -145,15 +130,11 @@ defmodule PhoenixKit.Modules.AI.Request do
   def changeset(request, attrs) do
     request
     |> cast(attrs, [
-      :endpoint_id,
       :endpoint_uuid,
       :endpoint_name,
-      :prompt_id,
       :prompt_uuid,
       :prompt_name,
-      :account_id,
       :account_uuid,
-      :user_id,
       :user_uuid,
       :slot_index,
       :model,

@@ -103,16 +103,10 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     field :completed_at, :utc_datetime
     field :metadata, :map, default: %{}
 
-    # legacy
-    field :connection_id, :integer
-
     belongs_to :connection, Connection,
       foreign_key: :connection_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :approved_by, :integer
 
     belongs_to :approved_by_user, User,
       foreign_key: :approved_by_uuid,
@@ -145,7 +139,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     transfer
     |> cast(attrs, [
       :direction,
-      :connection_id,
       :connection_uuid,
       :session_code,
       :remote_site_url,

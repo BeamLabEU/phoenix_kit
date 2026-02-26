@@ -9,8 +9,6 @@ defmodule PhoenixKit.Modules.Connections.Block do
 
   - `blocker_uuid` - UUID of the user who initiated the block
   - `blocked_uuid` - UUID of the user who is blocked
-  - `blocker_id` - Integer ID (deprecated, dual-write only)
-  - `blocked_id` - Integer ID (deprecated, dual-write only)
   - `reason` - Optional reason for the block (visible to admins)
   - `inserted_at` - When the block was created
 
@@ -44,8 +42,6 @@ defmodule PhoenixKit.Modules.Connections.Block do
           uuid: UUIDv7.t() | nil,
           blocker_uuid: UUIDv7.t(),
           blocked_uuid: UUIDv7.t(),
-          blocker_id: integer() | nil,
-          blocked_id: integer() | nil,
           reason: String.t() | nil,
           blocker: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           blocked: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
@@ -62,9 +58,6 @@ defmodule PhoenixKit.Modules.Connections.Block do
       foreign_key: :blocked_uuid,
       references: :uuid,
       type: UUIDv7
-
-    field :blocker_id, :integer
-    field :blocked_id, :integer
 
     field :reason, :string
     field :inserted_at, :utc_datetime
@@ -92,7 +85,7 @@ defmodule PhoenixKit.Modules.Connections.Block do
   """
   def changeset(block, attrs) do
     block
-    |> cast(attrs, [:blocker_uuid, :blocked_uuid, :blocker_id, :blocked_id, :reason])
+    |> cast(attrs, [:blocker_uuid, :blocked_uuid, :reason])
     |> validate_required([:blocker_uuid, :blocked_uuid])
     |> validate_length(:reason, max: 500)
     |> validate_not_self_block()

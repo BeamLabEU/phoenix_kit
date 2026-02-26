@@ -8,7 +8,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Schema Fields
 
-  - `email_log_id`: Foreign key to the associated email log
+  - `email_log_uuid`: Foreign key to the associated email log
   - `event_type`: Type of event (send, delivery, bounce, complaint, open, click)
   - `event_data`: JSONB map containing event-specific data from the provider
   - `occurred_at`: Timestamp when the event occurred
@@ -84,8 +84,6 @@ defmodule PhoenixKit.Modules.Emails.Event do
     field :failure_reason, :string
 
     # Associations
-    # legacy
-    field :email_log_id, :integer
     belongs_to :email_log, Log, foreign_key: :email_log_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -102,7 +100,6 @@ defmodule PhoenixKit.Modules.Emails.Event do
   def changeset(email_event, attrs) do
     email_event
     |> cast(attrs, [
-      :email_log_id,
       :email_log_uuid,
       :event_type,
       :event_data,
@@ -150,7 +147,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
   ## Examples
 
       iex> PhoenixKit.Modules.Emails.Event.create_event(%{
-        email_log_id: 1,
+        email_log_uuid: log.uuid,
         event_type: "delivery"
       })
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
@@ -598,17 +595,12 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## --- Private Helper Functions ---
 
-  # Validate at least one email log reference is present
+  # Validate email log reference is present
   defp validate_email_log_reference(changeset) do
-    log_id = get_field(changeset, :email_log_id)
     log_uuid = get_field(changeset, :email_log_uuid)
 
-    if is_nil(log_id) and is_nil(log_uuid) do
-      add_error(
-        changeset,
-        :email_log_uuid,
-        "either email_log_id or email_log_uuid must be present"
-      )
+    if is_nil(log_uuid) do
+      add_error(changeset, :email_log_uuid, "email_log_uuid must be present")
     else
       changeset
     end

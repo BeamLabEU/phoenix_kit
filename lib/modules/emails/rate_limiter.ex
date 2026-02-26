@@ -15,8 +15,6 @@ defmodule PhoenixKit.Modules.Emails.EmailBlocklist do
     field :email, :string
     field :reason, :string
     field :expires_at, :utc_datetime
-    # legacy
-    field :user_id, :integer
     field :user_uuid, UUIDv7
     field :inserted_at, :utc_datetime
     field :updated_at, :utc_datetime
@@ -24,7 +22,7 @@ defmodule PhoenixKit.Modules.Emails.EmailBlocklist do
 
   def changeset(blocklist, attrs) do
     blocklist
-    |> cast(attrs, [:email, :reason, :expires_at, :user_id, :user_uuid, :inserted_at, :updated_at])
+    |> cast(attrs, [:email, :reason, :expires_at, :user_uuid, :inserted_at, :updated_at])
     |> validate_required([:email, :reason])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
     |> unique_constraint(:email)

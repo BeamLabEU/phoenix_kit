@@ -31,9 +31,6 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
       references: :uuid,
       type: UUIDv7
 
-    field :follower_id, :integer
-    field :followed_id, :integer
-
     field :action, :string
     field :inserted_at, :utc_datetime
   end
@@ -45,7 +42,7 @@ defmodule PhoenixKit.Modules.Connections.FollowHistory do
   """
   def changeset(history, attrs) do
     history
-    |> cast(attrs, [:follower_uuid, :followed_uuid, :follower_id, :followed_id, :action])
+    |> cast(attrs, [:follower_uuid, :followed_uuid, :action])
     |> validate_required([:follower_uuid, :followed_uuid, :action])
     |> validate_inclusion(:action, @actions)
     |> put_timestamp()

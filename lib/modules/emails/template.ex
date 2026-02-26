@@ -86,8 +86,6 @@ defmodule PhoenixKit.Modules.Emails.Template do
           last_used_at: DateTime.t() | nil,
           version: integer(),
           is_system: boolean(),
-          created_by_user_id: integer() | nil,
-          updated_by_user_id: integer() | nil,
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
         }
@@ -130,11 +128,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
     field :last_used_at, :utc_datetime
     field :version, :integer, default: 1
     field :is_system, :boolean, default: false
-    # legacy
-    field :created_by_user_id, :integer
     field :created_by_user_uuid, UUIDv7
-    # legacy
-    field :updated_by_user_id, :integer
     field :updated_by_user_uuid, UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -241,9 +235,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
       :variables,
       :metadata,
       :is_system,
-      :created_by_user_id,
       :created_by_user_uuid,
-      :updated_by_user_id,
       :updated_by_user_uuid
     ])
     |> auto_generate_slug()
@@ -291,7 +283,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
   """
   def version_changeset(template, attrs \\ %{}) do
     template
-    |> cast(attrs, [:version, :updated_by_user_id, :updated_by_user_uuid])
+    |> cast(attrs, [:version, :updated_by_user_uuid])
     |> validate_number(:version, greater_than: 0)
   end
 
