@@ -124,7 +124,6 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
       status: definition["status"] || "published",
       fields_definition: definition["fields_definition"] || [],
       settings: definition["settings"] || %{},
-      created_by: get_default_user_id(),
       created_by_uuid: get_default_user_uuid()
     }
 
@@ -209,7 +208,6 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
       status: record_data["status"] || "published",
       data: record_data["data"] || %{},
       metadata: record_data["metadata"] || %{},
-      created_by: get_default_user_id(),
       created_by_uuid: get_default_user_uuid()
     }
 
@@ -668,13 +666,6 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   # ============================================================================
   # Helpers
   # ============================================================================
-
-  defp get_default_user_id do
-    case get_default_user() do
-      nil -> nil
-      user -> user.uuid
-    end
-  end
 
   defp get_default_user_uuid do
     case get_default_user() do

@@ -7,14 +7,13 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
 
   ## Fields
 
-  - `code_id`: Foreign key to the referral code that was used
-  - `used_by`: User ID of the user who used the code
+  - `code_uuid`: Foreign key to the referral code that was used
+  - `used_by_uuid`: UUID of the user who used the code
   - `date_used`: Timestamp when the code was used
 
   ## Associations
 
   - `referral_code`: Belongs to the referral code that was used
-  - `user`: Belongs to the User who used the code (via used_by field)
 
   ## Usage Examples
 
@@ -27,7 +26,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       |> Repo.insert()
 
       # Get all usage records for a code
-      from(usage in ReferralCodeUsage, where: usage.code_id == ^code_id)
+      from(usage in ReferralCodeUsage, where: usage.code_uuid == ^code_uuid)
       |> Repo.all()
   """
   use Ecto.Schema
@@ -67,7 +66,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
 
   ## Examples
 
-      iex> ReferralCodeUsage.for_code(code_id) |> Repo.all()
+      iex> ReferralCodeUsage.for_code(code_uuid) |> Repo.all()
       [%ReferralCodeUsage{}, ...]
   """
   def for_code(code_uuid) when is_binary(code_uuid) do
@@ -83,7 +82,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
 
   ## Examples
 
-      iex> ReferralCodeUsage.for_user(user_id) |> Repo.all()
+      iex> ReferralCodeUsage.for_user(user_uuid) |> Repo.all()
       [%ReferralCodeUsage{}, ...]
   """
   def for_user(user_uuid) when is_binary(user_uuid) do
@@ -99,7 +98,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
 
   ## Examples
 
-      iex> ReferralCodeUsage.user_used_code?(user_id, code_id)
+      iex> ReferralCodeUsage.user_used_code?(user_uuid, code_uuid)
       false
   """
   def user_used_code?(user_uuid, code_uuid) when is_binary(user_uuid) and is_binary(code_uuid) do
@@ -118,12 +117,12 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
 
   ## Examples
 
-      iex> ReferralCodeUsage.get_usage_stats(code_id)
+      iex> ReferralCodeUsage.get_usage_stats(code_uuid)
       %{
         total_uses: 5,
         unique_users: 3,
-        last_used: ~U[2024-01-15 10:30:00.000000Z],
-        recent_users: [user_id1, user_id2]
+        last_used: ~U[2024-01-15 10:30:00Z],
+        recent_users: [user_uuid1, user_uuid2]
       }
   """
   def get_usage_stats(code_uuid) when is_binary(code_uuid) do

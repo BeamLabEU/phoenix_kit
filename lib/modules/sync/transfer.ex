@@ -113,16 +113,10 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
       references: :uuid,
       type: UUIDv7
 
-    # legacy
-    field :denied_by, :integer
-
     belongs_to :denied_by_user, User,
       foreign_key: :denied_by_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :initiated_by, :integer
 
     belongs_to :initiated_by_user, User,
       foreign_key: :initiated_by_uuid,
@@ -150,7 +144,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
       :approval_expires_at,
       :requester_ip,
       :requester_user_agent,
-      :initiated_by,
       :initiated_by_uuid,
       :metadata
     ])
@@ -258,7 +251,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     |> change(%{
       status: "approved",
       approved_at: UtilsDate.utc_now(),
-      approved_by: admin_user_id,
       approved_by_uuid: resolve_user_uuid(admin_user_id)
     })
   end
@@ -271,7 +263,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     |> change(%{
       status: "denied",
       denied_at: UtilsDate.utc_now(),
-      denied_by: admin_user_id,
       denied_by_uuid: resolve_user_uuid(admin_user_id),
       denial_reason: reason
     })

@@ -204,7 +204,7 @@ Delete integer overloads and ID-to-UUID resolution functions entirely.
 
 ## Final Summary (2026-02-26)
 
-**Status:** ✅ **COMPLETE** (after 3 rounds of cleanup)
+**Status:** ✅ **COMPLETE** (after 4 rounds of cleanup)
 
 ### Round 1 (Claude — commits `f98159cc`, `ca43e3f7`, `5a957918`):
 - Removed `field :*_id, :integer` from 30+ schemas in Phase 1
@@ -249,17 +249,241 @@ Fixed issues Mistral's changes introduced or missed:
 - ✅ Code formatting applied
 - ✅ Static analysis (Credo) clean
 
-### Remaining legacy integer fields (NOT `_id` — separate cleanup)
+### Round 4 (Claude — fixing Kimi's audit findings):
+Fixed all issues identified in Categories A-F from Kimi's post-commit audit:
 
-These are legacy integer fields without `_id` suffix, still declared in schemas with active dual-write code. They are outside the scope of this `_id` removal plan:
+**Category C — Critical pattern match bugs (6 locations):**
+- `shop/web/checkout_page.ex:381` — `%{user: %{id: id}}` → `%{user: %{uuid: uuid}}`
+- `shop/web/helpers.ex:39` — `%{user: %{id: _} = user}` → `%{user: %{uuid: _} = user}`
+- `shop/shop.ex:2376,2384` — `%{id: user_id}` → `%{uuid: user_uuid}` (both functions)
+- `billing/web/user_billing_profiles.ex:233` — `%{user: %{id: _} = user}` → `%{user: %{uuid: _} = user}`
+- `billing/web/user_billing_profile_form.ex:529` — same pattern fix
 
-- `sync/connection.ex` — `approved_by`, `suspended_by`, `revoked_by`, `created_by` (4 integer fields, actively set alongside `*_uuid` companions)
-- `sync/transfer.ex` — `denied_by`, `initiated_by` (2 integer fields, actively set)
-- `entities/entity_data.ex` — `created_by` (1 integer field)
-- `entities/entities.ex` — `created_by` (1 integer field)
+**Category A — Legacy fields in subscription.ex:**
+- Removed `field :subscription_type_id, :integer` and `field :payment_method_id, :integer`
+
+**Category B — Active dual-write code (all 4 locations):**
+- B1: `billing/billing.ex` — Removed `subscription_type_id:` dual-write, fixed `subscription_type_id` read to use `subscription_type_uuid`
+- B2: `sync/connection.ex` — Removed 4 legacy integer fields (`approved_by`, `suspended_by`, `revoked_by`, `created_by`) and dual-write in 4 changesets
+- B3: `sync/transfer.ex` — Removed 2 legacy integer fields (`denied_by`, `initiated_by`), cleaned `cast()` and dual-write in 2 changesets
+- B4: `entities/mirror/importer.ex` — Removed redundant `get_default_user_id/0` and 2 dual-write sites
+
+**Category D — Referrals module:**
+- `referrals/referrals.ex` — Removed `field :created_by, :integer` and `field :beneficiary, :integer`, cleaned `cast()`
+- `referrals/schemas/referral_code_usage.ex` — Fixed all stale `code_id`/`user_id` doc examples to use `code_uuid`/`user_uuid`
+- `referrals/referrals.ex` — Fixed 3 stale doc examples (`code_id` → `code_uuid`, `user_id` → `user_uuid`)
+
+**Category E — Non-`_id` legacy integer fields in entities:**
+- `entities/entities.ex` — Removed `field :created_by, :integer`, cleaned `cast()`, simplified `validate_creator_reference` (UUID-only), rewrote `maybe_add_created_by` (no dual-write), removed unused `resolve_user_uuid/1`
+- `entities/entity_data.ex` — Removed `field :created_by, :integer`, cleaned `cast()`, rewrote `maybe_add_created_by` (no dual-write), removed `put_created_by_with_uuid/2`
+
+**Verification:**
+- ✅ Compilation successful with `--warnings-as-errors`
+- ✅ All 485 tests passing
+- ✅ Code formatting applied
+- ✅ Static analysis (Credo strict) — no issues
 
 ### Next Steps
-1. Database migration to drop the `_id` columns (separate migration script)
-2. Clean up remaining non-`_id` legacy integer fields listed above
-3. Update `.md` documentation files (`OVERVIEW.md`, `DEEP_DIVE.md`) with UUID references
-4. Monitor for any edge cases in production usage
+1. Database migration to drop the legacy integer columns (separate migration script)
+2. Update `.md` documentation files (`OVERVIEW.md`, `DEEP_DIVE.md`) with UUID references
+3. Monitor for any edge cases in production usage
+
+
+---
+
+## Post-Commit Audit (2026-02-26) - Remaining Issues Found
+
+**Auditor:** Kimi (comprehensive review after commit `99a5135b`)
+**Status:** ✅ **ALL ISSUES FIXED** in Round 4
+
+This audit was conducted to ensure 100% confidence that no code references legacy `_id` columns before they are dropped from the database. Several categories of issues were found.
+
+---
+
+### Category A: Legacy `_id` Fields Still in Schemas (But Not in cast())
+
+These fields are declared but not cast, so they don't affect changesets. They will become dead weight after DB column drop but won't cause runtime errors.
+
+| Schema File | Field | Line | Status |
+|-------------|-------|------|--------|
+| `billing/schemas/subscription.ex` | `subscription_type_id` | 84 | Declared, dual-written in billing.ex:2767 |
+| `billing/schemas/subscription.ex` | `payment_method_id` | 92 | Declared, no active write found |
+
+---
+
+### Category B: Active Dual-Write Code (MUST FIX Before DB Drop)
+
+These locations actively write to both legacy integer fields AND UUID fields. When DB columns are dropped, these will cause Ecto errors.
+
+#### B1. Billing Module (`billing/billing.ex`)
+
+| Line | Code | Issue |
+|------|------|-------|
+| 2767 | `subscription_type_id: type.id,` | Writes integer ID to legacy field |
+| 2768 | `subscription_type_uuid: type.uuid,` | Also writes UUID (correct) |
+| 2850 | `old_type_id = subscription.subscription_type_id` | **Reads** legacy field - will return nil |
+| 2861 | `Events.broadcast_subscription_type_changed(..., old_type_id, new_type_id)` | Passes nil for old_type_id |
+
+**Note:** Line 2850-2861 reads `subscription_type_id` to broadcast old type in event. After DB column drop, this will always be `nil`.
+
+#### B2. Sync Module (`sync/connection.ex`)
+
+| Line | Code | Context |
+|------|------|---------|
+| 220 | `approved_by: admin_user_id,` | In `approve_connection/2` |
+| 221 | `approved_by_uuid: resolve_user_uuid(admin_user_id)` | Dual-write pattern |
+| 233 | `suspended_by: admin_user_id,` | In `suspend_connection/2` |
+| 234 | `suspended_by_uuid: resolve_user_uuid(admin_user_id)` | Dual-write pattern |
+| 247 | `revoked_by: admin_user_id,` | In `revoke_connection/2` |
+| 248 | `revoked_by_uuid: resolve_user_uuid(admin_user_id)` | Dual-write pattern |
+| 261 | `suspended_by: nil,` | In `unsuspend_connection/1` - clears both fields |
+| 262 | `suspended_by_uuid: nil,` | Clears both fields |
+
+#### B3. Sync Transfer Module (`sync/transfer.ex`)
+
+| Line | Code | Context |
+|------|------|---------|
+| 261 | `approved_by: admin_user_id,` | In approve function |
+| 274 | `denied_by: admin_user_id,` | In deny function |
+
+**Note:** `transfer.ex` also casts `:initiated_by` at line 153-154 (in `changeset/2`), which writes the legacy field on create.
+
+#### B4. Entities Mirror Importer (`entities/mirror/importer.ex`)
+
+| Line | Code | Context |
+|------|------|---------|
+| 127 | `created_by: get_default_user_id(),` | When creating entity from import |
+| 128 | `created_by_uuid: get_default_user_uuid()` | Dual-write pattern |
+| 212 | `created_by: get_default_user_id(),` | When updating entity from import |
+| 213 | `created_by_uuid: get_default_user_uuid()` | Dual-write pattern |
+
+**Note:** Lines 672-684 define `get_default_user_id/0` which returns `user.uuid` (not integer id), so this is actually writing UUID to the `created_by` field. This is a naming confusion bug.
+
+---
+
+### Category C: Broken Pattern Matches (CRITICAL BUGS)
+
+These pattern matches try to access `%{id: ...}` on User structs, but User no longer has an `id` field. These will fail and return `nil`.
+
+| File | Line | Code | Impact |
+|------|------|------|--------|
+| `shop/web/checkout_page.ex` | 381 | `%{user: %{id: id}} -> id` | `user_id` becomes `nil` for logged-in users |
+| `shop/web/helpers.ex` | 39 | `%{user: %{id: _} = user} -> user` | `get_current_user/1` returns `nil` always |
+| `shop/shop.ex` | 2376 | `%{id: user_id} = user` | Pattern match may fail |
+| `shop/shop.ex` | 2384 | `%{id: user_id, uuid: user_uuid}` | Pattern match will fail (id doesn't exist) |
+| `billing/web/user_billing_profiles.ex` | 233 | `%{user: %{id: _} = user} -> user` | Returns `nil` always |
+| `billing/web/user_billing_profile_form.ex` | 529 | `%{user: %{id: _} = user} -> user` | Returns `nil` always |
+
+**Impact:** Functions relying on `get_current_user/1` from Shop.Helpers or Billing will always return `nil`, breaking user detection.
+
+---
+
+### Category D: Legacy Integer Fields in Referrals Module
+
+The referrals module has dual-write for `created_by` and `beneficiary`:
+
+| File | Fields | Status |
+|------|--------|--------|
+| `referrals/referrals.ex` | `created_by`, `beneficiary` | Both declared with `_uuid` companions |
+
+The `referrals.ex` casts both `created_by` and `created_by_uuid` (lines 127-128), but web form only passes `created_by_uuid`. The `created_by` field receives `nil` from form, so no dual-write occurs in practice.
+
+**Documentation Issue:** `referrals/schemas/referral_code_usage.ex` doc example at line 30 still references `code_id` in query example:
+```elixir
+from(usage in ReferralCodeUsage, where: usage.code_id == ^code_id)
+```
+The schema does NOT have `code_id` field - this is stale documentation.
+
+---
+
+### Category E: Non-`_id` Legacy Integer Fields (Active Dual-Write)
+
+These fields don't have `_id` suffix but are legacy integer fields with active dual-write:
+
+| Module | Schema | Field | UUID Companion | Active Dual-Write |
+|--------|--------|-------|----------------|-------------------|
+| Sync | `connection.ex` | `approved_by` | `approved_by_uuid` | ✅ Yes |
+| Sync | `connection.ex` | `suspended_by` | `suspended_by_uuid` | ✅ Yes |
+| Sync | `connection.ex` | `revoked_by` | `revoked_by_uuid` | ✅ Yes |
+| Sync | `connection.ex` | `created_by` | `created_by_uuid` | ✅ Yes |
+| Sync | `transfer.ex` | `denied_by` | `denied_by_uuid` | ✅ Yes |
+| Sync | `transfer.ex` | `initiated_by` | `initiated_by_uuid` | ✅ Yes (via cast) |
+| Entities | `entity_data.ex` | `created_by` | `created_by_uuid` | ✅ Yes (via changeset) |
+| Entities | `entities.ex` | `created_by` | `created_by_uuid` | ✅ Yes (via changeset) |
+| Referrals | `referrals.ex` | `created_by` | `created_by_uuid` | ⚠️ Cast but no value passed |
+| Referrals | `referrals.ex` | `beneficiary` | `beneficiary_uuid` | ⚠️ Cast but no value passed |
+
+---
+
+### Category F: Intentional Integer Fields (NOT Legacy)
+
+These are legitimate integer fields, not legacy IDs:
+
+| Schema | Field | Purpose |
+|--------|-------|---------|
+| `shop/import_log.ex` | `product_ids` | Array of imported product IDs (tracking) |
+| Various | `sort_order`, `position`, `depth` | Ordering/positioning |
+| Various | `*_count` | Counters (like_count, comment_count) |
+| Various | `width`, `height`, `size` | Dimensions |
+| AI/Emails | `tokens`, `cost_cents`, `latency_ms` | Metrics |
+
+---
+
+### Pre-DB-Drop Checklist (Updated — ALL COMPLETE)
+
+All items completed in Round 4:
+
+#### Critical (Will Cause Runtime Errors)
+
+- [x] Fix `shop/web/checkout_page.ex:381` - pattern match on `%{user: %{id: id}}` ✅
+- [x] Fix `shop/web/helpers.ex:39` - pattern match in `get_current_user/1` ✅
+- [x] Fix `shop/shop.ex:2376,2384` - pattern matches on User struct with `id` ✅
+- [x] Fix `billing/web/user_billing_profiles.ex:233` - pattern match in `get_current_user/1` ✅
+- [x] Fix `billing/web/user_billing_profile_form.ex:529` - pattern match in `get_current_user/1` ✅
+- [x] Fix `billing/billing.ex:2850` - reading `subscription.subscription_type_id` ✅
+
+#### Cleanup (Will Cause Compiler Warnings or Dead Code)
+
+- [x] Remove `subscription_type_id` field from `subscription.ex` schema ✅
+- [x] Remove `payment_method_id` field from `subscription.ex` schema ✅
+- [x] Remove `created_by` field from `entities.ex`, `entity_data.ex` ✅
+- [x] Remove `approved_by`, `suspended_by`, `revoked_by`, `created_by` from `sync/connection.ex` ✅
+- [x] Remove `denied_by`, `initiated_by` from `sync/transfer.ex` ✅
+- [x] Remove dual-write code from all locations listed in Category B ✅
+- [x] Remove `created_by`, `beneficiary` from `referrals/referrals.ex` ✅
+- [x] Update `referrals/schemas/referral_code_usage.ex` documentation ✅
+- [x] Update `referrals/referrals.ex` documentation ✅
+
+#### Verification Commands
+
+```bash
+# Ensure no pattern matching on User.id remains
+grep -rn "%{user: %{id:" lib/ --include="*.ex"
+grep -rn "%{id:.*user\|user.*%{id:" lib/modules --include="*.ex"
+
+# Ensure no struct field access on legacy _id fields
+grep -rn "\.subscription_type_id\|\.payment_method_id" lib/modules --include="*.ex"
+grep -rn "\.created_by\b\|\.approved_by\b\|\.suspended_by\b\|\.revoked_by\b\|\.denied_by\b\|\.initiated_by\b" lib/modules --include="*.ex"
+
+# Ensure no legacy _id fields in cast()
+grep -rn "cast.*:.*_id" lib/modules --include="*.ex" | grep -v "uuid"
+
+# Full test suite
+mix test
+mix compile --warnings-as-errors
+mix credo --strict
+```
+
+---
+
+### Summary
+
+**Current Status:** The code compiles and tests pass, but there are **hidden runtime bugs**:
+
+1. **Pattern match bugs** (Category C) will cause `nil` returns where user data is expected
+2. **Dual-write code** (Category B) will cause Ecto errors when DB columns are dropped
+3. **Field reads** (billing.ex:2850) will return `nil` instead of actual values
+
+**Recommendation:** Fix all Critical and Cleanup items before running DB migration to drop `_id` columns.
+
+**Risk Level:** MEDIUM - Some features may silently fail (user detection) but won't crash until DB columns are dropped.

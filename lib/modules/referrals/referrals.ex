@@ -84,11 +84,7 @@ defmodule PhoenixKit.Modules.Referrals do
     field :status, :boolean, default: true
     field :number_of_uses, :integer, default: 0
     field :max_uses, :integer
-    # legacy
-    field :created_by, :integer
     field :created_by_uuid, UUIDv7
-    # legacy
-    field :beneficiary, :integer
     field :beneficiary_uuid, UUIDv7
     field :date_created, :utc_datetime
     field :expiration_date, :utc_datetime
@@ -124,9 +120,7 @@ defmodule PhoenixKit.Modules.Referrals do
       :status,
       :number_of_uses,
       :max_uses,
-      :created_by,
       :created_by_uuid,
-      :beneficiary,
       :beneficiary_uuid,
       :date_created,
       :expiration_date
@@ -434,7 +428,7 @@ defmodule PhoenixKit.Modules.Referrals do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Referrals.get_usage_stats(code_id)
+      iex> PhoenixKit.Modules.Referrals.get_usage_stats(code_uuid)
       %{total_uses: 5, unique_users: 3, last_used: ~U[...], recent_users: [...]}
   """
   def get_usage_stats(code_uuid) when is_binary(code_uuid) do
@@ -446,7 +440,7 @@ defmodule PhoenixKit.Modules.Referrals do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Referrals.list_usage_for_code(code_id)
+      iex> PhoenixKit.Modules.Referrals.list_usage_for_code(code_uuid)
       [%PhoenixKit.Modules.Referrals.ReferralCodeUsage{}, ...]
   """
   def list_usage_for_code(code_uuid) when is_binary(code_uuid) do
@@ -459,7 +453,7 @@ defmodule PhoenixKit.Modules.Referrals do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Referrals.user_used_code?(user_id, code_id)
+      iex> PhoenixKit.Modules.Referrals.user_used_code?(user_uuid, code_uuid)
       false
   """
   def user_used_code?(user_uuid, code_uuid) when is_binary(user_uuid) and is_binary(code_uuid) do

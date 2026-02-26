@@ -2373,17 +2373,17 @@ defmodule PhoenixKit.Modules.Shop do
     end
   end
 
-  defp assign_cart_and_return(cart, %{id: user_id} = user) do
+  defp assign_cart_and_return(cart, %{uuid: user_uuid} = user) do
     case assign_cart_to_user(cart, user) do
-      {:ok, updated_cart} -> {:ok, user_id, updated_cart}
-      {:error, _} -> {:ok, user_id, cart}
+      {:ok, updated_cart} -> {:ok, user_uuid, updated_cart}
+      {:error, _} -> {:ok, user_uuid, cart}
     end
   end
 
   # Assign cart to user (for guest -> user conversion)
-  defp assign_cart_to_user(%Cart{} = cart, %{id: user_id, uuid: user_uuid}) do
+  defp assign_cart_to_user(%Cart{} = cart, %{uuid: user_uuid}) do
     cart
-    |> Cart.changeset(%{user_id: user_id, user_uuid: user_uuid, session_id: nil})
+    |> Cart.changeset(%{user_uuid: user_uuid, session_id: nil})
     |> repo().update()
   end
 

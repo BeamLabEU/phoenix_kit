@@ -375,10 +375,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
     cart = socket.assigns.cart
 
-    # Get user_id from current scope if logged in
+    # Get user identifier from current scope if logged in
     user_id =
       case socket.assigns[:phoenix_kit_current_scope] do
-        %{user: %{id: id}} -> id
+        %{user: %{uuid: uuid}} -> uuid
         _ -> nil
       end
 

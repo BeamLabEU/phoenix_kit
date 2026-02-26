@@ -101,8 +101,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     field :status, :string, default: "published"
     field :data, :map
     field :metadata, :map
-    # legacy
-    field :created_by, :integer
     field :created_by_uuid, UUIDv7
     field :date_created, :utc_datetime
     field :date_updated, :utc_datetime
@@ -133,7 +131,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       :status,
       :data,
       :metadata,
-      :created_by,
       :created_by_uuid,
       :date_created,
       :date_updated
@@ -600,12 +597,12 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     |> notify_data_event(:created)
   end
 
-  # Auto-fill created_by with first admin if not provided
+  # Auto-fill created_by_uuid with first admin if not provided
   defp maybe_add_created_by(attrs) when is_map(attrs) do
-    has_created_by =
-      Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
+    has_created_by_uuid =
+      Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
 
-    if has_created_by do
+    if has_created_by_uuid do
       attrs
     else
       case Auth.get_first_admin_id() do
@@ -613,18 +610,13 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
           # Fall back to first user if no admin exists
           case Auth.get_first_user_id() do
             nil -> attrs
-            user_id -> put_created_by_with_uuid(attrs, user_id)
+            user_uuid -> Map.put(attrs, :created_by_uuid, user_uuid)
           end
 
-        admin_id ->
-          put_created_by_with_uuid(attrs, admin_id)
+        admin_uuid ->
+          Map.put(attrs, :created_by_uuid, admin_uuid)
       end
     end
-  end
-
-  defp put_created_by_with_uuid(attrs, user_id) when is_binary(user_id) do
-    attrs
-    |> Map.put(:created_by, user_id)
   end
 
   @doc """
