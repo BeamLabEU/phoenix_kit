@@ -92,7 +92,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   end
 
   @impl true
-  def handle_event("select_subscription_type", %{"subscription_type_id" => type_id}, socket) do
+  def handle_event("select_subscription_type", %{"subscription_type_uuid" => type_id}, socket) do
     type_id = if type_id == "", do: nil, else: type_id
 
     # Get subscription type's default trial days
@@ -114,7 +114,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   end
 
   @impl true
-  def handle_event("select_payment_method", %{"payment_method_id" => pm_id}, socket) do
+  def handle_event("select_payment_method", %{"payment_method_uuid" => pm_id}, socket) do
     pm_id = if pm_id == "", do: nil, else: pm_id
     {:noreply, assign(socket, :selected_payment_method_uuid, pm_id)}
   end

@@ -2730,8 +2730,8 @@ defmodule PhoenixKit.Modules.Billing do
 
   - `user_id` - The user creating the subscription (UUID)
   - `attrs` - Subscription attributes:
-    - `:subscription_type_uuid` - Required: subscription type UUID (preferred)
-    - `:subscription_type_id` - Alias for `:subscription_type_uuid` (legacy key, still accepted)
+    - `:subscription_type_uuid` - Required: subscription type UUID
+    - `:subscription_type_id` - Legacy alias, still accepted for backward compatibility
     - `:billing_profile_uuid` - Optional: billing profile UUID to use
     - `:payment_method_uuid` - Optional: saved payment method UUID for renewals
     - `:trial_days` - Optional: override type's trial days
@@ -2746,12 +2746,12 @@ defmodule PhoenixKit.Modules.Billing do
       Billing.create_subscription(user.uuid, %{plan_uuid: type.uuid})
   """
   def create_subscription(user_id, attrs) do
-    type_id =
+    type_uuid =
       attrs[:subscription_type_uuid] || attrs["subscription_type_uuid"] ||
         attrs[:subscription_type_id] || attrs["subscription_type_id"] ||
         attrs[:plan_uuid] || attrs["plan_uuid"]
 
-    with {:ok, type} <- get_subscription_type(type_id) do
+    with {:ok, type} <- get_subscription_type(type_uuid) do
       trial_days = attrs[:trial_days] || type.trial_days || 0
       now = UtilsDate.utc_now()
 

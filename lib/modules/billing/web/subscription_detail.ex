@@ -121,7 +121,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
   end
 
   @impl true
-  def handle_event("select_new_subscription_type", %{"subscription_type_id" => type_id}, socket) do
+  def handle_event("select_new_subscription_type", %{"subscription_type_uuid" => type_id}, socket) do
     type_id = if type_id == "", do: nil, else: type_id
     {:noreply, assign(socket, :selected_new_subscription_type_uuid, type_id)}
   end
