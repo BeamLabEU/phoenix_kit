@@ -8,7 +8,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
-  alias PhoenixKit.Modules.Shop.Web.Helpers
+
+  import PhoenixKit.Modules.Shop.Web.Helpers,
+    only: [format_price: 2, profile_display_name: 1, profile_address: 1, get_current_user: 1]
+
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
@@ -24,8 +27,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
         handle_order_access(socket, order, user)
     end
   end
-
-  defp get_current_user(socket), do: Helpers.get_current_user(socket)
 
   defp handle_order_access(socket, order, user) do
     if has_order_access?(order, user) do
@@ -273,10 +274,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
   end
 
   # Helpers
-
-  defp profile_display_name(profile), do: Helpers.profile_display_name(profile)
-  defp profile_address(profile), do: Helpers.profile_address(profile)
-  defp format_price(amount, currency), do: Helpers.format_price(amount, currency)
 
   defp format_price_string(nil), do: "-"
   defp format_price_string(amount) when is_binary(amount), do: "$#{amount}"

@@ -728,6 +728,35 @@ defmodule PhoenixKit.Modules.Shop do
     count
   end
 
+  @doc """
+  Collects all storage file UUIDs associated with a single product.
+  """
+  def collect_product_file_uuids(%Product{} = product) do
+    [product.featured_image_uuid, product.file_uuid | product.image_ids || []]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  @doc """
+  Collects all storage file UUIDs for a list of product UUIDs.
+  """
+  def collect_products_file_uuids(product_uuids) when is_list(product_uuids) do
+    from(p in Product,
+      where: p.uuid in ^product_uuids,
+      select: %{
+        featured_image_uuid: p.featured_image_uuid,
+        file_uuid: p.file_uuid,
+        image_ids: p.image_ids
+      }
+    )
+    |> repo().all()
+    |> Enum.flat_map(fn p ->
+      [p.featured_image_uuid, p.file_uuid | p.image_ids || []]
+    end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
   # ============================================
   # OPTIONS-BASED PRICING
   # ============================================

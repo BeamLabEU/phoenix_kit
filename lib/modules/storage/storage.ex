@@ -618,6 +618,150 @@ defmodule PhoenixKit.Modules.Storage do
     PhoenixKit.Modules.Storage.File.changeset(file, attrs)
   end
 
+  # ===== ORPHAN DETECTION =====
+
+  @doc """
+  Returns a list of orphaned files (files not referenced by any known entity).
+
+  ## Options
+
+    - `:limit` - Maximum number of results
+    - `:offset` - Number of results to skip
+
+  """
+  def find_orphaned_files(opts \\ []) do
+    orphaned_files_query()
+    |> order_by([f], desc: f.inserted_at)
+    |> maybe_limit(opts[:limit])
+    |> maybe_offset(opts[:offset])
+    |> repo().all()
+  end
+
+  @doc """
+  Returns the count of orphaned files.
+  """
+  def count_orphaned_files do
+    orphaned_files_query()
+    |> repo().aggregate(:count, :uuid)
+  end
+
+  @doc """
+  Returns true if the given file UUID is not referenced by any known entity.
+  """
+  def file_orphaned?(file_uuid) when is_binary(file_uuid) do
+    orphaned_files_query()
+    |> where([f], f.uuid == ^file_uuid)
+    |> repo().exists?()
+  end
+
+  @doc """
+  Queues a list of file UUIDs for orphan cleanup via Oban.
+
+  Each file is scheduled for deletion after a 60-second delay to protect
+  against race conditions (another entity may reference the file).
+  Only files that are still orphaned at job execution time will be deleted.
+  """
+  def queue_file_cleanup(file_uuids) when is_list(file_uuids) do
+    alias PhoenixKit.Modules.Storage.Workers.DeleteOrphanedFileJob
+
+    file_uuids
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.each(fn uuid ->
+      %{"file_uuid" => uuid}
+      |> DeleteOrphanedFileJob.new(schedule_in: 60)
+      |> Oban.insert()
+    end)
+  end
+
+  defp orphaned_files_query do
+    PhoenixKit.Modules.Storage.File
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_media pm WHERE pm.file_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_ticket_attachments ta WHERE ta.file_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_groups pg WHERE pg.cover_image_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.featured_image_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE ? = ANY(sp.image_ids))",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.file_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_categories sc WHERE sc.image_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_variants sv WHERE sv.featured_image_id = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_variants sv WHERE ? = ANY(sv.image_ids))",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_id' = ?::text)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_contents pc WHERE pc.data->>'featured_image_id' = ?::text)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_posts pp WHERE pp.data->>'featured_image' = ?::text)",
+        f.uuid
+      )
+    )
+  end
+
   # ===== FILE INSTANCES =====
 
   @doc """
@@ -932,19 +1076,62 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
-  Deletes file data from all storage buckets.
+  Deletes file data from all storage buckets for all variants.
   """
   def delete_file_data(%PhoenixKit.Modules.Storage.File{} = file) do
-    # Look up the actual file path from file_instances where "original" variant is stored
-    case get_file_instance_by_name(file.uuid, "original") do
-      %PhoenixKit.Modules.Storage.FileInstance{file_name: file_path} ->
-        case Manager.delete_file(file_path) do
-          :ok -> :ok
-          error -> error
-        end
+    instances = list_file_instances(file.uuid)
 
-      nil ->
-        {:error, "Original file instance not found"}
+    if instances == [] do
+      {:error, "No file instances found"}
+    else
+      results =
+        Enum.map(instances, fn instance ->
+          case Manager.delete_file(instance.file_name) do
+            :ok ->
+              :ok
+
+            error ->
+              Logger.warning(
+                "Failed to delete variant #{instance.variant_name}: #{inspect(error)}"
+              )
+
+              error
+          end
+        end)
+
+      if Enum.any?(results, &(&1 == :ok)),
+        do: :ok,
+        else: {:error, "Failed to delete from all buckets"}
+    end
+  end
+
+  @doc """
+  Deletes a file completely - physical data from all storage buckets and database record.
+
+  ## Examples
+
+      iex> delete_file_completely(file)
+      {:ok, %File{}}
+
+  """
+  def delete_file_completely(%PhoenixKit.Modules.Storage.File{} = file) do
+    # 1. Delete physical files for all variants
+    case delete_file_data(file) do
+      :ok ->
+        Logger.info("Storage: physical files deleted for #{file.uuid}")
+
+      {:error, reason} ->
+        Logger.warning("Storage: partial physical deletion for #{file.uuid}: #{reason}")
+    end
+
+    # 2. Delete DB record (CASCADE handles instances + locations)
+    delete_file(file)
+  end
+
+  def delete_file_completely(file_uuid) when is_binary(file_uuid) do
+    case get_file(file_uuid) do
+      nil -> {:error, :not_found}
+      file -> delete_file_completely(file)
     end
   end
 

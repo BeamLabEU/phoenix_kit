@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias PhoenixKit.Modules.Billing.{BillingProfile, PaymentMethod, SubscriptionPlan}
+  alias PhoenixKit.Modules.Billing.{BillingProfile, PaymentMethod, SubscriptionType}
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -80,7 +80,16 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       references: :uuid,
       type: UUIDv7
 
-    belongs_to :plan, SubscriptionPlan, foreign_key: :plan_uuid, references: :uuid, type: UUIDv7
+    # legacy
+    field :subscription_type_id, :integer
+
+    belongs_to :subscription_type, SubscriptionType,
+      foreign_key: :subscription_type_uuid,
+      references: :uuid,
+      type: UUIDv7
+
+    # legacy
+    field :payment_method_id, :integer
 
     belongs_to :payment_method, PaymentMethod,
       foreign_key: :payment_method_uuid,
@@ -109,14 +118,19 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       :metadata,
       :user_uuid,
       :billing_profile_uuid,
-      :plan_uuid,
+      :subscription_type_uuid,
       :payment_method_uuid
     ])
-    |> validate_required([:user_uuid, :plan_uuid, :current_period_start, :current_period_end])
+    |> validate_required([
+      :user_uuid,
+      :subscription_type_uuid,
+      :current_period_start,
+      :current_period_end
+    ])
     |> validate_inclusion(:status, @statuses)
     |> foreign_key_constraint(:user_uuid)
     |> foreign_key_constraint(:billing_profile_uuid)
-    |> foreign_key_constraint(:plan_uuid)
+    |> foreign_key_constraint(:subscription_type_uuid)
     |> foreign_key_constraint(:payment_method_uuid)
   end
 

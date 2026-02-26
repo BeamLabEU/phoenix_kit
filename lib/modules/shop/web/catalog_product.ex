@@ -17,6 +17,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Shop.Web.Components.FilterHelpers
   alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
   alias PhoenixKit.Modules.Shop.Web.Helpers
+  import PhoenixKit.Modules.Shop.Web.Helpers, only: [format_price: 2]
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
@@ -1102,8 +1103,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   defp placeholder_image_url, do: @placeholder_data_uri
-
-  defp format_price(price, currency), do: Helpers.format_price(price, currency)
 
   # Get option values for a product, with fallback to schema defaults
   # Allows per-product customization of available option values via metadata

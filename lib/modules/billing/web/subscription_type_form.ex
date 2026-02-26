@@ -1,12 +1,12 @@
-defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm do
+defmodule PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm do
   @moduledoc """
-  Subscription plan form LiveView for creating and editing plans.
+  Subscription type form LiveView for creating and editing subscription types.
   """
 
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Billing.SubscriptionPlan
+  alias PhoenixKit.Modules.Billing.SubscriptionType
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -16,31 +16,31 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm do
       project_title = Settings.get_project_title()
       default_currency = Settings.get_setting("billing_default_currency", "EUR")
 
-      {plan, title, mode} =
+      {type, title, mode} =
         case params do
           %{"id" => id} ->
-            case Billing.get_subscription_plan(id) do
-              {:ok, plan} -> {plan, "Edit Plan", :edit}
-              {:error, _} -> {nil, "Plan Not Found", :not_found}
+            case Billing.get_subscription_type(id) do
+              {:ok, type} -> {type, "Edit Subscription Type", :edit}
+              {:error, _} -> {nil, "Subscription Type Not Found", :not_found}
             end
 
           _ ->
-            {%SubscriptionPlan{
+            {%SubscriptionType{
                currency: default_currency,
                interval: "month",
                interval_count: 1,
                active: true
-             }, "Create Plan", :new}
+             }, "Create Subscription Type", :new}
         end
 
-      if plan do
-        changeset = SubscriptionPlan.changeset(plan, %{})
+      if type do
+        changeset = SubscriptionType.changeset(type, %{})
 
         url_path =
           case mode do
-            :new -> Routes.path("/admin/billing/plans/new")
-            :edit -> Routes.path("/admin/billing/plans/#{plan.uuid}/edit")
-            _ -> Routes.path("/admin/billing/plans")
+            :new -> Routes.path("/admin/billing/subscription-types/new")
+            :edit -> Routes.path("/admin/billing/subscription-types/#{type.uuid}/edit")
+            _ -> Routes.path("/admin/billing/subscription-types")
           end
 
         socket =
@@ -49,17 +49,17 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm do
           |> assign(:project_title, project_title)
           |> assign(:url_path, url_path)
           |> assign(:mode, mode)
-          |> assign(:plan, plan)
+          |> assign(:subscription_type, type)
           |> assign(:changeset, changeset)
-          |> assign(:features_input, format_features(plan.features))
+          |> assign(:features_input, format_features(type.features))
           |> assign(:form, to_form(changeset))
 
         {:ok, socket}
       else
         {:ok,
          socket
-         |> put_flash(:error, "Plan not found")
-         |> push_navigate(to: Routes.path("/admin/billing/plans"))}
+         |> put_flash(:error, "Subscription type not found")
+         |> push_navigate(to: Routes.path("/admin/billing/subscription-types"))}
       end
     else
       {:ok,
@@ -75,12 +75,12 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm do
   end
 
   @impl true
-  def handle_event("validate", %{"subscription_plan" => params}, socket) do
+  def handle_event("validate", %{"subscription_type" => params}, socket) do
     params = process_params(params, socket.assigns.features_input)
 
     changeset =
-      socket.assigns.plan
-      |> SubscriptionPlan.changeset(params)
+      socket.assigns.subscription_type
+      |> SubscriptionType.changeset(params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, :form, to_form(changeset))}
@@ -92,27 +92,28 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm do
   end
 
   @impl true
-  def handle_event("save", %{"subscription_plan" => params}, socket) do
+  def handle_event("save", %{"subscription_type" => params}, socket) do
     params = process_params(params, socket.assigns.features_input)
 
     result =
       case socket.assigns.mode do
-        :new -> Billing.create_subscription_plan(params)
-        :edit -> Billing.update_subscription_plan(socket.assigns.plan, params)
+        :new -> Billing.create_subscription_type(params)
+        :edit -> Billing.update_subscription_type(socket.assigns.subscription_type, params)
       end
 
     case result do
-      {:ok, _plan} ->
+      {:ok, _type} ->
         {:noreply,
          socket
-         |> put_flash(:info, plan_saved_message(socket.assigns.mode))
-         |> push_navigate(to: Routes.path("/admin/billing/plans"))}
+         |> put_flash(:info, type_saved_message(socket.assigns.mode))
+         |> push_navigate(to: Routes.path("/admin/billing/subscription-types"))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to save plan: #{inspect(reason)}")}
+        {:noreply,
+         put_flash(socket, :error, "Failed to save subscription type: #{inspect(reason)}")}
     end
   end
 
@@ -142,8 +143,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm do
   defp format_features(features) when is_list(features), do: Enum.join(features, "\n")
   defp format_features(_), do: ""
 
-  defp plan_saved_message(:new), do: "Plan created successfully"
-  defp plan_saved_message(:edit), do: "Plan updated successfully"
+  defp type_saved_message(:new), do: "Subscription type created successfully"
+  defp type_saved_message(:edit), do: "Subscription type updated successfully"
 
   def error_to_string([]), do: ""
 

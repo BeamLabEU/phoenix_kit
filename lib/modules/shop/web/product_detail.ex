@@ -76,14 +76,41 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       |> assign(:selected_image_id, first_image_id)
       |> assign(:selectable_specs, selectable_specs)
       |> assign(:selected_specs, selected_specs)
+      |> assign(:show_delete_modal, false)
+      |> assign(:delete_media_checked, false)
 
     {:ok, socket}
   end
 
   @impl true
+  def handle_event("confirm_delete", _params, socket) do
+    {:noreply, socket |> assign(:show_delete_modal, true) |> assign(:delete_media_checked, false)}
+  end
+
+  @impl true
+  def handle_event("cancel_delete", _params, socket) do
+    {:noreply,
+     socket |> assign(:show_delete_modal, false) |> assign(:delete_media_checked, false)}
+  end
+
+  @impl true
+  def handle_event("toggle_delete_media", _params, socket) do
+    {:noreply, assign(socket, :delete_media_checked, !socket.assigns.delete_media_checked)}
+  end
+
+  @impl true
   def handle_event("delete", _params, socket) do
-    case Shop.delete_product(socket.assigns.product) do
+    product = socket.assigns.product
+
+    file_uuids =
+      if socket.assigns.delete_media_checked,
+        do: Shop.collect_product_file_uuids(product),
+        else: []
+
+    case Shop.delete_product(product) do
       {:ok, _} ->
+        if file_uuids != [], do: Storage.queue_file_cleanup(file_uuids)
+
         {:noreply,
          socket
          |> put_flash(:info, "Product deleted")
@@ -191,8 +218,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 <.icon name="hero-pencil" class="w-4 h-4 mr-2" /> Edit
               </.link>
               <button
-                phx-click="delete"
-                data-confirm="Are you sure you want to delete this product?"
+                phx-click="confirm_delete"
                 class="btn btn-outline btn-error"
               >
                 <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
@@ -571,6 +597,33 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
           </div>
         </div>
       </div>
+      <%!-- Delete Product Modal --%>
+      <%= if @show_delete_modal do %>
+        <div class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg text-error mb-4">Delete Product</h3>
+            <p class="mb-4">
+              Are you sure you want to delete this product? This action cannot be undone.
+            </p>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-error"
+                phx-click="toggle_delete_media"
+                checked={@delete_media_checked}
+              />
+              <span class="label-text">Delete associated media files (orphaned only)</span>
+            </label>
+            <div class="modal-action">
+              <button phx-click="cancel_delete" class="btn">Cancel</button>
+              <button phx-click="delete" class="btn btn-error">
+                <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
+              </button>
+            </div>
+          </div>
+          <div class="modal-backdrop" phx-click="cancel_delete"></div>
+        </div>
+      <% end %>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
   end

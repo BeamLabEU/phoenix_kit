@@ -29,6 +29,7 @@
   {"lib/mix/tasks/phoenix_kit.seed_templates.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :unknown_function},
 
   # Mix.Task behaviour callbacks (expected in Mix tasks)
   # Note: Mix.Task behaviour info is not available to Dialyzer (compile-time only)
@@ -59,6 +60,7 @@
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :callback_info_missing, 1},
 
   # False positive pattern match warnings (runtime behavior differs from static analysis)
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
