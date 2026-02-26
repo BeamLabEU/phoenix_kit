@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
             /> Categories <span class="badge badge-ghost badge-xs ml-1">{length(@categories)}</span>
           </summary>
           <div class="pt-1 max-h-64 overflow-y-auto">
-            <ul class="menu menu-compact p-0">
+            <ul class="menu menu-sm p-0">
               <li>
                 <.link
                   navigate={Shop.catalog_url(@current_language) <> @filter_qs}
@@ -95,7 +95,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
                   <.link
                     navigate={Shop.category_url(cat, @current_language) <> @filter_qs}
                     class={
-                      if @current_category && cat.id == @current_category.id, do: "active", else: ""
+                      if @current_category && cat.uuid == @current_category.uuid,
+                        do: "active",
+                        else: ""
                     }
                   >
                     <.sidebar_cat_icon mode={@category_icon_mode} category={cat} />
@@ -150,7 +152,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
           /> Categories <span class="badge badge-ghost badge-xs ml-1">{length(@categories)}</span>
         </summary>
         <div class="pt-1 max-h-64 overflow-y-auto">
-          <ul class="menu menu-compact p-0">
+          <ul class="menu menu-sm p-0">
             <li>
               <.link
                 navigate={Shop.catalog_url(@current_language) <> @filter_qs}
@@ -165,7 +167,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
                 <.link
                   navigate={Shop.category_url(cat, @current_language) <> @filter_qs}
                   class={
-                    if @current_category && cat.id == @current_category.id, do: "active", else: ""
+                    if @current_category && cat.uuid == @current_category.uuid, do: "active", else: ""
                   }
                 >
                   <.sidebar_cat_icon mode={@category_icon_mode} category={cat} />
@@ -228,7 +230,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
               placeholder={
                 if @range_min, do: Decimal.round(@range_min, 0) |> Decimal.to_string(), else: "Min"
               }
-              class="input input-bordered input-sm w-full"
+              class="input input-sm w-full"
               min="0"
               step="any"
             />
@@ -240,7 +242,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
               placeholder={
                 if @range_max, do: Decimal.round(@range_max, 0) |> Decimal.to_string(), else: "Max"
               }
-              class="input input-bordered input-sm w-full"
+              class="input input-sm w-full"
               min="0"
               step="any"
             />

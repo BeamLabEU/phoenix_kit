@@ -359,6 +359,23 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   @doc """
+  Checks if the current user is authenticated and returns a redirect socket if so.
+
+  Used by auth pages (login, register, etc.) that should not be accessible
+  to already-authenticated users when placed in a shared public live_session.
+
+  Returns `{:redirect, redirected_socket}` if authenticated (caller should halt),
+  or `:cont` if not authenticated (caller should proceed with normal mount).
+  """
+  def maybe_redirect_authenticated(socket) do
+    if Scope.authenticated?(socket.assigns[:phoenix_kit_current_scope]) do
+      {:redirect, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
+    else
+      :cont
+    end
+  end
+
+  @doc """
   Handles mounting and authenticating the phoenix_kit_current_user in LiveViews.
 
   ## `on_mount` arguments
@@ -577,6 +594,8 @@ defmodule PhoenixKitWeb.Users.Auth do
 
       Scope.admin?(scope) ->
         socket = attach_locale_hook(socket)
+        socket = maybe_subscribe_to_module_events(socket)
+        socket = maybe_apply_plugin_layout(socket)
         enforce_admin_view_permission(socket, scope)
 
       true ->
@@ -827,20 +846,21 @@ defmodule PhoenixKitWeb.Users.Auth do
     |> Phoenix.Component.assign(:phoenix_kit_scope_hook_attached?, true)
   end
 
-  defp maybe_manage_scope_subscription(socket, %User{id: user_id}) when is_integer(user_id) do
-    case socket.assigns[:phoenix_kit_scope_subscription_user_id] do
-      ^user_id ->
+  defp maybe_manage_scope_subscription(socket, %User{uuid: user_uuid})
+       when is_binary(user_uuid) do
+    case socket.assigns[:phoenix_kit_scope_subscription_user_uuid] do
+      ^user_uuid ->
         socket
 
-      previous_id when is_integer(previous_id) ->
-        ScopeNotifier.unsubscribe(previous_id)
-        ScopeNotifier.subscribe(user_id)
+      previous_uuid when is_binary(previous_uuid) ->
+        ScopeNotifier.unsubscribe(previous_uuid)
+        ScopeNotifier.subscribe(user_uuid)
 
-        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, user_id)
+        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_uuid, user_uuid)
 
       _ ->
-        ScopeNotifier.subscribe(user_id)
-        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, user_id)
+        ScopeNotifier.subscribe(user_uuid)
+        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_uuid, user_uuid)
     end
   end
 
@@ -849,17 +869,17 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp maybe_unsubscribe_scope_updates(socket) do
-    if previous_id = socket.assigns[:phoenix_kit_scope_subscription_user_id] do
-      ScopeNotifier.unsubscribe(previous_id)
+    if previous_uuid = socket.assigns[:phoenix_kit_scope_subscription_user_uuid] do
+      ScopeNotifier.unsubscribe(previous_uuid)
     end
 
-    Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, nil)
+    Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_uuid, nil)
   end
 
-  defp handle_scope_refresh({:phoenix_kit_scope_roles_updated, user_id}, socket) do
+  defp handle_scope_refresh({:phoenix_kit_scope_roles_updated, user_uuid}, socket) do
     current_scope = socket.assigns[:phoenix_kit_current_scope]
 
-    if Scope.user_id(current_scope) == user_id do
+    if Scope.user_id(current_scope) == user_uuid do
       was_admin = Scope.admin?(current_scope)
       {socket, new_scope} = refresh_scope_assigns(socket)
 
@@ -894,6 +914,55 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp handle_scope_refresh(_msg, socket), do: {:cont, socket}
+
+  # Subscribe to module enable/disable events so the admin sidebar updates
+  # in real-time when modules are toggled. Follows the scope refresh pattern.
+  defp maybe_subscribe_to_module_events(
+         %{assigns: %{phoenix_kit_module_hook_attached?: true}} = socket
+       ),
+       do: socket
+
+  defp maybe_subscribe_to_module_events(socket) do
+    Events.subscribe_to_modules()
+
+    socket
+    |> attach_hook(:phoenix_kit_module_refresh, :handle_info, &handle_module_refresh/2)
+    |> Phoenix.Component.assign(:phoenix_kit_module_hook_attached?, true)
+  end
+
+  defp handle_module_refresh({:module_enabled, _key}, socket) do
+    {:halt,
+     Phoenix.Component.assign(socket, :phoenix_kit_modules_version, System.unique_integer())}
+  end
+
+  defp handle_module_refresh({:module_disabled, _key}, socket) do
+    {:halt,
+     Phoenix.Component.assign(socket, :phoenix_kit_modules_version, System.unique_integer())}
+  end
+
+  defp handle_module_refresh(_msg, socket), do: {:cont, socket}
+
+  # Auto-apply admin layout for external plugin LiveViews.
+  # Core views (PhoenixKitWeb.* and PhoenixKit.Modules.*) handle layout
+  # via LayoutWrapper in their templates. External plugin views need it applied
+  # at the session level so plugin authors don't need to wrap anything.
+  defp maybe_apply_plugin_layout(socket) do
+    view = socket.view
+
+    if external_plugin_view?(view) do
+      put_in(socket.private[:live_layout], {PhoenixKitWeb.Layouts, :admin})
+    else
+      socket
+    end
+  end
+
+  defp external_plugin_view?(view) do
+    case Module.split(view) do
+      ["PhoenixKitWeb" | _] -> false
+      ["PhoenixKit" | _] -> false
+      _ -> true
+    end
+  end
 
   # Priority-ordered list of admin sections to try when redirecting
   # a user who lacks access to the requested page.
@@ -971,6 +1040,11 @@ defmodule PhoenixKitWeb.Users.Auth do
     case permission_key_for_admin_view(socket.view) do
       nil ->
         # Unmapped views: fail-closed for custom roles, allow Admin/Owner
+        Logger.debug(
+          "[Auth] Admin view #{inspect(socket.view)} has no permission mapping — " <>
+            "allowing system roles, denying custom roles"
+        )
+
         if Scope.system_role?(scope) do
           {:cont, socket}
         else
@@ -1124,8 +1198,8 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp refresh_scope_assigns(socket) do
     case socket.assigns[:phoenix_kit_current_user] do
-      %User{id: user_id} ->
-        case Auth.get_user(user_id) do
+      %User{uuid: user_uuid} ->
+        case Auth.get_user(user_uuid) do
           %User{} = user ->
             scope = Scope.for_user(user)
 
@@ -1452,24 +1526,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
           # Validate base code exists in predefined language list AND is enabled
           DialectMapper.valid_base_code?(locale) and locale_allowed?(locale) ->
-            # If this is the default language, redirect to clean URL (no prefix needed)
-            if locale == get_default_admin_language() do
-              redirect_default_locale_to_clean_url(conn, locale)
-            else
-              # Non-default language: process normally with locale prefix
-              current_user = get_user_for_locale_resolution(conn)
-              full_dialect = DialectMapper.resolve_dialect(locale, current_user)
-
-              # Set Gettext to full dialect for translations
-              Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
-
-              # Store in session for LiveView mount
-              # Process dictionary storage is no longer needed
-              conn
-              |> assign(:current_locale_base, locale)
-              |> assign(:current_locale, full_dialect)
-              |> put_session(:phoenix_kit_locale_base, locale)
-            end
+            process_valid_locale(conn, locale)
 
           # Valid predefined but not enabled → redirect to default
           DialectMapper.valid_base_code?(locale) ->
@@ -1638,8 +1695,35 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
+  # Process a validated and enabled locale.
+  # For non-admin paths: redirect default locale to clean URL (no prefix needed).
+  # Admin paths ALWAYS keep the locale in the URL to stay within the
+  # :phoenix_kit_admin_locale live_session and avoid full-page reloads.
+  defp process_valid_locale(conn, locale) do
+    if locale == get_default_admin_language() and not admin_request?(conn) do
+      redirect_default_locale_to_clean_url(conn, locale)
+    else
+      current_user = get_user_for_locale_resolution(conn)
+      full_dialect = DialectMapper.resolve_dialect(locale, current_user)
+
+      Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
+
+      conn
+      |> assign(:current_locale_base, locale)
+      |> assign(:current_locale, full_dialect)
+      |> put_session(:phoenix_kit_locale_base, locale)
+    end
+  end
+
+  # Check if the request path is an admin path.
+  # Admin paths must keep the locale in the URL to stay within the
+  # :phoenix_kit_admin_locale live_session boundary.
+  defp admin_request?(conn) do
+    String.contains?(conn.request_path, "/admin")
+  end
+
   # Redirects default language URLs to clean URLs (no locale prefix)
-  # Example: /phoenix_kit/en/admin → /phoenix_kit/admin
+  # Example: /phoenix_kit/en/dashboard → /phoenix_kit/dashboard
   # Uses 301 permanent redirect for SEO - tells browsers/search engines the clean URL is canonical
   defp redirect_default_locale_to_clean_url(conn, locale) do
     # Remove /en/ from path: /phoenix_kit/en/admin → /phoenix_kit/admin

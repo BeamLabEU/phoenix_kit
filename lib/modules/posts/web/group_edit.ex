@@ -59,7 +59,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
     socket
     |> assign(:page_title, "New Group")
     |> assign(:project_title, project_title)
-    |> assign(:group, %{uuid: nil, user_id: current_user.id})
+    |> assign(:group, %{uuid: nil, user_uuid: current_user.uuid})
     |> assign(:form, form)
     |> assign(:current_user, current_user)
   end
@@ -77,7 +77,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
   end
 
   defp load_existing_group(socket, group, current_user, project_title) do
-    if group.user_id == current_user.id do
+    if group.user_uuid == current_user.uuid do
       form_data = %{
         "name" => group.name || "",
         "description" => group.description || "",

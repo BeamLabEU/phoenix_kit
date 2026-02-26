@@ -94,7 +94,10 @@ defmodule PhoenixKit.Modules.Emails do
         aws_ses_configuration_set: "my-app-system"
   """
 
+  use PhoenixKit.Module
+
   alias PhoenixKit.Config.AWS
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Emails.{Event, Log, SQSProcessor}
   alias PhoenixKit.Settings
 
@@ -140,7 +143,7 @@ defmodule PhoenixKit.Modules.Emails do
     case {search_type, found?} do
       {:aws_message_id, true} ->
         Logger.info("Found existing email log by AWS message ID", %{
-          log_id: log.id,
+          log_id: log.uuid,
           current_status: log.status,
           aws_message_id: message_id
         })
@@ -150,7 +153,7 @@ defmodule PhoenixKit.Modules.Emails do
 
       {:internal_message_id, true} ->
         Logger.info("Found existing email log by internal message ID", %{
-          log_id: log.id,
+          log_id: log.uuid,
           current_status: log.status,
           internal_message_id: message_id,
           aws_message_id: aws_id
@@ -161,7 +164,7 @@ defmodule PhoenixKit.Modules.Emails do
 
       {:unknown_format, true} ->
         Logger.info("Found existing email log by unknown message ID format", %{
-          log_id: log.id,
+          log_id: log.uuid,
           current_status: log.status,
           search_message_id: message_id,
           aws_message_id: aws_id
@@ -202,7 +205,7 @@ defmodule PhoenixKit.Modules.Emails do
         case Log.find_by_aws_message_id(message_id) do
           {:ok, log} ->
             Logger.info("Found existing email log by AWS message ID (fallback)", %{
-              log_id: log.id,
+              log_id: log.uuid,
               current_status: log.status,
               aws_message_id: message_id
             })
@@ -675,6 +678,7 @@ defmodule PhoenixKit.Modules.Emails do
 
   ## --- System Settings ---
 
+  @impl PhoenixKit.Module
   @doc """
   Checks if the email system is enabled.
 
@@ -689,6 +693,7 @@ defmodule PhoenixKit.Modules.Emails do
     Settings.get_boolean_setting("email_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the email system.
 
@@ -703,6 +708,7 @@ defmodule PhoenixKit.Modules.Emails do
     Settings.update_boolean_setting_with_module("email_enabled", true, "email_system")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the email system.
 
@@ -716,6 +722,119 @@ defmodule PhoenixKit.Modules.Emails do
   def disable_system do
     Settings.update_boolean_setting_with_module("email_enabled", false, "email_system")
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "emails"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Emails"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "emails",
+      label: "Emails",
+      icon: "hero-envelope",
+      description: "Email delivery tracking, templates, and analytics"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_emails,
+        label: "Emails",
+        icon: "hero-envelope",
+        path: "/admin/emails/dashboard",
+        priority: 510,
+        level: :admin,
+        permission: "emails",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false,
+        subtab_indent: "pl-4"
+      ),
+      Tab.new!(
+        id: :admin_emails_dashboard,
+        label: "Dashboard",
+        icon: "hero-chart-bar-square",
+        path: "/admin/emails/dashboard",
+        priority: 511,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      ),
+      Tab.new!(
+        id: :admin_emails_list,
+        label: "Emails",
+        icon: "hero-inbox-stack",
+        path: "/admin/emails",
+        priority: 512,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails,
+        match: :exact
+      ),
+      Tab.new!(
+        id: :admin_emails_templates,
+        label: "Templates",
+        icon: "hero-document-duplicate",
+        path: "/admin/emails/templates",
+        priority: 513,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      ),
+      Tab.new!(
+        id: :admin_emails_queue,
+        label: "Queue",
+        icon: "hero-queue-list",
+        path: "/admin/emails/queue",
+        priority: 514,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      ),
+      Tab.new!(
+        id: :admin_emails_blocklist,
+        label: "Blocklist",
+        icon: "hero-no-symbol",
+        path: "/admin/emails/blocklist",
+        priority: 515,
+        level: :admin,
+        permission: "emails",
+        parent: :admin_emails
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_emails,
+        label: "Emails",
+        icon: "hero-envelope",
+        path: "/admin/settings/emails",
+        priority: 925,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "emails"
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def children, do: [PhoenixKit.Modules.Emails.Supervisor]
+
+  @impl PhoenixKit.Module
+  def route_module, do: PhoenixKitWeb.Routes.EmailsRoutes
 
   @doc """
   Checks if full email body saving is enabled.
@@ -894,7 +1013,7 @@ defmodule PhoenixKit.Modules.Emails do
             ^"true"
           ) or l.template_name == "placeholder",
         select: %{
-          id: l.id,
+          uuid: l.uuid,
           status: l.status,
           event_type: fragment("?->>'x-created-from-event'", l.headers),
           inserted_at: l.inserted_at
@@ -1336,6 +1455,7 @@ defmodule PhoenixKit.Modules.Emails do
     }
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current email system configuration.
 
@@ -1478,14 +1598,19 @@ defmodule PhoenixKit.Modules.Emails do
       {:ok, %Log{}}
   """
   def create_log(attrs \\ %{}) do
+    attrs = if is_struct(attrs), do: Map.from_struct(attrs), else: attrs
+
     if enabled?() and should_log_email?(attrs) do
       # Add system-level defaults
       attrs =
         Map.merge(attrs, %{
           configuration_set: get_ses_configuration_set(),
           body_full:
-            if(save_body_enabled?() and attrs[:body_full], do: attrs[:body_full], else: nil),
-          headers: attrs[:headers] || %{}
+            if(save_body_enabled?() and Map.get(attrs, :body_full),
+              do: Map.get(attrs, :body_full),
+              else: nil
+            ),
+          headers: Map.get(attrs, :headers) || %{}
         })
 
       Log.create_log(attrs)
@@ -1535,7 +1660,7 @@ defmodule PhoenixKit.Modules.Emails do
   ## Examples
 
       iex> PhoenixKit.Modules.Emails.create_event(%{
-        email_log_id: 1,
+        email_log_uuid: log.uuid,
         event_type: "open"
       })
       {:ok, %Event{}}
@@ -1553,17 +1678,9 @@ defmodule PhoenixKit.Modules.Emails do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.list_events_for_log(123)
+      iex> PhoenixKit.Modules.Emails.list_events_for_log("550e8400-e29b-41d4-a716-446655440000")
       [%Event{}, ...]
   """
-  def list_events_for_log(email_log_id) when is_integer(email_log_id) do
-    if enabled?() do
-      Event.for_email_log(email_log_id)
-    else
-      []
-    end
-  end
-
   def list_events_for_log(email_log_uuid) when is_binary(email_log_uuid) do
     if enabled?() do
       Event.for_email_log(email_log_uuid)
@@ -1737,7 +1854,7 @@ defmodule PhoenixKit.Modules.Emails do
         |> select([l], {
           l.template_name,
           %{
-            sent: count(l.id),
+            sent: count(l.uuid),
             delivered: sum(fragment("CASE WHEN ? = ? THEN 1 ELSE 0 END", l.status, "delivered")),
             opened: sum(fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", l.opened_at)),
             clicked: sum(fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", l.clicked_at))

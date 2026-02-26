@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
       # Use with AI completion
       {:ok, response} = PhoenixKit.Modules.AI.ask_with_prompt(
         endpoint_id,
-        prompt.id,
+        prompt.uuid,
         %{"Language" => "Spanish", "Text" => "Good morning"}
       )
   """
@@ -73,7 +73,6 @@ defmodule PhoenixKit.Modules.AI.Prompt do
 
   @derive {Jason.Encoder,
            only: [
-             :id,
              :uuid,
              :name,
              :slug,
@@ -90,9 +89,6 @@ defmodule PhoenixKit.Modules.AI.Prompt do
            ]}
 
   schema "phoenix_kit_ai_prompts" do
-    # Legacy integer ID - DB generates, Ecto reads back
-    field :id, :integer, read_after_writes: true
-
     # Identity
     field :name, :string
     field :slug, :string

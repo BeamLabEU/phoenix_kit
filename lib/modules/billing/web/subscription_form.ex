@@ -4,7 +4,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
 
   Allows administrators to:
   - Search and select a user by email
-  - Choose a subscription plan
+  - Choose a subscription type
   - Optionally assign a payment method
   - Configure trial period
   """
@@ -20,17 +20,17 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   def mount(_params, _session, socket) do
     if Billing.enabled?() do
       project_title = Settings.get_project_title()
-      plans = Billing.list_subscription_plans(active_only: true)
+      types = Billing.list_subscription_types(active_only: true)
 
       socket =
         socket
         |> assign(:page_title, "Create Subscription")
         |> assign(:project_title, project_title)
-        |> assign(:plans, plans)
+        |> assign(:subscription_types, types)
         |> assign(:user_search, "")
         |> assign(:user_results, [])
         |> assign(:selected_user, nil)
-        |> assign(:selected_plan_uuid, nil)
+        |> assign(:selected_subscription_type_uuid, nil)
         |> assign(:payment_methods, [])
         |> assign(:selected_payment_method_uuid, nil)
         |> assign(:enable_trial, false)
@@ -68,7 +68,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
         {:noreply, put_flash(socket, :error, "User not found")}
 
       user ->
-        payment_methods = Billing.list_payment_methods(user.id, status: "active")
+        payment_methods = Billing.list_payment_methods(user.uuid, status: "active")
 
         {:noreply,
          socket
@@ -92,13 +92,13 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   end
 
   @impl true
-  def handle_event("select_plan", %{"plan_id" => plan_id}, socket) do
-    plan_id = if plan_id == "", do: nil, else: plan_id
+  def handle_event("select_subscription_type", %{"subscription_type_uuid" => type_id}, socket) do
+    type_id = if type_id == "", do: nil, else: type_id
 
-    # Get plan's default trial days
+    # Get subscription type's default trial days
     trial_days =
-      if plan_id do
-        case Enum.find(socket.assigns.plans, &(to_string(&1.uuid) == plan_id)) do
+      if type_id do
+        case Enum.find(socket.assigns.subscription_types, &(to_string(&1.uuid) == type_id)) do
           %{trial_days: days} when is_integer(days) and days > 0 -> to_string(days)
           _ -> ""
         end
@@ -108,13 +108,13 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
 
     {:noreply,
      socket
-     |> assign(:selected_plan_uuid, plan_id)
+     |> assign(:selected_subscription_type_uuid, type_id)
      |> assign(:trial_days, trial_days)
      |> assign(:enable_trial, trial_days != "")}
   end
 
   @impl true
-  def handle_event("select_payment_method", %{"payment_method_id" => pm_id}, socket) do
+  def handle_event("select_payment_method", %{"payment_method_uuid" => pm_id}, socket) do
     pm_id = if pm_id == "", do: nil, else: pm_id
     {:noreply, assign(socket, :selected_payment_method_uuid, pm_id)}
   end
@@ -139,7 +139,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   def handle_event("save", _params, socket) do
     %{
       selected_user: user,
-      selected_plan_uuid: plan_id,
+      selected_subscription_type_uuid: type_id,
       selected_payment_method_uuid: pm_id,
       enable_trial: enable_trial,
       trial_days: trial_days
@@ -149,12 +149,12 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
       is_nil(user) ->
         {:noreply, assign(socket, :error, "Please select a customer")}
 
-      is_nil(plan_id) ->
-        {:noreply, assign(socket, :error, "Please select a plan")}
+      is_nil(type_id) ->
+        {:noreply, assign(socket, :error, "Please select a subscription type")}
 
       true ->
         attrs = %{
-          plan_uuid: plan_id,
+          subscription_type_uuid: type_id,
           payment_method_uuid: pm_id,
           trial_days:
             if(enable_trial && trial_days != "", do: String.to_integer(trial_days), else: 0)

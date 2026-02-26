@@ -307,7 +307,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     if current_user do
-      user_id = current_user.id
+      user_id = current_user.uuid
       file_hash = Auth.calculate_file_hash(path)
 
       case Storage.store_file_in_buckets(
@@ -372,9 +372,9 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
     instances_by_file =
       if Enum.any?(file_ids) do
-        from(fi in FileInstance, where: fi.file_id in ^file_ids)
+        from(fi in FileInstance, where: fi.file_uuid in ^file_ids)
         |> repo.all()
-        |> Enum.group_by(& &1.file_id)
+        |> Enum.group_by(& &1.file_uuid)
       else
         %{}
       end

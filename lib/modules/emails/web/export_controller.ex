@@ -266,7 +266,7 @@ defmodule PhoenixKit.Modules.Emails.Web.ExportController do
   # Get basic log fields
   defp get_log_basic_fields(log) do
     [
-      log.id,
+      log.uuid,
       log.message_id || "",
       log.to || "",
       log.from || "",
@@ -362,7 +362,7 @@ defmodule PhoenixKit.Modules.Emails.Web.ExportController do
   # Get email detail rows
   defp get_email_detail_rows(log) do
     [
-      ["ID", log.id],
+      ["UUID", log.uuid],
       ["Message ID", log.message_id || ""],
       ["To", log.to || ""],
       ["From", log.from || ""],

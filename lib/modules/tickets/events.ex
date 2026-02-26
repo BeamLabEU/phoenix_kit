@@ -44,7 +44,6 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   """
 
   alias PhoenixKit.PubSub.Manager
-  alias PhoenixKit.Users.Auth
 
   @all_topic "tickets:all"
 
@@ -55,22 +54,8 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Returns the PubSub topic for a specific user's tickets.
   """
-  def user_topic(user_id) when is_integer(user_id) do
-    "tickets:user:#{user_id}"
-  end
-
-  def user_topic(user_id) when is_binary(user_id) do
-    # Resolve UUID to integer ID to ensure consistent topic names
-    case Integer.parse(user_id) do
-      {int_id, ""} ->
-        "tickets:user:#{int_id}"
-
-      _ ->
-        case Auth.get_user(user_id) do
-          %{id: int_id} -> "tickets:user:#{int_id}"
-          nil -> "tickets:user:unknown"
-        end
-    end
+  def user_topic(user_uuid) when is_binary(user_uuid) do
+    "tickets:user:#{user_uuid}"
   end
 
   @doc """
@@ -100,10 +85,6 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Subscribes to ticket events for a specific user.
   """
-  def subscribe_to_user_tickets(user_id) when is_integer(user_id) do
-    Manager.subscribe(user_topic(user_id))
-  end
-
   def subscribe_to_user_tickets(user_id) when is_binary(user_id) do
     Manager.subscribe(user_topic(user_id))
   end
@@ -125,10 +106,6 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Unsubscribes from a specific user's ticket events.
   """
-  def unsubscribe_from_user_tickets(user_id) when is_integer(user_id) do
-    Manager.unsubscribe(user_topic(user_id))
-  end
-
   def unsubscribe_from_user_tickets(user_id) when is_binary(user_id) do
     Manager.unsubscribe(user_topic(user_id))
   end
@@ -149,7 +126,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   """
   def broadcast_ticket_created(ticket) do
     broadcast(@all_topic, {:ticket_created, ticket})
-    broadcast(user_topic(ticket.user_id), {:ticket_created, ticket})
+    broadcast(user_topic(ticket.user_uuid), {:ticket_created, ticket})
     broadcast(ticket_topic(ticket.uuid), {:ticket_created, ticket})
   end
 
@@ -158,7 +135,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   """
   def broadcast_ticket_updated(ticket) do
     broadcast(@all_topic, {:ticket_updated, ticket})
-    broadcast(user_topic(ticket.user_id), {:ticket_updated, ticket})
+    broadcast(user_topic(ticket.user_uuid), {:ticket_updated, ticket})
     broadcast(ticket_topic(ticket.uuid), {:ticket_updated, ticket})
   end
 
@@ -168,22 +145,22 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   def broadcast_ticket_status_changed(ticket, old_status, new_status) do
     message = {:ticket_status_changed, ticket, old_status, new_status}
     broadcast(@all_topic, message)
-    broadcast(user_topic(ticket.user_id), message)
+    broadcast(user_topic(ticket.user_uuid), message)
     broadcast(ticket_topic(ticket.uuid), message)
   end
 
   @doc """
   Broadcasts ticket assigned event.
   """
-  def broadcast_ticket_assigned(ticket, old_assignee_id, new_assignee_id) do
-    message = {:ticket_assigned, ticket, old_assignee_id, new_assignee_id}
+  def broadcast_ticket_assigned(ticket, old_assignee_uuid, new_assignee_uuid) do
+    message = {:ticket_assigned, ticket, old_assignee_uuid, new_assignee_uuid}
     broadcast(@all_topic, message)
-    broadcast(user_topic(ticket.user_id), message)
+    broadcast(user_topic(ticket.user_uuid), message)
     broadcast(ticket_topic(ticket.uuid), message)
 
     # Also broadcast to the new assignee's topic if assigned
-    if new_assignee_id do
-      broadcast(user_topic(new_assignee_id), message)
+    if new_assignee_uuid do
+      broadcast(user_topic(new_assignee_uuid), message)
     end
   end
 
@@ -193,7 +170,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   def broadcast_ticket_priority_changed(ticket, old_priority, new_priority) do
     message = {:ticket_priority_changed, ticket, old_priority, new_priority}
     broadcast(@all_topic, message)
-    broadcast(user_topic(ticket.user_id), message)
+    broadcast(user_topic(ticket.user_uuid), message)
     broadcast(ticket_topic(ticket.uuid), message)
   end
 
@@ -205,10 +182,10 @@ defmodule PhoenixKit.Modules.Tickets.Events do
 
     # Also broadcast to each affected user's topic
     tickets
-    |> Enum.map(& &1.user_id)
+    |> Enum.map(& &1.user_uuid)
     |> Enum.uniq()
-    |> Enum.each(fn user_id ->
-      broadcast(user_topic(user_id), {:tickets_bulk_updated, tickets, changes})
+    |> Enum.each(fn user_uuid ->
+      broadcast(user_topic(user_uuid), {:tickets_bulk_updated, tickets, changes})
     end)
   end
 
@@ -222,7 +199,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   def broadcast_comment_created(comment, ticket) do
     message = {:comment_created, comment, ticket}
     broadcast(@all_topic, message)
-    broadcast(user_topic(ticket.user_id), message)
+    broadcast(user_topic(ticket.user_uuid), message)
     broadcast(ticket_topic(ticket.uuid), message)
   end
 

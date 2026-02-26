@@ -321,12 +321,13 @@ defmodule PhoenixKit.Modules.Emails.SQSPollingJob do
 
   # Build AWS configuration
   defp build_aws_config(config) do
-    if config.aws_access_key_id != "" and config.aws_secret_access_key != "" and
-         config.aws_region != "" do
+    if is_binary(config.aws_access_key_id) and config.aws_access_key_id != "" and
+         is_binary(config.aws_secret_access_key) and config.aws_secret_access_key != "" and
+         is_binary(config.aws_region) and config.aws_region != "" do
       [
-        access_key_id: config.aws_access_key_id,
-        secret_access_key: config.aws_secret_access_key,
-        region: config.aws_region
+        access_key_id: String.trim(config.aws_access_key_id),
+        secret_access_key: String.trim(config.aws_secret_access_key),
+        region: String.trim(config.aws_region)
       ]
     else
       []

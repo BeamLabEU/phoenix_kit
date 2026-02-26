@@ -4,7 +4,7 @@
   page_title={
     gettext("%{project_title} %{action} %{entity}",
       project_title: @project_title,
-      action: if(@entity.id, do: gettext("Edit"), else: gettext("New")),
+      action: if(@entity.uuid, do: gettext("Edit"), else: gettext("New")),
       entity: gettext("Entity")
     )
   }
@@ -16,7 +16,7 @@
     <%!-- Header Section --%>
     <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/entities")}>
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
-        {if @entity.id, do: gettext("Edit Entity"), else: gettext("Create New Entity")}
+        {if @entity.uuid, do: gettext("Edit Entity"), else: gettext("Create New Entity")}
       </h1>
       <p class="text-sm text-base-content/60 mt-0.5">
         {gettext("Define your custom content type with dynamic fields")}
@@ -49,7 +49,7 @@
           class="btn btn-primary"
           disabled={!@changeset.valid? or @readonly?}
         >
-          {if @entity.id, do: gettext("Update Entity"), else: gettext("Create Entity")}
+          {if @entity.uuid, do: gettext("Update Entity"), else: gettext("Create Entity")}
         </button>
       </div>
 
@@ -91,7 +91,7 @@
                   <button
                     type="button"
                     role="tab"
-                    phx-click={switch_lang_js(tab.code)}
+                    phx-click={switch_lang_js(tab.code, @current_lang)}
                     title={tab.name}
                     class={[
                       "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
@@ -113,7 +113,7 @@
                     <button
                       type="button"
                       role="tab"
-                      phx-click={switch_lang_js(tab.code)}
+                      phx-click={switch_lang_js(tab.code, @current_lang)}
                       class={[
                         "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all font-medium cursor-pointer",
                         @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
@@ -130,7 +130,7 @@
                     <button
                       type="button"
                       role="tab"
-                      phx-click={switch_lang_js(tab.code)}
+                      phx-click={switch_lang_js(tab.code, @current_lang)}
                       class={[
                         "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
                         @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
@@ -1157,7 +1157,7 @@
                 {gettext("Configure automatic backup to file for this entity")}
               </p>
             </div>
-            <%= if @entity.id do %>
+            <%= if @entity.uuid do %>
               <button
                 type="button"
                 class="btn btn-primary btn-sm"
@@ -1170,7 +1170,7 @@
             <% end %>
           </div>
 
-          <%= if @entity.id do %>
+          <%= if @entity.uuid do %>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <%!-- Definition Sync Toggle --%>
               <div class="form-control">
@@ -1263,7 +1263,7 @@
           class="btn btn-primary"
           disabled={!@changeset.valid? or @readonly?}
         >
-          {if @entity.id, do: gettext("Update Entity"), else: gettext("Create Entity")}
+          {if @entity.uuid, do: gettext("Update Entity"), else: gettext("Create Entity")}
         </button>
       </div>
     </.form>

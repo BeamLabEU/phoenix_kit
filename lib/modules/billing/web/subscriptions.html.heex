@@ -14,10 +14,10 @@
     >
       <:actions>
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscription-types")}
           class="btn btn-outline btn-sm"
         >
-          <.icon name="hero-squares-2x2" class="w-4 h-4" /> Manage Plans
+          <.icon name="hero-squares-2x2" class="w-4 h-4" /> Manage Subscription Types
         </.link>
         <.link
           navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscriptions/new")}
@@ -131,7 +131,7 @@
               <thead>
                 <tr>
                   <th>Customer</th>
-                  <th>Plan</th>
+                  <th>Subscription Type</th>
                   <th>Status</th>
                   <th>Current Period</th>
                   <th>Price</th>
@@ -157,18 +157,18 @@
                       <% end %>
                     </td>
                     <td>
-                      <%= if subscription.plan do %>
+                      <%= if subscription.subscription_type do %>
                         <div>
-                          <div class="font-medium">{subscription.plan.name}</div>
+                          <div class="font-medium">{subscription.subscription_type.name}</div>
                           <div class="text-xs text-base-content/60">
                             {format_interval(
-                              subscription.plan.interval,
-                              subscription.plan.interval_count
+                              subscription.subscription_type.interval,
+                              subscription.subscription_type.interval_count
                             )}
                           </div>
                         </div>
                       <% else %>
-                        <span class="text-base-content/50">No plan</span>
+                        <span class="text-base-content/50">No subscription type</span>
                       <% end %>
                     </td>
                     <td>
@@ -197,10 +197,10 @@
                       </div>
                     </td>
                     <td>
-                      <%= if subscription.plan do %>
+                      <%= if subscription.subscription_type do %>
                         <.currency_compact
-                          amount={subscription.plan.price}
-                          currency={subscription.plan.currency}
+                          amount={subscription.subscription_type.price}
+                          currency={subscription.subscription_type.currency}
                         />
                       <% else %>
                         <span class="text-base-content/50">-</span>

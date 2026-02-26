@@ -45,6 +45,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:selected_ids, MapSet.new())
       |> assign(:show_bulk_modal, nil)
       |> assign(:current_language, current_language)
+      |> assign(:delete_target, nil)
+      |> assign(:delete_media_checked, false)
+      |> assign(:bulk_delete_media, false)
 
     {:ok, socket}
   end
@@ -150,6 +153,62 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
+  def handle_event("confirm_delete", %{"uuid" => uuid}, socket) do
+    product = Shop.get_product!(uuid)
+    {:noreply, socket |> assign(:delete_target, product) |> assign(:delete_media_checked, false)}
+  end
+
+  @impl true
+  def handle_event("toggle_delete_media", _params, socket) do
+    {:noreply, assign(socket, :delete_media_checked, !socket.assigns.delete_media_checked)}
+  end
+
+  @impl true
+  def handle_event("cancel_delete", _params, socket) do
+    {:noreply, socket |> assign(:delete_target, nil) |> assign(:delete_media_checked, false)}
+  end
+
+  @impl true
+  def handle_event("execute_delete", _params, socket) do
+    product = socket.assigns.delete_target
+
+    file_uuids =
+      if socket.assigns.delete_media_checked,
+        do: Shop.collect_product_file_uuids(product),
+        else: []
+
+    case Shop.delete_product(product) do
+      {:ok, _} ->
+        if file_uuids != [], do: Storage.queue_file_cleanup(file_uuids)
+
+        {products, total} =
+          Shop.list_products_with_count(
+            page: socket.assigns.page,
+            per_page: @per_page,
+            search: socket.assigns.search,
+            status: socket.assigns.status_filter,
+            product_type: socket.assigns.type_filter,
+            category_id: socket.assigns.category_filter,
+            preload: [:category]
+          )
+
+        {:noreply,
+         socket
+         |> assign(:products, products)
+         |> assign(:total, total)
+         |> assign(:delete_target, nil)
+         |> assign(:delete_media_checked, false)
+         |> put_flash(:info, "Product deleted")}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(:delete_target, nil)
+         |> put_flash(:error, "Failed to delete product")}
+    end
+  end
+
+  @impl true
   def handle_event("delete_product", %{"uuid" => uuid}, socket) do
     product = Shop.get_product!(uuid)
 
@@ -250,9 +309,21 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
+  def handle_event("toggle_bulk_delete_media", _params, socket) do
+    {:noreply, assign(socket, :bulk_delete_media, !socket.assigns.bulk_delete_media)}
+  end
+
+  @impl true
   def handle_event("bulk_delete", _params, socket) do
     ids = MapSet.to_list(socket.assigns.selected_ids)
+
+    file_uuids =
+      if socket.assigns.bulk_delete_media,
+        do: Shop.collect_products_file_uuids(ids),
+        else: []
+
     count = Shop.bulk_delete_products(ids)
+    if file_uuids != [], do: Storage.queue_file_cleanup(file_uuids)
 
     socket = load_products(socket)
 
@@ -260,6 +331,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
      socket
      |> assign(:selected_ids, MapSet.new())
      |> assign(:show_bulk_modal, nil)
+     |> assign(:bulk_delete_media, false)
      |> put_flash(:info, "#{count} products deleted")}
   end
 
@@ -317,23 +389,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
-        <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">Products</h1>
-              <p class="text-base-content/70 mt-1">
-                {if @total == 1, do: "1 product", else: "#{@total} products"}
-              </p>
-            </div>
-          </div>
-        </header>
+        <.admin_page_header back={Routes.path("/admin/shop")}>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">Products</h1>
+          <p class="text-sm sm:text-base text-base-content/60 mt-0.5">
+            {if @total == 1, do: "1 product", else: "#{@total} products"}
+          </p>
+        </.admin_page_header>
 
         <%!-- Controls Bar --%>
         <div class="bg-base-200 rounded-lg p-6 mb-6">
@@ -571,10 +632,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                             <.icon name="hero-pencil" class="h-4 w-4" />
                           </.link>
                           <button
-                            phx-click="delete_product"
+                            phx-click="confirm_delete"
                             phx-value-uuid={product.uuid}
-                            data-confirm="Delete this product?"
                             class="btn btn-xs btn-outline btn-error"
+                            title="Delete product"
                           >
                             <.icon name="hero-trash" class="h-4 w-4" />
                           </button>
@@ -694,6 +755,15 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
               Are you sure you want to delete {MapSet.size(@selected_ids)} products?
               This action cannot be undone.
             </p>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-error"
+                phx-click="toggle_bulk_delete_media"
+                checked={@bulk_delete_media}
+              />
+              <span class="label-text">Delete associated media files (orphaned only)</span>
+            </label>
             <div class="modal-action">
               <button phx-click="close_bulk_modal" class="btn">Cancel</button>
               <button phx-click="bulk_delete" class="btn btn-error">
@@ -702,6 +772,30 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
             </div>
           </div>
           <div class="modal-backdrop" phx-click="close_bulk_modal"></div>
+        </div>
+      <% end %>
+
+      <%!-- Single Product Delete Confirmation Modal --%>
+      <%= if @delete_target do %>
+        <div class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg text-error mb-4">Delete Product</h3>
+            <p class="mb-4">Are you sure you want to delete this product?</p>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-error"
+                phx-click="toggle_delete_media"
+                checked={@delete_media_checked}
+              />
+              <span class="label-text">Delete associated media files (orphaned only)</span>
+            </label>
+            <div class="modal-action">
+              <button phx-click="cancel_delete" class="btn">Cancel</button>
+              <button phx-click="execute_delete" class="btn btn-error">Delete</button>
+            </div>
+          </div>
+          <div class="modal-backdrop" phx-click="cancel_delete"></div>
         </div>
       <% end %>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
@@ -738,7 +832,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   # Get product thumbnail - prefers Storage images over legacy URLs
-  defp get_product_thumbnail(%{featured_image_id: id}) when is_binary(id) do
+  defp get_product_thumbnail(%{featured_image_uuid: id}) when is_binary(id) do
     get_storage_image_url(id, "small")
   end
 

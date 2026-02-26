@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
              (not is_nil(p.featured_image) and p.featured_image != "")) and
             is_nil(p.featured_image_uuid) and
             fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
-        select: count(p.id)
+        select: count(p.uuid)
       )
 
     repo().one(query) || 0
@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           not is_nil(p.featured_image_uuid) or
             fragment("array_length(?, 1) > 0", p.image_ids),
-        select: count(p.id)
+        select: count(p.uuid)
       )
 
     repo().one(query) || 0
@@ -216,7 +216,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     jobs =
       Enum.map(products, fn product ->
         ImageMigrationWorker.new(
-          %{product_id: product.id, user_id: user_id},
+          %{product_id: product.uuid, user_id: user_id},
           priority: priority
         )
       end)
@@ -266,7 +266,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   ## Examples
 
       iex> migrate_product(product_id, user_id)
-      {:ok, %Product{featured_image_id: "uuid-1", image_ids: ["uuid-1", "uuid-2"]}}
+      {:ok, %Product{featured_image_uuid: "uuid-1", image_ids: ["uuid-1", "uuid-2"]}}
 
   """
   @spec migrate_product(String.t(), String.t() | integer()) ::
@@ -303,11 +303,11 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   defp validate_product_for_migration(product) do
     cond do
       is_nil(product.title) or product.title == %{} ->
-        Logger.warning("Product #{product.id} missing title, skipping migration")
+        Logger.warning("Product #{product.uuid} missing title, skipping migration")
         {:error, :missing_title}
 
       is_nil(product.slug) or product.slug == %{} ->
-        Logger.warning("Product #{product.id} missing slug, skipping migration")
+        Logger.warning("Product #{product.uuid} missing slug, skipping migration")
         {:error, :missing_slug}
 
       true ->
@@ -350,15 +350,15 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
 
     if invalid_urls != [] do
       Logger.warning(
-        "Product #{product.id}: #{length(invalid_urls)} invalid URLs skipped: #{inspect(invalid_urls)}"
+        "Product #{product.uuid}: #{length(invalid_urls)} invalid URLs skipped: #{inspect(invalid_urls)}"
       )
     end
 
     if valid_urls == [] do
-      Logger.warning("Product #{product.id}: All image URLs invalid")
+      Logger.warning("Product #{product.uuid}: All image URLs invalid")
       {:error, :all_urls_invalid}
     else
-      Logger.info("Migrating #{length(valid_urls)} valid images for product #{product.id}")
+      Logger.info("Migrating #{length(valid_urls)} valid images for product #{product.uuid}")
 
       # Download all images
       results =
@@ -384,8 +384,8 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   end
 
   defp update_product_images(product, url_to_file_id) do
-    # Map featured_image to featured_image_id
-    featured_image_id = Map.get(url_to_file_id, product.featured_image)
+    # Map featured_image to featured_image_uuid
+    featured_image_uuid = Map.get(url_to_file_id, product.featured_image)
 
     # Map legacy images to image_ids, preserving order from original images array
     image_ids =
@@ -399,12 +399,12 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
       |> Enum.reject(&is_nil/1)
 
     # Use first image_id as featured if not set
-    featured_image_id = featured_image_id || List.first(image_ids)
+    featured_image_uuid = featured_image_uuid || List.first(image_ids)
 
     # Ensure featured image is first in image_ids (no duplicates)
     image_ids =
-      if featured_image_id && featured_image_id in image_ids do
-        [featured_image_id | Enum.reject(image_ids, &(&1 == featured_image_id))]
+      if featured_image_uuid && featured_image_uuid in image_ids do
+        [featured_image_uuid | Enum.reject(image_ids, &(&1 == featured_image_uuid))]
       else
         image_ids
       end
@@ -413,7 +413,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     metadata = update_image_mappings(product.metadata, url_to_file_id)
 
     attrs = %{
-      featured_image_uuid: featured_image_id,
+      featured_image_uuid: featured_image_uuid,
       image_ids: image_ids,
       metadata: metadata,
       # Clear legacy fields after successful migration

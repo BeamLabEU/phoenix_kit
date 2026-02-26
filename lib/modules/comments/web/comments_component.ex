@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
       case Comments.create_comment(
              socket.assigns.resource_type,
              socket.assigns.resource_id,
-             socket.assigns.current_user.id,
+             socket.assigns.current_user.uuid,
              attrs
            ) do
         {:ok, _comment} ->

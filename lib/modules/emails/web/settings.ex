@@ -575,8 +575,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
 
     # Prepare all settings for batch update
     settings_to_update = %{
-      "aws_access_key_id" => aws_params["access_key_id"] || "",
-      "aws_secret_access_key" => aws_params["secret_access_key"] || "",
+      "aws_access_key_id" => String.trim(aws_params["access_key_id"] || ""),
+      "aws_secret_access_key" => String.trim(aws_params["secret_access_key"] || ""),
       "aws_region" =>
         if(aws_params["region"] in [nil, ""],
           do: AWS.region(),

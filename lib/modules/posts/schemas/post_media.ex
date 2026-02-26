@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
     |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:file_uuid)
     |> unique_constraint([:post_uuid, :position],
-      name: :phoenix_kit_post_media_post_uuid_position_index,
+      name: :phoenix_kit_post_media_post_id_position_index,
       message: "position already taken for this post"
     )
   end

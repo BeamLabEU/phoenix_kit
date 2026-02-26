@@ -3,7 +3,7 @@
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title}
 >
-  <div class="flex items-center justify-center py-8 min-h-[80vh]">
+  <div class="flex items-center justify-center px-4 py-8 min-h-[80vh]">
     <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
       <div class="card-body">
         <h1 class="text-2xl font-bold text-center mb-2">Magic Link Login</h1>
@@ -30,13 +30,12 @@
                 <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" /> Email
               </span>
             </label>
-            <input
-              id="magic_link_email"
-              name="magic_link[email]"
+            <.input
+              field={@form[:email]}
               type="email"
-              class="input input-bordered w-full transition-colors focus:input-primary"
               placeholder="you@example.com"
-              value={@form.params["email"] || ""}
+              autocomplete="email"
+              class="transition-colors focus:input-primary"
               required
             />
 
@@ -67,45 +66,28 @@
           </div>
         </div>
 
+        <div class="text-center mt-4 text-sm">
+          <span>Prefer a password? </span>
+          <.link
+            navigate={Routes.path("/users/log-in")}
+            class="font-semibold text-primary hover:underline"
+          >
+            Sign in with password
+          </.link>
+        </div>
+
+        <div class="text-center mt-2 text-sm">
+          <span>Don't have an account? </span>
+          <.link
+            navigate={Routes.path("/users/register")}
+            class="font-semibold text-primary hover:underline"
+          >
+            Create an account
+          </.link>
+        </div>
+
         <%!-- Development Mode Notice --%>
-        <div :if={show_dev_notice?()} class="alert alert-info text-sm mt-4">
-          <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
-          <span>
-            Development mode: Check
-            <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
-            for confirmation emails
-          </span>
-        </div>
-
-        <div class="mt-6">
-          <div class="relative">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-base-300" />
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-base-100 text-base-content/60">Or continue with</span>
-            </div>
-          </div>
-
-          <div class="mt-4 text-center">
-            <.link
-              navigate={Routes.path("/users/log-in")}
-              class="font-semibold text-primary hover:underline"
-            >
-              Sign in with password
-            </.link>
-          </div>
-
-          <div class="text-center mt-4 text-sm">
-            <span>Don't have an account? </span>
-            <.link
-              navigate={Routes.path("/users/register")}
-              class="font-semibold text-primary hover:underline"
-            >
-              Sign up
-            </.link>
-          </div>
-        </div>
+        <.dev_mailbox_notice message="magic link emails" />
       </div>
     </div>
   </div>

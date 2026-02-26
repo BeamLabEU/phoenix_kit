@@ -16,8 +16,6 @@ defmodule PhoenixKit.Users.OAuthProvider do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_user_oauth_providers" do
-    field :id, :integer, read_after_writes: true
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     field :provider, :string
@@ -37,7 +35,6 @@ defmodule PhoenixKit.Users.OAuthProvider do
   def changeset(oauth_provider, attrs) do
     oauth_provider
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
       :provider,
       :provider_uid,

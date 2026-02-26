@@ -101,27 +101,29 @@
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title">
-              <.icon name="hero-squares-2x2" class="w-5 h-5" /> Subscription Plan
+              <.icon name="hero-squares-2x2" class="w-5 h-5" /> Subscription Type
             </h2>
 
             <div class="form-control mt-4">
               <label class="label">
-                <span class="label-text">Select a plan <span class="text-error">*</span></span>
+                <span class="label-text">
+                  Select a subscription type <span class="text-error">*</span>
+                </span>
               </label>
               <select
-                name="plan_id"
-                phx-change="select_plan"
+                name="subscription_type_uuid"
+                phx-change="select_subscription_type"
                 class="select select-bordered w-full"
               >
-                <option value="">Choose a plan...</option>
-                <%= for plan <- @plans do %>
+                <option value="">Choose a subscription type...</option>
+                <%= for type <- @subscription_types do %>
                   <option
-                    value={plan.uuid}
-                    selected={to_string(@selected_plan_uuid) == to_string(plan.uuid)}
+                    value={type.uuid}
+                    selected={to_string(@selected_subscription_type_uuid) == to_string(type.uuid)}
                   >
-                    {plan.name} -
-                    <.currency_compact amount={plan.price} currency={plan.currency} />
-                    / {format_interval(plan.interval, plan.interval_count)}
+                    {type.name} -
+                    <.currency_compact amount={type.price} currency={type.currency} />
+                    / {format_interval(type.interval, type.interval_count)}
                   </option>
                 <% end %>
               </select>
@@ -178,7 +180,7 @@
                   <span class="label-text">Select a saved payment method</span>
                 </label>
                 <select
-                  name="payment_method_id"
+                  name="payment_method_uuid"
                   phx-change="select_payment_method"
                   class="select select-bordered w-full"
                 >
@@ -217,7 +219,7 @@
             type="button"
             phx-click="save"
             class="btn btn-primary"
-            disabled={is_nil(@selected_user) || is_nil(@selected_plan_uuid)}
+            disabled={is_nil(@selected_user) || is_nil(@selected_subscription_type_uuid)}
           >
             <.icon name="hero-plus" class="w-4 h-4" /> Create Subscription
           </button>
@@ -243,19 +245,22 @@
 
             <div class="divider my-2"></div>
 
-            <%!-- Plan --%>
+            <%!-- Subscription Type --%>
             <div class="space-y-1">
-              <div class="text-sm text-base-content/60">Plan</div>
-              <%= if @selected_plan_uuid do %>
-                <% plan =
-                  Enum.find(@plans, &(to_string(&1.uuid) == to_string(@selected_plan_uuid))) %>
-                <%= if plan do %>
-                  <div class="font-medium">{plan.name}</div>
+              <div class="text-sm text-base-content/60">Subscription Type</div>
+              <%= if @selected_subscription_type_uuid do %>
+                <% type =
+                  Enum.find(
+                    @subscription_types,
+                    &(to_string(&1.uuid) == to_string(@selected_subscription_type_uuid))
+                  ) %>
+                <%= if type do %>
+                  <div class="font-medium">{type.name}</div>
                   <div class="text-2xl font-bold mt-1">
-                    <.currency_amount amount={plan.price} currency={plan.currency} />
+                    <.currency_amount amount={type.price} currency={type.currency} />
                   </div>
                   <div class="text-sm text-base-content/60">
-                    {format_interval(plan.interval, plan.interval_count)}
+                    {format_interval(type.interval, type.interval_count)}
                   </div>
                 <% end %>
               <% else %>

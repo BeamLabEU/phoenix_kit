@@ -91,7 +91,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         socket
         |> assign(:page_title, "New Post")
         |> assign(:project_title, project_title)
-        |> assign(:post, %{uuid: nil, user_id: current_user.id})
+        |> assign(:post, %{uuid: nil, user_uuid: current_user.uuid})
         |> assign(:form, form)
         |> assign(:content, "")
         |> assign(:current_user, current_user)
@@ -540,7 +540,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   defp can_edit_post?(user, post) do
     # User can edit if they own the post or are admin/owner
-    Map.get(post, :user_id) == user.id or user_is_admin?(user)
+    Map.get(post, :user_uuid) == user.uuid or user_is_admin?(user)
   end
 
   defp user_is_admin?(user) do

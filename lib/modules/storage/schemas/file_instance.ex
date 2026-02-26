@@ -167,7 +167,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)
     |> unique_constraint([:file_uuid, :variant_name],
-      name: :phoenix_kit_file_instances_file_uuid_variant_name_index
+      name: :phoenix_kit_file_instances_file_id_variant_name_index
     )
     |> foreign_key_constraint(:file_uuid)
   end

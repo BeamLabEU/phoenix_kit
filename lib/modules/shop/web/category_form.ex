@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
       |> assign(:page_title, "New Category")
       |> assign(:supported_types, OptionTypes.supported_types())
       |> assign(:show_media_selector, false)
-      |> assign(:image_uuid, nil)
+      |> assign(:image_id, nil)
 
     {:ok, socket}
   end
@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:show_opt_modal, false)
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
-    |> assign(:image_uuid, nil)
+    |> assign(:image_id, nil)
     |> assign(:product_options, [])
     |> assign_translation_state(%Category{})
   end
@@ -86,7 +86,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:show_opt_modal, false)
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
-    |> assign(:image_uuid, category.image_uuid)
+    |> assign(:image_id, category.image_uuid)
     |> assign(:product_options, product_options)
     |> assign_translation_state(category)
   end
@@ -140,8 +140,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
   @impl true
   def handle_event("save", %{"category" => category_params}, socket) do
-    # Add Storage image_uuid from socket assigns
-    category_params = Map.put(category_params, "image_uuid", socket.assigns.image_uuid)
+    # Add Storage image_id from socket assigns
+    category_params = Map.put(category_params, "image_uuid", socket.assigns.image_id)
 
     # Build localized field attrs from main form values and translations
     category_params =
@@ -168,7 +168,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
   @impl true
   def handle_event("remove_image", _params, socket) do
-    {:noreply, assign(socket, :image_uuid, nil)}
+    {:noreply, assign(socket, :image_id, nil)}
   end
 
   # Option Modal Events
@@ -349,11 +349,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
   @impl true
   def handle_info({:media_selected, file_ids}, socket) do
-    image_uuid = List.first(file_ids)
+    image_id = List.first(file_ids)
 
     {:noreply,
      socket
-     |> assign(:image_uuid, image_uuid)
+     |> assign(:image_id, image_id)
      |> assign(:show_media_selector, false)}
   end
 
@@ -373,23 +373,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
-        <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop/categories")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
-              <p class="text-base-content/70 mt-1">
-                {if @live_action == :new, do: "Create a new category", else: "Edit category details"}
-              </p>
-            </div>
-          </div>
-        </header>
+        <.admin_page_header back={Routes.path("/admin/shop/categories")}>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+          <p class="text-sm sm:text-base text-base-content/60 mt-0.5">
+            {if @live_action == :new, do: "Create a new category", else: "Edit category details"}
+          </p>
+        </.admin_page_header>
 
         <%!-- Form --%>
         <.form
@@ -541,10 +530,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                   </label>
                   <div class="flex items-start gap-4">
                     <%!-- Image Preview --%>
-                    <%= if @image_uuid do %>
+                    <%= if @image_id do %>
                       <div class="relative group">
                         <img
-                          src={get_storage_image_url(@image_uuid, "thumbnail")}
+                          src={get_storage_image_url(@image_id, "thumbnail")}
                           class="w-24 h-24 object-cover rounded-lg shadow"
                           alt="Category image"
                         />
@@ -570,7 +559,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                         class="btn btn-sm btn-primary"
                       >
                         <.icon name="hero-photo" class="w-4 h-4 mr-1" />
-                        {if @image_uuid, do: "Change Image", else: "Select from Storage"}
+                        {if @image_id, do: "Change Image", else: "Select from Storage"}
                       </button>
                     </div>
                   </div>
@@ -581,7 +570,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                   <div class="form-control w-full md:col-span-2">
                     <label class="label">
                       <span class="label-text font-medium">Featured Product (image fallback)</span>
-                      <%= if @image_uuid do %>
+                      <%= if @image_id do %>
                         <span class="label-text-alt text-warning">Storage image has priority</span>
                       <% end %>
                     </label>
@@ -590,7 +579,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
                         name="category[featured_product_uuid]"
                         class={[
                           "select select-bordered w-full focus:select-primary",
-                          @image_uuid && "opacity-50"
+                          @image_id && "opacity-50"
                         ]}
                       >
                         <option value="">Auto-detect (first product with image)</option>
@@ -913,7 +902,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
         id="media-selector-modal"
         show={@show_media_selector}
         mode={:single}
-        selected_ids={if @image_uuid, do: [@image_uuid], else: []}
+        selected_ids={if @image_id, do: [@image_id], else: []}
         phoenix_kit_current_user={@phoenix_kit_current_user}
       />
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

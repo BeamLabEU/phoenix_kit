@@ -1,19 +1,88 @@
+## 1.7.51 - 2026-02-26
+- Add V64 migration: fix login crash by replacing `user_id` check constraint with `user_uuid` on user tokens table
+- Add V65 migration: rename `SubscriptionPlan` to `SubscriptionType` (table, columns, indexes, constraints)
+- Rename `SubscriptionPlan` schema, context functions, events, routes, LiveViews, and workers to `SubscriptionType`
+- Add orphaned media file cleanup system
+  - `mix phoenix_kit.cleanup_orphaned_files` task with dry-run and `--delete` modes
+  - `DeleteOrphanedFileJob` Oban worker with 60s delay and orphan re-check before deletion
+  - Orphan filter toggle and "Delete all orphaned" button in Media admin UI
+- Add Delete File button with confirmation modal to Media Detail page
+- Add secondary language slug uniqueness validation via JSONB query in entity data
+- Rename `seed_title_in_data` to `seed_translatable_fields` in entity data form
+- Unify slug labels to "Slug (URL-friendly identifier)" across entity forms
+- Standardize dev_docs file naming convention (`{date}-{kebab-case}-{type}.md`)
+- Fix orphan detection crash: remove references to non-existent `phoenix_kit_shop_variants` table
+- Fix `String.trim(nil)` crash in SQS workers when AWS credentials not configured
+- Fix default preload `:plan` to `:subscription_type` in `list_subscriptions/1` and `list_user_subscriptions/2`
+- Fix `auth.ex` storing integer `file.id` instead of `file.uuid` for avatar custom field
+- Fix `create_subscription/2` dead code and key mismatch — now accepts `:subscription_type_uuid` as preferred key
+- Fix `change_subscription_type/3` reading stale `subscription_type_id` instead of `subscription_type_uuid`
+- Fix AWS Config returning empty string instead of nil when credentials unconfigured
+- Fix email log `Access` behaviour error when called with `EmailLogData` struct
+- Fix `Interceptor` using deprecated `log.id` instead of `log.uuid` in header and event
+- Fix shop billing cascade: check `disable_system()` result and log on failure
+- Replace `defp` proxy wrappers with `import` in 4 shop LiveViews (cart, catalog, checkout)
+- Rename `post_id` to `post_uuid` in 5 private post functions
+- Remove legacy integer ID function clauses from posts and billing modules
+- Remove accidentally committed `.beam` files, add `*.beam` to `.gitignore`
+- Remove empty legacy `subscription_plan_form.ex` and `subscription_plans.ex`
+- Add doc notes about performance for `all_admin_tabs/0` and `get_config/0`
+- Remove dead `_plugin_session_name` variable from integration routes
+
+## 1.7.50 - 2026-02-25
+- Fix `defp show_dev_notice?` CLAUDE.md violation: replace private helper with `<.dev_mailbox_notice>` Phoenix Component
+  - New component at `lib/phoenix_kit_web/components/core/dev_notice.ex` with `message` and `class` attrs
+  - Removed from `login.ex`, `registration.ex`, `magic_link.ex`, `forgot_password.ex`, `dashboard/settings.ex`
+  - Updated all corresponding HEEX templates to use `<.dev_mailbox_notice>`
+- Fix duplicate route alias compilation warnings in `phoenix_kit_authenticated_routes/1`
+  - Split module-scope routes into `authenticated_live_routes/0` and `authenticated_live_locale_routes/0`
+  - Locale variants now use `_locale` suffix (e.g. `:shop_user_orders_locale`)
+- Fix undeclared `sidebar_after_shop` attr in `shop_layout/1` component
+- Fix `maybe_redirect_authenticated/1` hardcoded `"/"` redirect — use `signed_in_path(socket)` consistently
+- Fix double `Map.from_struct` in `Emails.Interceptor.create_email_log/2` — redundant call removed
+
+## 1.7.49 - 2026-02-24
+- Add V63 migration: UUID companion column safety net round 2
+  - Add `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)
+  - Add `account_uuid` companion to `phoenix_kit_ai_requests` (backfilled from ai_accounts)
+  - Add `matched_email_log_uuid` to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
+  - Add `subscription_uuid` to `phoenix_kit_invoices` (backfilled from subscriptions)
+  - Add `variant_uuid` to `phoenix_kit_shop_cart_items` (nullable, no variants table)
+  - Update Invoice, AI Request, and CartItem schemas with new uuid companion fields
+
+## 1.7.48 - 2026-02-24
+- Add V62 migration: rename 35 UUID-typed FK columns from `_id` suffix to `_uuid` suffix
+  - Enforces naming convention: `_id` = integer (legacy/deprecated), `_uuid` = UUID
+  - Groups: Posts module (15 renames), Comments (4), Tickets (6), Storage (3), Publishing (3), Shop (3), Scheduled Jobs (1)
+  - No data migration — columns already held correct UUID values, pure rename
+  - All DB operations idempotent (IF EXISTS guards) — safe on installs with optional modules disabled
+  - Update all Ecto schemas, context files, web files, and tests to use new field names
+
+## 1.7.47 - 2026-02-24
+- Fix V13 migration down/0 to use `remove_if_exists` instead of `remove` for idempotency
+  - Fixes "column aws_message_id does not exist" error when rolling back V13
+
 ## 1.7.46 - 2026-02-24
-- Add V62 migration: rename 35 UUID-type columns from `_id` suffix to `_uuid` suffix across 25 tables
-  - Enforces naming convention: `_id` = integer (legacy), `_uuid` = UUID
-  - Groups: Posts (15 cols), Comments (4), Tickets (6), Storage (3), Publishing (3), Shop (3), Scheduled Jobs (1)
-  - Also renames 9 indexes whose names embedded old column names
-  - All operations idempotent with IF EXISTS guards; skips tables from disabled modules
-- Update all context, query, and web files to use renamed schema fields
-  - Posts: PostLike, PostDislike, PostTagAssignment, PostGroupAssignment, PostMention, PostMedia queries and changesets
-  - Comments: resource_uuid, parent_uuid, comment_uuid throughout likes/dislikes/tree building/web
-  - Tickets: ticket_uuid, comment_uuid, file_uuid in all changeset attrs and queries
-  - Storage: file_uuid, bucket_uuid, file_instance_uuid across storage.ex, file_server, variant_generator, url_signer, process_file_job (including Oban job arg key)
-  - Publishing: post_uuid, version_uuid in db_storage.ex queries and changesets
-  - Shop: image_uuid, featured_image_uuid, file_uuid in web forms and image migration service
-- Apply consistent `_uuid` variable naming for all local variables holding UUID values
+- Add plugin module system with `PhoenixKit.Module` behaviour, `ModuleRegistry`, and zero-config auto-discovery
+  - 5 required + 8 optional callbacks with sensible defaults via `use PhoenixKit.Module`
+  - Auto-discovers external modules by scanning `.beam` files for `@phoenix_kit_module` attribute
+  - All 21 internal modules now implement the behaviour, removing 786 lines of hardcoded tab enumeration
+  - External module admin routes auto-generated at compile time from `admin_tabs` with `live_view` field
+- Add live sidebar updates via PubSub when modules are enabled/disabled
+- Add server-side authorization on module toggle events (prevents crafted WebSocket bypass)
+- Add startup validation: duplicate module keys, permission key mismatches, duplicate tab IDs, missing permission fields
+- Add compile-time warnings for route module and LiveView compilation failures
+- Standardize AI, Billing, and Shop to use `update_boolean_setting_with_module/3` (consistent with all other modules)
+- Fix billing→shop cascade: shop now disabled after billing toggle succeeds (prevents orphaned state)
+- Fix `Tab.permission_granted?/2` to handle atom permission keys instead of silently bypassing checks
+- Fix `static_children/0` to catch module `children/0` failures instead of crashing the supervisor
 
 ## 1.7.45 - 2026-02-23
+- Fix auth forms mobile overflow on small screens (px-4 added to all form containers)
+- Fix daisyUI v5 compliance: remove deprecated `input-bordered` from `<.input>` component and all auth templates
+- Fix `<.header>` hardcoded `text-zinc-*` colors replaced with semantic `text-base-content` for dark theme support
+- Convert forgot_password, reset_password, confirmation, confirmation_instructions to unified card layout
+- Add missing `LayoutWrapper.app_layout` wrapper to confirmation form
 - Fix V40 migration silently skipping V32-V39 tables due to Ecto command buffering
   - Root cause: `repo().query()` (immediate) couldn't see buffered table creation commands
   - V31's `flush()` was the last flush before V40, creating a clean V31/V32 split

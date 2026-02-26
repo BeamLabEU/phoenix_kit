@@ -315,9 +315,9 @@ defmodule PhoenixKitWeb.EntityFormController do
       |> Enum.into(%{})
 
     # Build entity data params
-    # For public submissions, use the current user if logged in, otherwise use 0 (system)
+    # For public submissions, use the current user if logged in, otherwise nil (system)
     current_user = conn.assigns[:current_user]
-    created_by = if current_user, do: current_user.id, else: 0
+    created_by_uuid = if current_user, do: current_user.uuid, else: nil
     title = generate_submission_title(entity, filtered_data)
 
     # Capture submission metadata if enabled (default is true)
@@ -338,7 +338,7 @@ defmodule PhoenixKitWeb.EntityFormController do
       "status" => status,
       "data" => filtered_data,
       "metadata" => metadata,
-      "created_by" => created_by
+      "created_by_uuid" => created_by_uuid
     }
 
     case EntityData.create(entity_data_params) do

@@ -145,7 +145,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
          {:ok, _deleted} <- Connections.delete_connection(connection) do
       Logger.info("Connection deleted via API", %{
         sender_url: validated.sender_url,
-        connection_id: connection.id
+        connection_uuid: connection.uuid
       })
 
       conn
@@ -201,7 +201,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
          {:ok, updated} <- update_connection_status(connection, validated.status) do
       Logger.info("Connection status updated via API", %{
         sender_url: validated.sender_url,
-        connection_id: connection.id,
+        connection_uuid: connection.uuid,
         new_status: validated.status
       })
 
@@ -319,7 +319,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       {updated_connection, status} = maybe_activate_pending_connection(connection)
 
       Logger.info(
-        "Sync API: Found sender connection #{updated_connection.id} with status '#{status}'"
+        "Sync API: Found sender connection #{updated_connection.uuid} with status '#{status}'"
       )
 
       conn
@@ -442,7 +442,6 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       # Record the transfer in history (sender side)
       Transfers.create_transfer(%{
         direction: "send",
-        connection_id: connection.id,
         connection_uuid: connection.uuid,
         table_name: validated.table_name,
         remote_site_url: connection.site_url,

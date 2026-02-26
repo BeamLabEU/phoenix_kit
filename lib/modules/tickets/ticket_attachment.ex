@@ -69,9 +69,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
       foreign_key: :comment_uuid,
       references: :uuid
 
-    belongs_to :file, PhoenixKit.Modules.Storage.File,
-      foreign_key: :file_uuid,
-      references: :uuid
+    belongs_to :file, PhoenixKit.Modules.Storage.File, foreign_key: :file_uuid, references: :uuid
 
     timestamps(type: :utc_datetime)
   end

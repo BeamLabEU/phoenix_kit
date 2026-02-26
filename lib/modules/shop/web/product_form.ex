@@ -74,8 +74,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
     # Build unified image list: featured first, then gallery (for unified drag-and-drop UI)
     gallery_ids = product.image_ids || []
-    featured_uuid = product.featured_image_uuid
-    all_image_ids = build_all_image_ids(featured_uuid, gallery_ids)
+    featured_id = product.featured_image_uuid
+    all_image_ids = build_all_image_ids(featured_id, gallery_ids)
     valid_image_ids = all_image_ids
 
     # Clean stale image mappings (images that no longer exist)
@@ -164,7 +164,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     new_category_id = product_params["category_uuid"] || product_params["category_id"]
 
     old_category_id =
-      socket.assigns.product.category_uuid || to_string(socket.assigns.product.category_id)
+      socket.assigns.product.category_uuid
 
     socket =
       if new_category_id != old_category_id do
@@ -252,12 +252,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
     # Extract featured and gallery from unified image list
     all_images = socket.assigns.all_image_ids
-    featured_uuid = List.first(all_images)
+    featured_id = List.first(all_images)
     gallery_ids = Enum.drop(all_images, 1)
 
     product_params =
       product_params
-      |> Map.put("featured_image_uuid", featured_uuid)
+      |> Map.put("featured_image_uuid", featured_id)
       |> Map.put("image_ids", gallery_ids)
 
     # Build localized field attrs from main form values and translations
@@ -686,23 +686,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
-        <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop/products")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
-              <p class="text-base-content/70 mt-1">
-                {if @live_action == :new, do: "Create a new product", else: "Edit product details"}
-              </p>
-            </div>
-          </div>
-        </header>
+        <.admin_page_header back={Routes.path("/admin/shop/products")}>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+          <p class="text-sm sm:text-base text-base-content/60 mt-0.5">
+            {if @live_action == :new, do: "Create a new product", else: "Edit product details"}
+          </p>
+        </.admin_page_header>
 
         <%!-- Form --%>
         <.form
@@ -1766,8 +1755,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   # Build unified image list from featured + gallery (featured always first)
   defp build_all_image_ids(nil, gallery_ids), do: Enum.uniq(gallery_ids)
 
-  defp build_all_image_ids(featured_uuid, gallery_ids) do
-    [featured_uuid | Enum.reject(gallery_ids, &(&1 == featured_uuid))]
+  defp build_all_image_ids(featured_id, gallery_ids) do
+    [featured_id | Enum.reject(gallery_ids, &(&1 == featured_id))]
     |> Enum.uniq()
   end
 
@@ -1980,7 +1969,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   defp get_schema_for_category_id(category_id) when is_binary(category_id) do
     category = Shop.get_category!(category_id)
-    product = %Product{category: category, category_id: category.id, category_uuid: category.uuid}
+    product = %Product{category: category, category_uuid: category.uuid}
     Options.get_option_schema_for_product(product)
   rescue
     _ -> Options.get_enabled_global_options()

@@ -31,11 +31,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_carts" do
-    field :id, :integer, read_after_writes: true
-
     # Identity
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
     field :session_id, :string
 
@@ -43,9 +39,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
     field :status, :string, default: "active"
 
     # Shipping
-    # legacy
-    field :shipping_method_id, :integer
-
     belongs_to :shipping_method, ShippingMethod,
       foreign_key: :shipping_method_uuid,
       references: :uuid,
@@ -54,9 +47,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
     field :shipping_country, :string
 
     # Payment
-    # legacy
-    field :payment_option_id, :integer
-
     belongs_to :payment_option, PaymentOption,
       foreign_key: :payment_option_uuid,
       references: :uuid,
@@ -83,8 +73,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
     # Tracking
     field :expires_at, :utc_datetime
     field :converted_at, :utc_datetime
-    # legacy
-    field :merged_into_cart_id, :integer
     field :merged_into_cart_uuid, UUIDv7
 
     has_many :items, CartItem, foreign_key: :cart_uuid, references: :uuid
@@ -98,14 +86,11 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   def changeset(cart, attrs) do
     cart
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
       :session_id,
       :status,
-      :shipping_method_id,
       :shipping_method_uuid,
       :shipping_country,
-      :payment_option_id,
       :payment_option_uuid,
       :subtotal,
       :shipping_amount,
@@ -119,7 +104,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
       :metadata,
       :expires_at,
       :converted_at,
-      :merged_into_cart_id,
       :merged_into_cart_uuid
     ])
     |> validate_inclusion(:status, @statuses)
@@ -151,7 +135,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   def shipping_changeset(cart, attrs) do
     cart
     |> cast(attrs, [
-      :shipping_method_id,
       :shipping_method_uuid,
       :shipping_country,
       :shipping_amount
@@ -163,7 +146,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   """
   def payment_changeset(cart, attrs) do
     cart
-    |> cast(attrs, [:payment_option_id, :payment_option_uuid])
+    |> cast(attrs, [:payment_option_uuid])
   end
 
   @doc """
@@ -173,7 +156,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
     attrs = Map.merge(%{status: new_status}, extra_attrs)
 
     cart
-    |> cast(attrs, [:status, :converted_at, :merged_into_cart_id, :merged_into_cart_uuid])
+    |> cast(attrs, [:status, :converted_at, :merged_into_cart_uuid])
     |> validate_status_transition(cart.status, new_status)
   end
 
@@ -186,8 +169,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   @doc """
   Returns true if cart is a guest cart (no user_id).
   """
-  def guest?(%__MODULE__{user_id: nil, user_uuid: nil}), do: true
-  def guest?(%__MODULE__{user_id: nil, user_uuid: uuid}) when not is_nil(uuid), do: false
+  def guest?(%__MODULE__{user_uuid: nil}), do: true
   def guest?(_), do: false
 
   @doc """
@@ -220,12 +202,11 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   # Private helpers
 
   defp validate_identity(changeset) do
-    user_id = get_field(changeset, :user_id)
     user_uuid = get_field(changeset, :user_uuid)
     session_id = get_field(changeset, :session_id)
 
-    if is_nil(user_id) and is_nil(user_uuid) and is_nil(session_id) do
-      add_error(changeset, :base, "Either user_id, user_uuid, or session_id must be set")
+    if is_nil(user_uuid) and is_nil(session_id) do
+      add_error(changeset, :base, "Either user_uuid or session_id must be set")
     else
       changeset
     end
@@ -251,12 +232,12 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   end
 
   defp maybe_set_expires_at(changeset) do
-    user_id = get_field(changeset, :user_id)
+    user_uuid = get_field(changeset, :user_uuid)
     session_id = get_field(changeset, :session_id)
     expires_at = get_field(changeset, :expires_at)
 
     # Guest carts expire in 30 days
-    if is_nil(user_id) and not is_nil(session_id) and is_nil(expires_at) do
+    if is_nil(user_uuid) and not is_nil(session_id) and is_nil(expires_at) do
       expires = DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
       put_change(changeset, :expires_at, expires)
     else

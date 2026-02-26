@@ -221,15 +221,15 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
   defp verify_single_connection(conn, pid) do
     Task.start(fn ->
-      handle_verification_result(ConnectionNotifier.verify_connection(conn), conn.id, pid)
+      handle_verification_result(ConnectionNotifier.verify_connection(conn), conn.uuid, pid)
     end)
   end
 
-  defp handle_verification_result({:ok, :not_found}, conn_id, pid) do
-    send(pid, {:receiver_connection_severed, conn_id})
+  defp handle_verification_result({:ok, :not_found}, conn_uuid, pid) do
+    send(pid, {:receiver_connection_severed, conn_uuid})
   end
 
-  defp handle_verification_result(_result, _conn_id, _pid), do: :ok
+  defp handle_verification_result(_result, _conn_uuid, _pid), do: :ok
 
   @impl true
   def handle_event("filter", %{"direction" => direction}, socket) do
@@ -286,7 +286,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     connection = Connections.get_connection!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
-    case Connections.approve_connection(connection, current_user.id) do
+    case Connections.approve_connection(connection, current_user.uuid) do
       {:ok, updated_connection} ->
         # Notify receiver of status change (async)
         Task.start(fn ->
@@ -309,7 +309,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     connection = Connections.get_connection!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
-    case Connections.suspend_connection(connection, current_user.id) do
+    case Connections.suspend_connection(connection, current_user.uuid) do
       {:ok, updated_connection} ->
         # Notify receiver of status change (async)
         Task.start(fn ->
@@ -354,7 +354,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     connection = Connections.get_connection!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
-    case Connections.revoke_connection(connection, current_user.id, "Revoked by admin") do
+    case Connections.revoke_connection(connection, current_user.uuid, "Revoked by admin") do
       {:ok, updated_connection} ->
         # Notify receiver of status change (async)
         Task.start(fn ->
@@ -938,7 +938,6 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
   defp do_create_connection(socket, params) do
     current_user = socket.assigns.phoenix_kit_current_scope.user
-    params = Map.put(params, "created_by", current_user.id)
     params = Map.put(params, "created_by_uuid", current_user.uuid)
 
     case Connections.create_connection(params) do

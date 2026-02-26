@@ -76,14 +76,41 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       |> assign(:selected_image_id, first_image_id)
       |> assign(:selectable_specs, selectable_specs)
       |> assign(:selected_specs, selected_specs)
+      |> assign(:show_delete_modal, false)
+      |> assign(:delete_media_checked, false)
 
     {:ok, socket}
   end
 
   @impl true
+  def handle_event("confirm_delete", _params, socket) do
+    {:noreply, socket |> assign(:show_delete_modal, true) |> assign(:delete_media_checked, false)}
+  end
+
+  @impl true
+  def handle_event("cancel_delete", _params, socket) do
+    {:noreply,
+     socket |> assign(:show_delete_modal, false) |> assign(:delete_media_checked, false)}
+  end
+
+  @impl true
+  def handle_event("toggle_delete_media", _params, socket) do
+    {:noreply, assign(socket, :delete_media_checked, !socket.assigns.delete_media_checked)}
+  end
+
+  @impl true
   def handle_event("delete", _params, socket) do
-    case Shop.delete_product(socket.assigns.product) do
+    product = socket.assigns.product
+
+    file_uuids =
+      if socket.assigns.delete_media_checked,
+        do: Shop.collect_product_file_uuids(product),
+        else: []
+
+    case Shop.delete_product(product) do
       {:ok, _} ->
+        if file_uuids != [], do: Storage.queue_file_cleanup(file_uuids)
+
         {:noreply,
          socket
          |> put_flash(:info, "Product deleted")
@@ -150,21 +177,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
-        <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop/products")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">{@product_title}</h1>
-              <p class="text-base-content/70 mt-1">{@product_slug}</p>
-            </div>
-          </div>
-        </header>
+        <.admin_page_header
+          back={Routes.path("/admin/shop/products")}
+          title={@product_title}
+          subtitle={@product_slug}
+        />
 
         <%!-- Controls Bar --%>
         <div class="bg-base-200 rounded-lg p-6 mb-6">
@@ -201,8 +218,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 <.icon name="hero-pencil" class="w-4 h-4 mr-2" /> Edit
               </.link>
               <button
-                phx-click="delete"
-                data-confirm="Are you sure you want to delete this product?"
+                phx-click="confirm_delete"
                 class="btn btn-outline btn-error"
               >
                 <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
@@ -581,6 +597,33 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
           </div>
         </div>
       </div>
+      <%!-- Delete Product Modal --%>
+      <%= if @show_delete_modal do %>
+        <div class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg text-error mb-4">Delete Product</h3>
+            <p class="mb-4">
+              Are you sure you want to delete this product? This action cannot be undone.
+            </p>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-error"
+                phx-click="toggle_delete_media"
+                checked={@delete_media_checked}
+              />
+              <span class="label-text">Delete associated media files (orphaned only)</span>
+            </label>
+            <div class="modal-action">
+              <button phx-click="cancel_delete" class="btn">Cancel</button>
+              <button phx-click="delete" class="btn btn-error">
+                <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
+              </button>
+            </div>
+          </div>
+          <div class="modal-backdrop" phx-click="cancel_delete"></div>
+        </div>
+      <% end %>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
   end
@@ -686,7 +729,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   defp image_url(_), do: nil
 
   # Check if product has multiple images (Storage format or legacy)
-  defp has_multiple_images?(%{featured_image_id: id, image_ids: [_ | _]})
+  defp has_multiple_images?(%{featured_image_uuid: id, image_ids: [_ | _]})
        when is_binary(id),
        do: true
 
@@ -695,15 +738,15 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   defp has_multiple_images?(_), do: false
 
   # Get ID of the first image (for initial selection)
-  defp get_first_image_id(%{featured_image_id: id}) when is_binary(id), do: id
+  defp get_first_image_id(%{featured_image_uuid: id}) when is_binary(id), do: id
   defp get_first_image_id(%{image_ids: [id | _]}) when is_binary(id), do: id
   defp get_first_image_id(%{images: [%{"src" => src} | _]}), do: src
   defp get_first_image_id(%{images: [url | _]}) when is_binary(url), do: url
   defp get_first_image_id(_), do: nil
 
   # Get image URL by ID (for selected image display)
-  # Storage-based images: featured_image_id is a UUID string
-  defp get_image_url_by_id(%{featured_image_id: id} = product, image_id)
+  # Storage-based images: featured_image_uuid is a UUID string
+  defp get_image_url_by_id(%{featured_image_uuid: id} = product, image_id)
        when is_binary(id) and is_binary(image_id) do
     cond do
       id == image_id -> get_storage_image_url(image_id, "small")
@@ -733,7 +776,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   defp get_image_url_by_id(_, _), do: nil
 
   # Get all product images as list of {id, url} tuples (featured first, then gallery)
-  defp get_all_product_images(%{featured_image_id: featured_id, image_ids: gallery_ids})
+  defp get_all_product_images(%{featured_image_uuid: featured_id, image_ids: gallery_ids})
        when is_binary(featured_id) do
     # Combine featured + gallery, avoiding duplicates
     all_ids = [featured_id | Enum.reject(gallery_ids || [], &(&1 == featured_id))]

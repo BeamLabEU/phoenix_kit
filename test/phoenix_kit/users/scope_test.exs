@@ -8,7 +8,6 @@ defmodule PhoenixKit.Users.Auth.ScopeTest do
 
   defp build_user(opts \\ []) do
     %User{
-      id: Keyword.get(opts, :id, 1),
       uuid: Keyword.get(opts, :uuid, "user-uuid-123"),
       email: Keyword.get(opts, :email, "test@example.com"),
       first_name: Keyword.get(opts, :first_name, "Test"),
@@ -225,9 +224,9 @@ defmodule PhoenixKit.Users.Auth.ScopeTest do
   # --- user_id/1 ---
 
   describe "user_id/1" do
-    test "returns the user's integer id" do
-      scope = build_scope(["User"], user: build_user(id: 42))
-      assert Scope.user_id(scope) == 42
+    test "returns the user's uuid" do
+      scope = build_scope(["User"], user: build_user(uuid: "user-uuid-42"))
+      assert Scope.user_id(scope) == "user-uuid-42"
     end
 
     test "returns nil for nil user" do

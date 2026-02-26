@@ -51,6 +51,11 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
   attr(:icon, :string, required: true, doc: "Emoji icon for the module")
   attr(:enabled, :boolean, required: true, doc: "Whether the module is enabled")
   attr(:toggle_event, :string, required: true, doc: "Phoenix event name for the toggle switch")
+
+  attr :toggle_key, :string,
+    default: nil,
+    doc: "Module key passed as phx-value-key for generic toggles"
+
   attr :show_toggle, :boolean, default: true, doc: "Whether to show the toggle switch"
   attr :toggle_disabled, :boolean, default: false, doc: "Whether the toggle is disabled"
   attr :toggle_hint, :string, default: nil, doc: "Hint text shown under the toggle when disabled"
@@ -87,6 +92,7 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
                 checked={@enabled}
                 disabled={@toggle_disabled}
                 phx-click={@toggle_event}
+                phx-value-key={@toggle_key}
               />
               <%= if @toggle_hint do %>
                 <span class="badge badge-warning badge-xs">{@toggle_hint}</span>

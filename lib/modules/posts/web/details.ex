@@ -156,7 +156,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
   end
 
   defp can_edit_post?(user, post) do
-    user.id == post.user_id or user_is_admin?(user)
+    user.uuid == post.user_uuid or user_is_admin?(user)
   end
 
   defp format_post_type("post"), do: "Post"

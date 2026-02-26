@@ -117,6 +117,7 @@ defmodule PhoenixKit.Dashboard.Tab do
           parent: atom() | nil,
           level: level(),
           permission: String.t() | nil,
+          live_view: {module(), atom()} | nil,
           dynamic_children: dynamic_children_fn(),
           subtab_display: subtab_display(),
           subtab_indent: String.t() | nil,
@@ -152,6 +153,7 @@ defmodule PhoenixKit.Dashboard.Tab do
     :subtab_text_size,
     :subtab_animation,
     :permission,
+    :live_view,
     :dynamic_children,
     priority: 500,
     level: :user,
@@ -239,6 +241,7 @@ defmodule PhoenixKit.Dashboard.Tab do
       external: get_attr(attrs, :external) || false,
       new_tab: get_attr(attrs, :new_tab) || false,
       attention: parse_attention(get_attr(attrs, :attention)),
+      live_view: get_attr(attrs, :live_view),
       metadata: get_attr(attrs, :metadata) || %{},
       inserted_at: DateTime.utc_now()
     }
@@ -481,6 +484,13 @@ defmodule PhoenixKit.Dashboard.Tab do
   def permission_granted?(%__MODULE__{permission: permission}, scope)
       when is_binary(permission) do
     Scope.has_module_access?(scope, permission)
+  rescue
+    _ -> false
+  end
+
+  def permission_granted?(%__MODULE__{permission: permission}, scope)
+      when is_atom(permission) do
+    Scope.has_module_access?(scope, Atom.to_string(permission))
   rescue
     _ -> false
   end

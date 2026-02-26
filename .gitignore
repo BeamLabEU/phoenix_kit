@@ -1,6 +1,9 @@
 # The directory Mix will write compiled artifacts to.
 /_build/
 
+# Git worktrees
+/.worktrees/
+
 # If you run "mix test --cover", coverage assets end up here.
 /cover/
 
@@ -24,6 +27,9 @@ erl_crash.dump
 
 # Also ignore archive artifacts (built via "mix archive.build").
 *.ez
+
+# Compiled BEAM files
+*.beam
 
 # Ignore package tarball (built via "mix hex.build").
 phoenix_module_template-*.tar

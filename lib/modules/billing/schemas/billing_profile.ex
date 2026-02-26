@@ -65,7 +65,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   @valid_types ~w(individual company)
 
   schema "phoenix_kit_billing_profiles" do
-    field :id, :integer, read_after_writes: true
     field :type, :string, default: "individual"
     field :is_default, :boolean, default: false
     field :name, :string
@@ -93,8 +92,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
 
     field :metadata, :map, default: %{}
 
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -106,7 +103,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   def changeset(profile, attrs) do
     profile
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
       :type,
       :is_default,
@@ -215,7 +211,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   """
   def to_snapshot(%__MODULE__{} = profile) do
     %{
-      profile_id: profile.id,
       profile_uuid: profile.uuid,
       type: profile.type,
       name: profile.name,

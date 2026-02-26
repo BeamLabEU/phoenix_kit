@@ -178,7 +178,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
       defp load_dashboard_tabs(socket) do
         scope = socket.assigns[:phoenix_kit_current_scope]
         path = socket.assigns[:url_path] || "/dashboard"
-        Registry.get_tabs_with_active(path, scope: scope)
+        Registry.get_tabs_with_active(path, scope: scope, level: :user)
       end
     end
   end
@@ -222,7 +222,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
     contexts_map = socket.assigns[:current_contexts_map] || %{}
 
     # Load tabs
-    tabs = Registry.get_tabs_with_active(current_path, scope: scope)
+    tabs = Registry.get_tabs_with_active(current_path, scope: scope, level: :user)
 
     # Subscribe to updates if connected
     if Phoenix.LiveView.connected?(socket) do
@@ -318,7 +318,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
     scope = socket.assigns[:phoenix_kit_current_scope]
     current_path = socket.assigns[:url_path] || "/dashboard"
 
-    tabs = Registry.get_tabs_with_active(current_path, scope: scope)
+    tabs = Registry.get_tabs_with_active(current_path, scope: scope, level: :user)
 
     # Re-merge context badge values to preserve per-user badge state
     context_badge_values = socket.assigns[:context_badge_values] || %{}

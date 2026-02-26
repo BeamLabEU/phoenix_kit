@@ -144,9 +144,6 @@ defmodule PhoenixKit.Modules.Entities.Events do
   defp normalize_record_key({:new, slug}), do: "new-#{slug}"
   defp normalize_record_key(record_key) when is_atom(record_key), do: Atom.to_string(record_key)
 
-  defp normalize_record_key(record_key) when is_integer(record_key),
-    do: Integer.to_string(record_key)
-
   defp normalize_record_key(record_key), do: to_string(record_key)
 
   defp broadcast(topic, payload), do: Manager.broadcast(topic, payload)

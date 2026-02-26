@@ -21,6 +21,8 @@ defmodule PhoenixKit.Modules.Storage do
   functionality for file management across PhoenixKit.
   """
 
+  use PhoenixKit.Module
+
   import Ecto.Query, warn: false
   require Logger
 
@@ -187,8 +189,8 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  def calculate_bucket_free_space(bucket_uuid) when is_binary(bucket_uuid) do
-    bucket = get_bucket(bucket_uuid)
+  def calculate_bucket_free_space(bucket_id) when is_binary(bucket_id) do
+    bucket = get_bucket(bucket_id)
     if bucket, do: calculate_bucket_free_space(bucket), else: 0
   end
 
@@ -519,7 +521,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   ## Options
 
-  - `:bucket_uuid` - Filter by bucket ID
+  - `:bucket_id` - Filter by bucket ID
   - `:limit` - Maximum number of results
   - `:offset` - Number of results to skip
   - `:order_by` - Ordering (default: `[desc: :inserted_at]`)
@@ -527,7 +529,7 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def list_files(opts \\ []) do
     PhoenixKit.Modules.Storage.File
-    |> maybe_filter_by_bucket(opts[:bucket_uuid])
+    |> maybe_filter_by_bucket(opts[:bucket_id])
     |> maybe_order_by(opts[:order_by])
     |> maybe_limit(opts[:limit])
     |> maybe_offset(opts[:offset])
@@ -537,9 +539,6 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Gets a single file by ID.
   """
-  def get_file(id) when is_integer(id),
-    do: repo().get_by(PhoenixKit.Modules.Storage.File, id: id)
-
   def get_file(id) when is_binary(id),
     do: repo().get(PhoenixKit.Modules.Storage.File, id)
 
@@ -619,6 +618,143 @@ defmodule PhoenixKit.Modules.Storage do
     PhoenixKit.Modules.Storage.File.changeset(file, attrs)
   end
 
+  # ===== ORPHAN DETECTION =====
+
+  @doc """
+  Returns a list of orphaned files (files not referenced by any known entity).
+
+  ## Options
+
+    - `:limit` - Maximum number of results
+    - `:offset` - Number of results to skip
+
+  """
+  def find_orphaned_files(opts \\ []) do
+    orphaned_files_query()
+    |> order_by([f], desc: f.inserted_at)
+    |> maybe_limit(opts[:limit])
+    |> maybe_offset(opts[:offset])
+    |> repo().all()
+  end
+
+  @doc """
+  Returns the count of orphaned files.
+  """
+  def count_orphaned_files do
+    orphaned_files_query()
+    |> repo().aggregate(:count, :uuid)
+  end
+
+  @doc """
+  Returns true if the given file UUID is not referenced by any known entity.
+  """
+  def file_orphaned?(file_uuid) when is_binary(file_uuid) do
+    orphaned_files_query()
+    |> where([f], f.uuid == ^file_uuid)
+    |> repo().exists?()
+  end
+
+  @doc """
+  Queues a list of file UUIDs for orphan cleanup via Oban.
+
+  Each file is scheduled for deletion after a 60-second delay to protect
+  against race conditions (another entity may reference the file).
+  Only files that are still orphaned at job execution time will be deleted.
+  """
+  def queue_file_cleanup(file_uuids) when is_list(file_uuids) do
+    alias PhoenixKit.Modules.Storage.Workers.DeleteOrphanedFileJob
+
+    file_uuids
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.each(fn uuid ->
+      %{"file_uuid" => uuid}
+      |> DeleteOrphanedFileJob.new(schedule_in: 60)
+      |> Oban.insert()
+    end)
+  end
+
+  defp orphaned_files_query do
+    PhoenixKit.Modules.Storage.File
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_media pm WHERE pm.file_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_ticket_attachments ta WHERE ta.file_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_groups pg WHERE pg.cover_image_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.featured_image_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE ? = ANY(sp.image_ids))",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.file_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_categories sc WHERE sc.image_uuid = ?)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_id' = ?::text)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_contents pc WHERE pc.data->>'featured_image_id' = ?::text)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_posts pp WHERE pp.data->>'featured_image' = ?::text)",
+        f.uuid
+      )
+    )
+    |> where(
+      [f],
+      fragment(
+        "NOT EXISTS (SELECT 1 FROM phoenix_kit_posts p WHERE p.metadata->>'featured_image_id' = ?::text)",
+        f.uuid
+      )
+    )
+  end
+
   # ===== FILE INSTANCES =====
 
   @doc """
@@ -639,8 +775,8 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Gets a file instance by file ID and variant name.
   """
-  def get_file_instance_by_name(file_uuid, variant_name) do
-    repo().get_by(FileInstance, file_uuid: file_uuid, variant_name: variant_name)
+  def get_file_instance_by_name(file_id, variant_name) do
+    repo().get_by(FileInstance, file_uuid: file_id, variant_name: variant_name)
   end
 
   @doc """
@@ -648,9 +784,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   Returns a list of bucket IDs from the file_locations for the given file instance.
   """
-  def get_file_instance_bucket_uuids(file_instance_uuid) do
-    import Ecto.Query
-
+  def get_file_instance_bucket_ids(file_instance_uuid) do
     FileLocation
     |> where([fl], fl.file_instance_uuid == ^file_instance_uuid and fl.status == "active")
     |> select([fl], fl.bucket_uuid)
@@ -724,6 +858,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   # ===== CONFIGURATION =====
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current storage configuration.
   """
@@ -736,9 +871,38 @@ defmodule PhoenixKit.Modules.Storage do
       default_path: get_default_path(),
       redundancy_copies: get_redundancy_copies(),
       auto_generate_variants: get_auto_generate_variants(),
-      default_bucket_uuid: get_default_bucket_uuid(),
+      default_bucket_id: get_default_bucket_id(),
       buckets_count: length(buckets),
       active_buckets_count: active_count
+    }
+  end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "storage"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Storage"
+
+  @impl PhoenixKit.Module
+  def enabled?, do: module_enabled?()
+
+  @impl PhoenixKit.Module
+  def enable_system, do: {:ok, :always_enabled}
+
+  @impl PhoenixKit.Module
+  def disable_system, do: {:ok, :always_enabled}
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "storage",
+      label: "Storage",
+      icon: "hero-circle-stack",
+      description: "Distributed file storage with multi-location redundancy"
     }
   end
 
@@ -867,11 +1031,11 @@ defmodule PhoenixKit.Modules.Storage do
 
   Will try buckets in priority order until the file is found.
   """
-  def retrieve_file(file_uuid) do
-    case get_file(file_uuid) do
+  def retrieve_file(file_id) do
+    case get_file(file_id) do
       %PhoenixKit.Modules.Storage.File{} = file ->
         # Look up the original variant path from file_instances table
-        case get_file_instance_by_name(file_uuid, "original") do
+        case get_file_instance_by_name(file_id, "original") do
           %FileInstance{file_name: file_path} ->
             destination_path = generate_temp_path()
 
@@ -905,19 +1069,62 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
-  Deletes file data from all storage buckets.
+  Deletes file data from all storage buckets for all variants.
   """
   def delete_file_data(%PhoenixKit.Modules.Storage.File{} = file) do
-    # Look up the actual file path from file_instances where "original" variant is stored
-    case get_file_instance_by_name(file.uuid, "original") do
-      %PhoenixKit.Modules.Storage.FileInstance{file_name: file_path} ->
-        case Manager.delete_file(file_path) do
-          :ok -> :ok
-          error -> error
-        end
+    instances = list_file_instances(file.uuid)
 
-      nil ->
-        {:error, "Original file instance not found"}
+    if instances == [] do
+      {:error, "No file instances found"}
+    else
+      results =
+        Enum.map(instances, fn instance ->
+          case Manager.delete_file(instance.file_name) do
+            :ok ->
+              :ok
+
+            error ->
+              Logger.warning(
+                "Failed to delete variant #{instance.variant_name}: #{inspect(error)}"
+              )
+
+              error
+          end
+        end)
+
+      if Enum.any?(results, &(&1 == :ok)),
+        do: :ok,
+        else: {:error, "Failed to delete from all buckets"}
+    end
+  end
+
+  @doc """
+  Deletes a file completely - physical data from all storage buckets and database record.
+
+  ## Examples
+
+      iex> delete_file_completely(file)
+      {:ok, %File{}}
+
+  """
+  def delete_file_completely(%PhoenixKit.Modules.Storage.File{} = file) do
+    # 1. Delete physical files for all variants
+    case delete_file_data(file) do
+      :ok ->
+        Logger.info("Storage: physical files deleted for #{file.uuid}")
+
+      {:error, reason} ->
+        Logger.warning("Storage: partial physical deletion for #{file.uuid}: #{reason}")
+    end
+
+    # 2. Delete DB record (CASCADE handles instances + locations)
+    delete_file(file)
+  end
+
+  def delete_file_completely(file_uuid) when is_binary(file_uuid) do
+    case get_file(file_uuid) do
+      nil -> {:error, :not_found}
+      file -> delete_file_completely(file)
     end
   end
 
@@ -977,8 +1184,8 @@ defmodule PhoenixKit.Modules.Storage do
       nil
 
   """
-  def get_public_url_by_id(file_uuid) when is_binary(file_uuid) do
-    case get_file(file_uuid) do
+  def get_public_url_by_id(file_id) when is_binary(file_id) do
+    case get_file(file_id) do
       %PhoenixKit.Modules.Storage.File{} = file ->
         get_public_url(file)
 
@@ -998,8 +1205,8 @@ defmodule PhoenixKit.Modules.Storage do
       "https://cdn.example.com/12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_thumbnail.jpg"
 
   """
-  def get_public_url_by_id(file_uuid, variant_name) when is_binary(file_uuid) do
-    case get_file(file_uuid) do
+  def get_public_url_by_id(file_id, variant_name) when is_binary(file_id) do
+    case get_file(file_id) do
       %PhoenixKit.Modules.Storage.File{} = file ->
         get_public_url_by_variant(file, variant_name)
 
@@ -1008,8 +1215,8 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  defp signed_file_url(file_uuid, variant_name) do
-    URLSigner.signed_url(file_uuid, variant_name, locale: :none)
+  defp signed_file_url(file_id, variant_name) do
+    URLSigner.signed_url(file_id, variant_name, locale: :none)
   rescue
     _ -> nil
   end
@@ -1166,7 +1373,7 @@ defmodule PhoenixKit.Modules.Storage do
       |> Base.encode16(case: :lower)
 
     # Generate UUIDv7 for file ID
-    file_uuid = PhoenixKit.UUID.generate()
+    file_id = UUIDv7.generate()
 
     # Build hierarchical path - organized by user_prefix/hash_prefix/md5_hash
     user_prefix = String.slice(to_string(user_id), 0, 2)
@@ -1178,7 +1385,7 @@ defmodule PhoenixKit.Modules.Storage do
 
     # Create file record
     file_attrs = %{
-      id: file_uuid,
+      id: file_id,
       file_name: md5_hash <> "." <> ext,
       original_file_name: orig_filename,
       file_path: file_path,
@@ -1219,7 +1426,7 @@ defmodule PhoenixKit.Modules.Storage do
 
                 # Queue background job for variant processing
                 _ =
-                  %{file_uuid: file.uuid, user_id: user_id, filename: orig_filename}
+                  %{file_id: file.uuid, user_id: user_id, filename: orig_filename}
                   |> ProcessFileJob.new()
                   |> Oban.insert()
 
@@ -1247,7 +1454,7 @@ defmodule PhoenixKit.Modules.Storage do
   defp queue_variant_generation(file, user_id, original_filename) do
     # Queue variant generation to ensure all variants exist for this file
     Task.start(fn ->
-      %{file_uuid: file.uuid, user_id: user_id, filename: original_filename}
+      %{file_id: file.uuid, user_id: user_id, filename: original_filename}
       |> ProcessFileJob.new()
       |> Oban.insert()
     end)
@@ -1316,7 +1523,7 @@ defmodule PhoenixKit.Modules.Storage do
     case Manager.store_file(source_path, path_prefix: original_path) do
       {:ok, storage_info} ->
         Logger.info(
-          "File stored in buckets: #{original_path}, bucket_uuids: #{inspect(storage_info.bucket_ids)}"
+          "File stored in buckets: #{original_path}, bucket_ids: #{inspect(storage_info.bucket_ids)}"
         )
 
         # Now create the file instance record pointing to the stored file
@@ -1437,7 +1644,7 @@ defmodule PhoenixKit.Modules.Storage do
     Settings.get_setting_cached("storage_auto_generate_variants", "true") == "true"
   end
 
-  defp get_default_bucket_uuid do
+  defp get_default_bucket_id do
     Settings.get_setting_cached("storage_default_bucket_id", nil)
   end
 
@@ -1464,15 +1671,8 @@ defmodule PhoenixKit.Modules.Storage do
 
   # ===== USER UUID RESOLUTION =====
 
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-
-    PhoenixKit.RepoHelper.repo().one(
-      from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
-    )
-  end
-
   defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
+  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
   defp resolve_user_uuid(_), do: nil
 
   # ===== REPO HELPERS =====
@@ -1650,21 +1850,21 @@ defmodule PhoenixKit.Modules.Storage do
 
   ## Parameters
 
-    * `file_instance_uuid` - The ID of the file instance
-    * `bucket_uuids` - List of bucket IDs to create locations for
+    * `file_instance_id` - The ID of the file instance
+    * `bucket_ids` - List of bucket IDs to create locations for
     * `file_path` - The storage path for the file
 
   ## Examples
 
-      iex> create_file_locations_for_instance(instance_id, [bucket_uuid], "path/to/file")
+      iex> create_file_locations_for_instance(instance_id, [bucket_id], "path/to/file")
       {:ok, [%FileLocation{}]}
 
       iex> create_file_locations_for_instance(instance_id, [invalid_bucket], "path")
-      {:error, :file_locations_failed, [{bucket_uuid, changeset}]}
+      {:error, :file_locations_failed, [{bucket_id, changeset}]}
 
   """
-  def create_file_locations_for_instance(file_instance_uuid, bucket_uuids, file_path) do
-    create_file_locations(file_instance_uuid, bucket_uuids, file_path)
+  def create_file_locations_for_instance(file_instance_id, bucket_ids, file_path) do
+    create_file_locations(file_instance_id, bucket_ids, file_path)
   end
 
   defp generate_temp_path do
@@ -1673,20 +1873,20 @@ defmodule PhoenixKit.Modules.Storage do
     Path.join(temp_dir, "phoenix_kit_#{random_name}")
   end
 
-  defp create_file_locations(file_instance_uuid, bucket_uuids, file_path) do
+  defp create_file_locations(file_instance_id, bucket_ids, file_path) do
     results =
-      Enum.map(bucket_uuids, fn bucket_uuid ->
+      Enum.map(bucket_ids, fn bucket_id ->
         location_attrs = %{
           path: file_path,
           status: "active",
           priority: 0,
-          file_instance_uuid: file_instance_uuid,
-          bucket_uuid: bucket_uuid
+          file_instance_uuid: file_instance_id,
+          bucket_uuid: bucket_id
         }
 
         case repo().insert(%FileLocation{} |> FileLocation.changeset(location_attrs)) do
           {:ok, location} -> {:ok, location}
-          {:error, changeset} -> {:error, bucket_uuid, changeset}
+          {:error, changeset} -> {:error, bucket_id, changeset}
         end
       end)
 
@@ -1697,7 +1897,7 @@ defmodule PhoenixKit.Modules.Storage do
       {:ok, locations}
     else
       error_details =
-        Enum.map(errors, fn {:error, bucket_uuid, changeset} -> {bucket_uuid, changeset} end)
+        Enum.map(errors, fn {:error, bucket_id, changeset} -> {bucket_id, changeset} end)
 
       {:error, :file_locations_failed, error_details}
     end

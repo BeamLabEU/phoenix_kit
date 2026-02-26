@@ -43,7 +43,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
     max_attempts: 5,
     unique: [period: 3600, keys: [:subscription_id]]
 
-  alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionPlan}
+  alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionType}
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -81,11 +81,11 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
 
     cond do
       subscription.renewal_attempts >= max_attempts ->
-        Logger.info("Subscription #{subscription.id} exceeded max dunning attempts, cancelling")
+        Logger.info("Subscription #{subscription.uuid} exceeded max dunning attempts, cancelling")
         cancel_subscription(subscription, "Max payment retry attempts exceeded")
 
       Subscription.grace_period_expired?(subscription) ->
-        Logger.info("Subscription #{subscription.id} grace period expired, cancelling")
+        Logger.info("Subscription #{subscription.uuid} grace period expired, cancelling")
         cancel_subscription(subscription, "Grace period expired")
 
       true ->
@@ -94,7 +94,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   end
 
   defp attempt_payment_retry(%Subscription{payment_method: nil} = subscription) do
-    Logger.warning("Subscription #{subscription.id} has no payment method for retry")
+    Logger.warning("Subscription #{subscription.uuid} has no payment method for retry")
     # Still schedule next retry in case user adds payment method
     schedule_next_retry(subscription)
     {:ok, :no_payment_method}
@@ -105,17 +105,17 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
 
     if PaymentMethod.usable?(pm) do
       Logger.info(
-        "Attempting payment retry ##{subscription.renewal_attempts + 1} for subscription #{subscription.id}"
+        "Attempting payment retry ##{subscription.renewal_attempts + 1} for subscription #{subscription.uuid}"
       )
 
       case charge_subscription(subscription) do
         {:ok, _result} ->
-          Logger.info("Dunning payment successful for subscription #{subscription.id}")
+          Logger.info("Dunning payment successful for subscription #{subscription.uuid}")
           reactivate_subscription(subscription)
 
         {:error, reason} ->
           Logger.warning(
-            "Dunning payment failed for subscription #{subscription.id}: #{inspect(reason)}"
+            "Dunning payment failed for subscription #{subscription.uuid}: #{inspect(reason)}"
           )
 
           update_retry_count(subscription)
@@ -124,7 +124,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
       end
     else
       Logger.warning(
-        "Payment method not usable for subscription #{subscription.id}: #{inspect(pm.status)}"
+        "Payment method not usable for subscription #{subscription.uuid}: #{inspect(pm.status)}"
       )
 
       schedule_next_retry(subscription)
@@ -133,7 +133,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   end
 
   defp charge_subscription(%Subscription{} = subscription) do
-    plan = subscription.plan
+    plan = subscription.subscription_type
     pm = subscription.payment_method
 
     # Providers.charge_payment_method expects the payment_method map with :provider key
@@ -148,9 +148,9 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   end
 
   defp reactivate_subscription(%Subscription{} = subscription) do
-    plan = subscription.plan
+    plan = subscription.subscription_type
     new_period_start = subscription.current_period_end
-    new_period_end = SubscriptionPlan.next_billing_date(plan, DateTime.to_date(new_period_start))
+    new_period_end = SubscriptionType.next_billing_date(plan, DateTime.to_date(new_period_start))
 
     subscription
     |> Subscription.activate_changeset(datetime_from_date(new_period_end))
@@ -167,7 +167,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   end
 
   defp cancel_subscription(%Subscription{} = subscription, reason) do
-    Logger.info("Cancelling subscription #{subscription.id}: #{reason}")
+    Logger.info("Cancelling subscription #{subscription.uuid}: #{reason}")
 
     subscription
     |> Subscription.cancel_changeset(true)
@@ -189,22 +189,12 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   # Queries & Helpers
   # ============================================
 
-  defp get_subscription_with_preloads(id) when is_integer(id) do
+  defp get_subscription_with_preloads(uuid) when is_binary(uuid) do
     import Ecto.Query
 
     from(s in Subscription,
-      where: s.id == ^id,
-      preload: [:plan, :payment_method]
-    )
-    |> RepoHelper.repo().one()
-  end
-
-  defp get_subscription_with_preloads(id) when is_binary(id) do
-    import Ecto.Query
-
-    from(s in Subscription,
-      where: s.uuid == ^id,
-      preload: [:plan, :payment_method]
+      where: s.uuid == ^uuid,
+      preload: [:subscription_type, :payment_method]
     )
     |> RepoHelper.repo().one()
   end

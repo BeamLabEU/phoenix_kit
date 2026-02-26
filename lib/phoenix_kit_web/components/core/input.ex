@@ -82,7 +82,7 @@ defmodule PhoenixKitWeb.Components.Core.Input do
         id={@id}
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
         class={[
-          "input input-bordered w-full transition-colors focus:input-primary",
+          "input w-full transition-colors focus:input-primary",
           @errors != [] && "input-error"
         ]}
         {@rest}

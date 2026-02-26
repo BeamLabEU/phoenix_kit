@@ -114,9 +114,9 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Returns the appropriate topic(s) for a cart.
   """
-  def cart_topics(%Cart{user_id: user_id, session_id: session_id}) do
+  def cart_topics(%Cart{user_uuid: user_uuid, session_id: session_id}) do
     topics = []
-    topics = if user_id, do: [user_cart_topic(user_id) | topics], else: topics
+    topics = if user_uuid, do: [user_cart_topic(user_uuid) | topics], else: topics
     topics = if session_id, do: [session_cart_topic(session_id) | topics], else: topics
     topics
   end
@@ -235,7 +235,7 @@ defmodule PhoenixKit.Modules.Shop.Events do
   """
   def broadcast_product_updated(product) do
     broadcast(@products_topic, {:product_updated, product})
-    broadcast(product_topic(product.id), {:product_updated, product})
+    broadcast(product_topic(product.uuid), {:product_updated, product})
   end
 
   @doc """

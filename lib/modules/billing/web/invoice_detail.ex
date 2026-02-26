@@ -29,7 +29,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
 
         invoice ->
           project_title = Settings.get_project_title()
-          transactions = Billing.list_invoice_transactions(invoice.id)
+          transactions = Billing.list_invoice_transactions(invoice.uuid)
 
           available_providers = Providers.list_available_providers()
 

@@ -29,7 +29,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
           version_number: integer(),
           status: String.t(),
           created_by_uuid: UUIDv7.t() | nil,
-          created_by_id: integer() | nil,
           data: map(),
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
@@ -50,8 +49,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
       references: :uuid,
       type: UUIDv7
 
-    field :created_by_id, :integer
-
     has_many :contents, PhoenixKit.Modules.Publishing.PublishingContent,
       foreign_key: :version_uuid
 
@@ -68,7 +65,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
       :version_number,
       :status,
       :created_by_uuid,
-      :created_by_id,
       :data
     ])
     |> validate_required([:post_uuid, :version_number, :status])

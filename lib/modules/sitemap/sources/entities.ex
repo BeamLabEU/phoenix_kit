@@ -342,7 +342,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Entities do
       effective_pattern = url_pattern || get_fallback_pattern(entity)
 
       if effective_pattern do
-        records = EntityData.published_records(entity.id)
+        records = EntityData.published_records(entity.uuid)
 
         if url_pattern do
           Logger.debug(
@@ -567,7 +567,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Entities do
   defp build_path(pattern, record) do
     pattern
     |> String.replace(":slug", record.slug || to_string(record.uuid))
-    |> String.replace(":id", to_string(record.id))
+    |> String.replace(":id", to_string(record.uuid))
   end
 
   # Add language prefix to path when in multi-language mode

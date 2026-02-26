@@ -119,12 +119,12 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Prevent self-modification for critical operations
-    if current_user.id == user.id do
+    if current_user.uuid == user.uuid do
       socket = put_flash(socket, :error, "Cannot modify your own roles")
       {:noreply, socket}
     else
       # Get fresh user with preloaded roles to ensure accurate state
-      user_with_roles = Auth.get_user_with_roles(user.id)
+      user_with_roles = Auth.get_user_with_roles(user.uuid)
 
       user_roles = Roles.get_user_roles(user_with_roles)
       all_roles = Roles.list_roles()
@@ -179,7 +179,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
           end
 
         # Refresh the modal data on error to show current state
-        user_with_roles = Auth.get_user_with_roles(user.id)
+        user_with_roles = Auth.get_user_with_roles(user.uuid)
         updated_user_roles = Roles.get_user_roles(user_with_roles)
 
         socket =

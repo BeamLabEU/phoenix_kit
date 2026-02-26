@@ -335,35 +335,7 @@ defmodule PhoenixKitWeb.Integration do
 
       # Shop public routes are generated via generate_shop_public_routes/1 helper
       # This supports locale-prefixed URLs (/:locale/shop/...) with language switching
-
-      # Shop user dashboard routes (requires authentication)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
-
-        live_session :phoenix_kit_shop_user,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
-            as: :shop_user_orders
-
-          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
-            as: :shop_user_order_details
-
-          live "/dashboard/billing-profiles",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
-               :index,
-               as: :user_billing_profiles
-
-          live "/dashboard/billing-profiles/new",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-               :new,
-               as: :user_billing_profile_new
-
-          live "/dashboard/billing-profiles/:id/edit",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-               :edit,
-               as: :user_billing_profile_edit
-        end
-      end
+      # Shop user dashboard routes are now in phoenix_kit_authenticated_routes/1.
     end
   end
 
@@ -391,13 +363,26 @@ defmodule PhoenixKitWeb.Integration do
   # compile time by ~50% for router files.
   # ============================================================================
 
-  # Generates authentication routes (register, login, magic-link, reset-password)
-  defmacro phoenix_kit_auth_routes(suffix) do
-    session_name = :"phoenix_kit_redirect_if_user_is_authenticated#{suffix}"
+  # Generates unified public routes (auth + confirmation + shop) in a single live_session.
+  # Auth LiveViews handle the redirect-if-authenticated check in their own mount/3,
+  # so the shared session uses the permissive :phoenix_kit_mount_current_scope hook.
+  # Shop routes are included here so all public pages share one WebSocket session,
+  # enabling seamless LiveView navigation across auth, confirmation, and shop pages.
+  defmacro phoenix_kit_public_routes(suffix) do
+    session_name = :"phoenix_kit_public#{suffix}"
+
+    # Get shop live route declarations at compile time (no scope/pipeline wrappers)
+    shop_live_routes =
+      if suffix == :_locale do
+        ShopRoutes.public_live_locale_routes()
+      else
+        ShopRoutes.public_live_routes()
+      end
 
     quote do
       live_session unquote(session_name),
-        on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_redirect_if_authenticated_scope}] do
+        on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+        # Auth pages — redirect-if-authenticated handled in each LiveView's mount/3
         live "/users/register", Users.Registration, :new, as: :user_registration
 
         live "/users/register/magic-link", Users.MagicLinkRegistrationRequest, :new,
@@ -412,21 +397,18 @@ defmodule PhoenixKitWeb.Integration do
 
         live "/users/reset-password/:token", Users.ResetPassword, :edit,
           as: :user_reset_password_edit
-      end
-    end
-  end
 
-  # Generates user confirmation routes
-  defmacro phoenix_kit_confirmation_routes(suffix) do
-    session_name = :"phoenix_kit_current_user#{suffix}"
-
-    quote do
-      live_session unquote(session_name),
-        on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+        # Confirmation pages — no redirect check needed
         live "/users/confirm/:token", Users.Confirmation, :edit, as: :user_confirmation
 
         live "/users/confirm", Users.ConfirmationInstructions, :new,
           as: :user_confirmation_instructions
+
+        # Shop public pages — same session for seamless auth → shop navigation
+        # Full module names required (no PhoenixKitWeb alias in shop namespace)
+        scope "/", alias: false do
+          unquote(shop_live_routes)
+        end
       end
     end
   end
@@ -439,23 +421,30 @@ defmodule PhoenixKitWeb.Integration do
     # Skip when compiling PhoenixKit's own dev/test router — parent modules don't exist
     custom_admin_routes = compile_custom_admin_routes(__CALLER__.module)
 
+    # Plugin module routes get their own live_session with admin layout
+    # so plugin LiveViews don't need to wrap with LayoutWrapper themselves
+    plugin_admin_routes = compile_plugin_admin_routes(__CALLER__.module)
+
     # Get external route module AST outside quote to avoid require/alias inside quote
-    emails_admin = EmailsRoutes.admin_routes()
+    emails_admin = safe_route_call(EmailsRoutes, :admin_routes, [])
 
     {tickets_admin, publishing_admin, referrals_admin} =
       if suffix == :_locale do
         {
-          TicketsRoutes.admin_locale_routes(),
-          PublishingRoutes.admin_locale_routes(),
-          ReferralsRoutes.admin_locale_routes()
+          safe_route_call(TicketsRoutes, :admin_locale_routes, []),
+          safe_route_call(PublishingRoutes, :admin_locale_routes, []),
+          safe_route_call(ReferralsRoutes, :admin_locale_routes, [])
         }
       else
         {
-          TicketsRoutes.admin_routes(),
-          PublishingRoutes.admin_routes(),
-          ReferralsRoutes.admin_routes()
+          safe_route_call(TicketsRoutes, :admin_routes, []),
+          safe_route_call(PublishingRoutes, :admin_routes, []),
+          safe_route_call(ReferralsRoutes, :admin_routes, [])
         }
       end
+
+    # External route modules with complex routes (beyond simple admin tabs)
+    external_admin_routes = compile_external_admin_routes(suffix)
 
     quote do
       live_session unquote(session_name),
@@ -582,18 +571,20 @@ defmodule PhoenixKitWeb.Integration do
                :show,
                as: :billing_subscription_detail
 
-          live "/admin/billing/plans", PhoenixKit.Modules.Billing.Web.SubscriptionPlans, :index,
-            as: :billing_plans
+          live "/admin/billing/subscription-types",
+               PhoenixKit.Modules.Billing.Web.SubscriptionTypes,
+               :index,
+               as: :billing_subscription_types
 
-          live "/admin/billing/plans/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+          live "/admin/billing/subscription-types/new",
+               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
                :new,
-               as: :billing_plan_new
+               as: :billing_subscription_type_new
 
-          live "/admin/billing/plans/:id/edit",
-               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+          live "/admin/billing/subscription-types/:id/edit",
+               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
                :edit,
-               as: :billing_plan_edit
+               as: :billing_subscription_type_edit
 
           live "/admin/billing/profiles", PhoenixKit.Modules.Billing.Web.BillingProfiles, :index,
             as: :billing_profiles
@@ -767,12 +758,129 @@ defmodule PhoenixKitWeb.Integration do
           # Tabs with live_view: {Module, :action} get auto-generated routes
           # in the shared admin live_session for seamless navigation
           unquote_splicing(custom_admin_routes)
+
+          # External route modules (complex multi-page routes)
+          unquote_splicing(external_admin_routes)
+
+          # Plugin module routes (in same live_session for seamless navigation).
+          # Admin layout is auto-applied via on_mount for external plugin views.
+          unquote_splicing(plugin_admin_routes)
         end
       end
     end
   end
 
-  # Generates user dashboard routes (conditional on config)
+  # Generates unified authenticated user routes: dashboard + shop user + tickets user.
+  # All routes share one live_session for seamless navigation within the user dashboard.
+  # Module routes use alias: false since they live outside the PhoenixKitWeb namespace.
+  defmacro phoenix_kit_authenticated_routes(suffix) do
+    session_name = :"phoenix_kit_authenticated#{suffix}"
+
+    module_routes =
+      if suffix == :_locale do
+        authenticated_live_locale_routes()
+      else
+        authenticated_live_routes()
+      end
+
+    quote do
+      live_session unquote(session_name),
+        on_mount: [
+          {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+          {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+        ] do
+        # Core dashboard routes (conditional on config)
+        if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
+          live "/dashboard", Live.Dashboard.Index, :index
+          live "/dashboard/settings", Live.Dashboard.Settings, :edit
+
+          live "/dashboard/settings/confirm-email/:token",
+               Live.Dashboard.Settings,
+               :confirm_email
+        end
+
+        # Module user pages (full module names — no PhoenixKitWeb alias)
+        scope "/", alias: false do
+          unquote(module_routes)
+        end
+      end
+    end
+  end
+
+  defp authenticated_live_routes do
+    quote do
+      # Shop user pages
+      live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+        as: :shop_user_orders
+
+      live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+        as: :shop_user_order_details
+
+      live "/dashboard/billing-profiles",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+           :index,
+           as: :user_billing_profiles
+
+      live "/dashboard/billing-profiles/new",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :new,
+           as: :user_billing_profile_new
+
+      live "/dashboard/billing-profiles/:id/edit",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :edit,
+           as: :user_billing_profile_edit
+
+      # Tickets user pages
+      live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
+        as: :tickets_user_list
+
+      live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
+        as: :tickets_user_new
+
+      live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
+        as: :tickets_user_details
+    end
+  end
+
+  defp authenticated_live_locale_routes do
+    quote do
+      # Shop user pages (locale variants — distinct aliases to avoid duplicate route names)
+      live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+        as: :shop_user_orders_locale
+
+      live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+        as: :shop_user_order_details_locale
+
+      live "/dashboard/billing-profiles",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+           :index,
+           as: :user_billing_profiles_locale
+
+      live "/dashboard/billing-profiles/new",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :new,
+           as: :user_billing_profile_new_locale
+
+      live "/dashboard/billing-profiles/:id/edit",
+           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+           :edit,
+           as: :user_billing_profile_edit_locale
+
+      # Tickets user pages (locale variants)
+      live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
+        as: :tickets_user_list_locale
+
+      live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
+        as: :tickets_user_new_locale
+
+      live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
+        as: :tickets_user_details_locale
+    end
+  end
+
+  # Generates user dashboard routes (conditional on config).
+  # @deprecated Use phoenix_kit_authenticated_routes/1 instead.
   defmacro phoenix_kit_dashboard_routes(suffix) do
     session_name = :"phoenix_kit_user_dashboard#{suffix}"
 
@@ -816,6 +924,15 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  @doc false
+  def compile_plugin_admin_routes(caller_module) do
+    if caller_module == PhoenixKitWeb.Router do
+      []
+    else
+      compile_module_admin_routes()
+    end
+  end
+
   defp compile_custom_admin_routes_internal do
     case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
       tabs when is_list(tabs) ->
@@ -824,25 +941,145 @@ defmodule PhoenixKitWeb.Integration do
           is_map(tab) and Map.has_key?(tab, :live_view) and
             match?({module, _action} when is_atom(module), tab.live_view)
         end)
-        |> Enum.map(fn tab ->
-          {module, action} = tab.live_view
-          path = tab[:path] || raise "Tab #{tab[:id]} has :live_view but no :path"
-
-          route_opts =
-            case tab[:id] do
-              nil -> []
-              id -> [as: id]
-            end
-
-          quote do
-            live unquote(path), unquote(module), unquote(action), unquote(route_opts)
-          end
-        end)
+        |> Enum.map(&tab_to_route/1)
 
       _ ->
         []
     end
   end
+
+  # Auto-discover admin routes from external PhoenixKit modules.
+  # Uses beam file scanning (same pattern as protocol consolidation) — zero config needed.
+  # Modules declare their admin tabs with live_view field for route auto-generation.
+  # Collects both admin_tabs and settings_tabs for complete route coverage.
+  defp compile_module_admin_routes do
+    PhoenixKit.ModuleDiscovery.discover_external_modules()
+    |> Enum.flat_map(fn mod ->
+      case Code.ensure_compiled(mod) do
+        {:module, _} ->
+          admin = collect_module_tabs(mod, :admin_tabs)
+          settings = collect_module_tabs(mod, :settings_tabs)
+          admin ++ settings
+
+        _ ->
+          []
+      end
+    end)
+  end
+
+  defp collect_module_tabs(mod, callback) do
+    if function_exported?(mod, callback, 0) do
+      apply(mod, callback, [])
+      |> Enum.filter(&tab_has_live_view?/1)
+      |> Enum.map(&tab_struct_to_route/1)
+    else
+      []
+    end
+  end
+
+  defp tab_has_live_view?(%{live_view: {mod, _action}}) when is_atom(mod) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} ->
+        true
+
+      {:error, reason} ->
+        IO.warn(
+          "[PhoenixKit] Tab references LiveView #{inspect(mod)} which failed to compile: " <>
+            "#{inspect(reason)}. Route will be skipped."
+        )
+
+        false
+    end
+  end
+
+  defp tab_has_live_view?(_), do: false
+
+  defp tab_struct_to_route(%{live_view: {module, action}, path: path, id: id}) do
+    route_opts = if id, do: [as: id], else: []
+
+    quote do
+      live unquote(path), unquote(module), unquote(action), unquote(route_opts)
+    end
+  end
+
+  defp tab_to_route(tab) do
+    {module, action} = tab.live_view
+    path = tab[:path] || raise "Tab #{tab[:id]} has :live_view but no :path"
+    route_opts = if tab[:id], do: [as: tab[:id]], else: []
+
+    quote do
+      live unquote(path), unquote(module), unquote(action), unquote(route_opts)
+    end
+  end
+
+  # Safely call a route module function at compile time.
+  # Returns empty AST if the module isn't available (allows safe extraction).
+  @doc false
+  def safe_route_call(mod, fun, args) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} when is_atom(fun) ->
+        if function_exported?(mod, fun, length(args)),
+          do: apply(mod, fun, args),
+          else: quote(do: nil)
+
+      {:error, reason} ->
+        IO.warn(
+          "[PhoenixKit] Route module #{inspect(mod)} failed to compile: #{inspect(reason)}. " <>
+            "Its routes will be unavailable."
+        )
+
+        quote(do: nil)
+    end
+  end
+
+  # Compile admin routes from external route modules configured via:
+  #   config :phoenix_kit, :route_modules, [MyApp.Routes.CustomRoutes]
+  # Each module should implement admin_routes/0 or admin_locale_routes/0
+  @doc false
+  def compile_external_admin_routes(suffix) do
+    fun = if suffix == :_locale, do: :admin_locale_routes, else: :admin_routes
+
+    Application.get_env(:phoenix_kit, :route_modules, [])
+    |> Enum.flat_map(&collect_admin_routes(&1, fun))
+  end
+
+  defp collect_admin_routes(mod, fun) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} -> resolve_admin_routes(mod, fun)
+      _ -> []
+    end
+  end
+
+  defp resolve_admin_routes(mod, fun) do
+    cond do
+      function_exported?(mod, fun, 0) -> normalize_routes(apply(mod, fun, []))
+      function_exported?(mod, :admin_routes, 0) -> normalize_routes(mod.admin_routes())
+      true -> []
+    end
+  end
+
+  # Compile public routes from external route modules.
+  # Each module should implement public_routes/1 (receives url_prefix).
+  @doc false
+  def compile_external_public_routes(url_prefix) do
+    Application.get_env(:phoenix_kit, :route_modules, [])
+    |> Enum.flat_map(&collect_public_routes(&1, url_prefix))
+  end
+
+  defp collect_public_routes(mod, url_prefix) do
+    case Code.ensure_compiled(mod) do
+      {:module, _} ->
+        if function_exported?(mod, :public_routes, 1),
+          do: normalize_routes(mod.public_routes(url_prefix)),
+          else: []
+
+      _ ->
+        []
+    end
+  end
+
+  defp normalize_routes(routes) when is_list(routes), do: routes
+  defp normalize_routes(route), do: [route]
 
   # ============================================================================
   # Route Scope Generators
@@ -851,10 +1088,17 @@ defmodule PhoenixKitWeb.Integration do
   # Helper function to generate localized routes
   defp generate_localized_routes(url_prefix, pattern) do
     quote do
-      # Localized scope with locale parameter
+      # Localized scope: public routes (no plug-level auth check) + admin
+      # :phoenix_kit_shop_session is included so the cart session is available
+      # on all public pages; the plug is a no-op when Shop module is disabled.
       scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb,
         locale: ~r/^(#{unquote(pattern)})$/ do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_shop_session,
+          :phoenix_kit_locale_validation
+        ]
 
         # POST routes for authentication (needed for locale-prefixed form submissions)
         post "/users/log-in", Users.Session, :create
@@ -869,10 +1113,21 @@ defmodule PhoenixKitWeb.Integration do
         # Magic Link Registration
         get "/users/register/verify/:token", Users.MagicLinkRegistrationVerify, :verify
 
-        phoenix_kit_auth_routes(:_locale)
-        phoenix_kit_confirmation_routes(:_locale)
+        phoenix_kit_public_routes(:_locale)
         phoenix_kit_admin_routes(:_locale)
-        phoenix_kit_dashboard_routes(:_locale)
+      end
+
+      # Localized scope: authenticated user routes (plug-level auth check)
+      scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb,
+        locale: ~r/^(#{unquote(pattern)})$/ do
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_require_authenticated,
+          :phoenix_kit_locale_validation
+        ]
+
+        phoenix_kit_authenticated_routes(:_locale)
       end
     end
   end
@@ -880,14 +1135,31 @@ defmodule PhoenixKitWeb.Integration do
   # Helper function to generate non-localized routes
   defp generate_non_localized_routes(url_prefix) do
     quote do
-      # Non-localized scope for backward compatibility (defaults to "en")
+      # Non-localized scope: public routes (no plug-level auth check) + admin
+      # :phoenix_kit_shop_session is included so the cart session is available
+      # on all public pages; the plug is a no-op when Shop module is disabled.
       scope unquote(url_prefix), PhoenixKitWeb do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_shop_session,
+          :phoenix_kit_locale_validation
+        ]
 
-        phoenix_kit_auth_routes(:"")
-        phoenix_kit_confirmation_routes(:"")
+        phoenix_kit_public_routes(:"")
         phoenix_kit_admin_routes(:"")
-        phoenix_kit_dashboard_routes(:"")
+      end
+
+      # Non-localized scope: authenticated user routes (plug-level auth check)
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_require_authenticated,
+          :phoenix_kit_locale_validation
+        ]
+
+        phoenix_kit_authenticated_routes(:"")
       end
     end
   end
@@ -918,11 +1190,14 @@ defmodule PhoenixKitWeb.Integration do
     pattern = "[a-z]{2}(?:-[A-Za-z0-9]{2,})?"
 
     # Call route generators BEFORE quote block (aliases work in this context)
-    emails_routes = EmailsRoutes.generate(url_prefix)
-    publishing_routes = PublishingRoutes.generate(url_prefix)
-    tickets_routes = TicketsRoutes.generate(url_prefix)
-    shop_public_routes = ShopRoutes.generate_public_routes(url_prefix)
-    blog_routes = BlogRoutes.generate(url_prefix)
+    # Uses safe_route_call/3 so modules can be safely extracted to separate packages
+    emails_routes = safe_route_call(EmailsRoutes, :generate, [url_prefix])
+    publishing_routes = safe_route_call(PublishingRoutes, :generate, [url_prefix])
+    tickets_routes = safe_route_call(TicketsRoutes, :generate, [url_prefix])
+    blog_routes = safe_route_call(BlogRoutes, :generate, [url_prefix])
+
+    # External route modules with public/non-admin routes
+    external_public_routes = compile_external_public_routes(url_prefix)
 
     quote do
       # Generate pipeline definitions
@@ -942,11 +1217,11 @@ defmodule PhoenixKitWeb.Integration do
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
 
-      # Generate shop public routes (with locale support)
-      unquote(shop_public_routes)
-
       # Generate blog routes (after other routes to prevent conflicts)
       unquote(blog_routes)
+
+      # External route modules with public routes
+      unquote_splicing(external_public_routes)
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())

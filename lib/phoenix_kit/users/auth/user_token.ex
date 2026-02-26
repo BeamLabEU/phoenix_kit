@@ -41,13 +41,11 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_users_tokens" do
-    field :id, :integer, read_after_writes: true
     field :token, :binary
     field :context, :string
     field :sent_to, :string
     field :ip_address, :string
     field :user_agent_hash, :string
-    field :user_id, :integer
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -104,7 +102,6 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     user_token = %UserToken{
       token: token,
       context: "session",
-      user_id: user.id,
       user_uuid: user.uuid,
       ip_address: ip_address,
       user_agent_hash: user_agent_hash
@@ -192,7 +189,6 @@ defmodule PhoenixKit.Users.Auth.UserToken do
        token: hashed_token,
        context: context,
        sent_to: sent_to,
-       user_id: user.id,
        user_uuid: user.uuid
      }}
   end

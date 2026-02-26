@@ -13,35 +13,41 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Presence
-  alias PhoenixKit.Config
   alias PhoenixKit.Mailer
   alias PhoenixKit.Users.MagicLink
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Users.Auth
 
   @impl true
   def mount(_params, session, socket) do
-    # Track anonymous visitor session
-    if connected?(socket) do
-      session_id = session["live_socket_id"] || generate_session_id()
+    case Auth.maybe_redirect_authenticated(socket) do
+      {:redirect, socket} ->
+        {:ok, socket}
 
-      Presence.track_anonymous(session_id, %{
-        connected_at: DateTime.utc_now(),
-        ip_address: IpAddress.extract_from_socket(socket),
-        user_agent: get_connect_info(socket, :user_agent),
-        current_page: Routes.path("/users/magic-link")
-      })
+      :cont ->
+        # Track anonymous visitor session
+        if connected?(socket) do
+          session_id = session["live_socket_id"] || generate_session_id()
+
+          Presence.track_anonymous(session_id, %{
+            connected_at: DateTime.utc_now(),
+            ip_address: IpAddress.extract_from_socket(socket),
+            user_agent: get_connect_info(socket, :user_agent),
+            current_page: Routes.path("/users/magic-link")
+          })
+        end
+
+        form = to_form(%{"email" => ""}, as: "magic_link")
+
+        {:ok,
+         socket
+         |> assign(:page_title, "Magic Link Login")
+         |> assign(:form, form)
+         |> assign(:sent, false)
+         |> assign(:loading, false)
+         |> assign(:error, nil)}
     end
-
-    form = to_form(%{"email" => ""}, as: "magic_link")
-
-    {:ok,
-     socket
-     |> assign(:page_title, "Magic Link Login")
-     |> assign(:form, form)
-     |> assign(:sent, false)
-     |> assign(:loading, false)
-     |> assign(:error, nil)}
   end
 
   @impl true
@@ -130,10 +136,6 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   # Simple email validation
   defp valid_email?(email) when is_binary(email) do
     String.match?(email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
-  end
-
-  defp show_dev_notice? do
-    Config.mailer_local?()
   end
 
   defp generate_session_id do

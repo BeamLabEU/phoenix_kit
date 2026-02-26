@@ -25,7 +25,6 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           post_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
@@ -44,8 +43,6 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     timestamps(type: :utc_datetime)
   end
 
@@ -63,12 +60,12 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
   """
   def changeset(like, attrs) do
     like
-    |> cast(attrs, [:post_uuid, :user_id, :user_uuid])
+    |> cast(attrs, [:post_uuid, :user_uuid])
     |> validate_required([:post_uuid, :user_uuid])
     |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:user_uuid)
     |> unique_constraint([:post_uuid, :user_id],
-      name: :phoenix_kit_post_likes_post_uuid_user_id_index,
+      name: :phoenix_kit_post_likes_post_id_user_id_index,
       message: "you have already liked this post"
     )
   end

@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
         end
 
       case result do
-        :ok ->
+        {:ok, _} ->
           socket =
             socket
             |> assign(:enabled, new_enabled)
@@ -272,21 +272,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
-        <%!-- Header --%>
-        <header class="mb-6">
-          <div class="flex items-start gap-4">
-            <.link
-              navigate={Routes.path("/admin/shop")}
-              class="btn btn-ghost btn-sm"
-            >
-              <.icon name="hero-arrow-left" class="w-4 h-4" />
-            </.link>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">E-Commerce Settings</h1>
-              <p class="text-base-content/70 mt-1">Configure your e-commerce store</p>
-            </div>
-          </div>
-        </header>
+        <.admin_page_header
+          back={Routes.path("/admin/shop")}
+          title="E-Commerce Settings"
+          subtitle="Configure your e-commerce store"
+        />
 
         <%!-- Module Status Card --%>
         <div class="card bg-base-100 shadow-xl mb-6">

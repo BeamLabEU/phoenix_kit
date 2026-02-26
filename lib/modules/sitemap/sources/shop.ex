@@ -107,7 +107,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
 
     Shop.list_active_categories()
     |> Enum.filter(fn cat ->
-      has_any_slug?(cat) and MapSet.member?(categories_with_products, cat.id)
+      has_any_slug?(cat) and MapSet.member?(categories_with_products, cat.uuid)
     end)
     |> Enum.map(fn category ->
       # Use current language if slug exists, otherwise fallback to best available
@@ -264,7 +264,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   # Used to exclude empty categories (all products archived/draft) from sitemap.
   defp active_product_category_ids do
     Shop.list_products(status: "active", exclude_hidden_categories: true)
-    |> Enum.map(& &1.category_id)
+    |> Enum.map(& &1.category_uuid)
     |> Enum.reject(&is_nil/1)
     |> MapSet.new()
   end

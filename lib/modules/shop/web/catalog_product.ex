@@ -7,8 +7,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Billing.Currency
-  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
@@ -17,6 +15,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar
   alias PhoenixKit.Modules.Shop.Web.Components.FilterHelpers
+  alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
+  alias PhoenixKit.Modules.Shop.Web.Helpers
+  import PhoenixKit.Modules.Shop.Web.Helpers, only: [format_price: 2]
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
@@ -47,8 +48,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       {:ok, product} ->
         # Get session_id for guest cart
         session_id = session["shop_session_id"] || generate_session_id()
-        user = get_current_user(socket)
-        user_id = if user, do: user.id, else: nil
+        user = Helpers.get_current_user(socket)
+        user_id = if user, do: user.uuid, else: nil
 
         currency = Shop.get_default_currency()
 
@@ -95,7 +96,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
         # Subscribe to product updates if connected
         if connected?(socket) do
-          Events.subscribe_product(product.id)
+          Events.subscribe_product(product.uuid)
           Events.subscribe_inventory()
         end
 
@@ -161,7 +162,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       {:ok, product, _matched_lang} ->
         # Found product in different language
         # Check if we need to redirect or can just use the product
-        redirect_lang = best_redirect_language(product.slug || %{})
+        redirect_lang = Helpers.best_redirect_language(product.slug || %{})
 
         # Normalize both languages to compare (e.g., "en" <-> "en-US")
         current_base = DialectMapper.extract_base(current_language)
@@ -185,7 +186,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
             slug = SlugResolver.product_slug(product, redirect_lang)
 
             {:ok,
-             push_navigate(socket, to: build_lang_url("/shop/product/#{slug}", redirect_lang))}
+             push_navigate(socket,
+               to: Helpers.build_lang_url("/shop/product/#{slug}", redirect_lang)
+             )}
         end
     end
   end
@@ -196,8 +199,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     # Note: We don't have session here, so we'll generate new session_id if needed
     # This is acceptable since this path is only hit on first mount, not during LiveView lifecycle
     session_id = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
-    user = get_current_user(socket)
-    user_id = if user, do: user.id, else: nil
+    user = Helpers.get_current_user(socket)
+    user_id = if user, do: user.uuid, else: nil
 
     currency = Shop.get_default_currency()
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
@@ -208,7 +211,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     selectable_specs = Shop.get_selectable_specs(product)
     selected_specs = build_default_specs(selectable_specs, product.metadata || %{})
     calculated_price = Shop.calculate_product_price(product, selected_specs)
-    cart_item = find_cart_item_with_specs(user_id, session_id, product.id, selected_specs)
+    cart_item = find_cart_item_with_specs(user_id, session_id, product.uuid, selected_specs)
     missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
 
     all_categories = Shop.list_active_categories(preload: [:featured_product])
@@ -227,7 +230,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
     # Subscribe to updates
     if connected?(socket) do
-      Events.subscribe_product(product.id)
+      Events.subscribe_product(product.uuid)
       Events.subscribe_inventory()
     end
 
@@ -423,7 +426,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         log_cart_error(
           "Failed to add to cart",
           reason,
-          socket.assigns.product.id,
+          socket.assigns.product.uuid,
           socket.assigns.user_id
         )
 
@@ -440,7 +443,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         log_cart_error(
           "Failed to add to cart",
           {code, detail},
-          socket.assigns.product.id,
+          socket.assigns.product.uuid,
           socket.assigns.user_id
         )
 
@@ -544,8 +547,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   @impl true
   def render(assigns) do
+    assigns =
+      if assigns.authenticated do
+        assign(assigns, :sidebar_after_shop, shop_sidebar(assigns))
+      else
+        assigns
+      end
+
     ~H"""
-    <.shop_layout {assigns}>
+    <ShopLayouts.shop_layout {assigns} show_sidebar={true}>
       <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
         <%!-- Breadcrumbs --%>
         <div class="breadcrumbs text-sm mb-6">
@@ -559,14 +569,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                 </.link>
               </li>
             <% end %>
-            <li class="font-medium truncate max-w-xs">{@localized_title}</li>
+            <li class="font-medium truncate max-w-[10rem] sm:max-w-xs">{@localized_title}</li>
           </ul>
         </div>
 
         <div class={
           if @authenticated,
-            do: "grid grid-cols-1 lg:grid-cols-2 gap-12",
-            else: "grid grid-cols-1 lg:grid-cols-[1fr_2fr_2fr] gap-8"
+            do: "grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12",
+            else: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_2fr_2fr] gap-6 lg:gap-8"
         }>
           <%!-- Guest: category navigation only (no filters on product page) --%>
           <%= if !@authenticated do %>
@@ -774,20 +784,18 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                     <%= for attr <- @selectable_specs do %>
                       <% is_missing = MapSet.member?(@missing_required_specs, attr["key"]) %>
                       <% affects_price = attr["affects_price"] == true %>
-                      <div class="form-control">
-                        <label class="label">
-                          <span class={[
-                            "label-text font-medium",
-                            is_missing && "text-error"
-                          ]}>
-                            {attr["label"]}
-                          </span>
+                      <fieldset class="fieldset">
+                        <legend class={[
+                          "fieldset-legend font-medium",
+                          is_missing && "text-error"
+                        ]}>
+                          {attr["label"]}
                           <%= if attr["required"] do %>
-                            <span class="label-text-alt text-error">*</span>
+                            <span class="text-error ml-1">*</span>
                           <% end %>
-                        </label>
+                        </legend>
                         <%= if is_missing do %>
-                          <div class="text-error text-xs mb-1">Please select an option</div>
+                          <p class="fieldset-label text-error">Please select an option</p>
                         <% end %>
                         <div class="flex flex-wrap gap-2">
                           <%= for opt_value <- get_option_values(@product, attr) do %>
@@ -818,15 +826,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                             <% end %>
                           <% end %>
                         </div>
-                      </div>
+                      </fieldset>
                     <% end %>
                   </div>
                 <% end %>
 
                 <%!-- Quantity Selector --%>
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Quantity</span></label>
-                  <div class="flex items-center gap-3">
+                <fieldset class="fieldset">
+                  <legend class="fieldset-legend">Quantity</legend>
+                  <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                     <div class="flex items-center gap-1">
                       <button
                         type="button"
@@ -842,7 +850,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                           value={@quantity}
                           name="quantity"
                           min="1"
-                          class="input input-bordered w-20 text-center"
+                          class="input w-20 text-center"
                         />
                       </form>
                       <button
@@ -871,7 +879,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                       )}
                     </span>
                   </div>
-                </div>
+                </fieldset>
 
                 <%!-- Already in Cart Notice --%>
                 <%= if @cart_item do %>
@@ -892,11 +900,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                 <%!-- Add to Cart Button --%>
                 <button
                   phx-click="add_to_cart"
-                  class={["btn btn-primary btn-lg w-full", @adding_to_cart && "loading"]}
+                  class={["btn btn-primary btn-lg w-full"]}
                   disabled={@adding_to_cart}
                 >
                   <%= if @adding_to_cart do %>
-                    Adding...
+                    <span class="loading loading-spinner loading-sm"></span> Adding...
                   <% else %>
                     <.icon name="hero-shopping-cart" class="w-5 h-5 mr-2" />
                     <%= if @cart_item do %>
@@ -930,7 +938,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           </div>
         </div>
       </div>
-    </.shop_layout>
+    </ShopLayouts.shop_layout>
     """
   end
 
@@ -986,31 +994,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     """
   end
 
-  # Layout wrapper - uses dashboard for authenticated, wide layout for guests
-  slot :inner_block, required: true
-
-  defp shop_layout(assigns) do
-    # For authenticated users, show category nav in dashboard sidebar
-    assigns =
-      if assigns.authenticated do
-        assign(assigns, :sidebar_after_shop, shop_sidebar(assigns))
-      else
-        assigns
-      end
-
-    ~H"""
-    <%= if @authenticated do %>
-      <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Layouts.dashboard>
-    <% else %>
-      <.shop_public_layout {assigns}>
-        {render_slot(@inner_block)}
-      </.shop_public_layout>
-    <% end %>
-    """
-  end
-
   defp shop_sidebar(assigns) do
     ~H"""
     <CatalogSidebar.category_nav
@@ -1021,49 +1004,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       category_name_wrap={@category_name_wrap}
       filter_qs={@filter_qs}
     />
-    """
-  end
-
-  # Public shop layout with wide container for guests
-  slot :inner_block, required: true
-
-  defp shop_public_layout(assigns) do
-    ~H"""
-    <div class="min-h-screen bg-base-100">
-      <%!-- Simple navbar for shop --%>
-      <nav class="navbar bg-base-100 shadow-sm border-b border-base-200">
-        <div class="navbar-start">
-          <.link navigate="/" class="btn btn-ghost text-xl">
-            <.icon name="hero-home" class="w-5 h-5" />
-          </.link>
-        </div>
-        <div class="navbar-center">
-          <.link navigate={Shop.catalog_url(@current_language)} class="btn btn-ghost text-xl">
-            <.icon name="hero-shopping-bag" class="w-5 h-5 mr-2" /> Shop
-          </.link>
-        </div>
-        <div class="navbar-end gap-2">
-          <.language_switcher_dropdown
-            current_locale={@current_language}
-            current_path={@current_path}
-          />
-          <.link navigate={Shop.cart_url(@current_language)} class="btn btn-ghost btn-circle">
-            <.icon name="hero-shopping-cart" class="w-5 h-5" />
-          </.link>
-          <.link navigate={Routes.path("/users/log-in")} class="btn btn-primary btn-sm">
-            Sign In
-          </.link>
-        </div>
-      </nav>
-
-      <%!-- Flash messages --%>
-      <.flash_group flash={@flash} />
-
-      <%!-- Wide content area --%>
-      <main class="py-6">
-        {render_slot(@inner_block)}
-      </main>
-    </div>
     """
   end
 
@@ -1088,7 +1028,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     end
   end
 
-  defp first_image(%{featured_image_id: id}) when is_binary(id) do
+  defp first_image(%{featured_image_uuid: id}) when is_binary(id) do
     get_storage_image_url(id, "large")
   end
 
@@ -1105,7 +1045,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   defp image_url(url) when is_binary(url), do: url
   defp image_url(_), do: nil
 
-  defp has_storage_images?(%{featured_image_id: id}) when is_binary(id), do: true
+  defp has_storage_images?(%{featured_image_uuid: id}) when is_binary(id), do: true
   defp has_storage_images?(%{image_ids: [_ | _]}), do: true
   defp has_storage_images?(_), do: false
 
@@ -1122,9 +1062,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   # Get all product Storage image IDs (featured + gallery, no duplicates)
-  defp product_image_ids(%{featured_image_id: nil, image_ids: ids}), do: ids || []
+  defp product_image_ids(%{featured_image_uuid: nil, image_ids: ids}), do: ids || []
 
-  defp product_image_ids(%{featured_image_id: featured, image_ids: ids}) do
+  defp product_image_ids(%{featured_image_uuid: featured, image_ids: ids}) do
     # Ensure featured is first, but don't duplicate if already in ids
     all_ids = ids || []
 
@@ -1164,16 +1104,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   defp placeholder_image_url, do: @placeholder_data_uri
 
-  defp format_price(nil, _currency), do: "-"
-
-  defp format_price(price, %Currency{} = currency) do
-    Currency.format_amount(price, currency)
-  end
-
-  defp format_price(price, nil) do
-    "$#{Decimal.round(price, 2)}"
-  end
-
   # Get option values for a product, with fallback to schema defaults
   # Allows per-product customization of available option values via metadata
   defp get_option_values(product, option) do
@@ -1201,13 +1131,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   defp line_total(_, _), do: Decimal.new("0")
-
-  defp get_current_user(socket) do
-    case socket.assigns[:phoenix_kit_current_scope] do
-      %{user: %{id: _} = user} -> user
-      _ -> nil
-    end
-  end
 
   # Build specifications list from product options (for display only)
   defp build_specifications(product) do
@@ -1366,33 +1289,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     Routes.get_default_admin_locale()
   end
 
-  # Find the best enabled language that has a slug for this entity.
-  # Prefers the default language, then checks other enabled languages.
-  defp best_redirect_language(slug_map) when slug_map == %{}, do: nil
-
-  defp best_redirect_language(slug_map) do
-    enabled = Languages.get_enabled_languages()
-    default_first = Enum.sort_by(enabled, fn l -> if l.is_default, do: 0, else: 1 end)
-
-    Enum.find_value(default_first, fn lang ->
-      code = lang.code
-      base = DialectMapper.extract_base(code)
-      if Map.has_key?(slug_map, code) or Map.has_key?(slug_map, base), do: code
-    end)
-  end
-
-  # Build a localized URL path, adding language prefix for non-default languages.
-  # Delegates to Routes.path which handles default vs non-default consistently.
-  defp build_lang_url(path, lang) do
-    base = DialectMapper.extract_base(lang)
-    Routes.path(path, locale: base)
-  end
-
   # PubSub event handlers
   @impl true
   def handle_info({:product_updated, updated_product}, socket) do
     # Only update if it's the same product
-    if updated_product.id == socket.assigns.product.id do
+    if updated_product.uuid == socket.assigns.product.uuid do
       {:noreply, assign(socket, :product, updated_product)}
     else
       {:noreply, socket}
@@ -1401,7 +1302,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   @impl true
   def handle_info({:inventory_updated, product_id, _change}, socket) do
-    if product_id == socket.assigns.product.id do
+    if product_id == socket.assigns.product.uuid do
       # Reload product to get updated stock
       product = Shop.get_product!(product_id)
       {:noreply, assign(socket, :product, product)}

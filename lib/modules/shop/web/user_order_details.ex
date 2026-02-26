@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrderDetails do
            |> push_navigate(to: Routes.path("/dashboard/orders"))}
 
         order ->
-          if order.user_id != current_user.id do
+          if order.user_uuid != current_user.uuid do
             {:ok,
              socket
              |> put_flash(:error, gettext("Access denied"))
@@ -59,8 +59,8 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrderDetails do
     |> assign(:billing_profile, billing_profile)
   end
 
-  defp get_billing_profile(%{billing_profile_id: nil}), do: nil
-  defp get_billing_profile(%{billing_profile_id: id}), do: Billing.get_billing_profile(id)
+  defp get_billing_profile(%{billing_profile_uuid: nil}), do: nil
+  defp get_billing_profile(%{billing_profile_uuid: uuid}), do: Billing.get_billing_profile(uuid)
 
   @impl true
   def handle_params(_params, uri, socket) do

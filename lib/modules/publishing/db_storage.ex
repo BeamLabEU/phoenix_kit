@@ -469,10 +469,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   @doc "Upserts content by version_id + language."
   def upsert_content(attrs) do
-    version_id = Map.get(attrs, :version_uuid) || Map.get(attrs, "version_uuid")
+    version_uuid = Map.get(attrs, :version_uuid) || Map.get(attrs, "version_uuid")
     language = Map.get(attrs, :language) || Map.get(attrs, "language")
 
-    case get_content(version_id, language) do
+    case get_content(version_uuid, language) do
       nil -> create_content(attrs)
       content -> update_content(content, attrs)
     end

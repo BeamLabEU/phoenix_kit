@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
                       <%= for product <- @products do %>
                         <% price_specs = Shop.get_price_affecting_specs(product) %>
                         <% has_storage_images =
-                          product.featured_image_id != nil or (product.image_ids || []) != [] %>
+                          product.featured_image_uuid != nil or (product.image_ids || []) != [] %>
                         <% default_lang = Translations.default_language() %>
                         <tr>
                           <td>
@@ -249,7 +249,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
                   <.icon name="hero-photo" class="w-4 h-4 inline" /> Storage Images
                 </h3>
                 <ul class="text-sm space-y-1 text-base-content/70">
-                  <li>featured_image_id - main product image</li>
+                  <li>featured_image_uuid - main product image</li>
                   <li>image_ids[] - gallery images</li>
                   <li>Media selector integration</li>
                   <li>URL signing for secure access</li>

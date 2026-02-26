@@ -303,17 +303,17 @@ defmodule PhoenixKit.Modules.Billing.Events do
   end
 
   @doc """
-  Broadcasts subscription plan changed event.
+  Broadcasts subscription type changed event.
   """
-  def broadcast_subscription_plan_changed(subscription, old_plan_id, new_plan_id) do
+  def broadcast_subscription_type_changed(subscription, old_type_id, new_type_id) do
     broadcast(
       @subscriptions_topic,
-      {:subscription_plan_changed, subscription, old_plan_id, new_plan_id}
+      {:subscription_type_changed, subscription, old_type_id, new_type_id}
     )
 
     broadcast(
       "#{@subscriptions_topic}:user:#{subscription.user_id}",
-      {:subscription_plan_changed, subscription, old_plan_id, new_plan_id}
+      {:subscription_type_changed, subscription, old_type_id, new_type_id}
     )
   end
 

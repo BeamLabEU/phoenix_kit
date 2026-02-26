@@ -9,8 +9,6 @@ defmodule PhoenixKit.Modules.Connections.Follow do
 
   - `follower_uuid` - UUID of the user who is doing the following
   - `followed_uuid` - UUID of the user being followed
-  - `follower_id` - Integer ID (deprecated, dual-write only)
-  - `followed_id` - Integer ID (deprecated, dual-write only)
   - `inserted_at` - When the follow was created
 
   ## Examples
@@ -40,8 +38,6 @@ defmodule PhoenixKit.Modules.Connections.Follow do
           uuid: UUIDv7.t() | nil,
           follower_uuid: UUIDv7.t(),
           followed_uuid: UUIDv7.t(),
-          follower_id: integer() | nil,
-          followed_id: integer() | nil,
           follower: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           followed: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil
@@ -58,9 +54,6 @@ defmodule PhoenixKit.Modules.Connections.Follow do
       references: :uuid,
       type: UUIDv7
 
-    field :follower_id, :integer
-    field :followed_id, :integer
-
     field :inserted_at, :utc_datetime
   end
 
@@ -72,11 +65,6 @@ defmodule PhoenixKit.Modules.Connections.Follow do
   - `follower_uuid` - UUID of the user who is following
   - `followed_uuid` - UUID of the user being followed
 
-  ## Optional Fields (dual-write)
-
-  - `follower_id` - Integer ID (deprecated)
-  - `followed_id` - Integer ID (deprecated)
-
   ## Validation Rules
 
   - Both user UUIDs are required
@@ -85,7 +73,7 @@ defmodule PhoenixKit.Modules.Connections.Follow do
   """
   def changeset(follow, attrs) do
     follow
-    |> cast(attrs, [:follower_uuid, :followed_uuid, :follower_id, :followed_id])
+    |> cast(attrs, [:follower_uuid, :followed_uuid])
     |> validate_required([:follower_uuid, :followed_uuid])
     |> validate_not_self_follow()
     |> put_inserted_at()

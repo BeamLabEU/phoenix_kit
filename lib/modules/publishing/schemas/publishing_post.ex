@@ -38,9 +38,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
           post_date: Date.t() | nil,
           post_time: Time.t() | nil,
           created_by_uuid: UUIDv7.t() | nil,
-          created_by_id: integer() | nil,
           updated_by_uuid: UUIDv7.t() | nil,
-          updated_by_id: integer() | nil,
           data: map(),
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
@@ -67,14 +65,10 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       references: :uuid,
       type: UUIDv7
 
-    field :created_by_id, :integer
-
     belongs_to :updated_by, PhoenixKit.Users.Auth.User,
       foreign_key: :updated_by_uuid,
       references: :uuid,
       type: UUIDv7
-
-    field :updated_by_id, :integer
 
     has_many :versions, PhoenixKit.Modules.Publishing.PublishingVersion, foreign_key: :post_uuid
 
@@ -97,9 +91,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       :post_date,
       :post_time,
       :created_by_uuid,
-      :created_by_id,
       :updated_by_uuid,
-      :updated_by_id,
       :data
     ])
     |> validate_required([:group_uuid, :slug, :status, :mode, :primary_language])

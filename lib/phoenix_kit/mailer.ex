@@ -96,7 +96,7 @@ defmodule PhoenixKit.Mailer do
         "password_reset",
         {"Jane Doe", "jane@example.com"},
         %{"reset_url" => "https://app.com/reset/token123"},
-        user_id: user.id,
+        user_uuid: user.uuid,
         campaign_id: "password_recovery"
       )
 
@@ -280,7 +280,7 @@ defmodule PhoenixKit.Mailer do
     end
 
     deliver_email(email,
-      user_id: user.id,
+      user_uuid: user.uuid,
       template_name: "magic_link",
       campaign_id: "authentication",
       category: "system",

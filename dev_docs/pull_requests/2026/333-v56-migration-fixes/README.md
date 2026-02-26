@@ -101,7 +101,7 @@ mix ecto.migrate
 ## Related
 
 - **Migration**: `lib/phoenix_kit/migrations/postgres/v56.ex`
-- **Documentation**: `dev_docs/uuid_migration_instructions_v3.md`
+- **Documentation**: `dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md`
 - **Previous PR**: [#330](/docs/pull_requests/2026/330-uuid-v56-migration) - Core UUID V56 migration
 - **Follow-up**: None identified yet
 

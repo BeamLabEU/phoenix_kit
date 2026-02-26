@@ -51,7 +51,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     unique: [period: 3600]
 
   alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionPlan}
+  alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionType}
   alias PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
@@ -80,10 +80,10 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     Enum.each(subscriptions, fn subscription ->
       case process_subscription_renewal(subscription) do
         {:ok, _} ->
-          Logger.info("Renewed subscription #{subscription.id}")
+          Logger.info("Renewed subscription #{subscription.uuid}")
 
         {:error, reason} ->
-          Logger.warning("Failed to renew subscription #{subscription.id}: #{inspect(reason)}")
+          Logger.warning("Failed to renew subscription #{subscription.uuid}: #{inspect(reason)}")
       end
     end)
 
@@ -96,7 +96,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
 
   defp process_subscription_renewal(%Subscription{cancel_at_period_end: true} = subscription) do
     # Subscription marked for cancellation - don't renew, cancel now
-    Logger.info("Subscription #{subscription.id} marked for cancellation, cancelling now")
+    Logger.info("Subscription #{subscription.uuid} marked for cancellation, cancelling now")
 
     subscription
     |> Subscription.cancel_changeset(true)
@@ -106,22 +106,22 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
   defp process_subscription_renewal(%Subscription{} = subscription) do
     repo = RepoHelper.repo()
 
-    with {:ok, subscription} <- repo.preload(subscription, [:plan, :payment_method]),
+    with {:ok, subscription} <- repo.preload(subscription, [:subscription_type, :payment_method]),
          {:ok, invoice} <- create_renewal_invoice(subscription),
          {:ok, _} <- charge_payment_method(subscription, invoice) do
       # Payment successful - extend period
-      plan = subscription.plan
+      plan = subscription.subscription_type
       new_period_start = subscription.current_period_end
 
       new_period_end =
-        SubscriptionPlan.next_billing_date(plan, DateTime.to_date(new_period_start))
+        SubscriptionType.next_billing_date(plan, DateTime.to_date(new_period_start))
 
       subscription
       |> Subscription.activate_changeset(datetime_from_date(new_period_end))
       |> repo.update()
     else
       {:error, :no_payment_method} ->
-        Logger.warning("Subscription #{subscription.id} has no payment method")
+        Logger.warning("Subscription #{subscription.uuid} has no payment method")
         handle_payment_failure(subscription, "No payment method configured")
 
       {:error, reason} ->
@@ -129,17 +129,17 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     end
   end
 
-  defp create_renewal_invoice(%Subscription{plan: nil}) do
+  defp create_renewal_invoice(%Subscription{subscription_type: nil}) do
     {:error, :no_plan}
   end
 
   defp create_renewal_invoice(%Subscription{} = subscription) do
-    plan = subscription.plan
+    plan = subscription.subscription_type
 
     line_items = [
       %{
         "name" => "#{plan.name} subscription",
-        "description" => "#{SubscriptionPlan.interval_description(plan)}",
+        "description" => "#{SubscriptionType.interval_description(plan)}",
         "quantity" => 1,
         "unit_price" => plan.price,
         "total" => plan.price
@@ -147,7 +147,6 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     ]
 
     invoice_attrs = %{
-      billing_profile_id: subscription.billing_profile_id,
       billing_profile_uuid: subscription.billing_profile_uuid,
       currency: plan.currency,
       status: "sent",
@@ -158,7 +157,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
       total: plan.price
     }
 
-    case Billing.create_invoice(subscription.user_id, invoice_attrs) do
+    case Billing.create_invoice(subscription.user_uuid, invoice_attrs) do
       {:ok, invoice} -> {:ok, invoice}
       error -> error
     end
@@ -175,8 +174,8 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
              currency: invoice.currency,
              description: "Subscription renewal",
              metadata: %{
-               invoice_id: invoice.id,
-               subscription_id: subscription.id
+               invoice_uuid: invoice.uuid,
+               subscription_uuid: subscription.uuid
              }
            ) do
         {:ok, charge_result} ->
@@ -206,7 +205,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     grace_period_end = DateTime.add(UtilsDate.utc_now(), grace_days, :day)
 
     Logger.warning(
-      "Subscription #{subscription.id} renewal failed: #{error_message}. Grace period until #{grace_period_end}"
+      "Subscription #{subscription.uuid} renewal failed: #{error_message}. Grace period until #{grace_period_end}"
     )
 
     result =
@@ -248,12 +247,8 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     |> RepoHelper.repo().all()
   end
 
-  defp get_subscription(id) when is_binary(id) do
-    RepoHelper.repo().get_by(Subscription, uuid: id)
-  end
-
-  defp get_subscription(id) when is_integer(id) do
-    RepoHelper.repo().get_by(Subscription, id: id)
+  defp get_subscription(uuid) when is_binary(uuid) do
+    RepoHelper.repo().get_by(Subscription, uuid: uuid)
   end
 
   defp datetime_from_date(date) do

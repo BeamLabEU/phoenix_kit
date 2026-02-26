@@ -66,7 +66,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
       cancel_url: cancel_url,
       currency: invoice.currency,
       metadata: %{
-        invoice_id: invoice.id,
+        invoice_id: invoice.uuid,
         invoice_number: invoice.invoice_number
       }
     ]
@@ -285,8 +285,8 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
 
   defp reload_invoice(socket) do
     invoice = socket.assigns.invoice
-    updated_invoice = Billing.get_invoice(invoice.id, preload: [:user, :order, :transactions])
-    transactions = Billing.list_invoice_transactions(invoice.id)
+    updated_invoice = Billing.get_invoice(invoice.uuid, preload: [:user, :order, :transactions])
+    transactions = Billing.list_invoice_transactions(invoice.uuid)
 
     socket
     |> Phoenix.Component.assign(:invoice, updated_invoice)

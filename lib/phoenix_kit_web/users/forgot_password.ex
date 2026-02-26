@@ -11,7 +11,10 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
   alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, form: to_form(%{}, as: "user"))}
+    case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
+      {:redirect, socket} -> {:ok, socket}
+      :cont -> {:ok, assign(socket, form: to_form(%{}, as: "user"))}
+    end
   end
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do

@@ -285,7 +285,7 @@ defmodule PhoenixKit.Users.Roles do
         join: assignment in assoc(user, :role_assignments),
         join: role in assoc(assignment, :role),
         where: role.name == ^role_name,
-        distinct: user.id,
+        distinct: user.uuid,
         order_by: user.email
 
     repo.all(query)
@@ -400,7 +400,7 @@ defmodule PhoenixKit.Users.Roles do
 
     roles = Role.system_roles()
 
-    total_users_query = from(u in User, select: count(u.id))
+    total_users_query = from(u in User, select: count(u.uuid))
     total_users = repo.one(total_users_query)
 
     owner_count = count_users_with_role(roles.owner)
@@ -511,14 +511,14 @@ defmodule PhoenixKit.Users.Roles do
     base_stats = get_role_stats()
 
     # Activity stats
-    active_users = repo.one(from u in User, where: u.is_active == true, select: count(u.id))
-    inactive_users = repo.one(from u in User, where: u.is_active == false, select: count(u.id))
+    active_users = repo.one(from u in User, where: u.is_active == true, select: count(u.uuid))
+    inactive_users = repo.one(from u in User, where: u.is_active == false, select: count(u.uuid))
 
     # Confirmation stats
     confirmed_users =
-      repo.one(from u in User, where: not is_nil(u.confirmed_at), select: count(u.id))
+      repo.one(from u in User, where: not is_nil(u.confirmed_at), select: count(u.uuid))
 
-    pending_users = repo.one(from u in User, where: is_nil(u.confirmed_at), select: count(u.id))
+    pending_users = repo.one(from u in User, where: is_nil(u.confirmed_at), select: count(u.uuid))
 
     Map.merge(base_stats, %{
       active_users: active_users,
@@ -547,7 +547,7 @@ defmodule PhoenixKit.Users.Roles do
       from assignment in RoleAssignment,
         join: role in assoc(assignment, :role),
         where: role.name == ^role_name,
-        select: count(assignment.id)
+        select: count(assignment.uuid)
 
     repo.one(query) || 0
   end
@@ -627,7 +627,7 @@ defmodule PhoenixKit.Users.Roles do
         join: role in assoc(assignment, :role),
         where: role.name == ^roles.owner,
         where: user.is_active == true,
-        select: count(user.id)
+        select: count(user.uuid)
 
     repo.one(query) || 0
   end
@@ -663,7 +663,7 @@ defmodule PhoenixKit.Users.Roles do
         repo.all(
           from u in User,
             left_join: assignment in assoc(u, :role_assignments),
-            where: is_nil(assignment.id),
+            where: is_nil(assignment.uuid),
             where: u.is_active == true,
             order_by: u.inserted_at
         )
@@ -751,7 +751,7 @@ defmodule PhoenixKit.Users.Roles do
             join: u in User,
             on: assignment.user_uuid == u.uuid and u.is_active == true,
             where: assignment.role_uuid == ^owner_role.uuid,
-            select: count(u.id)
+            select: count(u.uuid)
         )
 
       case owner_count do
@@ -901,7 +901,7 @@ defmodule PhoenixKit.Users.Roles do
         where: role.name == ^roles.owner,
         where: u.is_active == true,
         where: u.uuid != ^excluding_user_id,
-        select: count(u.id)
+        select: count(u.uuid)
     ) || 0
   end
 

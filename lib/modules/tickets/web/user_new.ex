@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserNew do
   def mount(_params, _session, socket) do
     if Tickets.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
-      ticket = %Ticket{user_id: current_user.id}
+      ticket = %Ticket{user_uuid: current_user.uuid}
       changeset = Ticket.changeset(ticket, %{})
 
       attachments_enabled =
@@ -87,7 +87,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserNew do
     socket = process_pending_uploads(socket)
     pending_file_ids = socket.assigns.pending_file_ids
 
-    case Tickets.create_ticket(current_user.id, params) do
+    case Tickets.create_ticket(current_user.uuid, params) do
       {:ok, ticket} ->
         # Attach pending files to the newly created ticket
         Enum.each(pending_file_ids, fn file_id ->
@@ -136,7 +136,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserNew do
     uploaded_files =
       consume_uploaded_entries(socket, :attachments, fn %{path: path}, entry ->
         ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-        user_id = current_user.id
+        user_id = current_user.uuid
 
         {:ok, _stat} = File.stat(path)
         file_hash = Auth.calculate_file_hash(path)

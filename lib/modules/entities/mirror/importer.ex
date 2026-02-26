@@ -124,7 +124,6 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
       status: definition["status"] || "published",
       fields_definition: definition["fields_definition"] || [],
       settings: definition["settings"] || %{},
-      created_by: get_default_user_id(),
       created_by_uuid: get_default_user_uuid()
     }
 
@@ -188,7 +187,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
       # Records without slugs can't be matched to existing records, so always create new
       create_data_from_import(entity, record_data)
     else
-      case EntityData.get_by_slug(entity.id, slug) do
+      case EntityData.get_by_slug(entity.uuid, slug) do
         nil ->
           create_data_from_import(entity, record_data)
 
@@ -200,17 +199,15 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
 
   defp create_data_from_import(entity, record_data) do
     # Generate slug from title if not provided
-    slug = generate_slug_if_missing(entity.id, record_data["slug"], record_data["title"])
+    slug = generate_slug_if_missing(entity.uuid, record_data["slug"], record_data["title"])
 
     attrs = %{
-      entity_id: entity.id,
       entity_uuid: entity.uuid,
       title: record_data["title"],
       slug: slug,
       status: record_data["status"] || "published",
       data: record_data["data"] || %{},
       metadata: record_data["metadata"] || %{},
-      created_by: get_default_user_id(),
       created_by_uuid: get_default_user_uuid()
     }
 
@@ -523,7 +520,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   defp preview_entity_file(entity_name, definition, data) do
     existing_entity = Entities.get_entity_by_name(definition["name"])
     definition_preview = preview_definition(entity_name, existing_entity, definition)
-    entity_id_for_slugs = if existing_entity, do: existing_entity.id, else: nil
+    entity_id_for_slugs = if existing_entity, do: existing_entity.uuid, else: nil
     data_previews = preview_data_records(entity_name, existing_entity, entity_id_for_slugs, data)
 
     %{definition: definition_preview, data: data_previews}
@@ -535,9 +532,9 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
 
   defp preview_definition(entity_name, existing, definition) do
     if entity_definitions_match?(existing, definition) do
-      %{name: entity_name, action: :identical, existing_id: existing.id}
+      %{name: entity_name, action: :identical, existing_uuid: existing.uuid}
     else
-      %{name: entity_name, action: :conflict, existing_id: existing.id}
+      %{name: entity_name, action: :conflict, existing_uuid: existing.uuid}
     end
   end
 
@@ -631,7 +628,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
           slug: slug,
           title: title,
           action: action,
-          existing_id: existing.id,
+          existing_uuid: existing.uuid,
           generated_slug: new_slug_if_imported
         }
     end
@@ -669,13 +666,6 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   # ============================================================================
   # Helpers
   # ============================================================================
-
-  defp get_default_user_id do
-    case get_default_user() do
-      nil -> nil
-      user -> user.id
-    end
-  end
 
   defp get_default_user_uuid do
     case get_default_user() do

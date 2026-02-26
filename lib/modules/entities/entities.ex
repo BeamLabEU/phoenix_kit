@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Entities do
         display_name_plural: "Brands",
         description: "Brand content type for company profiles",
         icon: "hero-building-office",
-        created_by: admin_user.id,
+        created_by_uuid: admin_user.uuid,
         fields_definition: [
           %{"type" => "text", "key" => "name", "label" => "Name", "required" => true},
           %{"type" => "textarea", "key" => "tagline", "label" => "Tagline"},
@@ -85,9 +85,12 @@ defmodule PhoenixKit.Modules.Entities do
   """
 
   use Ecto.Schema
+  use PhoenixKit.Module
+
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.Mirror.Exporter
@@ -103,7 +106,6 @@ defmodule PhoenixKit.Modules.Entities do
 
   @derive {Jason.Encoder,
            only: [
-             :id,
              :uuid,
              :name,
              :display_name,
@@ -118,8 +120,6 @@ defmodule PhoenixKit.Modules.Entities do
            ]}
 
   schema "phoenix_kit_entities" do
-    # Legacy integer ID - DB generates, Ecto reads back
-    field :id, :integer, read_after_writes: true
     field :name, :string
     field :display_name, :string
     field :display_name_plural, :string
@@ -128,8 +128,6 @@ defmodule PhoenixKit.Modules.Entities do
     field :status, :string, default: "published"
     field :fields_definition, {:array, :map}
     field :settings, :map
-    # legacy
-    field :created_by, :integer
     field :created_by_uuid, UUIDv7
     field :date_created, :utc_datetime
     field :date_updated, :utc_datetime
@@ -162,7 +160,6 @@ defmodule PhoenixKit.Modules.Entities do
       :status,
       :fields_definition,
       :settings,
-      :created_by,
       :created_by_uuid,
       :date_created,
       :date_updated
@@ -185,14 +182,13 @@ defmodule PhoenixKit.Modules.Entities do
   end
 
   defp validate_creator_reference(changeset) do
-    created_by = get_field(changeset, :created_by)
     created_by_uuid = get_field(changeset, :created_by_uuid)
 
-    if is_nil(created_by) and is_nil(created_by_uuid) do
+    if is_nil(created_by_uuid) do
       add_error(
         changeset,
         :created_by_uuid,
-        "either created_by or created_by_uuid must be present"
+        "created_by_uuid must be present"
       )
     else
       changeset
@@ -292,19 +288,19 @@ defmodule PhoenixKit.Modules.Entities do
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :created) do
-    Events.broadcast_entity_created(entity.id)
+    Events.broadcast_entity_created(entity.uuid)
     maybe_mirror_entity(entity)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :updated) do
-    Events.broadcast_entity_updated(entity.id)
+    Events.broadcast_entity_updated(entity.uuid)
     maybe_mirror_entity(entity)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :deleted) do
-    Events.broadcast_entity_deleted(entity.id)
+    Events.broadcast_entity_deleted(entity.uuid)
     maybe_delete_mirrored_entity(entity)
     {:ok, entity}
   end
@@ -401,24 +397,14 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.get_entity(456)
       nil
   """
-  def get_entity(id) when is_integer(id) do
-    case repo().get_by(__MODULE__, id: id) do
-      nil -> nil
-      entity -> repo().preload(entity, :creator)
-    end
-  end
-
-  def get_entity(id) when is_binary(id) do
-    if UUIDUtils.valid?(id) do
-      case repo().get_by(__MODULE__, uuid: id) do
+  def get_entity(uuid) when is_binary(uuid) do
+    if UUIDUtils.valid?(uuid) do
+      case repo().get_by(__MODULE__, uuid: uuid) do
         nil -> nil
         entity -> repo().preload(entity, :creator)
       end
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_entity(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -485,55 +471,27 @@ defmodule PhoenixKit.Modules.Entities do
     |> notify_entity_event(:created)
   end
 
-  # Auto-fill created_by with first admin if not provided
+  # Auto-fill created_by_uuid with first admin if not provided
   defp maybe_add_created_by(attrs) when is_map(attrs) do
-    has_created_by =
-      Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
+    has_created_by_uuid =
+      Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
 
-    if has_created_by do
-      # Ensure created_by_uuid is also set when created_by is present
-      has_uuid = Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
-
-      if has_uuid do
-        attrs
-      else
-        created_by_val = attrs[:created_by] || attrs["created_by"]
-        uuid = resolve_user_uuid(created_by_val)
-
-        if is_map(attrs) and Map.has_key?(attrs, :created_by) do
-          Map.put(attrs, :created_by_uuid, uuid)
-        else
-          Map.put(attrs, "created_by_uuid", uuid)
-        end
-      end
+    if has_created_by_uuid do
+      attrs
     else
       case Auth.get_first_admin_id() do
         nil ->
           # Fall back to first user if no admin exists
           case Auth.get_first_user_id() do
-            nil ->
-              attrs
-
-            user_id ->
-              attrs
-              |> Map.put(:created_by, user_id)
-              |> Map.put(:created_by_uuid, resolve_user_uuid(user_id))
+            nil -> attrs
+            user_uuid -> Map.put(attrs, :created_by_uuid, user_uuid)
           end
 
-        admin_id ->
-          attrs
-          |> Map.put(:created_by, admin_id)
-          |> Map.put(:created_by_uuid, resolve_user_uuid(admin_id))
+        admin_uuid ->
+          Map.put(attrs, :created_by_uuid, admin_uuid)
       end
     end
   end
-
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
-  end
-
-  defp resolve_user_uuid(_), do: nil
 
   @doc """
   Updates an entity.
@@ -621,12 +579,7 @@ defmodule PhoenixKit.Modules.Entities do
       5
   """
   def count_user_entities(user_uuid) when is_binary(user_uuid) do
-    from(e in __MODULE__, where: e.created_by_uuid == ^user_uuid, select: count(e.id))
-    |> repo().one()
-  end
-
-  def count_user_entities(user_id) when is_integer(user_id) do
-    from(e in __MODULE__, where: e.created_by == ^user_id, select: count(e.id))
+    from(e in __MODULE__, where: e.created_by_uuid == ^user_uuid, select: count(e.uuid))
     |> repo().one()
   end
 
@@ -639,7 +592,7 @@ defmodule PhoenixKit.Modules.Entities do
       15
   """
   def count_entities do
-    from(e in __MODULE__, select: count(e.id))
+    from(e in __MODULE__, select: count(e.uuid))
     |> repo().one()
   end
 
@@ -652,7 +605,7 @@ defmodule PhoenixKit.Modules.Entities do
       243
   """
   def count_all_entity_data do
-    from(d in PhoenixKit.Modules.Entities.EntityData, select: count(d.id))
+    from(d in PhoenixKit.Modules.Entities.EntityData, select: count(d.uuid))
     |> repo().one()
   end
 
@@ -681,17 +634,7 @@ defmodule PhoenixKit.Modules.Entities do
     end
   end
 
-  def validate_user_entity_limit(user_id) when is_integer(user_id) do
-    max_entities = get_max_per_user()
-    current_count = count_user_entities(user_id)
-
-    if current_count < max_entities do
-      {:ok, :valid}
-    else
-      {:error, "You have reached the maximum limit of #{max_entities} entities"}
-    end
-  end
-
+  @impl PhoenixKit.Module
   @doc """
   Checks if the entities system is enabled.
 
@@ -706,6 +649,7 @@ defmodule PhoenixKit.Modules.Entities do
     Settings.get_boolean_setting("entities_enabled", false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enables the entities system.
 
@@ -720,6 +664,7 @@ defmodule PhoenixKit.Modules.Entities do
     Settings.update_boolean_setting_with_module("entities_enabled", true, "entities")
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disables the entities system.
 
@@ -749,6 +694,7 @@ defmodule PhoenixKit.Modules.Entities do
     Settings.get_integer_setting("entities_max_per_user", 100)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Gets the current entities system configuration.
 
@@ -769,6 +715,144 @@ defmodule PhoenixKit.Modules.Entities do
       total_data_count: count_all_entity_data()
     }
   end
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "entities"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Entities"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "entities",
+      label: "Entities",
+      icon: "hero-cube-transparent",
+      description: "Dynamic content types and custom data structures"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def admin_tabs do
+    [
+      Tab.new!(
+        id: :admin_entities,
+        label: "Entities",
+        icon: "hero-cube",
+        path: "/admin/entities",
+        priority: 540,
+        level: :admin,
+        permission: "entities",
+        match: :prefix,
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false,
+        dynamic_children: &__MODULE__.entities_children/1
+      )
+    ]
+  end
+
+  # ETS cache TTL for entity summaries (30 seconds)
+  @entities_cache_ttl_ms 30_000
+  @entities_cache_key :entities_children_cache
+
+  @doc """
+  Invalidates the cached entity summaries in the Dashboard Registry's ETS table.
+  Called when entity lifecycle PubSub events are received.
+  """
+  @spec invalidate_entities_cache() :: :ok
+  def invalidate_entities_cache do
+    alias PhoenixKit.Dashboard.Registry, as: DashboardRegistry
+
+    if DashboardRegistry.initialized?() do
+      :ets.delete(DashboardRegistry.ets_table(), @entities_cache_key)
+    end
+
+    :ok
+  end
+
+  @doc "Dynamic children function for Entities sidebar tabs."
+  def entities_children(_scope) do
+    cached_entity_summaries()
+    |> Enum.with_index()
+    |> Enum.map(fn {entity, idx} ->
+      %Tab{
+        id:
+          String.to_atom(
+            "admin_entity_#{entity.name}_#{:erlang.phash2(entity.name) |> Integer.to_string(16) |> String.downcase()}"
+          ),
+        label: entity.display_name_plural || entity.display_name,
+        icon: entity.icon || "hero-cube",
+        path: "/admin/entities/#{entity.name}/data",
+        priority: 541 + idx,
+        level: :admin,
+        permission: "entities",
+        match: :prefix,
+        parent: :admin_entities
+      }
+    end)
+  rescue
+    _ -> []
+  end
+
+  defp cached_entity_summaries do
+    alias PhoenixKit.Dashboard.Registry, as: DashboardRegistry
+
+    if DashboardRegistry.initialized?() do
+      case :ets.lookup(DashboardRegistry.ets_table(), @entities_cache_key) do
+        [{@entities_cache_key, entities, timestamp}]
+        when is_integer(timestamp) ->
+          if System.monotonic_time(:millisecond) - timestamp < @entities_cache_ttl_ms do
+            entities
+          else
+            fetch_and_cache_entities()
+          end
+
+        _ ->
+          fetch_and_cache_entities()
+      end
+    else
+      list_entity_summaries()
+    end
+  end
+
+  defp fetch_and_cache_entities do
+    alias PhoenixKit.Dashboard.Registry, as: DashboardRegistry
+    entities = list_entity_summaries()
+
+    if DashboardRegistry.initialized?() do
+      :ets.insert(
+        DashboardRegistry.ets_table(),
+        {@entities_cache_key, entities, System.monotonic_time(:millisecond)}
+      )
+    end
+
+    entities
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_entities,
+        label: "Entities",
+        icon: "hero-cube",
+        path: "/admin/settings/entities",
+        priority: 935,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "entities",
+        match: :prefix
+      )
+    ]
+  end
+
+  @impl PhoenixKit.Module
+  def children, do: [PhoenixKit.Modules.Entities.Presence]
 
   # ============================================================================
   # Per-Entity Mirror Settings
@@ -855,11 +939,10 @@ defmodule PhoenixKit.Modules.Entities do
 
     Enum.map(entities, fn entity ->
       mirror_settings = get_mirror_settings(entity)
-      data_count = EntityData.count_by_entity(entity.id)
+      data_count = EntityData.count_by_entity(entity.uuid)
       file_exists = Storage.entity_exists?(entity.name)
 
       %{
-        id: entity.id,
         uuid: entity.uuid,
         name: entity.name,
         display_name: entity.display_name,

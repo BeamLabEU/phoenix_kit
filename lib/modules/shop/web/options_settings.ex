@@ -263,21 +263,11 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
-        <%!-- Header --%>
-        <header class="w-full relative mb-8">
-          <.link
-            navigate={Routes.path("/admin/shop/settings")}
-            class="btn btn-ghost btn-sm"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4" />
-          </.link>
-          <div class="text-center pt-10 sm:pt-0">
-            <h1 class="text-3xl font-bold text-base-content">Product Options</h1>
-            <p class="text-base-content/70 mt-1">
-              Define global options that apply to all products
-            </p>
-          </div>
-        </header>
+        <.admin_page_header
+          back={Routes.path("/admin/shop/settings")}
+          title="Product Options"
+          subtitle="Define global options that apply to all products"
+        />
 
         <%!-- Controls Bar --%>
         <div class="bg-base-200 rounded-lg p-4 mb-6">

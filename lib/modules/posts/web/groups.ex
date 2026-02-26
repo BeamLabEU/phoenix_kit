@@ -94,7 +94,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Groups do
 
       group ->
         # Verify user owns this group
-        if group.user_id == socket.assigns.current_user.id do
+        if group.user_uuid == socket.assigns.current_user.uuid do
           case Posts.delete_group(group) do
             {:ok, _} ->
               {:noreply,

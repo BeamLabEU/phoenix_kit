@@ -81,7 +81,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
     |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:group_uuid)
     |> unique_constraint([:post_uuid, :group_uuid],
-      name: :phoenix_kit_post_group_assignments_post_uuid_group_uuid_index,
+      name: :phoenix_kit_post_group_assignments_post_id_group_id_index,
       message: "post already in this group"
     )
   end

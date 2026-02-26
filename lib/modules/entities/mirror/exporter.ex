@@ -73,8 +73,8 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Exporter do
   This re-exports the entire entity file with updated data.
   """
   @spec export_entity_data(struct()) :: {:ok, String.t()} | {:error, term()}
-  def export_entity_data(%{entity_id: entity_id} = _entity_data) do
-    case Entities.get_entity(entity_id) do
+  def export_entity_data(%{entity_uuid: entity_uuid} = _entity_data) do
+    case Entities.get_entity(entity_uuid) do
       nil -> {:error, :entity_not_found}
       entity -> export_entity(entity)
     end
@@ -200,7 +200,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Exporter do
   end
 
   defp get_entity_data(entity) do
-    EntityData.list_data_by_entity(entity.id)
+    EntityData.list_data_by_entity(entity.uuid)
   end
 
   defp format_datetime(nil), do: nil

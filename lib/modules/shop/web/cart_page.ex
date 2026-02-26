@@ -9,12 +9,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
+
+  import PhoenixKit.Modules.Shop.Web.Helpers,
+    only: [format_price: 2, humanize_key: 1, get_current_user: 1]
 
   @impl true
   def mount(_params, session, socket) do
@@ -26,7 +29,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
     # Get current user if logged in
     user = get_current_user(socket)
-    user_id = if user, do: user.id, else: nil
+    user_id = if user, do: user.uuid, else: nil
     user_uuid = if user, do: user.uuid, else: nil
 
     # Get or create cart
@@ -120,7 +123,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
       cart.items == [] ->
         {:noreply, put_flash(socket, :error, "Your cart is empty")}
 
-      is_nil(cart.shipping_method_id) ->
+      is_nil(cart.shipping_method_uuid) ->
         {:noreply, put_flash(socket, :error, "Please select a shipping method")}
 
       true ->
@@ -216,8 +219,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   @impl true
   def render(assigns) do
     ~H"""
-    <.shop_layout {assigns}>
-      <div class="container flex-col mx-auto px-4 py-6 max-w-6xl">
+    <ShopLayouts.shop_layout {assigns}>
+      <div class="container mx-auto px-4 py-6 max-w-6xl">
         <%!-- Header --%>
         <header class="mb-6">
           <div class="flex items-start gap-4">
@@ -348,7 +351,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                                   name="quantity"
                                   value={item.quantity}
                                   min="1"
-                                  class="input input-bordered input-sm w-20 text-center"
+                                  class="input input-sm w-20 text-center"
                                 />
                               </form>
                             </td>
@@ -451,7 +454,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
                   <div class="flex justify-between">
                     <span class="text-base-content/70">Shipping</span>
-                    <%= if is_nil(@cart.shipping_method_id) do %>
+                    <%= if is_nil(@cart.shipping_method_uuid) do %>
                       <span class="text-base-content/50">Select method</span>
                     <% else %>
                       <%= if Decimal.compare(@cart.shipping_amount || Decimal.new("0"), Decimal.new("0")) == :eq do %>
@@ -502,30 +505,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
           </div>
         </div>
       </div>
-    </.shop_layout>
-    """
-  end
-
-  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
-  slot :inner_block, required: true
-
-  defp shop_layout(assigns) do
-    ~H"""
-    <%= if @authenticated do %>
-      <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Layouts.dashboard>
-    <% else %>
-      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-        flash={@flash}
-        phoenix_kit_current_scope={@phoenix_kit_current_scope}
-        current_path={@url_path}
-        current_locale={@current_locale}
-        page_title={@page_title}
-      >
-        {render_slot(@inner_block)}
-      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
-    <% end %>
+    </ShopLayouts.shop_layout>
     """
   end
 
@@ -534,33 +514,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   defp generate_session_id do
     :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
   end
-
-  defp format_price(nil, _currency), do: "-"
-
-  defp format_price(amount, %Currency{} = currency) do
-    Currency.format_amount(amount, currency)
-  end
-
-  defp format_price(amount, nil) do
-    "$#{Decimal.round(amount, 2)}"
-  end
-
-  defp get_current_user(socket) do
-    case socket.assigns[:phoenix_kit_current_scope] do
-      %{user: %{id: _} = user} -> user
-      _ -> nil
-    end
-  end
-
-  # Convert key to human-readable format: "material_type" -> "Material Type"
-  defp humanize_key(key) when is_binary(key) do
-    key
-    |> String.replace("_", " ")
-    |> String.split(" ")
-    |> Enum.map_join(" ", &String.capitalize/1)
-  end
-
-  defp humanize_key(key), do: to_string(key)
 
   defp product_item_url(item, language) do
     base = DialectMapper.extract_base(language)

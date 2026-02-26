@@ -198,7 +198,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     if Code.ensure_loaded?(Referrals) do
       case Referrals.get_code_by_string(referral_code) do
         nil -> :ok
-        code -> Referrals.use_code(code.code, user.id)
+        code -> Referrals.use_code(code.code, user.uuid)
       end
     end
 

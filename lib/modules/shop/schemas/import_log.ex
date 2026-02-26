@@ -31,7 +31,6 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_import_logs" do
-    field :id, :integer, read_after_writes: true
     field :filename, :string
     field :file_path, :string
     field :status, :string, default: "pending"
@@ -54,8 +53,6 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     field :completed_at, :utc_datetime
 
     # Associations
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -66,7 +63,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   """
   def create_changeset(import_log \\ %__MODULE__{}, attrs) do
     import_log
-    |> cast(attrs, [:filename, :file_path, :options, :user_id, :user_uuid])
+    |> cast(attrs, [:filename, :file_path, :options, :user_uuid])
     |> validate_required([:filename])
   end
 

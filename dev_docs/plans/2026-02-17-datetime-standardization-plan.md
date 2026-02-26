@@ -3,13 +3,13 @@
 **Date:** 2026-02-17
 **Updated:** 2026-02-22 (post-review fixes applied)
 **Status:** Steps 1-5 **COMPLETE** — all DB write sites use `UtilsDate.utc_now()`
-**Related:** `dev_docs/2026-02-15-datetime-inconsistency-report.md`
+**Related:** `dev_docs/audits/2026-02-15-datetime-inconsistency-report.md`
 
 ---
 
 ## Context
 
-A production bug (Entities crash from `NaiveDateTime` in a `:utc_datetime_usec` field) revealed that PhoenixKit uses 3 different datetime conventions. The audit at `dev_docs/2026-02-15-datetime-inconsistency-report.md` documents the full scope.
+A production bug (Entities crash from `NaiveDateTime` in a `:utc_datetime_usec` field) revealed that PhoenixKit uses 3 different datetime conventions. The audit at `dev_docs/audits/2026-02-15-datetime-inconsistency-report.md` documents the full scope.
 
 **Goal:** Standardize **everything** on `:utc_datetime` and `DateTime.utc_now()`. Microsecond precision is not needed. Existing `:utc_datetime_usec` schemas will be downgraded to `:utc_datetime` — Ecto automatically truncates microseconds on read, so existing DB data is preserved (just trimmed to seconds).
 

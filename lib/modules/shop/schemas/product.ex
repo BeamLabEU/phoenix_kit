@@ -43,8 +43,6 @@ defmodule PhoenixKit.Modules.Shop.Product do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_products" do
-    field :id, :integer, read_after_writes: true
-
     # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
     field :title, :map, default: %{}
     field :slug, :map, default: %{}
@@ -94,16 +92,10 @@ defmodule PhoenixKit.Modules.Shop.Product do
     field :metadata, :map, default: %{}
 
     # Relations
-    # legacy
-    field :category_id, :integer
-
     belongs_to :category, PhoenixKit.Modules.Shop.Category,
       foreign_key: :category_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :created_by, :integer
 
     belongs_to :created_by_user, PhoenixKit.Users.Auth.User,
       foreign_key: :created_by_uuid,
@@ -147,9 +139,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
       :download_limit,
       :download_expiry_days,
       :metadata,
-      :category_id,
       :category_uuid,
-      :created_by,
       :created_by_uuid
     ])
     |> normalize_map_fields(@localized_fields)

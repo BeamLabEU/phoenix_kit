@@ -152,7 +152,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
     case Log.get_log_by_message_id(message_id) do
       %PhoenixKit.Modules.Emails.Log{} = log ->
         if verbose do
-          IO.puts("📧 Found existing email log: ID=#{log.id}, Status=#{log.status}")
+          IO.puts("📧 Found existing email log: ID=#{log.uuid}, Status=#{log.status}")
         end
 
         {log, log.status}

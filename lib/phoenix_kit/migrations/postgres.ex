@@ -228,7 +228,7 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ### V33 - Payment Providers and Subscriptions
   - Phoenix_kit_payment_methods for saved payment methods (cards, wallets)
-  - Phoenix_kit_subscription_plans for subscription pricing plans
+  - Phoenix_kit_subscription_types for subscription pricing types
   - Phoenix_kit_subscriptions for user subscription management
   - Phoenix_kit_payment_provider_configs for provider credentials
   - Phoenix_kit_webhook_events for idempotent webhook processing
@@ -477,12 +477,31 @@ defmodule PhoenixKit.Migrations.Postgres do
   - V40 now includes `flush()` at start of `up()` to prevent recurrence on new installations
   - All operations idempotent — safe on any installation
 
-  ### V62 - UUID Column Rename (`_id` → `_uuid`) ⚡ LATEST
-  - Renames 35 UUID-type columns from `_id` suffix to `_uuid` suffix across 25 tables
-  - Enforces naming convention: `_id` = integer (legacy), `_uuid` = UUID
+  ### V62 - UUID Column Naming Cleanup (`_id` → `_uuid`)
+  - Renames 35 UUID-typed FK columns from `_id` suffix to `_uuid` suffix
+  - Enforces naming convention: `_id` = integer (legacy/deprecated), `_uuid` = UUID
   - Groups: Posts (15), Comments (4), Tickets (6), Storage (3), Publishing (3), Shop (3), Scheduled Jobs (1)
-  - All operations idempotent — guarded by IF EXISTS checks on table and column
-  - PostgreSQL auto-updates FK constraints and index definitions on column rename
+  - No data migration — columns already hold correct UUID values, pure rename
+  - All operations idempotent (IF EXISTS guards) — safe if module tables don't exist
+  - PostgreSQL auto-updates FK/index column references; constraint object names are unchanged
+
+  ### V63 - UUID Companion Column Safety Net Round 2
+  - Adds `uuid` identity column to `phoenix_kit_ai_accounts` (missed by V61 due to wrong table name)
+  - Adds `account_uuid` companion to `phoenix_kit_ai_requests` (backfilled from ai_accounts)
+  - Adds `matched_email_log_uuid` companion to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
+  - Adds `subscription_uuid` companion to `phoenix_kit_invoices` (backfilled from subscriptions)
+
+  ### V64 - Fix user token check constraint for UUID-only inserts
+  - Drops V16's `user_id_required_for_non_registration_tokens` constraint (checks `user_id`)
+  - Adds `user_uuid_required_for_non_registration_tokens` constraint (checks `user_uuid`)
+  - Fixes login crash after UUID cleanup removed `user_id` from UserToken schema
+
+  ### V65 - Rename SubscriptionPlan → SubscriptionType ⚡ LATEST
+  - Renames `phoenix_kit_subscription_plans` table → `phoenix_kit_subscription_types`
+  - Renames unique slug index accordingly
+  - Renames `plan_id` / `plan_uuid` FK columns in `phoenix_kit_subscriptions`
+    to `subscription_type_id` / `subscription_type_uuid`
+  - All operations idempotent (IF EXISTS guards)
 
   ## Migration Paths
 
@@ -542,7 +561,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 62
+  @current_version 65
   @default_prefix "public"
 
   @doc false

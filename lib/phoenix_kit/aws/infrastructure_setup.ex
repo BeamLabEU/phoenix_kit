@@ -441,9 +441,9 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   # Helper: Build AWS configuration
   defp aws_config(config) do
     [
-      access_key_id: config.access_key_id,
-      secret_access_key: config.secret_access_key,
-      region: config.region
+      access_key_id: String.trim(config.access_key_id),
+      secret_access_key: String.trim(config.secret_access_key),
+      region: String.trim(config.region)
     ]
   end
 

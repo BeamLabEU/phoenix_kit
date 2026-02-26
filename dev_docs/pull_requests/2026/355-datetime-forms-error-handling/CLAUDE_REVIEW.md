@@ -21,8 +21,8 @@ This PR delivers three categories of work across 64 files (+603/-333):
 | *(embedded)* | Fix media selector modal drag-and-drop upload | 1 |
 
 Addresses two tracked initiatives:
-- `dev_docs/2026-02-17-datetime-standardization-plan.md` (Step 5)
-- `dev_docs/2026-02-21-liveview-form-error-handling.md`
+- `dev_docs/plans/2026-02-17-datetime-standardization-plan.md` (Step 5)
+- `dev_docs/investigations/2026-02-21-liveview-form-error-handling.md`
 
 ---
 
@@ -55,7 +55,7 @@ The PR successfully completes the vast majority of remaining work on both initia
 - **Correct safe-list** — non-DB contexts (query filters, assigns, ISO8601 conversions, comparisons, filesystem metadata) are correctly left alone
 - **Previously-fixed sites unified** — PR #350's manual `DateTime.truncate(DateTime.utc_now(), :second)` calls are replaced with the cleaner `UtilsDate.utc_now()` for consistency
 - **sqs_processor.ex parse_timestamp** — correctly handles both branches: successful parse gets `DateTime.truncate(datetime, :second)`, fallback uses `UtilsDate.utc_now()`
-- **Good documentation** — the inconsistency report (`dev_docs/2026-02-15-datetime-inconsistency-report.md`) was updated with a thorough audit of all remaining call sites, categorized by status
+- **Good documentation** — the inconsistency report (`dev_docs/audits/2026-02-15-datetime-inconsistency-report.md`) was updated with a thorough audit of all remaining call sites, categorized by status
 
 ### Issue: Missed crash site in `emails/event.ex` — RESOLVED
 
@@ -75,7 +75,7 @@ The PR successfully completes the vast majority of remaining work on both initia
 
 ### What was done well
 
-- **Complete coverage** — all handlers identified in `dev_docs/2026-02-21-liveview-form-error-handling.md` are addressed
+- **Complete coverage** — all handlers identified in `dev_docs/investigations/2026-02-21-liveview-form-error-handling.md` are addressed
 - **Correct rescue pattern** — `rescue e -> Logger.error + put_flash(:error, ...)` preserves the LiveView process, user's form data, and provides user feedback
 - **Appropriate scope** — the rescue is a safety net, not a replacement for proper error handling; the normal `{:ok, _}` / `{:error, changeset}` flow is untouched
 

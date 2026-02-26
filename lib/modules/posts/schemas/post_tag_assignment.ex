@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
     |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:tag_uuid)
     |> unique_constraint([:post_uuid, :tag_uuid],
-      name: :phoenix_kit_post_tag_assignments_post_uuid_tag_uuid_index,
+      name: :phoenix_kit_post_tag_assignments_post_id_tag_id_index,
       message: "tag already assigned to this post"
     )
   end

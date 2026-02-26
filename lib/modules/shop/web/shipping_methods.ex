@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
 
     methods =
       Enum.map(socket.assigns.methods, fn m ->
-        if m.id == updated.id, do: updated, else: m
+        if m.uuid == updated.uuid, do: updated, else: m
       end)
 
     {:noreply, assign(socket, :methods, methods)}
@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
 
     case Shop.delete_shipping_method(method) do
       {:ok, _} ->
-        methods = Enum.reject(socket.assigns.methods, &(&1.id == method.id))
+        methods = Enum.reject(socket.assigns.methods, &(&1.uuid == method.uuid))
 
         {:noreply,
          socket
@@ -65,15 +65,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
       page_title={@page_title}
     >
       <div class="p-6 max-w-6xl mx-auto">
-        <div class="flex justify-between items-center mb-6">
-          <div>
-            <h1 class="text-3xl font-bold">Shipping Methods</h1>
-            <p class="text-base-content/70">{length(@methods)} methods configured</p>
-          </div>
-          <.link navigate={Routes.path("/admin/shop/shipping/new")} class="btn btn-primary">
-            <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Add Method
-          </.link>
-        </div>
+        <.admin_page_header back={Routes.path("/admin/shop")}>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
+            Shipping Methods
+          </h1>
+          <p class="text-sm sm:text-base text-base-content/60 mt-0.5">
+            {length(@methods)} methods configured
+          </p>
+          <:actions>
+            <.link navigate={Routes.path("/admin/shop/shipping/new")} class="btn btn-primary btn-sm">
+              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Add Method
+            </.link>
+          </:actions>
+        </.admin_page_header>
 
         <div class="card bg-base-100 shadow-lg">
           <div class="overflow-x-auto">

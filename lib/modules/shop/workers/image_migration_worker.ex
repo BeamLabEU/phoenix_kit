@@ -54,18 +54,18 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
       # Re-fetch product with lock
       locked_product =
         Ecto.Query.from(p in PhoenixKit.Modules.Shop.Product,
-          where: p.id == ^product.id,
+          where: p.uuid == ^product.uuid,
           lock: "FOR UPDATE"
         )
         |> repo.one()
 
       cond do
         is_nil(locked_product) ->
-          Logger.warning("Product #{product.id} not found during migration")
+          Logger.warning("Product #{product.uuid} not found during migration")
           {:error, :product_not_found}
 
         already_migrated?(locked_product) ->
-          Logger.info("Product #{product.id} already has image_ids, skipping migration")
+          Logger.info("Product #{product.uuid} already has image_ids, skipping migration")
           :ok
 
         true ->
@@ -80,10 +80,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
   defp already_migrated?(product) do
     # Check if product has any storage-based images
-    has_featured_image_id = not is_nil(product.featured_image_uuid)
+    has_featured_image_uuid = not is_nil(product.featured_image_uuid)
     has_image_ids = is_list(product.image_ids) and product.image_ids != []
 
-    has_featured_image_id or has_image_ids
+    has_featured_image_uuid or has_image_ids
   end
 
   defp do_migrate_images(product, user_id) do
@@ -96,11 +96,11 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
   defp validate_product_for_migration(product) do
     cond do
       is_nil(product.title) or product.title == %{} ->
-        Logger.warning("Product #{product.id} missing title, skipping migration")
+        Logger.warning("Product #{product.uuid} missing title, skipping migration")
         {:error, :missing_title}
 
       is_nil(product.slug) or product.slug == %{} ->
-        Logger.warning("Product #{product.id} missing slug, skipping migration")
+        Logger.warning("Product #{product.uuid} missing slug, skipping migration")
         {:error, :missing_slug}
 
       true ->
@@ -113,7 +113,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     image_urls = collect_image_urls(product)
 
     if Enum.empty?(image_urls) do
-      Logger.info("No legacy images found for product #{product.id}")
+      Logger.info("No legacy images found for product #{product.uuid}")
       :ok
     else
       # Validate URLs first to skip unavailable images
@@ -121,15 +121,15 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
       if invalid_urls != [] do
         Logger.warning(
-          "Product #{product.id}: #{length(invalid_urls)} invalid URLs skipped: #{inspect(invalid_urls)}"
+          "Product #{product.uuid}: #{length(invalid_urls)} invalid URLs skipped: #{inspect(invalid_urls)}"
         )
       end
 
       if valid_urls == [] do
-        Logger.warning("Product #{product.id}: All image URLs invalid, marking as failed")
+        Logger.warning("Product #{product.uuid}: All image URLs invalid, marking as failed")
         {:error, :all_urls_invalid}
       else
-        Logger.info("Migrating #{length(valid_urls)} valid images for product #{product.id}")
+        Logger.info("Migrating #{length(valid_urls)} valid images for product #{product.uuid}")
 
         # Download and store all images
         results =
@@ -137,7 +137,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
             concurrency: 3,
             timeout: 60_000,
             on_progress: fn url, result, index, total ->
-              broadcast_progress(product.id, index, total, url, result)
+              broadcast_progress(product.uuid, index, total, url, result)
             end
           )
 
@@ -190,11 +190,11 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
   defp update_product_with_storage_ids(product, url_to_file_id) do
     if map_size(url_to_file_id) == 0 do
-      Logger.warning("No images were successfully downloaded for product #{product.id}")
+      Logger.warning("No images were successfully downloaded for product #{product.uuid}")
       {:error, :no_images_downloaded}
     else
-      # Map featured_image to featured_image_id
-      featured_image_id = Map.get(url_to_file_id, product.featured_image)
+      # Map featured_image to featured_image_uuid
+      featured_image_uuid = Map.get(url_to_file_id, product.featured_image)
 
       # Map legacy images to image_ids, preserving order from original images array
       image_ids =
@@ -207,13 +207,13 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
         |> Enum.map(&Map.get(url_to_file_id, &1))
         |> Enum.reject(&is_nil/1)
 
-      # If no featured_image_id but we have image_ids, use the first one
-      featured_image_id = featured_image_id || List.first(image_ids)
+      # If no featured_image_uuid but we have image_ids, use the first one
+      featured_image_uuid = featured_image_uuid || List.first(image_ids)
 
       # Ensure featured image is first in image_ids (no duplicates)
       image_ids =
-        if featured_image_id && featured_image_id in image_ids do
-          [featured_image_id | Enum.reject(image_ids, &(&1 == featured_image_id))]
+        if featured_image_uuid && featured_image_uuid in image_ids do
+          [featured_image_uuid | Enum.reject(image_ids, &(&1 == featured_image_uuid))]
         else
           image_ids
         end
@@ -222,7 +222,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
       metadata = update_image_mappings(product.metadata, url_to_file_id)
 
       attrs = %{
-        featured_image_id: featured_image_id,
+        featured_image_uuid: featured_image_uuid,
         image_ids: image_ids,
         metadata: metadata,
         # Clear legacy fields after successful migration
@@ -233,15 +233,15 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
       case Shop.update_product(product, attrs) do
         {:ok, updated_product} ->
           Logger.info(
-            "Successfully migrated images for product #{product.id}: " <>
-              "featured_image_id=#{featured_image_id}, image_ids=#{length(image_ids)}"
+            "Successfully migrated images for product #{product.uuid}: " <>
+              "featured_image_uuid=#{featured_image_uuid}, image_ids=#{length(image_ids)}"
           )
 
-          broadcast_complete(product.id, length(image_ids))
+          broadcast_complete(product.uuid, length(image_ids))
           {:ok, updated_product}
 
         {:error, changeset} ->
-          Logger.error("Failed to update product #{product.id}: #{inspect(changeset.errors)}")
+          Logger.error("Failed to update product #{product.uuid}: #{inspect(changeset.errors)}")
           {:error, changeset}
       end
     end

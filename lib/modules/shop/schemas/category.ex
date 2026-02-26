@@ -35,8 +35,6 @@ defmodule PhoenixKit.Modules.Shop.Category do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_categories" do
-    field :id, :integer, read_after_writes: true
-
     # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
     field :name, :map, default: %{}
     field :slug, :map, default: %{}
@@ -50,8 +48,6 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :option_schema, {:array, :map}, default: []
 
     # Self-referential for nesting
-    # legacy
-    field :parent_id, :integer
     belongs_to :parent, __MODULE__, foreign_key: :parent_uuid, references: :uuid, type: UUIDv7
     has_many :children, __MODULE__, foreign_key: :parent_uuid, references: :uuid
 
@@ -61,9 +57,6 @@ defmodule PhoenixKit.Modules.Shop.Category do
       references: :uuid
 
     # Featured product for fallback image
-    # legacy
-    field :featured_product_id, :integer
-
     belongs_to :featured_product, PhoenixKit.Modules.Shop.Product,
       foreign_key: :featured_product_uuid,
       references: :uuid,
@@ -87,9 +80,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :slug,
       :description,
       :image_uuid,
-      :featured_product_id,
       :featured_product_uuid,
-      :parent_id,
       :parent_uuid,
       :position,
       :status,
@@ -115,7 +106,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   Priority:
   1. Storage media (image_id) if available
-  2. Featured product's featured_image_id (requires :featured_product preloaded)
+  2. Featured product's featured_image_uuid (requires :featured_product preloaded)
   3. Featured product's legacy featured_image URL (requires :featured_product preloaded)
   4. nil if no image
 

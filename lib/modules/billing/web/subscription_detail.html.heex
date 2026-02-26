@@ -20,10 +20,10 @@
         Created <.time_ago datetime={@subscription.inserted_at} />
       </p>
       <:actions>
-        <%!-- Change Plan Button (for active/trialing subscriptions) --%>
+        <%!-- Change Subscription Type Button (for active/trialing subscriptions) --%>
         <%= if @subscription.status in ["active", "trialing"] && !@subscription.cancel_at_period_end do %>
-          <button phx-click="open_change_plan_modal" class="btn btn-outline btn-sm">
-            <.icon name="hero-arrow-path" class="w-4 h-4" /> Change Plan
+          <button phx-click="open_change_subscription_type_modal" class="btn btn-outline btn-sm">
+            <.icon name="hero-arrow-path" class="w-4 h-4" /> Change Subscription Type
           </button>
         <% end %>
 
@@ -81,38 +81,40 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <%!-- Main Content --%>
       <div class="lg:col-span-2 space-y-6">
-        <%!-- Plan Details --%>
+        <%!-- Subscription Type Details --%>
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
-            <h2 class="card-title">Plan Details</h2>
-            <%= if @subscription.plan do %>
+            <h2 class="card-title">Subscription Type Details</h2>
+            <%= if @subscription.subscription_type do %>
               <div class="mt-4">
                 <div class="flex items-center justify-between">
                   <div>
-                    <h3 class="text-xl font-bold">{@subscription.plan.name}</h3>
-                    <p class="text-base-content/60">{@subscription.plan.description}</p>
+                    <h3 class="text-xl font-bold">{@subscription.subscription_type.name}</h3>
+                    <p class="text-base-content/60">
+                      {@subscription.subscription_type.description}
+                    </p>
                   </div>
                   <div class="text-right">
                     <div class="text-2xl font-bold">
                       <.currency_amount
-                        amount={@subscription.plan.price}
-                        currency={@subscription.plan.currency}
+                        amount={@subscription.subscription_type.price}
+                        currency={@subscription.subscription_type.currency}
                       />
                     </div>
                     <div class="text-sm text-base-content/60">
                       {format_interval(
-                        @subscription.plan.interval,
-                        @subscription.plan.interval_count
+                        @subscription.subscription_type.interval,
+                        @subscription.subscription_type.interval_count
                       )}
                     </div>
                   </div>
                 </div>
 
                 <%!-- Features --%>
-                <%= if @subscription.plan.features && is_list(@subscription.plan.features) && length(@subscription.plan.features) > 0 do %>
+                <%= if @subscription.subscription_type.features && is_list(@subscription.subscription_type.features) && length(@subscription.subscription_type.features) > 0 do %>
                   <div class="divider">Features</div>
                   <ul class="space-y-2">
-                    <%= for feature <- @subscription.plan.features do %>
+                    <%= for feature <- @subscription.subscription_type.features do %>
                       <li class="flex items-center gap-2">
                         <.icon name="hero-check" class="w-4 h-4 text-success" />
                         <span>{feature}</span>
@@ -123,7 +125,7 @@
               </div>
             <% else %>
               <div class="text-center py-6 text-base-content/50">
-                <p>No plan associated</p>
+                <p>No subscription type associated</p>
               </div>
             <% end %>
           </div>
@@ -322,46 +324,51 @@
     </div>
   </div>
 
-  <%!-- Change Plan Modal --%>
-  <%= if @show_change_plan_modal do %>
+  <%!-- Change Subscription Type Modal --%>
+  <%= if @show_change_subscription_type_modal do %>
     <div class="modal modal-open">
       <div class="modal-box">
-        <h3 class="font-bold text-lg">Change Subscription Plan</h3>
+        <h3 class="font-bold text-lg">Change Subscription Type</h3>
 
-        <%!-- Current Plan --%>
-        <%= if @subscription.plan do %>
+        <%!-- Current Subscription Type --%>
+        <%= if @subscription.subscription_type do %>
           <div class="mt-4 p-3 bg-base-200 rounded-lg">
-            <div class="text-sm text-base-content/60">Current Plan</div>
-            <div class="font-medium">{@subscription.plan.name}</div>
+            <div class="text-sm text-base-content/60">Current Subscription Type</div>
+            <div class="font-medium">{@subscription.subscription_type.name}</div>
             <div class="text-sm">
               <.currency_compact
-                amount={@subscription.plan.price}
-                currency={@subscription.plan.currency}
+                amount={@subscription.subscription_type.price}
+                currency={@subscription.subscription_type.currency}
               />
-              / {format_interval(@subscription.plan.interval, @subscription.plan.interval_count)}
+              / {format_interval(
+                @subscription.subscription_type.interval,
+                @subscription.subscription_type.interval_count
+              )}
             </div>
           </div>
         <% end %>
 
-        <%!-- New Plan Selection --%>
+        <%!-- New Subscription Type Selection --%>
         <div class="form-control mt-4">
           <label class="label">
-            <span class="label-text">Select New Plan</span>
+            <span class="label-text">Select New Subscription Type</span>
           </label>
           <select
-            name="plan_id"
-            phx-change="select_new_plan"
+            name="subscription_type_uuid"
+            phx-change="select_new_subscription_type"
             class="select select-bordered w-full"
           >
-            <option value="">Choose a plan...</option>
-            <%= for plan <- @plans do %>
-              <%= if plan.uuid != @subscription.plan_uuid do %>
+            <option value="">Choose a subscription type...</option>
+            <%= for type <- @subscription_types do %>
+              <%= if type.uuid != @subscription.subscription_type_uuid do %>
                 <option
-                  value={plan.uuid}
-                  selected={to_string(@selected_new_plan_uuid) == to_string(plan.uuid)}
+                  value={type.uuid}
+                  selected={
+                    to_string(@selected_new_subscription_type_uuid) == to_string(type.uuid)
+                  }
                 >
-                  {plan.name} - <.currency_compact amount={plan.price} currency={plan.currency} />
-                  / {format_interval(plan.interval, plan.interval_count)}
+                  {type.name} - <.currency_compact amount={type.price} currency={type.currency} />
+                  / {format_interval(type.interval, type.interval_count)}
                 </option>
               <% end %>
             <% end %>
@@ -376,20 +383,20 @@
 
         <%!-- Modal Actions --%>
         <div class="modal-action">
-          <button type="button" phx-click="close_change_plan_modal" class="btn">
+          <button type="button" phx-click="close_change_subscription_type_modal" class="btn">
             Cancel
           </button>
           <button
             type="button"
-            phx-click="change_plan"
+            phx-click="change_subscription_type"
             class="btn btn-primary"
-            disabled={is_nil(@selected_new_plan_uuid)}
+            disabled={is_nil(@selected_new_subscription_type_uuid)}
           >
-            <.icon name="hero-arrow-path" class="w-4 h-4" /> Change Plan
+            <.icon name="hero-arrow-path" class="w-4 h-4" /> Change Subscription Type
           </button>
         </div>
       </div>
-      <div class="modal-backdrop" phx-click="close_change_plan_modal"></div>
+      <div class="modal-backdrop" phx-click="close_change_subscription_type_modal"></div>
     </div>
   <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

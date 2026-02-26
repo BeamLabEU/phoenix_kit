@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Publishing.PresenceHelpers do
     topic = editing_topic(form_key)
 
     Presence.track(self(), topic, socket.id, %{
-      user_id: user.id,
+      user_id: user.uuid,
       user_email: user.email,
       user: user,
       joined_at: System.system_time(:millisecond),
@@ -75,7 +75,7 @@ defmodule PhoenixKit.Modules.Publishing.PresenceHelpers do
 
   ## Examples
 
-      case get_editing_role("blog:my-post", socket.id, current_user.id) do
+      case get_editing_role("blog:my-post", socket.id, current_user.uuid) do
         {:owner, all_presences} ->
           # I can edit!
 

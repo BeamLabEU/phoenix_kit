@@ -18,10 +18,10 @@ defmodule PhoenixKitWeb.Components.Core.Header do
     ~H"""
     <header class={[@class]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8 text-zinc-800">
+        <h1 class="text-lg font-semibold leading-8 text-base-content">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="mt-2 text-sm leading-6 text-zinc-600">
+        <p :if={@subtitle != []} class="mt-2 text-sm leading-6 text-base-content/70">
           {render_slot(@subtitle)}
         </p>
       </div>

@@ -17,7 +17,6 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
 
   - `user_a_uuid` / `user_b_uuid` - The two users involved (stored with lower UUID first for consistency)
   - `actor_uuid` - The user who performed this action
-  - `user_a_id` / `user_b_id` / `actor_id` - Integer IDs (deprecated, dual-write only)
   """
 
   use Ecto.Schema
@@ -44,10 +43,6 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
       references: :uuid,
       type: UUIDv7
 
-    field :user_a_id, :integer
-    field :user_b_id, :integer
-    field :actor_id, :integer
-
     field :action, :string
     field :inserted_at, :utc_datetime
   end
@@ -68,9 +63,6 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
       :user_a_uuid,
       :user_b_uuid,
       :actor_uuid,
-      :user_a_id,
-      :user_b_id,
-      :actor_id,
       :action
     ])
     |> validate_required([:user_a_uuid, :user_b_uuid, :actor_uuid, :action])
@@ -82,13 +74,9 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
   end
 
   # Normalize user UUIDs so user_a_uuid < user_b_uuid for consistent storage
-  # Also swap integer ID fields to keep pairs consistent
   defp normalize_user_ids(%{user_a_uuid: a_uuid, user_b_uuid: b_uuid} = attrs)
        when is_binary(a_uuid) and is_binary(b_uuid) and a_uuid > b_uuid do
-    a_id = Map.get(attrs, :user_a_id)
-    b_id = Map.get(attrs, :user_b_id)
-
-    %{attrs | user_a_uuid: b_uuid, user_b_uuid: a_uuid, user_a_id: b_id, user_b_id: a_id}
+    %{attrs | user_a_uuid: b_uuid, user_b_uuid: a_uuid}
   end
 
   defp normalize_user_ids(attrs), do: attrs

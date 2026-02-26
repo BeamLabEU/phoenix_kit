@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
       # Create a transfer record
       {:ok, transfer} = Transfers.create_transfer(%{
         direction: "receive",
-        connection_id: conn.id,
+        connection_uuid: conn.uuid,
         table_name: "users",
         records_requested: 100,
         conflict_strategy: "skip"
@@ -73,7 +73,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
   schema "phoenix_kit_sync_transfers" do
-    field :id, :integer, read_after_writes: true
     field :direction, :string
     field :session_code, :string
     field :remote_site_url, :string
@@ -104,32 +103,20 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     field :completed_at, :utc_datetime
     field :metadata, :map, default: %{}
 
-    # legacy
-    field :connection_id, :integer
-
     belongs_to :connection, Connection,
       foreign_key: :connection_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :approved_by, :integer
 
     belongs_to :approved_by_user, User,
       foreign_key: :approved_by_uuid,
       references: :uuid,
       type: UUIDv7
 
-    # legacy
-    field :denied_by, :integer
-
     belongs_to :denied_by_user, User,
       foreign_key: :denied_by_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :initiated_by, :integer
 
     belongs_to :initiated_by_user, User,
       foreign_key: :initiated_by_uuid,
@@ -146,7 +133,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     transfer
     |> cast(attrs, [
       :direction,
-      :connection_id,
       :connection_uuid,
       :session_code,
       :remote_site_url,
@@ -158,7 +144,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
       :approval_expires_at,
       :requester_ip,
       :requester_user_agent,
-      :initiated_by,
       :initiated_by_uuid,
       :metadata
     ])
@@ -266,7 +251,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     |> change(%{
       status: "approved",
       approved_at: UtilsDate.utc_now(),
-      approved_by: admin_user_id,
       approved_by_uuid: resolve_user_uuid(admin_user_id)
     })
   end
@@ -279,7 +263,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     |> change(%{
       status: "denied",
       denied_at: UtilsDate.utc_now(),
-      denied_by: admin_user_id,
       denied_by_uuid: resolve_user_uuid(admin_user_id),
       denial_reason: reason
     })
@@ -363,12 +346,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     DateTime.diff(completed_at, started_at, :second)
   end
 
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> PhoenixKit.RepoHelper.repo().one()
-  end
-
+  # Resolves user UUID from any user identifier
+  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
   defp resolve_user_uuid(_), do: nil
 end

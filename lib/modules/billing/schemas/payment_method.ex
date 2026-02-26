@@ -36,7 +36,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_payment_methods" do
-    field :id, :integer, read_after_writes: true
     field :provider, :string
     field :provider_payment_method_id, :string
     field :provider_customer_id, :string
@@ -57,9 +56,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
     field :metadata, :map, default: %{}
 
     # Association
-    # legacy
-    field :user_id, :integer
-
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
       references: :uuid,
@@ -86,7 +82,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
       :status,
       :label,
       :metadata,
-      :user_id,
       :user_uuid
     ])
     |> validate_required([:provider, :provider_payment_method_id, :user_uuid])

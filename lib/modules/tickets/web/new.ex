@@ -93,8 +93,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     # Otherwise use admin's own id
     user_id =
       case params["user_id"] do
-        nil -> current_user.id
-        "" -> current_user.id
+        nil -> current_user.uuid
+        "" -> current_user.uuid
         id -> id
       end
 
@@ -156,7 +156,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     uploaded_files =
       consume_uploaded_entries(socket, :attachments, fn %{path: path}, entry ->
         ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-        user_id = current_user.id
+        user_id = current_user.uuid
 
         {:ok, _stat} = File.stat(path)
         file_hash = Auth.calculate_file_hash(path)

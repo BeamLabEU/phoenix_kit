@@ -318,15 +318,15 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
       # Try phoenix_kit_current_scope first
       scope = socket.assigns[:phoenix_kit_current_scope] ->
         user = Scope.user(scope)
-        user && user.id
+        user && user.uuid
 
       # Try current_user
       user = socket.assigns[:current_user] ->
-        user.id
+        user.uuid
 
       # Try phoenix_kit_current_user
       user = socket.assigns[:phoenix_kit_current_user] ->
-        user.id
+        user.uuid
 
       true ->
         nil

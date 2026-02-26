@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Subscriptions do
 
   defp load_subscriptions(socket) do
     opts =
-      [preload: [:user, :plan, :payment_method]]
+      [preload: [:user, :subscription_type, :payment_method]]
       |> add_status_filter(socket.assigns.status_filter)
       |> add_search_filter(socket.assigns.search)
 
@@ -140,7 +140,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Subscriptions do
   end
 
   @impl true
-  def handle_info({:subscription_plan_changed, _subscription, _old_plan, _new_plan}, socket) do
+  def handle_info({:subscription_type_changed, _subscription, _old_type, _new_type}, socket) do
     {:noreply, load_subscriptions(socket)}
   end
 

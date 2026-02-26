@@ -31,6 +31,9 @@ defmodule PhoenixKit.Modules.Legal do
       PhoenixKit.Modules.Legal.generate_all_pages()
   """
 
+  use PhoenixKit.Module
+
+  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Legal.LegalFramework
   alias PhoenixKit.Modules.Legal.PageType
   alias PhoenixKit.Modules.Legal.TemplateGenerator
@@ -157,6 +160,7 @@ defmodule PhoenixKit.Modules.Legal do
   # SYSTEM MANAGEMENT
   # ===================================
 
+  @impl PhoenixKit.Module
   @doc """
   Check if Legal module is enabled.
   """
@@ -165,6 +169,7 @@ defmodule PhoenixKit.Modules.Legal do
     Settings.get_boolean_setting(@enabled_key, false)
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Enable the Legal module.
 
@@ -193,6 +198,7 @@ defmodule PhoenixKit.Modules.Legal do
     end
   end
 
+  @impl PhoenixKit.Module
   @doc """
   Disable the Legal module.
   """
@@ -205,6 +211,7 @@ defmodule PhoenixKit.Modules.Legal do
   # CONFIGURATION
   # ===================================
 
+  @impl PhoenixKit.Module
   @doc """
   Get the full configuration of the Legal module.
 
@@ -632,6 +639,42 @@ defmodule PhoenixKit.Modules.Legal do
   end
 
   defp format_version_date(_), do: get_policy_version()
+
+  # ============================================================================
+  # Module Behaviour Callbacks
+  # ============================================================================
+
+  @impl PhoenixKit.Module
+  def module_key, do: "legal"
+
+  @impl PhoenixKit.Module
+  def module_name, do: "Legal"
+
+  @impl PhoenixKit.Module
+  def permission_metadata do
+    %{
+      key: "legal",
+      label: "Legal",
+      icon: "hero-scale",
+      description: "Legal pages, terms of service, and privacy policies"
+    }
+  end
+
+  @impl PhoenixKit.Module
+  def settings_tabs do
+    [
+      Tab.new!(
+        id: :admin_settings_legal,
+        label: "Legal",
+        icon: "hero-scale",
+        path: "/admin/settings/legal",
+        priority: 929,
+        level: :admin,
+        parent: :admin_settings,
+        permission: "legal"
+      )
+    ]
+  end
 
   # ===================================
   # PAGE GENERATION

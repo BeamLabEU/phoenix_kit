@@ -67,7 +67,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
   schema "phoenix_kit_sync_connections" do
-    field :id, :integer, read_after_writes: true
     field :name, :string
     field :direction, :string
     field :site_url, :string
@@ -121,32 +120,20 @@ defmodule PhoenixKit.Modules.Sync.Connection do
 
     field :metadata, :map, default: %{}
 
-    # legacy
-    field :approved_by, :integer
-
     belongs_to :approved_by_user, User,
       foreign_key: :approved_by_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :suspended_by, :integer
 
     belongs_to :suspended_by_user, User,
       foreign_key: :suspended_by_uuid,
       references: :uuid,
       type: UUIDv7
 
-    # legacy
-    field :revoked_by, :integer
-
     belongs_to :revoked_by_user, User,
       foreign_key: :revoked_by_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :created_by, :integer
 
     belongs_to :created_by_user, User,
       foreign_key: :created_by_uuid,
@@ -218,7 +205,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "active",
       approved_at: UtilsDate.utc_now(),
-      approved_by: admin_user_id,
       approved_by_uuid: resolve_user_uuid(admin_user_id)
     })
   end
@@ -231,7 +217,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "suspended",
       suspended_at: UtilsDate.utc_now(),
-      suspended_by: admin_user_id,
       suspended_by_uuid: resolve_user_uuid(admin_user_id),
       suspended_reason: reason
     })
@@ -245,7 +230,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "revoked",
       revoked_at: UtilsDate.utc_now(),
-      revoked_by: admin_user_id,
       revoked_by_uuid: resolve_user_uuid(admin_user_id),
       revoked_reason: reason
     })
@@ -259,7 +243,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "active",
       suspended_at: nil,
-      suspended_by: nil,
       suspended_by_uuid: nil,
       suspended_reason: nil
     })
@@ -498,12 +481,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     not_excluded and allowed_or_empty
   end
 
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> PhoenixKit.RepoHelper.repo().one()
-  end
-
+  # Resolves user UUID from any user identifier
+  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
   defp resolve_user_uuid(_), do: nil
 end

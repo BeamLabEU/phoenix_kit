@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
       # Create the post
       {:ok, db_post} =
         DBStorage.create_post(%{
-          group_id: group.uuid,
+          group_uuid: group.uuid,
           slug: post_map[:slug],
           status: post_map[:metadata][:status] || "draft",
           mode: to_string(post_map[:mode] || group.mode),
@@ -131,7 +131,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
 
       {:ok, db_version} =
         DBStorage.create_version(%{
-          post_id: db_post.uuid,
+          post_uuid: db_post.uuid,
           version_number: version_number,
           status: post_map[:metadata][:status] || "draft",
           created_by_uuid: created_by_uuid,
@@ -142,7 +142,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
       language = post_map[:language] || "en"
 
       DBStorage.create_content(%{
-        version_id: db_version.uuid,
+        version_uuid: db_version.uuid,
         language: language,
         title: post_map[:metadata][:title] || "Untitled",
         content: post_map[:content],
@@ -181,7 +181,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
         language = post_map[:language] || db_post.primary_language
 
         DBStorage.upsert_content(%{
-          version_id: version.uuid,
+          version_uuid: version.uuid,
           language: language,
           title: post_map[:metadata][:title] || "Untitled",
           content: post_map[:content],
@@ -210,7 +210,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
 
       {:ok, db_version} =
         DBStorage.create_version(%{
-          post_id: db_post.uuid,
+          post_uuid: db_post.uuid,
           version_number: version_number,
           status: "draft",
           created_by_uuid: created_by_uuid,
@@ -223,7 +223,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
 
       for lang <- languages do
         DBStorage.create_content(%{
-          version_id: db_version.uuid,
+          version_uuid: db_version.uuid,
           language: lang,
           title: post_map[:metadata][:title] || "Untitled",
           content: post_map[:content],
@@ -249,7 +249,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
 
       if version do
         DBStorage.upsert_content(%{
-          version_id: version.uuid,
+          version_uuid: version.uuid,
           language: language_code,
           title: "Untitled",
           content: "",

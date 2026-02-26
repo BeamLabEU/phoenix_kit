@@ -51,7 +51,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
   end
 
   defp load_ticket_or_new(socket, _params, current_user) do
-    ticket = %Ticket{user_id: current_user.id}
+    ticket = %Ticket{user_uuid: current_user.uuid}
     changeset = Ticket.changeset(ticket, %{})
     project_title = Settings.get_project_title()
 
@@ -137,8 +137,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
     # Use the selected user or default to current user
     user_id =
       case Map.get(params, "user_id") do
-        nil -> current_user.id
-        "" -> current_user.id
+        nil -> current_user.uuid
+        "" -> current_user.uuid
         id -> id
       end
 

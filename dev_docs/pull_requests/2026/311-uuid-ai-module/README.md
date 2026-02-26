@@ -73,7 +73,7 @@ endpoint = PhoenixKit.UUID.get(PhoenixKit.Modules.AI.Endpoint, "019b5704-...")
 
 - V40 Migration: `lib/phoenix_kit/migrations/postgres/v40.ex`
 - UUID Helper: `lib/phoenix_kit/uuid.ex`
-- Migration Guide: `dev_docs/guides/uuid_migration.md`
+- Migration Guide: `dev_docs/guides/2025-12-25-uuid-migration.md`
 - Tables affected: `phoenix_kit_ai_endpoints`, `phoenix_kit_ai_prompts`, `phoenix_kit_ai_requests`
 
 ---

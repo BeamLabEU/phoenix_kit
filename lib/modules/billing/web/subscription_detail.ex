@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     if Billing.enabled?() do
-      case Billing.get_subscription(id, preload: [:user, :plan, :payment_method]) do
+      case Billing.get_subscription(id, preload: [:user, :subscription_type, :payment_method]) do
         nil ->
           {:ok,
            socket
@@ -24,17 +24,17 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
 
         subscription ->
           project_title = Settings.get_project_title()
-          plans = Billing.list_subscription_plans(active_only: true)
+          types = Billing.list_subscription_types(active_only: true)
 
           socket =
             socket
-            |> assign(:page_title, "Subscription ##{subscription.id}")
+            |> assign(:page_title, "Subscription ##{subscription.uuid}")
             |> assign(:project_title, project_title)
             |> assign(:url_path, Routes.path("/admin/billing/subscriptions/#{subscription.uuid}"))
             |> assign(:subscription, subscription)
-            |> assign(:plans, plans)
-            |> assign(:show_change_plan_modal, false)
-            |> assign(:selected_new_plan_uuid, nil)
+            |> assign(:subscription_types, types)
+            |> assign(:show_change_subscription_type_modal, false)
+            |> assign(:selected_new_subscription_type_uuid, nil)
 
           {:ok, socket}
       end
@@ -108,47 +108,49 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
   end
 
   @impl true
-  def handle_event("open_change_plan_modal", _params, socket) do
+  def handle_event("open_change_subscription_type_modal", _params, socket) do
     {:noreply,
      socket
-     |> assign(:show_change_plan_modal, true)
-     |> assign(:selected_new_plan_uuid, nil)}
+     |> assign(:show_change_subscription_type_modal, true)
+     |> assign(:selected_new_subscription_type_uuid, nil)}
   end
 
   @impl true
-  def handle_event("close_change_plan_modal", _params, socket) do
-    {:noreply, assign(socket, :show_change_plan_modal, false)}
+  def handle_event("close_change_subscription_type_modal", _params, socket) do
+    {:noreply, assign(socket, :show_change_subscription_type_modal, false)}
   end
 
   @impl true
-  def handle_event("select_new_plan", %{"plan_id" => plan_id}, socket) do
-    plan_id = if plan_id == "", do: nil, else: plan_id
-    {:noreply, assign(socket, :selected_new_plan_uuid, plan_id)}
+  def handle_event("select_new_subscription_type", %{"subscription_type_uuid" => type_id}, socket) do
+    type_id = if type_id == "", do: nil, else: type_id
+    {:noreply, assign(socket, :selected_new_subscription_type_uuid, type_id)}
   end
 
   @impl true
-  def handle_event("change_plan", _params, socket) do
-    %{subscription: subscription, selected_new_plan_uuid: new_plan_id} = socket.assigns
+  def handle_event("change_subscription_type", _params, socket) do
+    %{subscription: subscription, selected_new_subscription_type_uuid: new_type_id} =
+      socket.assigns
 
-    if new_plan_id && to_string(new_plan_id) != to_string(subscription.plan_uuid) do
-      case Billing.change_subscription_plan(subscription, new_plan_id) do
+    if new_type_id && to_string(new_type_id) != to_string(subscription.subscription_type_uuid) do
+      case Billing.change_subscription_type(subscription, new_type_id) do
         {:ok, updated_subscription} ->
           {:noreply,
            socket
            |> assign(:subscription, reload_subscription(updated_subscription.uuid))
-           |> assign(:show_change_plan_modal, false)
-           |> put_flash(:info, "Subscription plan changed successfully")}
+           |> assign(:show_change_subscription_type_modal, false)
+           |> put_flash(:info, "Subscription type changed successfully")}
 
         {:error, reason} ->
-          {:noreply, put_flash(socket, :error, "Failed to change plan: #{inspect(reason)}")}
+          {:noreply,
+           put_flash(socket, :error, "Failed to change subscription type: #{inspect(reason)}")}
       end
     else
-      {:noreply, put_flash(socket, :error, "Please select a different plan")}
+      {:noreply, put_flash(socket, :error, "Please select a different subscription type")}
     end
   end
 
   defp reload_subscription(id) do
-    Billing.get_subscription(id, preload: [:user, :plan, :payment_method])
+    Billing.get_subscription(id, preload: [:user, :subscription_type, :payment_method])
   end
 
   # Helper functions for template

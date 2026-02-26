@@ -29,6 +29,7 @@
   {"lib/mix/tasks/phoenix_kit.seed_templates.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :unknown_function},
 
   # Mix.Task behaviour callbacks (expected in Mix tasks)
   # Note: Mix.Task behaviour info is not available to Dialyzer (compile-time only)
@@ -59,6 +60,7 @@
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :callback_info_missing, 1},
 
   # False positive pattern match warnings (runtime behavior differs from static analysis)
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
@@ -91,7 +93,6 @@
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/editor\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/editor\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/preview\.ex:.*pattern_match/,
 
   # Publishing Controller submodules - with-chain type inference false positives
@@ -106,7 +107,6 @@
 
   # Publishing Workers - with-chain type inference false positives
   # Dialyzer incorrectly infers read_post only returns errors in certain contexts
-  ~r/lib\/modules\/publishing\/workers\/migrate_legacy_structure_worker\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/workers\/migrate_to_database_worker\.ex:.*pattern_match/,
@@ -155,12 +155,8 @@
   # Pre-existing false positive unrelated to UUID migration
   {"lib/modules/entities/entities.ex", :pattern_match},
 
-  # UUID FK columns migration - prefix parameter is typed as binary() by Dialyzer
-  # but nil is a valid runtime value (no prefix configured)
-  {"lib/phoenix_kit/migrations/uuid_fk_columns.ex", :pattern_match},
-
   # ExUnit.CaseTemplate macro generates calls to internal ExUnit functions
-  # that Dialyzer cannot resolve (Elixir 1.18+ internal API changes)
+  # that Dialyzer cannot resolve (Erlang 27 only; resolved in Erlang 28)
   {"test/support/conn_case.ex", :unknown_function},
   {"test/support/data_case.ex", :unknown_function}
 ]

@@ -10,7 +10,7 @@
 
 ## Summary
 
-This PR completes the DateTime standardization effort that was planned in `dev_docs/2026-02-15-datetime-inconsistency-report.md`. It addresses a production bug caused by mixing `NaiveDateTime` and `DateTime` types across schemas. The PR standardizes all schemas, application code, and database columns to use a single consistent datetime convention.
+This PR completes the DateTime standardization effort that was planned in `dev_docs/audits/2026-02-15-datetime-inconsistency-report.md`. It addresses a production bug caused by mixing `NaiveDateTime` and `DateTime` types across schemas. The PR standardizes all schemas, application code, and database columns to use a single consistent datetime convention.
 
 ## Changes by Category
 
@@ -78,8 +78,8 @@ Added a `UPDATE ... SET uuid_fk = uuid_generate_v7() WHERE uuid_fk IS NULL` befo
 ### 6. Documentation Updates
 
 - **CLAUDE.md:** Added "Structs Over Plain Maps" and "DateTime: Always Use `DateTime.utc_now()`" style guidelines, plus full DateTime Convention reference table
-- **`dev_docs/2026-02-15-datetime-inconsistency-report.md`:** Updated recommendation from `:utc_datetime_usec` to `:utc_datetime`, marked Phase 1 as COMPLETED, simplified migration plan
-- **`dev_docs/2026-02-17-datetime-standardization-plan.md`:** New detailed plan document listing every file and field that needed changing
+- **`dev_docs/audits/2026-02-15-datetime-inconsistency-report.md`:** Updated recommendation from `:utc_datetime_usec` to `:utc_datetime`, marked Phase 1 as COMPLETED, simplified migration plan
+- **`dev_docs/plans/2026-02-17-datetime-standardization-plan.md`:** New detailed plan document listing every file and field that needed changing
 
 ### 7. Migration Version Bump
 
@@ -113,4 +113,4 @@ Added a `UPDATE ... SET uuid_fk = uuid_generate_v7() WHERE uuid_fk IS NULL` befo
 
 **Approve.** This is a thorough, well-planned standardization effort that eliminates a documented class of bugs (NaiveDateTime/DateTime type mismatches). The changes are mechanical and consistent. The V58 migration is properly idempotent with good safety checks. The UUID FK backfill fix is a smart addition that unblocks installations with orphaned references. Documentation is comprehensive.
 
-The PR successfully completes Phase 1 and Phase 2 (V58 migration) of the DateTime standardization plan from `dev_docs/2026-02-15-datetime-inconsistency-report.md`.
+The PR successfully completes Phase 1 and Phase 2 (V58 migration) of the DateTime standardization plan from `dev_docs/audits/2026-02-15-datetime-inconsistency-report.md`.

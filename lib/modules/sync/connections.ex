@@ -77,7 +77,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
         name: "Staging Server",
         direction: "sender",
         site_url: "https://staging.example.com",
-        created_by: current_user.id
+        created_by_uuid: current_user.uuid
       })
 
       # Token is only returned once - store it securely!
@@ -104,40 +104,30 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   end
 
   @doc """
-  Gets a connection by ID or UUID.
+  Gets a connection by UUID.
 
   Accepts:
-  - Integer ID: `get_connection(123)`
   - UUID string: `get_connection("01234567-89ab-cdef-0123-456789abcdef")`
-  - String integer: `get_connection("123")`
   """
-  @spec get_connection(integer() | String.t()) :: Connection.t() | nil
-  def get_connection(id) when is_integer(id) do
-    repo = RepoHelper.repo()
-    repo.get_by(Connection, id: id)
-  end
-
+  @spec get_connection(String.t()) :: Connection.t() | nil
   def get_connection(id) when is_binary(id) do
     repo = RepoHelper.repo()
 
     if UUIDUtils.valid?(id) do
       repo.get_by(Connection, uuid: id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_connection(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
   def get_connection(_), do: nil
 
   @doc """
-  Gets a connection by ID or UUID, raising if not found.
+  Gets a connection by UUID, raising if not found.
 
   Accepts same inputs as `get_connection/1`.
   """
-  @spec get_connection!(integer() | String.t()) :: Connection.t()
+  @spec get_connection!(String.t()) :: Connection.t()
   def get_connection!(id) do
     case get_connection(id) do
       nil -> raise Ecto.NoResultsError, queryable: Connection
@@ -239,9 +229,9 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   ## Examples
 
-      {:ok, conn} = Connections.approve_connection(conn, current_user.id)
+      {:ok, conn} = Connections.approve_connection(conn, current_user.uuid)
   """
-  @spec approve_connection(Connection.t(), integer()) ::
+  @spec approve_connection(Connection.t(), String.t()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def approve_connection(%Connection{} = connection, admin_user_id) do
     repo = RepoHelper.repo()
@@ -262,9 +252,9 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   ## Examples
 
-      {:ok, conn} = Connections.suspend_connection(conn, current_user.id, "Security audit")
+      {:ok, conn} = Connections.suspend_connection(conn, current_user.uuid, "Security audit")
   """
-  @spec suspend_connection(Connection.t(), integer(), String.t() | nil) ::
+  @spec suspend_connection(Connection.t(), String.t(), String.t() | nil) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def suspend_connection(%Connection{} = connection, admin_user_id, reason \\ nil) do
     repo = RepoHelper.repo()
@@ -285,9 +275,9 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   ## Examples
 
-      {:ok, conn} = Connections.revoke_connection(conn, current_user.id, "Compromised")
+      {:ok, conn} = Connections.revoke_connection(conn, current_user.uuid, "Compromised")
   """
-  @spec revoke_connection(Connection.t(), integer(), String.t() | nil) ::
+  @spec revoke_connection(Connection.t(), String.t(), String.t() | nil) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def revoke_connection(%Connection{} = connection, admin_user_id, reason \\ nil) do
     repo = RepoHelper.repo()
@@ -434,8 +424,6 @@ defmodule PhoenixKit.Modules.Sync.Connections do
       when is_binary(site_url) and is_binary(auth_token_hash) do
     repo = RepoHelper.repo()
 
-    import Ecto.Query
-
     from(c in Connection,
       where: c.site_url == ^site_url and c.auth_token_hash == ^auth_token_hash
     )
@@ -452,8 +440,6 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   def find_by_hash_and_direction(auth_token_hash, direction)
       when is_binary(auth_token_hash) and is_binary(direction) do
     repo = RepoHelper.repo()
-
-    import Ecto.Query
 
     from(c in Connection,
       where: c.auth_token_hash == ^auth_token_hash and c.direction == ^direction

@@ -27,8 +27,6 @@ defmodule PhoenixKit.Modules.Billing.PaymentOption do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_payment_options" do
-    field :id, :integer, read_after_writes: true
-
     # Identity
     field :name, :string
     field :code, :string
