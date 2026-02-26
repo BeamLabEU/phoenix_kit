@@ -119,9 +119,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       :metadata,
       :user_uuid,
       :billing_profile_uuid,
-      :subscription_type_id,
       :subscription_type_uuid,
-      :payment_method_id,
       :payment_method_uuid
     ])
     |> validate_required([

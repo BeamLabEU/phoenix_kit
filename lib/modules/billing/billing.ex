@@ -2968,10 +2968,7 @@ defmodule PhoenixKit.Modules.Billing do
 
     result =
       subscription
-      |> Ecto.Changeset.change(%{
-        subscription_type_id: new_type_id,
-        subscription_type_uuid: type_uuid
-      })
+      |> Ecto.Changeset.change(%{subscription_type_uuid: type_uuid})
       |> repo().update()
 
     case result do
