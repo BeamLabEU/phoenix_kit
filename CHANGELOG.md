@@ -1,3 +1,34 @@
+## 1.7.51 - 2026-02-26
+- Add V64 migration: fix login crash by replacing `user_id` check constraint with `user_uuid` on user tokens table
+- Add V65 migration: rename `SubscriptionPlan` to `SubscriptionType` (table, columns, indexes, constraints)
+- Rename `SubscriptionPlan` schema, context functions, events, routes, LiveViews, and workers to `SubscriptionType`
+- Add orphaned media file cleanup system
+  - `mix phoenix_kit.cleanup_orphaned_files` task with dry-run and `--delete` modes
+  - `DeleteOrphanedFileJob` Oban worker with 60s delay and orphan re-check before deletion
+  - Orphan filter toggle and "Delete all orphaned" button in Media admin UI
+- Add Delete File button with confirmation modal to Media Detail page
+- Add secondary language slug uniqueness validation via JSONB query in entity data
+- Rename `seed_title_in_data` to `seed_translatable_fields` in entity data form
+- Unify slug labels to "Slug (URL-friendly identifier)" across entity forms
+- Standardize dev_docs file naming convention (`{date}-{kebab-case}-{type}.md`)
+- Fix orphan detection crash: remove references to non-existent `phoenix_kit_shop_variants` table
+- Fix `String.trim(nil)` crash in SQS workers when AWS credentials not configured
+- Fix default preload `:plan` to `:subscription_type` in `list_subscriptions/1` and `list_user_subscriptions/2`
+- Fix `auth.ex` storing integer `file.id` instead of `file.uuid` for avatar custom field
+- Fix `create_subscription/2` dead code and key mismatch — now accepts `:subscription_type_uuid` as preferred key
+- Fix `change_subscription_type/3` reading stale `subscription_type_id` instead of `subscription_type_uuid`
+- Fix AWS Config returning empty string instead of nil when credentials unconfigured
+- Fix email log `Access` behaviour error when called with `EmailLogData` struct
+- Fix `Interceptor` using deprecated `log.id` instead of `log.uuid` in header and event
+- Fix shop billing cascade: check `disable_system()` result and log on failure
+- Replace `defp` proxy wrappers with `import` in 4 shop LiveViews (cart, catalog, checkout)
+- Rename `post_id` to `post_uuid` in 5 private post functions
+- Remove legacy integer ID function clauses from posts and billing modules
+- Remove accidentally committed `.beam` files, add `*.beam` to `.gitignore`
+- Remove empty legacy `subscription_plan_form.ex` and `subscription_plans.ex`
+- Add doc notes about performance for `all_admin_tabs/0` and `get_config/0`
+- Remove dead `_plugin_session_name` variable from integration routes
+
 ## 1.7.50 - 2026-02-25
 - Fix `defp show_dev_notice?` CLAUDE.md violation: replace private helper with `<.dev_mailbox_notice>` Phoenix Component
   - New component at `lib/phoenix_kit_web/components/core/dev_notice.ex` with `message` and `class` attrs
