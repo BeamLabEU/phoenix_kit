@@ -434,8 +434,6 @@ defmodule PhoenixKit.Modules.Sync.Connections do
       when is_binary(site_url) and is_binary(auth_token_hash) do
     repo = RepoHelper.repo()
 
-    import Ecto.Query
-
     from(c in Connection,
       where: c.site_url == ^site_url and c.auth_token_hash == ^auth_token_hash
     )
@@ -452,8 +450,6 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   def find_by_hash_and_direction(auth_token_hash, direction)
       when is_binary(auth_token_hash) and is_binary(direction) do
     repo = RepoHelper.repo()
-
-    import Ecto.Query
 
     from(c in Connection,
       where: c.auth_token_hash == ^auth_token_hash and c.direction == ^direction

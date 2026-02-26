@@ -651,8 +651,6 @@ defmodule PhoenixKit.Modules.Storage do
   Returns a list of bucket IDs from the file_locations for the given file instance.
   """
   def get_file_instance_bucket_ids(file_instance_uuid) do
-    import Ecto.Query
-
     FileLocation
     |> where([fl], fl.file_instance_uuid == ^file_instance_uuid and fl.status == "active")
     |> select([fl], fl.bucket_uuid)

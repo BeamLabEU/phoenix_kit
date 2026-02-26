@@ -972,8 +972,6 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def get_session_token_record(token) do
-    import Ecto.Query
-
     from(t in UserToken,
       where: t.token == ^token and t.context == "session",
       where: t.inserted_at > ago(@session_validity_in_days, "day")

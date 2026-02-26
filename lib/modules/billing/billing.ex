@@ -2623,8 +2623,6 @@ defmodule PhoenixKit.Modules.Billing do
   def list_subscriptions(opts \\ [])
 
   def list_subscriptions(opts) when is_list(opts) do
-    import Ecto.Query
-
     status = Keyword.get(opts, :status)
     search = Keyword.get(opts, :search)
     preloads = Keyword.get(opts, :preload, [:plan])
@@ -2667,8 +2665,6 @@ defmodule PhoenixKit.Modules.Billing do
       Billing.list_user_subscriptions(user_id, status: "active")
   """
   def list_user_subscriptions(user_id, opts \\ []) do
-    import Ecto.Query
-
     status = Keyword.get(opts, :status)
     preloads = Keyword.get(opts, :preload, [:plan])
     user_uuid = extract_user_uuid(user_id)
@@ -2884,8 +2880,6 @@ defmodule PhoenixKit.Modules.Billing do
   - `:active_only` - Only return active plans (default: true)
   """
   def list_subscription_plans(opts \\ []) do
-    import Ecto.Query
-
     active_only = Keyword.get(opts, :active_only, true)
 
     query =
@@ -2956,8 +2950,6 @@ defmodule PhoenixKit.Modules.Billing do
   Plans with active subscriptions cannot be deleted.
   """
   def delete_subscription_plan(%SubscriptionPlan{} = plan) do
-    import Ecto.Query
-
     active_count =
       from(s in Subscription,
         where: s.plan_uuid == ^plan.uuid and s.status in ["active", "trialing", "past_due"],
@@ -2998,8 +2990,6 @@ defmodule PhoenixKit.Modules.Billing do
   Lists saved payment methods for a user.
   """
   def list_payment_methods(user_id, opts \\ []) do
-    import Ecto.Query
-
     active_only = Keyword.get(opts, :active_only, true)
     user_uuid = extract_user_uuid(user_id)
 
@@ -3036,8 +3026,6 @@ defmodule PhoenixKit.Modules.Billing do
   Gets the default payment method for a user.
   """
   def get_default_payment_method(user_id) do
-    import Ecto.Query
-
     user_uuid = extract_user_uuid(user_id)
 
     from(pm in PaymentMethod,
@@ -3064,8 +3052,6 @@ defmodule PhoenixKit.Modules.Billing do
   Unsets any existing default.
   """
   def set_default_payment_method(%PaymentMethod{} = payment_method) do
-    import Ecto.Query
-
     repo().transaction(fn ->
       # Unset current default
       from(pm in PaymentMethod,

@@ -604,8 +604,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   Used for uniqueness checks on translated slugs.
   """
   def secondary_slug_exists?(entity_id, lang_code, slug, exclude_record_uuid) do
-    import Ecto.Query, only: [from: 2]
-
     query =
       from(ed in __MODULE__,
         where: fragment("(? -> ? ->> '_slug') = ?", ed.data, ^lang_code, ^slug),
