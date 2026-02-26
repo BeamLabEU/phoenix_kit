@@ -2730,19 +2730,21 @@ defmodule PhoenixKit.Modules.Billing do
 
   - `user_id` - The user creating the subscription
   - `attrs` - Subscription attributes:
-    - `:subscription_type_id` - Required: subscription type ID
+    - `:subscription_type_uuid` - Required: subscription type UUID (preferred)
+    - `:subscription_type_id` - Alias for `:subscription_type_uuid` (legacy key, still accepted)
     - `:billing_profile_uuid` - Optional: billing profile to use
     - `:payment_method_uuid` - Optional: saved payment method for renewals
     - `:trial_days` - Optional: override type's trial days
 
   ## Examples
 
-      Billing.create_subscription(user.uuid, %{subscription_type_id: type.uuid})
-      Billing.create_subscription(user.uuid, %{subscription_type_id: type.uuid, trial_days: 14})
+      Billing.create_subscription(user.uuid, %{subscription_type_uuid: type.uuid})
+      Billing.create_subscription(user.uuid, %{subscription_type_uuid: type.uuid, trial_days: 14})
   """
   def create_subscription(user_id, attrs) do
     type_id =
-      attrs[:subscription_type_id] || attrs["subscription_type_id"] ||
+      attrs[:subscription_type_uuid] || attrs["subscription_type_uuid"] ||
+        attrs[:subscription_type_id] || attrs["subscription_type_id"] ||
         attrs[:plan_uuid] || attrs["plan_uuid"]
 
     with {:ok, type} <- get_subscription_type(type_id) do
@@ -2764,7 +2766,6 @@ defmodule PhoenixKit.Modules.Billing do
 
       subscription_attrs = %{
         user_uuid: extract_user_uuid(user_id),
-        subscription_type_id: type.id,
         subscription_type_uuid: type.uuid,
         billing_profile_uuid: billing_profile_uuid,
         payment_method_uuid: payment_method_uuid,
@@ -2847,7 +2848,7 @@ defmodule PhoenixKit.Modules.Billing do
   By default, the new type takes effect at the next billing cycle.
   """
   def change_subscription_type(%Subscription{} = subscription, new_type_id, _opts \\ []) do
-    old_type_id = subscription.subscription_type_id
+    old_type_uuid = subscription.subscription_type_uuid
 
     type_uuid = resolve_subscription_type_uuid(new_type_id)
 
@@ -2858,7 +2859,12 @@ defmodule PhoenixKit.Modules.Billing do
 
     case result do
       {:ok, updated_subscription} ->
-        Events.broadcast_subscription_type_changed(updated_subscription, old_type_id, new_type_id)
+        Events.broadcast_subscription_type_changed(
+          updated_subscription,
+          old_type_uuid,
+          new_type_id
+        )
+
         {:ok, updated_subscription}
 
       error ->
