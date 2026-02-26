@@ -28,6 +28,9 @@ erl_crash.dump
 # Also ignore archive artifacts (built via "mix archive.build").
 *.ez
 
+# Compiled BEAM files
+*.beam
+
 # Ignore package tarball (built via "mix hex.build").
 phoenix_module_template-*.tar
 

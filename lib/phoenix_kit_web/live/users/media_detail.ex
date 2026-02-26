@@ -42,9 +42,38 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:file_id, file_id)
+      |> assign(:show_delete_modal, false)
       |> load_file_data(file_id)
 
     {:ok, socket}
+  end
+
+  def handle_event("confirm_delete", _params, socket) do
+    {:noreply, assign(socket, :show_delete_modal, true)}
+  end
+
+  def handle_event("cancel_delete", _params, socket) do
+    {:noreply, assign(socket, :show_delete_modal, false)}
+  end
+
+  def handle_event("delete_file", _params, socket) do
+    file = socket.assigns.file
+
+    case Storage.delete_file_completely(file) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "File deleted successfully")
+         |> push_navigate(to: Routes.path("/admin/media"))}
+
+      {:error, reason} ->
+        Logger.error("Failed to delete file #{file.uuid}: #{inspect(reason)}")
+
+        {:noreply,
+         socket
+         |> assign(:show_delete_modal, false)
+         |> put_flash(:error, "Failed to delete file")}
+    end
   end
 
   def handle_event("toggle_edit", _params, socket) do

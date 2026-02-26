@@ -89,6 +89,15 @@
                   {String.upcase(@file_data.file_type)}
                 </span>
               </div>
+              <div class="mt-3">
+                <button
+                  type="button"
+                  phx-click="confirm_delete"
+                  class="btn btn-error btn-sm w-full gap-2"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4" /> Delete File
+                </button>
+              </div>
             </div>
           </div>
 
@@ -347,4 +356,28 @@
       </div>
     <% end %>
   </div>
+
+  <%!-- Delete Confirmation Modal --%>
+  <%= if @show_delete_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg text-error">Delete File</h3>
+        <p class="py-4">
+          Are you sure you want to delete <strong>{@file_data && @file_data.filename}</strong>?
+        </p>
+        <p class="text-sm text-base-content/70 pb-4">
+          This action is irreversible. The file and all its variants will be permanently removed from storage.
+        </p>
+        <div class="modal-action">
+          <button type="button" phx-click="cancel_delete" class="btn btn-ghost">
+            Cancel
+          </button>
+          <button type="button" phx-click="delete_file" class="btn btn-error gap-2">
+            <.icon name="hero-trash" class="w-4 h-4" /> Delete
+          </button>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="cancel_delete"></div>
+    </div>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
