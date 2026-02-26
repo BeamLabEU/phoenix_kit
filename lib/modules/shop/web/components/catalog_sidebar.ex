@@ -95,7 +95,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
                   <.link
                     navigate={Shop.category_url(cat, @current_language) <> @filter_qs}
                     class={
-                      if @current_category && cat.id == @current_category.id, do: "active", else: ""
+                      if @current_category && cat.uuid == @current_category.uuid,
+                        do: "active",
+                        else: ""
                     }
                   >
                     <.sidebar_cat_icon mode={@category_icon_mode} category={cat} />
@@ -165,7 +167,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.CatalogSidebar do
                 <.link
                   navigate={Shop.category_url(cat, @current_language) <> @filter_qs}
                   class={
-                    if @current_category && cat.id == @current_category.id, do: "active", else: ""
+                    if @current_category && cat.uuid == @current_category.uuid, do: "active", else: ""
                   }
                 >
                   <.sidebar_cat_icon mode={@category_icon_mode} category={cat} />

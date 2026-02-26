@@ -213,7 +213,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   def assign_editing_role(socket, form_key) do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
-    case PresenceHelpers.get_editing_role(form_key, socket.id, current_user.id) do
+    case PresenceHelpers.get_editing_role(form_key, socket.id, current_user.uuid) do
       {:owner, _presences} ->
         # I'm the owner - I can edit
         socket
@@ -246,7 +246,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
     presences = PresenceHelpers.get_sorted_presences(form_key)
 
     my_user_id =
-      socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.id
+      socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.uuid
 
     {lock_owner_user, spectators, other_viewers} =
       case presences do
@@ -361,7 +361,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
 
     if user do
       %{
-        id: user.id,
+        id: user.uuid,
         email: user.email,
         socket_id: socket.id,
         role: role

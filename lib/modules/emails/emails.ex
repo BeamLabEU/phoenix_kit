@@ -143,7 +143,7 @@ defmodule PhoenixKit.Modules.Emails do
     case {search_type, found?} do
       {:aws_message_id, true} ->
         Logger.info("Found existing email log by AWS message ID", %{
-          log_id: log.id,
+          log_id: log.uuid,
           current_status: log.status,
           aws_message_id: message_id
         })
@@ -153,7 +153,7 @@ defmodule PhoenixKit.Modules.Emails do
 
       {:internal_message_id, true} ->
         Logger.info("Found existing email log by internal message ID", %{
-          log_id: log.id,
+          log_id: log.uuid,
           current_status: log.status,
           internal_message_id: message_id,
           aws_message_id: aws_id
@@ -164,7 +164,7 @@ defmodule PhoenixKit.Modules.Emails do
 
       {:unknown_format, true} ->
         Logger.info("Found existing email log by unknown message ID format", %{
-          log_id: log.id,
+          log_id: log.uuid,
           current_status: log.status,
           search_message_id: message_id,
           aws_message_id: aws_id
@@ -205,7 +205,7 @@ defmodule PhoenixKit.Modules.Emails do
         case Log.find_by_aws_message_id(message_id) do
           {:ok, log} ->
             Logger.info("Found existing email log by AWS message ID (fallback)", %{
-              log_id: log.id,
+              log_id: log.uuid,
               current_status: log.status,
               aws_message_id: message_id
             })
@@ -1013,7 +1013,7 @@ defmodule PhoenixKit.Modules.Emails do
             ^"true"
           ) or l.template_name == "placeholder",
         select: %{
-          id: l.id,
+          uuid: l.uuid,
           status: l.status,
           event_type: fragment("?->>'x-created-from-event'", l.headers),
           inserted_at: l.inserted_at
@@ -1678,17 +1678,9 @@ defmodule PhoenixKit.Modules.Emails do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.list_events_for_log(123)
+      iex> PhoenixKit.Modules.Emails.list_events_for_log("550e8400-e29b-41d4-a716-446655440000")
       [%Event{}, ...]
   """
-  def list_events_for_log(email_log_id) when is_integer(email_log_id) do
-    if enabled?() do
-      Event.for_email_log(email_log_id)
-    else
-      []
-    end
-  end
-
   def list_events_for_log(email_log_uuid) when is_binary(email_log_uuid) do
     if enabled?() do
       Event.for_email_log(email_log_uuid)
@@ -1862,7 +1854,7 @@ defmodule PhoenixKit.Modules.Emails do
         |> select([l], {
           l.template_name,
           %{
-            sent: count(l.id),
+            sent: count(l.uuid),
             delivered: sum(fragment("CASE WHEN ? = ? THEN 1 ELSE 0 END", l.status, "delivered")),
             opened: sum(fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", l.opened_at)),
             clicked: sum(fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", l.clicked_at))

@@ -164,7 +164,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Carts do
                       <td>
                         <%= if cart.user do %>
                           <div class="font-medium">{cart.user.email}</div>
-                          <div class="text-xs text-base-content/50">User ID: {cart.user.id}</div>
+                          <div class="text-xs text-base-content/50">User UUID: {cart.user.uuid}</div>
                         <% else %>
                           <div class="text-base-content/60">Guest</div>
                           <div class="text-xs text-base-content/40 font-mono">

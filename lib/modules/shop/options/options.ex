@@ -262,22 +262,12 @@ defmodule PhoenixKit.Modules.Shop.Options do
     []
   end
 
-  def get_category_options(category_id) when is_integer(category_id) do
-    case repo().get_by(Category, id: category_id) do
-      nil -> []
-      category -> get_category_options(category)
-    end
-  end
-
   def get_category_options(category_id) when is_binary(category_id) do
     result =
       if uuid_string?(category_id) do
         repo().get_by(Category, uuid: category_id)
       else
-        case Integer.parse(category_id) do
-          {int_id, ""} -> repo().get_by(Category, id: int_id)
-          _ -> nil
-        end
+        nil
       end
 
     case result do
@@ -347,9 +337,8 @@ defmodule PhoenixKit.Modules.Shop.Options do
     category_opts =
       case product do
         %{category: %Category{} = cat} -> get_category_options(cat)
-        %{category_uuid: nil, category_id: nil} -> []
+        %{category_uuid: nil} -> []
         %{category_uuid: uuid} when is_binary(uuid) -> get_category_options(uuid)
-        %{category_id: id} when is_integer(id) -> get_category_options(id)
         _ -> []
       end
 

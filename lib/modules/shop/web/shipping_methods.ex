@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
 
     methods =
       Enum.map(socket.assigns.methods, fn m ->
-        if m.id == updated.id, do: updated, else: m
+        if m.uuid == updated.uuid, do: updated, else: m
       end)
 
     {:noreply, assign(socket, :methods, methods)}
@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethods do
 
     case Shop.delete_shipping_method(method) do
       {:ok, _} ->
-        methods = Enum.reject(socket.assigns.methods, &(&1.id == method.id))
+        methods = Enum.reject(socket.assigns.methods, &(&1.uuid == method.uuid))
 
         {:noreply,
          socket

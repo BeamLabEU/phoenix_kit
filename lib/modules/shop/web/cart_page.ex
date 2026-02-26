@@ -29,7 +29,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
     # Get current user if logged in
     user = get_current_user(socket)
-    user_id = if user, do: user.id, else: nil
+    user_id = if user, do: user.uuid, else: nil
     user_uuid = if user, do: user.uuid, else: nil
 
     # Get or create cart

@@ -27,8 +27,6 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_shipping_methods" do
-    field :id, :integer, read_after_writes: true
-
     field :name, :string
     field :slug, :string
     field :description, :string

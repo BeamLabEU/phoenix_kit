@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
 
         ticket ->
           # Security: Verify user owns this ticket
-          if ticket.user_id != current_user.id do
+          if ticket.user_uuid != current_user.uuid do
             {:ok,
              socket
              |> put_flash(:error, gettext("Access denied"))
@@ -97,7 +97,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
       pending_file_ids = socket.assigns.pending_comment_file_ids
 
       # Users can only add public comments (is_internal is always false)
-      case Tickets.create_comment(ticket.uuid, current_user.id, %{content: content}) do
+      case Tickets.create_comment(ticket.uuid, current_user.uuid, %{content: content}) do
         {:ok, comment} ->
           # Attach any pending files to the comment
           Enum.each(pending_file_ids, fn file_id ->
@@ -177,7 +177,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
     uploaded_files =
       consume_uploaded_entries(socket, :comment_attachments, fn %{path: path}, entry ->
         ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-        user_id = current_user.id
+        user_id = current_user.uuid
 
         {:ok, _stat} = File.stat(path)
         file_hash = Auth.calculate_file_hash(path)

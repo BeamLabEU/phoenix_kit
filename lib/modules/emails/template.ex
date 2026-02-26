@@ -71,7 +71,6 @@ defmodule PhoenixKit.Modules.Emails.Template do
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-          id: integer() | nil,
           name: String.t(),
           slug: String.t(),
           display_name: String.t(),
@@ -116,7 +115,6 @@ defmodule PhoenixKit.Modules.Emails.Template do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_email_templates" do
-    field :id, :integer, read_after_writes: true
     field :name, :string
     field :slug, :string
     field :display_name, :string

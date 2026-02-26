@@ -84,7 +84,7 @@ defmodule PhoenixKitWeb.SyncWebsock do
 
           %__MODULE__{
             auth_type: :connection,
-            code: "conn:#{db_connection.id}",
+            code: "conn:#{db_connection.uuid}",
             session: nil,
             db_connection: db_connection,
             joined: false,
@@ -458,7 +458,6 @@ defmodule PhoenixKitWeb.SyncWebsock do
     # Create a transfer record
     attrs = %{
       direction: "send",
-      connection_id: db_connection.id,
       connection_uuid: db_connection.uuid,
       table_name: table_name,
       records_requested: records_count,

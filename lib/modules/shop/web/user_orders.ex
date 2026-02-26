@@ -101,7 +101,7 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrders do
   end
 
   defp load_user_orders(socket) do
-    user_id = socket.assigns.current_user.id
+    user_id = socket.assigns.current_user.uuid
     currency = Shop.get_default_currency()
 
     # Build filters for Billing.list_user_orders

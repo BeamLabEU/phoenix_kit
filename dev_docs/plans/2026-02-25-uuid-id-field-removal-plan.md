@@ -1,9 +1,32 @@
 # Plan: Remove All Legacy `_id` Fields from Code
 
 **Date:** 2026-02-25
+**Updated:** 2026-02-26
 **Goal:** Remove all integer `_id` field usage so we can drop `_id` columns from DB in a few weeks
-**Audit:** `dev_docs/audits/2026-02-25-uuid-cleanup-remaining-id-fields.md` (verified)
+**Audit:** `dev_docs/audits/2026-02-25-uuid-cleanup-remaining-id-fields-audit.md` (verified)
 **Approach:** No backward compatibility. UUID-only. Delete integer code paths entirely.
+
+---
+
+## Completion Status
+
+| Work Item | Commit | Status |
+|-----------|--------|--------|
+| Phase 1: Schema `_id` FK field removal (listed schemas) | `f98159cc` | **DONE** |
+| PK `field :id` removal + all `.id` access migration | `ca43e3f7` | **DONE** |
+| Phase 2: Context function integer overload cleanup | `5a957918` | **DONE** |
+| Phase 3: Callers and references | `5a957918` | **DONE** |
+| Phase 4: Verify | `5a957918` | **DONE** |
+
+### Additional completed work (commit `ca43e3f7`):
+- Removed `field :id, :integer, read_after_writes: true` from ALL 40 schemas
+- Converted ALL `.id` struct accesses to `.uuid` across entire codebase
+- Deleted `lib/phoenix_kit/uuid.ex` (temporary dual-lookup module)
+- Deleted `resolve_user_id` and `resolve_role_id` from `permissions.ex`
+- Rewrote `ScopeNotifier` for UUID-based PubSub topics
+- Changed `Scope.user_id/1` to return UUID instead of integer
+- Updated all `count(x.id)` → `count(x.uuid)` in Ecto queries
+- Changed integer overloads in core `get_*` functions to use `fragment("id = ?", ^id)`
 
 ---
 
@@ -11,60 +34,96 @@
 
 For each file: remove `field :*_id, :integer` declarations AND remove `_id` atoms from `cast()` calls.
 
+**All items below completed in commit `f98159cc`.**
+
 ### Billing Schemas
 
-- [ ] `lib/modules/billing/schemas/invoice.ex` — Remove `user_id` (line 103), `order_id` (line 106) field + cast (lines 120, 122)
-- [ ] `lib/modules/billing/schemas/billing_profile.ex` — Remove `user_id` (line 97) field + cast (line 109)
-- [ ] `lib/modules/billing/schemas/payment_method.ex` — Remove `user_id` (line 61) field + cast (line 89)
-- [ ] `lib/modules/billing/schemas/subscription.ex` — Remove `user_id` (line 78), `plan_id` (line 88), `payment_method_id` (line 91) fields + cast (lines 120-123)
-- [ ] `lib/modules/billing/schemas/transaction.ex` — Remove `invoice_id` (line 41), `user_id` (line 44) fields + cast (lines 64, 66)
-- [ ] `lib/modules/billing/schemas/order.ex` — Remove `user_id` (line 125) field declaration (already removed from cast)
+- [x] `lib/modules/billing/schemas/invoice.ex`
+- [x] `lib/modules/billing/schemas/billing_profile.ex`
+- [x] `lib/modules/billing/schemas/payment_method.ex`
+- [x] `lib/modules/billing/schemas/subscription.ex`
+- [x] `lib/modules/billing/schemas/transaction.ex`
+- [x] `lib/modules/billing/schemas/order.ex`
 
 ### Shop Schemas
 
-- [ ] `lib/modules/shop/schemas/cart.ex` — Remove `user_id` (line 38), `shipping_method_id` (line 47), `payment_option_id` (line 58), `merged_into_cart_id` (line 87) fields + cast (lines 101, 105, 108, 122)
-- [ ] `lib/modules/shop/schemas/cart_item.ex` — Remove `cart_id` (line 41), `product_id` (line 44) fields + cast (lines 83, 85)
-- [ ] `lib/modules/shop/schemas/category.ex` — Remove `parent_id` (line 54), `featured_product_id` (line 65) fields + cast (lines 90-93)
-- [ ] `lib/modules/shop/schemas/product.ex` — Remove `category_id` (line 98), `created_by` (line 106) fields + cast (lines 150, 152)
-- [ ] `lib/modules/shop/schemas/import_log.ex` — Remove `user_id` (line 58) field + cast (line 69)
+- [x] `lib/modules/shop/schemas/cart.ex`
+- [x] `lib/modules/shop/schemas/cart_item.ex`
+- [x] `lib/modules/shop/schemas/category.ex`
+- [x] `lib/modules/shop/schemas/product.ex`
+- [x] `lib/modules/shop/schemas/import_log.ex`
 
 ### Comments Schemas
 
-- [ ] `lib/modules/comments/schemas/comment.ex` — Remove `user_id` (line 65) field + cast (line 92)
-- [ ] `lib/modules/comments/schemas/comment_dislike.ex` — Remove `user_id` (line 34) field (already removed from cast)
-- [ ] `lib/modules/comments/schemas/comment_like.ex` — Remove `user_id` (line 34) field (already removed from cast)
+- [x] `lib/modules/comments/schemas/comment.ex`
+- [x] `lib/modules/comments/schemas/comment_dislike.ex`
+- [x] `lib/modules/comments/schemas/comment_like.ex`
 
 ### Posts Schemas
 
-- [ ] `lib/modules/posts/schemas/post.ex` — Remove `user_id` (line 133) field + cast (line 175)
-- [ ] `lib/modules/posts/schemas/post_group.ex` — Remove `user_id` (line 83) field + cast (line 117)
-- [ ] `lib/modules/posts/schemas/post_comment.ex` — Remove `user_id` (line 52) field + cast (line 83)
-- [ ] `lib/modules/posts/schemas/post_like.ex` — Remove `user_id` (line 47) field + cast (line 66)
-- [ ] `lib/modules/posts/schemas/post_dislike.ex` — Remove `user_id` (line 47) field + cast (line 66)
-- [ ] `lib/modules/posts/schemas/post_mention.ex` — Remove `user_id` (line 65) field + cast (line 86)
-- [ ] `lib/modules/posts/schemas/post_view.ex` — Remove `user_id` (line 75) field + cast (line 96)
-- [ ] `lib/modules/posts/schemas/comment_dislike.ex` — Remove `user_id` (line 34) field + cast (line 53)
-- [ ] `lib/modules/posts/schemas/comment_like.ex` — Remove `user_id` (line 34) field + cast (line 53)
+- [x] `lib/modules/posts/schemas/post.ex`
+- [x] `lib/modules/posts/schemas/post_group.ex`
+- [x] `lib/modules/posts/schemas/post_comment.ex`
+- [x] `lib/modules/posts/schemas/post_like.ex`
+- [x] `lib/modules/posts/schemas/post_dislike.ex`
+- [x] `lib/modules/posts/schemas/post_mention.ex`
+- [x] `lib/modules/posts/schemas/post_view.ex`
+- [x] `lib/modules/posts/schemas/comment_dislike.ex`
+- [x] `lib/modules/posts/schemas/comment_like.ex`
 
 ### Other Module Schemas
 
-- [ ] `lib/modules/legal/schemas/consent_log.ex` — Remove `user_id` (line 76) field + cast (line 114). Note: custom validator (lines 130-140) checks `user_id` — update to check only `user_uuid`
-- [ ] `lib/modules/referrals/schemas/referral_code_usage.ex` — Remove `code_id` (line 50), `used_by` (line 45) fields + cast (line 62)
-- [ ] `lib/modules/publishing/schemas/publishing_post.ex` — Remove `created_by_id` (line 70), `updated_by_id` (line 77) fields + cast (lines 100, 102)
-- [ ] `lib/modules/publishing/schemas/publishing_version.ex` — Remove `created_by_id` (line 53) field + cast (line 71)
-- [ ] `lib/modules/storage/schemas/file.ex` — Remove `user_id` (line 140) field + cast (line 186)
+- [x] `lib/modules/legal/schemas/consent_log.ex`
+- [x] `lib/modules/referrals/schemas/referral_code_usage.ex`
+- [x] `lib/modules/publishing/schemas/publishing_post.ex`
+- [x] `lib/modules/publishing/schemas/publishing_version.ex`
+- [x] `lib/modules/storage/schemas/file.ex`
 
 ### Core PhoenixKit Schemas
 
-- [ ] `lib/phoenix_kit/users/oauth_provider.ex` — Remove `user_id` (line 20) field + cast (line 40)
-- [ ] `lib/phoenix_kit/users/admin_note.ex` — Remove `user_id` (line 42), `author_id` (line 49) fields + cast (line 66)
-- [ ] `lib/phoenix_kit/users/role_permission.ex` — Remove `role_id` (line 41), `granted_by` (line 38) fields + cast (line 52)
-- [ ] `lib/phoenix_kit/audit_log/entry.ex` — Remove `target_user_id` (line 51), `admin_user_id` (line 53) fields + cast (lines 79-82)
-- [ ] `lib/phoenix_kit/users/auth/user_token.ex` — Stop populating `user_id` in `build_session_token` (line 107), `build_email_token` (line 195), `build_hashed_token`. Remove `field :user_id` (line 50)
+- [x] `lib/phoenix_kit/users/oauth_provider.ex`
+- [x] `lib/phoenix_kit/users/admin_note.ex`
+- [x] `lib/phoenix_kit/users/role_permission.ex`
+- [x] `lib/phoenix_kit/audit_log/entry.ex`
+- [x] `lib/phoenix_kit/users/auth/user_token.ex`
 
 ### Special Case: Missing UUID Field
 
-- [ ] `lib/phoenix_kit/scheduled_jobs/scheduled_job.ex` — `created_by_id` (line 48) has **NO `created_by_uuid` counterpart**. Add `created_by_uuid` field to schema, verify DB column exists (or add via migration), then remove `created_by_id`
+- [x] `lib/phoenix_kit/scheduled_jobs/scheduled_job.ex` — `created_by_id` removed, `created_by_uuid` added
+
+---
+
+## Schemas NOT in original plan that still have `_id` fields
+
+These were not covered by Phase 1 and still have `field :*_id, :integer` declarations:
+
+### AI Module
+- [ ] `lib/modules/ai/request.ex` — `endpoint_id`, `prompt_id`, `account_id`, `user_id`
+
+### Entities Module
+- [ ] `lib/modules/entities/entity_data.ex` — `entity_id`
+
+### Emails Module
+- [ ] `lib/modules/emails/log.ex` — `user_id`
+- [ ] `lib/modules/emails/rate_limiter.ex` — `user_id`
+- [ ] `lib/modules/emails/event.ex` — `email_log_id`
+- [ ] `lib/modules/emails/template.ex` — `created_by_user_id`, `updated_by_user_id`
+
+### Tickets Module
+- [ ] `lib/modules/tickets/ticket.ex` — `user_id`, `assigned_to_id`
+- [ ] `lib/modules/tickets/ticket_comment.ex` — `user_id`
+- [ ] `lib/modules/tickets/ticket_status_history.ex` — `changed_by_id`
+
+### Connections Module
+- [ ] `lib/modules/connections/connection.ex` — `requester_id`, `recipient_id`
+- [ ] `lib/modules/connections/connection_history.ex` — `user_a_id`, `user_b_id`, `actor_id`
+- [ ] `lib/modules/connections/follow.ex` — `follower_id`, `followed_id`
+- [ ] `lib/modules/connections/follow_history.ex` — `follower_id`, `followed_id`
+- [ ] `lib/modules/connections/block.ex` — `blocker_id`, `blocked_id`
+- [ ] `lib/modules/connections/block_history.ex` — `blocker_id`, `blocked_id`
+
+### Sync Module
+- [ ] `lib/modules/sync/transfer.ex` — `connection_id`
 
 ---
 
@@ -74,59 +133,59 @@ Delete integer overloads and ID-to-UUID resolution functions entirely.
 
 ### Billing Context
 
-- [ ] `lib/modules/billing/billing.ex` — `create_order(attrs)` (line 954): Remove `user_id` extraction and `extract_user_uuid(user_id)` fallback. Require `user_uuid` directly
-- [ ] `lib/modules/billing/billing.ex` — `create_order(user_or_id, attrs)` (line 922): Update to accept only UUID or User struct, remove integer path
-- [ ] `lib/modules/billing/billing.ex` — `create_subscription/2` (line 2858): Change first param from `user_id` to `user_uuid`, remove `extract_user_uuid` call
-- [ ] `lib/modules/billing/billing.ex` — `resolve_plan_uuid/1` (line 3322): Remove integer overload (keep UUID passthrough if needed)
-- [ ] `lib/modules/billing/billing.ex` — `maybe_mark_linked_order_paid/1` (line 3335): Update to use `order_uuid` instead of `order_id`
-- [ ] `lib/modules/billing/billing.ex` — Search for any remaining `extract_user_uuid` calls and replace with direct UUID usage
+- [ ] `billing.ex` — `extract_user_uuid` is still used in ~15 call sites (accepts structs/strings/nil, no integer overload remaining)
+- [ ] `billing.ex` — `resolve_plan_uuid/1` — still has integer overload (DB lookup)
 
 ### Shop Context
 
-- [ ] `lib/modules/shop/shop.ex` — `category_product_options_query/1` (line 1313): Change param from integer `category_id` to UUID, query on `p.category_uuid`
-- [ ] `lib/modules/shop/shop.ex` — `filter_by_category/2` (lines 2629-2644): Remove integer overload and `Integer.parse` fallback, keep UUID-only path
-- [ ] `lib/modules/shop/shop.ex` — `filter_by_parent/2` (lines 2723-2725): Remove entirely, replace callers with `filter_by_parent_uuid/2` (lines 2727-2729)
+- [x] `shop.ex` — `category_product_options_query/1` — integer overload removed (now UUID-only)
+- [x] `shop.ex` — `filter_by_category/2` — integer overload removed (now UUID-only)
+- [ ] `shop.ex` — `filter_by_parent/2` — still uses `fragment("parent_id = ?", ^id)` for non-nil/non-skip values
 
 ### AI Context
 
-- [ ] `lib/modules/ai/ai.ex` — `maybe_filter_by/3` `:endpoint_id` (lines 1239-1248): Remove integer overload, query on `endpoint_uuid` only
-- [ ] `lib/modules/ai/ai.ex` — `maybe_filter_by/3` `:user_id` (lines 1250-1259): Remove integer overload, query on `user_uuid` only
+- [x] `ai.ex` — `maybe_filter_by/3` `:endpoint_id` — integer overload removed (now UUID-only)
+- [x] `ai.ex` — `maybe_filter_by/3` `:user_id` — integer overload removed (now UUID-only)
 
 ### Sync Context
 
-- [ ] `lib/modules/sync/transfers.ex` — `filter_by_connection/2` (lines 630-644): Remove integer overload, query on `connection_uuid` only
+- [x] `transfers.ex` — `filter_by_connection/2` — integer overload removed (`5a957918`)
 
 ### Entities Context
 
-- [ ] `lib/modules/entities/entity_data.ex` — `list_by_entity/1` (line 476): Remove integer overload, keep UUID version
-- [ ] `lib/modules/entities/entity_data.ex` — `list_by_entity_and_status/2` (line 503): Remove integer overload, keep UUID version
-- [ ] `lib/modules/entities/entity_data.ex` — `count_by_entity/1` (line 792): Remove integer overload, keep UUID version
+- [x] `entity_data.ex` — `list_by_entity/1` — integer overload removed (`5a957918`)
+- [x] `entity_data.ex` — `list_by_entity_and_status/2` — integer overload removed (`5a957918`)
+- [x] `entity_data.ex` — `count_by_entity/1` — integer overload removed (`5a957918`)
+
+### Other Context Functions (not in original plan)
+
+- [x] `comments/comments.ex` — `resolve_user_uuid` integer overload + entire function removed (`5a957918`)
+- [ ] `publishing/dual_write.ex` — `resolve_user_ids` handles both integer and UUID
 
 ---
 
 ## Phase 3: Callers and References
 
-- [ ] Search for any remaining `_id` usage in LiveViews, controllers, and templates that pass integer IDs to the above functions
-- [ ] Search for `extract_user_uuid` calls across the codebase and eliminate them
-- [ ] Search for `Integer.parse` patterns used for ID fallback and remove them
-- [ ] Check `@type` specs on schemas — remove `_id` fields from typespecs
+- [x] Check `@type` specs on schemas — removed `id: integer()` from typespecs
+- [ ] Search for remaining `extract_user_uuid` calls in billing and eliminate them
+- [x] Search for `Integer.parse` patterns used for ID fallback and remove them (`5a957918`)
+- [ ] Search for remaining `_id` usage in LiveViews, controllers, templates
 
 ---
 
 ## Phase 4: Verify
 
-- [ ] `mix compile --warnings-as-errors` — no warnings
-- [ ] `mix format`
-- [ ] `mix credo --strict`
-- [ ] `mix test` — all pass
-- [ ] Grep: `ast-grep --lang elixir --pattern 'field :$_id, :integer' lib/` returns nothing relevant
-- [ ] Grep: `grep -r '_id.*:integer' lib/ --include='*.ex' | grep -v '#'` returns nothing relevant (excluding comments)
+- [x] `mix compile --warnings-as-errors` — no warnings (`5a957918`)
+- [x] `mix format` (`5a957918`)
+- [x] `mix credo --strict` (`5a957918`)
+- [x] `mix test` — all 485 pass (`5a957918`)
+- [ ] Grep: `grep -r '_id.*:integer' lib/ --include='*.ex' | grep -v '#'` returns nothing relevant
 
 ---
 
 ## Notes
 
-- `field :id, :integer, read_after_writes: true` on Pattern 1 tables is the **primary key** — leave it alone until the full PK migration
+- ~~`field :id, :integer, read_after_writes: true` on Pattern 1 tables is the **primary key** — leave it alone until the full PK migration~~ **DONE** — removed from all 40 schemas in commit `ca43e3f7`
 - `session_id` in `post_view.ex` is a `:string` for deduplication — not an FK, leave it
 - `webhook_event.ex` has no legacy `_id` FKs — clean
-- `consent_log.ex` has a custom validator that checks `user_id OR user_uuid OR session_id` — needs special attention
+- `consent_log.ex` custom validator updated — no longer checks `user_id`

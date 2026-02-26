@@ -15,7 +15,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
 
   defp build_scope(roles) do
     %Scope{
-      user: %User{id: 1, uuid: "test-uuid", email: "test@example.com"},
+      user: %User{uuid: "test-uuid", email: "test@example.com"},
       authenticated?: true,
       cached_roles: roles
     }
@@ -23,7 +23,6 @@ defmodule PhoenixKit.Users.PermissionsTest do
 
   defp build_role(name, opts \\ []) do
     %Role{
-      id: Keyword.get(opts, :id, 1),
       uuid: Keyword.get(opts, :uuid, "role-uuid"),
       name: name,
       is_system_role: Keyword.get(opts, :is_system_role, name in ["Owner", "Admin", "User"])

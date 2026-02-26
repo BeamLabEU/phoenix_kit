@@ -60,7 +60,7 @@ defmodule PhoenixKit.Modules.Billing.Order do
 
       # Create an order
       {:ok, order} = Billing.create_order(user, %{
-        billing_profile_id: profile.id,
+        billing_profile_uuid: profile.uuid,
         currency: "EUR",
         line_items: [
           %{name: "Pro Plan", quantity: 1, unit_price: "99.00", total: "99.00"}
@@ -90,7 +90,6 @@ defmodule PhoenixKit.Modules.Billing.Order do
   @valid_payment_methods ~w(bank stripe paypal razorpay)
 
   schema "phoenix_kit_orders" do
-    field :id, :integer, read_after_writes: true
     field :order_number, :string
     field :status, :string, default: "draft"
     field :payment_method, :string

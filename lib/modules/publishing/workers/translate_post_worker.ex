@@ -268,12 +268,12 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     # Call AI for translation
     Logger.debug(
-      "[TranslatePostWorker] Calling AI endpoint #{endpoint.id} for #{target_language}..."
+      "[TranslatePostWorker] Calling AI endpoint #{endpoint.uuid} for #{target_language}..."
     )
 
     start_time = System.monotonic_time(:millisecond)
 
-    result = AI.ask(endpoint.id, prompt, source: "Publishing.TranslatePostWorker")
+    result = AI.ask(endpoint.uuid, prompt, source: "Publishing.TranslatePostWorker")
 
     elapsed = System.monotonic_time(:millisecond) - start_time
     Logger.info("[TranslatePostWorker] AI call for #{target_language} completed in #{elapsed}ms")
@@ -811,7 +811,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     prompt =
       build_translation_prompt(source_title, source_content, source_lang_name, target_lang_name)
 
-    case AI.ask(endpoint.id, prompt, source: "Publishing.TranslatePostWorker") do
+    case AI.ask(endpoint.uuid, prompt, source: "Publishing.TranslatePostWorker") do
       {:ok, response} ->
         case AI.extract_content(response) do
           {:ok, translated_text} ->

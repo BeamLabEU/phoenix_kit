@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Entities do
         display_name_plural: "Brands",
         description: "Brand content type for company profiles",
         icon: "hero-building-office",
-        created_by: admin_user.id,
+        created_by_uuid: admin_user.uuid,
         fields_definition: [
           %{"type" => "text", "key" => "name", "label" => "Name", "required" => true},
           %{"type" => "textarea", "key" => "tagline", "label" => "Tagline"},
@@ -106,7 +106,6 @@ defmodule PhoenixKit.Modules.Entities do
 
   @derive {Jason.Encoder,
            only: [
-             :id,
              :uuid,
              :name,
              :display_name,
@@ -121,8 +120,6 @@ defmodule PhoenixKit.Modules.Entities do
            ]}
 
   schema "phoenix_kit_entities" do
-    # Legacy integer ID - DB generates, Ecto reads back
-    field :id, :integer, read_after_writes: true
     field :name, :string
     field :display_name, :string
     field :display_name_plural, :string
@@ -295,19 +292,19 @@ defmodule PhoenixKit.Modules.Entities do
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :created) do
-    Events.broadcast_entity_created(entity.id)
+    Events.broadcast_entity_created(entity.uuid)
     maybe_mirror_entity(entity)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :updated) do
-    Events.broadcast_entity_updated(entity.id)
+    Events.broadcast_entity_updated(entity.uuid)
     maybe_mirror_entity(entity)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :deleted) do
-    Events.broadcast_entity_deleted(entity.id)
+    Events.broadcast_entity_deleted(entity.uuid)
     maybe_delete_mirrored_entity(entity)
     {:ok, entity}
   end
@@ -404,24 +401,14 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.get_entity(456)
       nil
   """
-  def get_entity(id) when is_integer(id) do
-    case repo().get_by(__MODULE__, id: id) do
-      nil -> nil
-      entity -> repo().preload(entity, :creator)
-    end
-  end
-
-  def get_entity(id) when is_binary(id) do
-    if UUIDUtils.valid?(id) do
-      case repo().get_by(__MODULE__, uuid: id) do
+  def get_entity(uuid) when is_binary(uuid) do
+    if UUIDUtils.valid?(uuid) do
+      case repo().get_by(__MODULE__, uuid: uuid) do
         nil -> nil
         entity -> repo().preload(entity, :creator)
       end
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_entity(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -531,9 +518,9 @@ defmodule PhoenixKit.Modules.Entities do
     end
   end
 
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
+  # Resolves user UUID - already a UUID string, pass through
+  defp resolve_user_uuid(uuid) when is_binary(uuid) do
+    if UUIDUtils.valid?(uuid), do: uuid, else: nil
   end
 
   defp resolve_user_uuid(_), do: nil
@@ -624,12 +611,7 @@ defmodule PhoenixKit.Modules.Entities do
       5
   """
   def count_user_entities(user_uuid) when is_binary(user_uuid) do
-    from(e in __MODULE__, where: e.created_by_uuid == ^user_uuid, select: count(e.id))
-    |> repo().one()
-  end
-
-  def count_user_entities(user_id) when is_integer(user_id) do
-    from(e in __MODULE__, where: e.created_by == ^user_id, select: count(e.id))
+    from(e in __MODULE__, where: e.created_by_uuid == ^user_uuid, select: count(e.uuid))
     |> repo().one()
   end
 
@@ -642,7 +624,7 @@ defmodule PhoenixKit.Modules.Entities do
       15
   """
   def count_entities do
-    from(e in __MODULE__, select: count(e.id))
+    from(e in __MODULE__, select: count(e.uuid))
     |> repo().one()
   end
 
@@ -655,7 +637,7 @@ defmodule PhoenixKit.Modules.Entities do
       243
   """
   def count_all_entity_data do
-    from(d in PhoenixKit.Modules.Entities.EntityData, select: count(d.id))
+    from(d in PhoenixKit.Modules.Entities.EntityData, select: count(d.uuid))
     |> repo().one()
   end
 
@@ -676,17 +658,6 @@ defmodule PhoenixKit.Modules.Entities do
   def validate_user_entity_limit(user_uuid) when is_binary(user_uuid) do
     max_entities = get_max_per_user()
     current_count = count_user_entities(user_uuid)
-
-    if current_count < max_entities do
-      {:ok, :valid}
-    else
-      {:error, "You have reached the maximum limit of #{max_entities} entities"}
-    end
-  end
-
-  def validate_user_entity_limit(user_id) when is_integer(user_id) do
-    max_entities = get_max_per_user()
-    current_count = count_user_entities(user_id)
 
     if current_count < max_entities do
       {:ok, :valid}
@@ -1000,11 +971,10 @@ defmodule PhoenixKit.Modules.Entities do
 
     Enum.map(entities, fn entity ->
       mirror_settings = get_mirror_settings(entity)
-      data_count = EntityData.count_by_entity(entity.id)
+      data_count = EntityData.count_by_entity(entity.uuid)
       file_exists = Storage.entity_exists?(entity.name)
 
       %{
-        id: entity.id,
         uuid: entity.uuid,
         name: entity.name,
         display_name: entity.display_name,

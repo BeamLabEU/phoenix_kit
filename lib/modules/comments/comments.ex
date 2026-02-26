@@ -60,7 +60,6 @@ defmodule PhoenixKit.Modules.Comments do
   alias PhoenixKit.Modules.Comments.CommentDislike
   alias PhoenixKit.Modules.Comments.CommentLike
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
@@ -182,29 +181,18 @@ defmodule PhoenixKit.Modules.Comments do
   """
   def create_comment(resource_type, resource_id, user_id, attrs) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
-      do_create_comment(resource_type, resource_id, user_id, resolve_user_id(user_id), attrs)
+      do_create_comment(resource_type, resource_id, user_id, attrs)
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} ->
-          create_comment(resource_type, resource_id, int_id, attrs)
-
-        _ ->
-          {:error, :invalid_user_id}
-      end
+      {:error, :invalid_user_id}
     end
   end
 
-  def create_comment(resource_type, resource_id, user_id, attrs) when is_integer(user_id) do
-    do_create_comment(resource_type, resource_id, resolve_user_uuid(user_id), user_id, attrs)
-  end
-
-  defp do_create_comment(resource_type, resource_id, user_uuid, user_int_id, attrs) do
+  defp do_create_comment(resource_type, resource_id, user_uuid, attrs) do
     repo().transaction(fn ->
       attrs =
         attrs
         |> Map.put(:resource_type, resource_type)
         |> Map.put(:resource_uuid, resource_id)
-        |> Map.put(:user_id, user_int_id)
         |> Map.put(:user_uuid, user_uuid)
         |> maybe_calculate_depth()
 
@@ -670,30 +658,12 @@ defmodule PhoenixKit.Modules.Comments do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
-    user_uuid = resolve_user_uuid(user_id)
-    where(query, [c], c.user_uuid == ^user_uuid)
-  end
-
   defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
       where(query, [c], c.user_uuid == ^user_id)
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> maybe_filter_by_user(query, int_id)
-        _ -> query
-      end
+      query
     end
-  end
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    from(u in Auth.User, where: u.id == ^user_id, select: u.uuid)
-    |> repo().one()
-  end
-
-  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
-    from(u in Auth.User, where: u.uuid == ^user_uuid, select: u.id)
-    |> repo().one()
   end
 
   defp notify_resource_handler(callback, resource_type, resource_id, comment) do

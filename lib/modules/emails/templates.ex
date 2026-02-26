@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Emails.Templates do
   def count_templates(opts \\ %{}) do
     Template
     |> apply_filters(opts)
-    |> select([t], count(t.id))
+    |> select([t], count(t.uuid))
     |> repo().one()
   end
 
@@ -107,20 +107,13 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       nil
 
   """
-  def get_template(id) when is_integer(id) do
-    repo().get_by(Template, id: id)
-  end
-
   def get_template(id) when is_binary(id) do
     alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
     if UUIDUtils.valid?(id) do
       repo().get(Template, id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_template(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -540,7 +533,7 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     categories =
       base_query
       |> group_by([t], t.category)
-      |> select([t], {t.category, count(t.id)})
+      |> select([t], {t.category, count(t.uuid)})
       |> repo().all()
       |> Enum.into(%{})
 
@@ -2020,11 +2013,7 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     """
   end
 
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
-  end
-
+  # Resolves user UUID from user_uuid string (passthrough) or nil
+  defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
   defp resolve_user_uuid(_), do: nil
 end

@@ -323,7 +323,7 @@ defmodule PhoenixKit.Modules.Emails.Metrics do
         group_by: l.campaign_id,
         select: %{
           campaign_id: l.campaign_id,
-          total_sent: count(l.id),
+          total_sent: count(l.uuid),
           delivered:
             sum(
               fragment(
@@ -335,7 +335,7 @@ defmodule PhoenixKit.Modules.Emails.Metrics do
             sum(fragment("CASE WHEN ? IN ('opened', 'clicked') THEN 1 ELSE 0 END", l.status)),
           clicked: sum(fragment("CASE WHEN ? = 'clicked' THEN 1 ELSE 0 END", l.status))
         },
-        having: count(l.id) > 0,
+        having: count(l.uuid) > 0,
         limit: ^limit
 
     repo().all(query)
@@ -376,7 +376,7 @@ defmodule PhoenixKit.Modules.Emails.Metrics do
         group_by: l.template_name,
         select: %{
           template_name: l.template_name,
-          usage_count: count(l.id),
+          usage_count: count(l.uuid),
           delivered:
             sum(
               fragment(
@@ -388,8 +388,8 @@ defmodule PhoenixKit.Modules.Emails.Metrics do
             sum(fragment("CASE WHEN ? IN ('opened', 'clicked') THEN 1 ELSE 0 END", l.status)),
           clicked: sum(fragment("CASE WHEN ? = 'clicked' THEN 1 ELSE 0 END", l.status))
         },
-        having: count(l.id) > 0,
-        order_by: [desc: count(l.id)],
+        having: count(l.uuid) > 0,
+        order_by: [desc: count(l.uuid)],
         limit: ^limit
 
     repo().all(query)

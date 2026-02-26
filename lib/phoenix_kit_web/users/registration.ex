@@ -110,7 +110,7 @@ defmodule PhoenixKitWeb.Users.Registration do
           {:ok, user} ->
             # Record referral code usage if provided and valid
             if validated_code do
-              Referrals.use_code(validated_code.code, user.id)
+              Referrals.use_code(validated_code.code, user.uuid)
             end
 
             case Auth.deliver_user_confirmation_instructions(

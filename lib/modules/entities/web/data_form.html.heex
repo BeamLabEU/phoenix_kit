@@ -4,7 +4,7 @@
   page_title={
     gettext("%{project_title} %{action} %{entity}",
       project_title: @project_title,
-      action: if(@data_record.id, do: gettext("Edit"), else: gettext("New")),
+      action: if(@data_record.uuid, do: gettext("Edit"), else: gettext("New")),
       entity: @entity.display_name
     )
   }
@@ -18,14 +18,14 @@
       PhoenixKit.Utils.Routes.path("/admin/entities/#{@entity.name}/data")
     }>
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
-        <%= if @data_record.id do %>
+        <%= if @data_record.uuid do %>
           {gettext("Edit %{entity}", entity: @entity.display_name)}
         <% else %>
           {gettext("Create New %{entity}", entity: @entity.display_name)}
         <% end %>
       </h1>
       <p class="text-sm text-base-content/60 mt-0.5">
-        <%= if @data_record.id do %>
+        <%= if @data_record.uuid do %>
           {gettext("Update data for the %{entity} entity", entity: @entity.display_name)}
         <% else %>
           {gettext("Add data for the %{entity} entity", entity: @entity.display_name)}
@@ -60,7 +60,7 @@
           class="btn btn-primary"
           disabled={@readonly?}
         >
-          <%= if @data_record.id do %>
+          <%= if @data_record.uuid do %>
             {gettext("Update %{entity}", entity: @entity.display_name)}
           <% else %>
             {gettext("Create %{entity}", entity: @entity.display_name)}
@@ -397,8 +397,8 @@
                 </div>
                 <input
                   type="hidden"
-                  name="phoenix_kit_entity_data[entity_id]"
-                  value={@entity.id}
+                  name="phoenix_kit_entity_data[entity_uuid]"
+                  value={@entity.uuid}
                 />
                 <input
                   type="hidden"
@@ -508,8 +508,8 @@
                 </div>
                 <input
                   type="hidden"
-                  name="phoenix_kit_entity_data[entity_id]"
-                  value={@entity.id}
+                  name="phoenix_kit_entity_data[entity_uuid]"
+                  value={@entity.uuid}
                 />
                 <input
                   type="hidden"
@@ -561,7 +561,7 @@
           disabled={@readonly?}
         >
           <.icon name="hero-check" class="w-4 h-4 mr-2" />
-          <%= if @data_record.id do %>
+          <%= if @data_record.uuid do %>
             {gettext("Update %{entity}", entity: @entity.display_name)}
           <% else %>
             {gettext("Create %{entity}", entity: @entity.display_name)}

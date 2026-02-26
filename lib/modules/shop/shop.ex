@@ -349,11 +349,7 @@ defmodule PhoenixKit.Modules.Shop do
   def list_products_by_ids([]), do: []
 
   def list_products_by_ids(ids) when is_list(ids) do
-    if ids_are_uuids?(ids) do
-      Product |> where([p], p.uuid in ^ids) |> repo().all()
-    else
-      Product |> where([p], p.id in ^ids) |> repo().all()
-    end
+    Product |> where([p], p.uuid in ^ids) |> repo().all()
   end
 
   # ============================================
@@ -546,13 +542,6 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def get_product(id, opts \\ [])
 
-  def get_product(id, opts) when is_integer(id) do
-    Product
-    |> where([p], p.id == ^id)
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().one()
-  end
-
   def get_product(id, opts) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       Product
@@ -560,10 +549,7 @@ defmodule PhoenixKit.Modules.Shop do
       |> maybe_preload(Keyword.get(opts, :preload))
       |> repo().one()
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_product(int_id, opts)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -659,11 +645,11 @@ defmodule PhoenixKit.Modules.Shop do
   Deletes a product.
   """
   def delete_product(%Product{} = product) do
-    product_id = product.id
+    product_uuid = product.uuid
 
     case repo().delete(product) do
       {:ok, _} = result ->
-        Events.broadcast_product_deleted(product_id)
+        Events.broadcast_product_deleted(product_uuid)
         result
 
       error ->
@@ -683,12 +669,7 @@ defmodule PhoenixKit.Modules.Shop do
   Returns count of updated products.
   """
   def bulk_update_product_status(ids, status) when is_list(ids) and is_binary(status) do
-    query =
-      if ids_are_uuids?(ids) do
-        Product |> where([p], p.uuid in ^ids)
-      else
-        Product |> where([p], p.id in ^ids)
-      end
+    query = Product |> where([p], p.uuid in ^ids)
 
     {count, _} =
       query
@@ -706,32 +687,26 @@ defmodule PhoenixKit.Modules.Shop do
   Returns count of updated products.
   """
   def bulk_update_product_category(ids, category_id) when is_list(ids) do
-    {cat_int_id, cat_uuid} =
+    cat_uuid =
       if category_id do
-        case PhoenixKit.UUID.get(Category, category_id) do
-          nil -> {nil, nil}
-          cat -> {cat.id, cat.uuid}
+        case repo().get(Category, category_id) do
+          nil -> nil
+          cat -> cat.uuid
         end
       else
-        {nil, nil}
+        nil
       end
 
     # Don't unassign category if a specific category was requested but not found
-    if category_id && is_nil(cat_int_id) && is_nil(cat_uuid) do
+    if category_id && is_nil(cat_uuid) do
       0
     else
-      query =
-        if ids_are_uuids?(ids) do
-          Product |> where([p], p.uuid in ^ids)
-        else
-          Product |> where([p], p.id in ^ids)
-        end
+      query = Product |> where([p], p.uuid in ^ids)
 
       {count, _} =
         query
         |> repo().update_all(
           set: [
-            category_id: cat_int_id,
             category_uuid: cat_uuid,
             updated_at: UtilsDate.utc_now()
           ]
@@ -746,12 +721,7 @@ defmodule PhoenixKit.Modules.Shop do
   Returns count of deleted products.
   """
   def bulk_delete_products(ids) when is_list(ids) do
-    query =
-      if ids_are_uuids?(ids) do
-        Product |> where([p], p.uuid in ^ids)
-      else
-        Product |> where([p], p.id in ^ids)
-      end
+    query = Product |> where([p], p.uuid in ^ids)
 
     {count, _} = repo().delete_all(query)
 
@@ -999,13 +969,6 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def get_category(id, opts \\ [])
 
-  def get_category(id, opts) when is_integer(id) do
-    Category
-    |> where([c], c.id == ^id)
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().one()
-  end
-
   def get_category(id, opts) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       Category
@@ -1013,10 +976,7 @@ defmodule PhoenixKit.Modules.Shop do
       |> maybe_preload(Keyword.get(opts, :preload))
       |> repo().one()
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_category(int_id, opts)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -1112,11 +1072,11 @@ defmodule PhoenixKit.Modules.Shop do
   Deletes a category.
   """
   def delete_category(%Category{} = category) do
-    category_id = category.id
+    category_uuid = category.uuid
 
     case repo().delete(category) do
       {:ok, _} = result ->
-        Events.broadcast_category_deleted(category_id)
+        Events.broadcast_category_deleted(category_uuid)
         result
 
       error ->
@@ -1136,12 +1096,7 @@ defmodule PhoenixKit.Modules.Shop do
   Returns count of updated categories.
   """
   def bulk_update_category_status(ids, status) when is_list(ids) and is_binary(status) do
-    query =
-      if ids_are_uuids?(ids) do
-        Category |> where([c], c.uuid in ^ids)
-      else
-        Category |> where([c], c.id in ^ids)
-      end
+    query = Category |> where([c], c.uuid in ^ids)
 
     {count, _} =
       query
@@ -1177,27 +1132,15 @@ defmodule PhoenixKit.Modules.Shop do
 
       {count, _} =
         if is_nil(parent_uuid) do
-          # Make root — set both to nil
+          # Make root — set parent to nil
           Category
           |> where([c], c.uuid in ^ids_to_update)
-          |> repo().update_all(set: [parent_id: nil, parent_uuid: nil, updated_at: now])
+          |> repo().update_all(set: [parent_uuid: nil, updated_at: now])
         else
-          # Resolve parent_id in one query, then bulk update
-          parent =
-            Category
-            |> where([c], c.uuid == ^parent_uuid)
-            |> select([c], %{id: c.id})
-            |> repo().one()
-
-          if parent do
-            Category
-            |> where([c], c.uuid in ^ids_to_update)
-            |> repo().update_all(
-              set: [parent_id: parent.id, parent_uuid: parent_uuid, updated_at: now]
-            )
-          else
-            {0, nil}
-          end
+          # Set parent_uuid directly
+          Category
+          |> where([c], c.uuid in ^ids_to_update)
+          |> repo().update_all(set: [parent_uuid: parent_uuid, updated_at: now])
         end
 
       if count > 0 do
@@ -1226,27 +1169,15 @@ defmodule PhoenixKit.Modules.Shop do
   Returns count of deleted categories. Nullifies category references on orphaned products.
   """
   def bulk_delete_categories(ids) when is_list(ids) do
-    uuid_ids? = ids_are_uuids?(ids)
-
     # Nullify category references on products to prevent orphans
-    orphan_query =
-      if uuid_ids? do
-        Product |> where([p], p.category_uuid in ^ids)
-      else
-        Product |> where([p], fragment("category_id") in ^ids)
-      end
+    orphan_query = Product |> where([p], p.category_uuid in ^ids)
 
     repo().update_all(orphan_query,
       set: [category_uuid: nil, updated_at: UtilsDate.utc_now()]
     )
 
     # Delete categories
-    category_query =
-      if uuid_ids? do
-        Category |> where([c], c.uuid in ^ids)
-      else
-        Category |> where([c], c.id in ^ids)
-      end
+    category_query = Category |> where([c], c.uuid in ^ids)
 
     {count, _} = repo().delete_all(category_query)
 
@@ -1338,27 +1269,15 @@ defmodule PhoenixKit.Modules.Shop do
     end
   end
 
-  defp category_product_options_query(category_id) when is_integer(category_id) do
-    from(p in Product,
-      where: fragment("category_id = ?", ^category_id),
-      where: p.status == "active",
-      where:
-        not is_nil(p.featured_image_uuid) or
-          (not is_nil(p.featured_image) and p.featured_image != ""),
-      order_by: [asc: p.id],
-      select: {p.title, p.uuid}
-    )
-  end
-
-  defp category_product_options_query(category_id) when is_binary(category_id) do
-    if match?({:ok, _}, Ecto.UUID.cast(category_id)) do
+  defp category_product_options_query(category_uuid) when is_binary(category_uuid) do
+    if match?({:ok, _}, Ecto.UUID.cast(category_uuid)) do
       from(p in Product,
-        where: p.category_uuid == ^category_id,
+        where: p.category_uuid == ^category_uuid,
         where: p.status == "active",
         where:
           not is_nil(p.featured_image_uuid) or
             (not is_nil(p.featured_image) and p.featured_image != ""),
-        order_by: [asc: p.id],
+        order_by: [asc: p.uuid],
         select: {p.title, p.uuid}
       )
     end
@@ -1405,18 +1324,11 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Gets a shipping method by ID or UUID.
   """
-  def get_shipping_method(id) when is_integer(id) do
-    repo().get_by(ShippingMethod, id: id)
-  end
-
   def get_shipping_method(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       repo().get_by(ShippingMethod, uuid: id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_shipping_method(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -1481,32 +1393,29 @@ defmodule PhoenixKit.Modules.Shop do
   Gets or creates a cart for the current user/session.
 
   ## Options
-  - `:user_id` - User ID (for authenticated users)
   - `:user_uuid` - User UUID (for authenticated users)
   - `:session_id` - Session ID (for guests)
   """
   def get_or_create_cart(opts) do
-    user_id = Keyword.get(opts, :user_id)
-    user_uuid = Keyword.get(opts, :user_uuid)
+    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
     session_id = Keyword.get(opts, :session_id)
 
-    case find_active_cart(user_id: user_id, session_id: session_id) do
-      nil -> create_cart(user_id: user_id, user_uuid: user_uuid, session_id: session_id)
+    case find_active_cart(user_uuid: user_uuid, session_id: session_id) do
+      nil -> create_cart(user_uuid: user_uuid, session_id: session_id)
       cart -> {:ok, cart}
     end
   end
 
   @doc """
-  Finds active cart by user_id or session_id.
+  Finds active cart by user_uuid or session_id.
 
   Search priority:
-  1. If user_id is provided, search by user_id first
+  1. If user_uuid is provided, search by user_uuid first
   2. If not found and session_id is provided, search by session_id (handles guest->login transition)
-  3. If only session_id is provided, search by session_id with no user_id
+  3. If only session_id is provided, search by session_id with no user_uuid
   """
   def find_active_cart(opts) do
-    user_id = Keyword.get(opts, :user_id)
-    user_uuid = Keyword.get(opts, :user_uuid)
+    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
     session_id = Keyword.get(opts, :session_id)
 
     base_query =
@@ -1526,21 +1435,10 @@ defmodule PhoenixKit.Modules.Shop do
             result
         end
 
-      not is_nil(user_id) ->
-        # Legacy: find by user_id
-        case base_query |> where([c], c.user_id == ^user_id) |> repo().one() do
-          nil when not is_nil(session_id) ->
-            # Fallback: try session_id (cart created before login)
-            base_query |> where([c], c.session_id == ^session_id) |> repo().one()
-
-          result ->
-            result
-        end
-
       not is_nil(session_id) ->
         # Guest user - search by session_id only
         base_query
-        |> where([c], c.session_id == ^session_id and is_nil(c.user_id) and is_nil(c.user_uuid))
+        |> where([c], c.session_id == ^session_id and is_nil(c.user_uuid))
         |> repo().one()
 
       true ->
@@ -1554,7 +1452,6 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def create_cart(opts) do
     attrs = %{
-      user_id: Keyword.get(opts, :user_id),
       user_uuid: Keyword.get(opts, :user_uuid),
       session_id: Keyword.get(opts, :session_id),
       currency: get_default_currency_code()
@@ -1569,24 +1466,14 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Gets a cart by ID or UUID with items preloaded.
   """
-  def get_cart(id) when is_integer(id) do
-    Cart
-    |> where([c], c.id == ^id)
-    |> preload([:items, :shipping_method, :payment_option])
-    |> repo().one()
-  end
-
-  def get_cart(id) when is_binary(id) do
-    if UUIDUtils.valid?(id) do
+  def get_cart(uuid) when is_binary(uuid) do
+    if UUIDUtils.valid?(uuid) do
       Cart
-      |> where([c], c.uuid == ^id)
+      |> where([c], c.uuid == ^uuid)
       |> preload([:items, :shipping_method, :payment_option])
       |> repo().one()
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_cart(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -1644,7 +1531,7 @@ defmodule PhoenixKit.Modules.Shop do
         # This ensures price snapshot is consistent with current product state
         locked_product =
           Product
-          |> where([p], p.id == ^product.id)
+          |> where([p], p.uuid == ^product.uuid)
           |> lock("FOR UPDATE")
           |> repo().one!()
 
@@ -1661,7 +1548,6 @@ defmodule PhoenixKit.Modules.Shop do
               # Create new item with calculated price
               attrs =
                 CartItem.from_product(locked_product, quantity)
-                |> Map.put(:cart_id, cart.id)
                 |> Map.put(:cart_uuid, cart.uuid)
                 |> Map.put(:unit_price, calculated_price)
 
@@ -1694,7 +1580,7 @@ defmodule PhoenixKit.Modules.Shop do
         # Lock product row to prevent price/metadata changes during cart update
         locked_product =
           Product
-          |> where([p], p.id == ^product.id)
+          |> where([p], p.uuid == ^product.uuid)
           |> lock("FOR UPDATE")
           |> repo().one!()
 
@@ -1710,7 +1596,6 @@ defmodule PhoenixKit.Modules.Shop do
               # Create new item with specs and calculated price
               attrs =
                 CartItem.from_product(locked_product, quantity)
-                |> Map.put(:cart_id, cart.id)
                 |> Map.put(:cart_uuid, cart.uuid)
                 |> Map.put(:unit_price, calculated_price)
                 |> Map.put(:selected_specs, selected_specs)
@@ -1878,7 +1763,7 @@ defmodule PhoenixKit.Modules.Shop do
   Removes item from cart.
   """
   def remove_from_cart(%CartItem{} = item) do
-    item_id = item.id
+    item_uuid = item.uuid
 
     result =
       repo().transaction(fn ->
@@ -1892,7 +1777,7 @@ defmodule PhoenixKit.Modules.Shop do
 
     case result do
       {:ok, updated_cart} ->
-        Events.broadcast_item_removed(updated_cart, item_id)
+        Events.broadcast_item_removed(updated_cart, item_uuid)
         {:ok, updated_cart}
 
       error ->
@@ -1943,7 +1828,6 @@ defmodule PhoenixKit.Modules.Shop do
         updated_cart =
           cart
           |> Cart.shipping_changeset(%{
-            shipping_method_id: method.id,
             shipping_method_uuid: method.uuid,
             shipping_country: country,
             shipping_amount: shipping_cost
@@ -1970,7 +1854,6 @@ defmodule PhoenixKit.Modules.Shop do
     result =
       cart
       |> Cart.payment_changeset(%{
-        payment_option_id: option.id,
         payment_option_uuid: option.uuid
       })
       |> repo().update()
@@ -1985,9 +1868,9 @@ defmodule PhoenixKit.Modules.Shop do
     end
   end
 
-  def set_cart_payment_option(%Cart{} = cart, payment_option_id)
-      when is_integer(payment_option_id) do
-    case Billing.get_payment_option(payment_option_id) do
+  def set_cart_payment_option(%Cart{} = cart, payment_option_uuid)
+      when is_binary(payment_option_uuid) do
+    case Billing.get_payment_option(payment_option_uuid) do
       nil ->
         {:error, :payment_option_not_found}
 
@@ -1999,7 +1882,7 @@ defmodule PhoenixKit.Modules.Shop do
   def set_cart_payment_option(%Cart{} = cart, nil) do
     result =
       cart
-      |> Cart.payment_changeset(%{payment_option_id: nil, payment_option_uuid: nil})
+      |> Cart.payment_changeset(%{payment_option_uuid: nil})
       |> repo().update()
 
     case result do
@@ -2082,30 +1965,19 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Merges guest cart into user cart after login.
-  Accepts a user struct or user_id (integer).
+  Accepts a user struct or user_uuid (string).
   """
-  def merge_guest_cart(session_id, %{id: user_id, uuid: user_uuid}) do
-    do_merge_guest_cart(session_id, user_id, user_uuid)
+  def merge_guest_cart(session_id, %{uuid: user_uuid}) do
+    do_merge_guest_cart(session_id, user_uuid)
   end
 
-  def merge_guest_cart(session_id, user_id) when is_integer(user_id) do
-    user = Auth.get_user(user_id)
-    do_merge_guest_cart(session_id, user_id, user && user.uuid)
+  def merge_guest_cart(session_id, user_uuid) when is_binary(user_uuid) do
+    do_merge_guest_cart(session_id, user_uuid)
   end
 
-  def merge_guest_cart(session_id, user_id) when is_binary(user_id) do
-    user = Auth.get_user(user_id)
-
-    if user do
-      do_merge_guest_cart(session_id, user.id, user.uuid)
-    else
-      {:ok, nil}
-    end
-  end
-
-  defp do_merge_guest_cart(session_id, user_id, user_uuid) do
+  defp do_merge_guest_cart(session_id, user_uuid) do
     guest_cart = find_active_cart(session_id: session_id)
-    user_cart = find_active_cart(user_id: user_id)
+    user_cart = find_active_cart(user_uuid: user_uuid)
 
     case {guest_cart, user_cart} do
       {nil, _} ->
@@ -2115,7 +1987,6 @@ defmodule PhoenixKit.Modules.Shop do
         # Convert guest cart to user cart
         guest
         |> Cart.changeset(%{
-          user_id: user_id,
           user_uuid: user_uuid,
           session_id: nil,
           expires_at: nil
@@ -2138,7 +2009,6 @@ defmodule PhoenixKit.Modules.Shop do
       # Mark guest cart as merged
       guest
       |> Cart.status_changeset("merged", %{
-        merged_into_cart_id: user.id,
         merged_into_cart_uuid: user.uuid
       })
       |> repo().update!()
@@ -2160,7 +2030,6 @@ defmodule PhoenixKit.Modules.Shop do
         attrs =
           Map.from_struct(item)
           |> Map.drop([:__meta__, :id, :uuid, :cart, :product, :inserted_at, :updated_at])
-          |> Map.put(:cart_id, user_cart.id)
           |> Map.put(:cart_uuid, user_cart.uuid)
 
         %CartItem{}
@@ -2292,7 +2161,7 @@ defmodule PhoenixKit.Modules.Shop do
   - `{:error, changeset}` - Validation errors
   """
   def convert_cart_to_order(%Cart{} = cart, opts) when is_list(opts) do
-    cart = get_cart!(cart.id)
+    cart = get_cart!(cart.uuid)
 
     # Wrap entire conversion in a transaction to ensure atomicity
     # If any step fails after order creation, the order is rolled back
@@ -2306,7 +2175,7 @@ defmodule PhoenixKit.Modules.Shop do
            line_items <- build_order_line_items(cart),
            order_attrs <- build_order_attrs(cart, line_items, opts),
            {:ok, order} <- do_create_order(user_id, order_attrs),
-           {:ok, _cart} <- mark_cart_converted(cart, order.id),
+           {:ok, _cart} <- mark_cart_converted(cart, order.uuid),
            :ok <- maybe_send_guest_confirmation(user_id) do
         {:ok, order}
       else
@@ -2396,7 +2265,6 @@ defmodule PhoenixKit.Modules.Shop do
       "status" => "pending",
       "metadata" => %{
         "source" => "shop_checkout",
-        "cart_id" => cart.id,
         "cart_uuid" => cart.uuid,
         "shipping_country" => shipping_country,
         "shipping_method_uuid" => cart.shipping_method_uuid
@@ -2551,27 +2419,27 @@ defmodule PhoenixKit.Modules.Shop do
   # Atomically transition cart from "active" to "converting" status.
   # This prevents double-conversion when user double-clicks checkout button.
   # If another request already started conversion, this returns error.
-  defp try_lock_cart_for_conversion(%Cart{id: cart_id}) do
+  defp try_lock_cart_for_conversion(%Cart{uuid: cart_uuid}) do
     # Use atomic UPDATE with WHERE clause to ensure only one request wins
     {count, _} =
       Cart
-      |> where([c], c.id == ^cart_id and c.status == "active")
+      |> where([c], c.uuid == ^cart_uuid and c.status == "active")
       |> repo().update_all(set: [status: "converting", updated_at: UtilsDate.utc_now()])
 
     if count == 1 do
       # Successfully locked - reload cart with new status
-      {:ok, get_cart!(cart_id)}
+      {:ok, get_cart!(cart_uuid)}
     else
       # Another request already started conversion
       {:error, :cart_already_converting}
     end
   end
 
-  defp mark_cart_converted(%Cart{} = cart, order_id) do
+  defp mark_cart_converted(%Cart{} = cart, order_uuid) do
     cart
     |> Cart.status_changeset("converted", %{
       converted_at: UtilsDate.utc_now(),
-      metadata: Map.put(cart.metadata || %{}, "order_id", order_id)
+      metadata: Map.put(cart.metadata || %{}, "order_uuid", order_uuid)
     })
     |> repo().update()
   end
@@ -2651,19 +2519,12 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp filter_by_category(query, nil), do: query
 
-  defp filter_by_category(query, id) when is_binary(id) do
-    if UUIDUtils.valid?(id) do
-      where(query, [p], p.category_uuid == ^id)
+  defp filter_by_category(query, uuid) when is_binary(uuid) do
+    if UUIDUtils.valid?(uuid) do
+      where(query, [p], p.category_uuid == ^uuid)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> where(query, [p], fragment("category_id = ?", ^int_id))
-        _ -> query
-      end
+      query
     end
-  end
-
-  defp filter_by_category(query, id) when is_integer(id) do
-    where(query, [p], fragment("category_id = ?", ^id))
   end
 
   defp filter_by_visible_categories(query, false), do: query
@@ -2910,13 +2771,6 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def get_import_log(id, opts \\ [])
 
-  def get_import_log(id, opts) when is_integer(id) do
-    ImportLog
-    |> where([l], l.id == ^id)
-    |> maybe_preload(Keyword.get(opts, :preload))
-    |> repo().one()
-  end
-
   def get_import_log(uuid, opts) when is_binary(uuid) do
     ImportLog
     |> maybe_preload(Keyword.get(opts, :preload))
@@ -2926,13 +2780,6 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Gets an import log by ID, raises if not found.
   """
-  def get_import_log!(id) when is_integer(id) do
-    case repo().get_by(ImportLog, id: id) do
-      nil -> raise Ecto.NoResultsError, queryable: ImportLog
-      log -> log
-    end
-  end
-
   def get_import_log!(id) when is_binary(id) do
     case get_import_log(id) do
       nil -> raise Ecto.NoResultsError, queryable: ImportLog
@@ -3035,10 +2882,6 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Gets an import config by ID.
   """
-  def get_import_config(id) when is_integer(id) do
-    repo().get_by(ImportConfig, id: id)
-  end
-
   def get_import_config(uuid) when is_binary(uuid) do
     repo().get_by(ImportConfig, uuid: uuid)
   end
@@ -3046,13 +2889,6 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Gets an import config by ID, raises if not found.
   """
-  def get_import_config!(id) when is_integer(id) do
-    case repo().get_by(ImportConfig, id: id) do
-      nil -> raise Ecto.NoResultsError, queryable: ImportConfig
-      config -> config
-    end
-  end
-
   def get_import_config!(id) when is_binary(id) do
     case get_import_config(id) do
       nil -> raise Ecto.NoResultsError, queryable: ImportConfig
@@ -3089,7 +2925,7 @@ defmodule PhoenixKit.Modules.Shop do
     # If this is the new default, clear other defaults
     case result do
       {:ok, %ImportConfig{is_default: true} = config} ->
-        clear_other_defaults(config.id)
+        clear_other_defaults(config.uuid)
         {:ok, config}
 
       other ->
@@ -3109,7 +2945,7 @@ defmodule PhoenixKit.Modules.Shop do
     # If this is the new default, clear other defaults
     case result do
       {:ok, %ImportConfig{is_default: true} = updated_config} ->
-        clear_other_defaults(updated_config.id)
+        clear_other_defaults(updated_config.uuid)
         {:ok, updated_config}
 
       other ->
@@ -3124,9 +2960,9 @@ defmodule PhoenixKit.Modules.Shop do
     repo().delete(config)
   end
 
-  defp clear_other_defaults(except_id) do
+  defp clear_other_defaults(except_uuid) do
     ImportConfig
-    |> where([c], c.is_default == true and c.id != ^except_id)
+    |> where([c], c.is_default == true and c.uuid != ^except_uuid)
     |> repo().update_all(set: [is_default: false])
   end
 
@@ -3696,12 +3532,4 @@ defmodule PhoenixKit.Modules.Shop do
       description: Translations.get_field(category, :description, language)
     }
   end
-
-  # Checks if a list of IDs contains UUID strings (vs integers)
-  defp ids_are_uuids?([]), do: false
-
-  defp ids_are_uuids?([first | _]) when is_binary(first),
-    do: match?({:ok, _}, Ecto.UUID.cast(first))
-
-  defp ids_are_uuids?(_), do: false
 end

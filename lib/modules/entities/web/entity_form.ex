@@ -54,9 +54,9 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     changeset = Entities.change_entity(entity)
 
     form_key =
-      case entity.id do
+      case entity.uuid do
         nil -> nil
-        id -> "entity-#{id}"
+        uuid -> "entity-#{uuid}"
       end
 
     live_source = ensure_live_source(socket)
@@ -97,21 +97,21 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
     socket =
       if connected?(socket) do
-        if form_key && entity.id do
+        if form_key && entity.uuid do
           # Track this user in Presence
           {:ok, _ref} =
-            PresenceHelpers.track_editing_session(:entity, entity.id, socket, current_user)
+            PresenceHelpers.track_editing_session(:entity, entity.uuid, socket, current_user)
 
           # Subscribe to presence changes and form events
-          PresenceHelpers.subscribe_to_editing(:entity, entity.id)
+          PresenceHelpers.subscribe_to_editing(:entity, entity.uuid)
           Events.subscribe_to_entity_form(form_key)
 
           # Determine our role (owner or spectator)
-          socket = assign_editing_role(socket, entity.id)
+          socket = assign_editing_role(socket, entity.uuid)
 
           # Load spectator state if we're not the owner
           if socket.assigns.readonly? do
-            load_spectator_state(socket, entity.id)
+            load_spectator_state(socket, entity.uuid)
           else
             socket
           end
@@ -138,7 +138,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   defp assign_editing_role(socket, entity_id) do
     current_user = socket.assigns[:current_user]
 
-    case PresenceHelpers.get_editing_role(:entity, entity_id, socket.id, current_user.id) do
+    case PresenceHelpers.get_editing_role(:entity, entity_id, socket.id, current_user.uuid) do
       {:owner, _presences} ->
         # I'm the owner - I can edit (or same user in different tab)
         socket
@@ -221,7 +221,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
       # Auto-generate slug from display_name during creation (but not editing)
       entity_params =
-        if is_nil(socket.assigns.entity.id) do
+        if is_nil(socket.assigns.entity.uuid) do
           # Only auto-generate if display_name changed and slug wasn't manually edited
           display_name = entity_params["display_name"] || ""
           current_slug = entity_params["name"] || ""
@@ -252,11 +252,10 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
       # Add created_by for new entities during validation so changeset can be valid
       entity_params =
-        if socket.assigns.entity.id do
+        if socket.assigns.entity.uuid do
           entity_params
         else
           entity_params
-          |> Map.put("created_by", socket.assigns.current_user.id)
           |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
         end
 
@@ -302,18 +301,17 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
       # Add created_by for new entities
       entity_params =
-        if socket.assigns.entity.id do
+        if socket.assigns.entity.uuid do
           entity_params
         else
           entity_params
-          |> Map.put("created_by", socket.assigns.current_user.id)
           |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
         end
 
       try do
         case save_entity(socket, entity_params) do
           {:ok, saved_entity} ->
-            if socket.assigns.entity.id do
+            if socket.assigns.entity.uuid do
               # Update — stay on page, refresh changeset from saved entity
               changeset = Entities.change_entity(saved_entity)
 
@@ -360,9 +358,9 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     if socket.assigns[:lock_owner?] do
       # Reload entity from database or reset to empty state
       {entity, fields} =
-        if socket.assigns.entity.id do
+        if socket.assigns.entity.uuid do
           # Reload from database
-          reloaded_entity = Entities.get_entity!(socket.assigns.entity.id)
+          reloaded_entity = Entities.get_entity!(socket.assigns.entity.uuid)
           {reloaded_entity, reloaded_entity.fields_definition || []}
         else
           # Reset to empty new entity
@@ -1040,7 +1038,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   def handle_info({:entity_created, _}, socket), do: {:noreply, socket}
 
   def handle_info({:entity_updated, entity_id}, socket) do
-    if socket.assigns.entity.id == entity_id do
+    if socket.assigns.entity.uuid == entity_id do
       # Ignore our own saves — the save handler already refreshes state
       if socket.assigns[:lock_owner?] do
         {:noreply, socket}
@@ -1075,7 +1073,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   end
 
   def handle_info({:entity_deleted, entity_id}, socket) do
-    if socket.assigns.entity.id == entity_id do
+    if socket.assigns.entity.uuid == entity_id do
       locale = socket.assigns[:current_locale] || "en"
 
       socket =
@@ -1091,8 +1089,8 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
     # Someone joined or left - check if our role changed
-    if socket.assigns.entity && socket.assigns.entity.id do
-      entity_id = socket.assigns.entity.id
+    if socket.assigns.entity && socket.assigns.entity.uuid do
+      entity_id = socket.assigns.entity.uuid
       was_owner = socket.assigns[:lock_owner?]
 
       # Re-evaluate our role
@@ -1125,9 +1123,9 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   defp broadcast_entity_form_state(socket, extra \\ %{}) do
     socket =
-      if connected?(socket) && socket.assigns[:form_key] && socket.assigns.entity.id &&
+      if connected?(socket) && socket.assigns[:form_key] && socket.assigns.entity.uuid &&
            socket.assigns[:lock_owner?] do
-        entity_id = socket.assigns.entity.id
+        entity_id = socket.assigns.entity.uuid
         topic = PresenceHelpers.editing_topic(:entity, entity_id)
 
         payload =
@@ -1272,10 +1270,10 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   end
 
   defp save_entity(socket, entity_params) do
-    if socket.assigns.entity.id do
+    if socket.assigns.entity.uuid do
       # Reload entity from database to ensure Ecto detects all changes
       # (socket.assigns.entity may have in-memory modifications that mask changes)
-      fresh_entity = Entities.get_entity!(socket.assigns.entity.id)
+      fresh_entity = Entities.get_entity!(socket.assigns.entity.uuid)
       Entities.update_entity(fresh_entity, entity_params)
     else
       Entities.create_entity(entity_params)
@@ -1327,11 +1325,10 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
     # Add created_by for new entities
     entity_params =
-      if socket.assigns.entity.id do
+      if socket.assigns.entity.uuid do
         entity_params
       else
         entity_params
-        |> Map.put("created_by", socket.assigns.current_user.id)
         |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
       end
 

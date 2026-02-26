@@ -21,7 +21,6 @@ defmodule PhoenixKit.Users.RolePermission do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          id: integer() | nil,
           role_uuid: UUIDv7.t() | nil,
           module_key: String.t(),
           granted_by_uuid: UUIDv7.t() | nil,
@@ -31,7 +30,6 @@ defmodule PhoenixKit.Users.RolePermission do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_role_permissions" do
-    field :id, :integer, read_after_writes: true
     field :module_key, :string
     field :granted_by_uuid, UUIDv7
 

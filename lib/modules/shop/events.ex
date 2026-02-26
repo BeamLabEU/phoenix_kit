@@ -235,7 +235,7 @@ defmodule PhoenixKit.Modules.Shop.Events do
   """
   def broadcast_product_updated(product) do
     broadcast(@products_topic, {:product_updated, product})
-    broadcast(product_topic(product.id), {:product_updated, product})
+    broadcast(product_topic(product.uuid), {:product_updated, product})
   end
 
   @doc """

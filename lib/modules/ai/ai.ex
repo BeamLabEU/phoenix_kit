@@ -24,8 +24,8 @@ defmodule PhoenixKit.Modules.AI do
 
   ### Endpoint CRUD
   - `list_endpoints/1` - List all endpoints with filters
-  - `get_endpoint!/1` - Get endpoint by ID (raises)
-  - `get_endpoint/1` - Get endpoint by ID
+  - `get_endpoint!/1` - Get endpoint by UUID (raises)
+  - `get_endpoint/1` - Get endpoint by UUID
   - `create_endpoint/1` - Create new endpoint
   - `update_endpoint/2` - Update existing endpoint
   - `delete_endpoint/1` - Delete endpoint
@@ -56,7 +56,7 @@ defmodule PhoenixKit.Modules.AI do
       })
 
       # Use the endpoint
-      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "Hello!")
 
       # Extract the response text
       {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
@@ -399,7 +399,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   defp apply_endpoint_sorting(query, field, dir)
-       when field in [:id, :name, :enabled, :model, :sort_order] do
+       when field in [:name, :enabled, :model, :sort_order] do
     order_by(query, [e], [{^dir, field(e, ^field)}])
   end
 
@@ -411,7 +411,7 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Returns usage statistics for each endpoint.
 
-  Returns a map of endpoint_id => %{request_count, total_tokens, total_cost, last_used_at}
+  Returns a map of endpoint_uuid => %{request_count, total_tokens, total_cost, last_used_at}
   """
   def get_endpoint_usage_stats do
     query =
@@ -435,7 +435,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single endpoint by integer ID or UUID.
+  Gets a single endpoint by UUID.
 
   Raises `Ecto.NoResultsError` if the endpoint does not exist.
   """
@@ -447,29 +447,17 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single endpoint by integer ID or UUID.
+  Gets a single endpoint by UUID.
 
-  Accepts:
-  - Integer ID (e.g., 123)
-  - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
-  - Integer string (e.g., "123")
+  Accepts a UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000").
 
   Returns `nil` if the endpoint does not exist.
   """
-  def get_endpoint(id) when is_integer(id) do
-    repo().get_by(Endpoint, id: id)
-  end
-
   def get_endpoint(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
-      # UUID lookup
       repo().get_by(Endpoint, uuid: id)
     else
-      # Try parsing as integer
-      case Integer.parse(id) do
-        {int_id, ""} -> repo().get_by(Endpoint, id: int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -484,13 +472,6 @@ defmodule PhoenixKit.Modules.AI do
       {:ok, endpoint} = PhoenixKit.Modules.AI.resolve_endpoint(endpoint)
   """
   def resolve_endpoint(id) when is_binary(id) do
-    case get_endpoint(id) do
-      nil -> {:error, "Endpoint not found"}
-      endpoint -> {:ok, endpoint}
-    end
-  end
-
-  def resolve_endpoint(id) when is_integer(id) do
     case get_endpoint(id) do
       nil -> {:error, "Endpoint not found"}
       endpoint -> {:ok, endpoint}
@@ -636,7 +617,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single prompt by integer ID or UUID.
+  Gets a single prompt by UUID.
 
   Raises `Ecto.NoResultsError` if the prompt does not exist.
   """
@@ -648,29 +629,17 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single prompt by integer ID or UUID.
+  Gets a single prompt by UUID.
 
-  Accepts:
-  - Integer ID (e.g., 123)
-  - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
-  - Integer string (e.g., "123")
+  Accepts a UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000").
 
   Returns `nil` if the prompt does not exist.
   """
-  def get_prompt(id) when is_integer(id) do
-    repo().get_by(Prompt, id: id)
-  end
-
   def get_prompt(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
-      # UUID lookup
       repo().get_by(Prompt, uuid: id)
     else
-      # Try parsing as integer
-      case Integer.parse(id) do
-        {int_id, ""} -> repo().get_by(Prompt, id: int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -763,36 +732,18 @@ defmodule PhoenixKit.Modules.AI do
   """
   def resolve_prompt(%Prompt{} = prompt), do: {:ok, prompt}
 
-  def resolve_prompt(id) when is_integer(id) do
-    case get_prompt(id) do
-      nil -> {:error, "Prompt not found"}
-      prompt -> {:ok, prompt}
-    end
-  end
-
   def resolve_prompt(id_or_slug) when is_binary(id_or_slug) do
-    # Check if it looks like a UUID (contains dashes in UUID pattern)
     if UUIDUtils.valid?(id_or_slug) do
-      # It's a UUID, look up by ID
+      # It's a UUID
       case get_prompt(id_or_slug) do
         nil -> {:error, "Prompt not found"}
         prompt -> {:ok, prompt}
       end
     else
-      # Try as integer string first, then slug
-      case Integer.parse(id_or_slug) do
-        {int_id, ""} ->
-          case get_prompt(int_id) do
-            nil -> {:error, "Prompt not found"}
-            prompt -> {:ok, prompt}
-          end
-
-        _ ->
-          # It's a slug
-          case get_prompt_by_slug(id_or_slug) do
-            nil -> {:error, "Prompt not found"}
-            prompt -> {:ok, prompt}
-          end
+      # It's a slug
+      case get_prompt_by_slug(id_or_slug) do
+        nil -> {:error, "Prompt not found"}
+        prompt -> {:ok, prompt}
       end
     end
   end
@@ -832,7 +783,6 @@ defmodule PhoenixKit.Modules.AI do
       # Pass prompt info to ask for request logging
       opts_with_prompt =
         opts
-        |> Keyword.put(:prompt_id, prompt.id)
         |> Keyword.put(:prompt_uuid, prompt.uuid)
         |> Keyword.put(:prompt_name, prompt.name)
 
@@ -867,7 +817,6 @@ defmodule PhoenixKit.Modules.AI do
       # Pass prompt info to complete for request logging
       opts_with_prompt =
         opts
-        |> Keyword.put(:prompt_id, prompt.id)
         |> Keyword.put(:prompt_uuid, prompt.uuid)
         |> Keyword.put(:prompt_name, prompt.name)
 
@@ -1062,7 +1011,7 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Updates the sort order for multiple prompts.
 
-  Accepts prompt IDs as integers or UUIDs.
+  Accepts prompt UUIDs.
   """
   def reorder_prompts(order_list) when is_list(order_list) do
     repo().transaction(fn ->
@@ -1075,18 +1024,11 @@ defmodule PhoenixKit.Modules.AI do
     :ok
   end
 
-  defp build_prompt_id_query(id) when is_integer(id) do
-    from(p in Prompt, where: p.id == ^id)
-  end
-
   defp build_prompt_id_query(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       from(p in Prompt, where: p.uuid == ^id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> from(p in Prompt, where: p.id == ^int_id)
-        _ -> from(p in Prompt, where: false)
-      end
+      from(p in Prompt, where: false)
     end
   end
 
@@ -1160,7 +1102,7 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single request by integer ID or UUID.
+  Gets a single request by UUID.
   """
   def get_request!(id) do
     case get_request(id) do
@@ -1170,29 +1112,17 @@ defmodule PhoenixKit.Modules.AI do
   end
 
   @doc """
-  Gets a single request by integer ID or UUID.
+  Gets a single request by UUID.
 
-  Accepts:
-  - Integer ID (e.g., 123)
-  - UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000")
-  - Integer string (e.g., "123")
+  Accepts a UUID string (e.g., "550e8400-e29b-41d4-a716-446655440000").
 
   Returns `nil` if the request does not exist.
   """
-  def get_request(id) when is_integer(id) do
-    repo().get_by(Request, id: id)
-  end
-
   def get_request(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
-      # UUID lookup
       repo().get_by(Request, uuid: id)
     else
-      # Try parsing as integer
-      case Integer.parse(id) do
-        {int_id, ""} -> repo().get_by(Request, id: int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -1236,26 +1166,12 @@ defmodule PhoenixKit.Modules.AI do
 
   defp maybe_filter_by(query, _field, nil), do: query
 
-  defp maybe_filter_by(query, :endpoint_id, id) when is_integer(id) do
-    where(query, [r], r.endpoint_id == ^id)
-  end
-
   defp maybe_filter_by(query, :endpoint_id, id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int_id, ""} -> where(query, [r], r.endpoint_id == ^int_id)
-      _ -> where(query, [r], r.endpoint_uuid == ^id)
-    end
-  end
-
-  defp maybe_filter_by(query, :user_id, id) when is_integer(id) do
-    where(query, [r], r.user_id == ^id)
+    where(query, [r], r.endpoint_uuid == ^id)
   end
 
   defp maybe_filter_by(query, :user_id, id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int_id, ""} -> where(query, [r], r.user_id == ^int_id)
-      _ -> where(query, [r], r.user_uuid == ^id)
-    end
+    where(query, [r], r.user_uuid == ^id)
   end
 
   defp maybe_filter_by(query, :status, status), do: where(query, [r], r.status == ^status)
@@ -1432,7 +1348,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint ID (UUID string or legacy integer) or Endpoint struct
+  - `endpoint_id` - Endpoint UUID string or Endpoint struct
   - `messages` - List of message maps with `:role` and `:content`
   - `opts` - Optional parameter overrides
 
@@ -1443,24 +1359,24 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.Modules.AI.complete(1, [
+      {:ok, response} = PhoenixKit.Modules.AI.complete(endpoint_uuid, [
         %{role: "user", content: "Hello!"}
       ])
 
       # With system message
-      {:ok, response} = PhoenixKit.Modules.AI.complete(1, [
+      {:ok, response} = PhoenixKit.Modules.AI.complete(endpoint_uuid, [
         %{role: "system", content: "You are a helpful assistant."},
         %{role: "user", content: "What is 2+2?"}
       ])
 
       # With parameter overrides
-      {:ok, response} = PhoenixKit.Modules.AI.complete(1, messages,
+      {:ok, response} = PhoenixKit.Modules.AI.complete(endpoint_uuid, messages,
         temperature: 0.5,
         max_tokens: 500
       )
 
       # With custom source for tracking
-      {:ok, response} = PhoenixKit.Modules.AI.complete(1, messages,
+      {:ok, response} = PhoenixKit.Modules.AI.complete(endpoint_uuid, messages,
         source: "MyModule"
       )
 
@@ -1479,7 +1395,6 @@ defmodule PhoenixKit.Modules.AI do
 
       # Extract prompt info if present (from ask_with_prompt, complete_with_system_prompt)
       prompt_info = %{
-        prompt_id: Keyword.get(opts, :prompt_id),
         prompt_uuid: Keyword.get(opts, :prompt_uuid),
         prompt_name: Keyword.get(opts, :prompt_name)
       }
@@ -1521,7 +1436,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint ID (UUID string or legacy integer) or Endpoint struct
+  - `endpoint_id` - Endpoint UUID string or Endpoint struct
   - `prompt` - User prompt string
   - `opts` - Optional parameter overrides and system message
 
@@ -1534,20 +1449,20 @@ defmodule PhoenixKit.Modules.AI do
   ## Examples
 
       # Simple question
-      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "What is the capital of France?")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint_uuid, "What is the capital of France?")
 
       # With system message
-      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Translate: Hello",
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint_uuid, "Translate: Hello",
         system: "You are a translator. Translate to French."
       )
 
       # With custom source for tracking
-      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!",
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint_uuid, "Hello!",
         source: "Languages"
       )
 
       # Extract just the text content
-      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint_uuid, "Hello!")
       {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
 
   ## Returns
@@ -1571,7 +1486,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint ID (UUID string or legacy integer) or Endpoint struct
+  - `endpoint_id` - Endpoint UUID string or Endpoint struct
   - `input` - Text or list of texts to embed
   - `opts` - Optional parameter overrides
 
@@ -1583,16 +1498,16 @@ defmodule PhoenixKit.Modules.AI do
   ## Examples
 
       # Single text
-      {:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello, world!")
+      {:ok, response} = PhoenixKit.Modules.AI.embed(endpoint_uuid, "Hello, world!")
 
       # Multiple texts
-      {:ok, response} = PhoenixKit.Modules.AI.embed(1, ["Hello", "World"])
+      {:ok, response} = PhoenixKit.Modules.AI.embed(endpoint_uuid, ["Hello", "World"])
 
       # With dimension override
-      {:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello", dimensions: 512)
+      {:ok, response} = PhoenixKit.Modules.AI.embed(endpoint_uuid, "Hello", dimensions: 512)
 
       # With custom source for tracking
-      {:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello",
+      {:ok, response} = PhoenixKit.Modules.AI.embed(endpoint_uuid, "Hello",
         source: "SemanticSearch"
       )
 
@@ -1628,7 +1543,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint_uuid, "Hello!")
       {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
       # => "Hello! How can I help you today?"
   """
@@ -1639,7 +1554,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.Modules.AI.complete(1, messages)
+      {:ok, response} = PhoenixKit.Modules.AI.complete(endpoint_uuid, messages)
       usage = PhoenixKit.Modules.AI.extract_usage(response)
       # => %{prompt_tokens: 10, completion_tokens: 15, total_tokens: 25}
   """
@@ -1789,10 +1704,8 @@ defmodule PhoenixKit.Modules.AI do
     }
 
     create_request(%{
-      endpoint_id: endpoint.id,
       endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
-      prompt_id: prompt_info[:prompt_id],
       prompt_uuid: prompt_info[:prompt_uuid],
       prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
@@ -1828,10 +1741,8 @@ defmodule PhoenixKit.Modules.AI do
          prompt_info
        ) do
     create_request(%{
-      endpoint_id: endpoint.id,
       endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
-      prompt_id: prompt_info[:prompt_id],
       prompt_uuid: prompt_info[:prompt_uuid],
       prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
@@ -1863,7 +1774,6 @@ defmodule PhoenixKit.Modules.AI do
     input_count = if is_list(input), do: length(input), else: 1
 
     create_request(%{
-      endpoint_id: endpoint.id,
       endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
       model: endpoint.model,
@@ -1886,7 +1796,6 @@ defmodule PhoenixKit.Modules.AI do
 
   defp log_failed_embedding_request(endpoint, reason, source, stacktrace, caller_context) do
     create_request(%{
-      endpoint_id: endpoint.id,
       endpoint_uuid: endpoint.uuid,
       endpoint_name: endpoint.name,
       model: endpoint.model,

@@ -1,303 +1,82 @@
 # Comprehensive UUID Migration Cleanup Analysis
 
-**Date:** 2026-02-26  
+**Date:** 2026-02-26
+**Updated:** 2026-02-26
 **Analyst:** Mistral Vibe
 **Scope:** Complete analysis of remaining `_id` field usage after V62 migration
 
-## Executive Summary
+## Status: Largely Completed
 
-This analysis builds upon the previous audit (2026-02-25) and provides a comprehensive view of the current state of UUID migration cleanup. The analysis reveals:
+Two major commits addressed the bulk of this analysis:
 
-1. **Most schemas still have legacy `field :*_id, :integer` declarations** for database compatibility
-2. **Many schemas have already removed `_id` fields from `cast()` functions** (good progress)
-3. **Some schemas still cast both `_id` and `_uuid` fields** (need cleanup)
-4. **Several context functions still support legacy integer IDs** (need cleanup)
-5. **The pattern shows partial cleanup was done, but field declarations remain**
+| Commit | Description |
+|--------|-------------|
+| `f98159cc` | Removed `field :*_id, :integer` declarations and `_id` from `cast()` in billing, shop, comments, posts, referrals, publishing, storage, legal, and core PhoenixKit schemas |
+| `ca43e3f7` | Removed `field :id, :integer, read_after_writes: true` (PK) from ALL 40 schemas, converted all `.id` accesses to `.uuid`, deleted `PhoenixKit.UUID` module, deleted `resolve_user_id`/`resolve_role_id` |
 
-## Current State Analysis
+## Remaining `_id` Fields (Not Yet Cleaned)
 
-### Pattern Observed
+The following modules still have `field :*_id, :integer` declarations. These were NOT covered by the original plan's scope:
 
-The codebase shows a **two-phase cleanup approach**:
-1. **Phase 1 (Completed for some modules)**: Remove `_id` from `cast()` functions, keep field declarations for DB compatibility
-2. **Phase 2 (Pending)**: Remove field declarations entirely once DB columns can be dropped
-
-### Categories of Schemas
-
-#### Category 1: Dual-Write Schemas (Both `_id` and `_uuid` in cast)
-
-These schemas still cast both integer and UUID fields:
-
-**Billing Module:**
-- `invoice.ex`: `:user_id`, `:user_uuid`, `:order_id`, `:order_uuid` in cast
-- `order.ex`: Need to verify current state
-- `subscription.ex`: Need to verify current state
-
-**Shop Module:**
-- `cart.ex`: `:payment_option_id`, `:payment_option_uuid`, `:merged_into_cart_id`, `:merged_into_cart_uuid` in cast
-- `category.ex`: `:featured_product_id`, `:featured_product_uuid`, `:parent_id`, `:parent_uuid` in cast
-- `product.ex`: `:category_id`, `:category_uuid`, `:created_by`, `:created_by_uuid` in cast
-
-**Referrals Module:**
-- `referral_code_usage.ex`: `:code_id`, `:code_uuid`, `:used_by`, `:used_by_uuid` in cast
-
-#### Category 2: Partially Cleaned Schemas (Field declarations remain, but not in cast)
-
-These schemas have removed `_id` from `cast()` but still have field declarations:
-
-**Comments Module:**
-- `comment_like.ex`: Has `field :user_id, :integer` but only casts `:user_uuid`
-- `comment_dislike.ex`: Has `field :user_id, :integer` but only casts `:user_uuid`
-- `comment.ex`: Has `field :user_id, :integer` but casts both `:user_id` and `:user_uuid`
-
-**Posts Module:**
-- `post_like.ex`: Has `field :user_id, :integer` but need to check cast
-- `post_dislike.ex`: Has `field :user_id, :integer` but need to check cast
-- `comment_like.ex`: Has `field :user_id, :integer` but need to check cast
-- `comment_dislike.ex`: Has `field :user_id, :integer` but need to check cast
-
-**Billing Module:**
-- `billing_profile.ex`: Has `field :user_id, :integer` but need to check cast
-- `payment_method.ex`: Has `field :user_id, :integer` but need to check cast
-- `transaction.ex`: Has `field :user_id, :integer` and `field :invoice_id, :integer` but need to check cast
-
-#### Category 3: Context Functions with Legacy Support
-
-Functions that still handle integer IDs:
-
-**Billing Context:**
-- `create_order/1`: Resolves `user_id` to `user_uuid` (line 958)
-- Need to check if other functions still use integer IDs
-
-**Shop Context:**
-- `filter_by_category/2`: Handles both integer and UUID category IDs (lines 2631, 2642)
-- Need to check other filter functions
-
-**Comments Context:**
-- `create_comment/4`: Has overloads for both integer and binary user_id
-- Need to verify if this was cleaned up in recent commits
-
-**Other Modules:**
-- `AI.request.ex`: Has multiple `_id` fields that need analysis
-- `Connections` module: Multiple schemas with `_id` fields
-- `Entities` module: Has `entity_id` field and resolution functions
-- `Legal` module: `consent_log.ex` has `user_id` with resolution
-- `Storage` module: `file.ex` has `user_id` field
-- `Sync` module: `transfer.ex` has `connection_id` field
-
-## Detailed Findings by Module
-
-### Billing Module
-
-**Schemas with `_id` fields:**
-- `billing_profile.ex`: `user_id`
-- `invoice.ex`: `user_id`, `order_id`
-- `order.ex`: `user_id`
-- `payment_method.ex`: `user_id`
-- `subscription.ex`: `user_id`, `plan_id`, `payment_method_id`
-- `transaction.ex`: `invoice_id`, `user_id`
-
-**Status:**
-- `billing_profile_id` was removed from order/subscription schemas (commit 866ab18e)
-- Other `_id` fields still present in both field declarations and cast functions
-
-### Comments Module
-
-**Schemas with `_id` fields:**
-- `comment.ex`: `user_id`
-- `comment_like.ex`: `user_id`
-- `comment_dislike.ex`: `user_id`
-
-**Status:**
-- Like/dislike schemas removed `_id` from cast (good)
-- Comment schema still casts both `user_id` and `user_uuid` (needs cleanup)
-- Context functions may still have legacy support (need verification)
-
-### Shop Module
-
-**Schemas with `_id` fields:**
-- `cart.ex`: `user_id`, `shipping_method_id`, `payment_option_id`, `merged_into_cart_id`
-- `cart_item.ex`: `cart_id`, `product_id`
-- `category.ex`: `parent_id`, `featured_product_id`
-- `import_log.ex`: `user_id`, `product_ids`
-- `product.ex`: `category_id`, `created_by`
-
-**Status:**
-- Multiple schemas still cast both `_id` and `_uuid` fields
-- Context functions like `filter_by_category` handle both types
-- High priority for cleanup
-
-### Other Modules with `_id` Fields
-
-**AI Module:**
+### AI Module
 - `request.ex`: `endpoint_id`, `prompt_id`, `account_id`, `user_id`
 
-**Connections Module:**
-- Multiple schemas with various `_id` fields for user relationships
-
-**Entities Module:**
+### Entities Module
 - `entity_data.ex`: `entity_id`
-- Has resolution functions for UUID conversion
 
-**Emails Module:**
-- Multiple schemas with `user_id` fields
+### Emails Module
+- `log.ex`: `user_id`
+- `rate_limiter.ex`: `user_id`
+- `event.ex`: `email_log_id`
+- `template.ex`: `created_by_user_id`, `updated_by_user_id`
 
-**Legal Module:**
-- `consent_log.ex`: `user_id` with resolution logic
+### Tickets Module
+- `ticket.ex`: `user_id`, `assigned_to_id`
+- `ticket_comment.ex`: `user_id`
+- `ticket_status_history.ex`: `changed_by_id`
 
-**Posts Module:**
-- Multiple schemas with `user_id` fields
+### Connections Module (6 files)
+- `connection.ex`: `requester_id`, `recipient_id`
+- `connection_history.ex`: `user_a_id`, `user_b_id`, `actor_id`
+- `follow.ex`: `follower_id`, `followed_id`
+- `follow_history.ex`: `follower_id`, `followed_id`
+- `block.ex`: `blocker_id`, `blocked_id`
+- `block_history.ex`: `blocker_id`, `blocked_id`
 
-**Publishing Module:**
-- `publishing_post.ex`: `created_by_id`, `updated_by_id`
-- `publishing_version.ex`: `created_by_id`
-
-**Referrals Module:**
-- `referral_code_usage.ex`: `code_id`, `used_by`
-
-**Storage Module:**
-- `file.ex`: `user_id`
-
-**Sync Module:**
+### Sync Module
 - `transfer.ex`: `connection_id`
 
-**Tickets Module:**
-- Multiple schemas with `user_id` fields
+## Remaining Context Functions with Integer Support
 
-## Recommendations
+- `billing.ex`: `resolve_plan_uuid/1` — integer plan_id → UUID DB lookup
+- `shop.ex`: `filter_by_parent/2` — uses `fragment("parent_id = ?", ^id)`
+- `entities/entity_data.ex`: `list_by_entity/1`, `list_by_entity_and_status/2`, `count_by_entity/1` — integer overloads
+- `sync/transfers.ex`: `filter_by_connection/2` — integer overload
+- `comments/comments.ex`: `resolve_user_uuid` — integer overload with DB lookup
+- `publishing/dual_write.ex`: `resolve_user_ids` — handles both integer and UUID
 
-### Priority 1: High Impact (Active Dual-Write Schemas)
+## Completed Recommendations
 
-1. **Shop Module**
-   - `cart.ex`: Remove `_id` fields from all cast functions
-   - `category.ex`: Remove `_id` fields from cast
-   - `product.ex`: Remove `_id` fields from cast
-   - `shop.ex` context: Update `filter_by_category` to UUID-only
+### ~~Priority 1: High Impact (Active Dual-Write Schemas)~~ DONE
 
-2. **Billing Module**
-   - `invoice.ex`: Remove `user_id`, `order_id` from cast
-   - `billing.ex` context: Remove `user_id` resolution from `create_order/1`
+All billing, shop, and referrals schemas cleaned. `_id` fields removed from both field declarations and `cast()` calls.
 
-3. **Referrals Module**
-   - `referral_code_usage.ex`: Remove `code_id`, `used_by` from cast
+### ~~Priority 2: Medium Impact (Field Declarations Only)~~ DONE
 
-### Priority 2: Medium Impact (Field Declarations Only)
+Comments, posts, billing profile, payment method, transaction schemas all cleaned.
 
-4. **Remove field declarations** from schemas that no longer use them in cast:
-   - Comments: `comment_like.ex`, `comment_dislike.ex`
-   - Posts: Various like/dislike schemas
-   - Billing: `billing_profile.ex`, `payment_method.ex`, etc.
+### Priority 3: Context Functions — Partially Done
 
-### Priority 3: Context Functions
+AI and shop `maybe_filter_by`/`filter_by_category`/`category_product_options_query` cleaned. Remaining items listed above.
 
-5. **Update context functions** to remove legacy integer ID support:
-   - Billing: `create_order/1` and related functions
-   - Shop: `filter_by_category/2` and other filter functions
-   - Comments: Verify if `create_comment/4` was cleaned up
-   - Other modules as identified
+### ~~Priority 4: Comprehensive Cleanup~~ Partially Done
 
-### Priority 4: Comprehensive Cleanup
-
-6. **Systematic approach** for remaining modules:
-   - AI, Connections, Entities, Emails, Legal, Publishing, Storage, Sync, Tickets
-   - Follow the same pattern: remove from cast first, then remove field declarations
-
-## Files Requiring Immediate Attention
-
-### High Priority (Dual-Write in Cast)
-```elixir
-# Billing
-lib/modules/billing/schemas/invoice.ex
-lib/modules/billing/billing.ex
-
-# Shop  
-lib/modules/shop/schemas/cart.ex
-lib/modules/shop/schemas/category.ex
-lib/modules/shop/schemas/product.ex
-lib/modules/shop/shop.ex
-
-# Referrals
-lib/modules/referrals/schemas/referral_code_usage.ex
-```
-
-### Medium Priority (Field Declarations Only)
-```elixir
-# Comments
-lib/modules/comments/schemas/comment_like.ex
-lib/modules/comments/schemas/comment_dislike.ex
-
-# Posts
-lib/modules/posts/schemas/post_like.ex
-lib/modules/posts/schemas/post_dislike.ex
-lib/modules/posts/schemas/comment_like.ex
-lib/modules/posts/schemas/comment_dislike.ex
-
-# Billing
-lib/modules/billing/schemas/billing_profile.ex
-lib/modules/billing/schemas/payment_method.ex
-lib/modules/billing/schemas/transaction.ex
-```
-
-## Migration Strategy
-
-### Step 1: Remove from Cast Functions
-- Remove `_id` fields from all `cast(attrs, [...])` calls
-- Ensure only `_uuid` fields remain
-- Update validation to use UUID fields only
-
-### Step 2: Update Context Functions
-- Remove functions that resolve UUIDs from integer IDs
-- Update function signatures to accept only UUIDs
-- Remove integer ID parameter overloads
-
-### Step 3: Remove Field Declarations (Future)
-- Once all code stops writing to `_id` fields
-- Can be done in a separate PR after confirming no writes occur
-- Requires database migration to drop columns
-
-### Step 4: Database Cleanup (Future)
-- Drop integer ID columns from database
-- Remove related indexes
-- Update migrations
-
-## Verification Checklist
-
-1. **Search for all `cast` functions** containing `_id` fields
-2. **Search for context functions** with integer ID parameters
-3. **Search for resolution functions** that convert ID → UUID
-4. **Check test files** for integer ID usage
-5. **Verify web/LiveView layers** don't pass integer IDs
-6. **Check API endpoints** for integer ID parameters
-
-## Tools for Verification
-
-```bash
-# Find all field declarations with _id
-grep -r "field.*_id.*:integer" lib/modules/ --include="*.ex"
-
-# Find cast functions with _id
-grep -r "cast.*\[.*_id" lib/modules/ --include="*.ex"
-
-# Find functions with _id parameters  
-grep -r "def.*_id.*attrs" lib/modules/ --include="*.ex"
-
-# Find resolution functions
-grep -r "resolve.*uuid" lib/modules/ --include="*.ex"
-```
-
-## Estimated Effort
-
-- **High Priority Cleanup**: 4-6 hours
-- **Medium Priority Cleanup**: 2-3 hours  
-- **Context Function Updates**: 3-4 hours
-- **Comprehensive Cleanup**: 6-8 hours
-- **Total**: 15-21 hours
+Core schemas cleaned. Remaining modules (AI, Connections, Entities, Emails, Tickets, Sync) still have `_id` field declarations.
 
 ## Next Steps
 
-1. ✅ Complete comprehensive analysis (this document)
-2. ⏳ Update original audit document with findings
-3. ⏳ Create detailed cleanup plan with specific file changes
-4. ⏳ Implement high-priority cleanup
-5. ⏳ Test changes thoroughly
-6. ⏳ Proceed with medium/low priority cleanup
+1. Remove `_id` field declarations from remaining 17 schema files (AI, Entities, Emails, Tickets, Connections, Sync)
+2. Remove remaining integer overloads from context functions
+3. Remove `resolve_user_uuid` integer overload from `comments.ex`
+4. Remove `resolve_user_ids` dual-mode function from `publishing/dual_write.ex`
+5. After all code stops referencing `_id` columns, plan DB migration to drop them

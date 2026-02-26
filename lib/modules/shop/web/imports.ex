@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       |> assign(:migration_in_progress, migration_stats.in_progress > 0)
       |> assign(:import_configs, import_configs)
       |> assign(:selected_config, default_config)
-      |> assign(:selected_config_id, if(default_config, do: default_config.id))
+      |> assign(:selected_config_id, if(default_config, do: default_config.uuid))
       # Multi-step wizard state
       |> assign(:import_step, :upload)
       |> assign(:format_mod, nil)
@@ -261,27 +261,21 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_event("select_config", %{"config_id" => id_str}, socket) do
-    case Integer.parse(id_str) do
-      {id, ""} ->
-        config = Enum.find(socket.assigns.import_configs, &(&1.id == id))
+    config = Enum.find(socket.assigns.import_configs, &(&1.uuid == id_str))
 
-        socket =
-          socket
-          |> assign(:selected_config, config)
-          |> assign(:selected_config_id, if(config, do: config.id))
-          |> maybe_reanalyze_csv()
+    socket =
+      socket
+      |> assign(:selected_config, config)
+      |> assign(:selected_config_id, if(config, do: config.uuid))
+      |> maybe_reanalyze_csv()
 
-        {:noreply, socket}
-
-      _ ->
-        {:noreply, socket}
-    end
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("start_image_migration", _params, socket) do
     user = socket.assigns.phoenix_kit_current_scope.user
-    {:ok, count} = ImageMigration.queue_all_migrations(user.id)
+    {:ok, count} = ImageMigration.queue_all_migrations(user.uuid)
 
     socket =
       socket
@@ -438,19 +432,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     Shop.list_import_logs(limit: 10, order_by: [desc: :inserted_at])
     |> Enum.filter(&(&1.status == "processing"))
     |> Enum.each(fn import_log ->
-      Manager.subscribe("shop:import:#{import_log.id}")
+      Manager.subscribe("shop:import:#{import_log.uuid}")
     end)
   end
 
-  # Parse ID from phx-value (comes as string from the template)
-  # Supports both integer IDs and UUID strings
-  defp parse_id(id) when is_integer(id), do: {:ok, id}
-
+  # Parse UUID from phx-value (comes as string from the template)
   defp parse_id(id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int, ""} -> {:ok, int}
-      _ -> if match?({:ok, _}, Ecto.UUID.cast(id)), do: {:ok, id}, else: :error
-    end
+    if match?({:ok, _}, Ecto.UUID.cast(id)), do: {:ok, id}, else: :error
   end
 
   defp parse_id(_), do: :error
@@ -472,7 +460,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           config_id = get_in(import_log.options, ["config_id"])
 
           worker_args = %{
-            import_log_id: updated_log.id,
+            import_log_id: updated_log.uuid,
             path: import_log.file_path,
             language: language
           }
@@ -485,7 +473,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           |> Oban.insert()
 
           # Subscribe to updates
-          Manager.subscribe("shop:import:#{updated_log.id}")
+          Manager.subscribe("shop:import:#{updated_log.uuid}")
 
           socket =
             socket
@@ -540,7 +528,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     case Shop.create_import_log(%{
            filename: filename,
            file_path: dest_path,
-           user_id: user.id,
            user_uuid: user.uuid,
            options: %{"option_mappings" => worker_mappings, "config_id" => config_id}
          }) do
@@ -552,7 +539,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         skip_empty_categories = socket.assigns[:skip_empty_categories] || false
 
         worker_args = %{
-          import_log_id: import_log.id,
+          import_log_id: import_log.uuid,
           path: dest_path,
           language: language,
           option_mappings: worker_mappings,
@@ -568,7 +555,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         |> Oban.insert()
 
         # Subscribe to this specific import
-        Manager.subscribe("shop:import:#{import_log.id}")
+        Manager.subscribe("shop:import:#{import_log.uuid}")
 
         socket =
           socket
@@ -1177,7 +1164,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         >
           <option value="">No filter (import all products)</option>
           <%= for config <- @import_configs do %>
-            <option value={config.id} selected={@selected_config_id == config.id}>
+            <option value={config.uuid} selected={@selected_config_id == config.uuid}>
               {config.name}{if config.is_default, do: " (default)"}
             </option>
           <% end %>
@@ -1322,7 +1309,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         >
           <option value="">No filter (import all products)</option>
           <%= for config <- @import_configs do %>
-            <option value={config.id} selected={@selected_config_id == config.id}>
+            <option value={config.uuid} selected={@selected_config_id == config.uuid}>
               {config.name}{if config.is_default, do: " (default)"}
             </option>
           <% end %>

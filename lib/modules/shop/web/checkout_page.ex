@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   def mount(_params, session, socket) do
     user = get_current_user(socket)
     session_id = session["shop_session_id"]
-    user_id = if user, do: user.id
+    user_id = if user, do: user.uuid
 
     case Shop.find_active_cart(user_id: user_id, session_id: session_id) do
       nil ->
@@ -140,7 +140,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     |> assign(:selected_payment_option, assigns.selected_payment_option)
     |> assign(:needs_payment_selection, assigns.needs_payment_selection)
     |> assign(:billing_profiles, assigns.billing_profiles)
-    |> assign(:selected_profile_id, if(assigns.selected_profile, do: assigns.selected_profile.id))
+    |> assign(
+      :selected_profile_id,
+      if(assigns.selected_profile, do: assigns.selected_profile.uuid)
+    )
     |> assign(:use_new_profile, assigns.is_guest or assigns.billing_profiles == [])
     |> assign(:needs_profile_selection, assigns.needs_profile_selection)
     |> assign(:needs_billing, assigns.needs_billing)
@@ -214,7 +217,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   end
 
   defp load_billing_profiles(nil), do: []
-  defp load_billing_profiles(user), do: Billing.list_user_billing_profiles(user.id)
+  defp load_billing_profiles(user), do: Billing.list_user_billing_profiles(user.uuid)
 
   defp initial_billing_data(user, cart) do
     %{
@@ -307,7 +310,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     billing_data =
       case Enum.find(
              socket.assigns.billing_profiles,
-             &(to_string(&1.id) == to_string(socket.assigns.selected_profile_id))
+             &(to_string(&1.uuid) == to_string(socket.assigns.selected_profile_id))
            ) do
         nil -> socket.assigns.billing_data
         profile -> profile_to_billing_data(profile, socket.assigns.cart)
@@ -329,7 +332,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     {:noreply,
      socket
      |> assign(:use_new_profile, false)
-     |> assign(:selected_profile_id, if(profile, do: profile.id))}
+     |> assign(:selected_profile_id, if(profile, do: profile.uuid))}
   end
 
   @impl true
@@ -729,7 +732,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       <%= for profile <- @billing_profiles do %>
         <div class={[
           "flex items-start gap-4 p-4 border rounded-lg transition-colors",
-          if(to_string(@selected_profile_id) == to_string(profile.id),
+          if(to_string(@selected_profile_id) == to_string(profile.uuid),
             do: "border-primary bg-primary/5",
             else: "border-base-300 hover:border-primary/50"
           )
@@ -738,10 +741,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
             <input
               type="radio"
               name="profile"
-              value={profile.id}
-              checked={to_string(@selected_profile_id) == to_string(profile.id)}
+              value={profile.uuid}
+              checked={to_string(@selected_profile_id) == to_string(profile.uuid)}
               phx-click="select_profile"
-              phx-value-profile_id={profile.id}
+              phx-value-profile_id={profile.uuid}
               class="radio radio-primary mt-1"
             />
             <div class="flex-1">
@@ -762,7 +765,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
             </div>
           </label>
           <%!-- Edit button for selected profile --%>
-          <%= if to_string(@selected_profile_id) == to_string(profile.id) do %>
+          <%= if to_string(@selected_profile_id) == to_string(profile.uuid) do %>
             <.link
               navigate={
                 Routes.path("/dashboard/billing-profiles/#{profile.uuid}/edit?return_to=/checkout")
@@ -907,7 +910,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       else
         Enum.find(
           assigns.billing_profiles,
-          &(to_string(&1.id) == to_string(assigns.selected_profile_id))
+          &(to_string(&1.uuid) == to_string(assigns.selected_profile_id))
         )
       end
 

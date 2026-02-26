@@ -79,7 +79,6 @@ defmodule PhoenixKit.Modules.Referrals do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_referral_codes" do
-    field :id, :integer, read_after_writes: true
     field :code, :string
     field :description, :string
     field :status, :boolean, default: true
@@ -255,18 +254,11 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.get_code(:invalid)
       nil
   """
-  def get_code(id) when is_integer(id) do
-    repo().get_by(__MODULE__, id: id)
-  end
-
   def get_code(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       repo().get_by(__MODULE__, uuid: id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_code(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -392,17 +384,7 @@ defmodule PhoenixKit.Modules.Referrals do
         code -> process_code_usage(code, user_id)
       end
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> use_code(code_string, int_id)
-        _ -> {:error, :invalid_user_id}
-      end
-    end
-  end
-
-  def use_code(code_string, user_id) when is_binary(code_string) and is_integer(user_id) do
-    case get_code_by_string(code_string) do
-      nil -> {:error, :code_not_found}
-      code -> process_code_usage(code, user_id)
+      {:error, :invalid_user_id}
     end
   end
 
@@ -419,14 +401,11 @@ defmodule PhoenixKit.Modules.Referrals do
 
   defp do_record_usage(code, user_identifier) do
     user_uuid = resolve_user_uuid(user_identifier)
-    user_int_id = resolve_user_id(user_identifier)
 
     usage_result =
       %ReferralCodeUsage{}
       |> ReferralCodeUsage.changeset(%{
-        code_id: code.id,
         code_uuid: code.uuid,
-        used_by: user_int_id,
         used_by_uuid: user_uuid
       })
       |> repo().insert()
@@ -458,10 +437,6 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.get_usage_stats(code_id)
       %{total_uses: 5, unique_users: 3, last_used: ~U[...], recent_users: [...]}
   """
-  def get_usage_stats(code_id) when is_integer(code_id) do
-    ReferralCodeUsage.get_usage_stats(code_id)
-  end
-
   def get_usage_stats(code_uuid) when is_binary(code_uuid) do
     ReferralCodeUsage.get_usage_stats(code_uuid)
   end
@@ -474,11 +449,6 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.list_usage_for_code(code_id)
       [%PhoenixKit.Modules.Referrals.ReferralCodeUsage{}, ...]
   """
-  def list_usage_for_code(code_id) when is_integer(code_id) do
-    ReferralCodeUsage.for_code(code_id)
-    |> repo().all()
-  end
-
   def list_usage_for_code(code_uuid) when is_binary(code_uuid) do
     ReferralCodeUsage.for_code(code_uuid)
     |> repo().all()
@@ -492,10 +462,6 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.user_used_code?(user_id, code_id)
       false
   """
-  def user_used_code?(user_id, code_id) when is_integer(user_id) and is_integer(code_id) do
-    ReferralCodeUsage.user_used_code?(user_id, code_id)
-  end
-
   def user_used_code?(user_uuid, code_uuid) when is_binary(user_uuid) and is_binary(code_uuid) do
     ReferralCodeUsage.user_used_code?(user_uuid, code_uuid)
   end
@@ -840,17 +806,6 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.validate_user_code_limit(1)
       {:error, "You have reached the maximum limit of 10 referral codes"}
   """
-  def validate_user_code_limit(user_id) when is_integer(user_id) do
-    max_codes = get_max_codes_per_user()
-    current_count = count_user_codes(user_id)
-
-    if current_count < max_codes do
-      {:ok, :valid}
-    else
-      {:error, "You have reached the maximum limit of #{max_codes} referral codes"}
-    end
-  end
-
   def validate_user_code_limit(user_uuid) when is_binary(user_uuid) do
     max_codes = get_max_codes_per_user()
     current_count = count_user_codes(user_uuid)
@@ -870,20 +825,12 @@ defmodule PhoenixKit.Modules.Referrals do
       iex> PhoenixKit.Modules.Referrals.count_user_codes(1)
       5
   """
-  def count_user_codes(user_id) when is_integer(user_id) do
-    from(r in __MODULE__, where: r.created_by == ^user_id, select: count(r.uuid))
-    |> repo().one()
-  end
-
   def count_user_codes(user_uuid) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
       from(r in __MODULE__, where: r.created_by_uuid == ^user_uuid, select: count(r.uuid))
       |> repo().one()
     else
-      case Integer.parse(user_uuid) do
-        {int_id, ""} -> count_user_codes(int_id)
-        _ -> 0
-      end
+      0
     end
   end
 
@@ -895,21 +842,6 @@ defmodule PhoenixKit.Modules.Referrals do
 
   # Resolves user UUID from any user identifier
   defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
-  end
-
-  # Resolves user integer ID for dual-write only
-  defp resolve_user_id(id) when is_integer(id), do: id
-
-  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.uuid == ^user_uuid, select: u.id) |> repo().one()
-  end
 
   # Gets the configured repository for database operations
   defp repo do

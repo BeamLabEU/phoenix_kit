@@ -32,7 +32,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
         # Subscribe to billing profile events for real-time updates
         if connected?(socket), do: Events.subscribe_profiles()
 
-        profiles = Billing.list_user_billing_profiles(user.id)
+        profiles = Billing.list_user_billing_profiles(user.uuid)
 
         socket =
           socket
@@ -48,10 +48,10 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
   def handle_event("set_default", %{"uuid" => uuid}, socket) do
     profile = Enum.find(socket.assigns.profiles, &(&1.uuid == uuid))
 
-    if profile && profile.user_id == socket.assigns.user.id do
+    if profile && profile.user_uuid == socket.assigns.user.uuid do
       case Billing.set_default_billing_profile(profile) do
         {:ok, _profile} ->
-          profiles = Billing.list_user_billing_profiles(socket.assigns.user.id)
+          profiles = Billing.list_user_billing_profiles(socket.assigns.user.uuid)
 
           {:noreply,
            socket
@@ -70,10 +70,10 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
   def handle_event("delete", %{"uuid" => uuid}, socket) do
     profile = Enum.find(socket.assigns.profiles, &(&1.uuid == uuid))
 
-    if profile && profile.user_id == socket.assigns.user.id do
+    if profile && profile.user_uuid == socket.assigns.user.uuid do
       case Billing.delete_billing_profile(profile) do
         {:ok, _} ->
-          profiles = Billing.list_user_billing_profiles(socket.assigns.user.id)
+          profiles = Billing.list_user_billing_profiles(socket.assigns.user.uuid)
 
           {:noreply,
            socket
@@ -94,7 +94,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfiles do
       when event in [:profile_created, :profile_updated, :profile_deleted] do
     # Only refresh if we have a user assigned
     if socket.assigns[:user] do
-      profiles = Billing.list_user_billing_profiles(socket.assigns.user.id)
+      profiles = Billing.list_user_billing_profiles(socket.assigns.user.uuid)
       {:noreply, assign(socket, :profiles, profiles)}
     else
       {:noreply, socket}

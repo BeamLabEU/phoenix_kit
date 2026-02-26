@@ -18,7 +18,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
       # Subscribe to user's ticket events for real-time updates
-      Events.subscribe_to_user_tickets(current_user.id)
+      Events.subscribe_to_user_tickets(current_user.uuid)
 
       socket =
         socket
@@ -106,7 +106,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   end
 
   defp load_user_tickets(socket) do
-    user_id = socket.assigns.current_user.id
+    user_id = socket.assigns.current_user.uuid
     opts = build_query_opts(socket, user_id)
 
     # Get all tickets for counting, then paginate
@@ -155,9 +155,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   @impl true
   def handle_info({:ticket_created, ticket}, socket) do
     # Only add if it belongs to current user and matches filters
-    current_user_id = socket.assigns.current_user.id
+    current_user_id = socket.assigns.current_user.uuid
 
-    if ticket.user_id == current_user_id && ticket_matches_filters?(ticket, socket) do
+    if ticket.user_uuid == current_user_id && ticket_matches_filters?(ticket, socket) do
       tickets = [ticket | socket.assigns.tickets]
       total_count = socket.assigns.total_count + 1
 

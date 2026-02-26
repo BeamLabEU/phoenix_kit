@@ -30,7 +30,6 @@ defmodule PhoenixKit.Users.Role do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          id: integer() | nil,
           name: String.t(),
           description: String.t() | nil,
           is_system_role: boolean(),
@@ -47,7 +46,6 @@ defmodule PhoenixKit.Users.Role do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_user_roles" do
-    field :id, :integer, read_after_writes: true
     field :name, :string
     field :description, :string
     field :is_system_role, :boolean, default: false

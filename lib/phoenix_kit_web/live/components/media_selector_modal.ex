@@ -307,7 +307,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     if current_user do
-      user_id = current_user.id
+      user_id = current_user.uuid
       file_hash = Auth.calculate_file_hash(path)
 
       case Storage.store_file_in_buckets(

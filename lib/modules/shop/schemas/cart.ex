@@ -31,8 +31,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_carts" do
-    field :id, :integer, read_after_writes: true
-
     # Identity
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
     field :session_id, :string

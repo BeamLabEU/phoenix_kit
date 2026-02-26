@@ -175,7 +175,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_email_logs" do
-    field :id, :integer, read_after_writes: true
     field :message_id, :string
     field :aws_message_id, :string
     field :to, :string
@@ -384,13 +383,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
       iex> PhoenixKit.Modules.Emails.Log.get_log(999)
       nil
   """
-  def get_log(id) when is_integer(id) do
-    __MODULE__
-    |> where([l], l.id == ^id)
-    |> preload([:user, :events])
-    |> repo().one()
-  end
-
   def get_log(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       __MODULE__
@@ -398,10 +390,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       |> preload([:user, :events])
       |> repo().one()
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_log(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -595,7 +584,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
       # Create bounce event
       Event.create_event(%{
-        email_log_id: updated_log.id,
         email_log_uuid: updated_log.uuid,
         event_type: "bounce",
         event_data: %{
@@ -627,7 +615,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
       # Create open event
       Event.create_event(%{
-        email_log_id: updated_log.id,
         email_log_uuid: updated_log.uuid,
         event_type: "open",
         occurred_at: opened_at || UtilsDate.utc_now()
@@ -652,7 +639,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
       # Create click event
       Event.create_event(%{
-        email_log_id: updated_log.id,
         email_log_uuid: updated_log.uuid,
         event_type: "click",
         occurred_at: clicked_at || UtilsDate.utc_now(),
@@ -737,7 +723,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
       # Create failed event
       Event.create_event(%{
-        email_log_id: updated_log.id,
         email_log_uuid: updated_log.uuid,
         event_type: "failed",
         event_data: %{
@@ -950,7 +935,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       group_by: l.provider,
       select: %{
         provider: l.provider,
-        total: count(l.id),
+        total: count(l.uuid),
         delivered:
           count(
             fragment("CASE WHEN ? IN ('delivered', 'opened', 'clicked') THEN 1 END", l.status)
@@ -1102,8 +1087,8 @@ defmodule PhoenixKit.Modules.Emails.Log do
             ilike(l.campaign_id, ^search_pattern)
         )
 
-      {:user_id, user_id}, query when is_integer(user_id) ->
-        where(query, [log: l], l.user_id == ^user_id)
+      {:user_id, user_id}, query when is_binary(user_id) ->
+        where(query, [log: l], l.user_uuid == ^user_id)
 
       _other, query ->
         query
@@ -1197,15 +1182,15 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
       message_id ->
         existing_log = get_log_by_message_id(message_id)
-        current_id = get_field(changeset, :id)
+        current_uuid = get_field(changeset, :uuid)
 
-        case {existing_log, current_id} do
+        case {existing_log, current_uuid} do
           # No existing log, valid
           {nil, _} ->
             changeset
 
           # Existing log is the same as current record, valid
-          {%__MODULE__{id: id}, id} ->
+          {%__MODULE__{uuid: uuid}, uuid} ->
             changeset
 
           # Different existing log, invalid
@@ -1285,7 +1270,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       order_by: fragment("DATE(?)", l.sent_at),
       select: %{
         date: fragment("DATE(?)", l.sent_at),
-        total_sent: count(l.id),
+        total_sent: count(l.uuid),
         delivered:
           count(
             fragment("CASE WHEN ? IN ('delivered', 'opened', 'clicked') THEN 1 END", l.status)

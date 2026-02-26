@@ -25,7 +25,6 @@ defmodule PhoenixKit.Users.AdminNote do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           author_uuid: UUIDv7.t() | nil,
           content: String.t(),
@@ -36,8 +35,6 @@ defmodule PhoenixKit.Users.AdminNote do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_admin_notes" do
-    field :id, :integer, read_after_writes: true
-
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
       references: :uuid,

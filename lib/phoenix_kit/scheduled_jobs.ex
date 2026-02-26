@@ -11,7 +11,7 @@ defmodule PhoenixKit.ScheduledJobs do
       # Schedule a job using a handler module
       {:ok, job} = ScheduledJobs.schedule_job(
         MyApp.Posts.ScheduledPostHandler,
-        post.id,
+        post.uuid,
         ~U[2025-01-15 10:00:00Z],
         %{notify: true}
       )
@@ -68,10 +68,10 @@ defmodule PhoenixKit.ScheduledJobs do
 
   ## Examples
 
-      iex> schedule_job(PostHandler, post.id, ~U[2025-01-15 10:00:00Z])
+      iex> schedule_job(PostHandler, post.uuid, ~U[2025-01-15 10:00:00Z])
       {:ok, %ScheduledJob{}}
 
-      iex> schedule_job(EmailHandler, email.id, scheduled_at, %{template: "welcome"}, priority: 10)
+      iex> schedule_job(EmailHandler, email.uuid, scheduled_at, %{template: "welcome"}, priority: 10)
       {:ok, %ScheduledJob{}}
   """
   def schedule_job(handler_module, resource_id, scheduled_at, args \\ %{}, opts \\ []) do
@@ -122,7 +122,7 @@ defmodule PhoenixKit.ScheduledJobs do
 
   ## Examples
 
-      iex> cancel_jobs_for_resource("post", post.id)
+      iex> cancel_jobs_for_resource("post", post.uuid)
       {3, nil}
   """
   def cancel_jobs_for_resource(resource_type, resource_id) do
@@ -220,7 +220,7 @@ defmodule PhoenixKit.ScheduledJobs do
 
   ## Examples
 
-      iex> get_jobs_for_resource("post", post.id)
+      iex> get_jobs_for_resource("post", post.uuid)
       [%ScheduledJob{}, ...]
   """
   def get_jobs_for_resource(resource_type, resource_id) do
@@ -237,7 +237,7 @@ defmodule PhoenixKit.ScheduledJobs do
 
   ## Examples
 
-      iex> get_pending_job_for_resource("post", post.id)
+      iex> get_pending_job_for_resource("post", post.uuid)
       %ScheduledJob{status: "pending"}
   """
   def get_pending_job_for_resource(resource_type, resource_id) do

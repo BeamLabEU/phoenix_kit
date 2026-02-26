@@ -132,8 +132,8 @@ defmodule PhoenixKitWeb.UploadController do
   defp get_current_user_id(conn, params) do
     # Check if user is authenticated
     case conn.assigns[:phoenix_kit_current_user] do
-      %PhoenixKit.Users.Auth.User{id: user_id} ->
-        {:ok, user_id}
+      %PhoenixKit.Users.Auth.User{uuid: user_uuid} ->
+        {:ok, user_uuid}
 
       nil ->
         # Try override from params (admin only)

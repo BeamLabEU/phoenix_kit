@@ -272,8 +272,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   defp maybe_refresh_user(socket, event_user) do
-    if event_user.id == socket.assigns.user.id do
-      case Auth.get_user_with_roles(event_user.id) do
+    if event_user.uuid == socket.assigns.user.uuid do
+      case Auth.get_user_with_roles(event_user.uuid) do
         nil ->
           socket
           |> put_flash(:info, gettext("This user has been deleted"))

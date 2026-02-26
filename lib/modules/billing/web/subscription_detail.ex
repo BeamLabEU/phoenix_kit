@@ -28,7 +28,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
 
           socket =
             socket
-            |> assign(:page_title, "Subscription ##{subscription.id}")
+            |> assign(:page_title, "Subscription ##{subscription.uuid}")
             |> assign(:project_title, project_title)
             |> assign(:url_path, Routes.path("/admin/billing/subscriptions/#{subscription.uuid}"))
             |> assign(:subscription, subscription)
