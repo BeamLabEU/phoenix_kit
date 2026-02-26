@@ -173,7 +173,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   """
   def add_tracking_headers(%Email{} = email, %Log{} = log, opts \\ []) do
     tracking_headers = %{
-      "X-PhoenixKit-Log-Id" => to_string(log.id),
+      "X-PhoenixKit-Log-Id" => log.uuid,
       "X-PhoenixKit-Message-Id" => log.message_id
     }
 
@@ -331,7 +331,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
         })
 
         # Create send event
-        Event.create_send_event(updated_log.id, updated_log.provider)
+        Event.create_send_event(updated_log.uuid, updated_log.provider)
 
         {:ok, updated_log}
 

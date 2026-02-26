@@ -142,11 +142,11 @@ defmodule PhoenixKit.Config.AWS do
       nil
 
   """
-  @spec access_key_id() :: String.t()
+  @spec access_key_id() :: String.t() | nil
   def access_key_id do
     case get(:access_key_id) do
       {:ok, key_id} when is_binary(key_id) and key_id != "" -> key_id
-      _ -> ""
+      _ -> nil
     end
   end
 
@@ -164,11 +164,11 @@ defmodule PhoenixKit.Config.AWS do
       nil
 
   """
-  @spec secret_access_key() :: String.t()
+  @spec secret_access_key() :: String.t() | nil
   def secret_access_key do
     case get(:secret_access_key) do
       {:ok, secret} when is_binary(secret) and secret != "" -> secret
-      _ -> ""
+      _ -> nil
     end
   end
 end

@@ -1606,8 +1606,11 @@ defmodule PhoenixKit.Modules.Emails do
         Map.merge(attrs, %{
           configuration_set: get_ses_configuration_set(),
           body_full:
-            if(save_body_enabled?() and attrs[:body_full], do: attrs[:body_full], else: nil),
-          headers: attrs[:headers] || %{}
+            if(save_body_enabled?() and Map.get(attrs, :body_full),
+              do: Map.get(attrs, :body_full),
+              else: nil
+            ),
+          headers: Map.get(attrs, :headers) || %{}
         })
 
       Log.create_log(attrs)
