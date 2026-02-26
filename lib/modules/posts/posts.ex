@@ -246,12 +246,6 @@ defmodule PhoenixKit.Modules.Posts do
     create_post_with_uuid(user_uuid, attrs)
   end
 
-  def create_post(user_uuid, _attrs) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "create_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp create_post_with_uuid(user_uuid, attrs) do
     case Auth.get_user(user_uuid) do
       %{uuid: uuid} ->
@@ -458,12 +452,6 @@ defmodule PhoenixKit.Modules.Posts do
 
   def list_user_posts(user_uuid, opts) when is_binary(user_uuid) do
     list_posts(Keyword.put(opts, :user_id, user_uuid))
-  end
-
-  def list_user_posts(user_uuid, _opts) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "list_user_posts/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -779,12 +767,6 @@ defmodule PhoenixKit.Modules.Posts do
     end
   end
 
-  def like_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "like_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp do_like_post(post_id, user_uuid) do
     repo().transaction(fn ->
       case %PostLike{}
@@ -830,12 +812,6 @@ defmodule PhoenixKit.Modules.Posts do
     end
   end
 
-  def unlike_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "unlike_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp do_unlike_post(post_id, user_uuid) do
     repo().transaction(fn ->
       case repo().get_by(PostLike, post_uuid: post_id, user_uuid: user_uuid) do
@@ -874,12 +850,6 @@ defmodule PhoenixKit.Modules.Posts do
     else
       false
     end
-  end
-
-  def post_liked_by?(_post_uuid, user_uuid) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "post_liked_by?/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -938,12 +908,6 @@ defmodule PhoenixKit.Modules.Posts do
     end
   end
 
-  def dislike_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "dislike_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp do_dislike_post(post_id, user_uuid) do
     repo().transaction(fn ->
       case %PostDislike{}
@@ -989,12 +953,6 @@ defmodule PhoenixKit.Modules.Posts do
     end
   end
 
-  def undislike_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "undislike_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp do_undislike_post(post_id, user_uuid) do
     repo().transaction(fn ->
       case repo().get_by(PostDislike, post_uuid: post_id, user_uuid: user_uuid) do
@@ -1033,12 +991,6 @@ defmodule PhoenixKit.Modules.Posts do
     else
       false
     end
-  end
-
-  def post_disliked_by?(_post_uuid, user_uuid) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "post_disliked_by?/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -1271,12 +1223,6 @@ defmodule PhoenixKit.Modules.Posts do
     create_group_with_uuid(user_uuid, attrs)
   end
 
-  def create_group(user_uuid, _attrs) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "create_group/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp create_group_with_uuid(user_uuid, attrs) do
     case Auth.get_user(user_uuid) do
       %{uuid: uuid} ->
@@ -1481,12 +1427,6 @@ defmodule PhoenixKit.Modules.Posts do
     list_user_groups_by_uuid(user_uuid, opts)
   end
 
-  def list_user_groups(user_uuid, _opts) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "list_user_groups/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp list_user_groups_by_uuid(user_uuid, opts) do
     preloads = Keyword.get(opts, :preload, [])
 
@@ -1582,12 +1522,6 @@ defmodule PhoenixKit.Modules.Posts do
     end
   end
 
-  def add_mention_to_post(_post_uuid, user_uuid, _mention_type) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "add_mention_to_post/3 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   @doc """
   Removes a mention from a post.
 
@@ -1607,12 +1541,6 @@ defmodule PhoenixKit.Modules.Posts do
     else
       {:error, :invalid_user_uuid}
     end
-  end
-
-  def remove_mention_from_post(_post_uuid, user_uuid) when is_integer(user_uuid) do
-    raise ArgumentError,
-          "remove_mention_from_post/2 expects a UUID string for user_uuid, got integer: #{user_uuid}. " <>
-            "Use user.uuid instead of user.id"
   end
 
   defp do_remove_mention(post_id, user_uuid) do
@@ -1858,15 +1786,8 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
-    where(query, [p], fragment("user_id = ?", ^user_id))
-  end
-
   defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> where(query, [p], fragment("user_id = ?", ^int_id))
-      _ -> where(query, [p], p.user_uuid == ^user_id)
-    end
+    where(query, [p], p.user_uuid == ^user_id)
   end
 
   defp maybe_filter_by_status(query, nil), do: query

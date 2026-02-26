@@ -1675,17 +1675,9 @@ defmodule PhoenixKit.Modules.Emails do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.list_events_for_log(123)
+      iex> PhoenixKit.Modules.Emails.list_events_for_log("550e8400-e29b-41d4-a716-446655440000")
       [%Event{}, ...]
   """
-  def list_events_for_log(email_log_id) when is_integer(email_log_id) do
-    if enabled?() do
-      Event.for_email_log(email_log_id)
-    else
-      []
-    end
-  end
-
   def list_events_for_log(email_log_uuid) when is_binary(email_log_uuid) do
     if enabled?() do
       Event.for_email_log(email_log_uuid)

@@ -250,12 +250,6 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> create_ticket(42, %{title: ""})
       {:error, %Ecto.Changeset{}}
   """
-  def create_ticket(user_id, _attrs) when is_integer(user_id) do
-    raise ArgumentError,
-          "create_ticket/2 expects a UUID string for user_id, got integer: #{user_id}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   def create_ticket(user_id, attrs) when is_binary(user_id) do
     create_ticket_with_uuid(user_id, attrs)
   end
@@ -442,35 +436,15 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists tickets assigned to a specific handler.
   """
-  def list_tickets_assigned_to(handler_id, opts \\ [])
-
-  def list_tickets_assigned_to(handler_id, opts) when is_integer(handler_id) do
-    opts = Keyword.put(opts, :assigned_to_id, handler_id)
-    list_tickets(opts)
-  end
-
-  def list_tickets_assigned_to(handler_id, opts) when is_binary(handler_id) do
-    case Integer.parse(handler_id) do
-      {int_id, ""} -> list_tickets_assigned_to(int_id, opts)
-      _ -> list_tickets(Keyword.put(opts, :assigned_to_id, handler_id))
-    end
+  def list_tickets_assigned_to(handler_id, opts \\ []) when is_binary(handler_id) do
+    list_tickets(Keyword.put(opts, :assigned_to_id, handler_id))
   end
 
   @doc """
   Lists tickets created by a specific user.
   """
-  def list_user_tickets(user_id, opts \\ [])
-
-  def list_user_tickets(user_id, opts) when is_integer(user_id) do
-    opts = Keyword.put(opts, :user_id, user_id)
-    list_tickets(opts)
-  end
-
-  def list_user_tickets(user_id, opts) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> list_user_tickets(int_id, opts)
-      _ -> list_tickets(Keyword.put(opts, :user_id, user_id))
-    end
+  def list_user_tickets(user_id, opts \\ []) when is_binary(user_id) do
+    list_tickets(Keyword.put(opts, :user_id, user_id))
   end
 
   # ============================================================================
@@ -530,13 +504,6 @@ defmodule PhoenixKit.Modules.Tickets do
           repo().rollback(changeset)
       end
     end)
-  end
-
-  def assign_ticket(%Ticket{} = _ticket, handler_id, _changed_by)
-      when is_integer(handler_id) do
-    raise ArgumentError,
-          "assign_ticket/3 expects a UUID string for handler_id, got integer: #{handler_id}. " <>
-            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -721,12 +688,6 @@ defmodule PhoenixKit.Modules.Tickets do
     end)
   end
 
-  def create_comment(_ticket_id, user_id, _attrs) when is_integer(user_id) do
-    raise ArgumentError,
-          "create_comment/3 expects a UUID string for user_id, got integer: #{user_id}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   @doc """
   Creates an internal note on a ticket (visible only to support staff).
 
@@ -768,12 +729,6 @@ defmodule PhoenixKit.Modules.Tickets do
       error ->
         error
     end
-  end
-
-  def create_internal_note(_ticket_id, user_id, _attrs) when is_integer(user_id) do
-    raise ArgumentError,
-          "create_internal_note/3 expects a UUID string for user_id, got integer: #{user_id}. " <>
-            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -1040,32 +995,18 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
-    where(query, [t], t.user_id == ^user_id)
-  end
-
   defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> where(query, [t], t.user_id == ^int_id)
-      _ -> where(query, [t], t.user_uuid == ^user_id)
-    end
+    where(query, [t], t.user_uuid == ^user_id)
   end
 
   defp maybe_filter_by_assigned_to(query, nil), do: query
 
   defp maybe_filter_by_assigned_to(query, :unassigned) do
-    where(query, [t], is_nil(t.assigned_to_id))
-  end
-
-  defp maybe_filter_by_assigned_to(query, assigned_to_id) when is_integer(assigned_to_id) do
-    where(query, [t], t.assigned_to_id == ^assigned_to_id)
+    where(query, [t], is_nil(t.assigned_to_uuid))
   end
 
   defp maybe_filter_by_assigned_to(query, assigned_to_id) when is_binary(assigned_to_id) do
-    case Integer.parse(assigned_to_id) do
-      {int_id, ""} -> where(query, [t], t.assigned_to_id == ^int_id)
-      _ -> where(query, [t], t.assigned_to_uuid == ^assigned_to_id)
-    end
+    where(query, [t], t.assigned_to_uuid == ^assigned_to_id)
   end
 
   defp maybe_filter_by_status(query, nil), do: query

@@ -162,19 +162,12 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
       iex> ConsentLog.get_consent_log(999)
       nil
   """
-  @spec get_consent_log(integer() | String.t()) :: t() | nil
-  def get_consent_log(id) when is_integer(id) do
-    repo().get_by(__MODULE__, id: id)
-  end
-
+  @spec get_consent_log(String.t()) :: t() | nil
   def get_consent_log(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       repo().get_by(__MODULE__, uuid: id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_consent_log(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -191,7 +184,7 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
       iex> ConsentLog.get_consent_log!(999)
       ** (Ecto.NoResultsError)
   """
-  @spec get_consent_log!(integer() | String.t()) :: t()
+  @spec get_consent_log!(String.t()) :: t()
   def get_consent_log!(id) do
     case get_consent_log(id) do
       nil -> raise Ecto.NoResultsError, queryable: __MODULE__

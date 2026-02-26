@@ -54,10 +54,6 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Returns the PubSub topic for a specific user's tickets.
   """
-  def user_topic(user_id) when is_integer(user_id) do
-    "tickets:user:#{user_id}"
-  end
-
   def user_topic(user_uuid) when is_binary(user_uuid) do
     "tickets:user:#{user_uuid}"
   end
@@ -89,10 +85,6 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Subscribes to ticket events for a specific user.
   """
-  def subscribe_to_user_tickets(user_id) when is_integer(user_id) do
-    Manager.subscribe(user_topic(user_id))
-  end
-
   def subscribe_to_user_tickets(user_id) when is_binary(user_id) do
     Manager.subscribe(user_topic(user_id))
   end
@@ -114,10 +106,6 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Unsubscribes from a specific user's ticket events.
   """
-  def unsubscribe_from_user_tickets(user_id) when is_integer(user_id) do
-    Manager.unsubscribe(user_topic(user_id))
-  end
-
   def unsubscribe_from_user_tickets(user_id) when is_binary(user_id) do
     Manager.unsubscribe(user_topic(user_id))
   end

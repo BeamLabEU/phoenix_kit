@@ -262,22 +262,12 @@ defmodule PhoenixKit.Modules.Shop.Options do
     []
   end
 
-  def get_category_options(category_id) when is_integer(category_id) do
-    case repo().get_by(Category, id: category_id) do
-      nil -> []
-      category -> get_category_options(category)
-    end
-  end
-
   def get_category_options(category_id) when is_binary(category_id) do
     result =
       if uuid_string?(category_id) do
         repo().get_by(Category, uuid: category_id)
       else
-        case Integer.parse(category_id) do
-          {int_id, ""} -> repo().get_by(Category, id: int_id)
-          _ -> nil
-        end
+        nil
       end
 
     case result do

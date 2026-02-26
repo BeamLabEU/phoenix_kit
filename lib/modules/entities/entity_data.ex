@@ -471,15 +471,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     |> repo().all()
   end
 
-  def list_by_entity(entity_id) when is_integer(entity_id) do
-    from(d in __MODULE__,
-      where: d.entity_id == ^entity_id,
-      order_by: [desc: d.date_created],
-      preload: [:entity, :creator]
-    )
-    |> repo().all()
-  end
-
   @doc """
   Returns entity data records filtered by entity and status.
 
@@ -492,16 +483,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       when is_binary(entity_uuid) and status in @valid_statuses do
     from(d in __MODULE__,
       where: d.entity_uuid == ^entity_uuid and d.status == ^status,
-      order_by: [desc: d.date_created],
-      preload: [:entity, :creator]
-    )
-    |> repo().all()
-  end
-
-  def list_by_entity_and_status(entity_id, status)
-      when is_integer(entity_id) and status in @valid_statuses do
-    from(d in __MODULE__,
-      where: d.entity_id == ^entity_id and d.status == ^status,
       order_by: [desc: d.date_created],
       preload: [:entity, :creator]
     )
@@ -590,13 +571,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     end
   end
 
-  def get_by_slug(entity_id, slug) when is_integer(entity_id) and is_binary(slug) do
-    case repo().get_by(__MODULE__, entity_id: entity_id, slug: slug) do
-      nil -> nil
-      record -> repo().preload(record, [:entity, :creator])
-    end
-  end
-
   @doc """
   Checks if a secondary language slug exists for another record within the same entity.
 
@@ -657,20 +631,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
 
     if has_created_by do
-      # Ensure created_by_uuid is also set when created_by is present
-      has_uuid = Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
-
-      if has_uuid do
-        attrs
-      else
-        created_by_val = attrs[:created_by] || attrs["created_by"]
-
-        if is_integer(created_by_val) do
-          put_created_by_with_uuid(attrs, created_by_val)
-        else
-          attrs
-        end
-      end
+      attrs
     else
       case Auth.get_first_admin_id() do
         nil ->
@@ -686,9 +647,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     end
   end
 
-  # Legacy: integer user_id path is no longer supported since User.id was removed.
-  # Just set created_by without UUID resolution.
-  defp put_created_by_with_uuid(attrs, user_id) when is_integer(user_id) do
+  defp put_created_by_with_uuid(attrs, user_id) when is_binary(user_id) do
     attrs
     |> Map.put(:created_by, user_id)
   end
@@ -764,9 +723,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
         id when is_binary(id) ->
           from(d in query, where: d.entity_uuid == ^id)
-
-        id when is_integer(id) ->
-          from(d in query, where: d.entity_id == ^id)
       end
 
     repo().all(query)
@@ -784,10 +740,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     list_by_entity_and_status(entity_uuid, "published")
   end
 
-  def published_records(entity_id) when is_integer(entity_id) do
-    list_by_entity_and_status(entity_id, "published")
-  end
-
   @doc """
   Counts the total number of records for an entity.
 
@@ -798,11 +750,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   """
   def count_by_entity(entity_uuid) when is_binary(entity_uuid) do
     from(d in __MODULE__, where: d.entity_uuid == ^entity_uuid, select: count(d.uuid))
-    |> repo().one()
-  end
-
-  def count_by_entity(entity_id) when is_integer(entity_id) do
-    from(d in __MODULE__, where: d.entity_id == ^entity_id, select: count(d.uuid))
     |> repo().one()
   end
 
@@ -932,9 +879,6 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
         id when is_binary(id) ->
           from(d in query, where: d.entity_uuid == ^id)
-
-        id when is_integer(id) ->
-          from(d in query, where: d.entity_id == ^id)
       end
 
     {total, published, draft, archived} = repo().one(query)

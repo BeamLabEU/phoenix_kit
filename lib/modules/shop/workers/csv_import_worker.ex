@@ -112,10 +112,6 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp load_config(config_id, _import_log) when is_integer(config_id) do
-    load_config_by_id(config_id)
-  end
-
   defp load_config(config_id, _import_log) when is_binary(config_id) do
     load_config_by_id(config_id)
   end

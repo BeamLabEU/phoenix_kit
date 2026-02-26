@@ -245,10 +245,6 @@ defmodule PhoenixKit.Users.Auth do
       nil
 
   """
-  def get_user(id) when is_integer(id) do
-    Repo.one(from(u in User, where: fragment("id = ?", ^id)))
-  end
-
   def get_user(uuid) when is_binary(uuid) do
     if UUIDUtils.valid?(uuid) do
       Repo.get(User, uuid)
@@ -271,18 +267,8 @@ defmodule PhoenixKit.Users.Auth do
       ** (Ecto.NoResultsError)
 
   """
-  def get_user!(id) when is_integer(id) do
-    case Repo.one(from(u in User, where: fragment("id = ?", ^id))) do
-      nil -> raise Ecto.NoResultsError, queryable: User
-      user -> user
-    end
-  end
-
   def get_user!(uuid) when is_binary(uuid) do
-    case Integer.parse(uuid) do
-      {int_id, ""} -> get_user!(int_id)
-      _ -> Repo.get!(User, uuid)
-    end
+    Repo.get!(User, uuid)
   end
 
   @doc """

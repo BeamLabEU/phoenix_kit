@@ -494,19 +494,12 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
       stats = Transfers.connection_stats(123)
       # => %{total_transfers: 50, completed: 48, failed: 2, ...}
   """
-  @spec connection_stats(integer() | String.t()) :: map()
-  def connection_stats(connection_id) when is_integer(connection_id) do
-    do_connection_stats(dynamic([t], t.connection_id == ^connection_id))
-  end
-
+  @spec connection_stats(String.t()) :: map()
   def connection_stats(connection_uuid) when is_binary(connection_uuid) do
     if UUIDUtils.valid?(connection_uuid) do
       do_connection_stats(dynamic([t], t.connection_uuid == ^connection_uuid))
     else
-      case Integer.parse(connection_uuid) do
-        {int_id, ""} -> connection_stats(int_id)
-        _ -> %{total_transfers: 0, completed: 0, failed: 0, total_records: 0, total_bytes: 0}
-      end
+      %{total_transfers: 0, completed: 0, failed: 0, total_records: 0, total_bytes: 0}
     end
   end
 
@@ -619,17 +612,11 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   defp filter_by_connection(query, nil), do: query
 
-  defp filter_by_connection(query, connection_id) when is_integer(connection_id),
-    do: where(query, [t], t.connection_id == ^connection_id)
-
   defp filter_by_connection(query, connection_uuid) when is_binary(connection_uuid) do
     if UUIDUtils.valid?(connection_uuid) do
       where(query, [t], t.connection_uuid == ^connection_uuid)
     else
-      case Integer.parse(connection_uuid) do
-        {int_id, ""} -> where(query, [t], t.connection_id == ^int_id)
-        _ -> where(query, [t], false)
-      end
+      where(query, [t], false)
     end
   end
 

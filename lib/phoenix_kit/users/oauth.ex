@@ -112,13 +112,6 @@ if Code.ensure_loaded?(Ueberauth) do
     @doc """
     Gets all OAuth providers for a user.
     """
-    def get_user_oauth_providers(user_id) when is_integer(user_id) do
-      case Repo.get_by(User, id: user_id) do
-        nil -> []
-        user -> get_user_oauth_providers(user.uuid)
-      end
-    end
-
     def get_user_oauth_providers(user_uuid) when is_binary(user_uuid) do
       from(p in OAuthProvider,
         where: p.user_uuid == ^user_uuid,
@@ -130,14 +123,6 @@ if Code.ensure_loaded?(Ueberauth) do
     @doc """
     Unlinks an OAuth provider from a user.
     """
-    def unlink_oauth_provider(user_id, provider)
-        when is_integer(user_id) and is_binary(provider) do
-      case Repo.get_by(User, id: user_id) do
-        nil -> {:error, :not_found}
-        user -> unlink_oauth_provider(user.uuid, provider)
-      end
-    end
-
     def unlink_oauth_provider(user_uuid, provider)
         when is_binary(user_uuid) and is_binary(provider) do
       case from(p in OAuthProvider, where: p.user_uuid == ^user_uuid and p.provider == ^provider)
@@ -273,13 +258,6 @@ else
     @doc """
     Gets all OAuth providers for a user.
     """
-    def get_user_oauth_providers(user_id) when is_integer(user_id) do
-      case Repo.get_by(User, id: user_id) do
-        nil -> []
-        user -> get_user_oauth_providers(user.uuid)
-      end
-    end
-
     def get_user_oauth_providers(user_uuid) when is_binary(user_uuid) do
       from(p in OAuthProvider,
         where: p.user_uuid == ^user_uuid,
@@ -291,14 +269,6 @@ else
     @doc """
     Unlinks an OAuth provider from a user.
     """
-    def unlink_oauth_provider(user_id, provider)
-        when is_integer(user_id) and is_binary(provider) do
-      case Repo.get_by(User, id: user_id) do
-        nil -> {:error, :not_found}
-        user -> unlink_oauth_provider(user.uuid, provider)
-      end
-    end
-
     def unlink_oauth_provider(user_uuid, provider)
         when is_binary(user_uuid) and is_binary(provider) do
       case from(p in OAuthProvider, where: p.user_uuid == ^user_uuid and p.provider == ^provider)

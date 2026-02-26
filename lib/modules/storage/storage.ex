@@ -539,9 +539,6 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Gets a single file by ID.
   """
-  def get_file(id) when is_integer(id),
-    do: repo().get_by(PhoenixKit.Modules.Storage.File, id: id)
-
   def get_file(id) when is_binary(id),
     do: repo().get(PhoenixKit.Modules.Storage.File, id)
 

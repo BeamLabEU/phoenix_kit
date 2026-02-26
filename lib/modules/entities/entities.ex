@@ -615,11 +615,6 @@ defmodule PhoenixKit.Modules.Entities do
     |> repo().one()
   end
 
-  def count_user_entities(user_id) when is_integer(user_id) do
-    from(e in __MODULE__, where: e.created_by == ^user_id, select: count(e.uuid))
-    |> repo().one()
-  end
-
   @doc """
   Counts the total number of entities in the system.
 
@@ -663,18 +658,6 @@ defmodule PhoenixKit.Modules.Entities do
   def validate_user_entity_limit(user_uuid) when is_binary(user_uuid) do
     max_entities = get_max_per_user()
     current_count = count_user_entities(user_uuid)
-
-    if current_count < max_entities do
-      {:ok, :valid}
-    else
-      {:error, "You have reached the maximum limit of #{max_entities} entities"}
-    end
-  end
-
-  # Legacy integer overload — delegates to integer count_user_entities
-  def validate_user_entity_limit(user_id) when is_integer(user_id) do
-    max_entities = get_max_per_user()
-    current_count = count_user_entities(user_id)
 
     if current_count < max_entities do
       {:ok, :valid}

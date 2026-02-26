@@ -830,13 +830,6 @@ defmodule PhoenixKit.Users.Permissions do
   # Resolves an integer role_id to its UUID for changeset/insert_all use
   defp resolve_role_uuid(nil), do: nil
 
-  defp resolve_role_uuid(role_id) when is_integer(role_id) do
-    repo = RepoHelper.repo()
-
-    from(r in Role, where: r.uuid == ^role_id, select: r.uuid)
-    |> repo.one()
-  end
-
   defp resolve_role_uuid(role_id) when is_binary(role_id), do: role_id
 
   defp resolve_user_uuid(nil), do: nil

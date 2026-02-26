@@ -1087,8 +1087,8 @@ defmodule PhoenixKit.Modules.Emails.Log do
             ilike(l.campaign_id, ^search_pattern)
         )
 
-      {:user_id, user_id}, query when is_integer(user_id) ->
-        where(query, [log: l], l.user_id == ^user_id)
+      {:user_id, user_id}, query when is_binary(user_id) ->
+        where(query, [log: l], l.user_uuid == ^user_id)
 
       _other, query ->
         query

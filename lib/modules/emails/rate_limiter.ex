@@ -559,7 +559,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       iex> RateLimiter.flag_suspicious_activity(456, "complaint_spam")
       :blocked
   """
-  def flag_suspicious_activity(user_id, reason) when is_integer(user_id) and is_binary(reason) do
+  def flag_suspicious_activity(user_id, reason) when is_binary(user_id) and is_binary(reason) do
     case reason do
       "high_bounce_rate" ->
         # Temporarily reduce limits for this user
@@ -603,10 +603,6 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       iex> RateLimiter.check_user_limits(999)
       nil
   """
-  def check_user_limits(user_id) when is_integer(user_id) do
-    get_user_limits(user_id)
-  end
-
   def check_user_limits(user_uuid) when is_binary(user_uuid) do
     get_user_limits(user_uuid)
   end
@@ -641,10 +637,6 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
         default_sender_limit: 1000
       }
   """
-  def get_user_limit_status(user_id) when is_integer(user_id) do
-    get_user_limit_status_impl(user_id)
-  end
-
   def get_user_limit_status(user_uuid) when is_binary(user_uuid) do
     get_user_limit_status_impl(user_uuid)
   end
@@ -706,10 +698,6 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   - `:ok` - Limits cleared successfully
   """
-  def clear_user_rate_limits(user_id) when is_integer(user_id) do
-    clear_user_limits(user_id)
-  end
-
   def clear_user_rate_limits(user_uuid) when is_binary(user_uuid) do
     clear_user_limits(user_uuid)
   end
@@ -736,10 +724,6 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       iex> RateLimiter.get_user_monitoring_events(999)
       nil
   """
-  def get_user_monitoring_events(user_id) when is_integer(user_id) do
-    get_user_monitoring(user_id)
-  end
-
   def get_user_monitoring_events(user_uuid) when is_binary(user_uuid) do
     get_user_monitoring(user_uuid)
   end
@@ -894,7 +878,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   # automatically expire after a configured duration (default: 24 hours).
   #
   # Stored in JSON setting with key: `user_rate_limits_<user_id>`
-  defp reduce_user_limits(user_id, reason) when is_integer(user_id) and is_binary(reason) do
+  defp reduce_user_limits(user_id, reason) when is_binary(user_id) and is_binary(reason) do
     # Get default limits
     default_recipient_limit = get_recipient_limit()
     default_sender_limit = get_sender_limit()
@@ -935,7 +919,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   #
   # Retrieves the user's email address and adds it to the blocklist
   # with a temporary block duration (default: 7 days).
-  defp block_user_emails(user_id, reason) when is_integer(user_id) and is_binary(reason) do
+  defp block_user_emails(user_id, reason) when is_binary(user_id) and is_binary(reason) do
     # Get user from database
     case Auth.get_user(user_id) do
       nil ->
@@ -972,7 +956,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   #
   # Stored in JSON setting with key: `user_monitoring_<user_id>`
   defp monitor_user(user_id, event_type, metadata)
-       when is_integer(user_id) and (is_atom(event_type) or is_binary(event_type)) do
+       when is_binary(user_id) and (is_atom(event_type) or is_binary(event_type)) do
     # Convert event_type to string
     event_type_str = to_string(event_type)
 

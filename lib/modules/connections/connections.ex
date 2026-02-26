@@ -950,22 +950,9 @@ defmodule PhoenixKit.Modules.Connections do
     PhoenixKit.Config.get_repo()
   end
 
-  # Primary resolver: accepts struct, integer, or UUID string → returns UUID
+  # Resolves user UUID from struct or UUID string
   defp get_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-  defp get_user_uuid(%{id: id}) when is_integer(id), do: resolve_user_uuid(id)
-  defp get_user_uuid(id) when is_integer(id), do: resolve_user_uuid(id)
-
-  defp get_user_uuid(id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int_id, ""} -> resolve_user_uuid(int_id)
-      _ -> id
-    end
-  end
-
-  # Resolves user UUID from any user identifier
-  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-  defp resolve_user_uuid(_), do: nil
+  defp get_user_uuid(id) when is_binary(id), do: id
 
   defp get_follow(follower_uuid, followed_uuid) do
     Follow

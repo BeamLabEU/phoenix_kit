@@ -187,12 +187,6 @@ defmodule PhoenixKit.Modules.Comments do
     end
   end
 
-  def create_comment(_resource_type, _resource_id, user_id, _attrs) when is_integer(user_id) do
-    raise ArgumentError,
-          "create_comment/4 expects a UUID string for user_id, got integer: #{user_id}. " <>
-            "Use user.uuid instead of user.id"
-  end
-
   defp do_create_comment(resource_type, resource_id, user_uuid, attrs) do
     repo().transaction(fn ->
       attrs =
@@ -664,28 +658,13 @@ defmodule PhoenixKit.Modules.Comments do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) when is_integer(user_id) do
-    user_uuid = resolve_user_uuid(user_id)
-    where(query, [c], c.user_uuid == ^user_uuid)
-  end
-
   defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
       where(query, [c], c.user_uuid == ^user_id)
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} -> maybe_filter_by_user(query, int_id)
-        _ -> query
-      end
+      query
     end
   end
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    # Integer IDs are no longer supported
-    nil
-  end
-
-  defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
 
   defp notify_resource_handler(callback, resource_type, resource_id, comment) do
     handlers = resource_handlers()
