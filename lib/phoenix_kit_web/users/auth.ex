@@ -846,20 +846,21 @@ defmodule PhoenixKitWeb.Users.Auth do
     |> Phoenix.Component.assign(:phoenix_kit_scope_hook_attached?, true)
   end
 
-  defp maybe_manage_scope_subscription(socket, %User{id: user_id}) when is_integer(user_id) do
-    case socket.assigns[:phoenix_kit_scope_subscription_user_id] do
-      ^user_id ->
+  defp maybe_manage_scope_subscription(socket, %User{uuid: user_uuid})
+       when is_binary(user_uuid) do
+    case socket.assigns[:phoenix_kit_scope_subscription_user_uuid] do
+      ^user_uuid ->
         socket
 
-      previous_id when is_integer(previous_id) ->
-        ScopeNotifier.unsubscribe(previous_id)
-        ScopeNotifier.subscribe(user_id)
+      previous_uuid when is_binary(previous_uuid) ->
+        ScopeNotifier.unsubscribe(previous_uuid)
+        ScopeNotifier.subscribe(user_uuid)
 
-        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, user_id)
+        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_uuid, user_uuid)
 
       _ ->
-        ScopeNotifier.subscribe(user_id)
-        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, user_id)
+        ScopeNotifier.subscribe(user_uuid)
+        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_uuid, user_uuid)
     end
   end
 
@@ -868,17 +869,17 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp maybe_unsubscribe_scope_updates(socket) do
-    if previous_id = socket.assigns[:phoenix_kit_scope_subscription_user_id] do
-      ScopeNotifier.unsubscribe(previous_id)
+    if previous_uuid = socket.assigns[:phoenix_kit_scope_subscription_user_uuid] do
+      ScopeNotifier.unsubscribe(previous_uuid)
     end
 
-    Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, nil)
+    Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_uuid, nil)
   end
 
-  defp handle_scope_refresh({:phoenix_kit_scope_roles_updated, user_id}, socket) do
+  defp handle_scope_refresh({:phoenix_kit_scope_roles_updated, user_uuid}, socket) do
     current_scope = socket.assigns[:phoenix_kit_current_scope]
 
-    if Scope.user_id(current_scope) == user_id do
+    if Scope.user_id(current_scope) == user_uuid do
       was_admin = Scope.admin?(current_scope)
       {socket, new_scope} = refresh_scope_assigns(socket)
 
@@ -1197,8 +1198,8 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp refresh_scope_assigns(socket) do
     case socket.assigns[:phoenix_kit_current_user] do
-      %User{id: user_id} ->
-        case Auth.get_user(user_id) do
+      %User{uuid: user_uuid} ->
+        case Auth.get_user(user_uuid) do
           %User{} = user ->
             scope = Scope.for_user(user)
 

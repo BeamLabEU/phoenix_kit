@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
              (not is_nil(p.featured_image) and p.featured_image != "")) and
             is_nil(p.featured_image_uuid) and
             fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
-        select: count(p.id)
+        select: count(p.uuid)
       )
 
     repo().one(query) || 0
@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         where:
           not is_nil(p.featured_image_uuid) or
             fragment("array_length(?, 1) > 0", p.image_ids),
-        select: count(p.id)
+        select: count(p.uuid)
       )
 
     repo().one(query) || 0
@@ -216,7 +216,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     jobs =
       Enum.map(products, fn product ->
         ImageMigrationWorker.new(
-          %{product_id: product.id, user_id: user_id},
+          %{product_id: product.uuid, user_id: user_id},
           priority: priority
         )
       end)
@@ -303,11 +303,11 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   defp validate_product_for_migration(product) do
     cond do
       is_nil(product.title) or product.title == %{} ->
-        Logger.warning("Product #{product.id} missing title, skipping migration")
+        Logger.warning("Product #{product.uuid} missing title, skipping migration")
         {:error, :missing_title}
 
       is_nil(product.slug) or product.slug == %{} ->
-        Logger.warning("Product #{product.id} missing slug, skipping migration")
+        Logger.warning("Product #{product.uuid} missing slug, skipping migration")
         {:error, :missing_slug}
 
       true ->
@@ -350,15 +350,15 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
 
     if invalid_urls != [] do
       Logger.warning(
-        "Product #{product.id}: #{length(invalid_urls)} invalid URLs skipped: #{inspect(invalid_urls)}"
+        "Product #{product.uuid}: #{length(invalid_urls)} invalid URLs skipped: #{inspect(invalid_urls)}"
       )
     end
 
     if valid_urls == [] do
-      Logger.warning("Product #{product.id}: All image URLs invalid")
+      Logger.warning("Product #{product.uuid}: All image URLs invalid")
       {:error, :all_urls_invalid}
     else
-      Logger.info("Migrating #{length(valid_urls)} valid images for product #{product.id}")
+      Logger.info("Migrating #{length(valid_urls)} valid images for product #{product.uuid}")
 
       # Download all images
       results =

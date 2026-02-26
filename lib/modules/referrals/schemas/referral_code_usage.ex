@@ -21,8 +21,8 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       # Record a code usage
       %ReferralCodeUsage{}
       |> ReferralCodeUsage.changeset(%{
-        code_id: referral_code.id,
-        used_by: user.id
+        code_uuid: referral_code.uuid,
+        used_by_uuid: user.uuid
       })
       |> Repo.insert()
 
@@ -40,7 +40,6 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_referral_code_usage" do
-    field :id, :integer, read_after_writes: true
     field :used_by_uuid, UUIDv7
     field :date_used, :utc_datetime
 
@@ -71,12 +70,6 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       iex> ReferralCodeUsage.for_code(code_id) |> Repo.all()
       [%ReferralCodeUsage{}, ...]
   """
-  def for_code(code_id) when is_integer(code_id) do
-    from u in __MODULE__,
-      where: fragment("code_id = ?", ^code_id),
-      order_by: [desc: u.date_used]
-  end
-
   def for_code(code_uuid) when is_binary(code_uuid) do
     from u in __MODULE__,
       where: u.code_uuid == ^code_uuid,
@@ -93,12 +86,6 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       iex> ReferralCodeUsage.for_user(user_id) |> Repo.all()
       [%ReferralCodeUsage{}, ...]
   """
-  def for_user(user_id) when is_integer(user_id) do
-    from u in __MODULE__,
-      where: fragment("used_by = ?", ^user_id),
-      order_by: [desc: u.date_used]
-  end
-
   def for_user(user_uuid) when is_binary(user_uuid) do
     from u in __MODULE__,
       where: u.used_by_uuid == ^user_uuid,
@@ -115,15 +102,6 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       iex> ReferralCodeUsage.user_used_code?(user_id, code_id)
       false
   """
-  def user_used_code?(user_id, code_id) when is_integer(user_id) and is_integer(code_id) do
-    query =
-      from u in __MODULE__,
-        where: fragment("used_by = ? AND code_id = ?", ^user_id, ^code_id),
-        limit: 1
-
-    PhoenixKit.RepoHelper.repo().exists?(query)
-  end
-
   def user_used_code?(user_uuid, code_uuid) when is_binary(user_uuid) and is_binary(code_uuid) do
     query =
       from u in __MODULE__,
@@ -148,38 +126,6 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
         recent_users: [user_id1, user_id2]
       }
   """
-  def get_usage_stats(code_id) when is_integer(code_id) do
-    repo = PhoenixKit.RepoHelper.repo()
-
-    base_query = from u in __MODULE__, where: fragment("code_id = ?", ^code_id)
-
-    total_uses = repo.aggregate(base_query, :count)
-    unique_users = repo.aggregate(base_query, :count, :used_by_uuid, distinct: true)
-
-    last_used_query =
-      from u in base_query,
-        order_by: [desc: u.date_used],
-        limit: 1,
-        select: u.date_used
-
-    last_used = repo.one(last_used_query)
-
-    recent_users_query =
-      from u in base_query,
-        order_by: [desc: u.date_used],
-        limit: 5,
-        select: u.used_by_uuid
-
-    recent_users = repo.all(recent_users_query)
-
-    %{
-      total_uses: total_uses,
-      unique_users: unique_users,
-      last_used: last_used,
-      recent_users: recent_users
-    }
-  end
-
   def get_usage_stats(code_uuid) when is_binary(code_uuid) do
     repo = PhoenixKit.RepoHelper.repo()
 

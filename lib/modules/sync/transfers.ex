@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
       # Create a transfer record
       {:ok, transfer} = Transfers.create_transfer(%{
         direction: "receive",
-        connection_id: conn.id,
+        connection_uuid: conn.uuid,
         table_name: "users",
         records_requested: 100,
         conflict_strategy: "skip"
@@ -77,7 +77,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
     - `:requires_approval` - Whether this transfer needs approval
     - `:requester_ip` - IP address of the requester
     - `:requester_user_agent` - User agent of the requester
-    - `:initiated_by` - User ID who initiated the transfer
+    - `:initiated_by_uuid` - UUID of user who initiated the transfer
     - `:metadata` - Additional context as a map
 
   ## Examples
@@ -85,10 +85,10 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
       {:ok, transfer} = Transfers.create_transfer(%{
         direction: "receive",
         table_name: "users",
-        connection_id: 123,
+        connection_uuid: conn.uuid,
         records_requested: 500,
         conflict_strategy: "skip",
-        initiated_by: current_user.id
+        initiated_by_uuid: current_user.uuid
       })
   """
   @spec create_transfer(map()) :: {:ok, Transfer.t()} | {:error, Ecto.Changeset.t()}
@@ -101,29 +101,19 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   end
 
   @doc """
-  Gets a transfer by ID or UUID.
+  Gets a transfer by UUID.
 
   Accepts:
-  - Integer ID: `get_transfer(123)`
   - UUID string: `get_transfer("01234567-89ab-cdef-0123-456789abcdef")`
-  - String integer: `get_transfer("123")`
   """
-  @spec get_transfer(integer() | String.t()) :: Transfer.t() | nil
-  def get_transfer(id) when is_integer(id) do
-    repo = RepoHelper.repo()
-    repo.get_by(Transfer, id: id)
-  end
-
-  def get_transfer(id) when is_binary(id) do
+  @spec get_transfer(String.t()) :: Transfer.t() | nil
+  def get_transfer(uuid) when is_binary(uuid) do
     repo = RepoHelper.repo()
 
-    if UUIDUtils.valid?(id) do
-      repo.get_by(Transfer, uuid: id)
+    if UUIDUtils.valid?(uuid) do
+      repo.get_by(Transfer, uuid: uuid)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_transfer(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -405,9 +395,9 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   ## Examples
 
-      {:ok, transfer} = Transfers.approve_transfer(transfer, current_user.id)
+      {:ok, transfer} = Transfers.approve_transfer(transfer, current_user.uuid)
   """
-  @spec approve_transfer(Transfer.t(), integer()) ::
+  @spec approve_transfer(Transfer.t(), String.t()) ::
           {:ok, Transfer.t()} | {:error, Ecto.Changeset.t()}
   def approve_transfer(%Transfer{} = transfer, admin_user_id) do
     repo = RepoHelper.repo()
@@ -428,9 +418,9 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   ## Examples
 
-      {:ok, transfer} = Transfers.deny_transfer(transfer, current_user.id, "Data too sensitive")
+      {:ok, transfer} = Transfers.deny_transfer(transfer, current_user.uuid, "Data too sensitive")
   """
-  @spec deny_transfer(Transfer.t(), integer(), String.t() | nil) ::
+  @spec deny_transfer(Transfer.t(), String.t(), String.t() | nil) ::
           {:ok, Transfer.t()} | {:error, Ecto.Changeset.t()}
   def deny_transfer(%Transfer{} = transfer, admin_user_id, reason \\ nil) do
     repo = RepoHelper.repo()

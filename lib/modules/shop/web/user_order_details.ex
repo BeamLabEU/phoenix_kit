@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrderDetails do
            |> push_navigate(to: Routes.path("/dashboard/orders"))}
 
         order ->
-          if order.user_id != current_user.id do
+          if order.user_uuid != current_user.uuid do
             {:ok,
              socket
              |> put_flash(:error, gettext("Access denied"))

@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
           # Try to get entity by name (slug)
           case Entities.get_entity_by_name(slug) do
             nil -> {nil, nil}
-            entity -> {entity, entity.id}
+            entity -> {entity, entity.uuid}
           end
       end
 
@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   defp resolve_entity_by_slug(slug) do
     case Entities.get_entity_by_name(slug) do
       nil -> {nil, nil}
-      entity -> {entity, entity.id}
+      entity -> {entity, entity.uuid}
     end
   end
 
@@ -501,8 +501,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   defp build_base_path(nil), do: "/admin/entities"
 
-  defp build_base_path(entity_id) when is_integer(entity_id) do
-    # Get entity by ID to get its slug
+  defp build_base_path(entity_id) when is_binary(entity_id) do
+    # Get entity by UUID to get its slug
     case Entities.get_entity!(entity_id) do
       nil -> "/admin/entities"
       entity -> "/admin/entities/#{entity.name}/data"
@@ -555,7 +555,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   defp filter_by_entity(records, nil), do: records
 
   defp filter_by_entity(records, entity_id) do
-    Enum.filter(records, fn record -> record.entity_id == entity_id end)
+    Enum.filter(records, fn record -> record.entity_uuid == entity_id end)
   end
 
   defp filter_by_status(records, "all"), do: records
@@ -622,14 +622,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   def get_entity_name(entities, entity_id) do
-    case Enum.find(entities, &(&1.id == entity_id)) do
+    case Enum.find(entities, &(&1.uuid == entity_id)) do
       nil -> gettext("Unknown")
       entity -> entity.display_name
     end
   end
 
   def get_entity_slug(entities, entity_id) do
-    case Enum.find(entities, &(&1.id == entity_id)) do
+    case Enum.find(entities, &(&1.uuid == entity_id)) do
       nil -> ""
       entity -> entity.name
     end

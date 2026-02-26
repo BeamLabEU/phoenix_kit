@@ -56,7 +56,6 @@ defmodule PhoenixKit.Modules.Shop.ImportConfig do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_import_configs" do
-    field :id, :integer, read_after_writes: true
     field :name, :string
 
     # Filtering keywords (PostgreSQL TEXT[] arrays)

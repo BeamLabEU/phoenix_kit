@@ -20,7 +20,6 @@ defmodule PhoenixKit.AuditLog.Entry do
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
-          id: integer() | nil,
           target_user_uuid: UUIDv7.t() | nil,
           admin_user_uuid: UUIDv7.t() | nil,
           action: String.t(),
@@ -45,7 +44,6 @@ defmodule PhoenixKit.AuditLog.Entry do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_audit_logs" do
-    field :id, :integer, read_after_writes: true
     field :target_user_uuid, UUIDv7
     field :admin_user_uuid, UUIDv7
     field :action, :string

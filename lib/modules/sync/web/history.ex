@@ -132,7 +132,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
     transfer = Transfers.get_transfer!(uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
-    case Transfers.approve_transfer(transfer, current_user.id) do
+    case Transfers.approve_transfer(transfer, current_user.uuid) do
       {:ok, _transfer} ->
         socket =
           socket
@@ -153,7 +153,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
     current_user = socket.assigns.phoenix_kit_current_scope.user
     reason = if reason == "", do: nil, else: reason
 
-    case Transfers.deny_transfer(transfer, current_user.id, reason) do
+    case Transfers.deny_transfer(transfer, current_user.uuid, reason) do
       {:ok, _transfer} ->
         socket =
           socket

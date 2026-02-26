@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         # Get session_id for guest cart
         session_id = session["shop_session_id"] || generate_session_id()
         user = Helpers.get_current_user(socket)
-        user_id = if user, do: user.id, else: nil
+        user_id = if user, do: user.uuid, else: nil
 
         currency = Shop.get_default_currency()
 
@@ -95,7 +95,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
         # Subscribe to product updates if connected
         if connected?(socket) do
-          Events.subscribe_product(product.id)
+          Events.subscribe_product(product.uuid)
           Events.subscribe_inventory()
         end
 
@@ -199,7 +199,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     # This is acceptable since this path is only hit on first mount, not during LiveView lifecycle
     session_id = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
     user = Helpers.get_current_user(socket)
-    user_id = if user, do: user.id, else: nil
+    user_id = if user, do: user.uuid, else: nil
 
     currency = Shop.get_default_currency()
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
@@ -210,7 +210,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     selectable_specs = Shop.get_selectable_specs(product)
     selected_specs = build_default_specs(selectable_specs, product.metadata || %{})
     calculated_price = Shop.calculate_product_price(product, selected_specs)
-    cart_item = find_cart_item_with_specs(user_id, session_id, product.id, selected_specs)
+    cart_item = find_cart_item_with_specs(user_id, session_id, product.uuid, selected_specs)
     missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
 
     all_categories = Shop.list_active_categories(preload: [:featured_product])
@@ -229,7 +229,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
     # Subscribe to updates
     if connected?(socket) do
-      Events.subscribe_product(product.id)
+      Events.subscribe_product(product.uuid)
       Events.subscribe_inventory()
     end
 
@@ -425,7 +425,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         log_cart_error(
           "Failed to add to cart",
           reason,
-          socket.assigns.product.id,
+          socket.assigns.product.uuid,
           socket.assigns.user_id
         )
 
@@ -442,7 +442,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         log_cart_error(
           "Failed to add to cart",
           {code, detail},
-          socket.assigns.product.id,
+          socket.assigns.product.uuid,
           socket.assigns.user_id
         )
 
@@ -1294,7 +1294,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   @impl true
   def handle_info({:product_updated, updated_product}, socket) do
     # Only update if it's the same product
-    if updated_product.id == socket.assigns.product.id do
+    if updated_product.uuid == socket.assigns.product.uuid do
       {:noreply, assign(socket, :product, updated_product)}
     else
       {:noreply, socket}
@@ -1303,7 +1303,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   @impl true
   def handle_info({:inventory_updated, product_id, _change}, socket) do
-    if product_id == socket.assigns.product.id do
+    if product_id == socket.assigns.product.uuid do
       # Reload product to get updated stock
       product = Shop.get_product!(product_id)
       {:noreply, assign(socket, :product, product)}

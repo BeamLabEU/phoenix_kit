@@ -27,7 +27,7 @@ defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
     topic = editing_topic(type, id)
 
     Presence.track(self(), topic, socket.id, %{
-      user_id: user.id,
+      user_id: user.uuid,
       user_email: user.email,
       user: user,
       joined_at: System.system_time(:millisecond),
@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
 
   ## Examples
 
-      case get_editing_role(:entity, 5, socket.id, current_user.id) do
+      case get_editing_role(:entity, 5, socket.id, current_user.uuid) do
         {:owner, all_presences} ->
           # I can edit!
 

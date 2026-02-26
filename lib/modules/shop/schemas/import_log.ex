@@ -31,7 +31,6 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_import_logs" do
-    field :id, :integer, read_after_writes: true
     field :filename, :string
     field :file_path, :string
     field :status, :string, default: "pending"

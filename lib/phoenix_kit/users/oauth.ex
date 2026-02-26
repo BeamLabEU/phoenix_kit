@@ -90,7 +90,6 @@ if Code.ensure_loaded?(Ueberauth) do
     """
     def link_oauth_provider(%User{} = user, oauth_data) when is_map(oauth_data) do
       attrs = %{
-        user_id: user.id,
         user_uuid: user.uuid,
         provider: oauth_data.provider,
         provider_uid: oauth_data.provider_uid,
@@ -242,7 +241,7 @@ if Code.ensure_loaded?(Ueberauth) do
       if Code.ensure_loaded?(Referrals) do
         case Referrals.get_code_by_string(referral_code) do
           nil -> :ok
-          code -> Referrals.use_code(code.code, user.id)
+          code -> Referrals.use_code(code.code, user.uuid)
         end
       end
 

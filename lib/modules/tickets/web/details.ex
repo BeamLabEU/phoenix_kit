@@ -87,9 +87,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     else
       result =
         if is_internal do
-          Tickets.create_internal_note(ticket.uuid, current_user.id, %{content: content})
+          Tickets.create_internal_note(ticket.uuid, current_user.uuid, %{content: content})
         else
-          Tickets.create_comment(ticket.uuid, current_user.id, %{content: content})
+          Tickets.create_comment(ticket.uuid, current_user.uuid, %{content: content})
         end
 
       case result do
@@ -153,7 +153,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     ticket = socket.assigns.ticket
     current_user = socket.assigns.current_user
 
-    case Tickets.assign_ticket(ticket, current_user.id, current_user) do
+    case Tickets.assign_ticket(ticket, current_user.uuid, current_user) do
       {:ok, updated_ticket} ->
         {:noreply,
          socket

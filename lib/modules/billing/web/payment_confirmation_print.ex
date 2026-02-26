@@ -56,7 +56,7 @@ defmodule PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint do
     project_title = Settings.get_project_title()
     company_info = get_company_info()
     confirmation_number = generate_confirmation_number(transaction)
-    all_transactions = Billing.list_invoice_transactions(invoice.id)
+    all_transactions = Billing.list_invoice_transactions(invoice.uuid)
     payment_context = calculate_payment_context(invoice, transaction, all_transactions)
 
     socket =
@@ -103,7 +103,7 @@ defmodule PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint do
 
     # Find position of current payment
     payment_index =
-      Enum.find_index(sorted_payments, fn t -> t.id == transaction.id end) || 0
+      Enum.find_index(sorted_payments, fn t -> t.uuid == transaction.uuid end) || 0
 
     # Total paid up to and including this payment
     payments_up_to_now = Enum.take(sorted_payments, payment_index + 1)

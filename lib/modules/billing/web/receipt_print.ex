@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Billing.Web.ReceiptPrint do
         invoice ->
           project_title = Settings.get_project_title()
           company_info = get_company_info()
-          transactions = Billing.list_invoice_transactions(invoice.id)
+          transactions = Billing.list_invoice_transactions(invoice.uuid)
 
           # Calculate receipt status and related data
           receipt_status = Billing.calculate_receipt_status(invoice, transactions)

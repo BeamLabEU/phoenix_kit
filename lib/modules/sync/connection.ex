@@ -67,7 +67,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
   schema "phoenix_kit_sync_connections" do
-    field :id, :integer, read_after_writes: true
     field :name, :string
     field :direction, :string
     field :site_url, :string
@@ -498,12 +497,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     not_excluded and allowed_or_empty
   end
 
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> PhoenixKit.RepoHelper.repo().one()
-  end
-
+  # Resolves user UUID from any user identifier
+  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
   defp resolve_user_uuid(_), do: nil
 end

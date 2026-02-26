@@ -37,10 +37,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
 
   defp has_order_access?(order, user) do
     cond do
-      # No user_id on order - legacy guest order
-      is_nil(order.user_id) -> true
+      # No user_uuid on order - legacy guest order
+      is_nil(order.user_uuid) -> true
       # Logged-in user owns the order
-      not is_nil(user) and order.user_id == user.id -> true
+      not is_nil(user) and order.user_uuid == user.uuid -> true
       # Guest checkout - order belongs to unconfirmed user (allow access to confirmation page)
       guest_user_order?(order) -> true
       true -> false

@@ -51,7 +51,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @type t :: %__MODULE__{
-          id: integer() | nil,
           uuid: Ecto.UUID.t() | nil,
           user_uuid: Ecto.UUID.t() | nil,
           session_id: String.t() | nil,
@@ -70,7 +69,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_consent_logs" do
-    field :id, :integer, read_after_writes: true
     field :user_uuid, UUIDv7
     field :session_id, :string
     field :consent_type, :string

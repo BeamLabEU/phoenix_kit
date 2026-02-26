@@ -79,7 +79,6 @@ defmodule PhoenixKit.Modules.Referrals do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_referral_codes" do
-    field :id, :integer, read_after_writes: true
     field :code, :string
     field :description, :string
     field :status, :boolean, default: true
@@ -419,14 +418,11 @@ defmodule PhoenixKit.Modules.Referrals do
 
   defp do_record_usage(code, user_identifier) do
     user_uuid = resolve_user_uuid(user_identifier)
-    user_int_id = resolve_user_id(user_identifier)
 
     usage_result =
       %ReferralCodeUsage{}
       |> ReferralCodeUsage.changeset(%{
-        code_id: code.id,
         code_uuid: code.uuid,
-        used_by: user_int_id,
         used_by_uuid: user_uuid
       })
       |> repo().insert()
@@ -895,21 +891,6 @@ defmodule PhoenixKit.Modules.Referrals do
 
   # Resolves user UUID from any user identifier
   defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
-  end
-
-  # Resolves user integer ID for dual-write only
-  defp resolve_user_id(id) when is_integer(id), do: id
-
-  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.uuid == ^user_uuid, select: u.id) |> repo().one()
-  end
 
   # Gets the configured repository for database operations
   defp repo do

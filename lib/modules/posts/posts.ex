@@ -254,10 +254,9 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp create_post_with_uuid(user_uuid, attrs) do
     case Auth.get_user(user_uuid) do
-      %{id: user_id, uuid: uuid} ->
+      %{uuid: uuid} ->
         attrs =
           attrs
-          |> Map.put("user_id", user_id)
           |> Map.put("user_uuid", uuid)
 
         %Post{}
@@ -774,7 +773,7 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def like_post(post_uuid, user_uuid) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
-      do_like_post(post_uuid, user_uuid, resolve_user_id(user_uuid))
+      do_like_post(post_uuid, user_uuid)
     else
       {:error, :invalid_user_uuid}
     end
@@ -786,12 +785,11 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_like_post(post_id, user_uuid, user_int_id) do
+  defp do_like_post(post_id, user_uuid) do
     repo().transaction(fn ->
       case %PostLike{}
            |> PostLike.changeset(%{
              post_uuid: post_id,
-             user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
@@ -934,7 +932,7 @@ defmodule PhoenixKit.Modules.Posts do
   """
   def dislike_post(post_uuid, user_uuid) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
-      do_dislike_post(post_uuid, user_uuid, resolve_user_id(user_uuid))
+      do_dislike_post(post_uuid, user_uuid)
     else
       {:error, :invalid_user_uuid}
     end
@@ -946,12 +944,11 @@ defmodule PhoenixKit.Modules.Posts do
             "Use user.uuid instead of user.id"
   end
 
-  defp do_dislike_post(post_id, user_uuid, user_int_id) do
+  defp do_dislike_post(post_id, user_uuid) do
     repo().transaction(fn ->
       case %PostDislike{}
            |> PostDislike.changeset(%{
              post_uuid: post_id,
-             user_id: user_int_id,
              user_uuid: user_uuid
            })
            |> repo().insert() do
@@ -1282,10 +1279,9 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp create_group_with_uuid(user_uuid, attrs) do
     case Auth.get_user(user_uuid) do
-      %{id: user_id, uuid: uuid} ->
+      %{uuid: uuid} ->
         attrs =
           attrs
-          |> Map.put(:user_id, user_id)
           |> Map.put(:user_uuid, uuid)
 
         %PostGroup{}
@@ -1577,7 +1573,6 @@ defmodule PhoenixKit.Modules.Posts do
       %PostMention{}
       |> PostMention.changeset(%{
         post_uuid: post_uuid,
-        user_id: resolve_user_id(user_uuid),
         user_uuid: user_uuid,
         mention_type: mention_type
       })
@@ -1896,11 +1891,6 @@ defmodule PhoenixKit.Modules.Posts do
       [p],
       ilike(p.title, ^search_pattern) or ilike(p.content, ^search_pattern)
     )
-  end
-
-  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
-    from(u in Auth.User, where: u.uuid == ^user_uuid, select: u.id)
-    |> repo().one()
   end
 
   # Get repository based on configuration (for tests and apps with custom repos)

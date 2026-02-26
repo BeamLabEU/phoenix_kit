@@ -577,27 +577,22 @@ defmodule PhoenixKit.Users.Permissions do
   def grant_permission(role_id, module_key, granted_by_id \\ nil) do
     repo = RepoHelper.repo()
 
-    # Resolve both integer and UUID forms for dual-write
-    role_int = resolve_role_id(role_id)
     role_uuid = resolve_role_uuid(role_id)
 
     if is_nil(role_uuid) do
       {:error, :role_not_found}
     else
-      grant_permission_insert(repo, role_int, role_uuid, module_key, granted_by_id)
+      grant_permission_insert(repo, role_uuid, module_key, granted_by_id)
     end
   end
 
-  defp grant_permission_insert(repo, role_int, role_uuid, module_key, granted_by_id) do
-    granted_by_int = resolve_user_id(granted_by_id)
+  defp grant_permission_insert(repo, role_uuid, module_key, granted_by_id) do
     granted_by_uuid = resolve_user_uuid(granted_by_id)
 
     %RolePermission{}
     |> RolePermission.changeset(%{
-      role_id: role_int,
       role_uuid: role_uuid,
       module_key: module_key,
-      granted_by: granted_by_int,
       granted_by_uuid: granted_by_uuid
     })
     |> repo.insert(
@@ -649,8 +644,6 @@ defmodule PhoenixKit.Users.Permissions do
     valid_keys = MapSet.new(all_module_keys())
 
     repo.transaction(fn ->
-      # Resolve both integer and UUID forms for dual-write
-      role_int = resolve_role_id(role_id)
       role_uuid = resolve_role_uuid(role_id)
 
       # Lock existing permission rows FOR UPDATE to prevent concurrent set_permissions
@@ -676,17 +669,14 @@ defmodule PhoenixKit.Users.Permissions do
       # Bulk insert new permissions
       if MapSet.size(to_add) > 0 do
         now = UtilsDate.utc_now()
-        granted_by_int = resolve_user_id(granted_by_id)
         granted_by_uuid = resolve_user_uuid(granted_by_id)
 
         entries =
           Enum.map(to_add, fn key ->
             %{
               uuid: UUIDv7.generate(),
-              role_id: role_int,
               role_uuid: role_uuid,
               module_key: key,
-              granted_by: granted_by_int,
               granted_by_uuid: granted_by_uuid,
               inserted_at: now
             }
@@ -843,45 +833,14 @@ defmodule PhoenixKit.Users.Permissions do
   defp resolve_role_uuid(role_id) when is_integer(role_id) do
     repo = RepoHelper.repo()
 
-    from(r in Role, where: r.id == ^role_id, select: r.uuid)
+    from(r in Role, where: r.uuid == ^role_id, select: r.uuid)
     |> repo.one()
   end
 
   defp resolve_role_uuid(role_id) when is_binary(role_id), do: role_id
 
-  # Resolves a UUID string to the integer role_id for legacy columns
-  defp resolve_role_id(nil), do: nil
-  defp resolve_role_id(role_id) when is_integer(role_id), do: role_id
-
-  defp resolve_role_id(role_uuid) when is_binary(role_uuid) do
-    repo = RepoHelper.repo()
-
-    from(r in Role, where: r.uuid == ^role_uuid, select: r.id)
-    |> repo.one()
-  end
-
-  # Resolves a UUID string to the integer user_id for legacy columns
-  defp resolve_user_id(nil), do: nil
-  defp resolve_user_id(user_id) when is_integer(user_id), do: user_id
-
-  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
-    repo = RepoHelper.repo()
-
-    from(u in User, where: u.uuid == ^user_uuid, select: u.id)
-    |> repo.one()
-  end
-
-  # Resolves an integer user_id to its UUID for changeset use
   defp resolve_user_uuid(nil), do: nil
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    repo = RepoHelper.repo()
-
-    from(u in User, where: u.id == ^user_id, select: u.uuid)
-    |> repo.one()
-  end
-
-  defp resolve_user_uuid(user_id) when is_binary(user_id), do: user_id
+  defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
 
   # Notify all users with the affected role to refresh their scope
   defp notify_affected_users(role_id) do

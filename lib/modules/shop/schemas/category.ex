@@ -35,8 +35,6 @@ defmodule PhoenixKit.Modules.Shop.Category do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_shop_categories" do
-    field :id, :integer, read_after_writes: true
-
     # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
     field :name, :map, default: %{}
     field :slug, :map, default: %{}

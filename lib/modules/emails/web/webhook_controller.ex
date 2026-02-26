@@ -359,7 +359,7 @@ defmodule PhoenixKit.Modules.Emails.Web.WebhookController do
           Logger.info("Email webhook event processed successfully", %{
             event_type: event_data["eventType"],
             message_id: get_in(event_data, ["mail", "messageId"]),
-            event_id: event.id,
+            event_id: event.uuid,
             recipient: get_in(event_data, ["mail", "commonHeaders", "to"]) |> List.first()
           })
 

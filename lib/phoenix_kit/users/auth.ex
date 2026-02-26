@@ -73,6 +73,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.SessionFingerprint
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   ## Database getters
 
@@ -244,8 +245,17 @@ defmodule PhoenixKit.Users.Auth do
       nil
 
   """
-  def get_user(id) when is_integer(id), do: Repo.get_by(User, id: id)
-  def get_user(uuid) when is_binary(uuid), do: PhoenixKit.UUID.get(User, uuid)
+  def get_user(id) when is_integer(id) do
+    Repo.one(from(u in User, where: fragment("id = ?", ^id)))
+  end
+
+  def get_user(uuid) when is_binary(uuid) do
+    if UUIDUtils.valid?(uuid) do
+      Repo.get(User, uuid)
+    else
+      nil
+    end
+  end
 
   @doc """
   Gets a single user.
@@ -262,7 +272,7 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def get_user!(id) when is_integer(id) do
-    case Repo.get_by(User, id: id) do
+    case Repo.one(from(u in User, where: fragment("id = ?", ^id))) do
       nil -> raise Ecto.NoResultsError, queryable: User
       user -> user
     end
@@ -276,15 +286,15 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Gets users by list of IDs.
+  Gets users by list of UUIDs.
 
   Returns list of users with all fields including custom_fields.
-  Useful for batch loading users when you have a list of IDs.
+  Useful for batch loading users when you have a list of UUIDs.
 
   ## Examples
 
-      iex> get_users_by_ids([1, 2, 3])
-      [%User{id: 1, ...}, %User{id: 2, ...}]
+      iex> get_users_by_ids(["01924...", "01925..."])
+      [%User{uuid: "01924...", ...}, %User{uuid: "01925...", ...}]
 
       iex> get_users_by_ids([])
       []
@@ -292,7 +302,7 @@ defmodule PhoenixKit.Users.Auth do
   def get_users_by_ids([]), do: []
 
   def get_users_by_ids(ids) when is_list(ids) do
-    from(u in User, where: u.id in ^ids)
+    from(u in User, where: u.uuid in ^ids)
     |> Repo.all()
   end
 
@@ -332,7 +342,7 @@ defmodule PhoenixKit.Users.Auth do
         join: assignment in assoc(u, :role_assignments),
         join: role in assoc(assignment, :role),
         where: role.name == ^roles.owner,
-        order_by: [asc: u.id],
+        order_by: [asc: u.uuid],
         limit: 1
 
     case Repo.one(owner_query) do
@@ -343,7 +353,7 @@ defmodule PhoenixKit.Users.Auth do
             join: assignment in assoc(u, :role_assignments),
             join: role in assoc(assignment, :role),
             where: role.name == ^roles.admin,
-            order_by: [asc: u.id],
+            order_by: [asc: u.uuid],
             limit: 1
 
         Repo.one(admin_query)
@@ -354,15 +364,18 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Gets the ID of the first admin user.
+  Gets the UUID of the first admin user.
 
-  Convenience function that returns just the user ID, useful for
+  Convenience function that returns just the user UUID, useful for
   setting `created_by` fields programmatically.
+
+  Deprecated name kept for backwards compatibility - returns UUID now.
+  Prefer `get_first_admin_uuid/0` for new code.
 
   ## Examples
 
       iex> get_first_admin_id()
-      1
+      "01924..."
 
       iex> get_first_admin_id()
       nil  # No admin users exist
@@ -377,40 +390,43 @@ defmodule PhoenixKit.Users.Auth do
   def get_first_admin_id do
     case get_first_admin() do
       nil -> nil
-      user -> user.id
+      user -> user.uuid
     end
   end
 
   @doc """
-  Gets the first user in the system (by ID).
+  Gets the first user in the system (by insertion order).
 
-  Returns the user with the lowest ID, typically the first registered user.
+  Returns the earliest registered user (by UUID, which is time-ordered via UUIDv7).
   Useful as a fallback when no specific admin is needed.
 
   ## Examples
 
       iex> get_first_user()
-      %User{id: 1}
+      %User{uuid: "some-uuid"}
   """
   def get_first_user do
-    from(u in User, order_by: [asc: u.id], limit: 1)
+    from(u in User, order_by: [asc: u.uuid], limit: 1)
     |> Repo.one()
   end
 
   @doc """
-  Gets the ID of the first user in the system.
+  Gets the UUID of the first user in the system.
 
-  Convenience function for getting a user ID for `created_by` fields.
+  Convenience function for getting a user UUID for `created_by` fields.
+
+  Deprecated name kept for backwards compatibility - returns UUID now.
+  Prefer `get_first_user_uuid/0` for new code.
 
   ## Examples
 
       iex> get_first_user_id()
-      1
+      "01924..."
   """
   def get_first_user_id do
     case get_first_user() do
       nil -> nil
-      user -> user.id
+      user -> user.uuid
     end
   end
 
@@ -508,7 +524,9 @@ defmodule PhoenixKit.Users.Auth do
         case Roles.ensure_first_user_is_owner(user) do
           {:ok, role_type} ->
             # Log successful role assignment for security audit
-            Logger.info("PhoenixKit: User #{user.id} (#{user.email}) assigned #{role_type} role")
+            Logger.info(
+              "PhoenixKit: User #{user.uuid} (#{user.email}) assigned #{role_type} role"
+            )
 
             # Broadcast user creation event
             Events.broadcast_user_created(user)
@@ -518,7 +536,7 @@ defmodule PhoenixKit.Users.Auth do
           {:error, reason} ->
             # Role assignment failed - this is critical
             Logger.error(
-              "PhoenixKit: Failed to assign role to user #{user.id}: #{inspect(reason)}"
+              "PhoenixKit: Failed to assign role to user #{user.uuid}: #{inspect(reason)}"
             )
 
             # User was created but role assignment failed
@@ -654,12 +672,15 @@ defmodule PhoenixKit.Users.Auth do
 
         case Roles.assign_role(user, user_role) do
           {:ok, _} ->
-            Logger.info("PhoenixKit: Guest user #{user.id} (#{user.email}) created from checkout")
+            Logger.info(
+              "PhoenixKit: Guest user #{user.uuid} (#{user.email}) created from checkout"
+            )
+
             {:ok, user}
 
           {:error, reason} ->
             Logger.error(
-              "PhoenixKit: Failed to assign role to guest user #{user.id}: #{inspect(reason)}"
+              "PhoenixKit: Failed to assign role to guest user #{user.uuid}: #{inspect(reason)}"
             )
 
             {:ok, user}
@@ -861,9 +882,7 @@ defmodule PhoenixKit.Users.Auth do
       if admin_user = Map.get(context, :admin_user) do
         Ecto.Multi.run(multi, :audit_log, fn _repo, %{user: updated_user} ->
           log_attrs = %{
-            target_user_id: updated_user.id,
             target_user_uuid: updated_user.uuid,
-            admin_user_id: admin_user.id,
             admin_user_uuid: admin_user.uuid,
             action: :admin_password_reset,
             ip_address: Map.get(context, :ip_address),
@@ -917,7 +936,7 @@ defmodule PhoenixKit.Users.Auth do
 
     # Broadcast session creation event
     token_info = %{
-      token_id: inserted_token.id,
+      token_id: inserted_token.uuid,
       created_at: inserted_token.inserted_at,
       context: inserted_token.context
     }
@@ -1010,7 +1029,7 @@ defmodule PhoenixKit.Users.Auth do
       iex> ensure_active_user(%User{is_active: true})
       %User{is_active: true}
 
-      iex> ensure_active_user(%User{is_active: false, id: 123})
+      iex> ensure_active_user(%User{is_active: false, uuid: "some-uuid"})
       nil
 
       iex> ensure_active_user(nil)
@@ -1020,7 +1039,7 @@ defmodule PhoenixKit.Users.Auth do
   def ensure_active_user(user) do
     case user do
       %User{is_active: false} = inactive_user ->
-        Logger.warning("PhoenixKit: Inactive user #{inactive_user.id} attempted access")
+        Logger.warning("PhoenixKit: Inactive user #{inactive_user.uuid} attempted access")
         nil
 
       active_user ->
@@ -1567,7 +1586,7 @@ defmodule PhoenixKit.Users.Auth do
   - `user` - The User struct to update
   - `file_path` - Path to the uploaded file (temporary location)
   - `filename` - Original filename for the upload
-  - `user_id` - The user ID owning this file (defaults to user.id)
+  - `user_id` - The user ID owning this file (defaults to user.uuid)
 
   ## Returns
   - `{:ok, user}` - Avatar saved successfully
@@ -1590,7 +1609,7 @@ defmodule PhoenixKit.Users.Auth do
   - thumbnail - 100x100px
   """
   def update_user_avatar(%User{} = user, file_path, filename, user_id \\ nil) do
-    user_id = user_id || user.id
+    user_id = user_id || user.uuid
 
     # Calculate file hash
     file_hash = calculate_file_hash(file_path)
@@ -1851,7 +1870,7 @@ defmodule PhoenixKit.Users.Auth do
         do_update_user_status(user, attrs)
 
       {:error, :cannot_deactivate_last_owner} ->
-        Logger.warning("PhoenixKit: Attempted to deactivate last Owner user #{user.id}")
+        Logger.warning("PhoenixKit: Attempted to deactivate last Owner user #{user.uuid}")
         {:error, :cannot_deactivate_last_owner}
     end
   end
@@ -1871,30 +1890,19 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Gets a user by ID with preloaded roles.
+  Gets a user by UUID with preloaded roles.
 
   ## Examples
 
-      iex> get_user_with_roles(123)
+      iex> get_user_with_roles("01924...")
       %User{roles: [%Role{}, %Role{}]}
 
-      iex> get_user_with_roles(999)
+      iex> get_user_with_roles("nonexistent")
       nil
   """
-  def get_user_with_roles(id) when is_integer(id) do
-    from(u in User, where: u.id == ^id, preload: [:roles, :role_assignments])
+  def get_user_with_roles(uuid) when is_binary(uuid) do
+    from(u in User, where: u.uuid == ^uuid, preload: [:roles, :role_assignments])
     |> Repo.one()
-  end
-
-  def get_user_with_roles(id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int_id, ""} ->
-        get_user_with_roles(int_id)
-
-      _ ->
-        from(u in User, where: u.uuid == ^id, preload: [:roles, :role_assignments])
-        |> Repo.one()
-    end
   end
 
   @doc """
@@ -1947,7 +1955,7 @@ defmodule PhoenixKit.Users.Auth do
       join: assignment in assoc(u, :role_assignments),
       join: role in assoc(assignment, :role),
       where: role.name == ^role_name,
-      distinct: u.id
+      distinct: u.uuid
   end
 
   defp maybe_filter_by_search(query, ""), do: query
@@ -1994,7 +2002,6 @@ defmodule PhoenixKit.Users.Auth do
           order_by: [asc: u.email],
           limit: 10,
           select: %{
-            id: u.id,
             uuid: u.uuid,
             email: u.email,
             username: u.username,
@@ -2010,24 +2017,23 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Gets a user by ID with minimal fields for selection interfaces.
+  Gets a user by UUID with minimal fields for selection interfaces.
 
-  Returns a user map with id, email, first_name, and last_name fields.
+  Returns a user map with uuid, email, first_name, and last_name fields.
   Returns nil if user is not found.
 
   ## Examples
 
-      iex> PhoenixKit.Users.Auth.get_user_for_selection(123)
-      %{id: 123, email: "user@example.com", first_name: "John", last_name: "Doe"}
+      iex> PhoenixKit.Users.Auth.get_user_for_selection("01924...")
+      %{uuid: "01924...", email: "user@example.com", first_name: "John", last_name: "Doe"}
 
-      iex> PhoenixKit.Users.Auth.get_user_for_selection(999)
+      iex> PhoenixKit.Users.Auth.get_user_for_selection("nonexistent")
       nil
   """
-  def get_user_for_selection(user_id) when is_integer(user_id) do
+  def get_user_for_selection(user_uuid) when is_binary(user_uuid) do
     from(u in User,
-      where: u.id == ^user_id,
+      where: u.uuid == ^user_uuid,
       select: %{
-        id: u.id,
         uuid: u.uuid,
         email: u.email,
         username: u.username,
@@ -2036,27 +2042,6 @@ defmodule PhoenixKit.Users.Auth do
       }
     )
     |> Repo.one()
-  end
-
-  def get_user_for_selection(user_id) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} ->
-        get_user_for_selection(int_id)
-
-      _ ->
-        from(u in User,
-          where: u.uuid == ^user_id,
-          select: %{
-            id: u.id,
-            uuid: u.uuid,
-            email: u.email,
-            username: u.username,
-            first_name: u.first_name,
-            last_name: u.last_name
-          }
-        )
-        |> Repo.one()
-    end
   end
 
   # Safe atom conversion - only succeeds if atom already exists
@@ -2093,39 +2078,25 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Gets a single admin note by ID.
+  Gets a single admin note by UUID.
 
   Preloads the author information.
 
   ## Examples
 
-      iex> get_admin_note(123)
+      iex> get_admin_note("01924...")
       %AdminNote{}
 
-      iex> get_admin_note(456)
+      iex> get_admin_note("nonexistent")
       nil
 
   """
-  def get_admin_note(id) when is_integer(id) do
+  def get_admin_note(uuid) when is_binary(uuid) do
     from(n in AdminNote,
-      where: n.id == ^id,
+      where: n.uuid == ^uuid,
       preload: [:author]
     )
     |> Repo.one()
-  end
-
-  def get_admin_note(id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int_id, ""} ->
-        get_admin_note(int_id)
-
-      _ ->
-        from(n in AdminNote,
-          where: n.uuid == ^id,
-          preload: [:author]
-        )
-        |> Repo.one()
-    end
   end
 
   @doc """
@@ -2149,9 +2120,7 @@ defmodule PhoenixKit.Users.Auth do
   def create_admin_note(%User{} = user, %User{} = author, attrs) do
     attrs =
       attrs
-      |> Map.put("user_id", user.id)
       |> Map.put("user_uuid", user.uuid)
-      |> Map.put("author_id", author.id)
       |> Map.put("author_uuid", author.uuid)
 
     %AdminNote{}
@@ -2252,7 +2221,7 @@ defmodule PhoenixKit.Users.Auth do
 
   ## Returns
 
-  - `{:ok, %{deleted_user_id: id, anonymized_records: count}}` - Success
+  - `{:ok, %{deleted_user_uuid: uuid, anonymized_records: count}}` - Success
   - `{:error, :cannot_delete_self}` - Cannot delete your own account
   - `{:error, :cannot_delete_last_owner}` - Cannot delete the last Owner
   - `{:error, :insufficient_permissions}` - Current user lacks permission
@@ -2261,7 +2230,7 @@ defmodule PhoenixKit.Users.Auth do
   ## Examples
 
       iex> delete_user(user, %{current_user: admin_user})
-      {:ok, %{deleted_user_id: 123, anonymized_records: 15}}
+      {:ok, %{deleted_user_uuid: "some-uuid", anonymized_records: 15}}
 
       iex> delete_user(user, %{current_user: user})
       {:error, :cannot_delete_self}
@@ -2340,7 +2309,7 @@ defmodule PhoenixKit.Users.Auth do
       where: role.name == ^roles.owner,
       where: u.is_active == true,
       where: u.uuid != ^excluding_user_uuid,
-      select: count(u.id)
+      select: count(u.uuid)
     )
     |> Repo.one() || 0
   end
@@ -2363,7 +2332,7 @@ defmodule PhoenixKit.Users.Auth do
           # 5. Broadcast the deletion event
           Events.broadcast_user_deleted(user)
 
-          %{deleted_user_id: user.id, anonymized_records: anonymized_count}
+          %{deleted_user_uuid: user.uuid, anonymized_records: anonymized_count}
 
         {:error, changeset} ->
           Repo.rollback({:error, changeset})
@@ -2624,8 +2593,8 @@ defmodule PhoenixKit.Users.Auth do
     user_agent = Map.get(opts, :user_agent)
 
     Logger.info(
-      "PhoenixKit: User #{user.id} (#{user.email}) deleted by " <>
-        "#{if current_user, do: "admin #{current_user.id} (#{current_user.email})", else: "system"}. " <>
+      "PhoenixKit: User #{user.uuid} (#{user.email}) deleted by " <>
+        "#{if current_user, do: "admin #{current_user.uuid} (#{current_user.email})", else: "system"}. " <>
         "Anonymized #{anonymized_count} records."
     )
 
@@ -2635,9 +2604,7 @@ defmodule PhoenixKit.Users.Auth do
     if Code.ensure_loaded?(audit_module) and
          function_exported?(audit_module, :create_log_entry, 1) do
       log_attrs = %{
-        target_user_id: user.id,
         target_user_uuid: user.uuid,
-        admin_user_id: current_user && current_user.id,
         admin_user_uuid: current_user && current_user.uuid,
         action: :user_deleted,
         ip_address: ip_address,

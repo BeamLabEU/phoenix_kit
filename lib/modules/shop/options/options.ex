@@ -347,9 +347,8 @@ defmodule PhoenixKit.Modules.Shop.Options do
     category_opts =
       case product do
         %{category: %Category{} = cat} -> get_category_options(cat)
-        %{category_uuid: nil, category_id: nil} -> []
+        %{category_uuid: nil} -> []
         %{category_uuid: uuid} when is_binary(uuid) -> get_category_options(uuid)
-        %{category_id: id} when is_integer(id) -> get_category_options(id)
         _ -> []
       end
 

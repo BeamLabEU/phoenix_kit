@@ -46,7 +46,6 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
         beneficiary ->
           code_params
-          |> Map.put("beneficiary", beneficiary.id)
           |> Map.put("beneficiary_uuid", beneficiary.uuid)
       end
 
@@ -77,7 +76,6 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
         beneficiary ->
           code_params
-          |> Map.put("beneficiary", beneficiary.id)
           |> Map.put("beneficiary_uuid", beneficiary.uuid)
       end
 
@@ -102,7 +100,6 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
         beneficiary ->
           updated_changes
-          |> Map.put(:beneficiary, beneficiary.id)
           |> Map.put(:beneficiary_uuid, beneficiary.uuid)
       end
 
@@ -146,7 +143,6 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
     updated_changes =
       current_changes
-      |> Map.put(:beneficiary, if(selected_user, do: selected_user.id))
       |> Map.put(:beneficiary_uuid, if(selected_user, do: selected_user.uuid))
 
     changeset =
@@ -246,7 +242,6 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
       user when not is_nil(user) ->
         params =
           code_params
-          |> Map.put("created_by", user.id)
           |> Map.put("created_by_uuid", user.uuid)
 
         {params, user.uuid}
@@ -258,15 +253,12 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
   defp extract_user_from_scope(socket, code_params) do
     case socket.assigns do
-      %{phoenix_kit_current_scope: %{user_id: user_id} = scope} when not is_nil(user_id) ->
-        user_uuid = Map.get(scope, :user_uuid)
-
+      %{phoenix_kit_current_scope: %{user_uuid: user_uuid}} when not is_nil(user_uuid) ->
         params =
           code_params
-          |> Map.put("created_by", user_id)
           |> Map.put("created_by_uuid", user_uuid)
 
-        {params, user_uuid || user_id}
+        {params, user_uuid}
 
       _ ->
         Logger.warning("Socket assigns when current_user is nil: #{inspect(socket.assigns)}")

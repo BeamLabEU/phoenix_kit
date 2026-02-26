@@ -427,16 +427,11 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets a currency by ID or UUID.
   """
-  def get_currency(id) when is_integer(id), do: repo().get_by(Currency, id: id)
-
   def get_currency(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       repo().get_by(Currency, uuid: id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_currency(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -646,16 +641,11 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets a billing profile by ID or UUID, returns nil if not found.
   """
-  def get_billing_profile(id) when is_integer(id), do: repo().get_by(BillingProfile, id: id)
-
   def get_billing_profile(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       repo().get_by(BillingProfile, uuid: id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_billing_profile(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -682,14 +672,12 @@ defmodule PhoenixKit.Modules.Billing do
   Creates a billing profile.
   """
   def create_billing_profile(user_or_id, attrs) do
-    user_id = extract_user_id(user_or_id)
     user_uuid = extract_user_uuid(user_or_id)
 
     result =
       %BillingProfile{}
       |> BillingProfile.changeset(
         attrs
-        |> Map.put("user_id", user_id)
         |> Map.put("user_uuid", user_uuid)
       )
       |> repo().insert()
@@ -699,7 +687,7 @@ defmodule PhoenixKit.Modules.Billing do
       {:ok, profile} ->
         Events.broadcast_profile_created(profile)
 
-        if count_user_profiles(user_id) == 1 do
+        if count_user_profiles(user_uuid) == 1 do
           set_default_billing_profile(profile)
         else
           {:ok, profile}
@@ -866,15 +854,6 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def get_order(id, opts \\ [])
 
-  def get_order(id, opts) when is_integer(id) do
-    preloads = Keyword.get(opts, :preload, [:user, :billing_profile])
-
-    Order
-    |> where([o], o.id == ^id)
-    |> preload(^preloads)
-    |> repo().one()
-  end
-
   def get_order(id, opts) when is_binary(id) do
     preloads = Keyword.get(opts, :preload, [:user, :billing_profile])
 
@@ -884,10 +863,7 @@ defmodule PhoenixKit.Modules.Billing do
       |> preload(^preloads)
       |> repo().one()
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_order(int_id, opts)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -920,14 +896,12 @@ defmodule PhoenixKit.Modules.Billing do
   Creates an order for a user.
   """
   def create_order(user_or_id, attrs) do
-    user_id = extract_user_id(user_or_id)
     user_uuid = extract_user_uuid(user_or_id)
     config = get_config()
 
     # Use string key to match other attrs (avoid mixed keys error)
     attrs =
       attrs
-      |> Map.put("user_id", user_id)
       |> Map.put("user_uuid", user_uuid)
       |> maybe_set_default_currency()
       |> maybe_set_order_number(config)
@@ -949,33 +923,13 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   @doc """
-  Creates an order from attributes (user_id included in attrs).
+  Creates an order from attributes (user_uuid included in attrs).
   """
   def create_order(attrs) when is_map(attrs) do
     config = get_config()
 
-    # Resolve user_uuid from user_id if not already present
-    user_id = Map.get(attrs, :user_id) || Map.get(attrs, "user_id")
+    # Resolve user_uuid from attrs
     user_uuid = Map.get(attrs, :user_uuid) || Map.get(attrs, "user_uuid")
-
-    user_uuid =
-      if user_uuid do
-        user_uuid
-      else
-        cond do
-          is_integer(user_id) ->
-            extract_user_uuid(user_id)
-
-          is_binary(user_id) ->
-            case Integer.parse(user_id) do
-              {int_id, ""} -> extract_user_uuid(int_id)
-              _ -> user_id
-            end
-
-          true ->
-            nil
-        end
-      end
 
     attrs =
       attrs
@@ -1322,15 +1276,6 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def get_invoice(id, opts \\ [])
 
-  def get_invoice(id, opts) when is_integer(id) do
-    preloads = Keyword.get(opts, :preload, [:user, :order])
-
-    Invoice
-    |> where([i], i.id == ^id)
-    |> preload(^preloads)
-    |> repo().one()
-  end
-
   def get_invoice(id, opts) when is_binary(id) do
     preloads = Keyword.get(opts, :preload, [:user, :order])
 
@@ -1340,10 +1285,7 @@ defmodule PhoenixKit.Modules.Billing do
       |> preload(^preloads)
       |> repo().one()
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_invoice(int_id, opts)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -1355,13 +1297,6 @@ defmodule PhoenixKit.Modules.Billing do
   def list_invoices_for_order(order_uuid) when is_binary(order_uuid) do
     Invoice
     |> where([i], i.order_uuid == ^order_uuid)
-    |> order_by([i], desc: i.inserted_at)
-    |> repo().all()
-  end
-
-  def list_invoices_for_order(order_id) when is_integer(order_id) do
-    Invoice
-    |> where([i], fragment("order_id = ?", ^order_id))
     |> order_by([i], desc: i.inserted_at)
     |> repo().all()
   end
@@ -1410,13 +1345,11 @@ defmodule PhoenixKit.Modules.Billing do
   Creates a standalone invoice (without order).
   """
   def create_invoice(user_or_id, attrs) do
-    user_id = extract_user_id(user_or_id)
     user_uuid = extract_user_uuid(user_or_id)
     config = get_config()
 
     attrs =
       attrs
-      |> Map.put(:user_id, user_id)
       |> Map.put(:user_uuid, user_uuid)
       |> Map.put_new(:invoice_number, generate_invoice_number(config.invoice_prefix))
 
@@ -1547,9 +1480,8 @@ defmodule PhoenixKit.Modules.Billing do
           "billing_invoice",
           email,
           variables,
-          user_id: user && user.id,
           user_uuid: user && user.uuid,
-          metadata: %{invoice_id: invoice.id, invoice_number: invoice.invoice_number}
+          metadata: %{invoice_uuid: invoice.uuid, invoice_number: invoice.invoice_number}
         )
     end
   end
@@ -1643,10 +1575,9 @@ defmodule PhoenixKit.Modules.Billing do
           "billing_receipt",
           email,
           variables,
-          user_id: user && user.id,
           user_uuid: user && user.uuid,
           metadata: %{
-            invoice_id: invoice.id,
+            invoice_uuid: invoice.uuid,
             receipt_number: invoice.receipt_number,
             invoice_number: invoice.invoice_number
           }
@@ -1753,11 +1684,10 @@ defmodule PhoenixKit.Modules.Billing do
           "billing_credit_note",
           email,
           variables,
-          user_id: user && user.id,
           user_uuid: user && user.uuid,
           metadata: %{
-            invoice_id: invoice.id,
-            transaction_id: transaction.id,
+            invoice_uuid: invoice.uuid,
+            transaction_uuid: transaction.uuid,
             invoice_number: invoice.invoice_number,
             transaction_number: transaction.transaction_number
           }
@@ -1887,11 +1817,10 @@ defmodule PhoenixKit.Modules.Billing do
           "billing_payment_confirmation",
           email,
           variables,
-          user_id: user && user.id,
           user_uuid: user && user.uuid,
           metadata: %{
-            invoice_id: invoice.id,
-            transaction_id: transaction.id,
+            invoice_uuid: invoice.uuid,
+            transaction_uuid: transaction.uuid,
             invoice_number: invoice.invoice_number,
             transaction_number: transaction.transaction_number
           }
@@ -2162,7 +2091,7 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def calculate_receipt_status(invoice, transactions \\ nil) do
     # Get transactions if not provided
-    transactions = transactions || list_invoice_transactions(invoice.id)
+    transactions = transactions || list_invoice_transactions(invoice.uuid)
 
     total_refunded =
       transactions
@@ -2322,7 +2251,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Examples
 
-      Billing.list_transactions(invoice_id: 1)
+      Billing.list_transactions(invoice_uuid: "some-uuid")
       Billing.list_transactions(type: "payment", limit: 10)
   """
   def list_transactions(opts \\ []) do
@@ -2401,7 +2330,7 @@ defmodule PhoenixKit.Modules.Billing do
 
     count_query =
       Transaction
-      |> select([t], count(t.id))
+      |> select([t], count(t.uuid))
 
     count_query =
       cond do
@@ -2449,34 +2378,17 @@ defmodule PhoenixKit.Modules.Billing do
     list_transactions(invoice_uuid: invoice_uuid, preload: [:user])
   end
 
-  def list_invoice_transactions(invoice_id) when is_integer(invoice_id) do
-    list_transactions(invoice_id: invoice_id, preload: [:user])
-  end
-
   @doc """
   Gets a transaction by ID or UUID.
   """
   def get_transaction(id, opts \\ [])
-
-  def get_transaction(id, opts) when is_integer(id) do
-    transaction = repo().get_by(Transaction, id: id)
-
-    if transaction && opts[:preload] do
-      repo().preload(transaction, opts[:preload])
-    else
-      transaction
-    end
-  end
 
   def get_transaction(id, opts) when is_binary(id) do
     transaction =
       if UUIDUtils.valid?(id) do
         repo().get_by(Transaction, uuid: id)
       else
-        case Integer.parse(id) do
-          {int_id, ""} -> repo().get_by(Transaction, id: int_id)
-          _ -> nil
-        end
+        nil
       end
 
     if transaction && opts[:preload] do
@@ -2573,9 +2485,7 @@ defmodule PhoenixKit.Modules.Billing do
       currency: invoice.currency,
       payment_method: attrs[:payment_method] || attrs["payment_method"] || "bank",
       description: attrs[:description] || attrs["description"],
-      invoice_id: invoice.id,
       invoice_uuid: invoice.uuid,
-      user_id: extract_user_id(admin_user),
       user_uuid: extract_user_uuid(admin_user)
     }
 
@@ -2607,7 +2517,7 @@ defmodule PhoenixKit.Modules.Billing do
 
           # Handle refund: update receipt status and check for full refund
           if Decimal.negative?(amount) do
-            handle_refund_transaction(invoice.id)
+            handle_refund_transaction(invoice.uuid)
             Events.broadcast_transaction_refunded(transaction)
           else
             Events.broadcast_transaction_created(transaction)
@@ -2635,16 +2545,7 @@ defmodule PhoenixKit.Modules.Billing do
     end
   end
 
-  def calculate_invoice_paid_amount(invoice_id) when is_integer(invoice_id) do
-    Transaction
-    |> where([t], fragment("invoice_id = ?", ^invoice_id))
-    |> select([t], sum(t.amount))
-    |> repo().one()
-    |> case do
-      nil -> Decimal.new(0)
-      amount -> amount
-    end
-  end
+  def calculate_invoice_paid_amount(_), do: Decimal.new(0)
 
   @doc """
   Updates an invoice's paid_amount based on its transactions.
@@ -2798,15 +2699,6 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def get_subscription(id, opts \\ [])
 
-  def get_subscription(id, opts) when is_integer(id) do
-    preloads = Keyword.get(opts, :preload, [])
-
-    case repo().get_by(Subscription, id: id) do
-      nil -> nil
-      subscription -> repo().preload(subscription, preloads)
-    end
-  end
-
   def get_subscription(id, opts) when is_binary(id) do
     preloads = Keyword.get(opts, :preload, [])
 
@@ -2814,10 +2706,7 @@ defmodule PhoenixKit.Modules.Billing do
       if UUIDUtils.valid?(id) do
         repo().get_by(Subscription, uuid: id)
       else
-        case Integer.parse(id) do
-          {int_id, ""} -> repo().get_by(Subscription, id: int_id)
-          _ -> nil
-        end
+        nil
       end
 
     if subscription, do: repo().preload(subscription, preloads), else: nil
@@ -2852,8 +2741,8 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Examples
 
-      Billing.create_subscription(user.id, %{plan_id: plan.id})
-      Billing.create_subscription(user.id, %{plan_id: plan.id, trial_days: 14})
+      Billing.create_subscription(user.uuid, %{plan_id: plan.uuid})
+      Billing.create_subscription(user.uuid, %{plan_id: plan.uuid, trial_days: 14})
   """
   def create_subscription(user_id, attrs) do
     plan_id = attrs[:plan_id] || attrs["plan_id"]
@@ -3017,22 +2906,12 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets a subscription plan by ID or UUID.
   """
-  def get_subscription_plan(id) when is_integer(id) do
-    case repo().get_by(SubscriptionPlan, id: id) do
-      nil -> {:error, :plan_not_found}
-      plan -> {:ok, plan}
-    end
-  end
-
   def get_subscription_plan(id) when is_binary(id) do
     plan =
       if UUIDUtils.valid?(id) do
         repo().get_by(SubscriptionPlan, uuid: id)
       else
-        case Integer.parse(id) do
-          {int_id, ""} -> repo().get_by(SubscriptionPlan, id: int_id)
-          _ -> nil
-        end
+        nil
       end
 
     case plan do
@@ -3143,18 +3022,11 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets a payment method by ID or UUID.
   """
-  def get_payment_method(id) when is_integer(id) do
-    repo().get_by(PaymentMethod, id: id)
-  end
-
   def get_payment_method(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       repo().get_by(PaymentMethod, uuid: id)
     else
-      case Integer.parse(id) do
-        {int_id, ""} -> get_payment_method(int_id)
-        _ -> nil
-      end
+      nil
     end
   end
 
@@ -3253,7 +3125,7 @@ defmodule PhoenixKit.Modules.Billing do
       success_url: success_url,
       cancel_url: cancel_url,
       metadata: %{
-        invoice_id: invoice.id,
+        invoice_uuid: invoice.uuid,
         invoice_number: invoice.invoice_number
       }
     }
@@ -3307,27 +3179,12 @@ defmodule PhoenixKit.Modules.Billing do
   # HELPERS
   # ============================================
 
-  defp extract_user_id(%{user: %{id: id}}), do: id
-  defp extract_user_id(%{id: id}), do: id
-  defp extract_user_id(id) when is_integer(id), do: id
-  defp extract_user_id(nil), do: nil
-
   defp extract_user_uuid(%{user: %{uuid: uuid}}), do: uuid
   defp extract_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-
-  defp extract_user_uuid(id) when is_integer(id) do
-    alias PhoenixKit.Users.Auth.User
-    import Ecto.Query, only: [from: 2]
-    from(u in User, where: u.id == ^id, select: u.uuid) |> repo().one()
-  end
-
+  defp extract_user_uuid(uuid) when is_binary(uuid), do: uuid
   defp extract_user_uuid(_), do: nil
 
   # Resolves subscription plan UUID from various input types
-  defp resolve_plan_uuid(id) when is_integer(id) do
-    from(sp in SubscriptionPlan, where: sp.id == ^id, select: sp.uuid) |> repo().one()
-  end
-
   defp resolve_plan_uuid(id) when is_binary(id) do
     case Ecto.UUID.cast(id) do
       {:ok, _} -> id
@@ -3443,15 +3300,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets a payment option by ID.
   """
-  def get_payment_option(id) when is_integer(id) do
-    repo().get_by(PaymentOption, id: id)
-  end
-
-  def get_payment_option(id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int_id, ""} -> get_payment_option(int_id)
-      _ -> nil
-    end
+  def get_payment_option(uuid) when is_binary(uuid) do
+    repo().get_by(PaymentOption, uuid: uuid)
   end
 
   @doc """

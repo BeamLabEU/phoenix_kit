@@ -50,7 +50,6 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_subscriptions" do
-    field :id, :integer, read_after_writes: true
     field :status, :string, default: "active"
 
     # Billing period

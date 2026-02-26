@@ -173,7 +173,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   """
   def add_tracking_headers(%Email{} = email, %Log{} = log, opts \\ []) do
     tracking_headers = %{
-      "X-PhoenixKit-Log-Id" => to_string(log.id),
+      "X-PhoenixKit-Log-Id" => to_string(log.uuid),
       "X-PhoenixKit-Message-Id" => log.message_id
     }
 
@@ -241,7 +241,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   """
   def update_after_send(%Log{} = log, provider_response \\ %{}) do
     Logger.info("EmailInterceptor: Updating email log after send", %{
-      log_id: log.id,
+      log_id: log.uuid,
       current_message_id: log.message_id,
       response_keys:
         if(is_map(provider_response), do: Map.keys(provider_response), else: "not_map")
@@ -253,19 +253,19 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
     }
 
     # Extract additional data from provider response
-    extraction_result = extract_provider_data(provider_response, log.id)
+    extraction_result = extract_provider_data(provider_response, log.uuid)
 
     update_attrs =
       case extraction_result do
         %{message_id: aws_message_id} = provider_data when is_binary(aws_message_id) ->
           Logger.info("EmailInterceptor: Storing AWS message_id in aws_message_id field", %{
-            log_id: log.id,
+            log_id: log.uuid,
             internal_message_id: log.message_id,
             aws_message_id: aws_message_id
           })
 
           # Log successful extraction metric
-          log_extraction_metric(true, log.id, aws_message_id)
+          log_extraction_metric(true, log.uuid, aws_message_id)
 
           # Store the AWS message_id in the dedicated aws_message_id field
           # Keep internal pk_ message_id in the message_id field for compatibility
@@ -288,7 +288,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
         %{} = provider_data when map_size(provider_data) > 0 ->
           # Log failed extraction metric - provider data exists but no message_id
-          log_extraction_metric(false, log.id, nil)
+          log_extraction_metric(false, log.uuid, nil)
 
           # Store full provider response for manual analysis
           updated_message_tags =
@@ -303,10 +303,10 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
         _ ->
           # Log failed extraction metric - no provider data at all
-          log_extraction_metric(false, log.id, nil)
+          log_extraction_metric(false, log.uuid, nil)
 
           Logger.warning("EmailInterceptor: No provider data extracted", %{
-            log_id: log.id,
+            log_id: log.uuid,
             response: inspect(provider_response) |> String.slice(0, 300)
           })
 
@@ -324,20 +324,20 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
     case Log.update_log(log, update_attrs) do
       {:ok, updated_log} ->
         Logger.info("EmailInterceptor: Successfully updated email log", %{
-          log_id: updated_log.id,
+          log_id: updated_log.uuid,
           internal_message_id: updated_log.message_id,
           aws_message_id: updated_log.aws_message_id,
           status: updated_log.status
         })
 
         # Create send event
-        Event.create_send_event(updated_log.id, updated_log.provider)
+        Event.create_send_event(updated_log.uuid, updated_log.provider)
 
         {:ok, updated_log}
 
       {:error, reason} ->
         Logger.error("EmailInterceptor: Failed to update email log", %{
-          log_id: log.id,
+          log_id: log.uuid,
           reason: inspect(reason),
           update_attrs: update_attrs
         })
@@ -855,12 +855,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   defp type_of(value) when is_integer(value), do: "integer"
   defp type_of(_), do: "other"
 
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> PhoenixKit.RepoHelper.repo().one()
-  end
-
+  # Resolves user UUID from user_uuid string (passthrough) or nil
+  defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
   defp resolve_user_uuid(_), do: nil
 end

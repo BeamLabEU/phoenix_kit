@@ -25,7 +25,6 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_transactions" do
-    field :id, :integer, read_after_writes: true
     field :transaction_number, :string
     field :amount, :decimal
     field :currency, :string, default: "EUR"

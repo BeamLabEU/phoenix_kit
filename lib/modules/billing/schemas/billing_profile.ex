@@ -65,7 +65,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   @valid_types ~w(individual company)
 
   schema "phoenix_kit_billing_profiles" do
-    field :id, :integer, read_after_writes: true
     field :type, :string, default: "individual"
     field :is_default, :boolean, default: false
     field :name, :string
@@ -212,7 +211,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   """
   def to_snapshot(%__MODULE__{} = profile) do
     %{
-      profile_id: profile.id,
       profile_uuid: profile.uuid,
       type: profile.type,
       name: profile.name,

@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
 
       profile ->
         # Verify ownership
-        if profile.user_id != socket.assigns.user.id do
+        if profile.user_uuid != socket.assigns.user.uuid do
           socket
           |> put_flash(:error, "Access denied")
           |> push_navigate(to: Routes.path("/dashboard/billing-profiles"))
@@ -105,7 +105,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
   def handle_event("save", %{"billing_profile" => params}, socket) do
     params =
       params
-      |> Map.put("user_id", socket.assigns.user.id)
+      |> Map.put("user_uuid", socket.assigns.user.uuid)
       |> Map.put("type", socket.assigns.profile_type)
 
     save_profile(socket, params)
@@ -116,7 +116,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
       if socket.assigns.profile do
         Billing.update_billing_profile(socket.assigns.profile, params)
       else
-        Billing.create_billing_profile(socket.assigns.user.id, params)
+        Billing.create_billing_profile(socket.assigns.user.uuid, params)
       end
 
     case result do

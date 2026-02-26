@@ -201,7 +201,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
   defp get_related_emails(%Log{
          campaign_id: campaign_id,
          template_name: template_name,
-         id: current_id
+         uuid: current_uuid
        }) do
     filters = %{limit: 10}
 
@@ -213,7 +213,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
       end
 
     Emails.list_logs(filters)
-    |> Enum.reject(fn log -> log.id == current_id end)
+    |> Enum.reject(fn log -> log.uuid == current_uuid end)
   end
 
   defp get_related_emails(_), do: []

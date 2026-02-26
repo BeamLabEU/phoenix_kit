@@ -60,7 +60,6 @@ defmodule PhoenixKit.Modules.Comments do
   alias PhoenixKit.Modules.Comments.CommentDislike
   alias PhoenixKit.Modules.Comments.CommentLike
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
@@ -182,29 +181,24 @@ defmodule PhoenixKit.Modules.Comments do
   """
   def create_comment(resource_type, resource_id, user_id, attrs) when is_binary(user_id) do
     if UUIDUtils.valid?(user_id) do
-      do_create_comment(resource_type, resource_id, user_id, resolve_user_id(user_id), attrs)
+      do_create_comment(resource_type, resource_id, user_id, attrs)
     else
-      case Integer.parse(user_id) do
-        {int_id, ""} ->
-          create_comment(resource_type, resource_id, int_id, attrs)
-
-        _ ->
-          {:error, :invalid_user_id}
-      end
+      {:error, :invalid_user_id}
     end
   end
 
-  def create_comment(resource_type, resource_id, user_id, attrs) when is_integer(user_id) do
-    do_create_comment(resource_type, resource_id, resolve_user_uuid(user_id), user_id, attrs)
+  def create_comment(_resource_type, _resource_id, user_id, _attrs) when is_integer(user_id) do
+    raise ArgumentError,
+          "create_comment/4 expects a UUID string for user_id, got integer: #{user_id}. " <>
+            "Use user.uuid instead of user.id"
   end
 
-  defp do_create_comment(resource_type, resource_id, user_uuid, user_int_id, attrs) do
+  defp do_create_comment(resource_type, resource_id, user_uuid, attrs) do
     repo().transaction(fn ->
       attrs =
         attrs
         |> Map.put(:resource_type, resource_type)
         |> Map.put(:resource_uuid, resource_id)
-        |> Map.put(:user_id, user_int_id)
         |> Map.put(:user_uuid, user_uuid)
         |> maybe_calculate_depth()
 
@@ -687,14 +681,11 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    from(u in Auth.User, where: u.id == ^user_id, select: u.uuid)
-    |> repo().one()
+    # Integer IDs are no longer supported
+    nil
   end
 
-  defp resolve_user_id(user_uuid) when is_binary(user_uuid) do
-    from(u in Auth.User, where: u.uuid == ^user_uuid, select: u.id)
-    |> repo().one()
-  end
+  defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
 
   defp notify_resource_handler(callback, resource_type, resource_id, comment) do
     handlers = resource_handlers()

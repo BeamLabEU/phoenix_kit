@@ -335,7 +335,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
   defp estimate_compression_savings(query) do
     stats_query =
       from l in query,
-        select: {count(l.id), sum(fragment("LENGTH(?)", l.body_full))}
+        select: {count(l.uuid), sum(fragment("LENGTH(?)", l.body_full))}
 
     case repo().one(stats_query) do
       {count, total_size} when not is_nil(total_size) ->
@@ -461,7 +461,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
     archive_logs =
       if include_events do
         Enum.map(logs, fn log ->
-          events = repo().all(from e in Event, where: e.email_log_id == ^log.id)
+          events = repo().all(from e in Event, where: e.email_log_uuid == ^log.uuid)
           Map.put(log, :events, events)
         end)
       else
@@ -480,13 +480,13 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
 
   defp prepare_archive_data(logs, :csv, _include_events) do
     # CSV format implementation
-    header = "id,message_id,to,from,subject,status,sent_at,delivered_at\n"
+    header = "uuid,message_id,to,from,subject,status,sent_at,delivered_at\n"
 
     rows =
       logs
       |> Enum.map_join("\n", fn log ->
         [
-          log.id,
+          log.uuid,
           log.message_id,
           log.to,
           log.from,
@@ -537,11 +537,9 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
 
   defp delete_archived_logs(logs) do
     log_uuids = Enum.map(logs, & &1.uuid)
-    log_int_ids = Enum.map(logs, & &1.id)
 
     # Delete events first (foreign key constraint)
-    # email_log_id is an integer FK referencing Log's integer id column
-    from(e in Event, where: e.email_log_id in ^log_int_ids)
+    from(e in Event, where: e.email_log_uuid in ^log_uuids)
     |> repo().delete_all()
 
     # Delete logs
@@ -580,11 +578,11 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
   ## --- Statistics Implementation ---
 
   defp count_total_logs do
-    repo().one(from l in Log, select: count(l.id)) || 0
+    repo().one(from l in Log, select: count(l.uuid)) || 0
   end
 
   defp count_total_events do
-    repo().one(from e in Event, select: count(e.id)) || 0
+    repo().one(from e in Event, select: count(e.uuid)) || 0
   end
 
   defp count_compressed_bodies do
@@ -592,7 +590,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
     repo().one(
       from l in Log,
         where: fragment("? LIKE 'H4sI%'", l.body_full),
-        select: count(l.id)
+        select: count(l.uuid)
     ) || 0
   end
 
@@ -636,13 +634,13 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
   defp get_period_stats(start_time, end_time) do
     query = from l in Log, where: l.sent_at >= ^start_time and l.sent_at < ^end_time
 
-    count = repo().one(from l in query, select: count(l.id)) || 0
+    count = repo().one(from l in query, select: count(l.uuid)) || 0
 
     compressed =
       repo().one(
         from l in query,
           where: fragment("? LIKE 'H4sI%'", l.body_full),
-          select: count(l.id)
+          select: count(l.uuid)
       ) || 0
 
     %{

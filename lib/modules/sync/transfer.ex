@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
       # Create a transfer record
       {:ok, transfer} = Transfers.create_transfer(%{
         direction: "receive",
-        connection_id: conn.id,
+        connection_uuid: conn.uuid,
         table_name: "users",
         records_requested: 100,
         conflict_strategy: "skip"
@@ -73,7 +73,6 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
   schema "phoenix_kit_sync_transfers" do
-    field :id, :integer, read_after_writes: true
     field :direction, :string
     field :session_code, :string
     field :remote_site_url, :string
@@ -363,12 +362,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
     DateTime.diff(completed_at, started_at, :second)
   end
 
-  # Resolves user UUID from integer user_id (dual-write)
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> PhoenixKit.RepoHelper.repo().one()
-  end
-
+  # Resolves user UUID from any user identifier
+  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
   defp resolve_user_uuid(_), do: nil
 end

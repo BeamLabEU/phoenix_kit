@@ -507,7 +507,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                       <td>{category.position}</td>
                       <td>
                         <span class="badge badge-ghost badge-sm">
-                          {Map.get(@product_counts, category.id, 0)}
+                          {Map.get(@product_counts, category.uuid, 0)}
                         </span>
                       </td>
                       <td class="text-right">

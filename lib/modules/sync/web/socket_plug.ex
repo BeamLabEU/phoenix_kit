@@ -170,7 +170,7 @@ defmodule PhoenixKit.Modules.Sync.Web.SocketPlug do
             Plug.Conn.halt(conn)
 
           {:error, :invalid_password} ->
-            Logger.warning("Sync: Invalid download password for connection #{db_connection.id}")
+            Logger.warning("Sync: Invalid download password for connection #{db_connection.uuid}")
             send_forbidden(conn, "Invalid password")
         end
 

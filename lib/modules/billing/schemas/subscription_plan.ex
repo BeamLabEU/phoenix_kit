@@ -45,7 +45,6 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionPlan do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_subscription_plans" do
-    field :id, :integer, read_after_writes: true
     field :name, :string
     field :slug, :string
     field :description, :string

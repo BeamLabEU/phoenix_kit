@@ -16,9 +16,9 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   The Imports LiveView enqueues jobs after file upload:
 
       CSVImportWorker.new(%{
-        import_log_id: log.id,
+        import_log_id: log.uuid,
         path: "/tmp/uploads/products.csv",
-        config_id: config.id  # optional
+        config_id: config.uuid  # optional
       })
       |> Oban.insert()
 
@@ -181,7 +181,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp start_import(import_log, total_rows, format_mod) do
     with {:ok, updated_log} <- Shop.start_import(import_log, total_rows) do
-      broadcast_started(import_log.id, total_rows)
+      broadcast_started(import_log.uuid, total_rows)
 
       Logger.info(
         "CSVImportWorker: Format #{FormatDetector.format_name(format_mod)}, #{total_rows} products"
@@ -202,7 +202,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
        ) do
     categories_map = build_categories_map()
     download_images = download_images_arg || should_download_images?(config)
-    user_id = import_log.user_id
+    user_id = import_log.user_uuid
 
     opts = [language: language, option_mappings: option_mappings]
 
@@ -225,7 +225,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
         new_acc = maybe_queue_image_migration(new_acc, result, download_images, user_id)
 
         if rem(index, @progress_interval) == 0 do
-          broadcast_progress(import_log.id, index, import_log.total_rows, new_acc)
+          broadcast_progress(import_log.uuid, index, import_log.total_rows, new_acc)
         end
 
         new_acc
@@ -260,14 +260,14 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
         %{
           stats
           | imported_count: stats.imported_count + 1,
-            product_ids: [product.id | stats.product_ids]
+            product_ids: [product.uuid | stats.product_ids]
         }
 
       {:updated, _handle, product} ->
         %{
           stats
           | updated_count: stats.updated_count + 1,
-            product_ids: [product.id | stats.product_ids]
+            product_ids: [product.uuid | stats.product_ids]
         }
 
       {:error, handle, error} ->
@@ -319,7 +319,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
     if has_legacy and not has_storage do
       ImageMigrationWorker.new(%{
-        product_id: product.id,
+        product_id: product.uuid,
         user_id: user_id
       })
       |> Oban.insert()
@@ -358,10 +358,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     Enum.each(empty_categories, fn cat ->
       case Shop.delete_category(cat) do
         {:ok, _} ->
-          Logger.info("CSVImportWorker: Removed empty category: #{cat.id}")
+          Logger.info("CSVImportWorker: Removed empty category: #{cat.uuid}")
 
         {:error, _} ->
-          Logger.warning("CSVImportWorker: Failed to remove empty category: #{cat.id}")
+          Logger.warning("CSVImportWorker: Failed to remove empty category: #{cat.uuid}")
       end
     end)
 

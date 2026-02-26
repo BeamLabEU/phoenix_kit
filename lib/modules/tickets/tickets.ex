@@ -57,7 +57,6 @@ defmodule PhoenixKit.Modules.Tickets do
   alias PhoenixKit.Dashboard.Tab
 
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   alias PhoenixKit.Modules.Tickets.{
@@ -251,53 +250,20 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> create_ticket(42, %{title: ""})
       {:error, %Ecto.Changeset{}}
   """
-  def create_ticket(user_id, attrs) when is_integer(user_id) do
-    user_uuid = resolve_user_uuid(user_id)
-
-    attrs =
-      attrs
-      |> Map.put("user_id", user_id)
-      |> Map.put("user_uuid", user_uuid)
-      |> Map.put("status", "open")
-
-    repo().transaction(fn ->
-      case %Ticket{}
-           |> Ticket.changeset(attrs)
-           |> repo().insert() do
-        {:ok, ticket} ->
-          # Record initial status in history
-          create_status_history(ticket.uuid, user_id, nil, "open", nil)
-
-          # Broadcast event for real-time updates
-          Events.broadcast_ticket_created(ticket)
-
-          ticket
-
-        {:error, changeset} ->
-          repo().rollback(changeset)
-      end
-    end)
+  def create_ticket(user_id, _attrs) when is_integer(user_id) do
+    raise ArgumentError,
+          "create_ticket/2 expects a UUID string for user_id, got integer: #{user_id}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   def create_ticket(user_id, attrs) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} -> create_ticket(int_id, attrs)
-      _ -> create_ticket_with_uuid(user_id, attrs)
-    end
+    create_ticket_with_uuid(user_id, attrs)
   end
 
   defp create_ticket_with_uuid(user_uuid, attrs) do
-    # Resolve user's integer ID for status history audit trail
-    user_int_id =
-      case Auth.get_user(user_uuid) do
-        %{id: id} -> id
-        _ -> nil
-      end
-
     attrs =
       attrs
       |> Map.put("user_uuid", user_uuid)
-      |> Map.put("user_id", user_int_id)
       |> Map.put("status", "open")
 
     repo().transaction(fn ->
@@ -305,7 +271,7 @@ defmodule PhoenixKit.Modules.Tickets do
            |> Ticket.changeset(attrs)
            |> repo().insert() do
         {:ok, ticket} ->
-          create_status_history(ticket.uuid, user_int_id, nil, "open", nil)
+          create_status_history(ticket.uuid, user_uuid, nil, "open", nil)
           Events.broadcast_ticket_created(ticket)
           ticket
 
@@ -527,13 +493,13 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> assign_ticket(ticket, 5, current_user)
       {:ok, %Ticket{assigned_to_id: 5}}
   """
-  def assign_ticket(%Ticket{} = ticket, handler_id, changed_by) when is_integer(handler_id) do
-    changed_by_id = get_user_id(changed_by)
-    old_assignee_id = ticket.assigned_to_id
-    handler_uuid = resolve_user_uuid(handler_id)
+  def assign_ticket(%Ticket{} = ticket, handler_uuid, changed_by)
+      when is_binary(handler_uuid) do
+    changed_by_uuid = get_user_uuid(changed_by)
+    old_assignee_uuid = ticket.assigned_to_uuid
 
     repo().transaction(fn ->
-      attrs = %{assigned_to_id: handler_id, assigned_to_uuid: handler_uuid}
+      attrs = %{assigned_to_uuid: handler_uuid}
 
       # If ticket is open, move to in_progress
       {attrs, new_status} =
@@ -548,7 +514,7 @@ defmodule PhoenixKit.Modules.Tickets do
           if new_status do
             create_status_history(
               ticket.uuid,
-              changed_by_id,
+              changed_by_uuid,
               ticket.status,
               new_status,
               "Assigned to handler"
@@ -556,7 +522,7 @@ defmodule PhoenixKit.Modules.Tickets do
           end
 
           # Broadcast assignment event
-          Events.broadcast_ticket_assigned(updated_ticket, old_assignee_id, handler_id)
+          Events.broadcast_ticket_assigned(updated_ticket, old_assignee_uuid, handler_uuid)
 
           updated_ticket
 
@@ -566,18 +532,11 @@ defmodule PhoenixKit.Modules.Tickets do
     end)
   end
 
-  def assign_ticket(%Ticket{} = ticket, handler_id, changed_by) when is_binary(handler_id) do
-    case Integer.parse(handler_id) do
-      {int_id, ""} ->
-        assign_ticket(ticket, int_id, changed_by)
-
-      _ ->
-        # UUID string - resolve to integer user ID
-        case Auth.get_user(handler_id) do
-          %{id: int_id} -> assign_ticket(ticket, int_id, changed_by)
-          nil -> {:error, :invalid_handler_id}
-        end
-    end
+  def assign_ticket(%Ticket{} = _ticket, handler_id, _changed_by)
+      when is_integer(handler_id) do
+    raise ArgumentError,
+          "assign_ticket/3 expects a UUID string for handler_id, got integer: #{handler_id}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -656,7 +615,7 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp transition_status(%Ticket{} = ticket, new_status, changed_by, reason \\ nil) do
-    changed_by_id = get_user_id(changed_by)
+    changed_by_id = get_user_uuid(changed_by)
     old_status = ticket.status
 
     if Ticket.valid_transition?(old_status, new_status) do
@@ -700,13 +659,10 @@ defmodule PhoenixKit.Modules.Tickets do
     end
   end
 
-  defp create_status_history(ticket_uuid, changed_by_id, from_status, to_status, reason) do
-    changed_by_uuid = if is_integer(changed_by_id), do: resolve_user_uuid(changed_by_id)
-
+  defp create_status_history(ticket_uuid, changed_by_uuid, from_status, to_status, reason) do
     %TicketStatusHistory{}
     |> TicketStatusHistory.changeset(%{
       ticket_uuid: ticket_uuid,
-      changed_by_id: changed_by_id,
       changed_by_uuid: changed_by_uuid,
       from_status: from_status,
       to_status: to_status,
@@ -734,27 +690,12 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, %TicketComment{}}
   """
   def create_comment(ticket_id, user_id, attrs) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} ->
-        create_comment(ticket_id, int_id, attrs)
-
-      _ ->
-        case Auth.get_user(user_id) do
-          %{id: int_id} -> create_comment(ticket_id, int_id, attrs)
-          nil -> {:error, :invalid_user_id}
-        end
-    end
-  end
-
-  def create_comment(ticket_id, user_id, attrs) when is_integer(user_id) do
-    user_uuid = resolve_user_uuid(user_id)
-
+    # Accept UUID strings directly
     attrs =
       attrs
       |> ensure_string_keys()
       |> Map.put("ticket_id", ticket_id)
-      |> Map.put("user_id", user_id)
-      |> Map.put("user_uuid", user_uuid)
+      |> Map.put("user_uuid", user_id)
       |> Map.put("is_internal", false)
 
     attrs = maybe_calculate_depth(attrs)
@@ -780,6 +721,12 @@ defmodule PhoenixKit.Modules.Tickets do
     end)
   end
 
+  def create_comment(_ticket_id, user_id, _attrs) when is_integer(user_id) do
+    raise ArgumentError,
+          "create_comment/3 expects a UUID string for user_id, got integer: #{user_id}. " <>
+            "Use user.uuid instead of user.id"
+  end
+
   @doc """
   Creates an internal note on a ticket (visible only to support staff).
 
@@ -795,27 +742,12 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, %TicketComment{is_internal: true}}
   """
   def create_internal_note(ticket_id, user_id, attrs) when is_binary(user_id) do
-    case Integer.parse(user_id) do
-      {int_id, ""} ->
-        create_internal_note(ticket_id, int_id, attrs)
-
-      _ ->
-        case Auth.get_user(user_id) do
-          %{id: int_id} -> create_internal_note(ticket_id, int_id, attrs)
-          nil -> {:error, :invalid_user_id}
-        end
-    end
-  end
-
-  def create_internal_note(ticket_id, user_id, attrs) when is_integer(user_id) do
-    user_uuid = resolve_user_uuid(user_id)
-
+    # Accept UUID strings directly
     attrs =
       attrs
       |> ensure_string_keys()
       |> Map.put("ticket_id", ticket_id)
-      |> Map.put("user_id", user_id)
-      |> Map.put("user_uuid", user_uuid)
+      |> Map.put("user_uuid", user_id)
       |> Map.put("is_internal", true)
 
     attrs = maybe_calculate_depth(attrs)
@@ -836,6 +768,12 @@ defmodule PhoenixKit.Modules.Tickets do
       error ->
         error
     end
+  end
+
+  def create_internal_note(_ticket_id, user_id, _attrs) when is_integer(user_id) do
+    raise ArgumentError,
+          "create_internal_note/3 expects a UUID string for user_id, got integer: #{user_id}. " <>
+            "Use user.uuid instead of user.id"
   end
 
   @doc """
@@ -1156,35 +1094,9 @@ defmodule PhoenixKit.Modules.Tickets do
     |> offset(^offset)
   end
 
-  defp get_user_id(%{id: id}), do: id
-  defp get_user_id(id) when is_integer(id), do: id
-
-  defp get_user_id(id) when is_binary(id) do
-    case Integer.parse(id) do
-      {int_id, ""} ->
-        int_id
-
-      _ ->
-        case Auth.get_user(id) do
-          %{id: int_id} -> int_id
-          nil -> nil
-        end
-    end
-  end
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-
-    case PhoenixKit.RepoHelper.repo().one(
-           from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
-         ) do
-      nil -> nil
-      uuid -> uuid
-    end
-  end
-
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-  defp resolve_user_uuid(_), do: nil
+  defp get_user_uuid(%{uuid: uuid}), do: uuid
+  defp get_user_uuid(uuid) when is_binary(uuid), do: uuid
+  defp get_user_uuid(_), do: nil
 
   defp repo do
     PhoenixKit.RepoHelper.repo()

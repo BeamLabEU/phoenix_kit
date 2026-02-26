@@ -77,7 +77,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
         name: "Staging Server",
         direction: "sender",
         site_url: "https://staging.example.com",
-        created_by: current_user.id
+        created_by_uuid: current_user.uuid
       })
 
       # Token is only returned once - store it securely!
@@ -239,9 +239,9 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   ## Examples
 
-      {:ok, conn} = Connections.approve_connection(conn, current_user.id)
+      {:ok, conn} = Connections.approve_connection(conn, current_user.uuid)
   """
-  @spec approve_connection(Connection.t(), integer()) ::
+  @spec approve_connection(Connection.t(), String.t()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def approve_connection(%Connection{} = connection, admin_user_id) do
     repo = RepoHelper.repo()
@@ -262,9 +262,9 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   ## Examples
 
-      {:ok, conn} = Connections.suspend_connection(conn, current_user.id, "Security audit")
+      {:ok, conn} = Connections.suspend_connection(conn, current_user.uuid, "Security audit")
   """
-  @spec suspend_connection(Connection.t(), integer(), String.t() | nil) ::
+  @spec suspend_connection(Connection.t(), String.t(), String.t() | nil) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def suspend_connection(%Connection{} = connection, admin_user_id, reason \\ nil) do
     repo = RepoHelper.repo()
@@ -285,9 +285,9 @@ defmodule PhoenixKit.Modules.Sync.Connections do
 
   ## Examples
 
-      {:ok, conn} = Connections.revoke_connection(conn, current_user.id, "Compromised")
+      {:ok, conn} = Connections.revoke_connection(conn, current_user.uuid, "Compromised")
   """
-  @spec revoke_connection(Connection.t(), integer(), String.t() | nil) ::
+  @spec revoke_connection(Connection.t(), String.t(), String.t() | nil) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
   def revoke_connection(%Connection{} = connection, admin_user_id, reason \\ nil) do
     repo = RepoHelper.repo()

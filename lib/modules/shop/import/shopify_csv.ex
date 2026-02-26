@@ -18,7 +18,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
 
       # Import to specific category
       category = Shop.get_category_by_slug("shelves")
-      ShopifyCSV.import("/path/to/products.csv", category_id: category.id)
+      ShopifyCSV.import("/path/to/products.csv", category_id: category.uuid)
   """
 
   alias PhoenixKit.Modules.Shop
@@ -209,7 +209,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       slug = Translations.get(cat, :slug, lang)
 
       if slug && slug != "" do
-        Map.put(acc, slug, cat.id)
+        Map.put(acc, slug, cat.uuid)
       else
         acc
       end

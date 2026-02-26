@@ -41,7 +41,6 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_users_tokens" do
-    field :id, :integer, read_after_writes: true
     field :token, :binary
     field :context, :string
     field :sent_to, :string

@@ -107,7 +107,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
 
     Shop.list_active_categories()
     |> Enum.filter(fn cat ->
-      has_any_slug?(cat) and MapSet.member?(categories_with_products, cat.id)
+      has_any_slug?(cat) and MapSet.member?(categories_with_products, cat.uuid)
     end)
     |> Enum.map(fn category ->
       # Use current language if slug exists, otherwise fallback to best available

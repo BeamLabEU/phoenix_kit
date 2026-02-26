@@ -8,12 +8,12 @@ defmodule PhoenixKit.Modules.AI.Request do
   ## Schema Fields
 
   ### Request Identity
-  - `endpoint_id`: Foreign key to the AI endpoint used (new system)
+  - `endpoint_uuid`: Foreign key to the AI endpoint used
   - `endpoint_name`: Denormalized endpoint name for historical display
-  - `prompt_id`: Foreign key to the AI prompt used (if request used a prompt template)
+  - `prompt_uuid`: Foreign key to the AI prompt used (if request used a prompt template)
   - `prompt_name`: Denormalized prompt name for historical display
-  - `account_id`: Foreign key to AI account (deprecated, for backward compatibility)
-  - `user_id`: Foreign key to the user who made the request (nullable if user deleted)
+  - `user_uuid`: Foreign key to the user who made the request (nullable if user deleted)
+  - `endpoint_id`, `prompt_id`, `account_id`, `user_id`: Legacy integer fields (backward compatibility)
   - `slot_index`: Which slot was used (deprecated, for backward compatibility)
 
   ### Request Details
@@ -44,9 +44,9 @@ defmodule PhoenixKit.Modules.AI.Request do
 
       # Log a successful request
       {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
-        endpoint_id: endpoint.id,
+        endpoint_uuid: endpoint.uuid,
         endpoint_name: "Claude Fast",
-        user_id: 123,
+        user_uuid: user.uuid,
         model: "anthropic/claude-3-haiku",
         request_type: "chat",
         input_tokens: 150,
@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.AI.Request do
 
       # Log a failed request
       {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
-        endpoint_id: endpoint.id,
+        endpoint_uuid: endpoint.uuid,
         endpoint_name: "Claude Fast",
         model: "anthropic/claude-3-haiku",
         status: "error",
@@ -79,7 +79,6 @@ defmodule PhoenixKit.Modules.AI.Request do
 
   @derive {Jason.Encoder,
            only: [
-             :id,
              :uuid,
              :endpoint_id,
              :endpoint_name,
@@ -102,9 +101,6 @@ defmodule PhoenixKit.Modules.AI.Request do
            ]}
 
   schema "phoenix_kit_ai_requests" do
-    # Legacy integer ID - DB generates, Ecto reads back
-    field :id, :integer, read_after_writes: true
-
     # New endpoint system fields
     field :endpoint_name, :string
 

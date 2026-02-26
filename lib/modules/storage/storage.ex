@@ -1198,7 +1198,7 @@ defmodule PhoenixKit.Modules.Storage do
       |> Base.encode16(case: :lower)
 
     # Generate UUIDv7 for file ID
-    file_id = PhoenixKit.UUID.generate()
+    file_id = UUIDv7.generate()
 
     # Build hierarchical path - organized by user_prefix/hash_prefix/md5_hash
     user_prefix = String.slice(to_string(user_id), 0, 2)
@@ -1496,15 +1496,8 @@ defmodule PhoenixKit.Modules.Storage do
 
   # ===== USER UUID RESOLUTION =====
 
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-
-    PhoenixKit.RepoHelper.repo().one(
-      from(u in PhoenixKit.Users.Auth.User, where: u.id == ^user_id, select: u.uuid)
-    )
-  end
-
   defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
+  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
   defp resolve_user_uuid(_), do: nil
 
   # ===== REPO HELPERS =====

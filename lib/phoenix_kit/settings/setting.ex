@@ -84,7 +84,6 @@ defmodule PhoenixKit.Settings.Setting do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_settings" do
-    field :id, :integer, read_after_writes: true
     field :key, :string
     field :value, :string
     field :value_json, :map

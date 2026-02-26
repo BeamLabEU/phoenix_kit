@@ -57,7 +57,7 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
       })
 
       # Use the endpoint
-      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "Hello!")
   """
 
   use Ecto.Schema
@@ -70,7 +70,6 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
 
   @derive {Jason.Encoder,
            only: [
-             :id,
              :uuid,
              :name,
              :description,
@@ -102,9 +101,6 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
            ]}
 
   schema "phoenix_kit_ai_endpoints" do
-    # Legacy integer ID - DB generates, Ecto reads back
-    field :id, :integer, read_after_writes: true
-
     # Identity
     field :name, :string
     field :description, :string

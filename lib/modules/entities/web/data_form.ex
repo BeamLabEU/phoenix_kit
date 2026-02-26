@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
     # Create mode with slug
     entity = Entities.get_entity_by_name(entity_slug)
-    data_record = %EntityData{entity_id: entity.id, entity_uuid: entity.uuid}
+    data_record = %EntityData{entity_uuid: entity.uuid}
     changeset = EntityData.change(data_record)
 
     mount_data_form(socket, entity, data_record, changeset, gettext("New Data"), locale)
@@ -66,7 +66,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
     # Create mode with ID (backwards compat)
     entity = Entities.get_entity!(entity_id)
-    data_record = %EntityData{entity_id: entity.id, entity_uuid: entity.uuid}
+    data_record = %EntityData{entity_uuid: entity.uuid}
     changeset = EntityData.change(data_record)
 
     mount_data_form(socket, entity, data_record, changeset, gettext("New Data"), locale)
@@ -78,16 +78,16 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
     # For new records, set default status to "published" to avoid validation errors
     changeset =
-      if is_nil(data_record.id) do
+      if is_nil(data_record.uuid) do
         Ecto.Changeset.put_change(changeset, :status, "published")
       else
         changeset
       end
 
     form_record_key =
-      case data_record.id do
+      case data_record.uuid do
         nil -> {:new, entity.name}
-        id -> id
+        uuid -> uuid
       end
 
     live_source = ensure_live_source(socket)
@@ -101,7 +101,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     # restructure data around the new primary language.
     # Also seed _title into JSONB data for backwards compat.
     changeset =
-      if multilang_enabled and data_record.id do
+      if multilang_enabled and data_record.uuid do
         changeset
         |> rekey_data_on_mount()
         |> seed_translatable_fields(data_record)
@@ -129,24 +129,24 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
     socket =
       if connected?(socket) do
-        Events.subscribe_to_entity_data(entity.id)
-        Events.subscribe_to_data_form(entity.id, form_record_key)
+        Events.subscribe_to_entity_data(entity.uuid)
+        Events.subscribe_to_data_form(entity.uuid, form_record_key)
 
         socket =
-          if data_record.id do
+          if data_record.uuid do
             # Track this user in Presence
             {:ok, _ref} =
-              PresenceHelpers.track_editing_session(:data, data_record.id, socket, current_user)
+              PresenceHelpers.track_editing_session(:data, data_record.uuid, socket, current_user)
 
             # Subscribe to presence changes
-            PresenceHelpers.subscribe_to_editing(:data, data_record.id)
+            PresenceHelpers.subscribe_to_editing(:data, data_record.uuid)
 
             # Determine our role (owner or spectator)
-            socket = assign_editing_role(socket, data_record.id)
+            socket = assign_editing_role(socket, data_record.uuid)
 
             # Load spectator state if we're not the owner
             if socket.assigns.readonly? do
-              load_spectator_state(socket, data_record.id)
+              load_spectator_state(socket, data_record.uuid)
             else
               socket
             end
@@ -175,7 +175,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   defp assign_editing_role(socket, data_id) do
     current_user = socket.assigns[:current_user]
 
-    case PresenceHelpers.get_editing_role(:data, data_id, socket.id, current_user.id) do
+    case PresenceHelpers.get_editing_role(:data, data_id, socket.id, current_user.uuid) do
       {:owner, _presences} ->
         # I'm the owner - I can edit (or same user in different tab)
         socket
@@ -231,16 +231,15 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   def handle_event("validate", %{"phoenix_kit_entity_data" => data_params}, socket) do
     if socket.assigns[:lock_owner?] do
-      entity_id = socket.assigns.entity.id
-      record_id = socket.assigns.data_record.id
+      entity_id = socket.assigns.entity.uuid
+      record_id = socket.assigns.data_record.uuid
       form_data = Map.get(data_params, "data", %{})
 
       data_params =
-        if socket.assigns.data_record.id do
+        if socket.assigns.data_record.uuid do
           data_params
         else
           data_params
-          |> Map.put("created_by", socket.assigns.current_user.id)
           |> Map.put("created_by_uuid", socket.assigns.current_user.uuid)
         end
 
@@ -380,7 +379,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
           try do
             case save_data_record(socket, params) do
               {:ok, saved_record} ->
-                if socket.assigns.data_record.id do
+                if socket.assigns.data_record.uuid do
                   # Update — stay on page, refresh changeset from saved record
                   changeset = EntityData.change(saved_record)
 
@@ -466,14 +465,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     if socket.assigns[:lock_owner?] do
       # Reload data record from database or reset to empty state
       {data_record, changeset} =
-        if socket.assigns.data_record.id do
+        if socket.assigns.data_record.uuid do
           # Reload from database
-          reloaded_data = EntityData.get_data!(socket.assigns.data_record.id)
+          reloaded_data = EntityData.get_data!(socket.assigns.data_record.uuid)
           {reloaded_data, EntityData.change(reloaded_data)}
         else
           # Reset to empty new data record
           empty_data = %EntityData{
-            entity_id: socket.assigns.entity.id,
             entity_uuid: socket.assigns.entity.uuid
           }
 
@@ -514,7 +512,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       source == socket.assigns.live_source ->
         {:noreply, socket}
 
-      entity_id != socket.assigns.entity.id ->
+      entity_id != socket.assigns.entity.uuid ->
         {:noreply, socket}
 
       normalize_record_key(record_key) != socket.assigns.form_record_topic_key ->
@@ -533,10 +531,10 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   def handle_info({:data_updated, entity_id, data_id}, socket) do
     cond do
-      entity_id != socket.assigns.entity.id ->
+      entity_id != socket.assigns.entity.uuid ->
         {:noreply, socket}
 
-      socket.assigns.data_record.id != data_id ->
+      socket.assigns.data_record.uuid != data_id ->
         {:noreply, socket}
 
       # Ignore our own saves — the save handler already refreshes state
@@ -550,8 +548,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
         socket =
           socket
           |> assign(:data_record, data_record)
-          |> assign(:form_record_key, data_record.id)
-          |> assign(:form_record_topic_key, normalize_record_key(data_record.id))
+          |> assign(:form_record_key, data_record.uuid)
+          |> assign(:form_record_topic_key, normalize_record_key(data_record.uuid))
           |> assign(:changeset, changeset)
           |> put_flash(
             :info,
@@ -564,10 +562,10 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   def handle_info({:data_deleted, entity_id, data_id}, socket) do
     cond do
-      entity_id != socket.assigns.entity.id ->
+      entity_id != socket.assigns.entity.uuid ->
         {:noreply, socket}
 
-      socket.assigns.data_record.id != data_id ->
+      socket.assigns.data_record.uuid != data_id ->
         {:noreply, socket}
 
       true ->
@@ -588,7 +586,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   def handle_info({:entity_created, _}, socket), do: {:noreply, socket}
 
   def handle_info({:entity_updated, entity_id}, socket) do
-    if entity_id == socket.assigns.entity.id do
+    if entity_id == socket.assigns.entity.uuid do
       entity = Entities.get_entity!(entity_id)
 
       # If entity was archived or unpublished, redirect to entities list
@@ -619,7 +617,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   end
 
   def handle_info({:entity_deleted, entity_id}, socket) do
-    if entity_id == socket.assigns.entity.id do
+    if entity_id == socket.assigns.entity.uuid do
       socket =
         socket
         |> put_flash(:error, gettext("Entity was deleted in another session."))
@@ -635,8 +633,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
     # Someone joined or left - check if our role changed
-    if socket.assigns.data_record && socket.assigns.data_record.id do
-      data_id = socket.assigns.data_record.id
+    if socket.assigns.data_record && socket.assigns.data_record.uuid do
+      data_id = socket.assigns.data_record.uuid
       was_owner = socket.assigns[:lock_owner?]
 
       # Re-evaluate our role
@@ -917,8 +915,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   end
 
   defp compute_slug_and_data(socket, title, true = _secondary, current_lang, changeset, data) do
-    entity_id = socket.assigns.entity.id
-    record_id = socket.assigns.data_record.id
+    entity_id = socket.assigns.entity.uuid
+    record_id = socket.assigns.data_record.uuid
 
     slug_text =
       title
@@ -934,8 +932,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   end
 
   defp compute_slug_and_data(socket, title, _primary, _current_lang, _changeset, data) do
-    entity_id = socket.assigns.entity.id
-    record_id = socket.assigns.data_record.id
+    entity_id = socket.assigns.entity.uuid
+    record_id = socket.assigns.data_record.uuid
     slug_text = auto_generate_entity_slug(entity_id, record_id, title)
     {slug_text, data}
   end
@@ -975,9 +973,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       if connected?(socket) &&
            socket.assigns[:form_record_key] &&
            socket.assigns[:entity] &&
-           socket.assigns.data_record.id &&
+           socket.assigns.data_record.uuid &&
            socket.assigns[:lock_owner?] do
-        data_id = socket.assigns.data_record.id
+        data_id = socket.assigns.data_record.uuid
         topic = PresenceHelpers.editing_topic(:data, data_id)
 
         payload = %{params: params}
@@ -989,7 +987,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
         # Also broadcast for real-time sync to spectators
         Events.broadcast_data_form_change(
-          socket.assigns.entity.id,
+          socket.assigns.entity.uuid,
           socket.assigns.form_record_key,
           payload,
           source: socket.assigns.live_source
@@ -1039,7 +1037,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     data_record = %{
       socket.assigns.data_record
       | entity: entity,
-        entity_id: entity.id,
         entity_uuid: entity.uuid
     }
 
@@ -1083,7 +1080,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   end
 
   defp save_data_record(socket, data_params) do
-    if socket.assigns.data_record.id do
+    if socket.assigns.data_record.uuid do
       EntityData.update(socket.assigns.data_record, data_params)
     else
       EntityData.create(data_params)
@@ -1091,13 +1088,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   end
 
   defp maybe_add_creator_id(params, current_user, data_record) do
-    if data_record.id do
+    if data_record.uuid do
       # Editing existing record - don't change creator
       params
     else
       # Creating new record - set creator
       params
-      |> Map.put("created_by", current_user.id)
       |> Map.put("created_by_uuid", current_user.uuid)
     end
   end
@@ -1150,8 +1146,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       nil ->
         false
 
-      %EntityData{id: id} ->
-        is_nil(current_record_id) || id != current_record_id
+      %EntityData{uuid: uuid} ->
+        is_nil(current_record_id) || uuid != current_record_id
     end
   end
 

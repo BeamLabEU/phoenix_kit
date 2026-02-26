@@ -48,7 +48,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
     timezone_options = [{"Use System Default", nil} | setting_options["time_zone"]]
 
     # Load OAuth providers for the user
-    oauth_providers = OAuth.get_user_oauth_providers(user.id)
+    oauth_providers = OAuth.get_user_oauth_providers(user.uuid)
     oauth_available = OAuthAvailability.oauth_available?()
 
     # Check which providers are available to connect
@@ -329,10 +329,10 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
     # Check if user can safely disconnect this provider
     if can_disconnect_provider?(user, provider) do
-      case OAuth.unlink_oauth_provider(user.id, provider) do
+      case OAuth.unlink_oauth_provider(user.uuid, provider) do
         {:ok, _} ->
           # Reload OAuth providers list
-          oauth_providers = OAuth.get_user_oauth_providers(user.id)
+          oauth_providers = OAuth.get_user_oauth_providers(user.uuid)
           available_providers = get_available_oauth_providers(oauth_providers)
 
           socket =
@@ -512,7 +512,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
     # 2. Multiple OAuth providers connected
 
     has_password = user.hashed_password != nil
-    oauth_count = length(OAuth.get_user_oauth_providers(user.id))
+    oauth_count = length(OAuth.get_user_oauth_providers(user.uuid))
 
     has_password or oauth_count > 1
   end
