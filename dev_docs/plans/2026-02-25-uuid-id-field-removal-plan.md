@@ -14,9 +14,9 @@
 |-----------|--------|--------|
 | Phase 1: Schema `_id` FK field removal (listed schemas) | `f98159cc` | **DONE** |
 | PK `field :id` removal + all `.id` access migration | `ca43e3f7` | **DONE** |
-| Phase 2: Context function integer overload cleanup | — | **Partially done** |
-| Phase 3: Callers and references | — | **Partially done** |
-| Phase 4: Verify | — | **Pending** (blocked by remaining work) |
+| Phase 2: Context function integer overload cleanup | `5a957918` | **DONE** |
+| Phase 3: Callers and references | `5a957918` | **DONE** |
+| Phase 4: Verify | `5a957918` | **DONE** |
 
 ### Additional completed work (commit `ca43e3f7`):
 - Removed `field :id, :integer, read_after_writes: true` from ALL 40 schemas
@@ -149,17 +149,17 @@ Delete integer overloads and ID-to-UUID resolution functions entirely.
 
 ### Sync Context
 
-- [ ] `transfers.ex` — `filter_by_connection/2` — integer overload still exists
+- [x] `transfers.ex` — `filter_by_connection/2` — integer overload removed (`5a957918`)
 
 ### Entities Context
 
-- [ ] `entity_data.ex` — `list_by_entity/1` — integer overload still exists
-- [ ] `entity_data.ex` — `list_by_entity_and_status/2` — integer overload still exists
-- [ ] `entity_data.ex` — `count_by_entity/1` — integer overload still exists
+- [x] `entity_data.ex` — `list_by_entity/1` — integer overload removed (`5a957918`)
+- [x] `entity_data.ex` — `list_by_entity_and_status/2` — integer overload removed (`5a957918`)
+- [x] `entity_data.ex` — `count_by_entity/1` — integer overload removed (`5a957918`)
 
 ### Other Context Functions (not in original plan)
 
-- [ ] `comments/comments.ex` — `resolve_user_uuid` has integer overload (DB lookup)
+- [x] `comments/comments.ex` — `resolve_user_uuid` integer overload + entire function removed (`5a957918`)
 - [ ] `publishing/dual_write.ex` — `resolve_user_ids` handles both integer and UUID
 
 ---
@@ -168,17 +168,17 @@ Delete integer overloads and ID-to-UUID resolution functions entirely.
 
 - [x] Check `@type` specs on schemas — removed `id: integer()` from typespecs
 - [ ] Search for remaining `extract_user_uuid` calls in billing and eliminate them
-- [ ] Search for `Integer.parse` patterns used for ID fallback and remove them
+- [x] Search for `Integer.parse` patterns used for ID fallback and remove them (`5a957918`)
 - [ ] Search for remaining `_id` usage in LiveViews, controllers, templates
 
 ---
 
 ## Phase 4: Verify
 
-- [ ] `mix compile --warnings-as-errors` — no warnings
-- [ ] `mix format`
-- [ ] `mix credo --strict`
-- [ ] `mix test` — all pass
+- [x] `mix compile --warnings-as-errors` — no warnings (`5a957918`)
+- [x] `mix format` (`5a957918`)
+- [x] `mix credo --strict` (`5a957918`)
+- [x] `mix test` — all 485 pass (`5a957918`)
 - [ ] Grep: `grep -r '_id.*:integer' lib/ --include='*.ex' | grep -v '#'` returns nothing relevant
 
 ---
