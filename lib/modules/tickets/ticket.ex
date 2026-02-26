@@ -27,7 +27,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
   ## Fields
 
   - `user_uuid` - Customer who created the ticket
-  - `assigned_to_id` - Support staff handling the ticket
+  - `assigned_to_uuid` - Support staff handling the ticket
   - `title` - Brief description of the issue
   - `description` - Full details of the issue
   - `status` - open/in_progress/resolved/closed
@@ -41,9 +41,9 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
 
       # New ticket
       %Ticket{
-        id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42,
-        assigned_to_id: nil,
+        uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-1111-7890-abcd-ef1234567890",
+        assigned_to_uuid: nil,
         title: "Cannot login to my account",
         description: "I get an error when trying to login...",
         status: "open",
@@ -53,8 +53,8 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
 
       # Ticket being worked on
       %Ticket{
-        user_id: 42,
-        assigned_to_id: 5,
+        user_uuid: "018e3c4a-1111-7890-abcd-ef1234567890",
+        assigned_to_uuid: "018e3c4a-2222-7890-abcd-ef1234567890",
         title: "Payment failed",
         description: "...",
         status: "in_progress",
@@ -63,8 +63,8 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
 
       # Resolved ticket
       %Ticket{
-        user_id: 42,
-        assigned_to_id: 5,
+        user_uuid: "018e3c4a-1111-7890-abcd-ef1234567890",
+        assigned_to_uuid: "018e3c4a-2222-7890-abcd-ef1234567890",
         status: "resolved",
         resolved_at: ~U[2025-01-15 14:30:00Z]
       }
@@ -80,9 +80,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           user_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           assigned_to_uuid: UUIDv7.t() | nil,
-          assigned_to_id: integer() | nil,
           title: String.t(),
           description: String.t(),
           status: String.t(),
@@ -123,9 +121,6 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-    field :assigned_to_id, :integer
-
     has_many :comments, PhoenixKit.Modules.Tickets.TicketComment, foreign_key: :ticket_uuid
     has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment, foreign_key: :ticket_uuid
 
@@ -154,9 +149,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
   def changeset(ticket, attrs) do
     ticket
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
-      :assigned_to_id,
       :assigned_to_uuid,
       :title,
       :description,
@@ -207,7 +200,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
   @doc """
   Check if ticket is assigned to someone.
   """
-  def assigned?(%__MODULE__{assigned_to_id: nil}), do: false
+  def assigned?(%__MODULE__{assigned_to_uuid: nil}), do: false
   def assigned?(%__MODULE__{}), do: true
 
   @doc """

@@ -8,13 +8,13 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Schema Fields
 
-  - `entity_id`: Foreign key to the entity blueprint
+  - `entity_uuid`: Foreign key to the entity blueprint
   - `title`: Display title/name for the record
   - `slug`: URL-friendly identifier (optional)
   - `status`: Record status ("draft", "published", "archived")
   - `data`: JSONB map of all field values based on entity definition
   - `metadata`: JSONB map for additional information (tags, categories, etc.)
-  - `created_by`: User ID who created the record
+  - `created_by`: User UUID who created the record
   - `date_created`: When the record was created
   - `date_updated`: When the record was last modified
 
@@ -101,14 +101,10 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     field :status, :string, default: "published"
     field :data, :map
     field :metadata, :map
-    # legacy
-    field :created_by, :integer
     field :created_by_uuid, UUIDv7
     field :date_created, :utc_datetime
     field :date_updated, :utc_datetime
 
-    # legacy
-    field :entity_id, :integer
     belongs_to :entity, Entities, foreign_key: :entity_uuid, references: :uuid, type: UUIDv7
 
     belongs_to :creator, User,
@@ -129,14 +125,12 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   def changeset(entity_data, attrs) do
     entity_data
     |> cast(attrs, [
-      :entity_id,
       :entity_uuid,
       :title,
       :slug,
       :status,
       :data,
       :metadata,
-      :created_by,
       :created_by_uuid,
       :date_created,
       :date_updated
@@ -154,11 +148,10 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   defp validate_entity_reference(changeset) do
-    entity_id = get_field(changeset, :entity_id)
     entity_uuid = get_field(changeset, :entity_uuid)
 
-    if is_nil(entity_id) and is_nil(entity_uuid) do
-      add_error(changeset, :entity_uuid, "either entity_id or entity_uuid must be present")
+    if is_nil(entity_uuid) do
+      add_error(changeset, :entity_uuid, "entity_uuid must be present")
     else
       changeset
     end
@@ -186,10 +179,10 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   defp sanitize_rich_text_data(changeset) do
-    entity_id = get_field(changeset, :entity_id) || get_field(changeset, :entity_uuid)
+    entity_uuid = get_field(changeset, :entity_uuid)
     data = get_field(changeset, :data)
 
-    case {entity_id, data} do
+    case {entity_uuid, data} do
       {nil, _} ->
         changeset
 
@@ -229,17 +222,17 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   defp validate_data_against_entity(changeset) do
-    entity_id = get_field(changeset, :entity_id) || get_field(changeset, :entity_uuid)
+    entity_uuid = get_field(changeset, :entity_uuid)
     data = get_field(changeset, :data)
 
-    case entity_id do
+    case entity_uuid do
       nil ->
         changeset
 
-      id ->
-        case Entities.get_entity!(id) do
+      uuid ->
+        case Entities.get_entity!(uuid) do
           nil ->
-            add_error(changeset, :entity_id, gettext("does not exist"))
+            add_error(changeset, :entity_uuid, gettext("does not exist"))
 
           entity ->
             validate_data_fields(changeset, entity, data || %{})
@@ -247,7 +240,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     end
   rescue
     Ecto.NoResultsError ->
-      add_error(changeset, :entity_id, gettext("does not exist"))
+      add_error(changeset, :entity_uuid, gettext("does not exist"))
   end
 
   defp validate_data_fields(changeset, entity, data) do
@@ -459,8 +452,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity(1)
-      [%PhoenixKit.Modules.Entities.EntityData{entity_id: 1}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity(entity_uuid)
+      [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
   def list_by_entity(entity_uuid) when is_binary(entity_uuid) do
     from(d in __MODULE__,
@@ -476,8 +469,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity_and_status(1, "published")
-      [%PhoenixKit.Modules.Entities.EntityData{entity_id: 1, status: "published"}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity_and_status(entity_uuid, "published")
+      [%PhoenixKit.Modules.Entities.EntityData{status: "published"}, ...]
   """
   def list_by_entity_and_status(entity_uuid, status)
       when is_binary(entity_uuid) and status in @valid_statuses do
@@ -490,24 +483,16 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   end
 
   @doc """
-  Gets a single entity data record by ID or UUID.
-
-  Accepts:
-  - Integer ID (primary key)
-  - UUID string
-  - String that parses to integer
+  Gets a single entity data record by UUID.
 
   Returns the record if found, nil otherwise.
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.get(123)
-      %PhoenixKit.Modules.Entities.EntityData{}
-
       iex> PhoenixKit.Modules.Entities.EntityData.get("550e8400-e29b-41d4-a716-446655440000")
       %PhoenixKit.Modules.Entities.EntityData{}
 
-      iex> PhoenixKit.Modules.Entities.EntityData.get(456)
+      iex> PhoenixKit.Modules.Entities.EntityData.get("invalid")
       nil
   """
   def get(uuid) when is_binary(uuid) do
@@ -524,24 +509,16 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   def get(_), do: nil
 
   @doc """
-  Gets a single entity data record by ID or UUID.
-
-  Accepts:
-  - Integer ID (primary key)
-  - UUID string
-  - String that parses to integer
+  Gets a single entity data record by UUID.
 
   Raises `Ecto.NoResultsError` if the record does not exist.
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.get!(123)
-      %PhoenixKit.Modules.Entities.EntityData{}
-
       iex> PhoenixKit.Modules.Entities.EntityData.get!("550e8400-e29b-41d4-a716-446655440000")
       %PhoenixKit.Modules.Entities.EntityData{}
 
-      iex> PhoenixKit.Modules.Entities.EntityData.get!(456)
+      iex> PhoenixKit.Modules.Entities.EntityData.get!("nonexistent-uuid")
       ** (Ecto.NoResultsError)
   """
   def get!(id) do
@@ -558,10 +535,10 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(1, "acme-corporation")
+      iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(entity_uuid, "acme-corporation")
       %PhoenixKit.Modules.Entities.EntityData{}
 
-      iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(1, "invalid")
+      iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(entity_uuid, "invalid")
       nil
   """
   def get_by_slug(entity_uuid, slug) when is_binary(entity_uuid) and is_binary(slug) do
@@ -577,19 +554,14 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   Queries the JSONB `data` column for `data->lang_code->>'_slug'` matches.
   Used for uniqueness checks on translated slugs.
   """
-  def secondary_slug_exists?(entity_id, lang_code, slug, exclude_record_uuid) do
+  def secondary_slug_exists?(entity_uuid, lang_code, slug, exclude_record_uuid)
+      when is_binary(entity_uuid) do
     query =
       from(ed in __MODULE__,
         where: fragment("(? -> ? ->> '_slug') = ?", ed.data, ^lang_code, ^slug),
+        where: ed.entity_uuid == ^entity_uuid,
         select: ed.uuid
       )
-
-    query =
-      if is_binary(entity_id) do
-        from(ed in query, where: ed.entity_uuid == ^entity_id)
-      else
-        from(ed in query, where: ed.entity_id == ^entity_id)
-      end
 
     query =
       if exclude_record_uuid do
@@ -606,7 +578,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.create(%{entity_id: 1, title: "Test"})
+      iex> PhoenixKit.Modules.Entities.EntityData.create(%{entity_uuid: entity_uuid, title: "Test"})
       {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
       iex> PhoenixKit.Modules.Entities.EntityData.create(%{title: ""})
@@ -625,12 +597,12 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     |> notify_data_event(:created)
   end
 
-  # Auto-fill created_by with first admin if not provided
+  # Auto-fill created_by_uuid with first admin if not provided
   defp maybe_add_created_by(attrs) when is_map(attrs) do
-    has_created_by =
-      Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
+    has_created_by_uuid =
+      Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
 
-    if has_created_by do
+    if has_created_by_uuid do
       attrs
     else
       case Auth.get_first_admin_id() do
@@ -638,18 +610,13 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
           # Fall back to first user if no admin exists
           case Auth.get_first_user_id() do
             nil -> attrs
-            user_id -> put_created_by_with_uuid(attrs, user_id)
+            user_uuid -> Map.put(attrs, :created_by_uuid, user_uuid)
           end
 
-        admin_id ->
-          put_created_by_with_uuid(attrs, admin_id)
+        admin_uuid ->
+          Map.put(attrs, :created_by_uuid, admin_uuid)
       end
     end
-  end
-
-  defp put_created_by_with_uuid(attrs, user_id) when is_binary(user_id) do
-    attrs
-    |> Map.put(:created_by, user_id)
   end
 
   @doc """
@@ -703,7 +670,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme", 1)
+      iex> PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme", entity_uuid)
       [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
   def search_by_title(search_term, entity_id \\ nil) when is_binary(search_term) do
@@ -733,7 +700,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.published_records(1)
+      iex> PhoenixKit.Modules.Entities.EntityData.published_records(entity_uuid)
       [%PhoenixKit.Modules.Entities.EntityData{status: "published"}, ...]
   """
   def published_records(entity_uuid) when is_binary(entity_uuid) do
@@ -745,7 +712,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.EntityData.count_by_entity(1)
+      iex> PhoenixKit.Modules.Entities.EntityData.count_by_entity(entity_uuid)
       42
   """
   def count_by_entity(entity_uuid) when is_binary(entity_uuid) do

@@ -8,8 +8,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
   ## Fields
 
-  - `ticket_id` - Reference to the ticket
-  - `changed_by_id` - User who made the status change
+  - `ticket_uuid` - Reference to the ticket
+  - `changed_by_uuid` - User who made the status change
   - `from_status` - Previous status (nil for initial creation)
   - `to_status` - New status
   - `reason` - Optional explanation for the change
@@ -18,8 +18,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
       # Ticket created
       %TicketStatusHistory{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        changed_by_id: 42,
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        changed_by_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         from_status: nil,
         to_status: "open",
         reason: nil
@@ -27,8 +27,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
       # Ticket assigned and moved to in_progress
       %TicketStatusHistory{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        changed_by_id: 5,
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        changed_by_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         from_status: "open",
         to_status: "in_progress",
         reason: "Assigned to support team"
@@ -36,8 +36,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
       # Ticket resolved
       %TicketStatusHistory{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        changed_by_id: 5,
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        changed_by_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         from_status: "in_progress",
         to_status: "resolved",
         reason: "Issue fixed in version 2.0.1"
@@ -45,8 +45,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
       # Ticket reopened
       %TicketStatusHistory{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        changed_by_id: 42,
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        changed_by_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
         from_status: "resolved",
         to_status: "open",
         reason: "Issue still occurring after update"
@@ -61,7 +61,6 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
           uuid: UUIDv7.t() | nil,
           ticket_uuid: UUIDv7.t(),
           changed_by_uuid: UUIDv7.t(),
-          changed_by_id: integer() | nil,
           from_status: String.t() | nil,
           to_status: String.t(),
           reason: String.t() | nil,
@@ -85,8 +84,6 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
       references: :uuid,
       type: UUIDv7
 
-    field :changed_by_id, :integer
-
     timestamps(type: :utc_datetime, updated_at: false)
   end
 
@@ -105,7 +102,6 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
     history
     |> cast(attrs, [
       :ticket_uuid,
-      :changed_by_id,
       :changed_by_uuid,
       :from_status,
       :to_status,

@@ -2728,18 +2728,22 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Parameters
 
-  - `user_id` - The user creating the subscription
+  - `user_id` - The user creating the subscription (UUID)
   - `attrs` - Subscription attributes:
     - `:subscription_type_uuid` - Required: subscription type UUID (preferred)
     - `:subscription_type_id` - Alias for `:subscription_type_uuid` (legacy key, still accepted)
-    - `:billing_profile_uuid` - Optional: billing profile to use
-    - `:payment_method_uuid` - Optional: saved payment method for renewals
+    - `:billing_profile_uuid` - Optional: billing profile UUID to use
+    - `:payment_method_uuid` - Optional: saved payment method UUID for renewals
     - `:trial_days` - Optional: override type's trial days
+    - `:plan_uuid` - Alternative: can use `:plan_uuid` instead of `:subscription_type_uuid`
 
   ## Examples
 
       Billing.create_subscription(user.uuid, %{subscription_type_uuid: type.uuid})
       Billing.create_subscription(user.uuid, %{subscription_type_uuid: type.uuid, trial_days: 14})
+
+      # Using plan_uuid parameter
+      Billing.create_subscription(user.uuid, %{plan_uuid: type.uuid})
   """
   def create_subscription(user_id, attrs) do
     type_id =

@@ -128,8 +128,6 @@ defmodule PhoenixKit.Modules.Entities do
     field :status, :string, default: "published"
     field :fields_definition, {:array, :map}
     field :settings, :map
-    # legacy
-    field :created_by, :integer
     field :created_by_uuid, UUIDv7
     field :date_created, :utc_datetime
     field :date_updated, :utc_datetime
@@ -162,7 +160,6 @@ defmodule PhoenixKit.Modules.Entities do
       :status,
       :fields_definition,
       :settings,
-      :created_by,
       :created_by_uuid,
       :date_created,
       :date_updated
@@ -185,14 +182,13 @@ defmodule PhoenixKit.Modules.Entities do
   end
 
   defp validate_creator_reference(changeset) do
-    created_by = get_field(changeset, :created_by)
     created_by_uuid = get_field(changeset, :created_by_uuid)
 
-    if is_nil(created_by) and is_nil(created_by_uuid) do
+    if is_nil(created_by_uuid) do
       add_error(
         changeset,
         :created_by_uuid,
-        "either created_by or created_by_uuid must be present"
+        "created_by_uuid must be present"
       )
     else
       changeset
@@ -475,55 +471,27 @@ defmodule PhoenixKit.Modules.Entities do
     |> notify_entity_event(:created)
   end
 
-  # Auto-fill created_by with first admin if not provided
+  # Auto-fill created_by_uuid with first admin if not provided
   defp maybe_add_created_by(attrs) when is_map(attrs) do
-    has_created_by =
-      Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
+    has_created_by_uuid =
+      Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
 
-    if has_created_by do
-      # Ensure created_by_uuid is also set when created_by is present
-      has_uuid = Map.has_key?(attrs, :created_by_uuid) or Map.has_key?(attrs, "created_by_uuid")
-
-      if has_uuid do
-        attrs
-      else
-        created_by_val = attrs[:created_by] || attrs["created_by"]
-        uuid = resolve_user_uuid(created_by_val)
-
-        if is_map(attrs) and Map.has_key?(attrs, :created_by) do
-          Map.put(attrs, :created_by_uuid, uuid)
-        else
-          Map.put(attrs, "created_by_uuid", uuid)
-        end
-      end
+    if has_created_by_uuid do
+      attrs
     else
       case Auth.get_first_admin_id() do
         nil ->
           # Fall back to first user if no admin exists
           case Auth.get_first_user_id() do
-            nil ->
-              attrs
-
-            user_id ->
-              attrs
-              |> Map.put(:created_by, user_id)
-              |> Map.put(:created_by_uuid, resolve_user_uuid(user_id))
+            nil -> attrs
+            user_uuid -> Map.put(attrs, :created_by_uuid, user_uuid)
           end
 
-        admin_id ->
-          attrs
-          |> Map.put(:created_by, admin_id)
-          |> Map.put(:created_by_uuid, resolve_user_uuid(admin_id))
+        admin_uuid ->
+          Map.put(attrs, :created_by_uuid, admin_uuid)
       end
     end
   end
-
-  # Resolves user UUID - already a UUID string, pass through
-  defp resolve_user_uuid(uuid) when is_binary(uuid) do
-    if UUIDUtils.valid?(uuid), do: uuid, else: nil
-  end
-
-  defp resolve_user_uuid(_), do: nil
 
   @doc """
   Updates an entity.

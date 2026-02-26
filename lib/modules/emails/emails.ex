@@ -1660,7 +1660,7 @@ defmodule PhoenixKit.Modules.Emails do
   ## Examples
 
       iex> PhoenixKit.Modules.Emails.create_event(%{
-        email_log_id: 1,
+        email_log_uuid: log.uuid,
         event_type: "open"
       })
       {:ok, %Event{}}

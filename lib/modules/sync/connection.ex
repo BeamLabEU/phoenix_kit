@@ -120,32 +120,20 @@ defmodule PhoenixKit.Modules.Sync.Connection do
 
     field :metadata, :map, default: %{}
 
-    # legacy
-    field :approved_by, :integer
-
     belongs_to :approved_by_user, User,
       foreign_key: :approved_by_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :suspended_by, :integer
 
     belongs_to :suspended_by_user, User,
       foreign_key: :suspended_by_uuid,
       references: :uuid,
       type: UUIDv7
 
-    # legacy
-    field :revoked_by, :integer
-
     belongs_to :revoked_by_user, User,
       foreign_key: :revoked_by_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :created_by, :integer
 
     belongs_to :created_by_user, User,
       foreign_key: :created_by_uuid,
@@ -217,7 +205,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "active",
       approved_at: UtilsDate.utc_now(),
-      approved_by: admin_user_id,
       approved_by_uuid: resolve_user_uuid(admin_user_id)
     })
   end
@@ -230,7 +217,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "suspended",
       suspended_at: UtilsDate.utc_now(),
-      suspended_by: admin_user_id,
       suspended_by_uuid: resolve_user_uuid(admin_user_id),
       suspended_reason: reason
     })
@@ -244,7 +230,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "revoked",
       revoked_at: UtilsDate.utc_now(),
-      revoked_by: admin_user_id,
       revoked_by_uuid: resolve_user_uuid(admin_user_id),
       revoked_reason: reason
     })
@@ -258,7 +243,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
     |> change(%{
       status: "active",
       suspended_at: nil,
-      suspended_by: nil,
       suspended_by_uuid: nil,
       suspended_reason: nil
     })

@@ -36,7 +36,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
   - `configuration_set`: AWS SES configuration set used
   - `message_tags`: JSONB tags for grouping and analytics
   - `provider`: Email provider used (aws_ses, smtp, local, etc.)
-  - `user_id`: Associated user ID for authentication emails
 
   ## Message ID Strategy
 
@@ -203,8 +202,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
     field :configuration_set, :string
     field :message_tags, :map, default: %{}
     field :provider, :string, default: "unknown"
-    # legacy
-    field :user_id, :integer
     field :user_uuid, UUIDv7
 
     # Associations
@@ -261,7 +258,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
       :configuration_set,
       :message_tags,
       :provider,
-      :user_id,
       :user_uuid
     ])
     |> validate_required([:message_id, :to, :from, :provider])

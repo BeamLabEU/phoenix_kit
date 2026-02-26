@@ -526,7 +526,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
 
   defp get_current_user(socket) do
     case socket.assigns[:phoenix_kit_current_scope] do
-      %{user: %{id: _} = user} -> user
+      %{user: %{uuid: _} = user} -> user
       _ -> nil
     end
   end

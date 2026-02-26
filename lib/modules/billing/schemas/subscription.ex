@@ -80,16 +80,10 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
       references: :uuid,
       type: UUIDv7
 
-    # legacy
-    field :subscription_type_id, :integer
-
     belongs_to :subscription_type, SubscriptionType,
       foreign_key: :subscription_type_uuid,
       references: :uuid,
       type: UUIDv7
-
-    # legacy
-    field :payment_method_id, :integer
 
     belongs_to :payment_method, PaymentMethod,
       foreign_key: :payment_method_uuid,

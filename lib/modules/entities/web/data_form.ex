@@ -888,7 +888,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
 
   defp build_slug_params(socket, title, is_secondary, current_lang) do
     changeset = socket.assigns.changeset
-    db_entity_id = Ecto.Changeset.get_field(changeset, :entity_id)
+    db_entity_uuid = Ecto.Changeset.get_field(changeset, :entity_uuid)
     db_title = Ecto.Changeset.get_field(changeset, :title) || ""
     status = Ecto.Changeset.get_field(changeset, :status) || "draft"
     data = Ecto.Changeset.get_field(changeset, :data) || %{}
@@ -898,7 +898,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       compute_slug_and_data(socket, title, is_secondary, current_lang, changeset, data)
 
     params = %{
-      "entity_id" => db_entity_id,
+      "entity_uuid" => db_entity_uuid,
       "title" => db_title,
       "slug" => slug,
       "status" => status,

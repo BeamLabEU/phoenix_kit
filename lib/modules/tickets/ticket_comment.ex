@@ -13,9 +13,9 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
 
   ## Fields
 
-  - `ticket_id` - Reference to the ticket
-  - `user_id` - Reference to the commenter
-  - `parent_id` - Reference to parent comment (nil for top-level)
+  - `ticket_uuid` - Reference to the ticket
+  - `user_uuid` - Reference to the commenter
+  - `parent_uuid` - Reference to parent comment (nil for top-level)
   - `content` - Comment text
   - `is_internal` - True for internal notes, false for public comments
   - `depth` - Nesting level (0=top, 1=reply, 2=reply-to-reply, etc.)
@@ -24,9 +24,9 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
 
       # Public comment from support
       %TicketComment{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 5,
-        parent_id: nil,
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        parent_uuid: nil,
         content: "Thank you for contacting us. We're looking into this.",
         is_internal: false,
         depth: 0
@@ -34,9 +34,9 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
 
       # Internal note (hidden from customer)
       %TicketComment{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 5,
-        parent_id: nil,
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        parent_uuid: nil,
         content: "Customer seems frustrated. Need to escalate to senior support.",
         is_internal: true,
         depth: 0
@@ -44,9 +44,9 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
 
       # Customer reply
       %TicketComment{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42,
-        parent_id: "018e3c4a-1234-5678-abcd-ef1234567890",
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        parent_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         content: "Thanks, I've tried that but it still doesn't work.",
         is_internal: false,
         depth: 1
@@ -60,7 +60,6 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           ticket_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           parent_uuid: UUIDv7.t() | nil,
           content: String.t(),
@@ -91,8 +90,6 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     belongs_to :parent, __MODULE__,
       foreign_key: :parent_uuid,
       references: :uuid,
@@ -109,8 +106,8 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
 
   ## Required Fields
 
-  - `ticket_id` - Reference to ticket
-  - `user_id` - Reference to commenter
+  - `ticket_uuid` - Reference to ticket
+  - `user_uuid` - Reference to commenter
   - `content` - Comment text
 
   ## Validation Rules
@@ -123,7 +120,6 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
     comment
     |> cast(attrs, [
       :ticket_uuid,
-      :user_id,
       :user_uuid,
       :parent_uuid,
       :content,

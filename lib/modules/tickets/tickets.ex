@@ -390,7 +390,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   - `opts` - Options
     - `:user_id` - Filter by customer (ticket creator)
-    - `:assigned_to_id` - Filter by assigned handler
+    - `:assigned_to_uuid` - Filter by assigned handler
     - `:status` - Filter by status (open/in_progress/resolved/closed)
     - `:search` - Search in title and description
     - `:page` - Page number (default: 1)
@@ -402,12 +402,12 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> list_tickets()
       [%Ticket{}, ...]
 
-      iex> list_tickets(status: "open", assigned_to_id: nil)
+      iex> list_tickets(status: "open", assigned_to_uuid: nil)
       [%Ticket{}, ...]
   """
   def list_tickets(opts \\ []) do
     user_id = Keyword.get(opts, :user_id)
-    assigned_to_id = Keyword.get(opts, :assigned_to_id)
+    assigned_to_uuid = Keyword.get(opts, :assigned_to_uuid)
     status = Keyword.get(opts, :status)
     search = Keyword.get(opts, :search)
     preloads = Keyword.get(opts, :preload, [])
@@ -416,7 +416,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
     Ticket
     |> maybe_filter_by_user(user_id)
-    |> maybe_filter_by_assigned_to(assigned_to_id)
+    |> maybe_filter_by_assigned_to(assigned_to_uuid)
     |> maybe_filter_by_status(status)
     |> maybe_search_tickets(search)
     |> order_by([t], desc: t.inserted_at)
@@ -426,10 +426,10 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   @doc """
-  Lists unassigned tickets (where assigned_to_id is nil).
+  Lists unassigned tickets (where assigned_to_uuid is nil).
   """
   def list_unassigned_tickets(opts \\ []) do
-    opts = Keyword.put(opts, :assigned_to_id, nil)
+    opts = Keyword.put(opts, :assigned_to_uuid, nil)
     list_tickets(opts)
   end
 
@@ -437,7 +437,7 @@ defmodule PhoenixKit.Modules.Tickets do
   Lists tickets assigned to a specific handler.
   """
   def list_tickets_assigned_to(handler_id, opts \\ []) when is_binary(handler_id) do
-    list_tickets(Keyword.put(opts, :assigned_to_id, handler_id))
+    list_tickets(Keyword.put(opts, :assigned_to_uuid, handler_id))
   end
 
   @doc """
@@ -459,13 +459,13 @@ defmodule PhoenixKit.Modules.Tickets do
   ## Parameters
 
   - `ticket` - Ticket to assign
-  - `handler_id` - User ID of the support staff
+  - `handler_uuid` - UUID of the support staff
   - `changed_by` - User making the change
 
   ## Examples
 
-      iex> assign_ticket(ticket, 5, current_user)
-      {:ok, %Ticket{assigned_to_id: 5}}
+      iex> assign_ticket(ticket, handler_uuid, current_user)
+      {:ok, %Ticket{assigned_to_uuid: handler_uuid}}
   """
   def assign_ticket(%Ticket{} = ticket, handler_uuid, changed_by)
       when is_binary(handler_uuid) do
@@ -983,7 +983,7 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp count_unassigned_tickets do
-    from(t in Ticket, where: is_nil(t.assigned_to_id) and t.status in ["open", "in_progress"])
+    from(t in Ticket, where: is_nil(t.assigned_to_uuid) and t.status in ["open", "in_progress"])
     |> repo().aggregate(:count)
   rescue
     _ -> 0
