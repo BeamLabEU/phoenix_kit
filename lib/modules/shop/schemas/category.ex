@@ -50,8 +50,6 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :option_schema, {:array, :map}, default: []
 
     # Self-referential for nesting
-    # legacy
-    field :parent_id, :integer
     belongs_to :parent, __MODULE__, foreign_key: :parent_uuid, references: :uuid, type: UUIDv7
     has_many :children, __MODULE__, foreign_key: :parent_uuid, references: :uuid
 
@@ -61,9 +59,6 @@ defmodule PhoenixKit.Modules.Shop.Category do
       references: :uuid
 
     # Featured product for fallback image
-    # legacy
-    field :featured_product_id, :integer
-
     belongs_to :featured_product, PhoenixKit.Modules.Shop.Product,
       foreign_key: :featured_product_uuid,
       references: :uuid,
@@ -87,9 +82,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :slug,
       :description,
       :image_uuid,
-      :featured_product_id,
       :featured_product_uuid,
-      :parent_id,
       :parent_uuid,
       :position,
       :status,

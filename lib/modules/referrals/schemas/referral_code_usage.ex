@@ -41,13 +41,9 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
 
   schema "phoenix_kit_referral_code_usage" do
     field :id, :integer, read_after_writes: true
-    # legacy
-    field :used_by, :integer
     field :used_by_uuid, UUIDv7
     field :date_used, :utc_datetime
 
-    # legacy
-    field :code_id, :integer
     belongs_to :referral_code, Referrals, foreign_key: :code_uuid, references: :uuid, type: UUIDv7
   end
 
@@ -59,7 +55,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   """
   def changeset(usage_record, attrs) do
     usage_record
-    |> cast(attrs, [:code_id, :code_uuid, :used_by, :used_by_uuid, :date_used])
+    |> cast(attrs, [:code_uuid, :used_by_uuid, :date_used])
     |> validate_required([:code_uuid, :used_by_uuid])
     |> foreign_key_constraint(:code_uuid)
     |> maybe_set_date_used()
@@ -77,7 +73,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   """
   def for_code(code_id) when is_integer(code_id) do
     from u in __MODULE__,
-      where: u.code_id == ^code_id,
+      where: fragment("code_id = ?", ^code_id),
       order_by: [desc: u.date_used]
   end
 
@@ -99,7 +95,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   """
   def for_user(user_id) when is_integer(user_id) do
     from u in __MODULE__,
-      where: u.used_by == ^user_id,
+      where: fragment("used_by = ?", ^user_id),
       order_by: [desc: u.date_used]
   end
 
@@ -122,7 +118,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   def user_used_code?(user_id, code_id) when is_integer(user_id) and is_integer(code_id) do
     query =
       from u in __MODULE__,
-        where: u.used_by == ^user_id and u.code_id == ^code_id,
+        where: fragment("used_by = ? AND code_id = ?", ^user_id, ^code_id),
         limit: 1
 
     PhoenixKit.RepoHelper.repo().exists?(query)
@@ -155,10 +151,10 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
   def get_usage_stats(code_id) when is_integer(code_id) do
     repo = PhoenixKit.RepoHelper.repo()
 
-    base_query = from u in __MODULE__, where: u.code_id == ^code_id
+    base_query = from u in __MODULE__, where: fragment("code_id = ?", ^code_id)
 
     total_uses = repo.aggregate(base_query, :count)
-    unique_users = repo.aggregate(base_query, :count, :used_by, distinct: true)
+    unique_users = repo.aggregate(base_query, :count, :used_by_uuid, distinct: true)
 
     last_used_query =
       from u in base_query,
@@ -172,7 +168,7 @@ defmodule PhoenixKit.Modules.Referrals.ReferralCodeUsage do
       from u in base_query,
         order_by: [desc: u.date_used],
         limit: 5,
-        select: u.used_by
+        select: u.used_by_uuid
 
     recent_users = repo.all(recent_users_query)
 

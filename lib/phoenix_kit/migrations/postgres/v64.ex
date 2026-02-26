@@ -1,155 +1,65 @@
 defmodule PhoenixKit.Migrations.Postgres.V64 do
   @moduledoc """
-  V64: Rename SubscriptionPlan → SubscriptionType
+  V64: Fix user token check constraint for UUID-only inserts.
 
-  Renames the subscription plans table and related FK columns in subscriptions
-  to reflect the correct "subscription type" naming convention.
+  The V16 migration added a check constraint `user_id_required_for_non_registration_tokens`
+  that requires `user_id IS NOT NULL` for non-registration tokens. After the UUID cleanup,
+  the schema only sets `user_uuid` (not `user_id`), so session token inserts fail.
 
-  ## Changes
-
-  1. `phoenix_kit_subscription_plans` table → `phoenix_kit_subscription_types`
-  2. `phoenix_kit_subscription_plans_slug_uidx` index →
-     `phoenix_kit_subscription_types_slug_uidx`
-  3. `phoenix_kit_subscriptions.plan_id` → `subscription_type_id`
-  4. `phoenix_kit_subscriptions.plan_uuid` → `subscription_type_uuid`
-
-  All operations are idempotent — safe to run on any installation.
+  This migration replaces the constraint to check `user_uuid` instead of `user_id`.
   """
 
   use Ecto.Migration
 
-  def up(%{prefix: prefix} = opts) do
-    escaped_prefix = Map.get(opts, :escaped_prefix, prefix)
+  @old_constraint "user_id_required_for_non_registration_tokens"
+  @new_constraint "user_uuid_required_for_non_registration_tokens"
 
-    # Flush any pending migration commands from earlier versions
-    flush()
+  def up(%{prefix: prefix} = _opts) do
+    table_name = prefix_table("phoenix_kit_users_tokens", prefix)
 
-    # 1. Rename phoenix_kit_subscription_plans → phoenix_kit_subscription_types
-    rename_subscription_plans_table(prefix, escaped_prefix)
+    # Drop the old user_id-based constraint
+    execute("""
+    ALTER TABLE #{table_name}
+    DROP CONSTRAINT IF EXISTS #{@old_constraint}
+    """)
 
-    # Flush so the renamed table is visible for subsequent operations
-    flush()
-
-    # 2. Rename plan_id / plan_uuid columns in phoenix_kit_subscriptions
-    rename_plan_columns_in_subscriptions(prefix, escaped_prefix)
+    # Add new constraint checking user_uuid instead
+    execute("""
+    ALTER TABLE #{table_name}
+    ADD CONSTRAINT #{@new_constraint}
+    CHECK (
+      CASE
+        WHEN context = 'magic_link_registration' THEN true
+        ELSE user_uuid IS NOT NULL
+      END
+    )
+    """)
 
     execute("COMMENT ON TABLE #{prefix_table("phoenix_kit", prefix)} IS '64'")
   end
 
-  def down(%{prefix: prefix} = opts) do
-    escaped_prefix = Map.get(opts, :escaped_prefix, prefix)
+  def down(%{prefix: prefix} = _opts) do
+    table_name = prefix_table("phoenix_kit_users_tokens", prefix)
 
-    # Reverse column renames first
-    reverse_plan_columns_in_subscriptions(prefix, escaped_prefix)
+    # Drop the new uuid-based constraint
+    execute("""
+    ALTER TABLE #{table_name}
+    DROP CONSTRAINT IF EXISTS #{@new_constraint}
+    """)
 
-    # Then reverse table rename
-    reverse_subscription_plans_table(prefix, escaped_prefix)
+    # Restore the old user_id-based constraint
+    execute("""
+    ALTER TABLE #{table_name}
+    ADD CONSTRAINT #{@old_constraint}
+    CHECK (
+      CASE
+        WHEN context = 'magic_link_registration' THEN true
+        ELSE user_id IS NOT NULL
+      END
+    )
+    """)
 
     execute("COMMENT ON TABLE #{prefix_table("phoenix_kit", prefix)} IS '63'")
-  end
-
-  # ---------------------------------------------------------------------------
-  # Up helpers
-  # ---------------------------------------------------------------------------
-
-  defp rename_subscription_plans_table(prefix, escaped_prefix) do
-    if table_exists?(:phoenix_kit_subscription_plans, escaped_prefix) do
-      old_table = prefix_table("phoenix_kit_subscription_plans", prefix)
-      execute("ALTER TABLE #{old_table} RENAME TO phoenix_kit_subscription_types")
-
-      execute("""
-      ALTER INDEX IF EXISTS phoenix_kit_subscription_plans_slug_uidx
-      RENAME TO phoenix_kit_subscription_types_slug_uidx
-      """)
-    end
-  end
-
-  defp rename_plan_columns_in_subscriptions(prefix, escaped_prefix) do
-    if table_exists?(:phoenix_kit_subscriptions, escaped_prefix) do
-      table = prefix_table("phoenix_kit_subscriptions", prefix)
-
-      if column_exists?(:phoenix_kit_subscriptions, :plan_id, escaped_prefix) do
-        execute("ALTER TABLE #{table} RENAME COLUMN plan_id TO subscription_type_id")
-      end
-
-      if column_exists?(:phoenix_kit_subscriptions, :plan_uuid, escaped_prefix) do
-        execute("ALTER TABLE #{table} RENAME COLUMN plan_uuid TO subscription_type_uuid")
-      end
-    end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Down helpers
-  # ---------------------------------------------------------------------------
-
-  defp reverse_subscription_plans_table(prefix, escaped_prefix) do
-    if table_exists?(:phoenix_kit_subscription_types, escaped_prefix) do
-      new_table = prefix_table("phoenix_kit_subscription_types", prefix)
-      execute("ALTER TABLE #{new_table} RENAME TO phoenix_kit_subscription_plans")
-
-      execute("""
-      ALTER INDEX IF EXISTS phoenix_kit_subscription_types_slug_uidx
-      RENAME TO phoenix_kit_subscription_plans_slug_uidx
-      """)
-    end
-  end
-
-  defp reverse_plan_columns_in_subscriptions(prefix, escaped_prefix) do
-    if table_exists?(:phoenix_kit_subscriptions, escaped_prefix) do
-      table = prefix_table("phoenix_kit_subscriptions", prefix)
-
-      if column_exists?(:phoenix_kit_subscriptions, :subscription_type_id, escaped_prefix) do
-        execute("ALTER TABLE #{table} RENAME COLUMN subscription_type_id TO plan_id")
-      end
-
-      if column_exists?(:phoenix_kit_subscriptions, :subscription_type_uuid, escaped_prefix) do
-        execute("ALTER TABLE #{table} RENAME COLUMN subscription_type_uuid TO plan_uuid")
-      end
-    end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Helpers (same pattern as V63)
-  # ---------------------------------------------------------------------------
-
-  defp table_exists?(table, escaped_prefix) do
-    table_name = Atom.to_string(table)
-
-    case repo().query(
-           """
-           SELECT EXISTS (
-             SELECT FROM information_schema.tables
-             WHERE table_name = '#{table_name}'
-             AND table_schema = '#{escaped_prefix}'
-           )
-           """,
-           [],
-           log: false
-         ) do
-      {:ok, %{rows: [[true]]}} -> true
-      _ -> false
-    end
-  end
-
-  defp column_exists?(table, column, escaped_prefix) do
-    table_name = Atom.to_string(table)
-    column_name = Atom.to_string(column)
-
-    case repo().query(
-           """
-           SELECT EXISTS (
-             SELECT FROM information_schema.columns
-             WHERE table_name = '#{table_name}'
-             AND column_name = '#{column_name}'
-             AND table_schema = '#{escaped_prefix}'
-           )
-           """,
-           [],
-           log: false
-         ) do
-      {:ok, %{rows: [[true]]}} -> true
-      _ -> false
-    end
   end
 
   defp prefix_table(table_name, nil), do: table_name

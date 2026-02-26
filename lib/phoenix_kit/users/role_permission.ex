@@ -22,10 +22,8 @@ defmodule PhoenixKit.Users.RolePermission do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          role_id: integer(),
           role_uuid: UUIDv7.t() | nil,
           module_key: String.t(),
-          granted_by: integer() | nil,
           granted_by_uuid: UUIDv7.t() | nil,
           inserted_at: DateTime.t() | nil
         }
@@ -35,10 +33,8 @@ defmodule PhoenixKit.Users.RolePermission do
   schema "phoenix_kit_role_permissions" do
     field :id, :integer, read_after_writes: true
     field :module_key, :string
-    field :granted_by, :integer
     field :granted_by_uuid, UUIDv7
 
-    field :role_id, :integer
     belongs_to :role, Role, foreign_key: :role_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime, updated_at: false)
@@ -49,7 +45,7 @@ defmodule PhoenixKit.Users.RolePermission do
   """
   def changeset(permission, attrs) do
     permission
-    |> cast(attrs, [:role_id, :role_uuid, :module_key, :granted_by, :granted_by_uuid])
+    |> cast(attrs, [:role_uuid, :module_key, :granted_by_uuid])
     |> validate_required([:role_uuid, :module_key])
     |> validate_inclusion(:module_key, Permissions.all_module_keys())
     |> unique_constraint([:role_uuid, :module_key],

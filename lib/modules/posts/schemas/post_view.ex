@@ -44,7 +44,6 @@ defmodule PhoenixKit.Modules.Posts.PostView do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           post_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           ip_address: String.t() | nil,
           user_agent_hash: String.t() | nil,
@@ -72,8 +71,6 @@ defmodule PhoenixKit.Modules.Posts.PostView do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     timestamps(type: :utc_datetime)
   end
 
@@ -93,7 +90,6 @@ defmodule PhoenixKit.Modules.Posts.PostView do
     view
     |> cast(attrs, [
       :post_uuid,
-      :user_id,
       :user_uuid,
       :ip_address,
       :user_agent_hash,

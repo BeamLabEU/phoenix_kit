@@ -1361,7 +1361,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   def list_invoices_for_order(order_id) when is_integer(order_id) do
     Invoice
-    |> where([i], i.order_id == ^order_id)
+    |> where([i], fragment("order_id = ?", ^order_id))
     |> order_by([i], desc: i.inserted_at)
     |> repo().all()
   end
@@ -2356,7 +2356,7 @@ defmodule PhoenixKit.Modules.Billing do
         where(query, [t], t.invoice_uuid == ^invoice_uuid)
 
       invoice_id = opts[:invoice_id] ->
-        where(query, [t], t.invoice_id == ^invoice_id)
+        where(query, [t], fragment("invoice_id = ?", ^invoice_id))
 
       true ->
         query
@@ -2409,7 +2409,7 @@ defmodule PhoenixKit.Modules.Billing do
           where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
 
         invoice_id = opts[:invoice_id] ->
-          where(count_query, [t], t.invoice_id == ^invoice_id)
+          where(count_query, [t], fragment("invoice_id = ?", ^invoice_id))
 
         true ->
           count_query
@@ -2637,7 +2637,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   def calculate_invoice_paid_amount(invoice_id) when is_integer(invoice_id) do
     Transaction
-    |> where([t], t.invoice_id == ^invoice_id)
+    |> where([t], fragment("invoice_id = ?", ^invoice_id))
     |> select([t], sum(t.amount))
     |> repo().one()
     |> case do

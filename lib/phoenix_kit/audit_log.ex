@@ -98,7 +98,7 @@ defmodule PhoenixKit.AuditLog do
   """
   def list_logs_for_user(user_id) when is_integer(user_id) do
     from(e in Entry,
-      where: e.target_user_id == ^user_id or e.admin_user_id == ^user_id,
+      where: fragment("target_user_id = ? OR admin_user_id = ?", ^user_id, ^user_id),
       order_by: [desc: e.inserted_at]
     )
     |> Repo.all()
@@ -167,13 +167,13 @@ defmodule PhoenixKit.AuditLog do
           from(e in query, where: e.action == ^to_string(action))
 
         {:target_user_id, user_id}, query when is_integer(user_id) ->
-          from(e in query, where: e.target_user_id == ^user_id)
+          from(e in query, where: fragment("target_user_id = ?", ^user_id))
 
         {:target_user_id, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.target_user_uuid == ^user_uuid)
 
         {:admin_user_id, user_id}, query when is_integer(user_id) ->
-          from(e in query, where: e.admin_user_id == ^user_id)
+          from(e in query, where: fragment("admin_user_id = ?", ^user_id))
 
         {:admin_user_id, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.admin_user_uuid == ^user_uuid)
@@ -247,13 +247,13 @@ defmodule PhoenixKit.AuditLog do
           from(e in query, where: e.action == ^to_string(action))
 
         {:target_user_id, user_id}, query when is_integer(user_id) ->
-          from(e in query, where: e.target_user_id == ^user_id)
+          from(e in query, where: fragment("target_user_id = ?", ^user_id))
 
         {:target_user_id, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.target_user_uuid == ^user_uuid)
 
         {:admin_user_id, user_id}, query when is_integer(user_id) ->
-          from(e in query, where: e.admin_user_id == ^user_id)
+          from(e in query, where: fragment("admin_user_id = ?", ^user_id))
 
         {:admin_user_id, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.admin_user_uuid == ^user_uuid)

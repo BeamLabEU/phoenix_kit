@@ -123,7 +123,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
       cart.items == [] ->
         {:noreply, put_flash(socket, :error, "Your cart is empty")}
 
-      is_nil(cart.shipping_method_id) ->
+      is_nil(cart.shipping_method_uuid) ->
         {:noreply, put_flash(socket, :error, "Please select a shipping method")}
 
       true ->
@@ -454,7 +454,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
                   <div class="flex justify-between">
                     <span class="text-base-content/70">Shipping</span>
-                    <%= if is_nil(@cart.shipping_method_id) do %>
+                    <%= if is_nil(@cart.shipping_method_uuid) do %>
                       <span class="text-base-content/50">Select method</span>
                     <% else %>
                       <%= if Decimal.compare(@cart.shipping_amount || Decimal.new("0"), Decimal.new("0")) == :eq do %>

@@ -12,7 +12,6 @@ defmodule PhoenixKit.Modules.Posts.CommentDislike do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           comment_uuid: UUIDv7.t(),
-          user_id: integer() | nil,
           user_uuid: UUIDv7.t() | nil,
           comment: PhoenixKit.Modules.Posts.PostComment.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
@@ -31,8 +30,6 @@ defmodule PhoenixKit.Modules.Posts.CommentDislike do
       references: :uuid,
       type: UUIDv7
 
-    field :user_id, :integer
-
     timestamps(type: :utc_datetime)
   end
 
@@ -50,7 +47,7 @@ defmodule PhoenixKit.Modules.Posts.CommentDislike do
   """
   def changeset(dislike, attrs) do
     dislike
-    |> cast(attrs, [:comment_uuid, :user_id, :user_uuid])
+    |> cast(attrs, [:comment_uuid, :user_uuid])
     |> validate_required([:comment_uuid, :user_uuid])
     |> foreign_key_constraint(:comment_uuid)
     |> foreign_key_constraint(:user_uuid)

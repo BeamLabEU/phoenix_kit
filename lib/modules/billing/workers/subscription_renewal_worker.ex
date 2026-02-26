@@ -157,7 +157,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
       total: plan.price
     }
 
-    case Billing.create_invoice(subscription.user_id, invoice_attrs) do
+    case Billing.create_invoice(subscription.user_uuid, invoice_attrs) do
       {:ok, invoice} -> {:ok, invoice}
       error -> error
     end

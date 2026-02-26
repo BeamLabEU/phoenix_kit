@@ -26,9 +26,7 @@ defmodule PhoenixKit.Users.AdminNote do
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
           id: integer() | nil,
-          user_id: integer(),
           user_uuid: UUIDv7.t() | nil,
-          author_id: integer(),
           author_uuid: UUIDv7.t() | nil,
           content: String.t(),
           inserted_at: DateTime.t(),
@@ -39,14 +37,11 @@ defmodule PhoenixKit.Users.AdminNote do
 
   schema "phoenix_kit_admin_notes" do
     field :id, :integer, read_after_writes: true
-    field :user_id, :integer
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
       references: :uuid,
       type: UUIDv7
-
-    field :author_id, :integer
 
     belongs_to :author, PhoenixKit.Users.Auth.User,
       foreign_key: :author_uuid,
@@ -63,7 +58,7 @@ defmodule PhoenixKit.Users.AdminNote do
   """
   def changeset(admin_note, attrs) do
     admin_note
-    |> cast(attrs, [:user_id, :user_uuid, :author_id, :author_uuid, :content])
+    |> cast(attrs, [:user_uuid, :author_uuid, :content])
     |> validate_required([:user_uuid, :author_uuid, :content])
     |> validate_length(:content, min: 1, max: 10_000)
     |> foreign_key_constraint(:user_uuid)

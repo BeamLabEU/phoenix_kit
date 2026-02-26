@@ -37,11 +37,7 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
     field :provider_transaction_id, :string
     field :provider_data, :map, default: %{}
 
-    # legacy
-    field :invoice_id, :integer
     belongs_to :invoice, Invoice, foreign_key: :invoice_uuid, references: :uuid, type: UUIDv7
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -61,9 +57,7 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
       :metadata,
       :provider_transaction_id,
       :provider_data,
-      :invoice_id,
       :invoice_uuid,
-      :user_id,
       :user_uuid
     ])
     |> validate_required([

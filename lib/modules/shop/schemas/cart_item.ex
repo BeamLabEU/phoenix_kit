@@ -37,11 +37,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   schema "phoenix_kit_shop_cart_items" do
     field :id, :integer, read_after_writes: true
 
-    # legacy
-    field :cart_id, :integer
     belongs_to :cart, Cart, foreign_key: :cart_uuid, references: :uuid, type: UUIDv7
-    # legacy
-    field :product_id, :integer
     belongs_to :product, Product, foreign_key: :product_uuid, references: :uuid, type: UUIDv7
     field :variant_uuid, UUIDv7
 
@@ -80,9 +76,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   def changeset(item, attrs) do
     item
     |> cast(attrs, [
-      :cart_id,
       :cart_uuid,
-      :product_id,
       :product_uuid,
       :variant_uuid,
       :product_title,
@@ -136,7 +130,6 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
     lang = language || default_language()
 
     %{
-      product_id: product.id,
       product_uuid: product.uuid,
       product_title: get_localized_string(product.title, lang),
       product_slug: get_localized_string(product.slug, lang),
@@ -186,7 +179,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   Returns true if product data has changed since the item was added.
   Useful for showing price change warnings.
   """
-  def product_changed?(%__MODULE__{product_uuid: nil, product_id: nil}, _product), do: true
+  def product_changed?(%__MODULE__{product_uuid: nil}, _product), do: true
 
   def product_changed?(%__MODULE__{} = item, %Product{} = product) do
     Decimal.compare(item.unit_price, product.price) != :eq
@@ -229,7 +222,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   @doc """
   Returns true if the product has been deleted (product_id is nil after SET NULL).
   """
-  def product_deleted?(%__MODULE__{product_uuid: nil, product_id: nil}), do: true
+  def product_deleted?(%__MODULE__{product_uuid: nil}), do: true
   def product_deleted?(_), do: false
 
   # Private helpers

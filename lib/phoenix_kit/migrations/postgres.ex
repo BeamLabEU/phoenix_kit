@@ -491,14 +491,17 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds `matched_email_log_uuid` companion to `phoenix_kit_email_orphaned_events` (backfilled from email_logs)
   - Adds `subscription_uuid` companion to `phoenix_kit_invoices` (backfilled from subscriptions)
 
-  ### V64 - Rename SubscriptionPlan → SubscriptionType ⚡ LATEST
+  ### V64 - Fix user token check constraint for UUID-only inserts
+  - Drops V16's `user_id_required_for_non_registration_tokens` constraint (checks `user_id`)
+  - Adds `user_uuid_required_for_non_registration_tokens` constraint (checks `user_uuid`)
+  - Fixes login crash after UUID cleanup removed `user_id` from UserToken schema
+
+  ### V65 - Rename SubscriptionPlan → SubscriptionType ⚡ LATEST
   - Renames `phoenix_kit_subscription_plans` table → `phoenix_kit_subscription_types`
   - Renames unique slug index accordingly
   - Renames `plan_id` / `plan_uuid` FK columns in `phoenix_kit_subscriptions`
     to `subscription_type_id` / `subscription_type_uuid`
   - All operations idempotent (IF EXISTS guards)
-  - Adds `variant_uuid` companion to `phoenix_kit_shop_cart_items` (nullable, no variants table to backfill from)
-  - All operations idempotent — safe on any installation
 
   ## Migration Paths
 
@@ -558,7 +561,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 64
+  @current_version 65
   @default_prefix "public"
 
   @doc false

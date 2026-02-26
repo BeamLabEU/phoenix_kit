@@ -93,8 +93,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
 
     field :metadata, :map, default: %{}
 
-    # legacy
-    field :user_id, :integer
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     timestamps(type: :utc_datetime)
@@ -106,7 +104,6 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   def changeset(profile, attrs) do
     profile
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
       :type,
       :is_default,

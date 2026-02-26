@@ -53,7 +53,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   @type t :: %__MODULE__{
           id: integer() | nil,
           uuid: Ecto.UUID.t() | nil,
-          user_id: integer() | nil,
           user_uuid: Ecto.UUID.t() | nil,
           session_id: String.t() | nil,
           consent_type: String.t(),
@@ -72,8 +71,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
 
   schema "phoenix_kit_consent_logs" do
     field :id, :integer, read_after_writes: true
-    # legacy
-    field :user_id, :integer
     field :user_uuid, UUIDv7
     field :session_id, :string
     field :consent_type, :string
@@ -111,7 +108,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   def changeset(consent_log, attrs) do
     consent_log
     |> cast(attrs, [
-      :user_id,
       :user_uuid,
       :session_id,
       :consent_type,
@@ -126,14 +122,13 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
     |> validate_user_or_session()
   end
 
-  # Validate that either user_id, user_uuid, or session_id is present
+  # Validate that either user_uuid or session_id is present
   defp validate_user_or_session(changeset) do
-    user_id = get_field(changeset, :user_id)
     user_uuid = get_field(changeset, :user_uuid)
     session_id = get_field(changeset, :session_id)
 
-    if is_nil(user_id) and is_nil(user_uuid) and is_nil(session_id) do
-      add_error(changeset, :base, "Either user_id, user_uuid, or session_id must be present")
+    if is_nil(user_uuid) and is_nil(session_id) do
+      add_error(changeset, :base, "Either user_uuid or session_id must be present")
     else
       changeset
     end
@@ -148,25 +143,10 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   """
   @spec create(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
   def create(attrs) do
-    attrs = maybe_resolve_user_uuid(attrs)
-
     %__MODULE__{}
     |> changeset(attrs)
     |> repo().insert()
   end
-
-  defp maybe_resolve_user_uuid(%{user_uuid: _} = attrs), do: attrs
-  defp maybe_resolve_user_uuid(%{"user_uuid" => _} = attrs), do: attrs
-
-  defp maybe_resolve_user_uuid(%{user_id: user_id} = attrs) when is_integer(user_id) do
-    Map.put(attrs, :user_uuid, resolve_user_uuid(user_id))
-  end
-
-  defp maybe_resolve_user_uuid(%{"user_id" => user_id} = attrs) when is_integer(user_id) do
-    Map.put(attrs, "user_uuid", resolve_user_uuid(user_id))
-  end
-
-  defp maybe_resolve_user_uuid(attrs), do: attrs
 
   @doc """
   Gets a single consent log by ID or UUID.
@@ -232,7 +212,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   """
   @spec get_consent_status(keyword()) :: map()
   def get_consent_status(opts) do
-    user_id = Keyword.get(opts, :user_id)
     user_uuid = Keyword.get(opts, :user_uuid)
     session_id = Keyword.get(opts, :session_id)
 
@@ -244,7 +223,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
 
     query =
       cond do
-        user_id -> where(query, [c], c.user_id == ^user_id)
         user_uuid -> where(query, [c], c.user_uuid == ^user_uuid)
         session_id -> where(query, [c], c.session_id == ^session_id)
         true -> query
@@ -275,11 +253,8 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   """
   @spec log_consents(map(), keyword()) :: {:ok, list(t())} | {:error, term()}
   def log_consents(consents, opts) when is_map(consents) do
-    user_id = Keyword.get(opts, :user_id)
-
     base_attrs = %{
-      user_id: user_id,
-      user_uuid: Keyword.get(opts, :user_uuid) || resolve_user_uuid(user_id),
+      user_uuid: Keyword.get(opts, :user_uuid),
       session_id: Keyword.get(opts, :session_id),
       consent_version: Keyword.get(opts, :consent_version),
       ip_address: Keyword.get(opts, :ip_address),
@@ -321,17 +296,6 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   # ===================================
   # PRIVATE HELPERS
   # ===================================
-
-  # Resolves user UUID from a user struct or integer user_id (dual-write)
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-
-  defp resolve_user_uuid(user_id) when is_integer(user_id) do
-    import Ecto.Query, only: [from: 2]
-    alias PhoenixKit.Users.Auth.User
-    from(u in User, where: u.id == ^user_id, select: u.uuid) |> repo().one()
-  end
-
-  defp resolve_user_uuid(_), do: nil
 
   defp repo do
     PhoenixKit.RepoHelper.repo()

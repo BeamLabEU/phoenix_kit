@@ -74,9 +74,6 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
     field :metadata, :map, default: %{}
 
     # Associations
-    # legacy
-    field :user_id, :integer
-
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
 
     belongs_to :billing_profile, BillingProfile,
