@@ -1611,8 +1611,8 @@ defmodule PhoenixKit.Users.Auth do
            filename
          ) do
       {:ok, file} ->
-        # Save the file ID to user's custom fields
-        update_user_fields(user, %{"avatar_file_id" => file.id})
+        # Save the file UUID to user's custom fields
+        update_user_fields(user, %{"avatar_file_id" => file.uuid})
 
       {:error, reason} ->
         {:error, reason}

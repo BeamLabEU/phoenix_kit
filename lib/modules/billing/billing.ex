@@ -2613,7 +2613,7 @@ defmodule PhoenixKit.Modules.Billing do
   ## Options
 
   - `:status` - Filter by status (e.g., "active", "cancelled")
-  - `:preload` - Associations to preload (default: [:plan])
+  - `:preload` - Associations to preload (default: [:subscription_type])
 
   ## Examples
 
@@ -2625,7 +2625,7 @@ defmodule PhoenixKit.Modules.Billing do
   def list_subscriptions(opts) when is_list(opts) do
     status = Keyword.get(opts, :status)
     search = Keyword.get(opts, :search)
-    preloads = Keyword.get(opts, :preload, [:plan])
+    preloads = Keyword.get(opts, :preload, [:subscription_type])
 
     query =
       from(s in Subscription,
@@ -2657,7 +2657,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Options
     * `:status` - filter by status (e.g., "active", "cancelled")
-    * `:preload` - list of associations to preload (default: [:plan])
+    * `:preload` - list of associations to preload (default: [:subscription_type])
 
   ## Examples
 
@@ -2666,7 +2666,7 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def list_user_subscriptions(user_id, opts \\ []) do
     status = Keyword.get(opts, :status)
-    preloads = Keyword.get(opts, :preload, [:plan])
+    preloads = Keyword.get(opts, :preload, [:subscription_type])
     user_uuid = extract_user_uuid(user_id)
 
     query =

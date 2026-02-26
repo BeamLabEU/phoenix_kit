@@ -728,20 +728,6 @@ defmodule PhoenixKit.Modules.Storage do
     |> where(
       [f],
       fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_variants sv WHERE sv.featured_image_id = ?)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_variants sv WHERE ? = ANY(sv.image_ids))",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
         "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_id' = ?::text)",
         f.uuid
       )
