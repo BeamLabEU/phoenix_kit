@@ -496,12 +496,24 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds `user_uuid_required_for_non_registration_tokens` constraint (checks `user_uuid`)
   - Fixes login crash after UUID cleanup removed `user_id` from UserToken schema
 
-  ### V65 - Rename SubscriptionPlan → SubscriptionType ⚡ LATEST
+  ### V65 - Rename SubscriptionPlan → SubscriptionType
   - Renames `phoenix_kit_subscription_plans` table → `phoenix_kit_subscription_types`
   - Renames unique slug index accordingly
   - Renames `plan_id` / `plan_uuid` FK columns in `phoenix_kit_subscriptions`
     to `subscription_type_id` / `subscription_type_uuid`
   - All operations idempotent (IF EXISTS guards)
+
+  ### V66 - Make legacy user_id nullable on posts tables
+  - Drops NOT NULL on `user_id` for 5 posts tables where schemas only set `user_uuid`
+  - Tables: post_groups, post_comments, post_likes, post_dislikes, post_mentions
+  - Fixes create_group and like/dislike/comment/mention inserts failing with not_null_violation
+
+  ### V67 - Make all remaining NOT NULL integer FK columns nullable ⚡ LATEST
+  - Drops NOT NULL on 39 legacy integer FK columns across 28 tables
+  - Covers: posts, tickets, storage, admin, auth, audit, connections, billing,
+    entities, referrals, standalone comments, and shop modules
+  - Handles V65 plan_id → subscription_type_id rename (checks both names)
+  - All operations idempotent (table/column existence + NOT NULL guards)
 
   ## Migration Paths
 
@@ -561,7 +573,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 65
+  @current_version 67
   @default_prefix "public"
 
   @doc false
