@@ -983,6 +983,7 @@ defmodule PhoenixKitWeb.Integration do
 
   defp tab_callback_context(:admin_tabs), do: :admin
   defp tab_callback_context(:settings_tabs), do: :settings
+  defp tab_callback_context(:user_dashboard_tabs), do: :user_dashboard
 
   defp tab_has_live_view?(%{live_view: {mod, _action}}) when is_atom(mod) do
     case Code.ensure_compiled(mod) do

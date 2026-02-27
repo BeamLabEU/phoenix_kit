@@ -88,7 +88,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     # This avoids the stale-flag bug: in connected mode only the LiveView re-renders
     # (not the layout), so an unchecked flag would incorrectly persist across events.
     if assigns[:from_layout] && Process.delete(:phoenix_kit_admin_chrome_rendered) do
-      Logger.warning(
+      Logger.debug(
         "[LayoutWrapper] app_layout called twice in same render tree. " <>
           "Plugin LiveViews should not call LayoutWrapper.app_layout — " <>
           "the admin.html.heex layout handles admin chrome automatically. " <>
