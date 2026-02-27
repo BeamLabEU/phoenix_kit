@@ -6,7 +6,7 @@
 ## Development Workflow
 
 ```
-# 1. Make changed
+# 1. Make changes
 
 # 2. Format code
 mix format
@@ -38,6 +38,7 @@ PhoenixKit is a library module. Smoke tests + static analysis here; integration 
 - `mix credo --strict` - Static analysis
 - `mix dialyzer` - Type checking
 - `mix quality` - Run all quality checks
+- `mix quality.ci` - Run all quality checks for CI (strict formatting check)
 
 ### Code Search
 
@@ -74,7 +75,7 @@ Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix t
 
 ### PR Reviews
 
-PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/CLAUDE_REVIEW.md`. See `dev_docs/pull_requests/README.md`.
+PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GPT_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
 
 ### Publishing commands
 
@@ -86,7 +87,8 @@ PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/CLAUDE_R
 ## Database
 
 - All schemas use `@primary_key {:uuid, UUIDv7, autogenerate: true}`
-- DB generates UUIDs via `uuid_generate_v7()` function (NOT `gen_random_uuid()`)
+- **New migrations must use** `uuid_generate_v7()` (NOT `gen_random_uuid()`)
+- The migration system uses Oban-style versioned migrations (see `lib/phoenix_kit/migrations/postgres/`)
 
 
 ## Documentations
@@ -102,8 +104,8 @@ Built-in Dashboard Features
 PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
 
 - **Always** begin PhoenixKit LiveView templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout ...>` which wraps all inner content
-- Required attributes: `flash`, `page_title`, `current_path`, `project_title`, `phoenix_kit_current_scope`
-- Optional: `current_locale`
+- Required attributes: `flash`, `page_title`, `url_path`, `project_title`, `phoenix_kit_current_scope`
+- Optional: `current_locale`, `current_locale_base`
 
 Example:
 
@@ -111,10 +113,11 @@ Example:
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   page_title={@page_title}
-  current_path={@current_path}
+  url_path={@url_path}
   project_title={@project_title}
   phoenix_kit_current_scope={@phoenix_kit_current_scope}
   current_locale={assigns[:current_locale]}
+  current_locale_base={assigns[:current_locale_base]}
 >
   <!-- Your content here -->
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
@@ -124,11 +127,12 @@ Example:
 
 **NEVER hardcode PhoenixKit paths.** Use configurable prefix helpers:
 
-1. `PhoenixKit.Utils.Routes.path/1` - Prefix-aware paths in Elixir code
+1. `PhoenixKit.Utils.Routes.path/1` - Prefix-aware paths in Elixir code (alias or import first)
 2. `<.pk_link>` - Prefix-aware link component for templates
 
 ```elixir
-# In LiveView/Controller (Routes is auto-imported)
+# In LiveView/Controller - alias Routes first
+alias PhoenixKit.Utils.Routes
 push_navigate(socket, to: Routes.path("/dashboard"))
 url = Routes.url("/users/confirm/#{token}")
 ```
@@ -152,7 +156,8 @@ url = Routes.url("/users/confirm/#{token}")
 ### Installing commands
 
 - `mix phoenix_kit.install` - Install PhoenixKit (use `--help` for options)
-- `mix phoenix_kit.update` - Update existing installation (use `--help` or `--status`)
+- `mix phoenix_kit.update` - Update existing installation (use `--help`)
+- `mix phoenix_kit.status` - Shows comprehensive PhoenixKit installation status
 - `mix phoenix_kit.gen.migration` - Generate custom migration files
 
 Features: versioned migrations, database tables prefix support, idempotent operations, PostgreSQL validation, production mailer templates.
