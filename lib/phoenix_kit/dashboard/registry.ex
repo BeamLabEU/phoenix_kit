@@ -789,6 +789,7 @@ defmodule PhoenixKit.Dashboard.Registry do
         Enum.each(tabs, fn tab_config ->
           case Tab.new(tab_config) do
             {:ok, tab} ->
+              tab = Tab.resolve_path(tab, :user_dashboard)
               :ets.insert(@ets_table, {{:tab, tab.id}, tab})
               :ets.insert(@ets_table, {{:namespace, :config, tab.id}, true})
 
@@ -828,6 +829,7 @@ defmodule PhoenixKit.Dashboard.Registry do
       Enum.each(tabs, fn tab_config ->
         case Tab.new(tab_config) do
           {:ok, tab} ->
+            tab = Tab.resolve_path(tab, :user_dashboard)
             :ets.insert(@ets_table, {{:tab, tab.id}, tab})
             :ets.insert(@ets_table, {{:namespace, :categories, tab.id}, true})
 
@@ -916,6 +918,7 @@ defmodule PhoenixKit.Dashboard.Registry do
 
           case Tab.new(tab_config) do
             {:ok, tab} ->
+              tab = Tab.resolve_path(tab, :admin)
               :ets.insert(@ets_table, {{:tab, tab.id}, tab})
               :ets.insert(@ets_table, {{:namespace, :admin_config, tab.id}, true})
 

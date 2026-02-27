@@ -30,6 +30,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   use PhoenixKitWeb, :verified_routes
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
   import PhoenixKitWeb.Components.Core.CookieConsent, only: [cookie_consent: 1]
   import PhoenixKitWeb.Components.AdminNav
@@ -73,15 +75,26 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :inner_content, :string, default: nil
   attr :project_title, :string, default: nil
   attr :current_locale, :string, default: nil
+  attr :from_layout, :boolean, default: false
 
   slot :inner_block, required: false
 
   def app_layout(assigns) do
     # Guard against double-wrapping: when admin.html.heex layout auto-applies admin
     # chrome for plugin views, the LiveView's render/1 may also call app_layout.
-    # The LiveView render executes first, so mark it and let the layout's call be the
-    # one that actually renders admin chrome (it has full assigns from the socket).
-    if Process.get(:phoenix_kit_admin_chrome_rendered) do
+    #
+    # Only the layout's call (from_layout=true) checks the flag. The LiveView's
+    # direct call always renders normally and sets the flag for the layout to detect.
+    # This avoids the stale-flag bug: in connected mode only the LiveView re-renders
+    # (not the layout), so an unchecked flag would incorrectly persist across events.
+    if assigns[:from_layout] && Process.delete(:phoenix_kit_admin_chrome_rendered) do
+      Logger.warning(
+        "[LayoutWrapper] app_layout called twice in same render tree. " <>
+          "Plugin LiveViews should not call LayoutWrapper.app_layout — " <>
+          "the admin.html.heex layout handles admin chrome automatically. " <>
+          "Remove the LayoutWrapper wrapper from your render/1 function."
+      )
+
       ~H"{render_slot(@inner_block)}"
     else
       app_layout_inner(assigns)
@@ -200,7 +213,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # Wrap inner_block with admin navigation if needed
   defp wrap_inner_block_with_admin_nav_if_needed(assigns) do
     if admin_page?(assigns) do
-      # Mark that admin chrome has been rendered (prevents double-wrapping)
+      # Mark that admin chrome is being rendered by this (LiveView) call.
+      # The layout's call (from_layout=true) will detect this and short-circuit.
       Process.put(:phoenix_kit_admin_chrome_rendered, true)
       # Create new inner_block slot that wraps original content with admin navigation
       original_inner_block = assigns[:inner_block]
