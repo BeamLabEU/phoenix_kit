@@ -277,7 +277,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
               file_ids
               |> Enum.with_index(max_position + 1)
               |> Enum.map(fn {file_id, position} ->
-                %{file_id: file_id, file: nil, position: position, id: nil}
+                %{file_uuid: file_id, file: nil, position: position, id: nil}
               end)
 
             socket
@@ -340,7 +340,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     get_file_url(file_id)
   end
 
-  def get_featured_image_url(%{file_id: file_id}) when not is_nil(file_id) do
+  def get_featured_image_url(%{file_uuid: file_id}) when not is_nil(file_id) do
     get_file_url(file_id)
   end
 

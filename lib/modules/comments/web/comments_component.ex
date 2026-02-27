@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
 
       attrs = %{
         content: comment_text,
-        parent_id: parent_id
+        parent_uuid: parent_id
       }
 
       case Comments.create_comment(

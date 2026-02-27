@@ -81,7 +81,7 @@
                     <.draggable_list
                       id="post-images-grid"
                       items={@post_images}
-                      item_id={fn media -> media.file_id end}
+                      item_id={fn media -> media.file_uuid end}
                       on_reorder="reorder_post_images"
                       cols={4}
                     >
@@ -90,7 +90,7 @@
                           <img
                             src={
                               PhoenixKit.Modules.Storage.URLSigner.signed_url(
-                                media.file_id,
+                                media.file_uuid,
                                 "thumbnail"
                               )
                             }
@@ -107,7 +107,7 @@
                           <button
                             type="button"
                             phx-click="remove_post_image"
-                            phx-value-id={media.uuid || media.file_id}
+                            phx-value-id={media.uuid || media.file_uuid}
                             class="absolute top-1 right-1 btn btn-xs btn-circle btn-error opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <.icon name="hero-x-mark" class="w-3 h-3" />

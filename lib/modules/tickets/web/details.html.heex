@@ -456,7 +456,7 @@
         id="ticket-media-selector"
         show={@show_media_selector}
         mode={:multiple}
-        selected_ids={Enum.map(@attachments, & &1.file_id)}
+        selected_ids={Enum.map(@attachments, & &1.file_uuid)}
         phoenix_kit_current_user={@current_user}
       />
     <% end %>

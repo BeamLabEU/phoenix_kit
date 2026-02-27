@@ -21,31 +21,31 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   """
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{"file_id" => file_id, "filename" => filename} = _args
+        args: %{"file_uuid" => file_uuid, "filename" => filename} = _args
       }) do
-    Logger.info("ProcessFileJob: EXECUTING for file_id=#{file_id}, filename=#{filename}")
+    Logger.info("ProcessFileJob: EXECUTING for file_uuid=#{file_uuid}, filename=#{filename}")
 
-    file = Storage.get_file(file_id)
+    file = Storage.get_file(file_uuid)
 
     if is_nil(file) do
-      Logger.error("ProcessFileJob: File not found for file_id=#{file_id}")
+      Logger.error("ProcessFileJob: File not found for file_uuid=#{file_uuid}")
       {:error, :file_not_found}
     else
       Logger.info(
-        "ProcessFileJob: Starting processing for file_id=#{file_id}, type=#{file.file_type}"
+        "ProcessFileJob: Starting processing for file_uuid=#{file_uuid}, type=#{file.file_type}"
       )
 
       case process_file(file) do
         {:ok, variants} ->
           Logger.info(
-            "ProcessFileJob: Successfully processed file_id=#{file_id}, generated=#{length(variants)} variants"
+            "ProcessFileJob: Successfully processed file_uuid=#{file_uuid}, generated=#{length(variants)} variants"
           )
 
           :ok
 
         {:error, reason} ->
           Logger.error(
-            "ProcessFileJob: Failed to process file_id=#{file_id}, error=#{inspect(reason)}"
+            "ProcessFileJob: Failed to process file_uuid=#{file_uuid}, error=#{inspect(reason)}"
           )
 
           {:error, reason}
@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   end
 
   defp process_image(file) do
-    Logger.info("ProcessFileJob: process_image/1 called for file_id=#{file.uuid}")
+    Logger.info("ProcessFileJob: process_image/1 called for file_uuid=#{file.uuid}")
 
     with {:ok, temp_path} <- retrieve_and_log_file(file.uuid),
          {:ok, metadata} <- extract_and_log_image_metadata(temp_path),
@@ -90,8 +90,8 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     end
   end
 
-  defp retrieve_and_log_file(file_id) do
-    case Storage.retrieve_file(file_id) do
+  defp retrieve_and_log_file(file_uuid) do
+    case Storage.retrieve_file(file_uuid) do
       {:ok, temp_path, _file} ->
         Logger.info("ProcessFileJob: Retrieved file to temp_path=#{temp_path}")
         {:ok, temp_path}
@@ -161,7 +161,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
            {:ok, metadata} <- extract_document_metadata(temp_path, file.mime_type),
            :ok <- update_file_with_metadata(file, metadata) do
         File.rm(temp_path)
-        Logger.info("ProcessFileJob: Processed document file_id=#{file.uuid}")
+        Logger.info("ProcessFileJob: Processed document file_uuid=#{file.uuid}")
         {:ok, []}
       end
     end

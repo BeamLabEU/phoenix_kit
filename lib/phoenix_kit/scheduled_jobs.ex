@@ -79,7 +79,7 @@ defmodule PhoenixKit.ScheduledJobs do
       job_type: handler_module.job_type(),
       handler_module: to_string(handler_module),
       resource_type: handler_module.resource_type(),
-      resource_id: resource_id,
+      resource_uuid: resource_id,
       scheduled_at: scheduled_at,
       args: args,
       priority: Keyword.get(opts, :priority, 0),
@@ -128,7 +128,7 @@ defmodule PhoenixKit.ScheduledJobs do
   def cancel_jobs_for_resource(resource_type, resource_id) do
     from(j in ScheduledJob,
       where: j.resource_type == ^resource_type,
-      where: j.resource_id == ^resource_id,
+      where: j.resource_uuid == ^resource_id,
       where: j.status == "pending"
     )
     |> repo().update_all(set: [status: "cancelled", updated_at: UtilsDate.utc_now()])
@@ -226,7 +226,7 @@ defmodule PhoenixKit.ScheduledJobs do
   def get_jobs_for_resource(resource_type, resource_id) do
     from(j in ScheduledJob,
       where: j.resource_type == ^resource_type,
-      where: j.resource_id == ^resource_id,
+      where: j.resource_uuid == ^resource_id,
       order_by: [desc: j.inserted_at]
     )
     |> repo().all()
@@ -243,7 +243,7 @@ defmodule PhoenixKit.ScheduledJobs do
   def get_pending_job_for_resource(resource_type, resource_id) do
     from(j in ScheduledJob,
       where: j.resource_type == ^resource_type,
-      where: j.resource_id == ^resource_id,
+      where: j.resource_uuid == ^resource_id,
       where: j.status == "pending",
       limit: 1
     )

@@ -249,7 +249,7 @@ defmodule PhoenixKit.Modules.Comments.Web.Index do
   defp blank_to_nil(val), do: val
 
   defp resource_info(resource_context, comment) do
-    Map.get(resource_context, {comment.resource_type, comment.resource_id})
+    Map.get(resource_context, {comment.resource_type, comment.resource_uuid})
   end
 
   defp status_badge_class("published"), do: "badge badge-success badge-sm"

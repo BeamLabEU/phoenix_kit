@@ -531,7 +531,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                     <div>
                       <span>File:</span>
                       <span class="ml-2">
-                        {if @product.file_id, do: "Attached", else: "—"}
+                        {if @product.file_uuid, do: "Attached", else: "—"}
                       </span>
                     </div>
                     <div>

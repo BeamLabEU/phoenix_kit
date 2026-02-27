@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Storage.FileServer do
 
   ## Arguments
 
-  - `file_id` (binary) - File UUID v7
+  - `file_uuid` (binary) - File UUID v7
   - `instance_name` (binary) - Variant name (e.g., "thumbnail", "medium")
 
   ## Returns

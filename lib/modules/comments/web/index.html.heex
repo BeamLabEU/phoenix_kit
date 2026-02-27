@@ -163,9 +163,9 @@
                         <% _ -> %>
                           <span
                             class="text-base-content/40 text-xs ml-1"
-                            title={to_string(comment.resource_id)}
+                            title={to_string(comment.resource_uuid)}
                           >
-                            {String.slice(to_string(comment.resource_id), 0..7)}
+                            {String.slice(to_string(comment.resource_uuid), 0..7)}
                           </span>
                       <% end %>
                     </td>
