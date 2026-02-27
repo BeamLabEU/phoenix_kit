@@ -54,13 +54,13 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   """
   @spec core_tabs() :: [Tab.t()]
   def core_tabs do
-    [
+    tabs = [
       # Dashboard
       %Tab{
         id: :admin_dashboard,
         label: "Dashboard",
         icon: "hero-home",
-        path: "/admin",
+        path: "",
         priority: 100,
         level: :admin,
         permission: "dashboard",
@@ -72,7 +72,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         id: :admin_users,
         label: "Users",
         icon: "hero-users",
-        path: "/admin/users",
+        path: "users",
         priority: 200,
         level: :admin,
         permission: "users",
@@ -86,7 +86,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users_manage,
         "Manage Users",
         "hero-users",
-        "/admin/users",
+        "users",
         210,
         :admin_users,
         "users",
@@ -96,7 +96,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users_live_sessions,
         "Live Sessions",
         "hero-eye",
-        "/admin/users/live_sessions",
+        "users/live_sessions",
         220,
         :admin_users,
         "users"
@@ -105,7 +105,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users_sessions,
         "Sessions",
         "hero-computer-desktop",
-        "/admin/users/sessions",
+        "users/sessions",
         230,
         :admin_users,
         "users"
@@ -114,7 +114,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users_roles,
         "Roles",
         "hero-shield-check",
-        "/admin/users/roles",
+        "users/roles",
         240,
         :admin_users,
         "users"
@@ -123,7 +123,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users_permissions,
         "Permissions",
         "hero-key",
-        "/admin/users/permissions",
+        "users/permissions",
         250,
         :admin_users,
         "users"
@@ -132,7 +132,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users_referral_codes,
         "Referral Codes",
         "hero-ticket",
-        "/admin/users/referral-codes",
+        "users/referral-codes",
         260,
         :admin_users,
         "referrals"
@@ -142,7 +142,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         id: :admin_media,
         label: "Media",
         icon: "hero-photo",
-        path: "/admin/media",
+        path: "media",
         priority: 300,
         level: :admin,
         permission: "media",
@@ -150,6 +150,8 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         group: :admin_main
       }
     ]
+
+    Enum.map(tabs, &Tab.resolve_path(&1, :admin))
   end
 
   @doc """
@@ -160,17 +162,20 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
     ModuleRegistry.all_admin_tabs() ++
       [
         # Modules management page (core admin, not a feature module)
-        %Tab{
-          id: :admin_modules_page,
-          label: "Modules",
-          icon: "hero-puzzle-piece",
-          path: "/admin/modules",
-          priority: 630,
-          level: :admin,
-          permission: "modules",
-          match: :exact,
-          group: :admin_modules
-        }
+        Tab.resolve_path(
+          %Tab{
+            id: :admin_modules_page,
+            label: "Modules",
+            icon: "hero-puzzle-piece",
+            path: "modules",
+            priority: 630,
+            level: :admin,
+            permission: "modules",
+            match: :exact,
+            group: :admin_modules
+          },
+          :admin
+        )
       ]
   end
 
@@ -186,26 +191,32 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   end
 
   defp core_settings_tabs do
-    [
-      # Settings parent (visible if user has settings or any sub-module permission)
-      %Tab{
-        id: :admin_settings,
-        label: "Settings",
-        icon: "hero-cog-6-tooth",
-        path: "/admin/settings",
-        priority: 910,
-        level: :admin,
-        match: :exact,
-        group: :admin_system,
-        subtab_display: :when_active,
-        highlight_with_subtabs: false,
-        visible: &__MODULE__.settings_visible?/1
-      },
+    # Settings parent lives in admin context (it's a top-level sidebar item)
+    settings_parent =
+      Tab.resolve_path(
+        %Tab{
+          id: :admin_settings,
+          label: "Settings",
+          icon: "hero-cog-6-tooth",
+          path: "settings",
+          priority: 910,
+          level: :admin,
+          match: :exact,
+          group: :admin_system,
+          subtab_display: :when_active,
+          highlight_with_subtabs: false,
+          visible: &__MODULE__.settings_visible?/1
+        },
+        :admin
+      )
+
+    # Settings subtabs live in settings context (paths under /admin/settings/)
+    subtabs = [
       admin_subtab(
         :admin_settings_general,
         "General",
         "hero-cog-6-tooth",
-        "/admin/settings",
+        "",
         911,
         :admin_settings,
         "settings",
@@ -215,7 +226,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_settings_organization,
         "Organization",
         "hero-building-office",
-        "/admin/settings/organization",
+        "organization",
         912,
         :admin_settings,
         "settings"
@@ -224,7 +235,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_settings_users,
         "Users",
         "hero-users",
-        "/admin/settings/users",
+        "users",
         913,
         :admin_settings,
         "settings"
@@ -233,7 +244,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         id: :admin_settings_media,
         label: "Media",
         icon: "hero-photo",
-        path: "/admin/settings/media",
+        path: "media",
         priority: 933,
         level: :admin,
         permission: "media",
@@ -246,12 +257,14 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_settings_media_dimensions,
         "Dimensions",
         "hero-arrows-pointing-out",
-        "/admin/settings/media/dimensions",
+        "media/dimensions",
         934,
         :admin_settings_media,
         "media"
       )
     ]
+
+    [settings_parent | Enum.map(subtabs, &Tab.resolve_path(&1, :settings))]
   end
 
   @doc """

@@ -197,7 +197,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Prevent self-modification
-    if current_user.id == user.id do
+    if current_user.uuid == user.uuid do
       socket = put_flash(socket, :error, "Cannot modify your own roles")
       {:noreply, socket}
     else
@@ -297,7 +297,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       false ->
         error_msg =
           cond do
-            user.id == current_user.id ->
+            user.uuid == current_user.uuid ->
               "Cannot delete your own account"
 
             Roles.user_has_role_owner?(user) ->
@@ -503,7 +503,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     current_user = socket.assigns.phoenix_kit_current_user
     user = Auth.get_user!(user_id)
 
-    if current_user.id == user.id do
+    if current_user.uuid == user.uuid do
       socket = put_flash(socket, :error, "Cannot modify your own status")
       {:noreply, socket}
     else
@@ -544,7 +544,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     current_user = socket.assigns.phoenix_kit_current_user
     user = Auth.get_user!(user_id)
 
-    if current_user.id == user.id do
+    if current_user.uuid == user.uuid do
       socket = put_flash(socket, :error, "Cannot modify your own confirmation status")
       {:noreply, socket}
     else
@@ -1028,7 +1028,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
   def handle_info({:user_deleted, deleted_user}, socket) do
     # Remove the deleted user from the list
-    users = Enum.reject(socket.assigns.users, fn u -> u.id == deleted_user.id end)
+    users = Enum.reject(socket.assigns.users, fn u -> u.uuid == deleted_user.uuid end)
 
     socket =
       socket

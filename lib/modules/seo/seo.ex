@@ -119,7 +119,7 @@ defmodule PhoenixKit.Modules.SEO do
         id: :admin_settings_seo,
         label: "SEO",
         icon: "hero-magnifying-glass-circle",
-        path: "/admin/settings/seo",
+        path: "seo",
         priority: 930,
         level: :admin,
         parent: :admin_settings,

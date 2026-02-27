@@ -549,6 +549,32 @@ defmodule PhoenixKit.Dashboard.Tab do
   @spec clear_attention(t()) :: t()
   def clear_attention(%__MODULE__{} = tab), do: %{tab | attention: nil}
 
+  @doc """
+  Resolves a relative tab path to an absolute path based on context.
+
+  Modules define short relative paths (e.g., `"hello-world"`) and the core
+  prepends the appropriate prefix based on which callback returned the tab:
+
+    * `:admin` — prepends `/admin`
+    * `:settings` — prepends `/admin/settings`
+    * `:user_dashboard` — prepends `/dashboard`
+
+  Absolute paths (starting with `/`) pass through unchanged.
+  Empty strings resolve to the context root (e.g., `""` + `:admin` → `"/admin"`).
+  """
+  @spec resolve_path(t(), :admin | :settings | :user_dashboard) :: t()
+  def resolve_path(%__MODULE__{path: "/" <> _} = tab, _context), do: tab
+
+  def resolve_path(%__MODULE__{path: ""} = tab, context),
+    do: %{tab | path: context_to_prefix(context)}
+
+  def resolve_path(%__MODULE__{path: path} = tab, context),
+    do: %{tab | path: "#{context_to_prefix(context)}/#{path}"}
+
+  defp context_to_prefix(:admin), do: "/admin"
+  defp context_to_prefix(:settings), do: "/admin/settings"
+  defp context_to_prefix(:user_dashboard), do: "/dashboard"
+
   # Private functions
 
   defp validate_required(attrs) do
@@ -577,10 +603,10 @@ defmodule PhoenixKit.Dashboard.Tab do
   defp validate_path(attrs) do
     path = attrs[:path] || attrs["path"]
 
-    if is_binary(path) and String.starts_with?(path, "/") do
+    if is_binary(path) do
       :ok
     else
-      {:error, "Tab :path must be a string starting with /, got: #{inspect(path)}"}
+      {:error, "Tab :path must be a string, got: #{inspect(path)}"}
     end
   end
 

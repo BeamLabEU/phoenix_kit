@@ -12,6 +12,7 @@
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   current_path={assigns[:url_path] || assigns[:current_path] || "/admin"}
   current_locale={assigns[:current_locale]}
+  from_layout={true}
 >
   {@inner_content}
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

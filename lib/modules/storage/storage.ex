@@ -675,84 +675,106 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp orphaned_files_query do
-    PhoenixKit.Modules.Storage.File
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_media pm WHERE pm.file_uuid = ?)",
-        f.uuid
+    existing = existing_optional_tables()
+
+    # Core check — phoenix_kit_users always exists
+    base =
+      from(f in PhoenixKit.Modules.Storage.File,
+        where:
+          fragment(
+            "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_id' = ?::text)",
+            f.uuid
+          )
       )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_ticket_attachments ta WHERE ta.file_uuid = ?)",
-        f.uuid
+
+    # Optional module tables — only included if the table exists
+    optional_checks = [
+      {"phoenix_kit_post_media",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_media pm WHERE pm.file_uuid = ?)",
+           f.uuid
+         )
+       )},
+      {"phoenix_kit_ticket_attachments",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_ticket_attachments ta WHERE ta.file_uuid = ?)",
+           f.uuid
+         )
+       )},
+      {"phoenix_kit_post_groups",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_groups pg WHERE pg.cover_image_uuid = ?)",
+           f.uuid
+         )
+       )},
+      {"phoenix_kit_shop_products",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.featured_image_uuid = ?) AND NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE ? = ANY(sp.image_ids)) AND NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.file_uuid = ?)",
+           f.uuid,
+           f.uuid,
+           f.uuid
+         )
+       )},
+      {"phoenix_kit_shop_categories",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_categories sc WHERE sc.image_uuid = ?)",
+           f.uuid
+         )
+       )},
+      {"phoenix_kit_publishing_contents",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_contents pc WHERE pc.data->>'featured_image_id' = ?::text)",
+           f.uuid
+         )
+       )},
+      {"phoenix_kit_publishing_posts",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_posts pp WHERE pp.data->>'featured_image' = ?::text)",
+           f.uuid
+         )
+       )},
+      {"phoenix_kit_posts",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_posts p WHERE p.metadata->>'featured_image_id' = ?::text)",
+           f.uuid
+         )
+       )}
+    ]
+
+    Enum.reduce(optional_checks, base, fn {table, condition}, query ->
+      if table in existing do
+        where(query, ^condition)
+      else
+        query
+      end
+    end)
+  end
+
+  defp existing_optional_tables do
+    repo = repo()
+
+    %{rows: rows} =
+      repo.query!(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'phoenix_kit_%'"
       )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_post_groups pg WHERE pg.cover_image_uuid = ?)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.featured_image_uuid = ?)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE ? = ANY(sp.image_ids))",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.file_uuid = ?)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_categories sc WHERE sc.image_uuid = ?)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_id' = ?::text)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_contents pc WHERE pc.data->>'featured_image_id' = ?::text)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_posts pp WHERE pp.data->>'featured_image' = ?::text)",
-        f.uuid
-      )
-    )
-    |> where(
-      [f],
-      fragment(
-        "NOT EXISTS (SELECT 1 FROM phoenix_kit_posts p WHERE p.metadata->>'featured_image_id' = ?::text)",
-        f.uuid
-      )
-    )
+
+    List.flatten(rows)
   end
 
   # ===== FILE INSTANCES =====
@@ -780,11 +802,11 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
-  Gets the bucket IDs where a file instance is stored.
+  Gets the bucket UUIDs where a file instance is stored.
 
-  Returns a list of bucket IDs from the file_locations for the given file instance.
+  Returns a list of bucket UUIDs from the file_locations for the given file instance.
   """
-  def get_file_instance_bucket_ids(file_instance_uuid) do
+  def get_file_instance_bucket_uuids(file_instance_uuid) do
     FileLocation
     |> where([fl], fl.file_instance_uuid == ^file_instance_uuid and fl.status == "active")
     |> select([fl], fl.bucket_uuid)

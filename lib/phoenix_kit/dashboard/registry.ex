@@ -733,27 +733,29 @@ defmodule PhoenixKit.Dashboard.Registry do
     # Clear existing phoenix_kit namespace tabs first
     clear_namespace_tabs(:phoenix_kit)
 
-    # Default PhoenixKit tabs
-    defaults = [
-      Tab.new!(
-        id: :dashboard_home,
-        label: "Dashboard",
-        icon: "hero-home",
-        path: "/dashboard",
-        priority: 100,
-        match: :exact,
-        group: :main
-      ),
-      Tab.new!(
-        id: :dashboard_settings,
-        label: "Settings",
-        icon: "hero-cog-6-tooth",
-        path: "/dashboard/settings",
-        priority: 900,
-        match: :prefix,
-        group: :account
-      )
-    ]
+    # Default PhoenixKit tabs (relative paths, resolved to /dashboard/*)
+    defaults =
+      [
+        Tab.new!(
+          id: :dashboard_home,
+          label: "Dashboard",
+          icon: "hero-home",
+          path: "",
+          priority: 100,
+          match: :exact,
+          group: :main
+        ),
+        Tab.new!(
+          id: :dashboard_settings,
+          label: "Settings",
+          icon: "hero-cog-6-tooth",
+          path: "settings",
+          priority: 900,
+          match: :prefix,
+          group: :account
+        )
+      ]
+      |> Enum.map(&Tab.resolve_path(&1, :user_dashboard))
 
     # Add user dashboard tabs from enabled modules via registry
     module_tabs = enabled_user_dashboard_tabs()
@@ -787,6 +789,7 @@ defmodule PhoenixKit.Dashboard.Registry do
         Enum.each(tabs, fn tab_config ->
           case Tab.new(tab_config) do
             {:ok, tab} ->
+              tab = Tab.resolve_path(tab, :user_dashboard)
               :ets.insert(@ets_table, {{:tab, tab.id}, tab})
               :ets.insert(@ets_table, {{:namespace, :config, tab.id}, true})
 
@@ -826,6 +829,7 @@ defmodule PhoenixKit.Dashboard.Registry do
       Enum.each(tabs, fn tab_config ->
         case Tab.new(tab_config) do
           {:ok, tab} ->
+            tab = Tab.resolve_path(tab, :user_dashboard)
             :ets.insert(@ets_table, {{:tab, tab.id}, tab})
             :ets.insert(@ets_table, {{:namespace, :categories, tab.id}, true})
 
@@ -864,6 +868,7 @@ defmodule PhoenixKit.Dashboard.Registry do
         do: mod.user_dashboard_tabs(),
         else: []
     end)
+    |> Enum.map(&Tab.resolve_path(&1, :user_dashboard))
   rescue
     _ -> []
   end
@@ -913,6 +918,7 @@ defmodule PhoenixKit.Dashboard.Registry do
 
           case Tab.new(tab_config) do
             {:ok, tab} ->
+              tab = Tab.resolve_path(tab, :admin)
               :ets.insert(@ets_table, {{:tab, tab.id}, tab})
               :ets.insert(@ets_table, {{:namespace, :admin_config, tab.id}, true})
 

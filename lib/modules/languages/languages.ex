@@ -263,7 +263,7 @@ defmodule PhoenixKit.Modules.Languages do
         id: :admin_settings_languages,
         label: "Languages",
         icon: "hero-language",
-        path: "/admin/settings/languages",
+        path: "languages",
         priority: 928,
         level: :admin,
         parent: :admin_settings,

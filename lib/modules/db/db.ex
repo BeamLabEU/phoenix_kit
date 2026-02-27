@@ -104,7 +104,7 @@ defmodule PhoenixKit.Modules.DB do
         id: :admin_db,
         label: "DB",
         icon: "hero-table-cells",
-        path: "/admin/db",
+        path: "db",
         priority: 570,
         level: :admin,
         permission: "db",

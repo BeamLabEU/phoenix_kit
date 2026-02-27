@@ -255,7 +255,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
   @impl true
   def handle_info({:user_deleted, user}, socket) do
-    if user.id == socket.assigns.user.id do
+    if user.uuid == socket.assigns.user.uuid do
       {:noreply,
        socket
        |> put_flash(:info, gettext("This user has been deleted"))

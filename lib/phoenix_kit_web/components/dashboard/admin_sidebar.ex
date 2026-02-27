@@ -248,11 +248,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
               []
           end
 
-        # Ensure children have parent set and correct level
+        # Ensure children have parent set, correct level, and resolved paths
         Enum.map(children, fn child ->
           child
           |> Map.put(:parent, child.parent || parent.id)
           |> Map.put(:level, :admin)
+          |> Tab.resolve_path(:admin)
         end)
       end)
 

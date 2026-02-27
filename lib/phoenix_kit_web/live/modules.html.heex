@@ -1291,7 +1291,7 @@
           </:stats>
         </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
       <% end %>
-      <%!-- External/Plugin Modules (auto-discovered) --%>
+      <%!-- External Modules (auto-discovered) --%>
       <%= for ext <- @external_modules, ext.key in @accessible_modules do %>
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
@@ -1329,7 +1329,7 @@
                   {if ext.enabled, do: "Enabled", else: "Disabled"}
                 </span>
                 <span class="badge badge-outline">v{ext.version}</span>
-                <span class="badge badge-info badge-outline">Plugin</span>
+                <span class="badge badge-info badge-outline">External</span>
               </div>
               <span class="text-xs text-base-content/50">
                 {if ext.enabled, do: "Module is active", else: "Enable to activate"}
