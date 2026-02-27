@@ -38,7 +38,7 @@ defmodule PhoenixKitWeb.Router do
   defp ensure_session_uuid(conn, _opts) do
     case Plug.Conn.get_session(conn, :phoenix_kit_session_uuid) do
       nil ->
-        Plug.Conn.put_session(conn, :phoenix_kit_session_uuid, Ecto.UUID.generate())
+        Plug.Conn.put_session(conn, :phoenix_kit_session_uuid, UUIDv7.generate())
 
       _ ->
         conn

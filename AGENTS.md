@@ -2,20 +2,20 @@ This is a web application written using the Phoenix web framework.
 
 > 📚 **For comprehensive PhoenixKit documentation** (architecture, configuration, development guidelines), see [`CLAUDE.md`](./CLAUDE.md).
 
-## 🚧 IN-PROGRESS: UUID Migration (V40)
+## UUID Migration (Complete)
 
-> **DELETE THIS SECTION** after the UUID migration is fully complete and merged to main.
+All 69 schemas use UUIDv7. Two patterns exist:
 
-**TL;DR**: V40 adds UUIDv7 columns to all 33 legacy bigserial tables. Non-breaking change.
+- **Pattern 1** (41 schemas): `@primary_key {:uuid, UUIDv7, autogenerate: true}` + `field :id, :integer, read_after_writes: true`
+- **Pattern 2** (28 schemas): `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}` (no integer column)
 
 **Key points:**
-- Migration: `lib/phoenix_kit/migrations/postgres/v40.ex`
 - Helper: `lib/phoenix_kit/uuid.ex` (dual integer/UUID lookups with prefix support)
-- All schemas have `field :uuid, Ecto.UUID`
-- User schema generates UUID in Elixir; others use DB DEFAULT
-- Docs: `guides/uuid_migration.md`
+- All schemas use `@primary_key {:uuid, UUIDv7, autogenerate: true}`
+- DB generates UUIDs via `uuid_generate_v7()` function (NOT `gen_random_uuid()`)
+- Docs: `dev_docs/guides/2026-02-17-uuid-migration-instructions-v3-guide.md`
 
-**DO NOT**: Remove UUID DEFAULT, change to UUIDv4, or modify foreign keys.
+**DO NOT**: Remove UUID DEFAULT, use `gen_random_uuid()` (UUIDv4), or modify foreign keys.
 
 ---
 

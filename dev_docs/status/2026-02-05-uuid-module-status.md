@@ -62,20 +62,22 @@ This document tracks UUID implementation status across all PhoenixKit modules wi
 The new UUID standard (established in PR #311/#312, refined in #313) uses:
 
 ```elixir
+@primary_key {:uuid, UUIDv7, autogenerate: true}
+
 schema "phoenix_kit_*" do
-  # UUID for external references (URLs, APIs) - DB generates UUIDv7
-  field :uuid, Ecto.UUID, read_after_writes: true
+  field :id, :integer, read_after_writes: true  # legacy, DB generates via SERIAL
   # ... other fields
 end
 ```
 
 ### Key Characteristics
 
-1. **DB-generated UUIDs** - Database generates UUIDv7 via DEFAULT/trigger
-2. **`read_after_writes: true`** - Ecto reads UUID back after INSERT
-3. **No `maybe_generate_uuid/1`** - Removed from changeset pipeline
-4. **Flexible lookups** - `get/1` accepts integer, UUID string, or string-integer
-5. **Shared validation** - Uses `PhoenixKit.Utils.UUID.valid?/1`
+1. **UUIDv7 primary key** - `@primary_key {:uuid, UUIDv7, autogenerate: true}`
+2. **Legacy integer kept** - `field :id, :integer, read_after_writes: true` for backward compatibility
+3. **DB-generated UUIDs** - Database generates UUIDv7 via `uuid_generate_v7()` DEFAULT
+4. **No `maybe_generate_uuid/1`** - Removed from changeset pipeline
+5. **Flexible lookups** - `get/1` accepts integer, UUID string, or string-integer
+6. **Shared validation** - Uses `PhoenixKit.Utils.UUID.valid?/1`
 
 ### Lookup Function Pattern
 
@@ -110,15 +112,15 @@ Uses `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}` - the `uuid
 4. **Flexible lookups** - `get/1` accepts integer, UUID string, or string-integer
 5. **Shared validation** - Uses `PhoenixKit.Utils.UUID.valid?/1`
 
-### ID Usage Rules
+### UUID Usage Rules
 
 | Use Case | Field | Example |
 |----------|-------|---------|
 | URLs and external APIs | `.uuid` | `/items/#{item.uuid}/edit` |
-| Foreign keys | `.id` | `parent_id: item.id` |
-| Database queries | `.id` | `repo.get(Item, id)` |
-| Stats map keys | `.id` | `Map.get(stats, item.id)` |
-| Event handlers (phx-value) | `.id` | `phx-value-id={item.id}` |
+| Foreign keys (UUID) | `.uuid` | `user_uuid: user.uuid` |
+| Database queries | `.uuid` | `Repo.get(Item, uuid)` |
+| Stats map keys | `.uuid` | `Map.get(stats, item.uuid)` |
+| Event handlers (phx-value) | `.uuid` | `phx-value-uuid={item.uuid}` |
 
 ---
 

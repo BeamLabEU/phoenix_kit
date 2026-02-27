@@ -27,7 +27,7 @@ field :status, :string
 
 # After  
 field :status, :string, default: "pending"
-field :uuid, Ecto.UUID
+field :uuid, UUIDv7
 ```
 
 ### API Changes (if applicable)
