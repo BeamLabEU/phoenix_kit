@@ -112,8 +112,31 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
       refute changeset.valid?
 
       assert "can't be blank" in errors_on(changeset, :group_uuid)
-      assert "can't be blank" in errors_on(changeset, :slug)
       # status, mode, primary_language have schema defaults so they won't be blank
+    end
+
+    test "changeset requires slug for slug-mode posts" do
+      changeset =
+        PublishingPost.changeset(%PublishingPost{}, %{
+          group_uuid: UUIDv7.generate(),
+          mode: "slug",
+          primary_language: "en"
+        })
+
+      assert "can't be blank" in errors_on(changeset, :slug)
+    end
+
+    test "changeset requires post_date and post_time for timestamp-mode posts" do
+      changeset =
+        PublishingPost.changeset(%PublishingPost{}, %{
+          group_uuid: UUIDv7.generate(),
+          mode: "timestamp",
+          primary_language: "en"
+        })
+
+      assert "can't be blank" in errors_on(changeset, :post_date)
+      assert "can't be blank" in errors_on(changeset, :post_time)
+      assert errors_on(changeset, :slug) == []
     end
 
     test "changeset validates status inclusion" do

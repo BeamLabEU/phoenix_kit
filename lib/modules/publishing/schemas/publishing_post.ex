@@ -94,12 +94,14 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       :updated_by_uuid,
       :data
     ])
-    |> validate_required([:group_uuid, :slug, :status, :mode, :primary_language])
+    |> validate_required([:group_uuid, :status, :mode, :primary_language])
     |> validate_inclusion(:status, ["draft", "published", "archived", "scheduled"])
     |> validate_inclusion(:mode, ["timestamp", "slug"])
+    |> maybe_require_slug()
     |> validate_length(:slug, max: 500)
     |> validate_length(:primary_language, max: 10)
     |> validate_scheduled_at()
+    |> maybe_require_timestamp_fields()
     |> unique_constraint([:group_uuid, :slug], name: :idx_publishing_posts_group_slug)
     |> foreign_key_constraint(:group_uuid, name: :fk_publishing_posts_group)
     |> foreign_key_constraint(:created_by_uuid, name: :fk_publishing_posts_created_by)
@@ -132,6 +134,22 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
 
   @doc "Returns SEO metadata."
   def get_seo(%__MODULE__{data: data}), do: Map.get(data, "seo", %{})
+
+  defp maybe_require_slug(changeset) do
+    if get_field(changeset, :mode) == "slug" do
+      validate_required(changeset, [:slug])
+    else
+      changeset
+    end
+  end
+
+  defp maybe_require_timestamp_fields(changeset) do
+    if get_field(changeset, :mode) == "timestamp" do
+      validate_required(changeset, [:post_date, :post_time])
+    else
+      changeset
+    end
+  end
 
   defp validate_scheduled_at(changeset) do
     status = get_field(changeset, :status)

@@ -1012,7 +1012,20 @@ defmodule PhoenixKit.Modules.Publishing do
                url_slug: post_slug
              }) do
         # Read back via mapper to get a proper legacy map with UUID
-        case DBStorage.read_post(group_slug, db_post.slug, primary_language, 1) do
+        read_result =
+          if mode == "timestamp" do
+            DBStorage.read_post_by_datetime(
+              group_slug,
+              db_post.post_date,
+              db_post.post_time,
+              primary_language,
+              1
+            )
+          else
+            DBStorage.read_post(group_slug, db_post.slug, primary_language, 1)
+          end
+
+        case read_result do
           {:ok, post} ->
             ListingCache.regenerate(group_slug)
             PublishingPubSub.broadcast_post_created(group_slug, post)
@@ -1285,32 +1298,57 @@ defmodule PhoenixKit.Modules.Publishing do
     DBConnection.ConnectionError -> {:error, :not_found}
   end
 
-  # Resolves a DB post by slug or datetime depending on group mode
+  # Resolves a DB post by slug, UUID, or datetime depending on what's available
+  defp resolve_db_post(_group_slug, nil), do: nil
+
   defp resolve_db_post(group_slug, identifier) do
-    # Try slug-based lookup first
-    case DBStorage.get_post(group_slug, identifier) do
-      nil ->
-        # For timestamp-mode posts, the identifier may be "YYYY-MM-DD/HH:MM"
-        case parse_timestamp_path(identifier) do
-          {:ok, date, time, _version, _lang} ->
-            DBStorage.get_post_by_datetime(group_slug, date, time)
+    # Try UUID lookup if identifier looks like a UUID
+    if uuid_format?(identifier) do
+      DBStorage.get_post_by_uuid(identifier, [:group])
+    else
+      # Try slug-based lookup first
+      case DBStorage.get_post(group_slug, identifier) do
+        nil ->
+          # For timestamp-mode posts, the identifier may be "YYYY-MM-DD/HH:MM"
+          case parse_timestamp_path(identifier) do
+            {:ok, date, time, _version, _lang} ->
+              DBStorage.get_post_by_datetime(group_slug, date, time)
 
-          :error ->
-            nil
-        end
+            :error ->
+              nil
+          end
 
-      db_post ->
-        db_post
+        db_post ->
+          db_post
+      end
     end
   end
 
+  defp uuid_format?(str) when is_binary(str),
+    do: byte_size(str) >= 32 and String.contains?(str, "-") and match?({:ok, _}, UUIDv7.cast(str))
+
+  defp uuid_format?(_), do: false
+
   # Reads a post back from DB using the appropriate method for the group mode
   defp read_back_post(group_slug, identifier, db_post, language, version_number) do
-    case parse_timestamp_path(identifier) do
-      {:ok, date, time, _v, _l} ->
+    cond do
+      # Timestamp-mode: use date/time from the DB post
+      db_post && db_post.mode == "timestamp" && db_post.post_date && db_post.post_time ->
+        DBStorage.read_post_by_datetime(
+          group_slug,
+          db_post.post_date,
+          db_post.post_time,
+          language,
+          version_number
+        )
+
+      # Identifier looks like a timestamp path
+      is_binary(identifier) && match?({:ok, _, _, _, _}, parse_timestamp_path(identifier)) ->
+        {:ok, date, time, _v, _l} = parse_timestamp_path(identifier)
         DBStorage.read_post_by_datetime(group_slug, date, time, language, version_number)
 
-      :error ->
+      # Slug-mode
+      true ->
         slug = if db_post, do: db_post.slug, else: identifier
         DBStorage.read_post(group_slug, slug, language, version_number)
     end
@@ -1319,18 +1357,23 @@ defmodule PhoenixKit.Modules.Publishing do
   # Updates a DB-only post (no filesystem counterpart).
   # Writes directly to the database and returns the updated legacy map.
   defp update_post_in_db(group_slug, post, params, _audit_meta) do
-    db_post = DBStorage.get_post(group_slug, post.slug)
+    db_post = find_db_post_for_update(group_slug, post)
 
     if db_post do
-      # Handle slug changes (same validation as FS path)
-      desired_slug = Map.get(params, "slug", post.slug)
+      if post[:mode] == :timestamp || db_post.mode == "timestamp" do
+        # Timestamp-mode posts don't have slugs — skip slug validation
+        do_update_post_in_db(db_post, post, params, group_slug, nil)
+      else
+        # Handle slug changes (same validation as FS path)
+        desired_slug = Map.get(params, "slug", post.slug)
 
-      case maybe_update_db_slug(db_post, desired_slug, group_slug) do
-        {:ok, final_slug} ->
-          do_update_post_in_db(db_post, post, params, group_slug, final_slug)
+        case maybe_update_db_slug(db_post, desired_slug, group_slug) do
+          {:ok, final_slug} ->
+            do_update_post_in_db(db_post, post, params, group_slug, final_slug)
 
-        {:error, _reason} = error ->
-          error
+          {:error, _reason} = error ->
+            error
+        end
       end
     else
       {:error, :not_found}
@@ -1339,6 +1382,26 @@ defmodule PhoenixKit.Modules.Publishing do
     e ->
       Logger.warning("[Publishing] update_post_in_db failed: #{inspect(e)}")
       {:error, :db_update_failed}
+  end
+
+  # Find the DB post record for update, using UUID, date/time, or slug as available
+  defp find_db_post_for_update(group_slug, post) do
+    cond do
+      # If we have a UUID, use it directly (most reliable)
+      post[:uuid] ->
+        DBStorage.get_post_by_uuid(post[:uuid], [:group])
+
+      # Timestamp-mode: use date/time
+      post[:mode] == :timestamp && post[:date] && post[:time] ->
+        DBStorage.get_post_by_datetime(group_slug, post[:date], post[:time])
+
+      # Slug-mode: use slug
+      post[:slug] ->
+        DBStorage.get_post(group_slug, post[:slug])
+
+      true ->
+        nil
+    end
   end
 
   defp maybe_update_db_slug(db_post, desired_slug, _group_slug)
@@ -1369,11 +1432,30 @@ defmodule PhoenixKit.Modules.Publishing do
       content = Map.get(params, "content", post[:content] || "")
       new_title = resolve_post_title(params, post, content)
 
+      # Title is required for primary language when publishing (drafts can be untitled)
+      if language == db_post.primary_language and new_status == "published" and
+           new_title in ["", "Untitled"] do
+        throw({:post_update_failed, :title_required})
+      end
+
+      # Capture old status from DB before updating (editor assigns may already reflect new status)
+      old_db_status = db_post.status
+
       update_post_level_fields!(db_post, new_status, params)
       upsert_post_content(version, language, new_title, content, new_status, params, post)
-      maybe_propagate_status(version, language, db_post, new_status, post)
+      maybe_propagate_status(version, language, db_post, new_status, old_db_status)
 
-      DBStorage.read_post(group_slug, final_slug, language, version_number)
+      if db_post.mode == "timestamp" do
+        DBStorage.read_post_by_datetime(
+          group_slug,
+          db_post.post_date,
+          db_post.post_time,
+          language,
+          version_number
+        )
+      else
+        DBStorage.read_post(group_slug, final_slug, language, version_number)
+      end
     else
       {:error, :not_found}
     end
@@ -1422,18 +1504,17 @@ defmodule PhoenixKit.Modules.Publishing do
     })
   end
 
-  defp maybe_propagate_status(version, language, db_post, new_status, post) do
+  defp maybe_propagate_status(version, language, db_post, new_status, old_db_status) do
     is_primary = language == db_post.primary_language
-    old_status = post[:metadata][:status] || "draft"
 
-    if is_primary and new_status != old_status do
+    if is_primary and new_status != old_db_status do
       propagate_db_status_to_translations(version.uuid, language, new_status)
     end
   end
 
   # Propagates a status change from the primary language to all other translations
-  defp update_primary_language_in_db(group_slug, post_slug, new_primary_language) do
-    case DBStorage.get_post(group_slug, post_slug) do
+  defp update_primary_language_in_db(group_slug, post_identifier, new_primary_language) do
+    case resolve_db_post(group_slug, post_identifier) do
       nil ->
         {:error, :post_not_found}
 
@@ -1562,8 +1643,8 @@ defmodule PhoenixKit.Modules.Publishing do
       {:error, :not_found}
   """
   @spec publish_version(String.t(), String.t(), integer(), keyword()) :: :ok | {:error, any()}
-  def publish_version(group_slug, post_slug, version, opts \\ []) do
-    db_post = DBStorage.get_post(group_slug, post_slug)
+  def publish_version(group_slug, post_identifier, version, opts \\ []) do
+    db_post = resolve_db_post(group_slug, post_identifier)
     unless db_post, do: throw({:error, :not_found})
 
     # Set target version to published, archive previously-published versions
@@ -1585,9 +1666,16 @@ defmodule PhoenixKit.Modules.Publishing do
     })
 
     source_id = Keyword.get(opts, :source_id)
+    broadcast_id = db_post.slug || db_post.uuid
     ListingCache.regenerate(group_slug)
-    PublishingPubSub.broadcast_version_live_changed(group_slug, post_slug, version)
-    PublishingPubSub.broadcast_post_version_published(group_slug, post_slug, version, source_id)
+    PublishingPubSub.broadcast_version_live_changed(group_slug, broadcast_id, version)
+
+    PublishingPubSub.broadcast_post_version_published(
+      group_slug,
+      broadcast_id,
+      version,
+      source_id
+    )
 
     :ok
   catch
@@ -1621,8 +1709,8 @@ defmodule PhoenixKit.Modules.Publishing do
     create_version_in_db(group_slug, post_slug, source_version, params, opts)
   end
 
-  defp create_version_in_db(group_slug, post_slug, source_version, _params, opts) do
-    db_post = DBStorage.get_post(group_slug, post_slug)
+  defp create_version_in_db(group_slug, post_identifier, source_version, _params, opts) do
+    db_post = resolve_db_post(group_slug, post_identifier)
     unless db_post, do: throw({:error, :post_not_found})
 
     scope = fetch_option(opts, :scope)
@@ -1656,9 +1744,10 @@ defmodule PhoenixKit.Modules.Publishing do
       end
 
     with {:ok, db_version} <- result do
-      case DBStorage.read_post(group_slug, post_slug, nil, db_version.version_number) do
+      case read_back_post(group_slug, post_identifier, db_post, nil, db_version.version_number) do
         {:ok, post} ->
-          broadcast_version_created(group_slug, post_slug, post)
+          broadcast_id = db_post.slug || db_post.uuid
+          broadcast_version_created(group_slug, broadcast_id, post)
           {:ok, post}
 
         {:error, _} = err ->

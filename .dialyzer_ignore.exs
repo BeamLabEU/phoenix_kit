@@ -158,5 +158,9 @@
   # ExUnit.CaseTemplate macro generates calls to internal ExUnit functions
   # that Dialyzer cannot resolve (Erlang 27 only; resolved in Erlang 28)
   {"test/support/conn_case.ex", :unknown_function},
-  {"test/support/data_case.ex", :unknown_function}
+  {"test/support/data_case.ex", :unknown_function},
+
+  # tab_callback_context/1 has a :user_dashboard_tabs clause for future use
+  # but compile_module_admin_routes only passes :admin_tabs and :settings_tabs currently
+  {"lib/phoenix_kit_web/integration.ex", :pattern_match}
 ]
