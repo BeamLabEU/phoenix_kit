@@ -437,7 +437,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   @doc """
   Updates the title from content if not manually set.
-  Returns {socket, form}.
+  Returns {socket, form, events}.
   """
   def maybe_update_title_from_content(socket, content) do
     content = content || ""
@@ -484,6 +484,41 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       Map.put(params, "title", last_auto)
     else
       params
+    end
+  end
+
+  @doc """
+  Detects whether the user manually set the title field.
+  Returns {form, title_manually_set}.
+  """
+  def detect_title_manual_set(params, form, socket) do
+    if Map.has_key?(params, "title") do
+      title_value = Map.get(form, "title", "")
+
+      if title_value != "" do
+        manually_set = title_value != Map.get(socket.assigns, :last_auto_title, "")
+        {form, manually_set}
+      else
+        # User cleared title — revert to auto from H1
+        revert_title_to_auto(form, socket)
+      end
+    else
+      {form, Map.get(socket.assigns, :title_manually_set, false)}
+    end
+  end
+
+  @doc """
+  Reverts the title to the auto-extracted H1 heading.
+  Returns {form, false}.
+  """
+  def revert_title_to_auto(form, socket) do
+    extracted = Metadata.extract_title_from_content(socket.assigns.content || "")
+    auto_title = if extracted == "Untitled", do: "", else: extracted
+
+    if auto_title != "" do
+      {Map.put(form, "title", auto_title), false}
+    else
+      {form, false}
     end
   end
 

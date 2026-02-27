@@ -590,7 +590,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         end
 
       {new_form, title_manually_set} =
-        detect_title_manual_set(params, new_form, socket)
+        Forms.detect_title_manual_set(params, new_form, socket)
 
       has_changes = Forms.dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
@@ -1454,13 +1454,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     case re_read_post(socket) do
       {:ok, post} ->
         form = Forms.post_form(post)
-        ext_title = Metadata.extract_title_from_content(post.content || "")
-        a_title = if ext_title == "Untitled", do: "", else: ext_title
+        extracted_title = Metadata.extract_title_from_content(post.content || "")
+        auto_title = if extracted_title == "Untitled", do: "", else: extracted_title
 
         socket
         |> assign(:post, %{post | group: socket.assigns.group_slug})
         |> Forms.assign_form_with_tracking(form,
-          last_auto_title: a_title,
+          last_auto_title: auto_title,
           title_manually_set: false
         )
         |> assign(:content, post.content)
@@ -1470,33 +1470,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
       {:error, _} ->
         socket
-    end
-  end
-
-  defp detect_title_manual_set(params, form, socket) do
-    if Map.has_key?(params, "title") do
-      title_value = Map.get(form, "title", "")
-
-      if title_value != "" do
-        manually_set = title_value != Map.get(socket.assigns, :last_auto_title, "")
-        {form, manually_set}
-      else
-        # User cleared title — revert to auto from H1
-        revert_title_to_auto(form, socket)
-      end
-    else
-      {form, Map.get(socket.assigns, :title_manually_set, false)}
-    end
-  end
-
-  defp revert_title_to_auto(form, socket) do
-    extracted = Metadata.extract_title_from_content(socket.assigns.content || "")
-    auto_title = if extracted == "Untitled", do: "", else: extracted
-
-    if auto_title != "" do
-      {Map.put(form, "title", auto_title), false}
-    else
-      {form, false}
     end
   end
 

@@ -863,14 +863,19 @@
                   </details>
                 </div>
 
-                <%!-- Status and date are post-level properties — only shown for primary language --%>
-                <%= if @is_primary_language do %>
-                  <div>
-                    <label class="label">
-                      <span class="label-text text-sm font-semibold text-base-content">
-                        {gettext("Status")}
-                      </span>
-                    </label>
+                <%!-- Status: editable for primary language, read-only indicator for translations --%>
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Status")}
+                      <%= if not @is_primary_language do %>
+                        <span class="text-xs font-normal text-base-content/60 ml-2">
+                          {gettext("(follows primary language)")}
+                        </span>
+                      <% end %>
+                    </span>
+                  </label>
+                  <%= if @is_primary_language do %>
                     <select
                       class={"select select-bordered w-full #{if @readonly?, do: "select-disabled bg-base-200"}"}
                       name="status"
@@ -899,8 +904,15 @@
                         </option>
                       <% end %>
                     </select>
-                  </div>
+                  <% else %>
+                    <div class="input input-bordered w-full input-disabled bg-base-200 flex items-center">
+                      {String.capitalize(@form["status"] || "draft")}
+                    </div>
+                  <% end %>
+                </div>
 
+                <%!-- Publication date: only editable by primary language --%>
+                <%= if @is_primary_language do %>
                   <div>
                     <label class="label">
                       <span class="label-text text-sm font-semibold text-base-content">

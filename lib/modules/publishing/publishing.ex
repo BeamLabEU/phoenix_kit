@@ -1324,33 +1324,30 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  defp uuid_format?(str) when is_binary(str),
-    do: byte_size(str) >= 32 and String.contains?(str, "-") and match?({:ok, _}, UUIDv7.cast(str))
-
+  defp uuid_format?(str) when is_binary(str), do: match?({:ok, _}, UUIDv7.cast(str))
   defp uuid_format?(_), do: false
 
   # Reads a post back from DB using the appropriate method for the group mode
   defp read_back_post(group_slug, identifier, db_post, language, version_number) do
-    cond do
+    if db_post && db_post.mode == "timestamp" && db_post.post_date && db_post.post_time do
       # Timestamp-mode: use date/time from the DB post
-      db_post && db_post.mode == "timestamp" && db_post.post_date && db_post.post_time ->
-        DBStorage.read_post_by_datetime(
-          group_slug,
-          db_post.post_date,
-          db_post.post_time,
-          language,
-          version_number
-        )
+      DBStorage.read_post_by_datetime(
+        group_slug,
+        db_post.post_date,
+        db_post.post_time,
+        language,
+        version_number
+      )
+    else
+      # Try parsing identifier as timestamp path, fall back to slug
+      case is_binary(identifier) && parse_timestamp_path(identifier) do
+        {:ok, date, time, _v, _l} ->
+          DBStorage.read_post_by_datetime(group_slug, date, time, language, version_number)
 
-      # Identifier looks like a timestamp path
-      is_binary(identifier) && match?({:ok, _, _, _, _}, parse_timestamp_path(identifier)) ->
-        {:ok, date, time, _v, _l} = parse_timestamp_path(identifier)
-        DBStorage.read_post_by_datetime(group_slug, date, time, language, version_number)
-
-      # Slug-mode
-      true ->
-        slug = if db_post, do: db_post.slug, else: identifier
-        DBStorage.read_post(group_slug, slug, language, version_number)
+        _ ->
+          slug = if db_post, do: db_post.slug, else: identifier
+          DBStorage.read_post(group_slug, slug, language, version_number)
+      end
     end
   end
 
@@ -1857,15 +1854,16 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec trash_post(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def trash_post(group_slug, post_identifier) do
-    case DBStorage.get_post(group_slug, post_identifier) do
+    case resolve_db_post(group_slug, post_identifier) do
       nil ->
         {:error, :not_found}
 
       db_post ->
         case DBStorage.soft_delete_post(db_post) do
           {:ok, _} ->
+            broadcast_id = db_post.slug || db_post.uuid
             ListingCache.regenerate(group_slug)
-            PublishingPubSub.broadcast_post_deleted(group_slug, post_identifier)
+            PublishingPubSub.broadcast_post_deleted(group_slug, broadcast_id)
             {:ok, post_identifier}
 
           {:error, reason} ->
@@ -1885,7 +1883,7 @@ defmodule PhoenixKit.Modules.Publishing do
   @spec delete_language(String.t(), String.t(), String.t(), integer() | nil) ::
           :ok | {:error, term()}
   def delete_language(group_slug, post_identifier, language_code, version \\ nil) do
-    with db_post when not is_nil(db_post) <- DBStorage.get_post(group_slug, post_identifier),
+    with db_post when not is_nil(db_post) <- resolve_db_post(group_slug, post_identifier),
          db_version when not is_nil(db_version) <- resolve_db_version(db_post, version),
          content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language_code) do
       # Don't delete the last active language
@@ -1927,7 +1925,7 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec delete_version(String.t(), String.t(), integer()) :: :ok | {:error, term()}
   def delete_version(group_slug, post_identifier, version) do
-    with db_post when not is_nil(db_post) <- DBStorage.get_post(group_slug, post_identifier),
+    with db_post when not is_nil(db_post) <- resolve_db_post(group_slug, post_identifier),
          db_version when not is_nil(db_version) <- DBStorage.get_version(db_post.uuid, version) do
       if db_version.status == "published", do: throw({:error, :cannot_delete_live})
 

@@ -57,7 +57,10 @@ defmodule PhoenixKit.Migrations.Postgres.V68 do
       # Remove timestamp unique index
       execute("DROP INDEX IF EXISTS idx_publishing_posts_group_date_time_unique")
 
-      # Restore unconditional unique index
+      # Backfill NULL slugs before restoring unconditional unique index
+      execute("UPDATE #{table} SET slug = 'migrated-' || uuid WHERE slug IS NULL")
+
+      # Restore unconditional unique index (safe now that all slugs are non-NULL)
       execute("DROP INDEX IF EXISTS idx_publishing_posts_group_slug")
 
       execute("""
@@ -65,8 +68,7 @@ defmodule PhoenixKit.Migrations.Postgres.V68 do
       ON #{table} (group_uuid, slug)
       """)
 
-      # Restore NOT NULL (generate unique placeholder slugs to avoid unique index collision)
-      execute("UPDATE #{table} SET slug = 'migrated-' || uuid WHERE slug IS NULL")
+      # Restore NOT NULL
       execute("ALTER TABLE #{table} ALTER COLUMN slug SET NOT NULL")
     end
 
