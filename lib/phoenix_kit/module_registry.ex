@@ -36,6 +36,8 @@ defmodule PhoenixKit.ModuleRegistry do
 
   use GenServer
 
+  alias PhoenixKit.Dashboard.Tab
+
   require Logger
 
   @pterm_key {PhoenixKit, :registered_modules}
@@ -96,6 +98,7 @@ defmodule PhoenixKit.ModuleRegistry do
   def all_admin_tabs do
     all_modules()
     |> Enum.flat_map(&safe_call(&1, :admin_tabs, []))
+    |> Enum.map(&Tab.resolve_path(&1, :admin))
   end
 
   @doc "Collect all settings tabs from all registered modules."
@@ -103,6 +106,7 @@ defmodule PhoenixKit.ModuleRegistry do
   def all_settings_tabs do
     all_modules()
     |> Enum.flat_map(&safe_call(&1, :settings_tabs, []))
+    |> Enum.map(&Tab.resolve_path(&1, :settings))
   end
 
   @doc "Collect all user dashboard tabs from all registered modules."
@@ -110,6 +114,7 @@ defmodule PhoenixKit.ModuleRegistry do
   def all_user_dashboard_tabs do
     all_modules()
     |> Enum.flat_map(&safe_call(&1, :user_dashboard_tabs, []))
+    |> Enum.map(&Tab.resolve_path(&1, :user_dashboard))
   end
 
   @doc "Collect all supervisor child specs from all registered modules."

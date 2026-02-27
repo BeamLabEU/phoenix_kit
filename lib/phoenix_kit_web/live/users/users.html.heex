@@ -166,7 +166,7 @@
                             <div class="flex flex-col gap-1">
                               <div class="flex flex-wrap items-center gap-2">
                                 <span class="font-medium link link-hover">{user.email}</span>
-                                <%= if user.id == @phoenix_kit_current_user.id do %>
+                                <%= if user.uuid == @phoenix_kit_current_user.uuid do %>
                                   <span class="badge badge-info badge-xs h-auto">you</span>
                                 <% end %>
                               </div>
@@ -307,7 +307,7 @@
                             </.link>
 
                             <%!-- Role Management --%>
-                            <%= if user.id != @phoenix_kit_current_user.id do %>
+                            <%= if user.uuid != @phoenix_kit_current_user.uuid do %>
                               <button
                                 class="btn btn-xs btn-outline btn-primary"
                                 phx-click="show_role_management"
@@ -319,7 +319,7 @@
                             <% end %>
 
                             <%!-- Delete User --%>
-                            <%= if user.id != @phoenix_kit_current_user.id && get_primary_role_name_unsafe(user) != "Owner" && Auth.can_delete_user?(user, @phoenix_kit_current_user) do %>
+                            <%= if user.uuid != @phoenix_kit_current_user.uuid && get_primary_role_name_unsafe(user) != "Owner" && Auth.can_delete_user?(user, @phoenix_kit_current_user) do %>
                               <button
                                 class="btn btn-xs btn-outline btn-error"
                                 phx-click="request_delete_user"
@@ -332,7 +332,7 @@
                             <% end %>
 
                             <%!-- Email Confirmation Toggle --%>
-                            <%= if user.id != @phoenix_kit_current_user.id && get_primary_role_name_unsafe(user) != "Owner" do %>
+                            <%= if user.uuid != @phoenix_kit_current_user.uuid && get_primary_role_name_unsafe(user) != "Owner" do %>
                               <button
                                 class={"btn btn-xs btn-outline #{if user.confirmed_at, do: "btn-success", else: "btn-warning"}"}
                                 phx-click="request_confirmation_toggle"
@@ -368,7 +368,7 @@
                                 <% end %>
                               </button>
                             <% else %>
-                              <%= if user.id == @phoenix_kit_current_user.id do %>
+                              <%= if user.uuid == @phoenix_kit_current_user.uuid do %>
                                 <.link
                                   navigate={PhoenixKit.Utils.Routes.path("/dashboard/settings")}
                                   class="btn btn-xs btn-outline btn-info"

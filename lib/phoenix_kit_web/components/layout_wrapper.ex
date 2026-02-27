@@ -77,6 +77,18 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   slot :inner_block, required: false
 
   def app_layout(assigns) do
+    # Guard against double-wrapping: when admin.html.heex layout auto-applies admin
+    # chrome for plugin views, the LiveView's render/1 may also call app_layout.
+    # The LiveView render executes first, so mark it and let the layout's call be the
+    # one that actually renders admin chrome (it has full assigns from the socket).
+    if Process.get(:phoenix_kit_admin_chrome_rendered) do
+      ~H"{render_slot(@inner_block)}"
+    else
+      app_layout_inner(assigns)
+    end
+  end
+
+  defp app_layout_inner(assigns) do
     # Batch load all page settings in a single operation for optimal database performance
     assigns =
       assigns
@@ -188,6 +200,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # Wrap inner_block with admin navigation if needed
   defp wrap_inner_block_with_admin_nav_if_needed(assigns) do
     if admin_page?(assigns) do
+      # Mark that admin chrome has been rendered (prevents double-wrapping)
+      Process.put(:phoenix_kit_admin_chrome_rendered, true)
       # Create new inner_block slot that wraps original content with admin navigation
       original_inner_block = assigns[:inner_block]
 

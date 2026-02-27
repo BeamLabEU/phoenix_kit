@@ -204,7 +204,7 @@ defmodule PhoenixKit.Modules.Maintenance do
         id: :admin_settings_maintenance,
         label: "Maintenance",
         icon: "hero-wrench-screwdriver",
-        path: "/admin/settings/maintenance",
+        path: "maintenance",
         priority: 932,
         level: :admin,
         parent: :admin_settings,

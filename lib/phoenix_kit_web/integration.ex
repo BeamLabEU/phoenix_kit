@@ -968,14 +968,22 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   defp collect_module_tabs(mod, callback) do
+    alias PhoenixKit.Dashboard.Tab
+    context = tab_callback_context(callback)
+
     if function_exported?(mod, callback, 0) do
       apply(mod, callback, [])
+      |> Enum.map(&Tab.resolve_path(&1, context))
       |> Enum.filter(&tab_has_live_view?/1)
       |> Enum.map(&tab_struct_to_route/1)
     else
       []
     end
   end
+
+  defp tab_callback_context(:admin_tabs), do: :admin
+  defp tab_callback_context(:settings_tabs), do: :settings
+  defp tab_callback_context(:user_dashboard_tabs), do: :user_dashboard
 
   defp tab_has_live_view?(%{live_view: {mod, _action}}) when is_atom(mod) do
     case Code.ensure_compiled(mod) do

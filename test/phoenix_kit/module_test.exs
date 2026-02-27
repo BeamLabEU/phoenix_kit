@@ -236,9 +236,17 @@ defmodule PhoenixKit.ModuleTest do
         assert is_atom(tab.id), "#{inspect(mod)} tab missing :id"
         assert is_binary(tab.label), "#{inspect(mod)} tab missing :label"
         assert is_binary(tab.path), "#{inspect(mod)} tab missing :path"
+      end
+    end
 
-        assert String.starts_with?(tab.path, "/admin"),
-               "#{inspect(mod)} admin tab path must start with /admin"
+    test "admin tab paths resolve correctly" do
+      alias PhoenixKit.Dashboard.Tab
+
+      for mod <- @all_internal_modules, tab <- mod.admin_tabs() do
+        resolved = Tab.resolve_path(tab, :admin)
+
+        assert String.starts_with?(resolved.path, "/admin"),
+               "#{inspect(mod)} admin tab path #{inspect(tab.path)} did not resolve to /admin"
       end
     end
 

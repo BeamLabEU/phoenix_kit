@@ -653,7 +653,7 @@ defmodule PhoenixKit.Modules.Referrals do
         id: :admin_settings_referrals,
         label: "Referrals",
         icon: "hero-gift",
-        path: "/admin/settings/referral-codes",
+        path: "referral-codes",
         priority: 920,
         level: :admin,
         parent: :admin_settings,

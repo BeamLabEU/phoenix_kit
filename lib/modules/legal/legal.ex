@@ -667,7 +667,7 @@ defmodule PhoenixKit.Modules.Legal do
         id: :admin_settings_legal,
         label: "Legal",
         icon: "hero-scale",
-        path: "/admin/settings/legal",
+        path: "legal",
         priority: 929,
         level: :admin,
         parent: :admin_settings,

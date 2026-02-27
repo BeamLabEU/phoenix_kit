@@ -753,7 +753,7 @@ defmodule PhoenixKit.Modules.Sitemap do
         id: :admin_settings_sitemap,
         label: "Sitemap",
         icon: "hero-map",
-        path: "/admin/settings/sitemap",
+        path: "sitemap",
         priority: 931,
         level: :admin,
         parent: :admin_settings,
