@@ -59,6 +59,14 @@
         }
       });
 
+      // Listen for title update event from LiveView
+      window.addEventListener("phx:update-title", function(e) {
+        const titleInput = document.getElementById("title-input");
+        if (titleInput && e.detail.title) {
+          titleInput.value = e.detail.title;
+        }
+      });
+
       // Listen for url_slug update event from LiveView (for translations)
       window.addEventListener("phx:update-url-slug", function(e) {
         const urlSlugInput = document.getElementById("url-slug-input");
@@ -634,7 +642,32 @@
           <div class="lg:w-80 space-y-4">
             <.form for={@form} id="publishing-meta" phx-change="update_meta" phx-submit="noop">
               <div class="space-y-4">
-                <%!-- Title is extracted from markdown content (first # Heading) --%>
+                <%!-- Translatable title field (all languages, all modes) --%>
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Title")}
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    id="title-input"
+                    value={@form["title"] || ""}
+                    maxlength="500"
+                    class={"input input-bordered w-full #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                    placeholder={gettext("auto-populated from first heading")}
+                    readonly={@readonly? or @viewing_older_version}
+                  />
+                  <p class="text-xs text-base-content/60 mt-1">
+                    <%= if @is_primary_language do %>
+                      {gettext("Auto-populated from the first heading. Edit to override.")}
+                    <% else %>
+                      {gettext("Leave empty to use the primary language title.")}
+                    <% end %>
+                  </p>
+                </div>
+
                 <%= if @group_mode == "slug" do %>
                   <%= if @is_primary_language do %>
                     <%!-- Primary language: editable slug that sets the directory name --%>
@@ -830,68 +863,64 @@
                   </details>
                 </div>
 
-                <div>
-                  <label class="label">
-                    <span class="label-text text-sm font-semibold text-base-content">
-                      {gettext("Status")}
-                      <%= if not @is_primary_language and @form["status"] != "published" do %>
-                        <span class="text-xs font-normal text-base-content/60 ml-2">
-                          {gettext("(follows primary language)")}
-                        </span>
+                <%!-- Status and date are post-level properties — only shown for primary language --%>
+                <%= if @is_primary_language do %>
+                  <div>
+                    <label class="label">
+                      <span class="label-text text-sm font-semibold text-base-content">
+                        {gettext("Status")}
+                      </span>
+                    </label>
+                    <select
+                      class={"select select-bordered w-full #{if @readonly?, do: "select-disabled bg-base-200"}"}
+                      name="status"
+                      disabled={@readonly?}
+                    >
+                      <%= if @viewing_older_version do %>
+                        <%!-- Older versions can only be published or archived, not draft --%>
+                        <option
+                          value="published"
+                          selected={@form["status"] in ["draft", "published"]}
+                        >
+                          {gettext("Published")}
+                        </option>
+                        <option value="archived" selected={@form["status"] == "archived"}>
+                          {gettext("Archived")}
+                        </option>
+                      <% else %>
+                        <option value="draft" selected={@form["status"] == "draft"}>
+                          {gettext("Draft")}
+                        </option>
+                        <option value="published" selected={@form["status"] == "published"}>
+                          {gettext("Published")}
+                        </option>
+                        <option value="archived" selected={@form["status"] == "archived"}>
+                          {gettext("Archived")}
+                        </option>
                       <% end %>
-                    </span>
-                  </label>
-                  <select
-                    class={"select select-bordered w-full #{if @readonly? or (not @is_primary_language and @form["status"] != "published"), do: "select-disabled bg-base-200"}"}
-                    name="status"
-                    disabled={
-                      @readonly? or (not @is_primary_language and @form["status"] != "published")
-                    }
-                  >
-                    <%= if @viewing_older_version do %>
-                      <%!-- Older versions can only be published or archived, not draft --%>
-                      <option
-                        value="published"
-                        selected={@form["status"] in ["draft", "published"]}
-                      >
-                        {gettext("Published")}
-                      </option>
-                      <option value="archived" selected={@form["status"] == "archived"}>
-                        {gettext("Archived")}
-                      </option>
-                    <% else %>
-                      <option value="draft" selected={@form["status"] == "draft"}>
-                        {gettext("Draft")}
-                      </option>
-                      <option value="published" selected={@form["status"] == "published"}>
-                        {gettext("Published")}
-                      </option>
-                      <option value="archived" selected={@form["status"] == "archived"}>
-                        {gettext("Archived")}
-                      </option>
-                    <% end %>
-                  </select>
-                </div>
+                    </select>
+                  </div>
 
-                <div>
-                  <label class="label">
-                    <span class="label-text text-sm font-semibold text-base-content">
-                      {gettext("Publication Date & Time (UTC)")}
-                    </span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    name="published_at"
-                    value={datetime_local_value(@form["published_at"])}
-                    class={"input input-bordered w-full #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                    readonly={@readonly? or @viewing_older_version}
-                  />
-                  <p class="text-xs text-base-content/60 mt-1">
-                    {gettext(
-                      "Updating the publication time moves the file to the matching folder."
-                    )}
-                  </p>
-                </div>
+                  <div>
+                    <label class="label">
+                      <span class="label-text text-sm font-semibold text-base-content">
+                        {gettext("Publication Date & Time (UTC)")}
+                      </span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="published_at"
+                      value={datetime_local_value(@form["published_at"])}
+                      class={"input input-bordered w-full #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                      readonly={@readonly? or @viewing_older_version}
+                    />
+                    <p class="text-xs text-base-content/60 mt-1">
+                      {gettext(
+                        "Updating the publication time moves the file to the matching folder."
+                      )}
+                    </p>
+                  </div>
+                <% end %>
 
                 <%!-- Version Access Toggle - DISABLED: Boss doesn't want public version history
                 <% is_versioned_post = @post && not Map.get(@post, :is_legacy_structure, true) %>

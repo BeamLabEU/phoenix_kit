@@ -78,11 +78,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   defp base_form(post) do
     %{
+      "title" => get_title_for_form(post),
       "status" => post.metadata.status || "draft",
       "published_at" => get_published_at(post),
       "featured_image_id" => Map.get(post.metadata, :featured_image_id, ""),
       "url_slug" => get_url_slug_for_form(post)
     }
+  end
+
+  defp get_title_for_form(post) do
+    title = Map.get(post.metadata, :title) || Map.get(post.metadata, "title") || ""
+    if title == "Untitled", do: "", else: title
   end
 
   defp get_published_at(post) do
@@ -131,6 +137,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   Normalizes a form map to ensure consistent values.
   """
   def normalize_form(form) when is_map(form) do
+    # Normalize title: trim only (preserve case)
+    title =
+      form
+      |> Map.get("title", "")
+      |> to_string()
+      |> String.trim()
+
     featured_image_id =
       form
       |> Map.get("featured_image_id", "")
@@ -147,6 +160,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
     base =
       %{
+        "title" => title,
         "status" => Map.get(form, "status", "draft") || "draft",
         "published_at" => normalize_published_at(Map.get(form, "published_at")),
         "featured_image_id" => featured_image_id,
@@ -166,6 +180,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   def normalize_form(_),
     do: %{
+      "title" => "",
       "status" => "draft",
       "published_at" => "",
       "slug" => "",
@@ -208,44 +223,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   Assigns form with tracking for slug auto-generation.
   """
   def assign_form_with_tracking(socket, form, opts \\ []) do
-    slug = Map.get(form, "slug", "")
-    url_slug = Map.get(form, "url_slug", "")
-    post_slug = Map.get(socket.assigns.post || %{}, :slug, "")
-
-    # Track slug (for primary language)
-    slug_manually_set =
-      case Keyword.fetch(opts, :slug_manually_set) do
-        {:ok, value} -> value
-        :error -> Map.get(socket.assigns, :slug_manually_set, false)
-      end
-
-    last_auto_slug =
-      case Keyword.fetch(opts, :last_auto_slug) do
-        {:ok, value} -> value
-        :error -> slug
-      end
-
-    # Track url_slug (for translations)
-    url_slug_manually_set =
-      case Keyword.fetch(opts, :url_slug_manually_set) do
-        {:ok, value} ->
-          value
-
-        :error ->
-          existing = Map.get(socket.assigns, :url_slug_manually_set, false)
-
-          if existing do
-            true
-          else
-            url_slug != "" and url_slug != post_slug
-          end
-      end
-
-    last_auto_url_slug =
-      case Keyword.fetch(opts, :last_auto_url_slug) do
-        {:ok, value} -> value
-        :error -> Map.get(socket.assigns, :last_auto_url_slug, "")
-      end
+    {slug_manually_set, last_auto_slug} = resolve_slug_tracking(socket, form, opts)
+    {url_slug_manually_set, last_auto_url_slug} = resolve_url_slug_tracking(socket, form, opts)
+    {title_manually_set, last_auto_title} = resolve_title_tracking(socket, form, opts)
 
     socket
     |> Phoenix.Component.assign(:form, form)
@@ -253,6 +233,71 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
     |> Phoenix.Component.assign(:slug_manually_set, slug_manually_set)
     |> Phoenix.Component.assign(:last_auto_url_slug, last_auto_url_slug)
     |> Phoenix.Component.assign(:url_slug_manually_set, url_slug_manually_set)
+    |> Phoenix.Component.assign(:last_auto_title, last_auto_title)
+    |> Phoenix.Component.assign(:title_manually_set, title_manually_set)
+  end
+
+  defp resolve_slug_tracking(socket, form, opts) do
+    slug = Map.get(form, "slug", "")
+
+    manually_set =
+      case Keyword.fetch(opts, :slug_manually_set) do
+        {:ok, value} -> value
+        :error -> Map.get(socket.assigns, :slug_manually_set, false)
+      end
+
+    last_auto =
+      case Keyword.fetch(opts, :last_auto_slug) do
+        {:ok, value} -> value
+        :error -> slug
+      end
+
+    {manually_set, last_auto}
+  end
+
+  defp resolve_url_slug_tracking(socket, form, opts) do
+    url_slug = Map.get(form, "url_slug", "")
+    post_slug = Map.get(socket.assigns.post || %{}, :slug, "")
+
+    manually_set =
+      case Keyword.fetch(opts, :url_slug_manually_set) do
+        {:ok, value} ->
+          value
+
+        :error ->
+          existing = Map.get(socket.assigns, :url_slug_manually_set, false)
+          existing || (url_slug != "" and url_slug != post_slug)
+      end
+
+    last_auto =
+      case Keyword.fetch(opts, :last_auto_url_slug) do
+        {:ok, value} -> value
+        :error -> Map.get(socket.assigns, :last_auto_url_slug, "")
+      end
+
+    {manually_set, last_auto}
+  end
+
+  defp resolve_title_tracking(socket, form, opts) do
+    manually_set =
+      case Keyword.fetch(opts, :title_manually_set) do
+        {:ok, value} ->
+          value
+
+        :error ->
+          existing = Map.get(socket.assigns, :title_manually_set, false)
+          title = Map.get(form, "title", "")
+          last_auto = Map.get(socket.assigns, :last_auto_title, "")
+          existing || (title != "" and last_auto != "" and title != last_auto)
+      end
+
+    last_auto =
+      case Keyword.fetch(opts, :last_auto_title) do
+        {:ok, value} -> value
+        :error -> Map.get(socket.assigns, :last_auto_title, "")
+      end
+
+    {manually_set, last_auto}
   end
 
   # ============================================================================
@@ -383,6 +428,62 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
         |> Phoenix.Component.assign(:url_slug_manually_set, false)
 
       {socket, socket.assigns.form, []}
+    end
+  end
+
+  # ============================================================================
+  # Title Auto-Generation
+  # ============================================================================
+
+  @doc """
+  Updates the title from content if not manually set.
+  Returns {socket, form}.
+  """
+  def maybe_update_title_from_content(socket, content) do
+    content = content || ""
+    title_manually_set? = Map.get(socket.assigns, :title_manually_set, false)
+
+    if title_manually_set? do
+      {socket, socket.assigns.form, []}
+    else
+      extracted = Metadata.extract_title_from_content(content)
+      new_title = if extracted == "Untitled", do: "", else: extracted
+      current_title = Map.get(socket.assigns.form, "title", "")
+
+      if new_title != "" and new_title != current_title do
+        form = Map.put(socket.assigns.form, "title", new_title)
+
+        socket =
+          socket
+          |> Phoenix.Component.assign(:last_auto_title, new_title)
+          |> Phoenix.Component.assign(:title_manually_set, false)
+
+        {socket, form, [{"update-title", %{title: new_title}}]}
+      else
+        socket =
+          if new_title != "" do
+            Phoenix.Component.assign(socket, :last_auto_title, new_title)
+          else
+            socket
+          end
+
+        {socket, socket.assigns.form, []}
+      end
+    end
+  end
+
+  @doc """
+  Preserve auto-generated title when browser sends empty value.
+  """
+  def preserve_auto_title(params, socket) do
+    browser_title = Map.get(params, "title", "")
+    last_auto = Map.get(socket.assigns, :last_auto_title, "")
+    manually_set = Map.get(socket.assigns, :title_manually_set, false)
+
+    if browser_title == "" and last_auto != "" and not manually_set do
+      Map.put(params, "title", last_auto)
+    else
+      params
     end
   end
 

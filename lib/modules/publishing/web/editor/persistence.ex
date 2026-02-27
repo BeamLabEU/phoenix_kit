@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   def perform_save(socket) do
     params =
       socket.assigns.form
-      |> Map.take(["status", "published_at", "slug", "featured_image_id", "url_slug"])
+      |> Map.take(["status", "published_at", "slug", "featured_image_id", "url_slug", "title"])
       |> Map.put("content", socket.assigns.content)
 
     params =
@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     if url_slug != "" do
       group_slug = socket.assigns.group_slug
       language = editor_language(socket.assigns)
-      post_slug = socket.assigns.post.slug
+      post_slug = socket.assigns.post.slug || socket.assigns.post[:uuid]
 
       case Storage.validate_url_slug(group_slug, url_slug, language, post_slug) do
         {:ok, _} ->
@@ -225,7 +225,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   defp create_new_translation(socket, params) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    original_identifier = socket.assigns.post.slug
+    original_identifier = socket.assigns.post.slug || socket.assigns.post[:uuid]
 
     current_version = socket.assigns[:current_version]
 
@@ -430,7 +430,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
        ) do
     group_slug = socket.assigns.group_slug
 
-    post_identifier = post.slug
+    post_identifier = post.slug || post[:uuid]
 
     # Use user ID so all tabs for the same user recognize their own publishes
     user_id =
@@ -644,6 +644,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
 
   defp handle_post_update_error(socket, :slug_already_exists) do
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, "A post with that slug already exists")}
+  end
+
+  defp handle_post_update_error(socket, :title_required) do
+    {:noreply,
+     Phoenix.LiveView.put_flash(
+       socket,
+       :error,
+       gettext("Title is required. Add a heading to your content or enter a title manually.")
+     )}
   end
 
   defp handle_post_update_error(socket, _reason) do

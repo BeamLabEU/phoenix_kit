@@ -508,12 +508,17 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Tables: post_groups, post_comments, post_likes, post_dislikes, post_mentions
   - Fixes create_group and like/dislike/comment/mention inserts failing with not_null_violation
 
-  ### V67 - Make all remaining NOT NULL integer FK columns nullable ⚡ LATEST
+  ### V67 - Make all remaining NOT NULL integer FK columns nullable
   - Drops NOT NULL on 39 legacy integer FK columns across 28 tables
   - Covers: posts, tickets, storage, admin, auth, audit, connections, billing,
     entities, referrals, standalone comments, and shop modules
   - Handles V65 plan_id → subscription_type_id rename (checks both names)
   - All operations idempotent (table/column existence + NOT NULL guards)
+
+  ### V68 - Allow NULL slug for timestamp-mode publishing posts ⚡ LATEST
+  - Drops NOT NULL on `slug` in `phoenix_kit_publishing_posts`
+  - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
+  - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
   ## Migration Paths
 
@@ -573,7 +578,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 67
+  @current_version 68
   @default_prefix "public"
 
   @doc false

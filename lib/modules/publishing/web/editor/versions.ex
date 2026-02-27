@@ -107,10 +107,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     post_identifier =
       case post.mode do
         :timestamp ->
-          extract_timestamp_identifier(post.path)
+          extract_timestamp_identifier(post.path) || post[:uuid]
 
         _ ->
-          post.slug
+          post.slug || post[:uuid]
       end
 
     # Set just_created_version BEFORE calling create_version_from to prevent race condition
