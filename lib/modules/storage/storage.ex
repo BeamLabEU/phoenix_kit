@@ -802,11 +802,11 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
-  Gets the bucket IDs where a file instance is stored.
+  Gets the bucket UUIDs where a file instance is stored.
 
-  Returns a list of bucket IDs from the file_locations for the given file instance.
+  Returns a list of bucket UUIDs from the file_locations for the given file instance.
   """
-  def get_file_instance_bucket_ids(file_instance_uuid) do
+  def get_file_instance_bucket_uuids(file_instance_uuid) do
     FileLocation
     |> where([fl], fl.file_instance_uuid == ^file_instance_uuid and fl.status == "active")
     |> select([fl], fl.bucket_uuid)
