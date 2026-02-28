@@ -37,11 +37,11 @@ Stores only ACTIVE follows. Row is deleted when user unfollows.
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUIDv7 | Primary key |
-| follower_id | bigint | User who is following (FK to users) |
-| followed_id | bigint | User being followed (FK to users) |
+| follower_uuid | UUID | User who is following (FK to users.uuid) |
+| followed_uuid | UUID | User being followed (FK to users.uuid) |
 | inserted_at | naive_datetime | When follow was created |
 
-**Indexes:** Unique on `(follower_id, followed_id)`, index on `followed_id`, index on `follower_id`
+**Indexes:** Unique on `(follower_uuid, followed_uuid)`, index on `followed_uuid`, index on `follower_uuid`
 
 #### Table: `phoenix_kit_user_connections`
 
@@ -51,15 +51,15 @@ Rejected connections are deleted (not stored as "rejected").
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUIDv7 | Primary key |
-| requester_id | bigint | User who initiated request |
-| recipient_id | bigint | User who received request |
+| requester_uuid | UUID | User who initiated request (FK to users.uuid) |
+| recipient_uuid | UUID | User who received request (FK to users.uuid) |
 | status | string | "pending" or "accepted" |
 | requested_at | naive_datetime | When request was sent |
 | responded_at | naive_datetime | When recipient responded |
 | inserted_at | naive_datetime | Created timestamp |
 | updated_at | naive_datetime | Updated timestamp |
 
-**Indexes:** Index on `(recipient_id, status)`, index on `(requester_id, status)`
+**Indexes:** Index on `(recipient_uuid, status)`, index on `(requester_uuid, status)`
 
 #### Table: `phoenix_kit_user_blocks`
 
@@ -68,12 +68,12 @@ Stores only ACTIVE blocks. Row is deleted when user unblocks.
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUIDv7 | Primary key |
-| blocker_id | bigint | User who blocked |
-| blocked_id | bigint | User who is blocked |
+| blocker_uuid | UUID | User who blocked (FK to users.uuid) |
+| blocked_uuid | UUID | User who is blocked (FK to users.uuid) |
 | reason | string | Optional reason (nullable) |
 | inserted_at | naive_datetime | When block was created |
 
-**Indexes:** Unique on `(blocker_id, blocked_id)`, index on `blocked_id`
+**Indexes:** Unique on `(blocker_uuid, blocked_uuid)`, index on `blocked_uuid`
 
 ---
 
@@ -86,8 +86,8 @@ Logs all follow/unfollow events.
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUIDv7 | Primary key |
-| follower_id | bigint | User who performed action |
-| followed_id | bigint | Target user |
+| follower_uuid | UUID | User who performed action (FK to users.uuid) |
+| followed_uuid | UUID | Target user (FK to users.uuid) |
 | action | string | "follow" or "unfollow" |
 | inserted_at | naive_datetime | When action occurred |
 
@@ -98,9 +98,9 @@ Logs all connection events.
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUIDv7 | Primary key |
-| user_a_id | bigint | First user (normalized: lower ID) |
-| user_b_id | bigint | Second user (normalized: higher ID) |
-| actor_id | bigint | User who performed this action |
+| user_a_uuid | UUID | First user (normalized: lower UUID) (FK to users.uuid) |
+| user_b_uuid | UUID | Second user (normalized: higher UUID) (FK to users.uuid) |
+| actor_uuid | UUID | User who performed this action (FK to users.uuid) |
 | action | string | "requested", "accepted", "rejected", "removed" |
 | inserted_at | naive_datetime | When action occurred |
 
@@ -111,8 +111,8 @@ Logs all block/unblock events.
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUIDv7 | Primary key |
-| blocker_id | bigint | User who performed action |
-| blocked_id | bigint | Target user |
+| blocker_uuid | UUID | User who performed action (FK to users.uuid) |
+| blocked_uuid | UUID | Target user (FK to users.uuid) |
 | action | string | "block" or "unblock" |
 | reason | string | Reason (for block action) |
 | inserted_at | naive_datetime | When action occurred |

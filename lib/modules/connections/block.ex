@@ -74,8 +74,6 @@ defmodule PhoenixKit.Modules.Connections.Block do
   ## Optional Fields
 
   - `reason` - Why the user was blocked
-  - `blocker_id` - Integer ID (deprecated, dual-write)
-  - `blocked_id` - Integer ID (deprecated, dual-write)
 
   ## Validation Rules
 
