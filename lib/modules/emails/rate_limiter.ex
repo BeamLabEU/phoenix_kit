@@ -52,8 +52,8 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   - `email_blocklist_enabled` - Enable automatic blocklisting (default: true)
 
   User-specific settings (stored as JSON):
-  - `user_rate_limits_<user_id>` - Temporary reduced limits for specific users
-  - `user_monitoring_<user_id>` - Event tracking log for user behavior
+  - `user_rate_limits_<user_uuid>` - Temporary reduced limits for specific users
+  - `user_monitoring_<user_uuid>` - Event tracking log for user behavior
 
   ## Usage Examples
 
@@ -73,15 +73,15 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       end
 
       # Flag suspicious user activity
-      PhoenixKit.Modules.Emails.RateLimiter.flag_suspicious_activity(user_id, "high_bounce_rate")
+      PhoenixKit.Modules.Emails.RateLimiter.flag_suspicious_activity(user_uuid, "high_bounce_rate")
       # => :flagged (user gets reduced limits for 24 hours)
 
       # Check user's current limit status
-      status = PhoenixKit.Modules.Emails.RateLimiter.get_user_limit_status(user_id)
+      status = PhoenixKit.Modules.Emails.RateLimiter.get_user_limit_status(user_uuid)
       # => %{has_custom_limits: true, active_recipient_limit: 10, ...}
 
       # Clear user's custom limits
-      PhoenixKit.Modules.Emails.RateLimiter.clear_user_rate_limits(user_id)
+      PhoenixKit.Modules.Emails.RateLimiter.clear_user_rate_limits(user_uuid)
       # => :ok
 
       # Add suspicious email to blocklist
@@ -254,7 +254,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   - `:reason` - Reason for blocking (string)
   - `:expires_at` - When block expires (DateTime, nil for permanent)
-  - `:user_id` - User ID that triggered the block
+  - `:user_uuid` - User UUID that triggered the block
 
   ## Examples
 
@@ -270,14 +270,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   """
   def add_to_blocklist(email, reason, opts \\ []) when is_binary(email) do
     expires_at = Keyword.get(opts, :expires_at)
-    user_id = Keyword.get(opts, :user_id)
-    user_uuid = Keyword.get(opts, :user_uuid) || resolve_user_uuid(user_id)
+    user_uuid = Keyword.get(opts, :user_uuid) || resolve_user_uuid(Keyword.get(opts, :user_uuid))
 
     blocklist_entry = %{
       email: String.downcase(email),
       reason: reason,
       expires_at: expires_at,
-      user_id: user_id,
+      user_uuid: user_uuid,
       user_uuid: user_uuid,
       inserted_at: UtilsDate.utc_now(),
       updated_at: UtilsDate.utc_now()
@@ -551,27 +550,27 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   ## Examples
 
-      iex> RateLimiter.flag_suspicious_activity(123, "high_bounce_rate")
+      iex> RateLimiter.flag_suspicious_activity("018e3c4a-1234-5678-abcd-ef1234567890", "high_bounce_rate")
       :flagged
 
-      iex> RateLimiter.flag_suspicious_activity(456, "complaint_spam")
+      iex> RateLimiter.flag_suspicious_activity("018e3c4a-5678-1234-abcd-ef1234567890", "complaint_spam")
       :blocked
   """
-  def flag_suspicious_activity(user_id, reason) when is_binary(user_id) and is_binary(reason) do
+  def flag_suspicious_activity(user_uuid, reason) when is_binary(user_uuid) and is_binary(reason) do
     case reason do
       "high_bounce_rate" ->
         # Temporarily reduce limits for this user
-        reduce_user_limits(user_id, reason)
+        reduce_user_limits(user_uuid, reason)
         :flagged
 
       "complaint_spam" ->
         # Add user's email to blocklist
-        block_user_emails(user_id, reason)
+        block_user_emails(user_uuid, reason)
         :blocked
 
       "bulk_sending" ->
         # Monitor closely but don't block yet
-        monitor_user(user_id, :bulk_sending, %{reason: reason})
+        monitor_user(user_uuid, :bulk_sending, %{reason: reason})
         :monitored
 
       _ ->
@@ -589,7 +588,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   ## Examples
 
-      iex> RateLimiter.check_user_limits(123)
+      iex> RateLimiter.check_user_limits("018e3c4a-1234-5678-abcd-ef1234567890")
       %{
         "recipient_limit" => 10,
         "sender_limit" => 50,
@@ -598,7 +597,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
         "expires_at" => "2025-01-16T12:00:00Z"
       }
 
-      iex> RateLimiter.check_user_limits(999)
+      iex> RateLimiter.check_user_limits("018e3c4a-5678-1234-abcd-ef1234567890")
       nil
   """
   def check_user_limits(user_uuid) when is_binary(user_uuid) do
@@ -613,9 +612,9 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   ## Examples
 
-      iex> RateLimiter.get_user_limit_status(123)
+      iex> RateLimiter.get_user_limit_status("018e3c4a-1234-5678-abcd-ef1234567890")
       %{
-        user_id: 123,
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         has_custom_limits: true,
         custom_limits: %{"recipient_limit" => 10, "sender_limit" => 50},
         monitoring: %{"event_count" => 5, "last_event_at" => "..."},
@@ -624,9 +623,9 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
         default_sender_limit: 1000
       }
 
-      iex> RateLimiter.get_user_limit_status(999)
+      iex> RateLimiter.get_user_limit_status("018e3c4a-5678-1234-abcd-ef1234567890")
       %{
-        user_id: 999,
+        user_uuid: "018e3c4a-5678-1234-abcd-ef1234567890",
         has_custom_limits: false,
         custom_limits: nil,
         monitoring: nil,
@@ -639,13 +638,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     get_user_limit_status_impl(user_uuid)
   end
 
-  defp get_user_limit_status_impl(user_id_or_uuid) do
-    custom_limits = get_user_limits(user_id_or_uuid)
-    monitoring = get_user_monitoring(user_id_or_uuid)
+  defp get_user_limit_status_impl(user_uuid) do
+    custom_limits = get_user_limits(user_uuid)
+    monitoring = get_user_monitoring(user_uuid)
 
     # Check if user's email is blocked
     is_blocked =
-      case Auth.get_user(user_id_or_uuid) do
+      case Auth.get_user(user_uuid) do
         nil ->
           false
 
@@ -654,7 +653,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       end
 
     %{
-      user_id: user_id_or_uuid,
+      user_uuid: user_uuid,
       has_custom_limits: not is_nil(custom_limits),
       custom_limits: custom_limits,
       monitoring: monitoring,
@@ -669,7 +668,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   rescue
     _error ->
       %{
-        user_id: user_id_or_uuid,
+        user_uuid: user_uuid,
         has_custom_limits: false,
         custom_limits: nil,
         monitoring: nil,
@@ -875,8 +874,8 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   # Creates a JSON setting with reduced limits for the user. The limits
   # automatically expire after a configured duration (default: 24 hours).
   #
-  # Stored in JSON setting with key: `user_rate_limits_<user_id>`
-  defp reduce_user_limits(user_id, reason) when is_binary(user_id) and is_binary(reason) do
+  # Stored in JSON setting with key: `user_rate_limits_<user_uuid>`
+  defp reduce_user_limits(user_uuid, reason) when is_binary(user_uuid) and is_binary(reason) do
     # Get default limits
     default_recipient_limit = get_recipient_limit()
     default_sender_limit = get_sender_limit()
@@ -897,11 +896,11 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       "expires_at" => DateTime.to_iso8601(expires_at)
     }
 
-    # Store in settings with user_id-specific key
-    Settings.update_json_setting("user_rate_limits_#{user_id}", user_limits)
+    # Store in settings with user_uuid-specific key
+    Settings.update_json_setting("user_rate_limits_#{user_uuid}", user_limits)
 
     Logger.warning(
-      "Rate limits reduced for user #{user_id}: reason=#{reason}, " <>
+      "Rate limits reduced for user #{user_uuid}: reason=#{reason}, " <>
         "recipient_limit=#{reduced_recipient_limit}, sender_limit=#{reduced_sender_limit}, " <>
         "expires_at=#{expires_at}"
     )
@@ -909,7 +908,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     :ok
   rescue
     error ->
-      Logger.error("Failed to reduce user limits for user #{user_id}: #{inspect(error)}")
+      Logger.error("Failed to reduce user limits for user #{user_uuid}: #{inspect(error)}")
       :ok
   end
 
@@ -917,11 +916,11 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   #
   # Retrieves the user's email address and adds it to the blocklist
   # with a temporary block duration (default: 7 days).
-  defp block_user_emails(user_id, reason) when is_binary(user_id) and is_binary(reason) do
+  defp block_user_emails(user_uuid, reason) when is_binary(user_uuid) and is_binary(reason) do
     # Get user from database
-    case Auth.get_user(user_id) do
+    case Auth.get_user(user_uuid) do
       nil ->
-        Logger.error("Cannot block emails for user #{user_id}: user not found")
+        Logger.error("Cannot block emails for user #{user_uuid}: user not found")
         :ok
 
       user ->
@@ -929,20 +928,20 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
         expires_at = DateTime.add(UtilsDate.utc_now(), 86_400 * 7)
 
         # Add to blocklist
-        add_to_blocklist(user.email, reason, expires_at: expires_at, user_id: user_id)
+        add_to_blocklist(user.email, reason, expires_at: expires_at, user_uuid: user_uuid)
 
         # Also monitor the user for future activity
-        monitor_user(user_id, :email_blocked, %{reason: reason, email: user.email})
+        monitor_user(user_uuid, :email_blocked, %{reason: reason, email: user.email})
 
         Logger.warning(
-          "Email blocked for user #{user_id}: email=#{user.email}, reason=#{reason}, expires_at=#{expires_at}"
+          "Email blocked for user #{user_uuid}: email=#{user.email}, reason=#{reason}, expires_at=#{expires_at}"
         )
 
         :ok
     end
   rescue
     error ->
-      Logger.error("Failed to block user emails for user #{user_id}: #{inspect(error)}")
+      Logger.error("Failed to block user emails for user #{user_uuid}: #{inspect(error)}")
       :ok
   end
 
@@ -952,14 +951,14 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   # that indicate suspicious patterns. Events older than 30 days are
   # automatically pruned when new events are added.
   #
-  # Stored in JSON setting with key: `user_monitoring_<user_id>`
-  defp monitor_user(user_id, event_type, metadata)
-       when is_binary(user_id) and (is_atom(event_type) or is_binary(event_type)) do
+  # Stored in JSON setting with key: `user_monitoring_<user_uuid>`
+  defp monitor_user(user_uuid, event_type, metadata)
+       when is_binary(user_uuid) and (is_atom(event_type) or is_binary(event_type)) do
     # Convert event_type to string
     event_type_str = to_string(event_type)
 
     # Get existing monitoring data
-    monitoring_key = "user_monitoring_#{user_id}"
+    monitoring_key = "user_monitoring_#{user_uuid}"
     existing_monitoring = Settings.get_json_setting(monitoring_key, %{})
 
     # Get existing events or initialize empty list
@@ -1001,21 +1000,21 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     Settings.update_json_setting(monitoring_key, updated_monitoring)
 
     Logger.info(
-      "User monitoring event recorded for user #{user_id}: type=#{event_type_str}, " <>
+      "User monitoring event recorded for user #{user_uuid}: type=#{event_type_str}, " <>
         "metadata=#{inspect(metadata)}, total_events=#{length(updated_events)}"
     )
 
     :ok
   rescue
     error ->
-      Logger.error("Failed to monitor user #{user_id}: #{inspect(error)}")
+      Logger.error("Failed to monitor user #{user_uuid}: #{inspect(error)}")
       :ok
   end
 
   # Gets user-specific rate limits if they exist and are not expired.
   # Returns a map with user's custom limits or nil if no limits are set or they expired.
-  defp get_user_limits(user_id) do
-    monitoring_key = "user_rate_limits_#{user_id}"
+  defp get_user_limits(user_uuid) do
+    monitoring_key = "user_rate_limits_#{user_uuid}"
     user_limits = Settings.get_json_setting(monitoring_key)
 
     with limits when not is_nil(limits) <- user_limits,
@@ -1025,7 +1024,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
         limits
       else
         # Limits expired, clean them up
-        clear_user_limits(user_id)
+        clear_user_limits(user_uuid)
         nil
       end
     else
@@ -1042,13 +1041,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   # Clears user-specific rate limits.
   # Removes the JSON setting for user's custom limits.
   # Used when limits expire or are manually cleared.
-  defp clear_user_limits(user_id) do
-    monitoring_key = "user_rate_limits_#{user_id}"
+  defp clear_user_limits(user_uuid) do
+    monitoring_key = "user_rate_limits_#{user_uuid}"
 
     # Delete the setting by setting it to nil
     case Settings.update_json_setting(monitoring_key, nil) do
       {:ok, _} ->
-        Logger.info("Cleared expired rate limits for user #{user_id}")
+        Logger.info("Cleared expired rate limits for user #{user_uuid}")
         :ok
 
       _ ->
@@ -1061,8 +1060,8 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   # Gets monitoring data for a specific user.
   # Returns the monitoring events and statistics for a user, or nil if no monitoring exists.
-  defp get_user_monitoring(user_id) do
-    monitoring_key = "user_monitoring_#{user_id}"
+  defp get_user_monitoring(user_uuid) do
+    monitoring_key = "user_monitoring_#{user_uuid}"
     Settings.get_json_setting(monitoring_key)
   rescue
     _error ->
