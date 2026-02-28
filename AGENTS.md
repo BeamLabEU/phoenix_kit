@@ -18,6 +18,24 @@ mix compile
 mix credo --strict
 ```
 
+## Pre-commit commands
+
+Always run before git commit:
+
+```
+# 1.
+mix precommit
+
+# 2. Fix problems
+
+# 3. Analyze current changes
+git diff
+git status
+
+# 4. Make commit
+```
+
+
 ## Development Commands
 
 ### Setup and Dependencies
@@ -58,10 +76,6 @@ ast-grep --lang elixir --pattern 'def $FUNC($$$ARGS) do $$$BODY end' lib/
 ### CI/CD
 
 GitHub Actions on push to `main`, `dev`, `claude/**` and all PRs. Checks: formatting, credo, dialyzer, compilation (warnings as errors), dependency audit, smoke tests.
-
-### Pre-commit Checklist
-
-**ALWAYS run before git commit:** `mix format` then `git add` then `git commit`.
 
 ### Commit Message Rules
 
