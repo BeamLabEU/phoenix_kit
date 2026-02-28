@@ -27,7 +27,7 @@ defmodule PhoenixKit.Modules.Billing.WebhookEvent do
 
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
   schema "phoenix_kit_webhook_events" do
     field :provider, :string

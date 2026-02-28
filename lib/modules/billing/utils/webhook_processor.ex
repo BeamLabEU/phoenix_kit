@@ -25,6 +25,7 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
   """
 
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Billing.WebhookEvent
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -244,13 +245,13 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
     import Ecto.Query
 
     query =
-      from we in "phoenix_kit_webhook_events",
+      from we in WebhookEvent,
         where: we.provider == ^to_string(provider) and we.event_id == ^event_id,
-        select: we.id
+        select: we.uuid
 
     case repo.one(query) do
       nil -> :new
-      _id -> :duplicate
+      _uuid -> :duplicate
     end
   rescue
     _ -> :new

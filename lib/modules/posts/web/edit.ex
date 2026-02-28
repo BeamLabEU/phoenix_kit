@@ -174,7 +174,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
       # New post - remove from temporary list
       post_images =
         Enum.reject(socket.assigns.post_images, fn img ->
-          to_string(img.file_uuid) == media_id || to_string(img[:id]) == media_id
+          to_string(img.file_uuid) == media_id || to_string(img[:uuid]) == media_id
         end)
 
       pending_ids = Enum.reject(socket.assigns[:pending_image_ids] || [], &(&1 == media_id))
