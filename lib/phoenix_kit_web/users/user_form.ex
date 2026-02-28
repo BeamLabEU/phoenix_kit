@@ -19,8 +19,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    user_id = params["id"]
-    mode = if user_id, do: :edit, else: :new
+    user_uuid = params["id"]
+    mode = if user_uuid, do: :edit, else: :new
 
     # Extract IP during mount (connect_info is only available here)
     registration_ip = IpAddress.extract_from_socket(socket)
@@ -41,7 +41,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     socket =
       socket
       |> assign(:mode, mode)
-      |> assign(:user_id, user_id)
+      |> assign(:user_uuid, user_uuid)
       |> assign(:page_title, page_title(mode))
       |> assign(:show_reset_password_modal, false)
       |> assign(:show_password_field, false)
@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:pending_avatar_file_id, nil)
       |> assign(:avatar_changed, false)
       |> assign(:registration_ip, registration_ip)
-      |> load_user_data(mode, user_id)
+      |> load_user_data(mode, user_uuid)
       |> load_form_data()
 
     {:ok, socket}
@@ -517,14 +517,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
     {:noreply, socket}
   end
 
-  defp load_user_data(socket, :new, _user_id) do
+  defp load_user_data(socket, :new, _user_uuid) do
     socket
     |> assign(:user, %Auth.User{})
     |> assign(:user_roles, [])
   end
 
-  defp load_user_data(socket, :edit, user_id) do
-    user = Auth.get_user!(user_id)
+  defp load_user_data(socket, :edit, user_uuid) do
+    user = Auth.get_user!(user_uuid)
     user_roles = Roles.get_user_roles(user)
 
     socket

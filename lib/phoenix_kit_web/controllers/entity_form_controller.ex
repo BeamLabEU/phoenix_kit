@@ -333,7 +333,7 @@ defmodule PhoenixKitWeb.EntityFormController do
     {metadata, status} = apply_security_flags(metadata, security_flags, Logger)
 
     entity_data_params = %{
-      "entity_id" => entity.id,
+      "entity_uuid" => entity.id,
       "title" => title,
       "slug" => generate_slug(title),
       "status" => status,
