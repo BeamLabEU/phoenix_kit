@@ -7,8 +7,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
   ## Job Arguments
 
-    * `"product_id"` - The product ID to migrate
-    * `"user_id"` - The user ID for ownership of stored files
+    * `"product_id"` - The product UUID to migrate
+    * `"user_uuid"` - The user UUID for ownership of stored files
 
   ## Queue
 
@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
   ## Usage
 
       # Queue a single product for migration
-      %{product_id: product_id, user_id: user_id}
+      %{product_id: product_id, user_uuid: user_uuid}
       |> ImageMigrationWorker.new()
       |> Oban.insert()
 
@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
   alias PhoenixKit.Modules.Shop.Services.ImageDownloader
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"product_id" => product_id, "user_id" => user_id}}) do
+  def perform(%Oban.Job{args: %{"product_id" => product_id, "user_uuid" => user_uuid}}) do
     Logger.info("Starting image migration for product #{product_id}")
 
     case Shop.get_product(product_id) do
@@ -42,11 +42,16 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
         {:error, :product_not_found}
 
       product ->
-        migrate_product_images(product, user_id)
+        migrate_product_images(product, user_uuid)
     end
   end
 
-  defp migrate_product_images(product, user_id) do
+  # Backward-compat: jobs queued before the user_uuid → user_uuid rename
+  def perform(%Oban.Job{args: %{"product_id" => product_id, "user_uuid" => user_uuid}}) do
+    perform(%Oban.Job{args: %{"product_id" => product_id, "user_uuid" => user_uuid}})
+  end
+
+  defp migrate_product_images(product, user_uuid) do
     # Use transaction with pessimistic lock to prevent race conditions
     repo = PhoenixKit.Config.get_repo()
 
@@ -69,7 +74,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
           :ok
 
         true ->
-          do_migrate_images(locked_product, user_id)
+          do_migrate_images(locked_product, user_uuid)
       end
     end)
     |> case do
@@ -86,10 +91,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     has_featured_image_uuid or has_image_ids
   end
 
-  defp do_migrate_images(product, user_id) do
+  defp do_migrate_images(product, user_uuid) do
     # Validate product has required fields before migration
     with :ok <- validate_product_for_migration(product) do
-      do_migrate_validated_images(product, user_id)
+      do_migrate_validated_images(product, user_uuid)
     end
   end
 
@@ -108,7 +113,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     end
   end
 
-  defp do_migrate_validated_images(product, user_id) do
+  defp do_migrate_validated_images(product, user_uuid) do
     # Collect all unique image URLs from product
     image_urls = collect_image_urls(product)
 
@@ -133,7 +138,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
         # Download and store all images
         results =
-          ImageDownloader.download_batch(valid_urls, user_id,
+          ImageDownloader.download_batch(valid_urls, user_uuid,
             concurrency: 3,
             timeout: 60_000,
             on_progress: fn url, result, index, total ->
