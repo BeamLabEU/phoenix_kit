@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
   ## Examples
 
       iex> SQSProcessor.process_email_event(event_data)
-      {:ok, %{type: "delivery", log_id: 123, updated: true}}
+      {:ok, %{type: "delivery", log_uuid: "019...", updated: true}}
   """
   def process_email_event(event_data) when is_map(event_data) do
     case determine_event_type(event_data) do
@@ -351,17 +351,17 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
         # Update headers if empty
         update_log_headers_if_empty(log, mail_data)
 
-        {:ok, %{type: "send", log_id: log.uuid, updated: false}}
+        {:ok, %{type: "send", log_uuid: log.uuid, updated: false}}
 
       {:error, :not_found} ->
         # Rare case - received send event without preliminary logging
         handle_placeholder_creation(event_data, message_id, "send", "sent", fn log ->
           Logger.info("Created placeholder log for send event", %{
-            log_id: log.uuid,
+            log_uuid: log.uuid,
             message_id: message_id
           })
 
-          {:ok, %{type: "send", log_id: log.uuid, updated: true}}
+          {:ok, %{type: "send", log_uuid: log.uuid, updated: true}}
         end)
     end
   end
@@ -389,16 +389,16 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
             create_delivery_event(updated_log, delivery_data)
 
             Logger.info("Email delivered", %{
-              log_id: updated_log.uuid,
+              log_uuid: updated_log.uuid,
               message_id: message_id,
               delivered_at: updated_log.delivered_at
             })
 
-            {:ok, %{type: "delivery", log_id: updated_log.uuid, updated: true}}
+            {:ok, %{type: "delivery", log_uuid: updated_log.uuid, updated: true}}
 
           {:error, reason} ->
             Logger.error("Failed to update delivery status", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               reason: inspect(reason)
             })
 
@@ -419,16 +419,16 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
               create_delivery_event(updated_log, delivery_data)
 
               Logger.info("Created placeholder log for delivery event", %{
-                log_id: updated_log.uuid,
+                log_uuid: updated_log.uuid,
                 message_id: message_id,
                 delivered_at: updated_log.delivered_at
               })
 
-              {:ok, %{type: "delivery", log_id: updated_log.uuid, updated: true}}
+              {:ok, %{type: "delivery", log_uuid: updated_log.uuid, updated: true}}
 
             {:error, reason} ->
               Logger.error("Failed to update placeholder log for delivery", %{
-                log_id: log.uuid,
+                log_uuid: log.uuid,
                 reason: inspect(reason)
               })
 
@@ -533,11 +533,11 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
             # Create event record
             create_open_event(updated_log, open_data, open_timestamp)
 
-            {:ok, %{type: "open", log_id: updated_log.uuid, updated: true}}
+            {:ok, %{type: "open", log_uuid: updated_log.uuid, updated: true}}
 
           {:error, reason} ->
             Logger.error("Failed to update open status", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               reason: inspect(reason)
             })
 
@@ -550,11 +550,11 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
           create_open_event(log, open_data, open_timestamp)
 
           Logger.info("Created placeholder log for open event", %{
-            log_id: log.uuid,
+            log_uuid: log.uuid,
             message_id: message_id
           })
 
-          {:ok, %{type: "open", log_id: log.uuid, updated: true}}
+          {:ok, %{type: "open", log_uuid: log.uuid, updated: true}}
         end)
     end
   end
@@ -580,17 +580,17 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
             create_click_event(updated_log, click_data, click_timestamp)
 
             Logger.info("Email link clicked", %{
-              log_id: updated_log.uuid,
+              log_uuid: updated_log.uuid,
               message_id: message_id,
               link_url: get_in(click_data, ["link"]),
               ip_address: get_in(click_data, ["ipAddress"])
             })
 
-            {:ok, %{type: "click", log_id: updated_log.uuid, updated: true}}
+            {:ok, %{type: "click", log_uuid: updated_log.uuid, updated: true}}
 
           {:error, reason} ->
             Logger.error("Failed to update click status", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               reason: inspect(reason)
             })
 
@@ -608,17 +608,17 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
               create_click_event(updated_log, click_data, click_timestamp)
 
               Logger.info("Created placeholder log for click event", %{
-                log_id: updated_log.uuid,
+                log_uuid: updated_log.uuid,
                 message_id: message_id,
                 link_url: get_in(click_data, ["link"]),
                 ip_address: get_in(click_data, ["ipAddress"])
               })
 
-              {:ok, %{type: "click", log_id: updated_log.uuid, updated: true}}
+              {:ok, %{type: "click", log_uuid: updated_log.uuid, updated: true}}
 
             {:error, reason} ->
               Logger.error("Failed to update placeholder log for click", %{
-                log_id: log.uuid,
+                log_uuid: log.uuid,
                 reason: inspect(reason)
               })
 
@@ -693,17 +693,17 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
             create_delivery_delay_event(updated_log, delay_data)
 
             Logger.info("Email delivery delayed", %{
-              log_id: updated_log.uuid,
+              log_uuid: updated_log.uuid,
               message_id: message_id,
               delay_type: delay_type,
               expiration_time: expiration_time
             })
 
-            {:ok, %{type: "delivery_delay", log_id: updated_log.uuid, updated: true}}
+            {:ok, %{type: "delivery_delay", log_uuid: updated_log.uuid, updated: true}}
 
           {:error, reason} ->
             Logger.error("Failed to update delay status", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               reason: inspect(reason)
             })
 
@@ -724,13 +724,18 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
             create_delivery_delay_event(log, delay_data)
 
             Logger.info("Created placeholder log for delay event", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               message_id: message_id,
               delay_type: delay_type
             })
 
             {:ok,
-             %{type: "delivery_delay", log_id: log.uuid, updated: true, created_placeholder: true}}
+             %{
+               type: "delivery_delay",
+               log_uuid: log.uuid,
+               updated: true,
+               created_placeholder: true
+             }}
 
           {:error, reason} ->
             Logger.error("Failed to create placeholder log for delay event", %{
@@ -759,12 +764,12 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
         create_subscription_event(log, subscription_data)
 
         Logger.info("Email subscription event", %{
-          log_id: log.uuid,
+          log_uuid: log.uuid,
           message_id: message_id,
           subscription_type: subscription_type
         })
 
-        {:ok, %{type: "subscription", log_id: log.uuid, updated: false}}
+        {:ok, %{type: "subscription", log_uuid: log.uuid, updated: false}}
 
       {:error, :not_found} ->
         Logger.warning(
@@ -780,13 +785,13 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
             create_subscription_event(log, subscription_data)
 
             Logger.info("Created placeholder log for subscription event", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               message_id: message_id,
               subscription_type: subscription_type
             })
 
             {:ok,
-             %{type: "subscription", log_id: log.uuid, updated: true, created_placeholder: true}}
+             %{type: "subscription", log_uuid: log.uuid, updated: true, created_placeholder: true}}
 
           {:error, reason} ->
             Logger.error("Failed to create placeholder log for subscription event", %{
@@ -895,20 +900,20 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
 
             Logger.info(
               "Created placeholder log for #{event_type} event",
-              Map.merge(%{log_id: updated_log.uuid, message_id: message_id}, extra_log_data)
+              Map.merge(%{log_uuid: updated_log.uuid, message_id: message_id}, extra_log_data)
             )
 
             {:ok,
              %{
                type: event_type,
-               log_id: updated_log.uuid,
+               log_uuid: updated_log.uuid,
                updated: true,
                created_placeholder: true
              }}
 
           {:error, reason} ->
             Logger.error("Failed to update placeholder log for #{event_type}", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               reason: inspect(reason)
             })
 
@@ -945,11 +950,11 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
           extra_log_data
         )
 
-        {:ok, %{type: event_type, log_id: updated_log.uuid, updated: true}}
+        {:ok, %{type: event_type, log_uuid: updated_log.uuid, updated: true}}
 
       {:error, reason} ->
         Logger.error("Failed to update #{event_type} status", %{
-          log_id: log.uuid,
+          log_uuid: log.uuid,
           reason: inspect(reason)
         })
 
@@ -972,7 +977,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
         Logger.log(
           log_level,
           "#{event_type} event (duplicate skipped)",
-          Map.merge(%{log_id: log.uuid, message_id: message_id}, extra_log_data)
+          Map.merge(%{log_uuid: log.uuid, message_id: message_id}, extra_log_data)
         )
 
       {:ok, _event} ->
@@ -981,12 +986,12 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
         Logger.log(
           log_level,
           "#{event_type} event created",
-          Map.merge(%{log_id: log.uuid, message_id: message_id}, extra_log_data)
+          Map.merge(%{log_uuid: log.uuid, message_id: message_id}, extra_log_data)
         )
 
       {:error, reason} ->
         Logger.error("Failed to create #{event_type} event", %{
-          log_id: log.uuid,
+          log_uuid: log.uuid,
           reason: inspect(reason)
         })
     end

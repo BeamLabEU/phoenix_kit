@@ -234,7 +234,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
       IO.puts("   ✅ Successful events:")
 
       Enum.each(details.successful, fn result ->
-        IO.puts("      • #{result[:type]} (Log ID: #{result[:log_id]})")
+        IO.puts("      • #{result[:type]} (Log UUID: #{result[:log_uuid]})")
       end)
     end
 

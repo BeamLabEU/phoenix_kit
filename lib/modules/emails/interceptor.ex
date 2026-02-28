@@ -324,7 +324,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
     case Log.update_log(log, update_attrs) do
       {:ok, updated_log} ->
         Logger.info("EmailInterceptor: Successfully updated email log", %{
-          log_id: updated_log.uuid,
+          log_uuid: updated_log.uuid,
           internal_message_id: updated_log.message_id,
           aws_message_id: updated_log.aws_message_id,
           status: updated_log.status
@@ -661,13 +661,13 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   end
 
   # Extract data from provider response
-  defp extract_provider_data(%{} = response, log_id) do
+  defp extract_provider_data(%{} = response, log_uuid) do
     # Extract message ID from various response formats
     extracted_data = extract_message_id_from_response(response)
 
     if Map.has_key?(extracted_data, :message_id) do
       Logger.info("EmailInterceptor: Successfully extracted AWS MessageId", %{
-        log_id: log_id,
+        log_uuid: log_uuid,
         message_id: extracted_data.message_id,
         response_format: detect_response_format(response),
         found_in_key: find_message_id_key(response)
@@ -675,7 +675,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
     else
       # Enhanced warning with more details for troubleshooting
       Logger.warning("EmailInterceptor: Failed to extract AWS MessageId", %{
-        log_id: log_id,
+        log_uuid: log_uuid,
         response_keys: Map.keys(response),
         response_structure: inspect_response_structure(response),
         response_sample: inspect(response) |> String.slice(0, 500),
@@ -692,7 +692,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
     extracted_data
   end
 
-  defp extract_provider_data(_, _log_id), do: %{}
+  defp extract_provider_data(_, _log_uuid), do: %{}
 
   # Extract message ID from different response formats
   defp extract_message_id_from_response(response) when is_map(response) do
@@ -788,11 +788,11 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   end
 
   # Log extraction metric for monitoring
-  defp log_extraction_metric(success?, log_id, aws_message_id) do
+  defp log_extraction_metric(success?, log_uuid, aws_message_id) do
     metric_data = %{
       metric: "aws_message_id_extraction_rate",
       success: success?,
-      log_id: log_id,
+      log_uuid: log_uuid,
       aws_message_id: aws_message_id,
       timestamp: UtilsDate.utc_now()
     }
