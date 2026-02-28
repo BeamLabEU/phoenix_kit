@@ -8,7 +8,7 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
   ## Schema Fields
 
   ### Profile Identity
-  - `user_id`: Foreign key to the user
+  - `user_uuid`: Foreign key to the user
   - `type`: Profile type - "individual" or "company"
   - `is_default`: Whether this is the user's default billing profile
   - `name`: Display name for the profile

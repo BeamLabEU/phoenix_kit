@@ -8,8 +8,8 @@ defmodule PhoenixKit.Modules.Billing.Order do
   ## Schema Fields
 
   ### Identity & Relations
-  - `user_id`: Foreign key to the user who placed the order
-  - `billing_profile_id`: Foreign key to the billing profile used
+  - `user_uuid`: Foreign key to the user who placed the order
+  - `billing_profile_uuid`: Foreign key to the billing profile used
   - `order_number`: Unique order identifier (e.g., "ORD-2024-0001")
   - `status`: Order status workflow
 

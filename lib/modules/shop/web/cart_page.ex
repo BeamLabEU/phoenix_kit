@@ -29,12 +29,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
     # Get current user if logged in
     user = get_current_user(socket)
-    user_id = if user, do: user.uuid, else: nil
     user_uuid = if user, do: user.uuid, else: nil
 
     # Get or create cart
     {:ok, cart} =
-      Shop.get_or_create_cart(user_id: user_id, user_uuid: user_uuid, session_id: session_id)
+      Shop.get_or_create_cart(user_uuid: user_uuid, session_id: session_id)
 
     # Subscribe to cart events for real-time sync across tabs
     if connected?(socket) do
@@ -490,7 +489,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                 <button
                   phx-click="proceed_to_checkout"
                   class="btn btn-primary btn-block mt-6"
-                  disabled={@cart.items == [] || is_nil(@cart.shipping_method_id)}
+                  disabled={@cart.items == [] || is_nil(@cart.shipping_method_uuid)}
                 >
                   <.icon name="hero-credit-card" class="w-5 h-5 mr-2" /> Proceed to Checkout
                 </button>

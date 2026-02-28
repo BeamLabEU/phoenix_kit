@@ -10,7 +10,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
   - `job_type` - Type identifier (e.g., "publish_post", "send_email")
   - `handler_module` - Module that implements `PhoenixKit.ScheduledJobs.Handler`
   - `resource_type` - Type of resource (e.g., "post", "email")
-  - `resource_id` - UUID of the target resource
+  - `resource_uuid` - UUID of the target resource
   - `scheduled_at` - When the job should execute
   - `executed_at` - When the job actually executed (nil if pending)
   - `status` - Current status: "pending", "executed", "failed", "cancelled"

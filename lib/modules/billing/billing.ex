@@ -2240,7 +2240,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Options
 
-  - `:invoice_id` - Filter by invoice
+  - `:invoice_uuid` - Filter by invoice UUID
   - `:user_uuid` - Filter by user who created the transaction
   - `:payment_method` - Filter by payment method
   - `:type` - Filter by type: "payment" (amount > 0) or "refund" (amount < 0)
@@ -2332,9 +2332,6 @@ defmodule PhoenixKit.Modules.Billing do
       cond do
         invoice_uuid = opts[:invoice_uuid] ->
           where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
-
-        invoice_id = opts[:invoice_id] ->
-          where(count_query, [t], fragment("invoice_id = ?", ^invoice_id))
 
         true ->
           count_query

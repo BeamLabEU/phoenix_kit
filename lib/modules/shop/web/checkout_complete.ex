@@ -49,10 +49,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
   end
 
   # Check if order belongs to an unconfirmed guest user
-  defp guest_user_order?(%{user_id: nil}), do: false
+  defp guest_user_order?(%{user_uuid: nil}), do: false
 
-  defp guest_user_order?(%{user_id: user_id}) do
-    case Auth.get_user(user_id) do
+  defp guest_user_order?(%{user_uuid: user_uuid}) do
+    case Auth.get_user(user_uuid) do
       %{confirmed_at: nil} -> true
       _ -> false
     end
@@ -79,13 +79,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
   defp get_billing_profile(%{billing_profile_uuid: nil}), do: nil
   defp get_billing_profile(%{billing_profile_uuid: uuid}), do: Billing.get_billing_profile(uuid)
 
-  defp check_guest_order(%{user_id: nil} = order) do
+  defp check_guest_order(%{user_uuid: nil} = order) do
     email = get_in(order.billing_snapshot, ["email"])
     {not is_nil(email), email}
   end
 
-  defp check_guest_order(%{user_id: user_id}) do
-    case Auth.get_user(user_id) do
+  defp check_guest_order(%{user_uuid: user_uuid}) do
+    case Auth.get_user(user_uuid) do
       %{confirmed_at: nil, email: email} -> {true, email}
       _ -> {false, nil}
     end

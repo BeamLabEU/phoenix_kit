@@ -31,9 +31,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   def mount(_params, session, socket) do
     user = get_current_user(socket)
     session_id = session["shop_session_id"]
-    user_id = if user, do: user.uuid
+    user_uuid = if user, do: user.uuid
 
-    case Shop.find_active_cart(user_id: user_id, session_id: session_id) do
+    case Shop.find_active_cart(user_uuid: user_uuid, session_id: session_id) do
       nil ->
         {:ok, redirect_to_cart(socket, "Your cart is empty")}
 
