@@ -360,9 +360,9 @@
                         <% "to" -> %>
                           <div class="space-y-1">
                             <div class="font-medium text-sm">{log.to}</div>
-                            <%= if log.user_id do %>
+                            <%= if log.user_uuid do %>
                               <div class="badge badge-ghost badge-xs h-auto">
-                                User #{log.user_id}
+                                User #{log.user_uuid}
                               </div>
                             <% end %>
                           </div>

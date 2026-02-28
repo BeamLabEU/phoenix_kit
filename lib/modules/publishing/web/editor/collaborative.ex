@@ -245,7 +245,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   defp populate_presence_info(socket, form_key) do
     presences = PresenceHelpers.get_sorted_presences(form_key)
 
-    my_user_id =
+    my_user_uuid =
       socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.uuid
 
     {lock_owner_user, spectators, other_viewers} =
@@ -258,7 +258,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
             Enum.map(spectator_list, fn {_socket_id, meta} ->
               %{
                 user: meta.user,
-                user_id: meta.user_id,
+                user_uuid: meta.user_uuid,
                 user_email: meta.user_email
               }
             end)
@@ -266,15 +266,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
           # Other viewers = all presences from OTHER users (not just other sockets)
           other_viewers =
             presences
-            |> Enum.reject(fn {_socket_id, meta} -> meta.user_id == my_user_id end)
+            |> Enum.reject(fn {_socket_id, meta} -> meta.user_uuid == my_user_uuid end)
             |> Enum.map(fn {_socket_id, meta} ->
               %{
                 user: meta.user,
-                user_id: meta.user_id,
+                user_uuid: meta.user_uuid,
                 user_email: meta.user_email
               }
             end)
-            |> Enum.uniq_by(& &1.user_id)
+            |> Enum.uniq_by(& &1.user_uuid)
 
           {owner_meta.user, spectators, other_viewers}
       end

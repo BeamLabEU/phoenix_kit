@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Publishing.PresenceHelpers do
     topic = editing_topic(form_key)
 
     Presence.track(self(), topic, socket.id, %{
-      user_id: user.uuid,
+      user_uuid: user.uuid,
       user_email: user.email,
       user: user,
       joined_at: System.system_time(:millisecond),
@@ -98,7 +98,7 @@ defmodule PhoenixKit.Modules.Publishing.PresenceHelpers do
 
       [{_other_socket_id, owner_meta} | _rest] ->
         # Check if same user (different tab) or different user
-        if owner_meta.user_id == current_user_id do
+        if owner_meta.user_uuid == current_user_id do
           # Same user, different tab - treat as owner so both tabs can edit
           {:owner, presences}
         else

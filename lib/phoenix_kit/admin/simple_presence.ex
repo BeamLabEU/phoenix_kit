@@ -146,7 +146,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
       anonymous_sessions: length(anonymous_sessions),
       authenticated_sessions: length(authenticated_sessions),
       unique_anonymous_visitors: length(Enum.uniq_by(anonymous_sessions, & &1.session_id)),
-      active_authenticated_users: length(Enum.uniq_by(authenticated_sessions, & &1.user_id)),
+      active_authenticated_users: length(Enum.uniq_by(authenticated_sessions, & &1.user_uuid)),
       top_pages: page_stats,
       last_updated: DateTime.utc_now()
     }
@@ -249,7 +249,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
             Events.broadcast_anonymous_session_disconnected(metadata.session_id)
 
           :authenticated ->
-            Events.broadcast_user_session_disconnected(metadata.user_id, metadata.session_id)
+            Events.broadcast_user_session_disconnected(metadata.user_uuid, metadata.session_id)
         end
 
       nil ->
@@ -275,7 +275,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
           Events.broadcast_anonymous_session_disconnected(metadata.session_id)
 
         :authenticated ->
-          Events.broadcast_user_session_disconnected(metadata.user_id, metadata.session_id)
+          Events.broadcast_user_session_disconnected(metadata.user_uuid, metadata.session_id)
       end
     end)
 
