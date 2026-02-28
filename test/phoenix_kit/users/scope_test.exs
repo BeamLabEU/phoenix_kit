@@ -221,17 +221,17 @@ defmodule PhoenixKit.Users.Auth.ScopeTest do
     end
   end
 
-  # --- user_id/1 ---
+  # --- user_uuid/1 ---
 
-  describe "user_id/1" do
+  describe "user_uuid/1" do
     test "returns the user's uuid" do
       scope = build_scope(["User"], user: build_user(uuid: "user-uuid-42"))
-      assert Scope.user_id(scope) == "user-uuid-42"
+      assert Scope.user_uuid(scope) == "user-uuid-42"
     end
 
     test "returns nil for nil user" do
       scope = %Scope{user: nil, authenticated?: false}
-      assert Scope.user_id(scope) == nil
+      assert Scope.user_uuid(scope) == nil
     end
   end
 end

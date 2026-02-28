@@ -65,8 +65,8 @@ defmodule PhoenixKit.Modules.Posts.PostComment do
 
   ## Required Fields
 
-  - `post_id` - Reference to post
-  - `user_id` - Reference to commenter
+  - `post_uuid` - Reference to post
+  - `user_uuid` - Reference to commenter
   - `content` - Comment text
 
   ## Validation Rules

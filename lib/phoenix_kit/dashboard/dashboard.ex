@@ -604,11 +604,11 @@ defmodule PhoenixKit.Dashboard do
 
   ## Examples
 
-      context_id = PhoenixKit.Dashboard.current_context_id(socket)
-      # => 1
+      context_uuid = PhoenixKit.Dashboard.current_context_uuid(socket)
+      # => "550e8400-e29b-41d4-a716-446655440000"
   """
-  @spec current_context_id(Phoenix.LiveView.Socket.t() | map()) :: any() | nil
-  def current_context_id(socket_or_assigns) do
+  @spec current_context_uuid(Phoenix.LiveView.Socket.t() | map()) :: any() | nil
+  def current_context_uuid(socket_or_assigns) do
     case current_context(socket_or_assigns) do
       nil -> nil
       context -> ContextSelector.get_id(context)

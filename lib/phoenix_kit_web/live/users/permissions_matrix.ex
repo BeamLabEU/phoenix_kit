@@ -104,7 +104,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
   # --- Helpers ---
 
   defp toggle_role_permission(socket, role, key, scope) do
-    granted_by_id = Scope.user_id(scope)
+    granted_by_uuid = Scope.user_uuid(scope)
     role_uuid = to_string(role.uuid)
     role_keys = Map.get(socket.assigns.matrix, role_uuid, MapSet.new())
     label = Permissions.module_label(key)
@@ -136,7 +136,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
            |> refresh_matrix()}
       end
     else
-      case Permissions.grant_permission(role_uuid, key, granted_by_id) do
+      case Permissions.grant_permission(role_uuid, key, granted_by_uuid) do
         {:ok, _} ->
           {:noreply,
            socket

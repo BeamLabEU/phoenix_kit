@@ -328,13 +328,13 @@ Custom permissions work exactly like built-in ones:
 
 ```elixir
 # Via API
-Permissions.grant_permission(role_id, "analytics", granted_by_id)
+Permissions.grant_permission(role_uuid, "analytics", granted_by_uuid)
 
 # Via set_permissions (includes custom keys)
-Permissions.set_permissions(role_id, ["dashboard", "users", "analytics"], granted_by_id)
+Permissions.set_permissions(role_uuid, ["dashboard", "users", "analytics"], granted_by_uuid)
 
 # Grant all (includes custom keys)
-Permissions.grant_all_permissions(role_id, granted_by_id)
+Permissions.grant_all_permissions(role_uuid, granted_by_uuid)
 ```
 
 Or use the admin UI: navigate to the permission matrix or the role's permission editor — custom keys appear under the **Custom** section.

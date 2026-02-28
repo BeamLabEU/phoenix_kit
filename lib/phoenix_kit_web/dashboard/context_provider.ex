@@ -97,10 +97,10 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
   # Private functions
 
   defp load_and_assign_contexts(socket, session, config) do
-    user_id = get_user_id(socket)
+    user_uuid = get_user_uuid(socket)
 
-    if user_id do
-      contexts = ContextSelector.load_contexts(user_id)
+    if user_uuid do
+      contexts = ContextSelector.load_contexts(user_uuid)
       current_context = resolve_current_context(contexts, session, config)
       show_selector = length(contexts) > 1
 
@@ -206,9 +206,9 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
   # ============================================================================
 
   defp load_multi_selectors(socket, session) do
-    user_id = get_user_id(socket)
+    user_uuid = get_user_uuid(socket)
 
-    if user_id do
+    if user_uuid do
       configs = ContextSelector.get_all_configs()
       ordered_configs = ContextSelector.order_by_dependencies(configs)
 
@@ -217,7 +217,7 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
 
       # Load contexts for each selector in dependency order
       {contexts_map, current_map} =
-        load_all_contexts(ordered_configs, user_id, stored_ids)
+        load_all_contexts(ordered_configs, user_uuid, stored_ids)
 
       # Build show map
       show_map =
@@ -252,7 +252,7 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
     end
   end
 
-  defp load_all_contexts(configs, user_id, stored_ids) do
+  defp load_all_contexts(configs, user_uuid, stored_ids) do
     # Accumulator: {contexts_map, current_map}
     Enum.reduce(configs, {%{}, %{}}, fn config, {ctx_map, cur_map} ->
       # Get parent context if this is a dependent selector
@@ -264,7 +264,7 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
         end
 
       # Load contexts for this selector
-      contexts = ContextSelector.load_contexts_for_config(config, user_id, parent_context)
+      contexts = ContextSelector.load_contexts_for_config(config, user_uuid, parent_context)
 
       # Resolve current context from session or default to first
       current = resolve_context_for_key(contexts, config.key, stored_ids, config)
@@ -313,7 +313,7 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
     |> assign(:context_selector_config, first_config)
   end
 
-  defp get_user_id(socket) do
+  defp get_user_uuid(socket) do
     cond do
       # Try phoenix_kit_current_scope first
       scope = socket.assigns[:phoenix_kit_current_scope] ->

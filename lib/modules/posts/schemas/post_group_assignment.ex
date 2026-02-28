@@ -7,23 +7,23 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
 
   ## Fields
 
-  - `post_id` - Reference to the post
-  - `group_id` - Reference to the group
+  - `post_uuid` - Reference to the post
+  - `group_uuid` - Reference to the group
   - `position` - Display order within the group (0, 1, 2, etc.)
 
   ## Examples
 
       # First post in group
       %PostGroupAssignment{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        group_id: "018e3c4a-1234-5678-abcd-ef1234567890",
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        group_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         position: 0
       }
 
       # Second post in group
       %PostGroupAssignment{
-        post_id: "018e3c4a-5678-1234-abcd-ef1234567890",
-        group_id: "018e3c4a-1234-5678-abcd-ef1234567890",
+        post_uuid: "018e3c4a-5678-1234-abcd-ef1234567890",
+        group_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         position: 1
       }
   """
@@ -65,13 +65,13 @@ defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
 
   ## Required Fields
 
-  - `post_id` - Reference to post
-  - `group_id` - Reference to group
+  - `post_uuid` - Reference to post
+  - `group_uuid` - Reference to group
 
   ## Validation Rules
 
   - Position must be >= 0
-  - Unique constraint on (post_id, group_id) - post can't be in same group twice
+  - Unique constraint on (post_uuid, group_uuid) - post can't be in same group twice
   """
   def changeset(assignment, attrs) do
     assignment

@@ -302,9 +302,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
         final_keys = MapSet.union(preserved, editor_keys) |> MapSet.to_list()
 
         scope = socket.assigns[:phoenix_kit_current_scope]
-        granted_by_id = if scope, do: Scope.user_id(scope), else: nil
+        granted_by_uuid = if scope, do: Scope.user_uuid(scope), else: nil
 
-        case Permissions.set_permissions(role.uuid, final_keys, granted_by_id) do
+        case Permissions.set_permissions(role.uuid, final_keys, granted_by_uuid) do
           :ok ->
             socket =
               socket

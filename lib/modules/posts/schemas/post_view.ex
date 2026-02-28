@@ -7,8 +7,8 @@ defmodule PhoenixKit.Modules.Posts.PostView do
 
   ## Fields
 
-  - `post_id` - Reference to the viewed post
-  - `user_id` - Reference to the viewer (nullable for guests)
+  - `post_uuid` - Reference to the viewed post
+  - `user_uuid` - Reference to the viewer (nullable for guests)
   - `ip_address` - Hashed IP for privacy
   - `user_agent_hash` - Hashed browser fingerprint
   - `session_id` - Session identifier for deduplication
@@ -18,8 +18,8 @@ defmodule PhoenixKit.Modules.Posts.PostView do
 
       # Logged-in user view
       %PostView{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42,
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         ip_address: "hashed_ip",
         user_agent_hash: "hashed_ua",
         session_id: "session_abc123",
@@ -28,8 +28,8 @@ defmodule PhoenixKit.Modules.Posts.PostView do
 
       # Guest view
       %PostView{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: nil,
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: nil,
         ip_address: "hashed_ip",
         user_agent_hash: "hashed_ua",
         session_id: "session_xyz789",
@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
 
   ## Required Fields
 
-  - `post_id` - Reference to post
+  - `post_uuid` - Reference to post
   - `viewed_at` - Timestamp of view
 
   ## Validation Rules

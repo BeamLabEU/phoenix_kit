@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
 
   ## Fields
 
-  - `user_id` - Owner of the group
+  - `user_uuid` - Owner of the group
   - `name` - Group name (e.g., "Travel Photos", "Work Projects")
   - `slug` - URL-safe slug (e.g., "travel-photos")
   - `description` - Optional group description
@@ -20,8 +20,8 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
 
       # Public travel group
       %PostGroup{
-        id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42,
+        uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         name: "Travel Adventures",
         slug: "travel-adventures",
         description: "My favorite travel moments",
@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
 
       # Private work group
       %PostGroup{
-        user_id: 42,
+        user_uuid: "018e3c4a-5678-1234-abcd-ef1234567890",
         name: "Client Projects",
         slug: "client-projects",
         description: nil,
@@ -96,7 +96,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
 
   ## Required Fields
 
-  - `user_id` - Owner of the group
+  - `user_uuid` - Owner of the group
   - `name` - Group name
   - `slug` - URL-safe slug (auto-generated from name if not provided)
 
@@ -132,8 +132,8 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
     |> validate_number(:post_count, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:user_uuid)
     |> foreign_key_constraint(:cover_image_uuid)
-    |> unique_constraint([:user_id, :slug],
-      name: :phoenix_kit_post_groups_user_id_slug_index,
+    |> unique_constraint([:user_uuid, :slug],
+      name: :phoenix_kit_post_groups_user_uuid_slug_index,
       message: "you already have a group with this slug"
     )
   end

@@ -6,15 +6,15 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
 
   ## Fields
 
-  - `post_id` - Reference to the post
-  - `user_id` - Reference to the user who liked
+  - `post_uuid` - Reference to the post
+  - `user_uuid` - Reference to the user who liked
 
   ## Examples
 
       # User likes a post
       %PostLike{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890"
       }
   """
   use Ecto.Schema
@@ -51,12 +51,12 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
 
   ## Required Fields
 
-  - `post_id` - Reference to post
-  - `user_id` - Reference to user
+  - `post_uuid` - Reference to post
+  - `user_uuid` - Reference to user
 
   ## Validation Rules
 
-  - Unique constraint on (post_id, user_id) - one like per user per post
+  - Unique constraint on (post_uuid, user_uuid) - one like per user per post
   """
   def changeset(like, attrs) do
     like
@@ -64,8 +64,8 @@ defmodule PhoenixKit.Modules.Posts.PostLike do
     |> validate_required([:post_uuid, :user_uuid])
     |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:post_uuid, :user_id],
-      name: :phoenix_kit_post_likes_post_id_user_id_index,
+    |> unique_constraint([:post_uuid, :user_uuid],
+      name: :phoenix_kit_post_likes_post_uuid_user_uuid_index,
       message: "you have already liked this post"
     )
   end

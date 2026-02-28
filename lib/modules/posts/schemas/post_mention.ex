@@ -12,23 +12,23 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
 
   ## Fields
 
-  - `post_id` - Reference to the post
-  - `user_id` - Reference to the mentioned user
+  - `post_uuid` - Reference to the post
+  - `user_uuid` - Reference to the mentioned user
   - `mention_type` - contributor/mention
 
   ## Examples
 
       # Contributor mention
       %PostMention{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42,
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         mention_type: "contributor"
       }
 
       # Regular mention
       %PostMention{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 15,
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-5678-1234-abcd-ef1234567890",
         mention_type: "mention"
       }
   """
@@ -69,14 +69,14 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
 
   ## Required Fields
 
-  - `post_id` - Reference to post
-  - `user_id` - Reference to mentioned user
+  - `post_uuid` - Reference to post
+  - `user_uuid` - Reference to mentioned user
   - `mention_type` - Must be: "contributor" or "mention"
 
   ## Validation Rules
 
   - Mention type must be valid (contributor/mention)
-  - Unique constraint on (post_id, user_id) - one mention per user per post
+  - Unique constraint on (post_uuid, user_uuid) - one mention per user per post
   """
   def changeset(mention, attrs) do
     mention
@@ -85,8 +85,8 @@ defmodule PhoenixKit.Modules.Posts.PostMention do
     |> validate_inclusion(:mention_type, ["contributor", "mention"])
     |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:post_uuid, :user_id],
-      name: :phoenix_kit_post_mentions_post_id_user_id_index,
+    |> unique_constraint([:post_uuid, :user_uuid],
+      name: :phoenix_kit_post_mentions_post_uuid_user_uuid_index,
       message: "user already mentioned in this post"
     )
   end

@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
   - `width` - Width in pixels (nullable)
   - `height` - Height in pixels (nullable)
   - `processing_status` - Current processing state
-  - `file_id` - Parent file reference
+  - `file_uuid` - Parent file reference
 
   ## Examples
 
@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
         width: 2000,
         height: 2000,
         processing_status: "completed",
-        file_id: "018e3c4a-9f6b-7890-abcd-ef1234567890"
+        file_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890"
       }
 
       # Thumbnail instance
@@ -62,7 +62,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
         width: 150,
         height: 150,
         processing_status: "completed",
-        file_id: "018e3c4a-9f6b-7890-abcd-ef1234567890"
+        file_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890"
       }
 
       # Video quality variant
@@ -130,7 +130,7 @@ defmodule PhoenixKit.Modules.Storage.FileInstance do
   - `ext`
   - `checksum`
   - `size`
-  - `file_id`
+  - `file_uuid`
 
   ## Validation Rules
 

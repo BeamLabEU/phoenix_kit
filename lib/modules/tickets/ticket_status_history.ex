@@ -92,7 +92,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
 
   ## Required Fields
 
-  - `ticket_id` - Reference to ticket
+  - `ticket_uuid` - Reference to ticket
   - `changed_by_uuid` - User who made the change
   - `to_status` - New status
 

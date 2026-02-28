@@ -7,15 +7,15 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
 
   ## Fields
 
-  - `post_id` - Reference to the post
-  - `tag_id` - Reference to the tag
+  - `post_uuid` - Reference to the post
+  - `tag_uuid` - Reference to the tag
 
   ## Examples
 
       # Assign tag to post
       %PostTagAssignment{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        tag_id: "018e3c4a-1234-5678-abcd-ef1234567890"
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        tag_uuid: "018e3c4a-1234-5678-abcd-ef1234567890"
       }
   """
   use Ecto.Schema
@@ -53,12 +53,12 @@ defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
 
   ## Required Fields
 
-  - `post_id` - Reference to post
-  - `tag_id` - Reference to tag
+  - `post_uuid` - Reference to post
+  - `tag_uuid` - Reference to tag
 
   ## Validation Rules
 
-  - Unique constraint on (post_id, tag_id) - no duplicate tags on same post
+  - Unique constraint on (post_uuid, tag_uuid) - no duplicate tags on same post
   """
   def changeset(assignment, attrs) do
     assignment

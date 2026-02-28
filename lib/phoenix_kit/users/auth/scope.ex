@@ -19,7 +19,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
 
       # Get user information
       Scope.user(scope)        # %User{} or nil
-      Scope.user_id(scope)     # user.uuid or nil
+      Scope.user_uuid(scope)   # user.uuid or nil
       Scope.user_email(scope)  # user.email or nil
 
   ## Role & State Checks
@@ -169,16 +169,16 @@ defmodule PhoenixKit.Users.Auth.Scope do
   ## Examples
 
       iex> scope = PhoenixKit.Users.Auth.Scope.for_user(user)
-      iex> PhoenixKit.Users.Auth.Scope.user_id(scope)
+      iex> PhoenixKit.Users.Auth.Scope.user_uuid(scope)
       "0193a5e4-..."
 
       iex> scope = PhoenixKit.Users.Auth.Scope.for_user(nil)
-      iex> PhoenixKit.Users.Auth.Scope.user_id(scope)
+      iex> PhoenixKit.Users.Auth.Scope.user_uuid(scope)
       nil
   """
-  @spec user_id(t()) :: String.t() | nil
-  def user_id(%__MODULE__{user: %User{uuid: uuid}}), do: uuid
-  def user_id(%__MODULE__{user: nil}), do: nil
+  @spec user_uuid(t()) :: String.t() | nil
+  def user_uuid(%__MODULE__{user: %User{uuid: uuid}}), do: uuid
+  def user_uuid(%__MODULE__{user: nil}), do: nil
 
   @doc """
   Gets the user email from the scope.
@@ -376,7 +376,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
   def to_map(%__MODULE__{} = scope) do
     %{
       authenticated?: authenticated?(scope),
-      user_uuid: user_id(scope),
+      user_uuid: user_uuid(scope),
       user_email: user_email(scope),
       user_full_name: user_full_name(scope),
       user_roles: user_roles(scope),

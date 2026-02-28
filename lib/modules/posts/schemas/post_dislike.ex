@@ -6,15 +6,15 @@ defmodule PhoenixKit.Modules.Posts.PostDislike do
 
   ## Fields
 
-  - `post_id` - Reference to the post
-  - `user_id` - Reference to the user who disliked
+  - `post_uuid` - Reference to the post
+  - `user_uuid` - Reference to the user who disliked
 
   ## Examples
 
       # User dislikes a post
       %PostDislike{
-        post_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 42
+        post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890"
       }
   """
   use Ecto.Schema
@@ -51,12 +51,12 @@ defmodule PhoenixKit.Modules.Posts.PostDislike do
 
   ## Required Fields
 
-  - `post_id` - Reference to post
-  - `user_id` - Reference to user
+  - `post_uuid` - Reference to post
+  - `user_uuid` - Reference to user
 
   ## Validation Rules
 
-  - Unique constraint on (post_id, user_id) - one dislike per user per post
+  - Unique constraint on (post_uuid, user_uuid) - one dislike per user per post
   """
   def changeset(dislike, attrs) do
     dislike
@@ -64,8 +64,8 @@ defmodule PhoenixKit.Modules.Posts.PostDislike do
     |> validate_required([:post_uuid, :user_uuid])
     |> foreign_key_constraint(:post_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:post_uuid, :user_id],
-      name: :phoenix_kit_post_dislikes_post_id_user_id_index,
+    |> unique_constraint([:post_uuid, :user_uuid],
+      name: :phoenix_kit_post_dislikes_post_uuid_user_uuid_index,
       message: "you have already disliked this post"
     )
   end

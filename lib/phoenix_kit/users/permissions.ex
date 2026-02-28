@@ -33,17 +33,17 @@ defmodule PhoenixKit.Users.Permissions do
       Permissions.get_permissions_matrix()               # All roles → MapSet
       Permissions.roles_with_permission("billing")       # Role IDs with key
       Permissions.users_with_permission("billing")       # User IDs with key
-      Permissions.count_permissions_for_role(role_id)     # Efficient count
+      Permissions.count_permissions_for_role(role_uuid)    # Efficient count
       Permissions.diff_permissions(role_a, role_b)        # Compare two roles
 
   ## Mutation API
 
-      Permissions.grant_permission(role_id, "billing", granted_by_id)
-      Permissions.revoke_permission(role_id, "billing")
-      Permissions.set_permissions(role_id, ["dashboard", "users"], granted_by_id)
-      Permissions.grant_all_permissions(role_id, granted_by_id)
-      Permissions.revoke_all_permissions(role_id)
-      Permissions.copy_permissions(source_role_id, target_role_id, granted_by_id)
+      Permissions.grant_permission(role_uuid, "billing", granted_by_uuid)
+      Permissions.revoke_permission(role_uuid, "billing")
+      Permissions.set_permissions(role_uuid, ["dashboard", "users"], granted_by_uuid)
+      Permissions.grant_all_permissions(role_uuid, granted_by_uuid)
+      Permissions.revoke_all_permissions(role_uuid)
+      Permissions.copy_permissions(source_role_uuid, target_role_uuid, granted_by_uuid)
 
   ## Custom Keys API
 
@@ -447,9 +447,9 @@ defmodule PhoenixKit.Users.Permissions do
   Returns the list of module_keys granted to a specific role.
   """
   @spec get_permissions_for_role(integer() | String.t()) :: [String.t()]
-  def get_permissions_for_role(role_id) do
+  def get_permissions_for_role(role_uuid) do
     repo = RepoHelper.repo()
-    role_uuid = resolve_role_uuid(role_id)
+    role_uuid = resolve_role_uuid(role_uuid)
 
     from(rp in RolePermission,
       where: rp.role_uuid == ^role_uuid,
@@ -526,12 +526,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc """
   Returns the number of permission keys granted to a role.
-  More efficient than `length(get_permissions_for_role(role_id))`.
+  More efficient than `length(get_permissions_for_role(role_uuid))`.
   """
   @spec count_permissions_for_role(integer() | String.t()) :: non_neg_integer()
-  def count_permissions_for_role(role_id) do
+  def count_permissions_for_role(role_uuid) do
     repo = RepoHelper.repo()
-    role_uuid = resolve_role_uuid(role_id)
+    role_uuid = resolve_role_uuid(role_uuid)
 
     from(rp in RolePermission,
       where: rp.role_uuid == ^role_uuid,
@@ -556,9 +556,9 @@ defmodule PhoenixKit.Users.Permissions do
           only_b: MapSet.t(),
           common: MapSet.t()
         }
-  def diff_permissions(role_id_a, role_id_b) do
-    keys_a = get_permissions_for_role(role_id_a) |> MapSet.new()
-    keys_b = get_permissions_for_role(role_id_b) |> MapSet.new()
+  def diff_permissions(role_uuid_a, role_uuid_b) do
+    keys_a = get_permissions_for_role(role_uuid_a) |> MapSet.new()
+    keys_b = get_permissions_for_role(role_uuid_b) |> MapSet.new()
 
     %{
       only_a: MapSet.difference(keys_a, keys_b),
@@ -574,20 +574,20 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec grant_permission(integer() | String.t(), String.t(), integer() | String.t() | nil) ::
           {:ok, RolePermission.t()} | {:error, Ecto.Changeset.t()}
-  def grant_permission(role_id, module_key, granted_by_id \\ nil) do
+  def grant_permission(role_uuid, module_key, granted_by_uuid \\ nil) do
     repo = RepoHelper.repo()
 
-    role_uuid = resolve_role_uuid(role_id)
+    role_uuid = resolve_role_uuid(role_uuid)
 
     if is_nil(role_uuid) do
       {:error, :role_not_found}
     else
-      grant_permission_insert(repo, role_uuid, module_key, granted_by_id)
+      grant_permission_insert(repo, role_uuid, module_key, granted_by_uuid)
     end
   end
 
-  defp grant_permission_insert(repo, role_uuid, module_key, granted_by_id) do
-    granted_by_uuid = resolve_user_uuid(granted_by_id)
+  defp grant_permission_insert(repo, role_uuid, module_key, granted_by_uuid) do
+    granted_by_uuid = resolve_user_uuid(granted_by_uuid)
 
     %RolePermission{}
     |> RolePermission.changeset(%{
@@ -613,10 +613,10 @@ defmodule PhoenixKit.Users.Permissions do
   Revokes a single permission from a role.
   """
   @spec revoke_permission(integer() | String.t(), String.t()) :: :ok | {:error, :not_found}
-  def revoke_permission(role_id, module_key) do
+  def revoke_permission(role_uuid, module_key) do
     repo = RepoHelper.repo()
 
-    role_uuid = resolve_role_uuid(role_id)
+    role_uuid = resolve_role_uuid(role_uuid)
 
     from(rp in RolePermission,
       where: rp.role_uuid == ^role_uuid and rp.module_key == ^module_key
@@ -627,8 +627,8 @@ defmodule PhoenixKit.Users.Permissions do
         {:error, :not_found}
 
       {_, _} ->
-        Events.broadcast_permission_revoked(role_id, module_key)
-        notify_affected_users(role_id)
+        Events.broadcast_permission_revoked(role_uuid, module_key)
+        notify_affected_users(role_uuid)
         :ok
     end
   end
@@ -639,12 +639,12 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec set_permissions(integer() | String.t(), [String.t()], integer() | String.t() | nil) ::
           :ok | {:error, term()}
-  def set_permissions(role_id, desired_keys, granted_by_id \\ nil) do
+  def set_permissions(role_uuid, desired_keys, granted_by_uuid \\ nil) do
     repo = RepoHelper.repo()
     valid_keys = MapSet.new(all_module_keys())
 
     repo.transaction(fn ->
-      role_uuid = resolve_role_uuid(role_id)
+      role_uuid = resolve_role_uuid(role_uuid)
 
       # Lock existing permission rows FOR UPDATE to prevent concurrent set_permissions
       # from reading the same state and computing conflicting diffs.
@@ -669,7 +669,7 @@ defmodule PhoenixKit.Users.Permissions do
       # Bulk insert new permissions
       if MapSet.size(to_add) > 0 do
         now = UtilsDate.utc_now()
-        granted_by_uuid = resolve_user_uuid(granted_by_id)
+        granted_by_uuid = resolve_user_uuid(granted_by_uuid)
 
         entries =
           Enum.map(to_add, fn key ->
@@ -699,8 +699,8 @@ defmodule PhoenixKit.Users.Permissions do
     end)
     |> case do
       {:ok, filtered_keys} ->
-        Events.broadcast_permissions_synced(role_id, filtered_keys)
-        notify_affected_users(role_id)
+        Events.broadcast_permissions_synced(role_uuid, filtered_keys)
+        notify_affected_users(role_uuid)
         :ok
 
       {:error, reason} ->
@@ -713,24 +713,24 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec grant_all_permissions(integer() | String.t(), integer() | String.t() | nil) ::
           :ok | {:error, term()}
-  def grant_all_permissions(role_id, granted_by_id \\ nil) do
-    set_permissions(role_id, all_module_keys(), granted_by_id)
+  def grant_all_permissions(role_uuid, granted_by_uuid \\ nil) do
+    set_permissions(role_uuid, all_module_keys(), granted_by_uuid)
   end
 
   @doc """
   Revokes all permissions from a role.
   """
   @spec revoke_all_permissions(integer() | String.t()) :: :ok | {:error, term()}
-  def revoke_all_permissions(role_id) do
+  def revoke_all_permissions(role_uuid) do
     repo = RepoHelper.repo()
 
-    role_uuid = resolve_role_uuid(role_id)
+    role_uuid = resolve_role_uuid(role_uuid)
 
     from(rp in RolePermission, where: rp.role_uuid == ^role_uuid)
     |> repo.delete_all()
 
-    Events.broadcast_permissions_synced(role_id, [])
-    notify_affected_users(role_id)
+    Events.broadcast_permissions_synced(role_uuid, [])
+    notify_affected_users(role_uuid)
     :ok
   rescue
     e ->
@@ -751,9 +751,9 @@ defmodule PhoenixKit.Users.Permissions do
           integer() | String.t(),
           integer() | String.t() | nil
         ) :: :ok | {:error, term()}
-  def copy_permissions(source_role_id, target_role_id, granted_by_id \\ nil) do
-    source_keys = get_permissions_for_role(source_role_id)
-    set_permissions(target_role_id, source_keys, granted_by_id)
+  def copy_permissions(source_role_uuid, target_role_uuid, granted_by_uuid \\ nil) do
+    source_keys = get_permissions_for_role(source_role_uuid)
+    set_permissions(target_role_uuid, source_keys, granted_by_uuid)
   end
 
   # --- Access Control ---

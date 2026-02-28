@@ -133,7 +133,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
     if scope && Scope.authenticated?(scope) do
-      user_id = Scope.user_id(scope)
+      user_uuid = Scope.user_uuid(scope)
       user_email = Scope.user_email(scope)
 
       # Create a user map for tracking (uuid required by SimplePresence)

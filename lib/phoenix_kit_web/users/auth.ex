@@ -879,7 +879,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp handle_scope_refresh({:phoenix_kit_scope_roles_updated, user_uuid}, socket) do
     current_scope = socket.assigns[:phoenix_kit_current_scope]
 
-    if Scope.user_id(current_scope) == user_uuid do
+    if Scope.user_uuid(current_scope) == user_uuid do
       was_admin = Scope.admin?(current_scope)
       {socket, new_scope} = refresh_scope_assigns(socket)
 

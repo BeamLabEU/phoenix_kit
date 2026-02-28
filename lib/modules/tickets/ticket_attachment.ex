@@ -8,30 +8,30 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
 
   ## Fields
 
-  - `ticket_id` - Reference to ticket (if attached to ticket directly)
-  - `comment_id` - Reference to comment (if attached to comment)
-  - `file_id` - Reference to the uploaded file (PhoenixKit.Storage.File)
+  - `ticket_uuid` - Reference to ticket (if attached to ticket directly)
+  - `comment_uuid` - Reference to comment (if attached to comment)
+  - `file_uuid` - Reference to the uploaded file (PhoenixKit.Storage.File)
   - `position` - Display order (1, 2, 3, etc.)
   - `caption` - Optional caption/alt text
 
-  Note: Either `ticket_id` OR `comment_id` must be set, but not both.
+  Note: Either `ticket_uuid` OR `comment_uuid` must be set, but not both.
 
   ## Examples
 
       # Attachment on ticket itself
       %TicketAttachment{
-        ticket_id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        comment_id: nil,
-        file_id: "018e3c4a-1234-5678-abcd-ef1234567890",
+        ticket_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
+        comment_uuid: nil,
+        file_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         position: 1,
         caption: "Screenshot of the error"
       }
 
       # Attachment on a comment
       %TicketAttachment{
-        ticket_id: nil,
-        comment_id: "018e3c4a-5678-1234-abcd-ef1234567890",
-        file_id: "018e3c4a-abcd-efgh-ijkl-mnopqrstuvwx",
+        ticket_uuid: nil,
+        comment_uuid: "018e3c4a-5678-1234-abcd-ef1234567890",
+        file_uuid: "018e3c4a-abcd-efgh-ijkl-mnopqrstuvwx",
         position: 1,
         caption: nil
       }
@@ -79,14 +79,14 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
 
   ## Required Fields
 
-  - `file_id` - Reference to file
+  - `file_uuid` - Reference to file
   - `position` - Display order (must be positive)
-  - Either `ticket_id` OR `comment_id` (but not both)
+  - Either `ticket_uuid` OR `comment_uuid` (but not both)
 
   ## Validation Rules
 
   - Position must be greater than 0
-  - Must have exactly one of ticket_id or comment_id
+  - Must have exactly one of ticket_uuid or comment_uuid
   """
   def changeset(attachment, attrs) do
     attachment

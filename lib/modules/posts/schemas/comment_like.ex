@@ -38,12 +38,12 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
 
   ## Required Fields
 
-  - `comment_id` - Reference to comment
-  - `user_id` - Reference to user
+  - `comment_uuid` - Reference to comment
+  - `user_uuid` - Reference to user
 
   ## Validation Rules
 
-  - Unique constraint on (comment_id, user_id) - one like per user per comment
+  - Unique constraint on (comment_uuid, user_uuid) - one like per user per comment
   """
   def changeset(like, attrs) do
     like
@@ -51,8 +51,8 @@ defmodule PhoenixKit.Modules.Posts.CommentLike do
     |> validate_required([:comment_uuid, :user_uuid])
     |> foreign_key_constraint(:comment_uuid)
     |> foreign_key_constraint(:user_uuid)
-    |> unique_constraint([:comment_uuid, :user_id],
-      name: :phoenix_kit_comment_likes_comment_id_user_id_index,
+    |> unique_constraint([:comment_uuid, :user_uuid],
+      name: :phoenix_kit_comment_likes_comment_uuid_user_uuid_index,
       message: "you have already liked this comment"
     )
   end

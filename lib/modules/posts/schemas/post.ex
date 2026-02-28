@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
 
   ## Fields
 
-  - `user_id` - Owner of the post
+  - `user_uuid` - Owner of the post
   - `title` - Post title (max length via settings)
   - `sub_title` - Subtitle/tagline (max length via settings)
   - `content` - Post content (max length via settings)
@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
       # Standard post
       %Post{
         id: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        user_id: 1,
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         title: "My First Post",
         sub_title: "An introduction to my journey",
         content: "This is the full content...",
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
 
   ## Required Fields
 
-  - `user_id` - Owner of the post
+  - `user_uuid` - Owner of the post
   - `title` - Post title
   - `content` - Post content
   - `type` - Must be: "post", "snippet", or "repost"

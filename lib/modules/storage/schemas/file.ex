@@ -26,14 +26,14 @@ defmodule PhoenixKit.Modules.Storage.File do
   - `file_type` - High-level type (image, video, document, archive)
   - `ext` - File extension (jpg, mp4, pdf, etc.)
   - `file_checksum` - SHA256 hash of file content for integrity verification
-  - `user_file_checksum` - SHA256 hash of (user_id + file_checksum) for per-user deduplication
+  - `user_file_checksum` - SHA256 hash of (user_uuid + file_checksum) for per-user deduplication
   - `size` - File size in bytes
   - `width` - Image/video width in pixels (nullable)
   - `height` - Image/video height in pixels (nullable)
   - `duration` - Video duration in seconds (nullable)
   - `status` - Processing status
   - `metadata` - JSONB with EXIF, codec info, etc.
-  - `user_id` - Owner of the file
+  - `user_uuid` - Owner of the file
 
   ## Examples
 
@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Storage.File do
         height: 2000,
         status: "active",
         metadata: %{"camera" => "Canon EOS"},
-        user_id: "..."
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890"
       }
 
       # Video file
@@ -154,7 +154,7 @@ defmodule PhoenixKit.Modules.Storage.File do
   - `file_checksum`
   - `user_file_checksum`
   - `size`
-  - `user_id`
+  - `user_uuid`
 
   ## Validation Rules
 

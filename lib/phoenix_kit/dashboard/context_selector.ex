@@ -13,13 +13,13 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
       config :phoenix_kit, :dashboard_context_selector,
         loader: {MyApp.Farms, :list_for_user},
         display_name: fn farm -> farm.name end,
-        id_field: :id,
+        id_field: :uuid,
         label: "Farm",
         icon: "hero-building-office",
         position: :sidebar,
         sub_position: :end,
         empty_behavior: :hide,
-        session_key: "dashboard_context_id",
+        session_key: "dashboard_context_uuid",
         tab_loader: {MyApp.Farms, :get_tabs_for_context}
 
   ## Multiple Selectors Configuration
@@ -102,9 +102,9 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
     in the selector dropdown. This is a visual quirk and can be adjusted by
     customizing the layout template if precise alignment is required.
 
-  - `:session_key` - Optional. The session key for storing the selected context ID.
-    Defaults to `"dashboard_context_id"` for single selector, or
-    `"dashboard_context_ids"` (map) for multiple selectors.
+  - `:session_key` - Optional. The session key for storing the selected context UUID.
+    Defaults to `"dashboard_context_uuid"` for single selector, or
+    `"dashboard_context_uuids"` (map) for multiple selectors.
 
   - `:tab_loader` - Optional. A `{Module, :function}` tuple that takes a context
     item and returns a list of tab definitions. Enables dynamic tabs that change
@@ -136,7 +136,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
 
   Or use the helper functions:
 
-      context_id = PhoenixKit.Dashboard.current_context_id(socket)
+      context_uuid = PhoenixKit.Dashboard.current_context_uuid(socket)
 
   """
 
@@ -186,10 +186,10 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   @default_label "Context"
   @default_icon "hero-building-office"
   @default_empty_behavior :hide
-  @default_session_key "dashboard_context_id"
-  @default_multi_session_key "dashboard_context_ids"
+  @default_session_key "dashboard_context_uuid"
+  @default_multi_session_key "dashboard_context_uuids"
   @default_separator "/"
-  @default_id_field :id
+  @default_id_field :uuid
   @default_priority 500
   @default_on_parent_change :reset
   @default_key :default

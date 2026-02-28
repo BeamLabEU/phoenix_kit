@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         status: "active",
         priority: 0,
         file_instance_id: "...",
-        bucket_id: "b2_bucket_id"
+        bucket_uuid: "018e3c4a-1111-7890-abcd-ef1234567890"
       }
 
       # Location 2: Cloudflare R2
@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         status: "active",
         priority: 0,
         file_instance_id: "...",
-        bucket_id: "r2_bucket_id"
+        bucket_uuid: "018e3c4a-2222-7890-abcd-ef1234567890"
       }
 
   ## Status Flow
@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
   - `priority` - Retrieval priority (0 = lowest, higher = preferred)
   - `last_verified_at` - Last health check timestamp
   - `file_instance_id` - Which instance this location stores
-  - `bucket_id` - Which bucket this file is stored in
+  - `bucket_uuid` - Which bucket this file is stored in
 
   ## Examples
 
@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         priority: 0,
         last_verified_at: ~N[2025-10-28 10:00:00],
         file_instance_id: "...",
-        bucket_id: "local_bucket_id"
+        bucket_uuid: "018e3c4a-3333-7890-abcd-ef1234567890"
       }
 
       # Syncing to cloud backup
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         status: "syncing",
         priority: 0,
         file_instance_id: "...",
-        bucket_id: "s3_bucket_id"
+        bucket_uuid: "018e3c4a-4444-7890-abcd-ef1234567890"
       }
   """
   use Ecto.Schema
@@ -109,7 +109,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
 
   - `path`
   - `file_instance_id`
-  - `bucket_id`
+  - `bucket_uuid`
 
   ## Validation Rules
 
