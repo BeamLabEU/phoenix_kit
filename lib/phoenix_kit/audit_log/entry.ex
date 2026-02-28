@@ -6,8 +6,8 @@ defmodule PhoenixKit.AuditLog.Entry do
   audit trail of sensitive operations.
 
   ## Fields
-    * `target_user_id` - The ID of the user affected by the action
-    * `admin_user_id` - The ID of the admin who performed the action
+    * `target_user_uuid` - The UUID of the user affected by the action
+    * `admin_user_uuid` - The UUID of the admin who performed the action
     * `action` - The type of action performed (e.g., "admin_password_reset")
     * `ip_address` - The IP address from which the action was performed
     * `user_agent` - The user agent string of the client
@@ -58,8 +58,8 @@ defmodule PhoenixKit.AuditLog.Entry do
   Creates a changeset for audit log entry.
 
   ## Required Fields
-    * `:target_user_id` - ID of the affected user
-    * `:admin_user_id` - ID of the admin performing the action
+    * `:target_user_uuid` - UUID of the affected user
+    * `:admin_user_uuid` - UUID of the admin performing the action
     * `:action` - Type of action performed
 
   ## Optional Fields

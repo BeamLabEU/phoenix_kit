@@ -397,10 +397,10 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Log.get_log!(123)
+      iex> PhoenixKit.Modules.Emails.Log.get_log!("018f1234-5678-7890-abcd-ef1234567890")
       %PhoenixKit.Modules.Emails.Log{}
 
-      iex> PhoenixKit.Modules.Emails.Log.get_log!(999)
+      iex> PhoenixKit.Modules.Emails.Log.get_log!("00000000-0000-0000-0000-000000000000")
       ** (Ecto.NoResultsError)
   """
   def get_log!(id) do
