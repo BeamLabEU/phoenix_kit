@@ -22,8 +22,8 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   @sort_options [
     {:id, "ID"},

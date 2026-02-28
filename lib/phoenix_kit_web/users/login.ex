@@ -11,10 +11,10 @@ defmodule PhoenixKitWeb.Users.Login do
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
-  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(params, session, socket) do
     case Auth.maybe_redirect_authenticated(socket) do

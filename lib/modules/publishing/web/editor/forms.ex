@@ -9,8 +9,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Storage
-  alias PhoenixKit.Utils.Slug
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Slug
 
   # ============================================================================
   # Form Building

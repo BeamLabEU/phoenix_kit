@@ -12,9 +12,9 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.{Roles, Sessions}
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(_params, session, socket) do
     # Subscribe to statistics updates for live data

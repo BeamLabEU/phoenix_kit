@@ -11,8 +11,8 @@ defmodule PhoenixKit.Modules.DB.Web.Activity do
   alias PhoenixKit.Modules.DB
   alias PhoenixKit.Modules.DB.Listener
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(params, _session, socket) do

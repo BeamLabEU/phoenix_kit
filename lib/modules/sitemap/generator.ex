@@ -39,8 +39,8 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   alias PhoenixKit.Modules.Sitemap.SitemapFile
   alias PhoenixKit.Modules.Sitemap.Sources.Source
   alias PhoenixKit.Modules.Sitemap.UrlEntry
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   @max_urls_per_file 50_000
   @xml_declaration ~s(<?xml version="1.0" encoding="UTF-8"?>)

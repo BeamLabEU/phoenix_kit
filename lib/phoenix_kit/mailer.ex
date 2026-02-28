@@ -30,8 +30,8 @@ defmodule PhoenixKit.Mailer do
   alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Modules.Emails.Utils, as: EmailUtils
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   require Logger
 

@@ -29,8 +29,8 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
   alias PhoenixKit.Modules.Emails.Template
   alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   ## --- Lifecycle Callbacks ---
 

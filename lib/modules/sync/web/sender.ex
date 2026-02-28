@@ -17,8 +17,8 @@ defmodule PhoenixKit.Modules.Sync.Web.Sender do
 
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   require Logger
 

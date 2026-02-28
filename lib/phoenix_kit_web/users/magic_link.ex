@@ -15,10 +15,10 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Mailer
   alias PhoenixKit.Users.MagicLink
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
-  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl true
   def mount(_params, session, socket) do

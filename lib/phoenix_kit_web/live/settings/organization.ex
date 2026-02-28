@@ -11,8 +11,8 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   @default_company_info %{
     "name" => "",

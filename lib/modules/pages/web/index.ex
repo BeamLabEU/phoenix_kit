@@ -10,8 +10,8 @@ defmodule PhoenixKit.Modules.Pages.Web.Index do
   alias PhoenixKit.Modules.Pages
   alias PhoenixKit.Modules.Pages.FileOperations
   alias PhoenixKit.Modules.Pages.HtmlMetadata
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
     # Set locale

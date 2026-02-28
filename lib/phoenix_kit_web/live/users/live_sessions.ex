@@ -19,9 +19,9 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Refresh every 5 seconds
   @refresh_interval 5_000

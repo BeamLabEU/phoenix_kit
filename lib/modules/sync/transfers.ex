@@ -55,8 +55,8 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   alias PhoenixKit.Modules.Sync.Transfer
   alias PhoenixKit.RepoHelper
-  alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
   # CRUD OPERATIONS

@@ -13,9 +13,9 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(_params, session, socket) do
     case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do

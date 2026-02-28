@@ -17,8 +17,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   alias PhoenixKit.Modules.Sync.Connections
   alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(params, _session, socket) do
