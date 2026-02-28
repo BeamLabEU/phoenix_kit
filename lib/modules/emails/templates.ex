@@ -447,8 +447,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
         "order_confirmation",
         customer.email,
         %{"order_number" => order.number},
-        user_id: customer.id,
-        metadata: %{order_id: order.id}
+        user_uuid: customer.uuid,
+        metadata: %{order_uuid: order.uuid}
       )
   """
   def send_email(template_name, recipient, variables \\ %{}, opts \\ []) do

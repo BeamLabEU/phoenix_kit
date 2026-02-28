@@ -3217,8 +3217,8 @@ defmodule PhoenixKit.Modules.Billing do
     end
   end
 
-  defp handle_refund_transaction(invoice_id) do
-    invoice = get_invoice!(invoice_id)
+  defp handle_refund_transaction(invoice_uuid) do
+    invoice = get_invoice!(invoice_uuid)
     update_receipt_status(invoice)
 
     # If fully refunded (paid_amount = 0), mark invoice as void and order as refunded
