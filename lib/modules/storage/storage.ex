@@ -543,20 +543,20 @@ defmodule PhoenixKit.Modules.Storage do
     do: repo().get(PhoenixKit.Modules.Storage.File, id)
 
   @doc """
-  Calculates user-specific file checksum (salted with user_id).
+  Calculates user-specific file checksum (salted with user_uuid).
 
   This creates a unique checksum per user+file combination for duplicate detection,
   while preserving the original file checksum for popularity queries.
 
   ## Parameters
-    - user_id: The user ID (integer or string)
+    - user_uuid: The user UUID
     - file_checksum: The SHA256 checksum of the file content
 
   ## Returns
-    String representing the SHA256 checksum of "user_id + file_checksum"
+    String representing the SHA256 checksum of "user_uuid + file_checksum"
   """
-  def calculate_user_file_checksum(user_id, file_checksum) do
-    "#{user_id}#{file_checksum}"
+  def calculate_user_file_checksum(user_uuid, file_checksum) do
+    "#{user_uuid}#{file_checksum}"
     |> then(fn data -> :crypto.hash(:sha256, data) end)
     |> Base.encode16(case: :lower)
   end
@@ -1005,7 +1005,7 @@ defmodule PhoenixKit.Modules.Storage do
   - `:filename` - Original filename (required)
   - `:content_type` - MIME type (required)
   - `:size_bytes` - File size in bytes (required)
-  - `:user_id` - User ID who owns the file
+  - `:user_uuid` - User UUID who owns the file
   - `:metadata` - Additional metadata map
 
   """
@@ -1013,7 +1013,7 @@ defmodule PhoenixKit.Modules.Storage do
     filename = Keyword.fetch!(opts, :filename)
     content_type = Keyword.fetch!(opts, :content_type)
     size_bytes = Keyword.fetch!(opts, :size_bytes)
-    user_id = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     metadata = Keyword.get(opts, :metadata, %{})
 
     # Validate required fields
@@ -1022,7 +1022,7 @@ defmodule PhoenixKit.Modules.Storage do
       file_checksum = calculate_file_hash(source_path)
 
       # Calculate user-specific checksum for duplicate detection
-      user_file_checksum = calculate_user_file_checksum(user_id, file_checksum)
+      user_file_checksum = calculate_user_file_checksum(user_uuid, file_checksum)
 
       # Check if this user already uploaded this file
       case get_file_by_user_checksum(user_file_checksum) do
@@ -1039,7 +1039,7 @@ defmodule PhoenixKit.Modules.Storage do
             filename,
             content_type,
             size_bytes,
-            user_id,
+            user_uuid,
             metadata
           )
       end
@@ -1263,7 +1263,7 @@ defmodule PhoenixKit.Modules.Storage do
   ## Path Structure
 
   Files are stored using the pattern:
-  `{user_id[0..1]}/{hash[0..1]}/{full_hash}/{full_hash}_{variant}.{format}`
+  `{user_uuid[0..1]}/{hash[0..1]}/{full_hash}/{full_hash}_{variant}.{format}`
 
   ## Examples
 
@@ -1275,7 +1275,7 @@ defmodule PhoenixKit.Modules.Storage do
   def store_file_in_buckets(
         source_path,
         file_type,
-        user_id,
+        user_uuid,
         file_checksum,
         ext,
         original_filename \\ nil
@@ -1290,7 +1290,7 @@ defmodule PhoenixKit.Modules.Storage do
         store_file_with_buckets_available(
           source_path,
           file_type,
-          user_id,
+          user_uuid,
           file_checksum,
           ext,
           original_filename
@@ -1301,13 +1301,13 @@ defmodule PhoenixKit.Modules.Storage do
   defp store_file_with_buckets_available(
          source_path,
          file_type,
-         user_id,
+         user_uuid,
          file_checksum,
          ext,
          original_filename
        ) do
     # Calculate user-specific hash for duplicate detection
-    user_file_checksum = calculate_user_file_checksum(user_id, file_checksum)
+    user_file_checksum = calculate_user_file_checksum(user_uuid, file_checksum)
 
     # Check if this user already uploaded this file
     case get_file_by_user_checksum(user_file_checksum) do
@@ -1326,7 +1326,7 @@ defmodule PhoenixKit.Modules.Storage do
               :exists ->
                 Logger.info("Duplicate file is healthy in storage. Queueing variant generation.")
                 # File is healthy in storage, ensure other variants are generated
-                _ = queue_variant_generation(existing_file, user_id, original_filename)
+                _ = queue_variant_generation(existing_file, user_uuid, original_filename)
                 {:ok, existing_file, :duplicate}
 
               :missing ->
@@ -1340,7 +1340,7 @@ defmodule PhoenixKit.Modules.Storage do
                   existing_file,
                   source_path,
                   file_checksum,
-                  user_id,
+                  user_uuid,
                   original_filename
                 )
             end
@@ -1358,7 +1358,7 @@ defmodule PhoenixKit.Modules.Storage do
               existing_file,
               source_path,
               file_checksum,
-              user_id,
+              user_uuid,
               original_filename
             )
         end
@@ -1369,7 +1369,7 @@ defmodule PhoenixKit.Modules.Storage do
         store_new_file_in_buckets(
           source_path,
           file_type,
-          user_id,
+          user_uuid,
           file_checksum,
           user_file_checksum,
           ext,
@@ -1381,7 +1381,7 @@ defmodule PhoenixKit.Modules.Storage do
   defp store_new_file_in_buckets(
          source_path,
          file_type,
-         user_id,
+         user_uuid,
          file_checksum,
          user_file_checksum,
          ext,
@@ -1398,7 +1398,7 @@ defmodule PhoenixKit.Modules.Storage do
     file_id = UUIDv7.generate()
 
     # Build hierarchical path - organized by user_prefix/hash_prefix/md5_hash
-    user_prefix = String.slice(to_string(user_id), 0, 2)
+    user_prefix = String.slice(to_string(user_uuid), 0, 2)
     hash_prefix = String.slice(md5_hash, 0, 2)
     file_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}"
 
@@ -1418,8 +1418,7 @@ defmodule PhoenixKit.Modules.Storage do
       user_file_checksum: user_file_checksum,
       size: get_file_size(source_path),
       status: "processing",
-      user_id: user_id,
-      user_uuid: resolve_user_uuid(user_id)
+      user_uuid: user_uuid
     }
 
     case create_file(file_attrs) do
@@ -1448,7 +1447,7 @@ defmodule PhoenixKit.Modules.Storage do
 
                 # Queue background job for variant processing
                 _ =
-                  %{file_id: file.uuid, user_id: user_id, filename: orig_filename}
+                  %{file_id: file.uuid, user_uuid: user_uuid, filename: orig_filename}
                   |> ProcessFileJob.new()
                   |> Oban.insert()
 
@@ -1473,10 +1472,10 @@ defmodule PhoenixKit.Modules.Storage do
 
   # ===== HELPER FUNCTIONS =====
 
-  defp queue_variant_generation(file, user_id, original_filename) do
+  defp queue_variant_generation(file, user_uuid, original_filename) do
     # Queue variant generation to ensure all variants exist for this file
     Task.start(fn ->
-      %{file_id: file.uuid, user_id: user_id, filename: original_filename}
+      %{file_id: file.uuid, user_uuid: user_uuid, filename: original_filename}
       |> ProcessFileJob.new()
       |> Oban.insert()
     end)
@@ -1490,7 +1489,7 @@ defmodule PhoenixKit.Modules.Storage do
     if exists, do: :exists, else: :missing
   end
 
-  defp restore_missing_file(existing_file, source_path, file_hash, user_id, original_filename) do
+  defp restore_missing_file(existing_file, source_path, file_hash, user_uuid, original_filename) do
     # File record exists but actual file is missing from storage
     # Delete broken instances and recreate them (which will also store the file)
 
@@ -1505,7 +1504,7 @@ defmodule PhoenixKit.Modules.Storage do
 
     # Recreate instance and store the file (combined in one operation)
     Logger.info("Recreating instances for file #{existing_file.uuid}")
-    recreate_file_instances(existing_file, source_path, file_hash, user_id, original_filename)
+    recreate_file_instances(existing_file, source_path, file_hash, user_uuid, original_filename)
   end
 
   defp delete_file_instances_for_file(file_uuid) do
@@ -1518,7 +1517,7 @@ defmodule PhoenixKit.Modules.Storage do
     deleted_count
   end
 
-  defp recreate_file_instances(file, source_path, file_checksum, user_id, original_filename) do
+  defp recreate_file_instances(file, source_path, file_checksum, user_uuid, original_filename) do
     # File record exists but instances are missing or broken
     # First store the file in buckets, then recreate the instance record
 
@@ -1575,7 +1574,7 @@ defmodule PhoenixKit.Modules.Storage do
             )
 
             # Queue variant generation for the recovered file
-            _ = queue_variant_generation(file, user_id, original_filename)
+            _ = queue_variant_generation(file, user_uuid, original_filename)
             {:ok, file, :duplicate}
 
           {:error, reason} ->
@@ -1600,7 +1599,7 @@ defmodule PhoenixKit.Modules.Storage do
                   "Deleted #{deleted_variants} broken variant instances before regeneration"
                 )
 
-                _ = queue_variant_generation(file, user_id, original_filename)
+                _ = queue_variant_generation(file, user_uuid, original_filename)
                 {:ok, file, :duplicate}
 
               {:error, final_reason} ->
@@ -1691,12 +1690,6 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  # ===== USER UUID RESOLUTION =====
-
-  defp resolve_user_uuid(%{uuid: uuid}) when is_binary(uuid), do: uuid
-  defp resolve_user_uuid(uuid) when is_binary(uuid), do: uuid
-  defp resolve_user_uuid(_), do: nil
-
   # ===== REPO HELPERS =====
 
   defp repo do
@@ -1728,7 +1721,7 @@ defmodule PhoenixKit.Modules.Storage do
          filename,
          content_type,
          size_bytes,
-         user_id,
+         user_uuid,
          metadata
        ) do
     # Store file using manager
@@ -1743,7 +1736,7 @@ defmodule PhoenixKit.Modules.Storage do
             user_file_checksum,
             size_bytes,
             metadata,
-            user_id
+            user_uuid
           )
 
         case create_file(file_attrs) do
@@ -1771,7 +1764,7 @@ defmodule PhoenixKit.Modules.Storage do
          user_file_checksum,
          size_bytes,
          metadata,
-         user_id
+         user_uuid
        ) do
     # Extract file_path (directory) from destination_path
     # destination_path is like "01/ab/0123456789abcdef_original.jpg"
@@ -1792,8 +1785,7 @@ defmodule PhoenixKit.Modules.Storage do
       size_mb: size_bytes / (1024 * 1024),
       status: "active",
       metadata: metadata,
-      user_id: user_id,
-      user_uuid: resolve_user_uuid(user_id)
+      user_uuid: user_uuid
     }
   end
 

@@ -1592,8 +1592,8 @@ defmodule PhoenixKit.Users.Auth do
   - small - 200x200px
   - thumbnail - 100x100px
   """
-  def update_user_avatar(%User{} = user, file_path, filename, user_id \\ nil) do
-    user_id = user_id || user.uuid
+  def update_user_avatar(%User{} = user, file_path, filename, user_uuid \\ nil) do
+    user_uuid = user_uuid || user.uuid
 
     # Calculate file hash
     file_hash = calculate_file_hash(file_path)
@@ -1605,7 +1605,7 @@ defmodule PhoenixKit.Users.Auth do
     case Storage.store_file_in_buckets(
            file_path,
            "image",
-           user_id,
+           user_uuid,
            file_hash,
            ext,
            filename

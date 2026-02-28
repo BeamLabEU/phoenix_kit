@@ -254,7 +254,7 @@ defmodule PhoenixKit.ScheduledJobs do
 
   defp execute_job(%ScheduledJob{} = job) do
     Logger.info(
-      "ScheduledJobs: Executing job #{job.id} (#{job.job_type}) for #{job.resource_type}/#{job.resource_uuid}"
+      "ScheduledJobs: Executing job #{job.uuid} (#{job.job_type}) for #{job.resource_type}/#{job.resource_uuid}"
     )
 
     handler_module = String.to_existing_atom(job.handler_module)
@@ -262,17 +262,17 @@ defmodule PhoenixKit.ScheduledJobs do
 
     case handler_module.execute(job.resource_uuid, job.args) do
       :ok ->
-        Logger.info("ScheduledJobs: Job #{job.id} executed successfully")
+        Logger.info("ScheduledJobs: Job #{job.uuid} executed successfully")
         mark_executed(job)
         :ok
 
       {:ok, _result} ->
-        Logger.info("ScheduledJobs: Job #{job.id} executed successfully")
+        Logger.info("ScheduledJobs: Job #{job.uuid} executed successfully")
         mark_executed(job)
         :ok
 
       {:error, reason} = error ->
-        Logger.warning("ScheduledJobs: Job #{job.id} failed with reason: #{inspect(reason)}")
+        Logger.warning("ScheduledJobs: Job #{job.uuid} failed with reason: #{inspect(reason)}")
         mark_failed(job, reason)
         error
     end
@@ -282,7 +282,7 @@ defmodule PhoenixKit.ScheduledJobs do
       mark_failed(job, error_message)
 
       Logger.error(
-        "ScheduledJobs: Job #{job.id} (#{job.job_type}) failed with exception: #{error_message}"
+        "ScheduledJobs: Job #{job.uuid} (#{job.job_type}) failed with exception: #{error_message}"
       )
 
       {:error, e}

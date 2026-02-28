@@ -194,7 +194,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Prevent users from modifying their own roles
-    if user.id == current_user.id do
+    if user.uuid == current_user.uuid do
       socket =
         put_flash(socket, :error, "You cannot modify your own roles.")
 
@@ -231,7 +231,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Prevent users from modifying their own roles
-    if user.id == current_user.id do
+    if user.uuid == current_user.uuid do
       socket =
         put_flash(socket, :error, "You cannot modify your own roles.")
 
@@ -439,8 +439,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
   defp handle_update_result(socket, {:ok, _result}) do
     # _result could be either the updated user or role assignments (from sync_user_roles)
     # In both cases, we need to reload the user from the database to get the fresh data
-    user_id = socket.assigns.user.id
-    fresh_user = Auth.get_user!(user_id)
+    user_uuid = socket.assigns.user.uuid
+    fresh_user = Auth.get_user!(user_uuid)
 
     Logger.info(
       "handle_update_result - fresh_user username from DB: #{inspect(fresh_user.username)}"
@@ -550,7 +550,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   defp load_form_data(%{assigns: %{mode: :edit, user: user}} = socket) do
     # For edit mode, use profile_changeset instead of registration_changeset
     # profile_changeset doesn't call maybe_generate_username_from_email like registration_changeset does
-    Logger.info("Loading form for user #{user.id}: DB username=#{inspect(user.username)}")
+    Logger.info("Loading form for user #{user.uuid}: DB username=#{inspect(user.username)}")
 
     changeset =
       Auth.User.profile_changeset(user, %{"username" => user.username}, validate_email: false)
@@ -678,7 +678,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
     cond do
       # If user is trying to modify their own roles, prevent it
-      user.id == current_user.id and roles_changed? ->
+      user.uuid == current_user.uuid and roles_changed? ->
         {:error, :cannot_modify_own_roles}
 
       # If roles haven't changed, skip update

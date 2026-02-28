@@ -175,7 +175,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     # Notify admin panel about user logout
     if user do
       session_id = extract_session_id_from_live_socket_id(get_session(conn, :live_socket_id))
-      Events.broadcast_user_session_disconnected(user.id, session_id)
+      Events.broadcast_user_session_disconnected(user.uuid, session_id)
     end
 
     conn

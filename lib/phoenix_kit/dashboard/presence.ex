@@ -75,7 +75,7 @@ defmodule PhoenixKit.Dashboard.Presence do
           %{
             tab_id: tab_id,
             tab_path: opts[:tab_path],
-            user_id: user && user.id,
+            user_uuid: user && user.uuid,
             user_email: user && user.email,
             joined_at: DateTime.utc_now(),
             online_at: DateTime.utc_now()
@@ -314,7 +314,7 @@ defmodule PhoenixKit.Dashboard.Presence do
   defp connected?(_), do: false
 
   defp user_key(nil), do: "anonymous_#{System.unique_integer([:positive])}"
-  defp user_key(user), do: "user:#{user.id}"
+  defp user_key(user), do: "user:#{user.uuid}"
 
   # Cache key for persistent_term storage
   @presence_module_cache_key {__MODULE__, :presence_module}

@@ -257,7 +257,7 @@
                 <% end %>
               </label>
 
-              <%= if @user.id == @phoenix_kit_current_user.id do %>
+              <%= if @user.uuid == @phoenix_kit_current_user.uuid do %>
                 <div class="bg-base-200 p-4 rounded-lg">
                   <div class="flex items-start gap-3">
                     <.icon name="hero-information-circle-solid" class="w-5 h-5 mt-0.5 text-info" />
@@ -307,7 +307,7 @@
 
           <%!-- Roles Management Section (Edit mode only) --%>
           <%= if @mode == :edit do %>
-            <%= if @user.id == @phoenix_kit_current_user.id do %>
+            <%= if @user.uuid == @phoenix_kit_current_user.uuid do %>
               <div class="bg-base-200 p-4 rounded-lg">
                 <div class="flex items-start gap-3">
                   <.icon name="hero-information-circle-solid" class="w-5 h-5 mt-0.5 text-info" />

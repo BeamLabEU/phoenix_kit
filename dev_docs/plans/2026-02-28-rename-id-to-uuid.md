@@ -1,14 +1,22 @@
 # Plan: Rename `_id` → `_uuid` across all modules
 
-**Status:** Complete
+**Status:** Phase 1 Complete - Phase 2 In Progress (Legacy ID Column Removal Blockers)
 **Created:** 2026-02-28
-**Completed:** 2026-02-28
+**Updated:** 2026-02-28
 
 ## Context
 
 The UUID migration was declared complete, but `featured_image_id`, `created_by_id`, and `updated_by_id` naming survived in metadata structs, JSONB keys, form fields, helper functions, and variable names. All these fields actually store UUIDs (e.g., `Scope.user_id/1` returns `user.uuid`). No production data existed in the affected tables, so renamed cleanly without backward-compat hacks.
 
-## Scope
+**Phase 1** (completed) - Renamed struct fields and metadata keys.
+
+**Phase 2** (in progress) - Remove critical blockers that prevent dropping legacy `id` and `_id` columns from the database.
+
+---
+
+## Phase 1: Field/Variable Naming (COMPLETE)
+
+### Scope
 
 Three renames across all modules (publishing, pages, posts, scheduled_jobs, storage, media_selector):
 
@@ -20,9 +28,9 @@ Three renames across all modules (publishing, pages, posts, scheduled_jobs, stor
 
 **Skipped migration files** (v17, v42, v46, v54, v59, v61, v62) — they reference actual DB column names.
 
-## Files modified
+### Files modified
 
-### Publishing module (18 files)
+#### Publishing module (18 files)
 - [x] `lib/modules/publishing/metadata.ex` — struct type, serialize list, defaults, parsing
 - [x] `lib/modules/publishing/publishing.ex` — variable names, audit metadata, JSONB data map
 - [x] `lib/modules/publishing/dual_write.ex` — variable names, map construction, `resolve_user_ids/1`
@@ -43,26 +51,26 @@ Three renames across all modules (publishing, pages, posts, scheduled_jobs, stor
 - [x] `lib/modules/publishing/web/html.ex` — map key
 - [x] `lib/modules/publishing/README.md` — documentation
 
-### Pages module (4 files)
+#### Pages module (4 files)
 - [x] `lib/modules/pages/metadata.ex` — same changes as publishing metadata
 - [x] `lib/modules/pages/storage.ex` — variable names, map keys
 - [x] `lib/modules/pages/storage/helpers.ex` — same function renames as publishing helpers
 - [x] `lib/modules/pages/listing_cache.ex` — map keys
 
-### Other modules (5 files)
+#### Other modules (5 files)
 - [x] `lib/modules/storage/storage.ex` — SQL fragments: `data->>'featured_image_id'` → `data->>'featured_image_uuid'`, `metadata->>'featured_image_id'` → `metadata->>'featured_image_uuid'`
 - [x] `lib/modules/posts/posts.ex` — docstring only
 - [x] `lib/phoenix_kit_web/helpers/media_selector_helper.ex` — assign name
 - [x] `lib/phoenix_kit/scheduled_jobs.ex` — option key `:created_by_id` → `:created_by_uuid`, docstring
 - [x] `lib/phoenix_kit/scheduled_jobs/scheduled_job.ex` — docstring
 
-### Test files (4 files)
+#### Test files (4 files)
 - [x] `test/modules/publishing/schema_test.exs`
 - [x] `test/modules/publishing/mapper_test.exs`
 - [x] `test/modules/publishing/metadata_test.exs`
 - [x] `test/modules/publishing/storage_utils_test.exs`
 
-## Special cases resolved
+### Special cases resolved
 
 1. **`resolve_scope_user_ids/1`** in `publishing.ex` — the tuple `{user_uuid, user_id}` had two identical UUID values (`Scope.user_id/1` returns `user.uuid`). Eliminated the tuple, collapsed to a single UUID return. Same for `resolve_user_ids/1` in `dual_write.ex`.
 
@@ -70,7 +78,109 @@ Three renames across all modules (publishing, pages, posts, scheduled_jobs, stor
 
 3. **`dual_write.ex`** — `"featured_image"` (no suffix) in `publishing_posts.data` is a separate field from `"featured_image_id"` in `publishing_contents.data`. Only renamed the `_id` one.
 
-## Verification results
+---
+
+## Phase 2: Legacy ID Column Removal Blockers (IN PROGRESS)
+
+### Summary
+
+Before we can drop the legacy `id` (integer) and `_id` (integer FK) columns, we must ensure **NO CODE writes to these columns**. Currently, several places still use `user.id` (legacy integer ID) instead of `user.uuid` (UUIDv7).
+
+### Critical Blockers
+
+#### 1. User ID References Still Using Legacy Integer
+
+| File | Line | Issue | Status |
+|------|------|-------|--------|
+| `lib/phoenix_kit_web/live/users/media.ex` | 354 | `user_id = if current_user, do: current_user.id, else: 1` | [ ] |
+| `lib/phoenix_kit_web/live/users/media_selector.ex` | 213 | `user_id = if current_user, do: current_user.id, else: 1` | [ ] |
+| `lib/phoenix_kit_web/live/dashboard/settings.ex` | 557 | `user_id = current_user.id` | [ ] |
+| `lib/phoenix_kit/users/auth.ex` | 178 | `Events.broadcast_user_session_disconnected(user.id, ...)` | [ ] |
+| `lib/phoenix_kit/dashboard/presence.ex` | 78, 317 | `user.id` used for presence tracking | [ ] |
+
+#### 2. Storage System Writes to Legacy Column
+
+| File | Line | Issue | Status |
+|------|------|-------|--------|
+| `lib/modules/storage/storage.ex` | 1421 | `user_id: user_id` (receives `current_user.id`) | [ ] |
+| `lib/modules/storage/storage.ex` | 1422 | `user_uuid: resolve_user_uuid(user_id)` | [ ] |
+
+**Note:** Need to change function signature from `user_id` (integer) to `user_uuid` (UUID) and stop writing to `user_id` field.
+
+#### 3. Schema Primary Key Pattern
+
+| File | Line | Issue | Status |
+|------|------|-------|--------|
+| `lib/phoenix_kit/scheduled_jobs/scheduled_job.ex` | 30 | Uses `@primary_key {:id, :binary_id, autogenerate: true}` instead of `{:uuid, UUIDv7, autogenerate: true}` | [ ] |
+
+#### 4. User Form Still Uses Legacy ID
+
+| File | Line | Issue | Status |
+|------|------|-------|--------|
+| `lib/phoenix_kit_web/users/user_form.ex` | 197, 234, 442, 553, 681 | Uses `user.id` and `current_user.id` for comparison/logging | [ ] |
+| `lib/phoenix_kit_web/users/user_form.html.heex` | 260, 310 | Uses `@user.id == @phoenix_kit_current_user.id` | [ ] |
+
+### Non-Critical (Parameter Naming Only)
+
+These are parameter names that accept UUIDs but use `_id` naming. **No changes needed** - they already work with UUIDs:
+
+- `lib/modules/emails/interceptor.ex` - `user_id` opt accepts UUID
+- `lib/modules/ai/ai.ex` - `user_id` filter opt accepts UUID
+- `lib/modules/comments/comments.ex` - `user_id` parameter validates as UUID
+
+### Verification Commands
+
+```bash
+# Find all user.id / current_user.id references
+grep -rn "user\.id\|current_user\.id" lib/ --include="*.ex" --include="*.heex" | grep -v "socket.id\|# "
+
+# Verify no writes to legacy user_id column (after fix)
+grep -rn "user_id:" lib/modules/storage/ lib/phoenix_kit/ --include="*.ex" | grep -v "user_uuid\|# "
+
+# Run full test suite
+mix test
+
+# Compile with warnings
+mix compile --warnings-as-errors
+```
+
+### Pre-Drop Checklist
+
+- [x] Fix all `current_user.id` → `current_user.uuid` in media.ex, media_selector.ex, settings.ex
+- [x] Fix auth.ex broadcast to use `user.uuid`
+- [x] Fix dashboard/presence.ex to use `user.uuid`
+- [x] Fix storage.ex to not write to `user_id` column (set only `user_uuid`)
+- [x] Fix ScheduledJob schema primary key pattern
+- [x] Fix user_form.ex and user_form.html.heex to use `.uuid`
+- [ ] Verify NO writes to any legacy `_id` columns (only NULLs or absent)
+- [ ] Run full test suite with legacy columns dropped (local test)
+
+### Phase 2 Verification Results
+
+- **mix compile --warnings-as-errors** — ✅ clean
+- **mix test** — ✅ 488 tests, 0 failures
+- **mix credo --strict** — ✅ no issues
+- **mix format** — ✅ formatted
+
+### Files Changed in Phase 2
+
+| File | Changes |
+|------|---------|
+| `lib/phoenix_kit_web/live/users/media.ex` | `current_user.id` → `current_user.uuid`, `user_id` → `user_uuid` |
+| `lib/phoenix_kit_web/live/users/media_selector.ex` | `current_user.id` → `current_user.uuid`, `user_id` → `user_uuid` |
+| `lib/phoenix_kit_web/live/dashboard/settings.ex` | `current_user.id` → `current_user.uuid`, `user_id` → `user_uuid` |
+| `lib/phoenix_kit_web/users/auth.ex` | `user.id` → `user.uuid` for broadcast |
+| `lib/phoenix_kit/users/auth.ex` | `user_id` → `user_uuid` in `update_user_avatar/4` |
+| `lib/phoenix_kit/dashboard/presence.ex` | `user.id` → `user.uuid` for presence tracking |
+| `lib/modules/storage/storage.ex` | Changed all `user_id` params to `user_uuid`, removed writes to legacy `user_id` column, removed `resolve_user_uuid/1` helper |
+| `lib/phoenix_kit/scheduled_jobs/scheduled_job.ex` | `@primary_key {:id, :binary_id, ...}` → `{:uuid, UUIDv7, ...}` |
+| `lib/phoenix_kit/scheduled_jobs.ex` | `job.id` → `job.uuid` in logging |
+| `lib/phoenix_kit_web/users/user_form.ex` | `user.id` → `user.uuid`, `user_id` → `user_uuid` |
+| `lib/phoenix_kit_web/users/user_form.html.heex` | `@user.id` → `@user.uuid` |
+
+---
+
+## Phase 1 Verification Results
 
 - `mix compile --warnings-as-errors` — clean
 - `mix test test/modules/publishing/` — **129 tests, 0 failures**

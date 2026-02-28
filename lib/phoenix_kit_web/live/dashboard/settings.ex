@@ -554,7 +554,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
         # Get current user
         current_user = socket.assigns.phoenix_kit_current_user
-        user_id = current_user.id
+        user_uuid = current_user.uuid
 
         # Get file size
         {:ok, stat} = Elixir.File.stat(path)
@@ -567,7 +567,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
         case Storage.store_file_in_buckets(
                path,
                "image",
-               user_id,
+               user_uuid,
                file_hash,
                ext,
                entry.client_name
