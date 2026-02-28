@@ -8,8 +8,8 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   ## Topics
 
   - `"tickets:all"` - All tickets (for admins)
-  - `"tickets:user:{user_id}"` - Tickets for specific user
-  - `"tickets:{id}"` - Specific ticket (for detail view)
+  - `"tickets:user:{user_uuid}"` - Tickets for specific user
+  - `"tickets:{uuid}"` - Specific ticket (for detail view)
 
   ## Events
 
@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   - `{:ticket_created, ticket}` - New ticket created
   - `{:ticket_updated, ticket}` - Ticket updated
   - `{:ticket_status_changed, ticket, old_status, new_status}` - Status transition
-  - `{:ticket_assigned, ticket, old_assignee_id, new_assignee_id}` - Assignment change
+  - `{:ticket_assigned, ticket, old_assignee_uuid, new_assignee_uuid}` - Assignment change
   - `{:ticket_priority_changed, ticket, old_priority, new_priority}` - Priority change
   - `{:tickets_bulk_updated, tickets, changes}` - Bulk update operation
 
@@ -31,10 +31,10 @@ defmodule PhoenixKit.Modules.Tickets.Events do
       PhoenixKit.Modules.Tickets.Events.subscribe_to_all()
 
       # Subscribe to user's tickets
-      PhoenixKit.Modules.Tickets.Events.subscribe_to_user_tickets(user_id)
+      PhoenixKit.Modules.Tickets.Events.subscribe_to_user_tickets(user_uuid)
 
       # Subscribe to specific ticket (detail view)
-      PhoenixKit.Modules.Tickets.Events.subscribe_to_ticket(ticket_id)
+      PhoenixKit.Modules.Tickets.Events.subscribe_to_ticket(ticket_uuid)
 
       # Handle in LiveView
       def handle_info({:ticket_created, ticket}, socket) do
@@ -61,8 +61,8 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Returns the PubSub topic for a specific ticket.
   """
-  def ticket_topic(ticket_id) when is_binary(ticket_id) do
-    "tickets:#{ticket_id}"
+  def ticket_topic(ticket_uuid) when is_binary(ticket_uuid) do
+    "tickets:#{ticket_uuid}"
   end
 
   # ============================================================================
@@ -85,15 +85,15 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Subscribes to ticket events for a specific user.
   """
-  def subscribe_to_user_tickets(user_id) when is_binary(user_id) do
-    Manager.subscribe(user_topic(user_id))
+  def subscribe_to_user_tickets(user_uuid) when is_binary(user_uuid) do
+    Manager.subscribe(user_topic(user_uuid))
   end
 
   @doc """
   Subscribes to events for a specific ticket (for detail views).
   """
-  def subscribe_to_ticket(ticket_id) when is_binary(ticket_id) do
-    Manager.subscribe(ticket_topic(ticket_id))
+  def subscribe_to_ticket(ticket_uuid) when is_binary(ticket_uuid) do
+    Manager.subscribe(ticket_topic(ticket_uuid))
   end
 
   @doc """
@@ -106,15 +106,15 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   @doc """
   Unsubscribes from a specific user's ticket events.
   """
-  def unsubscribe_from_user_tickets(user_id) when is_binary(user_id) do
-    Manager.unsubscribe(user_topic(user_id))
+  def unsubscribe_from_user_tickets(user_uuid) when is_binary(user_uuid) do
+    Manager.unsubscribe(user_topic(user_uuid))
   end
 
   @doc """
   Unsubscribes from a specific ticket's events.
   """
-  def unsubscribe_from_ticket(ticket_id) when is_binary(ticket_id) do
-    Manager.unsubscribe(ticket_topic(ticket_id))
+  def unsubscribe_from_ticket(ticket_uuid) when is_binary(ticket_uuid) do
+    Manager.unsubscribe(ticket_topic(ticket_uuid))
   end
 
   # ============================================================================

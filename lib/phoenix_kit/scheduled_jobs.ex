@@ -53,7 +53,7 @@ defmodule PhoenixKit.ScheduledJobs do
   ## Parameters
 
   - `handler_module` - Module implementing `PhoenixKit.ScheduledJobs.Handler`
-  - `resource_id` - UUID of the target resource
+  - `resource_uuid` - UUID of the target resource
   - `scheduled_at` - DateTime when the job should execute
   - `args` - Optional map of additional arguments (default: %{})
   - `opts` - Optional keyword list with:
@@ -74,12 +74,12 @@ defmodule PhoenixKit.ScheduledJobs do
       iex> schedule_job(EmailHandler, email.uuid, scheduled_at, %{template: "welcome"}, priority: 10)
       {:ok, %ScheduledJob{}}
   """
-  def schedule_job(handler_module, resource_id, scheduled_at, args \\ %{}, opts \\ []) do
+  def schedule_job(handler_module, resource_uuid, scheduled_at, args \\ %{}, opts \\ []) do
     attrs = %{
       job_type: handler_module.job_type(),
       handler_module: to_string(handler_module),
       resource_type: handler_module.resource_type(),
-      resource_uuid: resource_id,
+      resource_uuid: resource_uuid,
       scheduled_at: scheduled_at,
       args: args,
       priority: Keyword.get(opts, :priority, 0),
@@ -125,10 +125,10 @@ defmodule PhoenixKit.ScheduledJobs do
       iex> cancel_jobs_for_resource("post", post.uuid)
       {3, nil}
   """
-  def cancel_jobs_for_resource(resource_type, resource_id) do
+  def cancel_jobs_for_resource(resource_type, resource_uuid) do
     from(j in ScheduledJob,
       where: j.resource_type == ^resource_type,
-      where: j.resource_uuid == ^resource_id,
+      where: j.resource_uuid == ^resource_uuid,
       where: j.status == "pending"
     )
     |> repo().update_all(set: [status: "cancelled", updated_at: UtilsDate.utc_now()])
@@ -223,10 +223,10 @@ defmodule PhoenixKit.ScheduledJobs do
       iex> get_jobs_for_resource("post", post.uuid)
       [%ScheduledJob{}, ...]
   """
-  def get_jobs_for_resource(resource_type, resource_id) do
+  def get_jobs_for_resource(resource_type, resource_uuid) do
     from(j in ScheduledJob,
       where: j.resource_type == ^resource_type,
-      where: j.resource_uuid == ^resource_id,
+      where: j.resource_uuid == ^resource_uuid,
       order_by: [desc: j.inserted_at]
     )
     |> repo().all()
@@ -240,10 +240,10 @@ defmodule PhoenixKit.ScheduledJobs do
       iex> get_pending_job_for_resource("post", post.uuid)
       %ScheduledJob{status: "pending"}
   """
-  def get_pending_job_for_resource(resource_type, resource_id) do
+  def get_pending_job_for_resource(resource_type, resource_uuid) do
     from(j in ScheduledJob,
       where: j.resource_type == ^resource_type,
-      where: j.resource_uuid == ^resource_id,
+      where: j.resource_uuid == ^resource_uuid,
       where: j.status == "pending",
       limit: 1
     )

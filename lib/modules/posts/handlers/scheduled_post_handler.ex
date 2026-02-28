@@ -42,12 +42,12 @@ defmodule PhoenixKit.Modules.Posts.ScheduledPostHandler do
   def resource_type, do: "post"
 
   @impl true
-  def execute(post_id, _args) do
-    Logger.info("ScheduledPostHandler: Publishing post #{inspect(post_id)}")
+  def execute(post_uuid, _args) do
+    Logger.info("ScheduledPostHandler: Publishing post #{inspect(post_uuid)}")
 
-    case Posts.get_post(post_id) do
+    case Posts.get_post(post_uuid) do
       nil ->
-        Logger.warning("ScheduledPostHandler: Post #{inspect(post_id)} not found")
+        Logger.warning("ScheduledPostHandler: Post #{inspect(post_uuid)} not found")
         {:error, :not_found}
 
       post ->
@@ -58,14 +58,14 @@ defmodule PhoenixKit.Modules.Posts.ScheduledPostHandler do
         case Posts.publish_post(post) do
           {:ok, published_post} ->
             Logger.info(
-              "ScheduledPostHandler: Successfully published post #{post_id}, new status=#{published_post.status}"
+              "ScheduledPostHandler: Successfully published post #{post_uuid}, new status=#{published_post.status}"
             )
 
             :ok
 
           {:error, reason} ->
             Logger.error(
-              "ScheduledPostHandler: Failed to publish post #{post_id}: #{inspect(reason)}"
+              "ScheduledPostHandler: Failed to publish post #{post_uuid}: #{inspect(reason)}"
             )
 
             {:error, reason}

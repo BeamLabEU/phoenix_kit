@@ -86,29 +86,29 @@ defmodule PhoenixKit.Modules.Billing.Events do
   @doc """
   Subscribes to subscription events for a specific user.
   """
-  def subscribe_user_subscriptions(user_id) do
-    Manager.subscribe("#{@subscriptions_topic}:user:#{user_id}")
+  def subscribe_user_subscriptions(user_uuid) do
+    Manager.subscribe("#{@subscriptions_topic}:user:#{user_uuid}")
   end
 
   @doc """
   Subscribes to order events for a specific user.
   """
-  def subscribe_user_orders(user_id) do
-    Manager.subscribe("#{@orders_topic}:user:#{user_id}")
+  def subscribe_user_orders(user_uuid) do
+    Manager.subscribe("#{@orders_topic}:user:#{user_uuid}")
   end
 
   @doc """
   Subscribes to invoice events for a specific user.
   """
-  def subscribe_user_invoices(user_id) do
-    Manager.subscribe("#{@invoices_topic}:user:#{user_id}")
+  def subscribe_user_invoices(user_uuid) do
+    Manager.subscribe("#{@invoices_topic}:user:#{user_uuid}")
   end
 
   @doc """
   Subscribes to transaction events for a specific user.
   """
-  def subscribe_user_transactions(user_id) do
-    Manager.subscribe("#{@transactions_topic}:user:#{user_id}")
+  def subscribe_user_transactions(user_uuid) do
+    Manager.subscribe("#{@transactions_topic}:user:#{user_uuid}")
   end
 
   # ============================================
@@ -305,15 +305,15 @@ defmodule PhoenixKit.Modules.Billing.Events do
   @doc """
   Broadcasts subscription type changed event.
   """
-  def broadcast_subscription_type_changed(subscription, old_type_id, new_type_id) do
+  def broadcast_subscription_type_changed(subscription, old_type_uuid, new_type_uuid) do
     broadcast(
       @subscriptions_topic,
-      {:subscription_type_changed, subscription, old_type_id, new_type_id}
+      {:subscription_type_changed, subscription, old_type_uuid, new_type_uuid}
     )
 
     broadcast(
       "#{@subscriptions_topic}:user:#{subscription.user_uuid}",
-      {:subscription_type_changed, subscription, old_type_id, new_type_id}
+      {:subscription_type_changed, subscription, old_type_uuid, new_type_uuid}
     )
   end
 

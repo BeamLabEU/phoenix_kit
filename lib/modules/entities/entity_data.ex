@@ -673,7 +673,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme", entity_uuid)
       [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
-  def search_by_title(search_term, entity_id \\ nil) when is_binary(search_term) do
+  def search_by_title(search_term, entity_uuid \\ nil) when is_binary(search_term) do
     search_pattern = "%#{search_term}%"
 
     query =
@@ -684,12 +684,12 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       )
 
     query =
-      case entity_id do
+      case entity_uuid do
         nil ->
           query
 
-        id when is_binary(id) ->
-          from(d in query, where: d.entity_uuid == ^id)
+        uuid when is_binary(uuid) ->
+          from(d in query, where: d.entity_uuid == ^uuid)
       end
 
     repo().all(query)
@@ -745,7 +745,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   @doc """
   Alias for list_by_entity/1 for consistency with LiveView naming.
   """
-  def list_data_by_entity(entity_id), do: list_by_entity(entity_id)
+  def list_data_by_entity(entity_uuid), do: list_by_entity(entity_uuid)
 
   @doc """
   Alias for filter_by_status/1 for consistency with LiveView naming.
@@ -808,7 +808,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   Gets statistical data about entity data records.
 
   Returns statistics about total records, published, draft, and archived counts.
-  Optionally filters by entity_id if provided.
+  Optionally filters by entity_uuid if provided.
 
   ## Examples
 
@@ -820,7 +820,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
         archived_records: 5
       }
 
-      iex> PhoenixKit.Modules.Entities.EntityData.get_data_stats(1)
+      iex> PhoenixKit.Modules.Entities.EntityData.get_data_stats("018e3c4a-9f6b-7890-abcd-ef1234567890")
       %{
         total_records: 15,
         published_records: 12,
@@ -828,7 +828,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
         archived_records: 1
       }
   """
-  def get_data_stats(entity_id \\ nil) do
+  def get_data_stats(entity_uuid \\ nil) do
     query =
       from(d in __MODULE__,
         select: {
@@ -840,12 +840,12 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       )
 
     query =
-      case entity_id do
+      case entity_uuid do
         nil ->
           query
 
-        id when is_binary(id) ->
-          from(d in query, where: d.entity_uuid == ^id)
+        uuid when is_binary(uuid) ->
+          from(d in query, where: d.entity_uuid == ^uuid)
       end
 
     {total, published, draft, archived} = repo().one(query)

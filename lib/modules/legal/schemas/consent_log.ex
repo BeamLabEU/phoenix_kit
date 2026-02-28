@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   and other privacy regulations.
 
   ## Fields
-    * `user_id` - The ID of the logged-in user (nil for anonymous)
+    * `user_uuid` - The UUID of the logged-in user (nil for anonymous)
     * `session_id` - Session identifier for anonymous tracking
     * `consent_type` - Type of consent (necessary, analytics, marketing, preferences)
     * `consent_given` - Whether consent was given
@@ -34,13 +34,13 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
 
       # Log consent for logged-in user
       ConsentLog.create(%{
-        user_id: 123,
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         consent_type: "marketing",
         consent_given: false
       })
 
       # Get current consent status
-      ConsentLog.get_consent_status(user_id: 123)
+      ConsentLog.get_consent_status(user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890")
       ConsentLog.get_consent_status(session_id: "abc123")
   """
 
@@ -94,7 +94,7 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
     * `:consent_type` - Type of consent
 
   ## Optional Fields
-    * `:user_id` - User ID (for logged-in users)
+    * `:user_uuid` - User UUID (for logged-in users)
     * `:session_id` - Session ID (for anonymous users)
     * `:consent_given` - Whether consent was given (default: false)
     * `:consent_version` - Version of policy
@@ -198,7 +198,7 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
   Returns a map of consent_type => consent_given for the most recent entries.
 
   ## Options
-    * `:user_id` - Get consent for logged-in user
+    * `:user_uuid` - Get consent for logged-in user
     * `:session_id` - Get consent for anonymous session
   """
   @spec get_consent_status(keyword()) :: map()
@@ -232,13 +232,13 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
 
   ## Parameters
     * `consents` - Map of consent_type => consent_given
-    * `opts` - Options including :user_id, :session_id, :ip_address, etc.
+    * `opts` - Options including :user_uuid, :session_id, :ip_address, etc.
 
   ## Example
 
       ConsentLog.log_consents(
         %{"analytics" => true, "marketing" => false},
-        user_id: 123,
+        user_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         consent_version: "1.0"
       )
   """

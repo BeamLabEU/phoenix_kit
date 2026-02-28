@@ -399,7 +399,7 @@ defmodule PhoenixKit.Modules.Posts do
   ## Parameters
 
   - `opts` - Options
-    - `:user_id` - Filter by user
+    - `:user_uuid` - Filter by user
     - `:status` - Filter by status (draft/public/unlisted/scheduled)
     - `:type` - Filter by type (post/snippet/repost)
     - `:search` - Search in title and content
@@ -415,18 +415,18 @@ defmodule PhoenixKit.Modules.Posts do
       iex> list_posts(status: "public", page: 1, per_page: 10)
       [%Post{}, ...]
 
-      iex> list_posts(user_id: 42, type: "post")
+      iex> list_posts(user_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890", type: "post")
       [%Post{}, ...]
   """
   def list_posts(opts \\ []) do
-    user_id = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     status = Keyword.get(opts, :status)
     type = Keyword.get(opts, :type)
     search = Keyword.get(opts, :search)
     preloads = Keyword.get(opts, :preload, [])
 
     Post
-    |> maybe_filter_by_user(user_id)
+    |> maybe_filter_by_user(user_uuid)
     |> maybe_filter_by_status(status)
     |> maybe_filter_by_type(type)
     |> maybe_search(search)
@@ -451,7 +451,7 @@ defmodule PhoenixKit.Modules.Posts do
   def list_user_posts(user_uuid, opts \\ [])
 
   def list_user_posts(user_uuid, opts) when is_binary(user_uuid) do
-    list_posts(Keyword.put(opts, :user_id, user_uuid))
+    list_posts(Keyword.put(opts, :user_uuid, user_uuid))
   end
 
   @doc """
@@ -1129,7 +1129,7 @@ defmodule PhoenixKit.Modules.Posts do
       iex> add_tags_to_post(post, ["elixir", "phoenix"])
       {:ok, [%PostTag{}, %PostTag{}]}
   """
-  def add_tags_to_post(%Post{uuid: post_id}, tag_names) when is_list(tag_names) do
+  def add_tags_to_post(%Post{uuid: post_uuid}, tag_names) when is_list(tag_names) do
     repo().transaction(fn ->
       tags =
         Enum.map(tag_names, fn name ->
@@ -1142,7 +1142,7 @@ defmodule PhoenixKit.Modules.Posts do
 
       Enum.each(tags, fn tag ->
         %PostTagAssignment{}
-        |> PostTagAssignment.changeset(%{post_uuid: post_id, tag_uuid: tag.uuid})
+        |> PostTagAssignment.changeset(%{post_uuid: post_uuid, tag_uuid: tag.uuid})
         |> repo().insert(on_conflict: :nothing)
 
         # Increment tag usage
@@ -1786,8 +1786,8 @@ defmodule PhoenixKit.Modules.Posts do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
-    where(query, [p], p.user_uuid == ^user_id)
+  defp maybe_filter_by_user(query, user_uuid) when is_binary(user_uuid) do
+    where(query, [p], p.user_uuid == ^user_uuid)
   end
 
   defp maybe_filter_by_status(query, nil), do: query
