@@ -30,7 +30,7 @@ defmodule PhoenixKit.ScheduledJobs.Handler do
 
   - `job_type/0` - Returns a unique string identifying this job type (e.g., "publish_post", "send_email")
   - `resource_type/0` - Returns the type of resource this handler operates on (e.g., "post", "email")
-  - `execute/2` - Executes the job. Receives the resource_id and args map. Returns `:ok` or `{:ok, result}` on success, `{:error, reason}` on failure.
+  - `execute/2` - Executes the job. Receives the resource_uuid and args map. Returns `:ok` or `{:ok, result}` on success, `{:error, reason}` on failure.
 
   ## Return Values
 
