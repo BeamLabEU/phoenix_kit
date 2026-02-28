@@ -162,7 +162,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     {:noreply, socket}
   end
 
-  def handle_info({:user_session_connected, _user_id, _metadata}, socket) do
+  def handle_info({:user_session_connected, _user_uuid, _metadata}, socket) do
     socket =
       socket
       |> assign(:last_updated, UtilsDate.utc_now())
@@ -172,7 +172,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     {:noreply, socket}
   end
 
-  def handle_info({:user_session_disconnected, _user_id, _session_id}, socket) do
+  def handle_info({:user_session_disconnected, _user_uuid, _session_id}, socket) do
     socket =
       socket
       |> assign(:last_updated, UtilsDate.utc_now())

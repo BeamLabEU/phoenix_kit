@@ -99,8 +99,8 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
     {:noreply, socket}
   end
 
-  def handle_event("show_revoke_user_sessions", %{"user_id" => user_id}, socket) do
-    user = Auth.get_user!(user_id)
+  def handle_event("show_revoke_user_sessions", %{"user_uuid" => user_uuid}, socket) do
+    user = Auth.get_user!(user_uuid)
     user_sessions = Sessions.list_user_sessions(user)
 
     socket =
@@ -275,7 +275,7 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
     {:noreply, socket}
   end
 
-  def handle_info({:user_sessions_revoked, _user_id, _count}, socket) do
+  def handle_info({:user_sessions_revoked, _user_uuid, _count}, socket) do
     socket =
       socket
       |> load_sessions()

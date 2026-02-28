@@ -33,7 +33,7 @@ defmodule PhoenixKit.Admin.Events do
   ### Session Events
   - `{:session_created, user, token_info}` - New session created
   - `{:session_revoked, token_id}` - Session revoked
-  - `{:user_sessions_revoked, user_id, count}` - All user sessions revoked
+  - `{:user_sessions_revoked, user_uuid, count}` - All user sessions revoked
   - `{:sessions_stats_updated, stats}` - Session statistics updated
 
   ### Presence Events
@@ -183,8 +183,8 @@ defmodule PhoenixKit.Admin.Events do
   @doc """
   Broadcasts user sessions revocation event to admin panels.
   """
-  def broadcast_user_sessions_revoked(user_id, count) do
-    broadcast(@topic_sessions, {:user_sessions_revoked, user_id, count})
+  def broadcast_user_sessions_revoked(user_uuid, count) do
+    broadcast(@topic_sessions, {:user_sessions_revoked, user_uuid, count})
     broadcast_sessions_stats_updated()
   end
 

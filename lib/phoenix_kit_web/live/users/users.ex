@@ -114,8 +114,8 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     {:noreply, socket}
   end
 
-  def handle_event("show_role_management", %{"user_id" => user_id}, socket) do
-    user = Auth.get_user!(user_id)
+  def handle_event("show_role_management", %{"user_uuid" => user_uuid}, socket) do
+    user = Auth.get_user!(user_uuid)
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Prevent self-modification for critical operations
@@ -192,8 +192,12 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
   end
 
-  def handle_event("quick_toggle_role", %{"user_id" => user_id, "role_name" => role_name}, socket) do
-    user = Auth.get_user!(user_id)
+  def handle_event(
+        "quick_toggle_role",
+        %{"user_uuid" => user_uuid, "role_name" => role_name},
+        socket
+      ) do
+    user = Auth.get_user!(user_uuid)
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Prevent self-modification
@@ -208,7 +212,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   # New events for confirmation modal
   def handle_event(
         "request_status_toggle",
-        %{"user_id" => user_id, "is_active" => is_active},
+        %{"user_uuid" => user_uuid, "is_active" => is_active},
         socket
       ) do
     is_active_bool = is_active == "true"
@@ -220,7 +224,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
         "Are you sure you want to #{if is_active_bool, do: "deactivate", else: "activate"} this user?",
       button_text: if(is_active_bool, do: "Deactivate", else: "Activate"),
       action: "toggle_user_status",
-      user_id: user_id
+      user_uuid: user_uuid
     }
 
     {:noreply, assign(socket, :confirmation_modal, confirmation_modal)}
@@ -228,7 +232,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
   def handle_event(
         "request_confirmation_toggle",
-        %{"user_id" => user_id, "is_confirmed" => is_confirmed},
+        %{"user_uuid" => user_uuid, "is_confirmed" => is_confirmed},
         socket
       ) do
     is_confirmed_bool = is_confirmed == "true"
@@ -240,7 +244,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
         "Are you sure you want to #{if is_confirmed_bool, do: "unconfirm", else: "confirm"} this user's email?",
       button_text: if(is_confirmed_bool, do: "Unconfirm", else: "Confirm"),
       action: "toggle_user_confirmation",
-      user_id: user_id
+      user_uuid: user_uuid
     }
 
     {:noreply, assign(socket, :confirmation_modal, confirmation_modal)}
@@ -250,20 +254,20 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     {:noreply, assign(socket, :confirmation_modal, %{show: false})}
   end
 
-  def handle_event("confirm_action", %{"action" => action, "user_id" => user_id}, socket) do
+  def handle_event("confirm_action", %{"action" => action, "user_uuid" => user_uuid}, socket) do
     # Close modal first
     socket = assign(socket, :confirmation_modal, %{show: false})
 
     # Execute the confirmed action
     case action do
       "toggle_user_status" ->
-        handle_toggle_user_status(%{"user_id" => user_id}, socket)
+        handle_toggle_user_status(%{"user_uuid" => user_uuid}, socket)
 
       "toggle_user_confirmation" ->
-        handle_toggle_user_confirmation(%{"user_id" => user_id}, socket)
+        handle_toggle_user_confirmation(%{"user_uuid" => user_uuid}, socket)
 
       "delete_user" ->
-        handle_delete_user(%{"user_id" => user_id}, socket)
+        handle_delete_user(%{"user_uuid" => user_uuid}, socket)
 
       _ ->
         {:noreply, socket}
@@ -273,10 +277,10 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   # User deletion events
   def handle_event(
         "request_delete_user",
-        %{"user_id" => user_id},
+        %{"user_uuid" => user_uuid},
         socket
       ) do
-    user = Auth.get_user!(user_id)
+    user = Auth.get_user!(user_uuid)
     current_user = socket.assigns.phoenix_kit_current_user
 
     # Check if user can be deleted
@@ -289,7 +293,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
             "Are you sure you want to permanently delete #{user.email}? This action cannot be undone.",
           button_text: "Delete",
           action: "delete_user",
-          user_id: user_id
+          user_uuid: user_uuid
         }
 
         {:noreply, assign(socket, :confirmation_modal, confirmation_modal)}
@@ -311,17 +315,17 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
   end
 
-  def handle_event("delete_user", %{"user_id" => user_id}, socket) do
-    handle_delete_user(%{"user_id" => user_id}, socket)
+  def handle_event("delete_user", %{"user_uuid" => user_uuid}, socket) do
+    handle_delete_user(%{"user_uuid" => user_uuid}, socket)
   end
 
   # Keep old handlers for backward compatibility, but make them delegate to private handlers
-  def handle_event("toggle_user_status", %{"user_id" => user_id}, socket) do
-    handle_toggle_user_status(%{"user_id" => user_id}, socket)
+  def handle_event("toggle_user_status", %{"user_uuid" => user_uuid}, socket) do
+    handle_toggle_user_status(%{"user_uuid" => user_uuid}, socket)
   end
 
-  def handle_event("toggle_user_confirmation", %{"user_id" => user_id}, socket) do
-    handle_toggle_user_confirmation(%{"user_id" => user_id}, socket)
+  def handle_event("toggle_user_confirmation", %{"user_uuid" => user_uuid}, socket) do
+    handle_toggle_user_confirmation(%{"user_uuid" => user_uuid}, socket)
   end
 
   # Column management events
@@ -499,9 +503,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   # Keep the original handlers private for internal use
-  defp handle_toggle_user_status(%{"user_id" => user_id}, socket) do
+  defp handle_toggle_user_status(%{"user_uuid" => user_uuid}, socket) do
     current_user = socket.assigns.phoenix_kit_current_user
-    user = Auth.get_user!(user_id)
+    user = Auth.get_user!(user_uuid)
 
     if current_user.uuid == user.uuid do
       socket = put_flash(socket, :error, "Cannot modify your own status")
@@ -511,9 +515,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
   end
 
-  defp handle_delete_user(%{"user_id" => user_id}, socket) do
+  defp handle_delete_user(%{"user_uuid" => user_uuid}, socket) do
     current_user = socket.assigns.phoenix_kit_current_user
-    user = Auth.get_user!(user_id)
+    user = Auth.get_user!(user_uuid)
 
     # Close modal first
     socket = assign(socket, :confirmation_modal, %{show: false})
@@ -540,9 +544,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
   end
 
-  defp handle_toggle_user_confirmation(%{"user_id" => user_id}, socket) do
+  defp handle_toggle_user_confirmation(%{"user_uuid" => user_uuid}, socket) do
     current_user = socket.assigns.phoenix_kit_current_user
-    user = Auth.get_user!(user_id)
+    user = Auth.get_user!(user_uuid)
 
     if current_user.uuid == user.uuid do
       socket = put_flash(socket, :error, "Cannot modify your own confirmation status")

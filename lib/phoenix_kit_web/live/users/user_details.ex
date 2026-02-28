@@ -20,10 +20,10 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKit.Utils.Routes
 
   @impl true
-  def mount(%{"id" => user_id}, _session, socket) do
+  def mount(%{"id" => user_uuid}, _session, socket) do
     project_title = Settings.get_project_title()
 
-    user = Auth.get_user_with_roles(user_id)
+    user = Auth.get_user_with_roles(user_uuid)
 
     case user do
       nil ->
