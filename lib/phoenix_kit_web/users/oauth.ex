@@ -195,7 +195,7 @@ if Code.ensure_loaded?(Ueberauth) do
       case OAuth.handle_oauth_callback(auth, opts) do
         {:ok, user} ->
           Logger.info(
-            "PhoenixKit: User #{user.id} (#{user.email}) authenticated via OAuth (#{auth.provider})"
+            "PhoenixKit: User #{user.uuid} (#{user.email}) authenticated via OAuth (#{auth.provider})"
           )
 
           conn =

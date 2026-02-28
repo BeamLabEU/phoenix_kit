@@ -148,7 +148,7 @@ defmodule PhoenixKit.Dashboard.Presence do
   ## Examples
 
       Presence.get_tab_viewers(:orders)
-      # => [%{user_id: 1, user_email: "user@example.com", online_at: ~U[...]}]
+      # => [%{user_uuid: "019...", user_email: "user@example.com", online_at: ~U[...]}]
 
       Presence.get_tab_viewers(:orders, format: :count)
       # => 3
@@ -175,7 +175,7 @@ defmodule PhoenixKit.Dashboard.Presence do
     case format do
       :count -> length(presences)
       :emails -> Enum.map(presences, & &1[:user_email]) |> Enum.reject(&is_nil/1) |> Enum.uniq()
-      :ids -> Enum.map(presences, & &1[:user_id]) |> Enum.reject(&is_nil/1) |> Enum.uniq()
+      :ids -> Enum.map(presences, & &1[:user_uuid]) |> Enum.reject(&is_nil/1) |> Enum.uniq()
       :full -> presences
     end
   end

@@ -229,7 +229,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     user_uuids =
       sessions
       |> Enum.filter(&(&1.type == :authenticated))
-      |> Enum.map(& &1.user_id)
+      |> Enum.map(& &1.user_uuid)
       |> Enum.uniq()
 
     case user_uuids do
@@ -280,11 +280,10 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
     if scope && Scope.authenticated?(scope) do
-      user_id = Scope.user_id(scope)
       user_email = Scope.user_email(scope)
 
       # Create a user map for tracking (uuid required by SimplePresence)
-      user = %{uuid: scope.user.uuid, id: user_id, email: user_email}
+      user = %{uuid: scope.user.uuid, email: user_email}
       session_id = session["live_socket_id"] || generate_session_id()
 
       Presence.track_user(user, %{

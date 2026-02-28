@@ -222,7 +222,7 @@
                   </.table_default_cell>
                   <.table_default_cell>
                     <%= if session.type == :authenticated do %>
-                      <% user = Map.get(@users_map, session.user_id) %>
+                      <% user = Map.get(@users_map, session.user_uuid) %>
                       <div class="flex items-center gap-2">
                         <.user_avatar user={user || %{email: session.user_email}} size="sm" />
                         <div>
@@ -230,7 +230,7 @@
                             {session.user_email}
                           </div>
                           <div class="text-xs text-base-content/70">
-                            ID: {session.user_id}
+                            ID: {session.user_uuid}
                           </div>
                         </div>
                       </div>

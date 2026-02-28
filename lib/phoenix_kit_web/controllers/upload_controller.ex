@@ -27,7 +27,7 @@ defmodule PhoenixKitWeb.UploadController do
   ## Parameters
 
   - `file` (required): The file to upload (multipart/form-data)
-  - `user_id` (optional): Override user ID (admin only)
+  - `user_uuid` (optional): Override user UUID (admin only)
 
   ## Response
 
@@ -58,8 +58,8 @@ defmodule PhoenixKitWeb.UploadController do
     with {:ok, upload} <- extract_upload(params),
          :ok <- validate_file_type(upload),
          :ok <- validate_file_size(upload),
-         {:ok, user_id} <- get_current_user_id(conn, params),
-         {:ok, file_id} <- process_upload(upload, user_id) do
+         {:ok, user_uuid} <- get_current_user_uuid(conn, params),
+         {:ok, file_id} <- process_upload(upload, user_uuid) do
       json(conn, %{
         file_id: file_id,
         status: "processing",
@@ -129,7 +129,7 @@ defmodule PhoenixKitWeb.UploadController do
     end
   end
 
-  defp get_current_user_id(conn, params) do
+  defp get_current_user_uuid(conn, params) do
     # Check if user is authenticated
     case conn.assigns[:phoenix_kit_current_user] do
       %PhoenixKit.Users.Auth.User{uuid: user_uuid} ->
@@ -137,10 +137,10 @@ defmodule PhoenixKitWeb.UploadController do
 
       nil ->
         # Try override from params (admin only)
-        case params["user_id"] do
-          user_id when is_binary(user_id) ->
+        case params["user_uuid"] do
+          user_uuid when is_binary(user_uuid) ->
             # Verify admin permission here if needed
-            {:ok, user_id}
+            {:ok, user_uuid}
 
           _ ->
             {:error, :no_user}
@@ -148,13 +148,13 @@ defmodule PhoenixKitWeb.UploadController do
     end
   end
 
-  defp process_upload(upload, user_id) do
+  defp process_upload(upload, user_uuid) do
     with {:ok, stat} <- File.stat(upload.path),
          {:ok, file_checksum} <- safe_calculate_file_hash(upload.path) do
       file_size = stat.size
 
       # Calculate user-specific checksum for per-user duplicate detection
-      user_file_checksum = Storage.calculate_user_file_checksum(user_id, file_checksum)
+      user_file_checksum = Storage.calculate_user_file_checksum(user_uuid, file_checksum)
 
       # Check if this user already uploaded this file
       case Storage.get_file_by_user_checksum(user_file_checksum) do
@@ -165,7 +165,7 @@ defmodule PhoenixKitWeb.UploadController do
 
         nil ->
           # New file for this user, proceed with upload
-          perform_upload(upload, user_id, file_size, file_checksum)
+          perform_upload(upload, user_uuid, file_size, file_checksum)
       end
     else
       {:error, reason} -> {:error, reason}
@@ -187,15 +187,15 @@ defmodule PhoenixKitWeb.UploadController do
     end
   end
 
-  defp perform_upload(upload, user_id, _file_size, file_checksum) do
+  defp perform_upload(upload, user_uuid, _file_size, file_checksum) do
     file_type = determine_file_type(upload.content_type)
     ext = Path.extname(upload.filename) |> String.replace_leading(".", "")
 
     # Store in buckets with hierarchical path structure
-    case Storage.store_file_in_buckets(upload.path, file_type, user_id, file_checksum, ext) do
+    case Storage.store_file_in_buckets(upload.path, file_type, user_uuid, file_checksum, ext) do
       {:ok, file} ->
         # Queue background job for variant generation
-        %{file_id: file.uuid, user_id: user_id, filename: upload.filename}
+        %{file_id: file.uuid, user_uuid: user_uuid, filename: upload.filename}
         |> ProcessFileJob.new()
         |> Oban.insert()
 
