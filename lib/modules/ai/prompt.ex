@@ -54,7 +54,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
 
       # Use with AI completion
       {:ok, response} = PhoenixKit.Modules.AI.ask_with_prompt(
-        endpoint_id,
+        endpoint_uuid,
         prompt.uuid,
         %{"Language" => "Spanish", "Text" => "Good morning"}
       )

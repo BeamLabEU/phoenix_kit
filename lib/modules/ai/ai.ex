@@ -756,8 +756,8 @@ defmodule PhoenixKit.Modules.AI do
 
   Returns `{:ok, rendered_text}` or `{:error, reason}`.
   """
-  def render_prompt(prompt_id, variables \\ %{}) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def render_prompt(prompt_uuid, variables \\ %{}) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       Prompt.render(prompt, variables)
     end
   end
@@ -765,8 +765,8 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Increments the usage count for a prompt and updates last_used_at.
   """
-  def increment_prompt_usage(prompt_id) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def increment_prompt_usage(prompt_uuid) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       record_prompt_usage(prompt)
     end
   end
@@ -777,8 +777,8 @@ defmodule PhoenixKit.Modules.AI do
   The prompt content is rendered with the provided variables and sent as
   the user message.
   """
-  def ask_with_prompt(endpoint_id, prompt_id, variables \\ %{}, opts \\ []) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id),
+  def ask_with_prompt(endpoint_uuid, prompt_uuid, variables \\ %{}, opts \\ []) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid),
          {:ok, _} <- validate_prompt(prompt),
          {:ok, rendered} <- Prompt.render(prompt, variables) do
       # Pass prompt info to ask for request logging
@@ -787,10 +787,10 @@ defmodule PhoenixKit.Modules.AI do
         |> Keyword.put(:prompt_uuid, prompt.uuid)
         |> Keyword.put(:prompt_name, prompt.name)
 
-      case ask(endpoint_id, rendered, opts_with_prompt) do
+      case ask(endpoint_uuid, rendered, opts_with_prompt) do
         {:ok, response} ->
           # Only increment usage on successful completion
-          increment_prompt_usage(prompt_id)
+          increment_prompt_usage(prompt_uuid)
           {:ok, response}
 
         error ->
@@ -805,8 +805,8 @@ defmodule PhoenixKit.Modules.AI do
   The prompt is rendered and used as the system message, with the user_message
   as the user message.
   """
-  def complete_with_system_prompt(endpoint_id, prompt_id, variables, user_message, opts \\ []) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id),
+  def complete_with_system_prompt(endpoint_uuid, prompt_uuid, variables, user_message, opts \\ []) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid),
          {:ok, _} <- validate_prompt(prompt),
          {:ok, system_prompt} <- Prompt.render(prompt, variables) do
       # Build messages with system prompt
@@ -821,10 +821,10 @@ defmodule PhoenixKit.Modules.AI do
         |> Keyword.put(:prompt_uuid, prompt.uuid)
         |> Keyword.put(:prompt_name, prompt.name)
 
-      case complete(endpoint_id, messages, opts_with_prompt) do
+      case complete(endpoint_uuid, messages, opts_with_prompt) do
         {:ok, response} ->
           # Only increment usage on successful completion
-          increment_prompt_usage(prompt_id)
+          increment_prompt_usage(prompt_uuid)
           {:ok, response}
 
         error ->
@@ -854,8 +854,8 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Duplicates a prompt with a new name.
   """
-  def duplicate_prompt(prompt_id, new_name) when is_binary(new_name) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def duplicate_prompt(prompt_uuid, new_name) when is_binary(new_name) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       create_prompt(%{
         name: new_name,
         description: prompt.description,
@@ -870,8 +870,8 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Enables a prompt.
   """
-  def enable_prompt(prompt_id) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def enable_prompt(prompt_uuid) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       update_prompt(prompt, %{enabled: true})
     end
   end
@@ -879,8 +879,8 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Disables a prompt.
   """
-  def disable_prompt(prompt_id) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def disable_prompt(prompt_uuid) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       update_prompt(prompt, %{enabled: false})
     end
   end
@@ -888,8 +888,8 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Gets the variables defined in a prompt.
   """
-  def get_prompt_variables(prompt_id) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def get_prompt_variables(prompt_uuid) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       {:ok, prompt.variables || []}
     end
   end
@@ -897,15 +897,15 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Previews a rendered prompt without making an AI call.
   """
-  def preview_prompt(prompt_id, variables \\ %{}) do
-    render_prompt(prompt_id, variables)
+  def preview_prompt(prompt_uuid, variables \\ %{}) do
+    render_prompt(prompt_uuid, variables)
   end
 
   @doc """
   Validates that all required variables are provided for a prompt.
   """
-  def validate_prompt_variables(prompt_id, variables) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def validate_prompt_variables(prompt_uuid, variables) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       Prompt.validate_variables(prompt, variables)
     end
   end
@@ -1001,8 +1001,8 @@ defmodule PhoenixKit.Modules.AI do
   @doc """
   Resets the usage statistics for a prompt.
   """
-  def reset_prompt_usage(prompt_id) do
-    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+  def reset_prompt_usage(prompt_uuid) do
+    with {:ok, prompt} <- resolve_prompt(prompt_uuid) do
       prompt
       |> Ecto.Changeset.change(%{usage_count: 0, last_used_at: nil})
       |> repo().update()
@@ -1017,7 +1017,7 @@ defmodule PhoenixKit.Modules.AI do
   def reorder_prompts(order_list) when is_list(order_list) do
     repo().transaction(fn ->
       Enum.each(order_list, fn {id, sort_order} ->
-        build_prompt_id_query(id)
+        build_prompt_uuid_query(id)
         |> repo().update_all(set: [sort_order: sort_order])
       end)
     end)
@@ -1025,7 +1025,7 @@ defmodule PhoenixKit.Modules.AI do
     :ok
   end
 
-  defp build_prompt_id_query(id) when is_binary(id) do
+  defp build_prompt_uuid_query(id) when is_binary(id) do
     if UUIDUtils.valid?(id) do
       from(p in Prompt, where: p.uuid == ^id)
     else
@@ -1033,7 +1033,7 @@ defmodule PhoenixKit.Modules.AI do
     end
   end
 
-  defp build_prompt_id_query(_), do: from(p in Prompt, where: false)
+  defp build_prompt_uuid_query(_), do: from(p in Prompt, where: false)
 
   # ===========================================
   # USAGE TRACKING (REQUESTS)
@@ -1045,8 +1045,8 @@ defmodule PhoenixKit.Modules.AI do
   ## Options
   - `:page` - Page number (default: 1)
   - `:page_size` - Results per page (default: 20)
-  - `:endpoint_id` - Filter by endpoint
-  - `:user_id` - Filter by user
+  - `:endpoint_uuid` - Filter by endpoint
+  - `:user_uuid` - Filter by user
   - `:status` - Filter by status
   - `:model` - Filter by model
   - `:source` - Filter by source (from metadata)
@@ -1157,8 +1157,8 @@ defmodule PhoenixKit.Modules.AI do
 
   defp apply_request_filters(query, opts) do
     query
-    |> maybe_filter_by(:endpoint_id, Keyword.get(opts, :endpoint_id))
-    |> maybe_filter_by(:user_id, Keyword.get(opts, :user_id))
+    |> maybe_filter_by(:endpoint_uuid, Keyword.get(opts, :endpoint_uuid))
+    |> maybe_filter_by(:user_uuid, Keyword.get(opts, :user_uuid))
     |> maybe_filter_by(:status, Keyword.get(opts, :status))
     |> maybe_filter_by(:model, Keyword.get(opts, :model))
     |> maybe_filter_by(:source, Keyword.get(opts, :source))
@@ -1167,12 +1167,12 @@ defmodule PhoenixKit.Modules.AI do
 
   defp maybe_filter_by(query, _field, nil), do: query
 
-  defp maybe_filter_by(query, :endpoint_id, id) when is_binary(id) do
-    where(query, [r], r.endpoint_uuid == ^id)
+  defp maybe_filter_by(query, :endpoint_uuid, uuid) when is_binary(uuid) do
+    where(query, [r], r.endpoint_uuid == ^uuid)
   end
 
-  defp maybe_filter_by(query, :user_id, id) when is_binary(id) do
-    where(query, [r], r.user_uuid == ^id)
+  defp maybe_filter_by(query, :user_uuid, uuid) when is_binary(uuid) do
+    where(query, [r], r.user_uuid == ^uuid)
   end
 
   defp maybe_filter_by(query, :status, status), do: where(query, [r], r.status == ^status)
@@ -1231,7 +1231,7 @@ defmodule PhoenixKit.Modules.AI do
   ## Options
   - `:since` - Start date for statistics
   - `:until` - End date for statistics
-  - `:endpoint_id` - Filter by endpoint
+  - `:endpoint_uuid` - Filter by endpoint
 
   ## Returns
   Map with statistics including total_requests, total_tokens, success_rate, etc.
@@ -1349,7 +1349,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint UUID string or Endpoint struct
+  - `endpoint_uuid` - Endpoint UUID string or Endpoint struct
   - `messages` - List of message maps with `:role` and `:content`
   - `opts` - Optional parameter overrides
 
@@ -1386,8 +1386,8 @@ defmodule PhoenixKit.Modules.AI do
   - `{:ok, response}` - Full API response including usage stats
   - `{:error, reason}` - Error with reason string
   """
-  def complete(endpoint_id, messages, opts \\ []) do
-    with {:ok, endpoint} <- resolve_endpoint(endpoint_id),
+  def complete(endpoint_uuid, messages, opts \\ []) do
+    with {:ok, endpoint} <- resolve_endpoint(endpoint_uuid),
          {:ok, _} <- validate_endpoint(endpoint) do
       # Capture caller info (source + stacktrace + context)
       {auto_source, stacktrace, caller_context} = capture_caller_info()
@@ -1437,7 +1437,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint UUID string or Endpoint struct
+  - `endpoint_uuid` - Endpoint UUID string or Endpoint struct
   - `prompt` - User prompt string
   - `opts` - Optional parameter overrides and system message
 
@@ -1470,7 +1470,7 @@ defmodule PhoenixKit.Modules.AI do
 
   Same as `complete/3`
   """
-  def ask(endpoint_id, prompt, opts \\ []) when is_binary(prompt) do
+  def ask(endpoint_uuid, prompt, opts \\ []) when is_binary(prompt) do
     {system, opts} = Keyword.pop(opts, :system)
 
     messages =
@@ -1479,7 +1479,7 @@ defmodule PhoenixKit.Modules.AI do
         sys -> [%{role: "system", content: sys}, %{role: "user", content: prompt}]
       end
 
-    complete(endpoint_id, messages, opts)
+    complete(endpoint_uuid, messages, opts)
   end
 
   @doc """
@@ -1487,7 +1487,7 @@ defmodule PhoenixKit.Modules.AI do
 
   ## Parameters
 
-  - `endpoint_id` - Endpoint UUID string or Endpoint struct
+  - `endpoint_uuid` - Endpoint UUID string or Endpoint struct
   - `input` - Text or list of texts to embed
   - `opts` - Optional parameter overrides
 
@@ -1517,8 +1517,8 @@ defmodule PhoenixKit.Modules.AI do
   - `{:ok, response}` - Response with embeddings
   - `{:error, reason}` - Error with reason
   """
-  def embed(endpoint_id, input, opts \\ []) do
-    with {:ok, endpoint} <- resolve_endpoint(endpoint_id),
+  def embed(endpoint_uuid, input, opts \\ []) do
+    with {:ok, endpoint} <- resolve_endpoint(endpoint_uuid),
          {:ok, _} <- validate_endpoint(endpoint) do
       # Capture caller info (source + stacktrace + context)
       {auto_source, stacktrace, caller_context} = capture_caller_info()

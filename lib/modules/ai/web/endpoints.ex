@@ -344,7 +344,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
         sort_dir: socket.assigns.usage_sort_dir,
         preload: [:prompt]
       ]
-      |> maybe_add_filter(:endpoint_id, socket.assigns.usage_filter_endpoint)
+      |> maybe_add_filter(:endpoint_uuid, socket.assigns.usage_filter_endpoint)
       |> maybe_add_filter(:model, socket.assigns.usage_filter_model)
       |> maybe_add_filter(:status, socket.assigns.usage_filter_status)
       |> maybe_add_filter(:source, socket.assigns.usage_filter_source)
@@ -522,7 +522,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
         sort_dir: socket.assigns.usage_sort_dir,
         preload: [:prompt]
       ]
-      |> maybe_add_filter(:endpoint_id, socket.assigns.usage_filter_endpoint)
+      |> maybe_add_filter(:endpoint_uuid, socket.assigns.usage_filter_endpoint)
       |> maybe_add_filter(:model, socket.assigns.usage_filter_model)
       |> maybe_add_filter(:status, socket.assigns.usage_filter_status)
       |> maybe_add_filter(:source, socket.assigns.usage_filter_source)

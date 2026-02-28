@@ -31,7 +31,7 @@ defmodule PhoenixKit.ScheduledJobs do
 
         def job_type, do: "my_job"
         def resource_type, do: "my_resource"
-        def execute(resource_id, args), do: :ok
+        def execute(resource_uuid, args), do: :ok
       end
   """
 

@@ -18,8 +18,8 @@ defmodule PhoenixKit.ScheduledJobs.Handler do
         def resource_type, do: "post"
 
         @impl true
-        def execute(post_id, _args) do
-          case MyApp.Posts.get_post(post_id) do
+        def execute(post_uuid, _args) do
+          case MyApp.Posts.get_post(post_uuid) do
             nil -> {:error, :not_found}
             post -> MyApp.Posts.publish_post(post)
           end
@@ -66,7 +66,7 @@ defmodule PhoenixKit.ScheduledJobs.Handler do
 
   ## Parameters
 
-  - `resource_id` - The UUID of the target resource
+  - `resource_uuid` - The UUID of the target resource
   - `args` - A map of additional arguments stored with the job
 
   ## Returns
@@ -75,6 +75,6 @@ defmodule PhoenixKit.ScheduledJobs.Handler do
   - `{:ok, result}` - Job completed successfully with additional result data
   - `{:error, reason}` - Job failed (will be retried if attempts < max_attempts)
   """
-  @callback execute(resource_id :: binary(), args :: map()) ::
+  @callback execute(resource_uuid :: binary(), args :: map()) ::
               :ok | {:ok, any()} | {:error, any()}
 end
