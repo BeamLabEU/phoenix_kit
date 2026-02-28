@@ -227,7 +227,7 @@ defmodule PhoenixKitWeb.Live.MyResourceFormLive do
       PresenceHelpers.track_editing_session(:resource, resource_uuid, socket, current_user)
 
       # Determine our role (owner or spectator) - returns tuple
-      case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.id) do
+      case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.uuid) do
         {:owner, _presences} ->
           socket = assign(socket, editing_role: :owner)
           {:ok, socket}
@@ -266,7 +266,7 @@ defmodule PhoenixKitWeb.Live.MyResourceFormLive do
     current_user = socket.assigns.current_user
 
     # Recalculate our role
-    case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.id) do
+    case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.uuid) do
       {:owner, _presences} ->
         old_role = socket.assigns.editing_role
         socket = assign(socket, editing_role: :owner)
@@ -461,7 +461,7 @@ if connected?(socket) do
   PresenceHelpers.track_editing_session(:entity, entity_uuid, socket, current_user)
 
   # Determine our role (returns tuple, not bare atom)
-  case PresenceHelpers.get_editing_role(:entity, entity_uuid, socket.id, current_user.id) do
+  case PresenceHelpers.get_editing_role(:entity, entity_uuid, socket.id, current_user.uuid) do
     {:owner, _presences} ->
       assign(socket, editing_role: :owner)
 
@@ -504,7 +504,7 @@ def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
   current_user = socket.assigns.current_user
 
   # Recalculate our role (returns tuple)
-  case PresenceHelpers.get_editing_role(:entity, entity_uuid, socket.id, current_user.id) do
+  case PresenceHelpers.get_editing_role(:entity, entity_uuid, socket.id, current_user.uuid) do
     {:owner, _presences} ->
       old_role = socket.assigns.editing_role
       socket = assign(socket, editing_role: :owner)
@@ -776,7 +776,7 @@ defmodule MyApp.MyResourceFormLive do
 
       # Determine our role (returns tuple)
       {editing_role, presences} =
-        case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id) do
+        case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.uuid) do
           {:owner, presences} -> {:owner, presences}
           {:spectator, _owner_meta, presences} -> {:spectator, presences}
         end
@@ -853,7 +853,7 @@ defmodule MyApp.MyResourceFormLive do
 
     # Recalculate our role (returns tuple)
     {editing_role, presences} =
-      case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.id) do
+      case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.uuid) do
         {:owner, presences} -> {:owner, presences}
         {:spectator, _owner_meta, presences} -> {:spectator, presences}
       end
@@ -924,7 +924,7 @@ def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
   # Recalculate role when someone joins/leaves
   current_user = socket.assigns.current_user
 
-  case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id) do
+  case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.uuid) do
     {:owner, _presences} -> assign(socket, editing_role: :owner)
     {:spectator, _owner_meta, _presences} -> assign(socket, editing_role: :spectator)
   end
@@ -961,7 +961,7 @@ presences = PresenceHelpers.get_sorted_presences(:resource, id)
 IO.inspect(presences, label: "Presences (sorted by joined_at)")
 
 # Verify your socket_id matches
-editing_role = PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id)
+editing_role = PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.uuid)
 IO.inspect({socket.id, editing_role}, label: "My socket_id and role")
 ```
 
@@ -974,7 +974,7 @@ IO.inspect({socket.id, editing_role}, label: "My socket_id and role")
 **Solution:**
 ```elixir
 # In handle_info(%{event: "presence_diff"})
-editing_role = PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id)
+editing_role = PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.uuid)
 old_role = socket.assigns.editing_role
 
 socket = assign(socket, editing_role: editing_role)
@@ -1005,7 +1005,7 @@ if connected?(socket) do
   PresenceHelpers.track_editing_session(:resource, id, socket, current_user)
 
   {editing_role, _presences} =
-    case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id) do
+    case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.uuid) do
       {:owner, presences} -> {:owner, presences}
       {:spectator, _owner_meta, presences} -> {:spectator, presences}
     end
@@ -1056,7 +1056,7 @@ use Phoenix.Presence,
 alias PhoenixKit.Entities.PresenceHelpers
 
 PresenceHelpers.track_editing_session(:resource, id, socket, metadata)
-editing_role = PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id)
+editing_role = PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.uuid)
 
 # ❌ Bad - don't use Phoenix.Presence directly
 alias PhoenixKit.Entities.Presence
@@ -1141,7 +1141,7 @@ end
 def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
   current_user = socket.assigns.current_user
 
-  case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id) do
+  case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.uuid) do
     {:owner, _presences} -> assign(socket, editing_role: :owner)
     {:spectator, _owner_meta, _presences} -> assign(socket, editing_role: :spectator)
   end

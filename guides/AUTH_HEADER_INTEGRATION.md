@@ -127,7 +127,7 @@ Scope.authenticated?(@phoenix_kit_current_scope)
 # Get user information
 Scope.user(@phoenix_kit_current_scope)        # Full user struct
 Scope.user_email(@phoenix_kit_current_scope)   # User's email
-Scope.user_id(@phoenix_kit_current_scope)      # User's ID
+Scope.user_uuid(@phoenix_kit_current_scope)    # User's UUID
 
 # Check user status
 Scope.anonymous?(@phoenix_kit_current_scope)   # Is anonymous?

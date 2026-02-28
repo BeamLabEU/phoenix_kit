@@ -168,7 +168,7 @@ PhoenixKit.Entities.enable_system()
   description: "Contact form submissions",
   icon: "hero-envelope",
   status: "published",
-  created_by: admin_user.id,
+  created_by: admin_user.uuid,
   fields_definition: [
     %{
       "type" => "text",
@@ -279,7 +279,7 @@ alias PhoenixKit.Entities.FieldTypes
   name: "contact_form",
   display_name: "Contact Form",
   status: "published",
-  # created_by: admin.id,  # Optional! Auto-filled if omitted
+  # created_by: admin.uuid,  # Optional! Auto-filled if omitted
   fields_definition: [
     FieldTypes.text_field("name", "Name", required: true),
     FieldTypes.email_field("email", "Email", required: true),
@@ -560,7 +560,7 @@ admin = PhoenixKit.Users.Auth.get_user_by_email("admin@example.com")
   name: "contact",
   display_name: "Contact Submission",
   status: "published",
-  created_by: admin.id,
+  created_by: admin.uuid,
   fields_definition: [
     %{"type" => "text", "key" => "name", "label" => "Name", "required" => true},
     %{"type" => "email", "key" => "email", "label" => "Email", "required" => true},
@@ -594,12 +594,12 @@ end
 
 ```elixir
 entity = PhoenixKit.Entities.get_entity_by_name("contact")
-records = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
+records = PhoenixKit.Entities.EntityData.list_by_entity(entity.uuid)
 
 # Convert to list of maps
 data = Enum.map(records, fn r ->
   Map.merge(r.data, %{
-    "id" => r.id,
+    "uuid" => r.uuid,
     "created_at" => r.date_created,
     "status" => r.status
   })

@@ -114,9 +114,9 @@ PhoenixKit has a **built-in context selector system** for switching between orga
 ```elixir
 # config/config.exs
 config :phoenix_kit, :dashboard_context_selector,
-  loader: {MyApp.Orgs, :list_for_user},      # (user_id) -> list of items
+  loader: {MyApp.Orgs, :list_for_user},      # (user_uuid) -> list of items
   display_name: fn org -> org.name end,       # How to display each item
-  id_field: :id,                              # Field to use as ID
+  id_field: :uuid,                            # Field to use as UUID
   label: "Organization",                      # Label in UI
   icon: "hero-building-office",               # Heroicon name
   position: :header,                          # :header or :sidebar
