@@ -196,10 +196,10 @@ PhoenixKit.Entities.enable_system()
 
 ```elixir
 {:ok, record} = PhoenixKit.Entities.EntityData.create(%{
-  entity_id: entity.id,
+  entity_id: entity.uuid,
   title: "New Contact",
   status: "published",
-  created_by: user.id,
+  created_by: user.uuid,
   data: %{
     "name" => "John Doe",
     "email" => "john@example.com",
@@ -214,7 +214,7 @@ PhoenixKit.Entities.enable_system()
 # All records for an entity
 records = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
 
-# Search by title (search_term first, entity_id optional second)
+# Search by title (search_term first, entity_uuid optional second)
 results = PhoenixKit.Entities.EntityData.search_by_title("John", entity.id)
 
 # Get entity by name
@@ -305,10 +305,10 @@ If you need to explicitly set `created_by`, use these helpers:
 
 ```elixir
 # Get first admin (Owner or Admin role) - recommended
-admin_id = PhoenixKit.Users.Auth.get_first_admin_id()
+admin_uuid = PhoenixKit.Users.Auth.get_first_admin_uuid()
 
 # Get first user (any role)
-user_id = PhoenixKit.Users.Auth.get_first_user_id()
+user_uuid = PhoenixKit.Users.Auth.get_first_user_uuid()
 
 # Get full user struct if needed
 admin = PhoenixKit.Users.Auth.get_first_admin()
@@ -654,13 +654,13 @@ PhoenixKit.Entities.get_system_stats() :: %{
 # Get by ID
 EntityData.get(id) :: EntityData.t() | nil           # Returns nil if not found
 EntityData.get!(id) :: EntityData.t()                # Raises if not found
-EntityData.get_by_slug(entity_id, slug) :: EntityData.t() | nil
+EntityData.get_by_slug(entity_uuid, slug) :: EntityData.t() | nil
 
 # List/Query
 EntityData.list_all() :: [EntityData.t()]
-EntityData.list_by_entity(entity_id) :: [EntityData.t()]
-EntityData.list_by_entity_and_status(entity_id, status) :: [EntityData.t()]
-EntityData.search_by_title(search_term, entity_id \\ nil) :: [EntityData.t()]
+EntityData.list_by_entity(entity_uuid) :: [EntityData.t()]
+EntityData.list_by_entity_and_status(entity_uuid, status) :: [EntityData.t()]
+EntityData.search_by_title(search_term, entity_uuid \\ nil) :: [EntityData.t()]
 
 # Create/Update/Delete
 EntityData.create(attrs) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
@@ -708,9 +708,9 @@ Auth.register_user(attrs) :: {:ok, User.t()} | {:error, Changeset.t()}
 
 # Admin user helpers (useful for created_by)
 Auth.get_first_admin() :: User.t() | nil       # First Owner or Admin
-Auth.get_first_admin_id() :: integer() | nil   # Just the ID
-Auth.get_first_user() :: User.t() | nil        # First user by ID
-Auth.get_first_user_id() :: integer() | nil    # Just the ID
+Auth.get_first_admin_uuid() :: String.t() | nil   # Just the UUID
+Auth.get_first_user() :: User.t() | nil        # First user by UUID
+Auth.get_first_user_uuid() :: String.t() | nil    # Just the UUID
 
 # Authentication
 Auth.authenticate_user(email, password) :: {:ok, User.t()} | {:error, :invalid_credentials}
@@ -784,21 +784,21 @@ Permissions.can_edit_role_permissions?(scope, role) :: :ok | {:error, String.t()
 
 # Query
 Permissions.get_permissions_for_user(user) :: [String.t()]
-Permissions.get_permissions_for_role(role_id) :: [String.t()]
-Permissions.role_has_permission?(role_id, key) :: boolean()
+Permissions.get_permissions_for_role(role_uuid) :: [String.t()]
+Permissions.role_has_permission?(role_uuid, key) :: boolean()
 Permissions.get_permissions_matrix() :: %{String.t() => MapSet.t()}
 Permissions.roles_with_permission(key) :: [String.t()]   # Role UUIDs with key
 Permissions.users_with_permission(key) :: [String.t()]   # User UUIDs with key
-Permissions.count_permissions_for_role(role_id) :: non_neg_integer()
-Permissions.diff_permissions(role_a_id, role_b_id) :: map()
+Permissions.count_permissions_for_role(role_uuid) :: non_neg_integer()
+Permissions.diff_permissions(role_a_uuid, role_b_uuid) :: map()
 
 # Mutations
-Permissions.grant_permission(role_id, key, granted_by_id) :: {:ok, RolePermission.t()} | {:error, term()}
-Permissions.revoke_permission(role_id, key) :: :ok | {:error, :not_found}
-Permissions.set_permissions(role_id, keys, granted_by_id) :: :ok | {:error, term()}
-Permissions.grant_all_permissions(role_id, granted_by_id) :: :ok | {:error, term()}
-Permissions.revoke_all_permissions(role_id) :: :ok
-Permissions.copy_permissions(source_role_id, target_role_id, granted_by_id) :: :ok | {:error, term()}
+Permissions.grant_permission(role_uuid, key, granted_by_uuid) :: {:ok, RolePermission.t()} | {:error, term()}
+Permissions.revoke_permission(role_uuid, key) :: :ok | {:error, :not_found}
+Permissions.set_permissions(role_uuid, keys, granted_by_uuid) :: :ok | {:error, term()}
+Permissions.grant_all_permissions(role_uuid, granted_by_uuid) :: :ok | {:error, term()}
+Permissions.revoke_all_permissions(role_uuid) :: :ok
+Permissions.copy_permissions(source_role_uuid, target_role_uuid, granted_by_uuid) :: :ok | {:error, term()}
 ```
 
 ### PhoenixKit.Users.Auth.Scope
@@ -810,7 +810,7 @@ Scope.for_user(user_or_nil) :: Scope.t()
 # Identity
 Scope.authenticated?(scope) :: boolean()
 Scope.user(scope) :: User.t() | nil
-Scope.user_id(scope) :: integer() | nil
+Scope.user_uuid(scope) :: String.t() | nil
 Scope.user_email(scope) :: String.t() | nil
 Scope.user_full_name(scope) :: String.t() | nil
 Scope.anonymous?(scope) :: boolean()
