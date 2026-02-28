@@ -137,7 +137,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
       user_email = Scope.user_email(scope)
 
       # Create a user map for tracking (uuid required by SimplePresence)
-      user = %{uuid: scope.user.uuid, id: user_id, email: user_email}
+      user = %{uuid: user_uuid, email: user_email}
       session_id = session["live_socket_id"] || generate_session_id()
 
       Presence.track_user(user, %{

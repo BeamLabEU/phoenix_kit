@@ -37,7 +37,7 @@ defmodule PhoenixKit.Modules.Entities.Web.Hooks do
     if scope && Scope.authenticated?(scope) do
       user = %{
         uuid: scope.user.uuid,
-        id: Scope.user_id(scope),
+        uuid: Scope.user_uuid(scope),
         email: Scope.user_email(scope)
       }
 

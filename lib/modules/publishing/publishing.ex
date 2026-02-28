@@ -1040,7 +1040,7 @@ defmodule PhoenixKit.Modules.Publishing do
   defp resolve_scope_user_ids(nil), do: nil
 
   defp resolve_scope_user_ids(scope) do
-    Scope.user_id(scope)
+    Scope.user_uuid(scope)
   end
 
   @doc """
@@ -2208,7 +2208,7 @@ defmodule PhoenixKit.Modules.Publishing do
   def audit_metadata(scope, action) do
     user_id =
       scope
-      |> Scope.user_id()
+      |> Scope.user_uuid()
       |> normalize_audit_value()
 
     user_email =
