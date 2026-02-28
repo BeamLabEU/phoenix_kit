@@ -120,7 +120,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_order_created(order) do
     broadcast(@orders_topic, {:order_created, order})
-    broadcast("#{@orders_topic}:user:#{order.user_id}", {:order_created, order})
+    broadcast("#{@orders_topic}:user:#{order.user_uuid}", {:order_created, order})
   end
 
   @doc """
@@ -128,7 +128,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_order_updated(order) do
     broadcast(@orders_topic, {:order_updated, order})
-    broadcast("#{@orders_topic}:user:#{order.user_id}", {:order_updated, order})
+    broadcast("#{@orders_topic}:user:#{order.user_uuid}", {:order_updated, order})
   end
 
   @doc """
@@ -136,7 +136,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_order_confirmed(order) do
     broadcast(@orders_topic, {:order_confirmed, order})
-    broadcast("#{@orders_topic}:user:#{order.user_id}", {:order_confirmed, order})
+    broadcast("#{@orders_topic}:user:#{order.user_uuid}", {:order_confirmed, order})
   end
 
   @doc """
@@ -144,7 +144,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_order_paid(order) do
     broadcast(@orders_topic, {:order_paid, order})
-    broadcast("#{@orders_topic}:user:#{order.user_id}", {:order_paid, order})
+    broadcast("#{@orders_topic}:user:#{order.user_uuid}", {:order_paid, order})
   end
 
   @doc """
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_order_cancelled(order) do
     broadcast(@orders_topic, {:order_cancelled, order})
-    broadcast("#{@orders_topic}:user:#{order.user_id}", {:order_cancelled, order})
+    broadcast("#{@orders_topic}:user:#{order.user_uuid}", {:order_cancelled, order})
   end
 
   # ============================================
@@ -164,7 +164,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_invoice_created(invoice) do
     broadcast(@invoices_topic, {:invoice_created, invoice})
-    broadcast("#{@invoices_topic}:user:#{invoice.user_id}", {:invoice_created, invoice})
+    broadcast("#{@invoices_topic}:user:#{invoice.user_uuid}", {:invoice_created, invoice})
   end
 
   @doc """
@@ -172,7 +172,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_invoice_sent(invoice) do
     broadcast(@invoices_topic, {:invoice_sent, invoice})
-    broadcast("#{@invoices_topic}:user:#{invoice.user_id}", {:invoice_sent, invoice})
+    broadcast("#{@invoices_topic}:user:#{invoice.user_uuid}", {:invoice_sent, invoice})
   end
 
   @doc """
@@ -180,7 +180,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_invoice_paid(invoice) do
     broadcast(@invoices_topic, {:invoice_paid, invoice})
-    broadcast("#{@invoices_topic}:user:#{invoice.user_id}", {:invoice_paid, invoice})
+    broadcast("#{@invoices_topic}:user:#{invoice.user_uuid}", {:invoice_paid, invoice})
   end
 
   @doc """
@@ -188,7 +188,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
   """
   def broadcast_invoice_voided(invoice) do
     broadcast(@invoices_topic, {:invoice_voided, invoice})
-    broadcast("#{@invoices_topic}:user:#{invoice.user_id}", {:invoice_voided, invoice})
+    broadcast("#{@invoices_topic}:user:#{invoice.user_uuid}", {:invoice_voided, invoice})
   end
 
   # ============================================
@@ -227,7 +227,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
     broadcast(@transactions_topic, {:transaction_created, transaction})
 
     broadcast(
-      "#{@transactions_topic}:user:#{transaction.user_id}",
+      "#{@transactions_topic}:user:#{transaction.user_uuid}",
       {:transaction_created, transaction}
     )
   end
@@ -239,7 +239,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
     broadcast(@transactions_topic, {:transaction_refunded, transaction})
 
     broadcast(
-      "#{@transactions_topic}:user:#{transaction.user_id}",
+      "#{@transactions_topic}:user:#{transaction.user_uuid}",
       {:transaction_refunded, transaction}
     )
   end
@@ -273,7 +273,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
     broadcast(@subscriptions_topic, {:subscription_created, subscription})
 
     broadcast(
-      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      "#{@subscriptions_topic}:user:#{subscription.user_uuid}",
       {:subscription_created, subscription}
     )
   end
@@ -285,7 +285,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
     broadcast(@subscriptions_topic, {:subscription_cancelled, subscription})
 
     broadcast(
-      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      "#{@subscriptions_topic}:user:#{subscription.user_uuid}",
       {:subscription_cancelled, subscription}
     )
   end
@@ -297,7 +297,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
     broadcast(@subscriptions_topic, {:subscription_renewed, subscription})
 
     broadcast(
-      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      "#{@subscriptions_topic}:user:#{subscription.user_uuid}",
       {:subscription_renewed, subscription}
     )
   end
@@ -312,7 +312,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
     )
 
     broadcast(
-      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      "#{@subscriptions_topic}:user:#{subscription.user_uuid}",
       {:subscription_type_changed, subscription, old_type_id, new_type_id}
     )
   end
@@ -327,7 +327,7 @@ defmodule PhoenixKit.Modules.Billing.Events do
     )
 
     broadcast(
-      "#{@subscriptions_topic}:user:#{subscription.user_id}",
+      "#{@subscriptions_topic}:user:#{subscription.user_uuid}",
       {:subscription_status_changed, subscription, old_status, new_status}
     )
   end

@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
         line_items = parse_line_items(order.line_items)
 
         billing_profiles =
-          if order.user_id, do: Billing.list_user_billing_profiles(order.user_id), else: []
+          if order.user_uuid, do: Billing.list_user_billing_profiles(order.user_uuid), else: []
 
         # Get country tax info from billing profile
         {country_tax_rate, country_name, country_vat_percent} =
