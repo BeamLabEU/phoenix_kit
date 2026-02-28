@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.TestEnsureAuthLive do
                 <h3 class="font-bold">User is authenticated!</h3>
                 <div class="text-sm">
                   <p><strong>Email:</strong> {Scope.user_email(@phoenix_kit_current_scope)}</p>
-                  <p><strong>ID:</strong> {Scope.user_id(@phoenix_kit_current_scope)}</p>
+                  <p><strong>ID:</strong> {Scope.user_uuid(@phoenix_kit_current_scope)}</p>
                   <%= if Scope.user(@phoenix_kit_current_scope).confirmed_at do %>
                     <p><strong>Status:</strong> Confirmed at {Scope.user(@phoenix_kit_current_scope).confirmed_at}</p>
                   <% else %>
