@@ -18,7 +18,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
 
       # Import to specific category
       category = Shop.get_category_by_slug("shelves")
-      ShopifyCSV.import("/path/to/products.csv", category_id: category.uuid)
+      ShopifyCSV.import("/path/to/products.csv", category_uuid: category.uuid)
   """
 
   alias PhoenixKit.Modules.Shop
@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   ## Options
 
   - `:dry_run` - If true, don't create products, just return what would be created
-  - `:category_id` - Override category for all products
+  - `:category_uuid` - Override category for all products
   - `:skip_existing` - If true, skip products with existing slugs (default: true)
   - `:update_existing` - If true, update existing products instead of skipping (default: false)
   - `:config` - ImportConfig struct for filtering/categorization (nil = use defaults)
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   """
   def import(file_path, opts \\ []) do
     dry_run = Keyword.get(opts, :dry_run, false)
-    category_id = Keyword.get(opts, :category_id)
+    category_uuid = Keyword.get(opts, :category_uuid)
     skip_existing = Keyword.get(opts, :skip_existing, true)
     update_existing = Keyword.get(opts, :update_existing, false)
     config = Keyword.get(opts, :config)
@@ -95,7 +95,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       {:ok, validation_report} ->
         do_import(file_path, %{
           dry_run: dry_run,
-          category_id: category_id,
+          category_uuid: category_uuid,
           skip_existing: skip_existing,
           update_existing: update_existing,
           config: config,
@@ -119,7 +119,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   defp do_import(file_path, opts) do
     %{
       dry_run: dry_run,
-      category_id: category_id,
+      category_uuid: category_uuid,
       skip_existing: skip_existing,
       update_existing: update_existing,
       config: config,
@@ -141,7 +141,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       |> Enum.map(fn {handle, rows} ->
         process_product(handle, rows, %{
           dry_run: dry_run,
-          category_id: category_id,
+          category_uuid: category_uuid,
           categories_map: categories_map,
           skip_existing: skip_existing,
           update_existing: update_existing,
@@ -229,7 +229,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   defp do_process_product(handle, rows, opts) do
     %{
       dry_run: dry_run,
-      category_id: override_category_id,
+      category_uuid: override_category_uuid,
       categories_map: categories_map,
       config: config,
       language: language
@@ -241,8 +241,8 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
 
     # Override category if specified
     attrs =
-      if override_category_id do
-        Map.put(attrs, :category_id, override_category_id)
+      if override_category_uuid do
+        Map.put(attrs, :category_uuid, override_category_uuid)
       else
         attrs
       end

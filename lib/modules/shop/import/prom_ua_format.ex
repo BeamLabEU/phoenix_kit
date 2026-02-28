@@ -104,7 +104,7 @@ defmodule PhoenixKit.Modules.Shop.Import.PromUaFormat do
 
   defp transform_row(row, categories_map) do
     slug = extract_slug(row)
-    category_id = resolve_category(row, categories_map)
+    category_uuid = resolve_category(row, categories_map)
     {price, compare_at_price} = parse_price_and_discount(row)
     image_urls = parse_image_urls(row["Посилання_зображення"])
     images = Enum.map(image_urls, fn url -> %{"src" => url} end)
@@ -136,7 +136,7 @@ defmodule PhoenixKit.Modules.Shop.Import.PromUaFormat do
       taxable: true,
       featured_image: List.first(image_urls),
       images: images,
-      category_id: category_id,
+      category_uuid: category_uuid,
       weight_grams: parse_weight(row["Вага,кг"]),
       metadata: build_metadata(row)
     }
@@ -212,8 +212,8 @@ defmodule PhoenixKit.Modules.Shop.Import.PromUaFormat do
           # Auto-create category with ru name and generated slug
           maybe_create_prom_category(group_name, category_slug)
 
-        category_id ->
-          category_id
+        category_uuid ->
+          category_uuid
       end
     else
       nil

@@ -32,7 +32,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
 
   - handle: Product handle (slug)
   - rows: List of CSV row maps for this product
-  - categories_map: Map of slug => category_id
+  - categories_map: Map of slug => category_uuid
   - config: Optional ImportConfig for category rules (nil = legacy defaults)
   - opts: Keyword options:
     - `:language` - Target language for imported content (default: system default language)
@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
     category_slug = Filter.categorize(title, config)
 
     # Get category_uuid, auto-creating if necessary (with localized name/slug)
-    category_uuid = resolve_category_id(category_slug, categories_map, language)
+    category_uuid = resolve_category_uuid(category_slug, categories_map, language)
 
     # Build metadata with option values and price modifiers
     metadata = build_metadata(options)
@@ -100,7 +100,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   defp localized_map(value, language) when is_binary(value), do: %{language => value}
 
   @doc """
-  Resolves category_id from slug, auto-creating if necessary.
+  Resolves category UUID from slug, auto-creating if necessary.
 
   If category doesn't exist, creates it with:
   - name: Generated from slug (capitalize, replace hyphens with spaces) - localized map
@@ -110,12 +110,12 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   ## Arguments
 
   - category_slug: The slug string to look up
-  - categories_map: Map of slug => category_id
+  - categories_map: Map of slug => category_uuid
   - language: Target language for localized fields (default: system default)
   """
-  def resolve_category_id(category_slug, categories_map, language \\ nil)
+  def resolve_category_uuid(category_slug, categories_map, language \\ nil)
 
-  def resolve_category_id(category_slug, categories_map, language)
+  def resolve_category_uuid(category_slug, categories_map, language)
       when is_binary(category_slug) do
     lang = language || Translations.default_language()
 
@@ -124,12 +124,12 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
         # Category doesn't exist - try to create it
         maybe_create_category(category_slug, lang)
 
-      category_id ->
-        category_id
+      category_uuid ->
+        category_uuid
     end
   end
 
-  def resolve_category_id(_, _, _), do: nil
+  def resolve_category_uuid(_, _, _), do: nil
 
   defp maybe_create_category(slug, language) when is_binary(slug) and slug != "" do
     # First check if category already exists (using localized slug search)
@@ -210,7 +210,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
 
   - handle: Product handle (slug)
   - rows: List of CSV row maps for this product
-  - categories_map: Map of slug => category_id
+  - categories_map: Map of slug => category_uuid
   - config: Optional ImportConfig for category rules and option mappings
   - opts: Keyword options:
     - `:language` - Target language for imported content
@@ -237,7 +237,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
     category_slug = Filter.categorize(title, config)
 
     # Get category_uuid, auto-creating if necessary (with localized name/slug)
-    category_uuid = resolve_category_id(category_slug, categories_map, language)
+    category_uuid = resolve_category_uuid(category_slug, categories_map, language)
 
     # Build metadata with slot-based option structure
     metadata = build_metadata_extended(options)
