@@ -2241,7 +2241,7 @@ defmodule PhoenixKit.Modules.Billing do
   ## Options
 
   - `:invoice_id` - Filter by invoice
-  - `:user_id` - Filter by user who created the transaction
+  - `:user_uuid` - Filter by user who created the transaction
   - `:payment_method` - Filter by payment method
   - `:type` - Filter by type: "payment" (amount > 0) or "refund" (amount < 0)
   - `:search` - Search by transaction number
@@ -2271,7 +2271,7 @@ defmodule PhoenixKit.Modules.Billing do
   defp filter_transactions(query, opts) do
     query
     |> filter_transactions_by_invoice(opts)
-    |> filter_transactions_by_user(opts[:user_id])
+    |> filter_transactions_by_user(opts[:user_uuid])
     |> filter_transactions_by_payment_method(opts[:payment_method])
     |> filter_transactions_by_type(opts[:type])
     |> filter_transactions_by_search(opts[:search])
@@ -2294,8 +2294,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   defp filter_transactions_by_user(query, nil), do: query
 
-  defp filter_transactions_by_user(query, user_id) do
-    user_uuid = extract_user_uuid(user_id)
+  defp filter_transactions_by_user(query, user_uuid) do
     where(query, [t], t.user_uuid == ^user_uuid)
   end
 
@@ -2661,13 +2660,12 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Examples
 
-      Billing.list_user_subscriptions(user_id)
-      Billing.list_user_subscriptions(user_id, status: "active")
+      Billing.list_user_subscriptions(user.uuid)
+      Billing.list_user_subscriptions(user.uuid, status: "active")
   """
-  def list_user_subscriptions(user_id, opts \\ []) do
+  def list_user_subscriptions(user_uuid, opts \\ []) do
     status = Keyword.get(opts, :status)
     preloads = Keyword.get(opts, :preload, [:subscription_type])
-    user_uuid = extract_user_uuid(user_id)
 
     query =
       from(s in Subscription,
@@ -2728,7 +2726,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Parameters
 
-  - `user_id` - The user creating the subscription (UUID)
+  - `user_uuid` - The user creating the subscription (UUID)
   - `attrs` - Subscription attributes:
     - `:subscription_type_uuid` - Required: subscription type UUID
     - `:subscription_type_id` - Legacy alias, still accepted for backward compatibility
@@ -2745,7 +2743,7 @@ defmodule PhoenixKit.Modules.Billing do
       # Using plan_uuid parameter
       Billing.create_subscription(user.uuid, %{plan_uuid: type.uuid})
   """
-  def create_subscription(user_id, attrs) do
+  def create_subscription(user_uuid, attrs) do
     type_uuid =
       attrs[:subscription_type_uuid] || attrs["subscription_type_uuid"] ||
         attrs[:subscription_type_id] || attrs["subscription_type_id"] ||
@@ -2769,7 +2767,7 @@ defmodule PhoenixKit.Modules.Billing do
       payment_method_uuid = attrs[:payment_method_uuid]
 
       subscription_attrs = %{
-        user_uuid: extract_user_uuid(user_id),
+        user_uuid: user_uuid,
         subscription_type_uuid: type.uuid,
         billing_profile_uuid: billing_profile_uuid,
         payment_method_uuid: payment_method_uuid,
@@ -2999,9 +2997,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Lists saved payment methods for a user.
   """
-  def list_payment_methods(user_id, opts \\ []) do
+  def list_payment_methods(user_uuid, opts \\ []) do
     active_only = Keyword.get(opts, :active_only, true)
-    user_uuid = extract_user_uuid(user_id)
 
     query =
       from(pm in PaymentMethod,
@@ -3035,9 +3032,7 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets the default payment method for a user.
   """
-  def get_default_payment_method(user_id) do
-    user_uuid = extract_user_uuid(user_id)
-
+  def get_default_payment_method(user_uuid) do
     from(pm in PaymentMethod,
       where: pm.user_uuid == ^user_uuid and pm.is_default == true and pm.status == "active",
       limit: 1
@@ -3150,16 +3145,16 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Parameters
 
-  - `user_id` - The user saving the payment method
+  - `user_uuid` - The user saving the payment method
   - `provider` - Payment provider atom
   - `opts` - Options (success_url required)
   """
-  def create_setup_session(user_id, provider, opts \\ []) do
+  def create_setup_session(user_uuid, provider, opts \\ []) do
     success_url = Keyword.fetch!(opts, :success_url)
     cancel_url = Keyword.get(opts, :cancel_url, success_url)
 
     session_opts = %{
-      user_id: user_id,
+      uuid: user_uuid,
       success_url: success_url,
       cancel_url: cancel_url
     }

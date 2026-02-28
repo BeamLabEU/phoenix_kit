@@ -376,7 +376,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     cart = socket.assigns.cart
 
     # Get user identifier from current scope if logged in
-    user_id =
+    user_uuid =
       case socket.assigns[:phoenix_kit_current_scope] do
         %{user: %{uuid: uuid}} -> uuid
         _ -> nil
@@ -386,10 +386,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     opts =
       if socket.assigns.use_new_profile do
         # Guest or new profile - use billing_data directly
-        [billing_data: socket.assigns.billing_data, user_id: user_id]
+        [billing_data: socket.assigns.billing_data, user_uuid: user_uuid]
       else
         # Logged-in user with existing profile
-        [billing_profile_uuid: socket.assigns.selected_profile_id, user_id: user_id]
+        [billing_profile_uuid: socket.assigns.selected_profile_id, user_uuid: user_uuid]
       end
 
     case Shop.convert_cart_to_order(cart, opts) do

@@ -1,6 +1,6 @@
 # Plan: Rename `_id` → `_uuid` across all modules
 
-**Status:** Phase 1 Complete - Phase 2 Complete - Phase 2b Complete - Phase 3 Complete (Post-Mistral Review)
+**Status:** Phase 1 Complete - Phase 2 Complete - Phase 2b Complete - Phase 3 Complete
 **Created:** 2026-02-28
 **Updated:** 2026-02-28
 
@@ -227,15 +227,112 @@ grep -rn "\buser_id\b" lib/ | grep -v "# \|@doc\|migrations"
 - **mix compile --warnings-as-errors** — ✅ clean
 - **mix test** — ✅ 488 tests, 0 failures
 
-## Phase 3: Additional Parameter Naming Inconsistencies (COMPLETE)
+## Phase 3: Additional Parameter Naming Inconsistencies (PARTIALLY COMPLETE)
 
 **Date:** 2026-02-28
 **Analyst:** Mistral Vibe
 **Scope:** Function parameter naming audit for remaining `user_id` vs `user_uuid` inconsistencies
+**Status:** COMPLETE
 
 ### Issue: Misnamed UUID Parameters
 
 Many function parameters are named `*_user_id` but expect and validate UUID values internally, creating naming inconsistency similar to Phase 2b findings.
+
+### What Claude Fixed (Commit 74cc4a6b)
+
+✅ **Completed Files:**
+- `lib/phoenix_kit/audit_log.ex` - All parameters renamed
+- `lib/modules/sync/connection.ex` - All parameters renamed  
+- `lib/modules/sync/transfers.ex` - All parameters renamed
+- `lib/modules/comments/comments.ex` - All parameters renamed
+- `lib/modules/billing/billing.ex` - Partial (see below)
+- `lib/modules/entities/presence_helpers.ex` - Presence metadata keys
+- `lib/modules/entities/web/data_form.ex` - Form fields
+- `lib/modules/entities/web/entity_form.ex` - Form fields
+- `lib/phoenix_kit/mailer.ex` - Email parameters
+- `lib/phoenix_kit/users/auth/scope.ex` - Scope to_map keys
+
+✅ **Specific Functions Fixed:**
+- `audit_log.log_admin_action/4`: `admin_user_id` → `admin_user_uuid`
+- `audit_log.log_user_action/3`: `target_user_id` → `target_user_uuid`
+- `sync/connection.approve_changeset/2`: `admin_user_id` → `admin_user_uuid`
+- `sync/connection.suspend_changeset/3`: `admin_user_id` → `admin_user_uuid`
+- `sync/connection.revoke_changeset/3`: `admin_user_id` → `admin_user_uuid`
+- `sync/transfers.approve_transfer/2`: `admin_user_id` → `admin_user_uuid`
+- `sync/transfers.deny_transfer/3`: `admin_user_id` → `admin_user_uuid`
+- `comments.create_comment/4`: `user_id` → `user_uuid`
+- `billing.list_user_billing_profiles/1`: `user_id` → `user_uuid`
+- `billing.get_default_billing_profile/1`: `user_id` → `user_uuid`
+- `billing.list_user_orders/2`: `user_id` → `user_uuid`
+- `billing.list_user_invoices/2`: `user_id` → `user_uuid`
+- `billing.filter_by_user_id/2` → `filter_by_user_uuid/2`
+
+### What Still Needs Fixing (Remaining Work)
+
+❌ **Files with Remaining Issues:**
+
+#### lib/modules/billing/billing.ex
+- `list_user_subscriptions/2`: Still uses `user_id` parameter
+- `create_subscription/2`: Still uses `user_id` parameter
+- `list_payment_methods/2`: Still uses `user_id` parameter
+- `get_default_payment_method/1`: Still uses `user_id` parameter
+- `create_setup_session/3`: Still uses `user_id` parameter
+- `filter_transactions_by_user/2`: Still uses `user_id` parameter
+
+#### lib/modules/referrals/referrals.ex
+- `use_code/2`: Still uses `user_id` parameter with `UUIDUtils.valid?(user_id)`
+- `process_code_usage/2`: Still uses `user_id` parameter
+- `record_code_usage/1`: Still uses `user_id` parameter
+
+#### lib/modules/shop/shop.ex
+- `resolve_logged_in_user_with_guest_cart/2`: Still uses `user_id` parameter
+- `do_create_order/2`: Still uses `user_id` parameter
+- `maybe_send_guest_confirmation/1`: Still uses `user_id` parameter
+
+#### lib/modules/publishing/publishing.ex
+- `resolve_scope_user_ids/1`: Still uses `user_id` in function name and logic
+- Multiple internal functions using `user_id` parameters
+
+#### lib/modules/entities/entities.ex
+- `list_user_entities/2`: Still uses `user_id` parameter
+- Multiple functions with `user_id` parameters expecting UUIDs
+
+### Verification of Remaining Issues
+
+```bash
+# Check remaining user_id parameters that should be user_uuid
+grep -rn "def.*user_id" lib/modules/billing/billing.ex lib/modules/referrals/referrals.ex lib/modules/shop/shop.ex lib/modules/publishing/publishing.ex lib/modules/entities/entities.ex
+
+# Verify these parameters expect UUIDs by checking for UUID validation
+grep -A 5 "def.*user_id" lib/modules/referrals/referrals.ex | grep -E "UUIDUtils\.valid|resolve_user_uuid|extract_user_uuid"
+```
+
+### Updated Phase 3 Checklist
+
+- [x] ✅ Rename parameters in audit_log.ex (COMPLETE)
+- [x] ✅ Rename parameters in sync/connection.ex (COMPLETE)
+- [x] ✅ Rename parameters in sync/transfers.ex (COMPLETE)
+- [x] ✅ Rename parameters in comments/comments.ex (COMPLETE)
+- [x] ✅ Rename some parameters in billing/billing.ex (PARTIAL)
+- [x] ✅ Rename remaining parameters in billing/billing.ex
+- [x] ✅ Rename parameters in referrals/referrals.ex (already fixed in prior commit)
+- [x] ✅ Rename parameters in shop/shop.ex
+- [x] ✅ publishing/publishing.ex — resolve_scope_user_ids already fixed, no remaining user_id params
+- [x] ✅ entities/entities.ex — list_user_entities/2 does not exist (Mistral hallucination)
+- [x] ✅ Update all call sites (checkout_page.ex updated for user_uuid key)
+- [x] ✅ Run mix compile --warnings-as-errors — clean
+- [x] ✅ Run mix test — 488 tests, 0 failures
+
+### Expected Impact of Remaining Work
+
+- **Breaking Changes:** None (parameter renaming maintains backward compatibility)
+- **Database Changes:** None required
+- **API Changes:** Parameter names will change but functionality remains identical
+- **Effort:** ~1-2 days to complete remaining files
+
+### Relationship to Claude's Work
+
+Claude completed the majority of Phase 3 work (~60-70%) in commit 74cc4a6b, addressing the most critical files first. The remaining work follows the same pattern and should be completed for full consistency across the codebase.
 
 ### Critical Files with Parameter Naming Issues
 
@@ -414,10 +511,18 @@ The pattern is identical to Phase 2b: **the value is already a UUID, but the nam
 
 The remaining gap in the verification strategy was: **no systematic scan of all `user_id` parameter names in function signatures** (`def.*user_id`). That grep was described in Phase 2b's corrective notes but not actually executed before declaring Phase 2b complete.
 
-### Phase 3 Verification
+### Phase 3 Verification (Final)
 
 - **mix compile --warnings-as-errors** — ✅ clean
 - **mix test** — ✅ 488 tests, 0 failures
+
+### Files Changed in Phase 3 (Final Commit)
+
+| File | Changes |
+|------|---------|
+| `lib/modules/billing/billing.ex` | `list_user_subscriptions`, `create_subscription`, `list_payment_methods`, `get_default_payment_method`, `create_setup_session`: `user_id` → `user_uuid`; `filter_transactions_by_user`: `user_id` → `user_uuid` + simplified (removed `extract_user_uuid`); `session_opts` key `user_id:` → `uuid:`; docstring opts updated |
+| `lib/modules/shop/shop.ex` | `resolve_logged_in_user_with_guest_cart`, `do_create_order`, `maybe_send_guest_confirmation`: `user_id` → `user_uuid`; `convert_cart_to_order` internal variable; opts key lookup `:user_id` → `:user_uuid`; docstring |
+| `lib/modules/shop/web/checkout_page.ex` | `user_id` variable → `user_uuid`; opts keys `user_id:` → `user_uuid:` |
 
 ### Relationship to Previous Phases
 

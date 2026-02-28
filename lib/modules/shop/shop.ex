@@ -2140,7 +2140,7 @@ defmodule PhoenixKit.Modules.Shop do
   - Billing profile snapshot (from profile_id or direct billing_data)
   - Cart marked as "converted"
 
-  For guest checkout (no user_id on cart):
+  For guest checkout (no user_uuid on cart):
   - Creates a guest user via `Auth.create_guest_user/1`
   - Guest user has `confirmed_at = nil` until email verification
   - Sends confirmation email automatically
@@ -2171,12 +2171,12 @@ defmodule PhoenixKit.Modules.Shop do
       # if another request already started conversion
       with :ok <- validate_cart_convertible(cart),
            {:ok, cart} <- try_lock_cart_for_conversion(cart),
-           {:ok, user_id, cart} <- resolve_checkout_user(cart, opts),
+           {:ok, user_uuid, cart} <- resolve_checkout_user(cart, opts),
            line_items <- build_order_line_items(cart),
            order_attrs <- build_order_attrs(cart, line_items, opts),
-           {:ok, order} <- do_create_order(user_id, order_attrs),
+           {:ok, order} <- do_create_order(user_uuid, order_attrs),
            {:ok, _cart} <- mark_cart_converted(cart, order.uuid),
-           :ok <- maybe_send_guest_confirmation(user_id) do
+           :ok <- maybe_send_guest_confirmation(user_uuid) do
         {:ok, order}
       else
         {:error, reason} ->
@@ -2322,22 +2322,22 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp resolve_checkout_user(%Cart{user_uuid: nil} = cart, opts) do
-    # Check if logged-in user_id was passed in opts (user is logged in but has guest cart)
-    case Keyword.get(opts, :user_id) do
-      user_id when not is_nil(user_id) ->
-        resolve_logged_in_user_with_guest_cart(cart, user_id)
+    # Check if logged-in user_uuid was passed in opts (user is logged in but has guest cart)
+    case Keyword.get(opts, :user_uuid) do
+      user_uuid when not is_nil(user_uuid) ->
+        resolve_logged_in_user_with_guest_cart(cart, user_uuid)
 
       nil ->
         resolve_guest_checkout(cart, opts)
     end
   end
 
-  defp resolve_logged_in_user_with_guest_cart(cart, user_id) do
-    user = Auth.get_user(user_id)
+  defp resolve_logged_in_user_with_guest_cart(cart, user_uuid) do
+    user = Auth.get_user(user_uuid)
 
     case user && assign_cart_to_user(cart, user) do
-      {:ok, updated_cart} -> {:ok, user_id, updated_cart}
-      _ -> {:ok, user_id, cart}
+      {:ok, updated_cart} -> {:ok, user_uuid, updated_cart}
+      _ -> {:ok, user_uuid, cart}
     end
   end
 
@@ -2392,15 +2392,15 @@ defmodule PhoenixKit.Modules.Shop do
     Billing.create_order(order_attrs)
   end
 
-  defp do_create_order(user_id, order_attrs) do
-    Billing.create_order(user_id, order_attrs)
+  defp do_create_order(user_uuid, order_attrs) do
+    Billing.create_order(user_uuid, order_attrs)
   end
 
   # Send confirmation email to guest users
   defp maybe_send_guest_confirmation(nil), do: :ok
 
-  defp maybe_send_guest_confirmation(user_id) do
-    case Auth.get_user(user_id) do
+  defp maybe_send_guest_confirmation(user_uuid) do
+    case Auth.get_user(user_uuid) do
       %{confirmed_at: nil} = user ->
         # Guest user - send confirmation email
         Auth.deliver_user_confirmation_instructions(
