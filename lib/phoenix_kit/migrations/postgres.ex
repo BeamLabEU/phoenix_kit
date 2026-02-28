@@ -509,13 +509,22 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Fixes create_group and like/dislike/comment/mention inserts failing with not_null_violation
 
   ### V67 - Make all remaining NOT NULL integer FK columns nullable
-  - Drops NOT NULL on 39 legacy integer FK columns across 28 tables
-  - Covers: posts, tickets, storage, admin, auth, audit, connections, billing,
+  - Drops NOT NULL on 42 legacy integer FK columns across 30 tables
+  - Covers: roles, posts, tickets, storage, admin, auth, audit, connections, billing,
     entities, referrals, standalone comments, and shop modules
   - Handles V65 plan_id → subscription_type_id rename (checks both names)
   - All operations idempotent (table/column existence + NOT NULL guards)
 
-  ### V68 - Allow NULL slug for timestamp-mode publishing posts ⚡ LATEST
+  ### V68 - Allow NULL slug for timestamp-mode publishing posts
+  - Drops NOT NULL on `slug` in `phoenix_kit_publishing_posts`
+  - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
+  - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
+
+  ### V69 - Make legacy integer FK columns nullable on role tables ⚡ LATEST
+  - Drops NOT NULL on `user_id` and `role_id` in `phoenix_kit_user_role_assignments`
+  - Drops NOT NULL on `role_id` in `phoenix_kit_role_permissions`
+  - Fixes role assignment and permission inserts failing with not_null_violation
+  - All operations idempotent (table/column existence + NOT NULL guards)
   - Drops NOT NULL on `slug` in `phoenix_kit_publishing_posts`
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
@@ -578,7 +587,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 68
+  @current_version 69
   @default_prefix "public"
 
   @doc false

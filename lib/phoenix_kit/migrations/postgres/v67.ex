@@ -9,7 +9,11 @@ defmodule PhoenixKit.Migrations.Postgres.V67 do
   This migration makes all remaining affected columns nullable in one pass.
   All operations are idempotent (guarded by table/column existence checks).
 
-  ## Tables & Columns (39 total)
+  ## Tables & Columns (42 total)
+
+  ### Roles (3)
+  - user_role_assignments.user_id, user_role_assignments.role_id
+  - role_permissions.role_id
 
   ### Posts (3)
   - posts.user_id
@@ -62,6 +66,10 @@ defmodule PhoenixKit.Migrations.Postgres.V67 do
 
   # {table_name, column_name}
   @columns [
+    # Roles
+    {"phoenix_kit_user_role_assignments", "user_id"},
+    {"phoenix_kit_user_role_assignments", "role_id"},
+    {"phoenix_kit_role_permissions", "role_id"},
     # Posts
     {"phoenix_kit_posts", "user_id"},
     {"phoenix_kit_comment_likes", "user_id"},
