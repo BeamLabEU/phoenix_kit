@@ -14,8 +14,8 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    code_id = params["code_id"]
-    mode = if code_id, do: :edit, else: :new
+    code_uuid = params["code_uuid"]
+    mode = if code_uuid, do: :edit, else: :new
 
     # Get project title from settings
     project_title = Settings.get_project_title()
@@ -23,12 +23,12 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     socket =
       socket
       |> assign(:mode, mode)
-      |> assign(:code_id, code_id)
+      |> assign(:code_uuid, code_uuid)
       |> assign(:page_title, page_title(mode))
       |> assign(:project_title, project_title)
       |> assign(:search_results, [])
       |> assign(:selected_beneficiary, nil)
-      |> load_code_data(mode, code_id)
+      |> load_code_data(mode, code_uuid)
       |> load_form_data()
 
     {:ok, socket}
@@ -131,11 +131,11 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     {:noreply, socket}
   end
 
-  def handle_event("select_beneficiary", %{"user_id" => user_id}, socket) do
+  def handle_event("select_beneficiary", %{"user_uuid" => user_uuid}, socket) do
     # Find the selected user from search results
     selected_user =
       Enum.find(socket.assigns.search_results, fn user ->
-        to_string(user.uuid) == user_id
+        user.uuid == user_uuid
       end)
 
     # Update the changeset with the selected beneficiary, preserving other changes
@@ -186,12 +186,12 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
 
   # Private functions
 
-  defp load_code_data(socket, :new, _code_id) do
+  defp load_code_data(socket, :new, _code_uuid) do
     assign(socket, :code, nil)
   end
 
-  defp load_code_data(socket, :edit, code_id) do
-    code = Referrals.get_code!(code_id)
+  defp load_code_data(socket, :edit, code_uuid) do
+    code = Referrals.get_code!(code_uuid)
     assign(socket, :code, code)
   end
 
@@ -230,10 +230,10 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
   end
 
   defp create_code(socket, code_params) do
-    {code_params_with_creator, user_id} = extract_user_info(socket, code_params)
+    {code_params_with_creator, user_uuid} = extract_user_info(socket, code_params)
 
     socket
-    |> create_code_with_validation(code_params_with_creator, user_id)
+    |> create_code_with_validation(code_params_with_creator, user_uuid)
     |> then(&{:noreply, &1})
   end
 
@@ -266,8 +266,8 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     end
   end
 
-  defp create_code_with_validation(socket, code_params_with_creator, user_id) do
-    case validate_user_limit(user_id) do
+  defp create_code_with_validation(socket, code_params_with_creator, user_uuid) do
+    case validate_user_limit(user_uuid) do
       {:ok, :valid} -> do_create_code(socket, code_params_with_creator)
       {:error, limit_message} -> put_flash(socket, :error, limit_message)
       nil -> do_create_code(socket, code_params_with_creator)
@@ -275,7 +275,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
   end
 
   defp validate_user_limit(nil), do: nil
-  defp validate_user_limit(user_id), do: Referrals.validate_user_code_limit(user_id)
+  defp validate_user_limit(user_uuid), do: Referrals.validate_user_code_limit(user_uuid)
 
   defp do_create_code(socket, code_params_with_creator) do
     case Referrals.create_code(code_params_with_creator) do

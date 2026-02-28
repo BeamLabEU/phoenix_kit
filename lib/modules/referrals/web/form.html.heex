@@ -120,7 +120,7 @@
                         type="button"
                         class="w-full p-3 text-left hover:bg-base-200 border-b border-base-300 last:border-b-0 focus:bg-base-200 focus:outline-none"
                         phx-click="select_beneficiary"
-                        phx-value-user_id={user.uuid}
+                        phx-value-user_uuid={user.uuid}
                       >
                         <div class="font-medium">{user.email}</div>
                         <%= if user.username do %>
