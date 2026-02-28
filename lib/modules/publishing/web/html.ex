@@ -420,9 +420,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   defp resolve_featured_image_url(nil, _variant), do: nil
   defp resolve_featured_image_url("", _variant), do: nil
 
-  defp resolve_featured_image_url(file_id, variant) when is_binary(file_id) do
-    PhoenixKit.Modules.Storage.get_public_url_by_id(file_id, variant) ||
-      PhoenixKit.Modules.Storage.get_public_url_by_id(file_id)
+  defp resolve_featured_image_url(file_uuid, variant) when is_binary(file_uuid) do
+    PhoenixKit.Modules.Storage.get_public_url_by_uuid(file_uuid, variant) ||
+      PhoenixKit.Modules.Storage.get_public_url_by_uuid(file_uuid)
   rescue
     _ -> nil
   end

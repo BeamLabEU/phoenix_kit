@@ -189,8 +189,8 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  def calculate_bucket_free_space(bucket_id) when is_binary(bucket_id) do
-    bucket = get_bucket(bucket_id)
+  def calculate_bucket_free_space(bucket_uuid) when is_binary(bucket_uuid) do
+    bucket = get_bucket(bucket_uuid)
     if bucket, do: calculate_bucket_free_space(bucket), else: 0
   end
 
@@ -521,7 +521,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   ## Options
 
-  - `:bucket_id` - Filter by bucket ID
+  - `:bucket_uuid` - Filter by bucket UUID
   - `:limit` - Maximum number of results
   - `:offset` - Number of results to skip
   - `:order_by` - Ordering (default: `[desc: :inserted_at]`)
@@ -529,7 +529,7 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def list_files(opts \\ []) do
     PhoenixKit.Modules.Storage.File
-    |> maybe_filter_by_bucket(opts[:bucket_id])
+    |> maybe_filter_by_bucket(opts[:bucket_uuid])
     |> maybe_order_by(opts[:order_by])
     |> maybe_limit(opts[:limit])
     |> maybe_offset(opts[:offset])
@@ -795,10 +795,10 @@ defmodule PhoenixKit.Modules.Storage do
   def get_file_instance(id), do: repo().get(FileInstance, id)
 
   @doc """
-  Gets a file instance by file ID and variant name.
+  Gets a file instance by file UUID and variant name.
   """
-  def get_file_instance_by_name(file_id, variant_name) do
-    repo().get_by(FileInstance, file_uuid: file_id, variant_name: variant_name)
+  def get_file_instance_by_name(file_uuid, variant_name) do
+    repo().get_by(FileInstance, file_uuid: file_uuid, variant_name: variant_name)
   end
 
   @doc """
@@ -893,7 +893,7 @@ defmodule PhoenixKit.Modules.Storage do
       default_path: get_default_path(),
       redundancy_copies: get_redundancy_copies(),
       auto_generate_variants: get_auto_generate_variants(),
-      default_bucket_id: get_default_bucket_id(),
+      default_bucket_uuid: get_default_bucket_uuid(),
       buckets_count: length(buckets),
       active_buckets_count: active_count
     }
@@ -1049,15 +1049,15 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
-  Retrieves a file from storage by file ID.
+  Retrieves a file from storage by file UUID.
 
   Will try buckets in priority order until the file is found.
   """
-  def retrieve_file(file_id) do
-    case get_file(file_id) do
+  def retrieve_file(file_uuid) do
+    case get_file(file_uuid) do
       %PhoenixKit.Modules.Storage.File{} = file ->
         # Look up the original variant path from file_instances table
-        case get_file_instance_by_name(file_id, "original") do
+        case get_file_instance_by_name(file_uuid, "original") do
           %FileInstance{file_name: file_path} ->
             destination_path = generate_temp_path()
 
@@ -1199,15 +1199,15 @@ defmodule PhoenixKit.Modules.Storage do
 
   ## Examples
 
-      iex> get_public_url_by_id("018e3c4a-9f6b-7890-abcd-ef1234567890")
+      iex> get_public_url_by_uuid("018e3c4a-9f6b-7890-abcd-ef1234567890")
       "https://cdn.example.com/12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_original.jpg"
 
-      iex> get_public_url_by_id("invalid-id")
+      iex> get_public_url_by_uuid("invalid-uuid")
       nil
 
   """
-  def get_public_url_by_id(file_id) when is_binary(file_id) do
-    case get_file(file_id) do
+  def get_public_url_by_uuid(file_uuid) when is_binary(file_uuid) do
+    case get_file(file_uuid) do
       %PhoenixKit.Modules.Storage.File{} = file ->
         get_public_url(file)
 
@@ -1216,19 +1216,19 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  def get_public_url_by_id(_), do: nil
+  def get_public_url_by_uuid(_), do: nil
 
   @doc """
   Gets a public URL for a specific file variant by file ID.
 
   ## Examples
 
-      iex> get_public_url_by_id("018e3c4a-9f6b-7890-abcd-ef1234567890", "thumbnail")
+      iex> get_public_url_by_uuid("018e3c4a-9f6b-7890-abcd-ef1234567890", "thumbnail")
       "https://cdn.example.com/12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_thumbnail.jpg"
 
   """
-  def get_public_url_by_id(file_id, variant_name) when is_binary(file_id) do
-    case get_file(file_id) do
+  def get_public_url_by_uuid(file_uuid, variant_name) when is_binary(file_uuid) do
+    case get_file(file_uuid) do
       %PhoenixKit.Modules.Storage.File{} = file ->
         get_public_url_by_variant(file, variant_name)
 
@@ -1237,8 +1237,8 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  defp signed_file_url(file_id, variant_name) do
-    URLSigner.signed_url(file_id, variant_name, locale: :none)
+  defp signed_file_url(file_uuid, variant_name) do
+    URLSigner.signed_url(file_uuid, variant_name, locale: :none)
   rescue
     _ -> nil
   end
@@ -1394,8 +1394,8 @@ defmodule PhoenixKit.Modules.Storage do
       |> then(fn data -> :crypto.hash(:md5, data) end)
       |> Base.encode16(case: :lower)
 
-    # Generate UUIDv7 for file ID
-    file_id = UUIDv7.generate()
+    # Generate UUIDv7 for file UUID
+    file_uuid = UUIDv7.generate()
 
     # Build hierarchical path - organized by user_prefix/hash_prefix/md5_hash
     user_prefix = String.slice(to_string(user_uuid), 0, 2)
@@ -1407,7 +1407,7 @@ defmodule PhoenixKit.Modules.Storage do
 
     # Create file record
     file_attrs = %{
-      id: file_id,
+      uuid: file_uuid,
       file_name: md5_hash <> "." <> ext,
       original_file_name: orig_filename,
       file_path: file_path,
@@ -1447,7 +1447,7 @@ defmodule PhoenixKit.Modules.Storage do
 
                 # Queue background job for variant processing
                 _ =
-                  %{file_id: file.uuid, user_uuid: user_uuid, filename: orig_filename}
+                  %{file_uuid: file.uuid, user_uuid: user_uuid, filename: orig_filename}
                   |> ProcessFileJob.new()
                   |> Oban.insert()
 
@@ -1475,7 +1475,7 @@ defmodule PhoenixKit.Modules.Storage do
   defp queue_variant_generation(file, user_uuid, original_filename) do
     # Queue variant generation to ensure all variants exist for this file
     Task.start(fn ->
-      %{file_id: file.uuid, user_uuid: user_uuid, filename: original_filename}
+      %{file_uuid: file.uuid, user_uuid: user_uuid, filename: original_filename}
       |> ProcessFileJob.new()
       |> Oban.insert()
     end)
@@ -1665,7 +1665,7 @@ defmodule PhoenixKit.Modules.Storage do
     Settings.get_setting_cached("storage_auto_generate_variants", "true") == "true"
   end
 
-  defp get_default_bucket_id do
+  defp get_default_bucket_uuid do
     Settings.get_setting_cached("storage_default_bucket_id", nil)
   end
 
@@ -1864,21 +1864,21 @@ defmodule PhoenixKit.Modules.Storage do
 
   ## Parameters
 
-    * `file_instance_id` - The ID of the file instance
-    * `bucket_ids` - List of bucket IDs to create locations for
+    * `file_instance_uuid` - The UUID of the file instance
+    * `bucket_uuids` - List of bucket UUIDs to create locations for
     * `file_path` - The storage path for the file
 
   ## Examples
 
-      iex> create_file_locations_for_instance(instance_id, [bucket_id], "path/to/file")
+      iex> create_file_locations_for_instance(instance_uuid, [bucket_uuid], "path/to/file")
       {:ok, [%FileLocation{}]}
 
-      iex> create_file_locations_for_instance(instance_id, [invalid_bucket], "path")
-      {:error, :file_locations_failed, [{bucket_id, changeset}]}
+      iex> create_file_locations_for_instance(instance_uuid, [invalid_bucket], "path")
+      {:error, :file_locations_failed, [{bucket_uuid, changeset}]}
 
   """
-  def create_file_locations_for_instance(file_instance_id, bucket_ids, file_path) do
-    create_file_locations(file_instance_id, bucket_ids, file_path)
+  def create_file_locations_for_instance(file_instance_uuid, bucket_uuids, file_path) do
+    create_file_locations(file_instance_uuid, bucket_uuids, file_path)
   end
 
   defp generate_temp_path do
@@ -1887,20 +1887,20 @@ defmodule PhoenixKit.Modules.Storage do
     Path.join(temp_dir, "phoenix_kit_#{random_name}")
   end
 
-  defp create_file_locations(file_instance_id, bucket_ids, file_path) do
+  defp create_file_locations(file_instance_uuid, bucket_uuids, file_path) do
     results =
-      Enum.map(bucket_ids, fn bucket_id ->
+      Enum.map(bucket_uuids, fn bucket_uuid ->
         location_attrs = %{
           path: file_path,
           status: "active",
           priority: 0,
-          file_instance_uuid: file_instance_id,
-          bucket_uuid: bucket_id
+          file_instance_uuid: file_instance_uuid,
+          bucket_uuid: bucket_uuid
         }
 
         case repo().insert(%FileLocation{} |> FileLocation.changeset(location_attrs)) do
           {:ok, location} -> {:ok, location}
-          {:error, changeset} -> {:error, bucket_id, changeset}
+          {:error, changeset} -> {:error, bucket_uuid, changeset}
         end
       end)
 
@@ -1911,7 +1911,7 @@ defmodule PhoenixKit.Modules.Storage do
       {:ok, locations}
     else
       error_details =
-        Enum.map(errors, fn {:error, bucket_id, changeset} -> {bucket_id, changeset} end)
+        Enum.map(errors, fn {:error, bucket_uuid, changeset} -> {bucket_uuid, changeset} end)
 
       {:error, :file_locations_failed, error_details}
     end
