@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       {:ok, _} ->
         config = Sitemap.get_config()
         message = if new_enabled, do: "Sitemap enabled", else: "Sitemap disabled"
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
         broadcast_settings_change(:sitemap_toggled, %{enabled: new_enabled, version: new_version})
 
         {:noreply,
@@ -109,7 +109,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
         if new_value, do: FileStorage.delete_all_modules()
 
         config = Sitemap.get_config()
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
 
         broadcast_settings_change(:source_changed, %{
           source: "router_discovery",
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       {:ok, _} ->
         Generator.invalidate_cache()
         config = Sitemap.get_config()
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
         broadcast_settings_change(:source_changed, %{source: source, version: new_version})
 
         {:noreply,
@@ -172,7 +172,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     case Settings.update_boolean_setting("sitemap_include_registration", new_value) do
       {:ok, _} ->
         Generator.invalidate_cache()
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
 
         {:noreply,
          socket
@@ -195,7 +195,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     case Settings.update_boolean_setting("sitemap_publishing_split_by_group", new_value) do
       {:ok, _} ->
         Generator.invalidate_cache()
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
 
         {:noreply,
          socket
@@ -219,7 +219,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       {:ok, _} ->
         Generator.invalidate_cache()
         config = Sitemap.get_config()
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
         broadcast_settings_change(:html_changed, %{enabled: !current, version: new_version})
 
         {:noreply,
@@ -243,7 +243,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
         end
 
         config = Sitemap.get_config()
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
         broadcast_settings_change(:schedule_changed, %{enabled: !current, version: new_version})
 
         {:noreply,
@@ -262,7 +262,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       {:ok, _} ->
         Generator.invalidate_cache()
         config = Sitemap.get_config()
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
         broadcast_settings_change(:style_changed, %{style: style, version: new_version})
 
         {:noreply,
@@ -283,7 +283,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
         case Settings.update_setting("sitemap_schedule_interval_hours", interval_str) do
           {:ok, _} ->
             config = Sitemap.get_config()
-            new_version = DateTime.utc_now() |> DateTime.to_unix()
+            new_version = UtilsDate.utc_now() |> DateTime.to_unix()
 
             broadcast_settings_change(:interval_changed, %{
               interval: interval,
@@ -365,7 +365,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   def handle_event("invalidate_cache", _params, socket) do
     case Generator.invalidate_and_regenerate() do
       {:ok, _job} ->
-        new_version = DateTime.utc_now() |> DateTime.to_unix()
+        new_version = UtilsDate.utc_now() |> DateTime.to_unix()
 
         {:noreply,
          socket
@@ -411,7 +411,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   @impl true
   def handle_info({:sitemap_settings_changed, %{type: type}}, socket) do
     config = Sitemap.get_config()
-    new_version = DateTime.utc_now() |> DateTime.to_unix()
+    new_version = UtilsDate.utc_now() |> DateTime.to_unix()
 
     {:noreply,
      socket
@@ -504,12 +504,12 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   defp get_sitemap_version(config) do
     case config.last_generated do
       nil ->
-        DateTime.utc_now() |> DateTime.to_unix()
+        UtilsDate.utc_now() |> DateTime.to_unix()
 
       iso_string when is_binary(iso_string) ->
         case DateTime.from_iso8601(iso_string) do
           {:ok, dt, _} -> DateTime.to_unix(dt)
-          _ -> DateTime.utc_now() |> DateTime.to_unix()
+          _ -> UtilsDate.utc_now() |> DateTime.to_unix()
         end
     end
   end

@@ -23,6 +23,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @sort_options [
     {:id, "ID"},
@@ -555,12 +556,12 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   end
 
   defp date_filter_to_datetime("7d") do
-    DateTime.utc_now()
+    UtilsDate.utc_now()
     |> DateTime.add(-7, :day)
   end
 
   defp date_filter_to_datetime("30d") do
-    DateTime.utc_now()
+    UtilsDate.utc_now()
     |> DateTime.add(-30, :day)
   end
 

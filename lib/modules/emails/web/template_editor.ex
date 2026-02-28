@@ -30,6 +30,7 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
   alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   ## --- Lifecycle Callbacks ---
 
@@ -459,7 +460,7 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
       "reset_url" => "https://example.com/reset",
       "magic_link_url" => "https://example.com/magic",
       "update_url" => "https://example.com/update",
-      "timestamp" => DateTime.utc_now() |> DateTime.to_string(),
+      "timestamp" => UtilsDate.utc_now() |> DateTime.to_string(),
       "app_name" => PhoenixKit.Config.get(:project_title, "PhoenixKit"),
       "company_name" => "Your Company",
       "support_email" => "support@example.com"

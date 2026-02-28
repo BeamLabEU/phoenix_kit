@@ -21,6 +21,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Refresh every 5 seconds
   @refresh_interval 5_000
@@ -54,7 +55,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
       |> assign(:sort_by, :connected_at)
       |> assign(:sort_order, :desc)
       |> assign(:auto_refresh, true)
-      |> assign(:last_updated, DateTime.utc_now())
+      |> assign(:last_updated, UtilsDate.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -118,7 +119,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_event("refresh_now", _params, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
+      |> assign(:last_updated, UtilsDate.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -129,7 +130,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     if socket.assigns.auto_refresh do
       socket =
         socket
-        |> assign(:last_updated, DateTime.utc_now())
+        |> assign(:last_updated, UtilsDate.utc_now())
         |> load_sessions()
         |> load_stats()
 
@@ -144,7 +145,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_info({:anonymous_session_connected, _session_id, _metadata}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
+      |> assign(:last_updated, UtilsDate.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -154,7 +155,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_info({:anonymous_session_disconnected, _session_id}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
+      |> assign(:last_updated, UtilsDate.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -164,7 +165,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_info({:user_session_connected, _user_id, _metadata}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
+      |> assign(:last_updated, UtilsDate.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -174,7 +175,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_info({:user_session_disconnected, _user_id, _session_id}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
+      |> assign(:last_updated, UtilsDate.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -185,7 +186,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     socket =
       socket
       |> assign(:presence_stats, stats)
-      |> assign(:last_updated, DateTime.utc_now())
+      |> assign(:last_updated, UtilsDate.utc_now())
 
     {:noreply, socket}
   end
@@ -287,7 +288,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
       session_id = session["live_socket_id"] || generate_session_id()
 
       Presence.track_user(user, %{
-        connected_at: DateTime.utc_now(),
+        connected_at: UtilsDate.utc_now(),
         session_id: session_id,
         ip_address: IpAddress.extract_from_socket(socket),
         user_agent: get_connect_info(socket, :user_agent),

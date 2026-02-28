@@ -94,6 +94,7 @@ defmodule PhoenixKit.Dashboard.Tab do
   alias PhoenixKit.Dashboard.Badge
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Permissions
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @type match_type :: :exact | :prefix | :regex | (String.t() -> boolean())
 
@@ -243,7 +244,7 @@ defmodule PhoenixKit.Dashboard.Tab do
       attention: parse_attention(get_attr(attrs, :attention)),
       live_view: get_attr(attrs, :live_view),
       metadata: get_attr(attrs, :metadata) || %{},
-      inserted_at: DateTime.utc_now()
+      inserted_at: UtilsDate.utc_now()
     }
   end
 

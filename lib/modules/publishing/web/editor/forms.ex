@@ -10,6 +10,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Utils.Slug
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # ============================================================================
   # Form Building
@@ -93,7 +94,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   defp get_published_at(post) do
     post.metadata.published_at ||
-      DateTime.utc_now()
+      UtilsDate.utc_now()
       |> floor_datetime_to_minute()
       |> DateTime.to_iso8601()
   end

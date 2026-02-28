@@ -246,7 +246,7 @@ defmodule PhoenixKit.Modules.AI.Endpoint do
   def recently_validated?(%__MODULE__{last_validated_at: nil}), do: false
 
   def recently_validated?(%__MODULE__{last_validated_at: validated_at}) do
-    case DateTime.diff(DateTime.utc_now(), validated_at, :hour) do
+    case DateTime.diff(UtilsDate.utc_now(), validated_at, :hour) do
       hours when hours < 24 -> true
       _ -> false
     end

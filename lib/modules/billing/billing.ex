@@ -1418,7 +1418,7 @@ defmodule PhoenixKit.Modules.Billing do
     else
       # Build send history entry
       send_entry = %{
-        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "sent_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "email" => recipient_email
       }
 
@@ -1524,7 +1524,7 @@ defmodule PhoenixKit.Modules.Billing do
     else
       # Record in receipt_data.send_history (analogous to metadata.send_history for invoices)
       send_entry = %{
-        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "sent_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "email" => recipient_email
       }
 
@@ -1624,7 +1624,7 @@ defmodule PhoenixKit.Modules.Billing do
     else
       # Record in transaction metadata.send_history
       send_entry = %{
-        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "sent_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "email" => recipient_email
       }
 
@@ -1756,7 +1756,7 @@ defmodule PhoenixKit.Modules.Billing do
     else
       # Record in transaction metadata.payment_confirmation_send_history
       send_entry = %{
-        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "sent_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "email" => recipient_email
       }
 

@@ -368,11 +368,11 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> offset(^offset)
       |> repo.all()
 
-    file_ids = Enum.map(files, & &1.uuid)
+    file_uuids = Enum.map(files, & &1.uuid)
 
     instances_by_file =
-      if Enum.any?(file_ids) do
-        from(fi in FileInstance, where: fi.file_uuid in ^file_ids)
+      if Enum.any?(file_uuids) do
+        from(fi in FileInstance, where: fi.file_uuid in ^file_uuids)
         |> repo.all()
         |> Enum.group_by(& &1.file_uuid)
       else
@@ -385,7 +385,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
         urls = generate_urls_from_instances(instances, file.uuid)
 
         %{
-          file_id: file.uuid,
+          file_uuid: file.uuid,
           filename: file.original_file_name || file.file_name || "Unknown",
           file_type: file.file_type,
           mime_type: file.mime_type,
@@ -399,9 +399,9 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     {files_with_urls, total_count}
   end
 
-  defp generate_urls_from_instances(instances, file_id) do
+  defp generate_urls_from_instances(instances, file_uuid) do
     Enum.reduce(instances, %{}, fn instance, acc ->
-      url = URLSigner.signed_url(file_id, instance.variant_name)
+      url = URLSigner.signed_url(file_uuid, instance.variant_name)
       Map.put(acc, instance.variant_name, url)
     end)
   end

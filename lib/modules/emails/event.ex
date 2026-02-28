@@ -376,7 +376,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
       event_data: %{
         bounce_type: bounce_type,
         reason: reason,
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+        timestamp: UtilsDate.utc_now() |> DateTime.to_iso8601()
       }
     })
   end
@@ -400,7 +400,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
       event_data: %{
         complaint_type: complaint_type,
         feedback_id: feedback_id,
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+        timestamp: UtilsDate.utc_now() |> DateTime.to_iso8601()
       }
     })
   end
@@ -426,7 +426,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
       event_data: %{
         ip_address: ip_address,
         user_agent: user_agent,
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+        timestamp: UtilsDate.utc_now() |> DateTime.to_iso8601()
       }
     })
   end
@@ -460,7 +460,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
         link_url: link_url,
         ip_address: ip_address,
         user_agent: user_agent,
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+        timestamp: UtilsDate.utc_now() |> DateTime.to_iso8601()
       }
     })
   end
@@ -478,7 +478,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
       email_log_uuid: email_log_uuid,
       event_type: "queued",
       event_data: %{
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+        timestamp: UtilsDate.utc_now() |> DateTime.to_iso8601()
       }
     })
   end
@@ -500,7 +500,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
       event_type: "send",
       event_data: %{
         provider: provider,
-        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+        timestamp: UtilsDate.utc_now() |> DateTime.to_iso8601()
       }
     })
   end
@@ -764,7 +764,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
         webhook_data["complaint"]["timestamp"] ||
         webhook_data["open"]["timestamp"] ||
         webhook_data["click"]["timestamp"] ||
-        DateTime.utc_now() |> DateTime.to_iso8601()
+        UtilsDate.utc_now() |> DateTime.to_iso8601()
 
     case DateTime.from_iso8601(timestamp_str) do
       {:ok, datetime, _} -> DateTime.truncate(datetime, :second)

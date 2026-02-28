@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.DB.Web.Activity do
   alias PhoenixKit.Modules.DB.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl true
   def mount(params, _session, socket) do
@@ -107,7 +108,7 @@ defmodule PhoenixKit.Modules.DB.Web.Activity do
   defp add_activity_entry(socket, schema, table, operation, row_id) do
     # Apply filters
     if matches_filters?(socket, schema, table, operation) do
-      timestamp = DateTime.utc_now()
+      timestamp = UtilsDate.utc_now()
       row_key = {schema, table, row_id}
 
       # Fetch row data for INSERT/UPDATE

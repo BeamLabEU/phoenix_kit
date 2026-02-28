@@ -237,7 +237,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     # - Status is active or trialing
     # - Period end is within next 24 hours
     # - Not already marked for cancellation
-    cutoff = DateTime.add(DateTime.utc_now(), 24, :hour)
+    cutoff = DateTime.add(UtilsDate.utc_now(), 24, :hour)
 
     from(s in Subscription,
       where: s.status in ["active", "trialing"],

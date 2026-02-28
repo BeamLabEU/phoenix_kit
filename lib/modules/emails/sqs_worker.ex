@@ -69,6 +69,7 @@ defmodule PhoenixKit.Modules.Emails.SQSWorker do
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Emails.SQSPollingManager
   alias PhoenixKit.Modules.Emails.SQSProcessor
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # 20 seconds
   @default_long_poll_timeout 20
@@ -452,11 +453,11 @@ defmodule PhoenixKit.Modules.Emails.SQSWorker do
           state
           | messages_processed: state.messages_processed + processed_count,
             total_processing_time_ms: state.total_processing_time_ms + processing_time,
-            last_poll: DateTime.utc_now()
+            last_poll: UtilsDate.utc_now()
         }
 
       {:ok, []} ->
-        %{state | last_poll: DateTime.utc_now()}
+        %{state | last_poll: UtilsDate.utc_now()}
 
       {:error, reason} ->
         Logger.error("SQS Worker: Failed to receive messages", %{
@@ -464,7 +465,7 @@ defmodule PhoenixKit.Modules.Emails.SQSWorker do
           queue_url: state.queue_url
         })
 
-        %{state | errors_count: state.errors_count + 1, last_poll: DateTime.utc_now()}
+        %{state | errors_count: state.errors_count + 1, last_poll: UtilsDate.utc_now()}
     end
   end
 

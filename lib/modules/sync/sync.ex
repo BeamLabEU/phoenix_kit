@@ -77,6 +77,7 @@ defmodule PhoenixKit.Modules.Sync do
   alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.Modules.Sync.SessionStore
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @module_name "sync"
   @enabled_key "sync_enabled"
@@ -321,7 +322,7 @@ defmodule PhoenixKit.Modules.Sync do
       direction: direction,
       status: :pending,
       owner_pid: owner_pid,
-      created_at: DateTime.utc_now(),
+      created_at: UtilsDate.utc_now(),
       connected_at: nil,
       sender_info: nil,
       receiver_info: nil
@@ -365,7 +366,7 @@ defmodule PhoenixKit.Modules.Sync do
         if session.status == :connected do
           {:error, :already_used}
         else
-          updated_session = %{session | status: :connected, connected_at: DateTime.utc_now()}
+          updated_session = %{session | status: :connected, connected_at: UtilsDate.utc_now()}
           SessionStore.update(code, updated_session)
           {:ok, updated_session}
         end

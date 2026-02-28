@@ -626,7 +626,7 @@ defmodule PhoenixKit.Modules.Posts do
       {:ok, 2}
   """
   def process_scheduled_posts do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     posts_to_publish =
       from(p in Post,

@@ -296,7 +296,7 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
   def approval_expired?(%__MODULE__{approval_expires_at: nil}), do: false
 
   def approval_expired?(%__MODULE__{approval_expires_at: expires_at}) do
-    DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+    DateTime.compare(UtilsDate.utc_now(), expires_at) == :gt
   end
 
   @doc """

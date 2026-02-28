@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.EntityFormController do
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Users.RateLimiter
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -228,7 +229,7 @@ defmodule PhoenixKitWeb.EntityFormController do
       loaded_at_str ->
         case DateTime.from_iso8601(loaded_at_str) do
           {:ok, loaded_at, _offset} ->
-            DateTime.diff(DateTime.utc_now(), loaded_at, :second)
+            DateTime.diff(UtilsDate.utc_now(), loaded_at, :second)
 
           _ ->
             nil
@@ -394,7 +395,7 @@ defmodule PhoenixKitWeb.EntityFormController do
   defp build_submission_metadata(conn, params) do
     user_agent = get_req_header(conn, "user-agent") |> List.first() || ""
     referer = get_req_header(conn, "referer") |> List.first()
-    submitted_at = DateTime.utc_now()
+    submitted_at = UtilsDate.utc_now()
 
     # Get form timing data
     form_loaded_at = Map.get(params, "_form_loaded_at")
@@ -473,7 +474,7 @@ defmodule PhoenixKitWeb.EntityFormController do
           |> Map.update("total_submissions", 1, &(&1 + 1))
           |> update_event_count(event_type)
           |> update_security_stats(security_flags)
-          |> Map.put("last_submission_at", DateTime.utc_now() |> DateTime.to_iso8601())
+          |> Map.put("last_submission_at", UtilsDate.utc_now() |> DateTime.to_iso8601())
 
         updated_settings = Map.put(current_settings, "public_form_stats", updated_stats)
 

@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Pages.Web.Index do
   alias PhoenixKit.Modules.Pages.FileOperations
   alias PhoenixKit.Modules.Pages.HtmlMetadata
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(_params, _session, socket) do
     # Set locale
@@ -636,7 +637,7 @@ defmodule PhoenixKit.Modules.Pages.Web.Index do
         updated_metadata =
           metadata
           |> Map.put(:status, new_status)
-          |> Map.put(:updated_at, DateTime.utc_now())
+          |> Map.put(:updated_at, UtilsDate.utc_now())
 
         HtmlMetadata.update_metadata(content, updated_metadata)
 
@@ -645,7 +646,7 @@ defmodule PhoenixKit.Modules.Pages.Web.Index do
         metadata =
           HtmlMetadata.default_metadata()
           |> Map.put(:status, new_status)
-          |> Map.put(:updated_at, DateTime.utc_now())
+          |> Map.put(:updated_at, UtilsDate.utc_now())
 
         # Prepend metadata to content
         HtmlMetadata.serialize(metadata) <> "\n\n" <> content

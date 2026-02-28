@@ -155,7 +155,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
       # Update status when delivered
       {:ok, updated_log} = PhoenixKit.Modules.Emails.Log.mark_as_delivered(
-        log, DateTime.utc_now()
+        log, UtilsDate.utc_now()
       )
 
       # Get campaign statistics
@@ -541,7 +541,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Log.mark_as_delivered(log, DateTime.utc_now())
+      iex> PhoenixKit.Modules.Emails.Log.mark_as_delivered(log, UtilsDate.utc_now())
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_delivered(%__MODULE__{} = email_log, delivered_at \\ nil) do
@@ -598,7 +598,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Log.mark_as_opened(log, DateTime.utc_now())
+      iex> PhoenixKit.Modules.Emails.Log.mark_as_opened(log, UtilsDate.utc_now())
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_opened(%__MODULE__{} = email_log, opened_at \\ nil) do
@@ -625,7 +625,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Log.mark_as_clicked(log, "https://example.com", DateTime.utc_now())
+      iex> PhoenixKit.Modules.Emails.Log.mark_as_clicked(log, "https://example.com", UtilsDate.utc_now())
       {:ok, %PhoenixKit.Modules.Emails.Log{}}
   """
   def mark_as_clicked(%__MODULE__{} = email_log, link_url, clicked_at \\ nil) do
@@ -963,7 +963,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {5, nil}  # Deleted 5 records
   """
   def cleanup_old_logs(days_old \\ 90) when is_integer(days_old) and days_old > 0 do
-    cutoff_date = DateTime.utc_now() |> DateTime.add(-days_old, :day)
+    cutoff_date = UtilsDate.utc_now() |> DateTime.add(-days_old, :day)
 
     from(l in __MODULE__, where: l.sent_at < ^cutoff_date)
     |> repo().delete_all()
@@ -979,7 +979,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       {12, nil}  # Compressed 12 records
   """
   def compress_old_bodies(days_old \\ 30) when is_integer(days_old) and days_old > 0 do
-    cutoff_date = DateTime.utc_now() |> DateTime.add(-days_old, :day)
+    cutoff_date = UtilsDate.utc_now() |> DateTime.add(-days_old, :day)
 
     from(l in __MODULE__,
       where: l.sent_at < ^cutoff_date and not is_nil(l.body_full),
@@ -997,7 +997,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       [%PhoenixKit.Modules.Emails.Log{}, ...]
   """
   def get_logs_for_archival(days_old \\ 90) when is_integer(days_old) and days_old > 0 do
-    cutoff_date = DateTime.utc_now() |> DateTime.add(-days_old, :day)
+    cutoff_date = UtilsDate.utc_now() |> DateTime.add(-days_old, :day)
 
     from(l in __MODULE__,
       where: l.sent_at < ^cutoff_date,
@@ -1228,25 +1228,25 @@ defmodule PhoenixKit.Modules.Emails.Log do
 
   # Get period start/end dates
   defp get_period_dates(:last_7_days) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -7, :day)
     {start_date, end_date}
   end
 
   defp get_period_dates(:last_30_days) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -30, :day)
     {start_date, end_date}
   end
 
   defp get_period_dates(:last_90_days) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -90, :day)
     {start_date, end_date}
   end
 
   defp get_period_dates(:last_24_hours) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -1, :day)
     {start_date, end_date}
   end

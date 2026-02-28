@@ -40,6 +40,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
   import Ecto.Query
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Emails.Log
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @shortdoc "Fix email logs with missing bounce/complaint/reject events"
 
@@ -186,11 +187,11 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
     event_attrs = %{
       email_log_id: log.id,
       event_type: "bounce",
-      occurred_at: log.bounced_at || DateTime.utc_now(),
+      occurred_at: log.bounced_at || UtilsDate.utc_now(),
       bounce_type: bounce_type,
       event_data: %{
         bounceType: bounce_type,
-        timestamp: DateTime.to_iso8601(log.bounced_at || DateTime.utc_now()),
+        timestamp: DateTime.to_iso8601(log.bounced_at || UtilsDate.utc_now()),
         diagnosticCode: log.error_message
       }
     }
@@ -208,11 +209,11 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
     event_attrs = %{
       email_log_id: log.id,
       event_type: "complaint",
-      occurred_at: log.complained_at || DateTime.utc_now(),
+      occurred_at: log.complained_at || UtilsDate.utc_now(),
       complaint_type: "abuse",
       event_data: %{
         complaintFeedbackType: "abuse",
-        timestamp: DateTime.to_iso8601(log.complained_at || DateTime.utc_now())
+        timestamp: DateTime.to_iso8601(log.complained_at || UtilsDate.utc_now())
       }
     }
 
@@ -229,11 +230,11 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
     event_attrs = %{
       email_log_id: log.id,
       event_type: "reject",
-      occurred_at: log.rejected_at || DateTime.utc_now(),
+      occurred_at: log.rejected_at || UtilsDate.utc_now(),
       reject_reason: log.error_message,
       event_data: %{
         reason: log.error_message,
-        timestamp: DateTime.to_iso8601(log.rejected_at || DateTime.utc_now())
+        timestamp: DateTime.to_iso8601(log.rejected_at || UtilsDate.utc_now())
       }
     }
 

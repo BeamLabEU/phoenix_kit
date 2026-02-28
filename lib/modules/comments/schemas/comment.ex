@@ -3,7 +3,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   Schema for polymorphic comments with unlimited threading depth.
 
   Supports nested comment threads (Reddit-style) with self-referencing parent/child
-  relationships. Can be attached to any resource type via `resource_type` + `resource_id`.
+  relationships. Can be attached to any resource type via `resource_type` + `resource_uuid`.
 
   ## Comment Status
 
@@ -15,9 +15,9 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   ## Fields
 
   - `resource_type` - Type of resource (e.g., "post", "entity", "ticket")
-  - `resource_id` - UUID of the resource
-  - `user_id` - Reference to the commenter
-  - `parent_id` - Reference to parent comment (nil for top-level)
+  - `resource_uuid` - UUID of the resource
+  - `user_uuid` - Reference to the commenter
+  - `parent_uuid` - Reference to parent comment (nil for top-level)
   - `content` - Comment text
   - `status` - published/hidden/deleted/pending
   - `depth` - Nesting level (0=top, 1=reply, 2=reply-to-reply, etc.)
@@ -77,8 +77,8 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   ## Required Fields
 
   - `resource_type` - Type of resource being commented on
-  - `resource_id` - ID of the resource
-  - `user_id` - Reference to commenter
+  - `resource_uuid` - UUID of the resource
+  - `user_uuid` - Reference to commenter
   - `content` - Comment text
   """
   def changeset(comment, attrs) do

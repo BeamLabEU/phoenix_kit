@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   """
 
   use Phoenix.Component
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
   Displays relative time (e.g., "5m ago", "2h ago", "3d ago").
@@ -167,7 +168,7 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   defp format_time_ago(nil), do: "—"
 
   defp format_time_ago(datetime) when is_struct(datetime, DateTime) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     diff_seconds = DateTime.diff(now, datetime, :second)
     format_seconds_ago(diff_seconds)
   end

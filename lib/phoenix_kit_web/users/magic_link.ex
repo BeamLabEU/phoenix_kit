@@ -18,6 +18,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl true
   def mount(_params, session, socket) do
@@ -31,7 +32,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
           session_id = session["live_socket_id"] || generate_session_id()
 
           Presence.track_anonymous(session_id, %{
-            connected_at: DateTime.utc_now(),
+            connected_at: UtilsDate.utc_now(),
             ip_address: IpAddress.extract_from_socket(socket),
             user_agent: get_connect_info(socket, :user_agent),
             current_page: Routes.path("/users/magic-link")

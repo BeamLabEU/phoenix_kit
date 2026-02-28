@@ -74,6 +74,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
   require Logger
   alias PhoenixKit.Modules.Emails.{Event, Log}
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   import Ecto.Query
 
   ## --- Body Compression ---
@@ -106,7 +107,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
 
     Logger.info("Starting body compression for emails older than #{days_old} days")
 
-    cutoff_date = DateTime.add(DateTime.utc_now(), -days_old * 86_400)
+    cutoff_date = DateTime.add(UtilsDate.utc_now(), -days_old * 86_400)
 
     query = build_compression_query(cutoff_date, preserve_errors)
 
@@ -211,7 +212,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
   defp do_s3_archival(days_old, bucket, prefix, batch_size, format, delete_after, include_events) do
     Logger.info("Starting S3 archival for emails older than #{days_old} days")
 
-    cutoff_date = DateTime.add(DateTime.utc_now(), -days_old * 86_400)
+    cutoff_date = DateTime.add(UtilsDate.utc_now(), -days_old * 86_400)
     query = build_archival_query(cutoff_date)
 
     case process_s3_archival(
@@ -279,7 +280,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
       }
   """
   def get_storage_breakdown do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     %{
       last_7_days: get_period_stats(DateTime.add(now, -7 * 86_400), now),
@@ -433,7 +434,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
   end
 
   defp archive_batch_to_s3(logs, bucket, prefix, format, include_events, delete_after) do
-    timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+    timestamp = UtilsDate.utc_now() |> DateTime.to_iso8601()
     batch_id = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
 
     # Prepare data
@@ -470,7 +471,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
 
     Jason.encode!(
       %{
-        exported_at: DateTime.utc_now(),
+        exported_at: UtilsDate.utc_now(),
         total_records: length(logs),
         logs: archive_logs
       },
@@ -509,7 +510,7 @@ defmodule PhoenixKit.Modules.Emails.Archiver do
            content_encoding: "gzip",
            metadata: %{
              "archived-by" => "phoenix_kit",
-             "archived-at" => DateTime.to_iso8601(DateTime.utc_now())
+             "archived-at" => DateTime.to_iso8601(UtilsDate.utc_now())
            }
          )
          |> ExAws.request() do

@@ -74,6 +74,7 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Export do
   alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Entities.Mirror.Storage
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @export_version "1.0"
 
@@ -168,7 +169,7 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Export do
   defp build_export_content(entity, data_records) do
     %{
       "export_version" => @export_version,
-      "exported_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "exported_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
       "definition" => serialize_entity(entity),
       "data" => Enum.map(data_records, &serialize_entity_data/1)
     }

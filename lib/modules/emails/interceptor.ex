@@ -794,7 +794,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
       success: success?,
       log_id: log_id,
       aws_message_id: aws_message_id,
-      timestamp: DateTime.utc_now()
+      timestamp: UtilsDate.utc_now()
     }
 
     if success? do

@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Pages.Web.Editor do
   alias PhoenixKit.Modules.Pages.FileOperations
   alias PhoenixKit.Modules.Pages.HtmlMetadata
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(_params, _session, socket) do
     # Set locale
@@ -177,7 +178,7 @@ defmodule PhoenixKit.Modules.Pages.Web.Editor do
     case HtmlMetadata.parse(content) do
       {:ok, metadata, _stripped_content} ->
         # Update the updated_at timestamp
-        updated_metadata = Map.put(metadata, :updated_at, DateTime.utc_now())
+        updated_metadata = Map.put(metadata, :updated_at, UtilsDate.utc_now())
         HtmlMetadata.update_metadata(content, updated_metadata)
 
       {:error, :no_metadata} ->
@@ -193,7 +194,7 @@ defmodule PhoenixKit.Modules.Pages.Web.Editor do
         updated_metadata =
           metadata
           |> Map.put(:status, new_status)
-          |> Map.put(:updated_at, DateTime.utc_now())
+          |> Map.put(:updated_at, UtilsDate.utc_now())
 
         HtmlMetadata.update_metadata(content, updated_metadata)
 
@@ -202,7 +203,7 @@ defmodule PhoenixKit.Modules.Pages.Web.Editor do
         metadata =
           HtmlMetadata.default_metadata()
           |> Map.put(:status, new_status)
-          |> Map.put(:updated_at, DateTime.utc_now())
+          |> Map.put(:updated_at, UtilsDate.utc_now())
 
         # Prepend metadata to content
         HtmlMetadata.serialize(metadata) <> "\n\n" <> content

@@ -1564,7 +1564,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     case DateTime.from_iso8601(iso_string) do
       {:ok, dt, _offset} ->
         # Format as relative time if recent, otherwise show date/time
-        now = DateTime.utc_now()
+        now = UtilsDate.utc_now()
         diff_seconds = DateTime.diff(now, dt, :second)
 
         cond do

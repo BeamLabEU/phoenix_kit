@@ -100,6 +100,7 @@ defmodule PhoenixKit.Modules.Emails do
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Emails.{Event, Log, SQSProcessor}
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   import Ecto.Query, only: [where: 3, group_by: 3, select: 3, from: 2]
 
@@ -994,11 +995,11 @@ defmodule PhoenixKit.Modules.Emails do
   def get_placeholder_stats(period \\ :last_30_days) do
     cutoff_date =
       case period do
-        :last_24_hours -> DateTime.add(DateTime.utc_now(), -1, :day)
-        :last_7_days -> DateTime.add(DateTime.utc_now(), -7, :day)
-        :last_30_days -> DateTime.add(DateTime.utc_now(), -30, :day)
+        :last_24_hours -> DateTime.add(UtilsDate.utc_now(), -1, :day)
+        :last_7_days -> DateTime.add(UtilsDate.utc_now(), -7, :day)
+        :last_30_days -> DateTime.add(UtilsDate.utc_now(), -30, :day)
         :all_time -> ~U[2000-01-01 00:00:00Z]
-        _ -> DateTime.add(DateTime.utc_now(), -30, :day)
+        _ -> DateTime.add(UtilsDate.utc_now(), -30, :day)
       end
 
     repo = PhoenixKit.RepoHelper.repo()
@@ -2081,25 +2082,25 @@ defmodule PhoenixKit.Modules.Emails do
 
   # Get period start/end dates
   defp get_period_dates(:last_7_days) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -7, :day)
     {start_date, end_date}
   end
 
   defp get_period_dates(:last_30_days) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -30, :day)
     {start_date, end_date}
   end
 
   defp get_period_dates(:last_90_days) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -90, :day)
     {start_date, end_date}
   end
 
   defp get_period_dates(:last_24_hours) do
-    end_date = DateTime.utc_now()
+    end_date = UtilsDate.utc_now()
     start_date = DateTime.add(end_date, -1, :day)
     {start_date, end_date}
   end

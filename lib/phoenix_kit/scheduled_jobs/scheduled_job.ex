@@ -141,7 +141,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
     validate_change(changeset, :scheduled_at, fn :scheduled_at, scheduled_at ->
       # Allow scheduling in the past for immediate execution
       # The cron job will pick it up on the next run
-      if DateTime.compare(scheduled_at, DateTime.utc_now()) == :lt do
+      if DateTime.compare(scheduled_at, UtilsDate.utc_now()) == :lt do
         # Warning but allow - job will execute on next cron run
         []
       else

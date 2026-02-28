@@ -88,7 +88,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       PhoenixKit.Modules.Emails.RateLimiter.add_to_blocklist(
         "spam@example.com",
         "suspicious_pattern",
-        expires_at: DateTime.add(DateTime.utc_now(), 86_400)
+        expires_at: DateTime.add(UtilsDate.utc_now(), 86_400)
       )
 
       # Check current rate limit status
@@ -262,7 +262,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       RateLimiter.add_to_blocklist(
         "spam@example.com",
         "bulk_spam_pattern",
-        expires_at: DateTime.add(DateTime.utc_now(), 86_400)
+        expires_at: DateTime.add(UtilsDate.utc_now(), 86_400)
       )
 
       # Permanent block
@@ -321,7 +321,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       true
   """
   def is_blocked?(email) when is_binary(email) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     query =
       from b in EmailBlocklist,
@@ -353,7 +353,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       [%EmailBlocklist{}, ...]
   """
   def list_blocklist(opts \\ %{}) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     query = from(b in EmailBlocklist)
 
@@ -423,7 +423,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       15
   """
   def count_blocklist(opts \\ %{}) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     query = from(b in EmailBlocklist)
 
@@ -468,8 +468,8 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       }
   """
   def get_blocklist_stats do
-    now = DateTime.utc_now()
-    today_start = DateTime.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
+    now = UtilsDate.utc_now()
+    today_start = UtilsDate.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
 
     total_blocks = repo().aggregate(EmailBlocklist, :count, :uuid)
 
@@ -742,7 +742,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       }
   """
   def get_rate_limit_status do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     hour_ago = DateTime.add(now, -3600)
 
     %{
@@ -815,13 +815,13 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   end
 
   defp get_time_window(:hour) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     hour_ago = DateTime.add(now, -3600)
     {hour_ago, now}
   end
 
   defp get_time_window(:day) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     day_ago = DateTime.add(now, -86_400)
     {day_ago, now}
   end
@@ -830,7 +830,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   defp high_frequency_sender?(from_email) when is_binary(from_email) do
     # Check if sender has sent more than 50 emails in last 10 minutes
-    ten_minutes_ago = DateTime.add(DateTime.utc_now(), -600)
+    ten_minutes_ago = DateTime.add(UtilsDate.utc_now(), -600)
 
     query =
       from l in Log,
@@ -845,7 +845,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
   defp bulk_template_detected?(%Log{template_name: template}) when is_binary(template) do
     # Check if this template has been used more than 100 times in last hour
-    hour_ago = DateTime.add(DateTime.utc_now(), -3600)
+    hour_ago = DateTime.add(UtilsDate.utc_now(), -3600)
 
     query =
       from l in Log,
@@ -886,7 +886,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     reduced_sender_limit = max(div(default_sender_limit, 10), 50)
 
     # Set expiration to 24 hours from now
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     expires_at = DateTime.add(now, 86_400)
 
     user_limits = %{
@@ -926,7 +926,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
 
       user ->
         # Set expiration to 7 days from now for serious violations
-        expires_at = DateTime.add(DateTime.utc_now(), 86_400 * 7)
+        expires_at = DateTime.add(UtilsDate.utc_now(), 86_400 * 7)
 
         # Add to blocklist
         add_to_blocklist(user.email, reason, expires_at: expires_at, user_id: user_id)
@@ -966,7 +966,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     existing_events = Map.get(existing_monitoring, "events", [])
 
     # Create new event
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     new_event = %{
       "event_type" => event_type_str,
@@ -1021,7 +1021,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
     with limits when not is_nil(limits) <- user_limits,
          expires_at_str when not is_nil(expires_at_str) <- Map.get(limits, "expires_at"),
          {:ok, expires_at, _} <- DateTime.from_iso8601(expires_at_str) do
-      if DateTime.compare(DateTime.utc_now(), expires_at) == :lt do
+      if DateTime.compare(UtilsDate.utc_now(), expires_at) == :lt do
         limits
       else
         # Limits expired, clean them up
@@ -1084,7 +1084,7 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
   end
 
   defp get_blocklist_status do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     today_start = DateTime.new!(Date.utc_today(), ~T[00:00:00])
 
     %{

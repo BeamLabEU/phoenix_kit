@@ -48,6 +48,7 @@ defmodule PhoenixKit.Modules.Pages.ListingCache do
   alias PhoenixKit.Modules.Pages
   alias PhoenixKit.Modules.Pages.Storage
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -173,7 +174,7 @@ defmodule PhoenixKit.Modules.Pages.ListingCache do
 
     safe_persistent_term_put(
       loaded_at_key(blog_slug),
-      DateTime.utc_now() |> DateTime.to_iso8601()
+      UtilsDate.utc_now() |> DateTime.to_iso8601()
     )
 
     if generated_at do
@@ -244,7 +245,7 @@ defmodule PhoenixKit.Modules.Pages.ListingCache do
     normalized_posts = Enum.map(serialized_posts, &normalize_post/1)
 
     # Generate timestamp once for consistency
-    generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+    generated_at = UtilsDate.utc_now() |> DateTime.to_iso8601()
 
     # Write to file cache if enabled
     file_result =
@@ -456,7 +457,7 @@ defmodule PhoenixKit.Modules.Pages.ListingCache do
     serialized_posts = Enum.map(posts, &safe_serialize_post/1)
 
     cache_data = %{
-      "generated_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "generated_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
       "post_count" => length(posts),
       "posts" => serialized_posts
     }
@@ -505,7 +506,7 @@ defmodule PhoenixKit.Modules.Pages.ListingCache do
 
             safe_persistent_term_put(
               loaded_at_key(blog_slug),
-              DateTime.utc_now() |> DateTime.to_iso8601()
+              UtilsDate.utc_now() |> DateTime.to_iso8601()
             )
 
             # Store the file's generated_at so we know what version of data is in memory
@@ -524,7 +525,7 @@ defmodule PhoenixKit.Modules.Pages.ListingCache do
 
             safe_persistent_term_put(
               loaded_at_key(blog_slug),
-              DateTime.utc_now() |> DateTime.to_iso8601()
+              UtilsDate.utc_now() |> DateTime.to_iso8601()
             )
 
             :ok

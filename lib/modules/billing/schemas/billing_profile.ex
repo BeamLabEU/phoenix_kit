@@ -60,6 +60,7 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
 
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_types ~w(individual company)
@@ -233,7 +234,7 @@ defmodule PhoenixKit.Modules.Billing.BillingProfile do
       postal_code: profile.postal_code,
       country: profile.country,
       # Timestamp
-      snapshot_at: DateTime.utc_now()
+      snapshot_at: UtilsDate.utc_now()
     }
     |> Enum.reject(fn {_k, v} -> is_nil(v) end)
     |> Map.new()

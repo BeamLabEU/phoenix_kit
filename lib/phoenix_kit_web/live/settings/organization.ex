@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @default_company_info %{
     "name" => "",
@@ -328,7 +329,7 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   defp broadcast_settings_change(type) do
     PubSubManager.broadcast(
       "organization:settings",
-      {:organization_settings_changed, %{type: type, timestamp: DateTime.utc_now()}}
+      {:organization_settings_changed, %{type: type, timestamp: UtilsDate.utc_now()}}
     )
   rescue
     # PubSub may not be available in all environments

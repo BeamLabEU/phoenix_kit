@@ -33,6 +33,7 @@ defmodule PhoenixKit.Modules.Sync.SessionStore do
   """
 
   use GenServer
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   require Logger
 
   @table_name :phoenix_kit_sync_sessions
@@ -271,7 +272,7 @@ defmodule PhoenixKit.Modules.Sync.SessionStore do
 
       created_at ->
         # Consider sessions older than 24 hours as orphaned
-        hours_old = DateTime.diff(DateTime.utc_now(), created_at, :hour)
+        hours_old = DateTime.diff(UtilsDate.utc_now(), created_at, :hour)
         hours_old > 24
     end
   end

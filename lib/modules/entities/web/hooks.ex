@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Entities.Web.Hooks do
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
   Subscribes to entity events and tracks user presence when the LiveView is connected.
@@ -43,7 +44,7 @@ defmodule PhoenixKit.Modules.Entities.Web.Hooks do
       session_id = session["live_socket_id"] || generate_session_id()
 
       Presence.track_user(user, %{
-        connected_at: DateTime.utc_now(),
+        connected_at: UtilsDate.utc_now(),
         session_id: session_id,
         current_page: get_current_page(socket),
         ip_address: extract_ip(socket),

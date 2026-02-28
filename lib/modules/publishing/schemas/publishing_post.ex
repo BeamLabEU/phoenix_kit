@@ -22,6 +22,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
 
   use Ecto.Schema
   import Ecto.Changeset
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
@@ -163,7 +164,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
 
       {"scheduled", datetime} when not is_nil(datetime) ->
         if (scheduled_at_changed? or status_changed?) and
-             DateTime.compare(datetime, DateTime.utc_now()) == :lt do
+             DateTime.compare(datetime, UtilsDate.utc_now()) == :lt do
           add_error(changeset, :scheduled_at, "must be in the future")
         else
           changeset

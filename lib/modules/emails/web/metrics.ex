@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
           delivery_trend: %{labels: [], datasets: []},
           engagement: %{labels: [], datasets: []}
         })
-        |> assign(:last_updated, DateTime.utc_now())
+        |> assign(:last_updated, UtilsDate.utc_now())
         |> load_metrics_data()
 
       {:ok, socket}
@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
 
     {:noreply,
      socket
-     |> assign(:last_updated, DateTime.utc_now())
+     |> assign(:last_updated, UtilsDate.utc_now())
      |> load_metrics_data()}
   end
 
@@ -243,8 +243,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
   end
 
   defp get_today_count do
-    today_start = DateTime.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
-    now = DateTime.utc_now()
+    today_start = UtilsDate.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
+    now = UtilsDate.utc_now()
 
     case Emails.get_system_stats(
            {:date_range, DateTime.to_date(today_start), DateTime.to_date(now)}

@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.ProviderRegistry
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Cache TTL for bucket list (5 minutes)
   @buckets_cache_ttl 300_000
@@ -213,7 +214,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     extension = Path.extname(original_name)
     base_name = Path.rootname(original_name)
 
-    timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
+    timestamp = UtilsDate.utc_now() |> DateTime.to_iso8601()
     random_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
     prefix = Keyword.get(opts, :path_prefix, "")

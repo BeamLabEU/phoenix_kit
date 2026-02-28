@@ -31,6 +31,7 @@ defmodule PhoenixKit.Mailer do
   alias PhoenixKit.Modules.Emails.Utils, as: EmailUtils
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -467,7 +468,7 @@ defmodule PhoenixKit.Mailer do
   """
   def send_test_tracking_email(recipient_email, user_uuid \\ nil)
       when is_binary(recipient_email) do
-    timestamp = DateTime.utc_now() |> DateTime.to_string()
+    timestamp = UtilsDate.utc_now() |> DateTime.to_string()
     test_link_url = Routes.url("/admin/emails")
 
     # Variables for template substitution

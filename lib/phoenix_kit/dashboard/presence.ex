@@ -43,6 +43,7 @@ defmodule PhoenixKit.Dashboard.Presence do
   alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.PubSubHelper
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Suppress warnings about optional PhoenixKit.Presence module
   @compile {:no_warn_undefined, PhoenixKit.Presence}
@@ -77,8 +78,8 @@ defmodule PhoenixKit.Dashboard.Presence do
             tab_path: opts[:tab_path],
             user_uuid: user && user.uuid,
             user_email: user && user.email,
-            joined_at: DateTime.utc_now(),
-            online_at: DateTime.utc_now()
+            joined_at: UtilsDate.utc_now(),
+            online_at: UtilsDate.utc_now()
           }
           |> Map.merge(opts[:meta] || %{})
 

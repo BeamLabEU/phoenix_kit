@@ -40,6 +40,7 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
   alias PhoenixKit.Modules.Sitemap.Generator
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
   Performs sitemap regeneration.
@@ -134,7 +135,7 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
   def schedule(opts \\ []) do
     if schedule_enabled?() do
       delay_hours = Keyword.get(opts, :delay_hours) || get_interval_hours()
-      scheduled_at = DateTime.add(DateTime.utc_now(), delay_hours * 3600, :second)
+      scheduled_at = DateTime.add(UtilsDate.utc_now(), delay_hours * 3600, :second)
 
       %{scheduled: true}
       |> new(scheduled_at: scheduled_at)
@@ -292,7 +293,7 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
   defp broadcast_sitemap_generated(url_count) do
     PubSubManager.broadcast(
       "sitemap:updates",
-      {:sitemap_generated, %{url_count: url_count, timestamp: DateTime.utc_now()}}
+      {:sitemap_generated, %{url_count: url_count, timestamp: UtilsDate.utc_now()}}
     )
   rescue
     # PubSub may not be available in all environments

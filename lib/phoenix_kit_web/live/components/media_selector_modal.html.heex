@@ -219,10 +219,10 @@
         <% else %>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             <%= for file <- @uploaded_files do %>
-              <% is_selected = MapSet.member?(@selected_ids, file.file_id) %>
+              <% is_selected = MapSet.member?(@selected_ids, file.file_uuid) %>
               <div
                 phx-click="toggle_selection"
-                phx-value-file-id={file.file_id}
+                phx-value-file-id={file.file_uuid}
                 phx-target={@myself}
                 class={[
                   "card bg-base-200 shadow-md cursor-pointer transition-all hover:shadow-lg",

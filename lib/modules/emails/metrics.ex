@@ -31,6 +31,7 @@ defmodule PhoenixKit.Modules.Emails.Metrics do
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Emails.Event
   alias PhoenixKit.Modules.Emails.Log
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Get the configured repo
   defp repo do
@@ -153,7 +154,7 @@ defmodule PhoenixKit.Modules.Emails.Metrics do
       alerts: alerts,
       top_performers: top_performers,
       provider_performance: provider_performance,
-      generated_at: DateTime.utc_now()
+      generated_at: UtilsDate.utc_now()
     }
   end
 
@@ -217,7 +218,7 @@ defmodule PhoenixKit.Modules.Emails.Metrics do
 
   # Get time range for period
   defp get_time_range(period) do
-    end_time = DateTime.utc_now()
+    end_time = UtilsDate.utc_now()
 
     start_time =
       case period do

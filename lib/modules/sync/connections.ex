@@ -630,7 +630,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   @spec expiring_soon(non_neg_integer()) :: [Connection.t()]
   def expiring_soon(hours \\ 24) do
     repo = RepoHelper.repo()
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     cutoff = DateTime.add(now, hours * 3600, :second)
 
     from(c in Connection,

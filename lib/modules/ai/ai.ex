@@ -73,6 +73,7 @@ defmodule PhoenixKit.Modules.AI do
   alias PhoenixKit.Modules.AI.Request
   alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   # ===========================================
@@ -1277,7 +1278,7 @@ defmodule PhoenixKit.Modules.AI do
   Returns stats for the last 30 days plus all-time totals.
   """
   def get_dashboard_stats do
-    thirty_days_ago = DateTime.utc_now() |> DateTime.add(-30, :day)
+    thirty_days_ago = UtilsDate.utc_now() |> DateTime.add(-30, :day)
     today_start = Date.utc_today() |> DateTime.new!(~T[00:00:00], "Etc/UTC")
 
     all_time = get_usage_stats()

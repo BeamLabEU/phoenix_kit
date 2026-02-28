@@ -50,6 +50,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -180,7 +181,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
     safe_persistent_term_put(
       loaded_at_key(group_slug),
-      DateTime.utc_now() |> DateTime.to_iso8601()
+      UtilsDate.utc_now() |> DateTime.to_iso8601()
     )
 
     if generated_at do
@@ -251,7 +252,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   defp do_regenerate_from_db(group_slug, memory_enabled, start_time) do
     # Posts from to_listing_map are already atom-key maps with excerpts
     posts = DBStorage.list_posts_for_listing(group_slug)
-    generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+    generated_at = UtilsDate.utc_now() |> DateTime.to_iso8601()
 
     if memory_enabled do
       safe_persistent_term_put(persistent_term_key(group_slug), posts)
@@ -290,7 +291,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     normalized_posts = Enum.map(serialized_posts, &normalize_post/1)
 
     # Generate timestamp once for consistency
-    generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+    generated_at = UtilsDate.utc_now() |> DateTime.to_iso8601()
 
     # Write to file cache if enabled
     file_result =
@@ -514,7 +515,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     serialized_posts = Enum.map(posts, &safe_serialize_post/1)
 
     cache_data = %{
-      "generated_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "generated_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
       "post_count" => length(posts),
       "posts" => serialized_posts
     }
@@ -560,7 +561,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
   defp load_into_memory_from_db(group_slug) do
     posts = DBStorage.list_posts_for_listing(group_slug)
-    generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+    generated_at = UtilsDate.utc_now() |> DateTime.to_iso8601()
 
     safe_persistent_term_put(persistent_term_key(group_slug), posts)
     safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
@@ -591,7 +592,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
             safe_persistent_term_put(
               loaded_at_key(group_slug),
-              DateTime.utc_now() |> DateTime.to_iso8601()
+              UtilsDate.utc_now() |> DateTime.to_iso8601()
             )
 
             # Store the file's generated_at so we know what version of data is in memory
@@ -613,7 +614,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
             safe_persistent_term_put(
               loaded_at_key(group_slug),
-              DateTime.utc_now() |> DateTime.to_iso8601()
+              UtilsDate.utc_now() |> DateTime.to_iso8601()
             )
 
             # Broadcast cache change so admin UI updates live

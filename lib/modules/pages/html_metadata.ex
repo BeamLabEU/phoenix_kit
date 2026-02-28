@@ -1,4 +1,6 @@
 defmodule PhoenixKit.Modules.Pages.HtmlMetadata do
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+
   @moduledoc """
   Metadata management for Pages module.
 
@@ -184,7 +186,7 @@ defmodule PhoenixKit.Modules.Pages.HtmlMetadata do
   """
   @spec default_metadata() :: metadata()
   def default_metadata do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     %{
       status: "draft",
@@ -277,14 +279,14 @@ defmodule PhoenixKit.Modules.Pages.HtmlMetadata do
   defp parse_value(:created_at, value) when is_binary(value) do
     case DateTime.from_iso8601(value) do
       {:ok, dt, _offset} -> dt
-      _ -> DateTime.utc_now()
+      _ -> UtilsDate.utc_now()
     end
   end
 
   defp parse_value(:updated_at, value) when is_binary(value) do
     case DateTime.from_iso8601(value) do
       {:ok, dt, _offset} -> dt
-      _ -> DateTime.utc_now()
+      _ -> UtilsDate.utc_now()
     end
   end
 

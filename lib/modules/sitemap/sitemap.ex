@@ -102,6 +102,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   use PhoenixKit.Module
 
   alias PhoenixKit.Dashboard.Tab
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -509,14 +510,14 @@ defmodule PhoenixKit.Modules.Sitemap do
   @spec update_generation_stats(map()) :: {:ok, map()} | {:error, any()}
   def update_generation_stats(stats) when is_map(stats) do
     url_count = Map.get(stats, :url_count, 0)
-    timestamp = Map.get(stats, :timestamp, DateTime.utc_now())
+    timestamp = Map.get(stats, :timestamp, UtilsDate.utc_now())
 
     # Convert timestamp to ISO8601 string
     timestamp_str =
       case timestamp do
         %DateTime{} -> DateTime.to_iso8601(timestamp)
         string when is_binary(string) -> string
-        _ -> DateTime.to_iso8601(DateTime.utc_now())
+        _ -> DateTime.to_iso8601(UtilsDate.utc_now())
       end
 
     # Update both settings
@@ -718,7 +719,7 @@ defmodule PhoenixKit.Modules.Sitemap do
         %{
           "filename" => info.filename,
           "url_count" => info.url_count,
-          "last_generated" => DateTime.utc_now() |> DateTime.to_iso8601()
+          "last_generated" => UtilsDate.utc_now() |> DateTime.to_iso8601()
         }
       end)
 

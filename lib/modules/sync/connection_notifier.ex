@@ -1052,7 +1052,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
         current_metadata = Map.get(connection, :metadata) || %{}
 
         notification_data = %{
-          "notified_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+          "notified_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
           "notification_success" => result.success,
           "notification_status" => Atom.to_string(result.status),
           "notification_message" => result.message,

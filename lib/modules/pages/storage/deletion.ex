@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Pages.Storage.Deletion do
 
   alias PhoenixKit.Modules.Pages.Storage.Paths
   alias PhoenixKit.Modules.Pages.Storage.Versions
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
   Moves a post to the trash folder.
@@ -30,7 +31,7 @@ defmodule PhoenixKit.Modules.Pages.Storage.Deletion do
       File.mkdir_p!(trash_dir)
 
       timestamp =
-        DateTime.utc_now()
+        UtilsDate.utc_now()
         |> Calendar.strftime("%Y-%m-%d-%H-%M-%S")
 
       sanitized_id = sanitize_for_trash(post_identifier)
@@ -62,7 +63,7 @@ defmodule PhoenixKit.Modules.Pages.Storage.Deletion do
       File.mkdir_p!(trash_dir)
 
       timestamp =
-        DateTime.utc_now()
+        UtilsDate.utc_now()
         |> Calendar.strftime("%Y-%m-%d-%H-%M-%S")
 
       new_name = "#{Path.basename(relative_path)}-#{timestamp}"
@@ -207,7 +208,7 @@ defmodule PhoenixKit.Modules.Pages.Storage.Deletion do
         File.mkdir_p!(trash_dir)
 
         timestamp =
-          DateTime.utc_now()
+          UtilsDate.utc_now()
           |> Calendar.strftime("%Y-%m-%d-%H-%M-%S")
 
         destination = Path.join(trash_dir, "v#{version}-#{timestamp}")

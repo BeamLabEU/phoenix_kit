@@ -18,6 +18,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Sender do
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -170,7 +171,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Sender do
     receiver_data = %{
       receiver_info: receiver_info,
       connection_info: connection_info,
-      connected_at: DateTime.utc_now()
+      connected_at: UtilsDate.utc_now()
     }
 
     receivers = Map.put(socket.assigns.receivers, channel_pid, receiver_data)
@@ -192,7 +193,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Sender do
     receiver_data = %{
       receiver_info: %{},
       connection_info: %{},
-      connected_at: DateTime.utc_now()
+      connected_at: UtilsDate.utc_now()
     }
 
     receivers = Map.put(socket.assigns.receivers, channel_pid, receiver_data)

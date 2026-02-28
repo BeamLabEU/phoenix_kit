@@ -247,7 +247,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   Returns true if renewal is due (period end is near or past).
   """
   def renewal_due?(%__MODULE__{current_period_end: period_end}) when not is_nil(period_end) do
-    DateTime.compare(period_end, DateTime.utc_now()) != :gt
+    DateTime.compare(period_end, UtilsDate.utc_now()) != :gt
   end
 
   def renewal_due?(_), do: false
@@ -257,7 +257,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   """
   def should_renew?(%__MODULE__{current_period_end: period_end, status: status})
       when status in ["active", "trialing"] and not is_nil(period_end) do
-    hours_until_end = DateTime.diff(period_end, DateTime.utc_now(), :hour)
+    hours_until_end = DateTime.diff(period_end, UtilsDate.utc_now(), :hour)
     hours_until_end <= 24
   end
 
@@ -269,7 +269,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   def grace_period_expired?(%__MODULE__{grace_period_end: nil}), do: false
 
   def grace_period_expired?(%__MODULE__{grace_period_end: grace_end}) do
-    DateTime.compare(grace_end, DateTime.utc_now()) != :gt
+    DateTime.compare(grace_end, UtilsDate.utc_now()) != :gt
   end
 
   @doc """
@@ -278,7 +278,7 @@ defmodule PhoenixKit.Modules.Billing.Subscription do
   def days_remaining(%__MODULE__{current_period_end: nil}), do: 0
 
   def days_remaining(%__MODULE__{current_period_end: period_end}) do
-    case DateTime.diff(period_end, DateTime.utc_now(), :day) do
+    case DateTime.diff(period_end, UtilsDate.utc_now(), :day) do
       days when days > 0 -> days
       _ -> 0
     end

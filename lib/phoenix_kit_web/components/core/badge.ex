@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
   """
 
   use Phoenix.Component
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
   Renders a role badge with appropriate styling based on role type.
@@ -109,7 +110,7 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
         "badge-error"
 
       code.expiration_date &&
-          DateTime.compare(DateTime.utc_now(), code.expiration_date) == :gt ->
+          DateTime.compare(UtilsDate.utc_now(), code.expiration_date) == :gt ->
         "badge-warning"
 
       true ->
@@ -122,7 +123,7 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
       code.number_of_uses >= code.max_uses ->
         "Expired"
 
-      code.expiration_date && DateTime.compare(DateTime.utc_now(), code.expiration_date) == :gt ->
+      code.expiration_date && DateTime.compare(UtilsDate.utc_now(), code.expiration_date) == :gt ->
         "Expired"
 
       true ->

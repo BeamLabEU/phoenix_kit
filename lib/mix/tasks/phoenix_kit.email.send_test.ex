@@ -42,6 +42,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.SendTest do
 
   use Mix.Task
   import Swoosh.Email
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl Mix.Task
   def run(args) do
@@ -95,7 +96,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.SendTest do
     Mix.shell().info("Tracking: #{if track_email, do: "enabled", else: "disabled"}")
     Mix.shell().info("")
 
-    timestamp = DateTime.utc_now() |> DateTime.to_string()
+    timestamp = UtilsDate.utc_now() |> DateTime.to_string()
 
     Enum.each(recipients, fn recipient ->
       Mix.shell().info("📤 Sending email to #{recipient}...")

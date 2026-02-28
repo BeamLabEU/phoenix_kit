@@ -44,6 +44,7 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl Mix.Task
   def run(args) do
@@ -266,7 +267,7 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
     {:ok, metadata, body_content} = Metadata.parse_with_content(content)
 
     # Add version fields if missing
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = UtilsDate.utc_now() |> DateTime.truncate(:second)
 
     updated_metadata =
       metadata

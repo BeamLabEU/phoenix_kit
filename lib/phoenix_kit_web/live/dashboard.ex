@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   alias PhoenixKit.Users.{Roles, Sessions}
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   def mount(_params, session, socket) do
     # Subscribe to statistics updates for live data
@@ -140,7 +141,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
       session_id = session["live_socket_id"] || generate_session_id()
 
       Presence.track_user(user, %{
-        connected_at: DateTime.utc_now(),
+        connected_at: UtilsDate.utc_now(),
         session_id: session_id,
         ip_address: IpAddress.extract_from_socket(socket),
         user_agent: get_connect_info(socket, :user_agent),

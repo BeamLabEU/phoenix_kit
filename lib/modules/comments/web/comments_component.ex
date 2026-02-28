@@ -8,14 +8,14 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
         module={PhoenixKit.Modules.Comments.Web.CommentsComponent}
         id={"comments-\#{@post.uuid}"}
         resource_type="post"
-        resource_id={@post.uuid}
+        resource_uuid={@post.uuid}
         current_user={@current_user}
       />
 
   ## Required Attrs
 
   - `resource_type` - String identifying the resource type (e.g., "post")
-  - `resource_id` - UUID of the resource
+  - `resource_uuid` - UUID of the resource
   - `current_user` - Current authenticated user struct
   - `id` - Unique component ID
 
@@ -29,7 +29,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
 
   After create/delete, sends to the parent LiveView:
 
-      {:comments_updated, %{resource_type: "post", resource_id: uuid, action: :created | :deleted}}
+      {:comments_updated, %{resource_type: "post", resource_uuid: uuid, action: :created | :deleted}}
   """
 
   use PhoenixKitWeb, :live_component
@@ -58,7 +58,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
       |> assign_new(:title, fn -> "Comments" end)
 
     socket =
-      if changed?(socket, :resource_id) or socket.assigns.comments == [] do
+      if changed?(socket, :resource_uuid) or socket.assigns.comments == [] do
         load_comments(socket)
       else
         socket
@@ -70,16 +70,16 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
   @impl true
   def handle_event("add_comment", %{"comment" => comment_text}, socket) do
     if comment_text != "" do
-      parent_id = socket.assigns.reply_to
+      parent_uuid = socket.assigns.reply_to
 
       attrs = %{
         content: comment_text,
-        parent_uuid: parent_id
+        parent_uuid: parent_uuid
       }
 
       case Comments.create_comment(
              socket.assigns.resource_type,
-             socket.assigns.resource_id,
+             socket.assigns.resource_uuid,
              socket.assigns.current_user.uuid,
              attrs
            ) do
@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
             {:comments_updated,
              %{
                resource_type: socket.assigns.resource_type,
-               resource_id: socket.assigns.resource_id,
+               resource_uuid: socket.assigns.resource_uuid,
                action: :created
              }}
           )
@@ -110,8 +110,8 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
   end
 
   @impl true
-  def handle_event("reply_to", %{"id" => comment_id}, socket) do
-    {:noreply, assign(socket, :reply_to, comment_id)}
+  def handle_event("reply_to", %{"id" => comment_uuid}, socket) do
+    {:noreply, assign(socket, :reply_to, comment_uuid)}
   end
 
   @impl true
@@ -120,8 +120,8 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
   end
 
   @impl true
-  def handle_event("delete_comment", %{"id" => comment_id}, socket) do
-    case Comments.get_comment(comment_id) do
+  def handle_event("delete_comment", %{"id" => comment_uuid}, socket) do
+    case Comments.get_comment(comment_uuid) do
       nil ->
         {:noreply, socket |> put_flash(:error, "Comment not found")}
 
@@ -134,7 +134,7 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
                 {:comments_updated,
                  %{
                    resource_type: socket.assigns.resource_type,
-                   resource_id: socket.assigns.resource_id,
+                   resource_uuid: socket.assigns.resource_uuid,
                    action: :deleted
                  }}
               )
@@ -156,12 +156,12 @@ defmodule PhoenixKit.Modules.Comments.Web.CommentsComponent do
 
   defp load_comments(socket) do
     comments =
-      Comments.get_comment_tree(socket.assigns.resource_type, socket.assigns.resource_id)
+      Comments.get_comment_tree(socket.assigns.resource_type, socket.assigns.resource_uuid)
 
     comment_count =
       Comments.count_comments(
         socket.assigns.resource_type,
-        socket.assigns.resource_id,
+        socket.assigns.resource_uuid,
         status: "published"
       )
 

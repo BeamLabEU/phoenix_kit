@@ -70,7 +70,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
         |> assign(:system_status, %{})
         |> assign(:selected_emails, [])
         |> assign(:bulk_action, nil)
-        |> assign(:last_updated, DateTime.utc_now())
+        |> assign(:last_updated, UtilsDate.utc_now())
         |> load_queue_data()
 
       {:ok, socket}
@@ -178,7 +178,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
 
     {:noreply,
      socket
-     |> assign(:last_updated, DateTime.utc_now())
+     |> assign(:last_updated, UtilsDate.utc_now())
      |> load_queue_data()}
   end
 
@@ -205,7 +205,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
     # Get failed emails from last 24 hours
     Emails.list_logs(%{
       status: "failed",
-      since: DateTime.add(DateTime.utc_now(), -24, :hour),
+      since: DateTime.add(UtilsDate.utc_now(), -24, :hour),
       limit: 50
     })
   end
@@ -219,8 +219,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
   end
 
   defp get_today_count do
-    today_start = DateTime.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
-    now = DateTime.utc_now()
+    today_start = UtilsDate.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
+    now = UtilsDate.utc_now()
 
     case Emails.get_system_stats(
            {:date_range, DateTime.to_date(today_start), DateTime.to_date(now)}

@@ -137,7 +137,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   Mark import as failed.
   """
   def fail_changeset(import_log, error) do
-    error_details = [%{"error" => inspect(error), "timestamp" => DateTime.utc_now()}]
+    error_details = [%{"error" => inspect(error), "timestamp" => UtilsDate.utc_now()}]
 
     import_log
     |> change(%{

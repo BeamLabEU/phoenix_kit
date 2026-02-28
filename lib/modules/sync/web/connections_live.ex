@@ -18,6 +18,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl true
   def mount(params, _session, socket) do
@@ -2211,7 +2212,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   # ===========================================
 
   defp format_time_ago(datetime) do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     diff = DateTime.diff(now, datetime, :second)
 
     cond do

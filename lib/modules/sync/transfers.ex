@@ -56,6 +56,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   alias PhoenixKit.Modules.Sync.Transfer
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # ===========================================
   # CRUD OPERATIONS
@@ -443,7 +444,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   @spec expire_pending_approvals() :: {non_neg_integer(), nil | term()}
   def expire_pending_approvals do
     repo = RepoHelper.repo()
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     query =
       from t in Transfer,

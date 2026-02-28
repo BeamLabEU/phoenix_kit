@@ -80,6 +80,7 @@ defmodule PhoenixKit.Modules.Emails.Web.WebhookController do
 
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Rate limiting configuration (commented out for future use)
   # @default_rate_limit %{max_requests: 100, window_seconds: 60}
@@ -233,7 +234,7 @@ defmodule PhoenixKit.Modules.Emails.Web.WebhookController do
       timestamp_str ->
         case parse_timestamp(timestamp_str) do
           {:ok, request_time} ->
-            age_seconds = DateTime.diff(DateTime.utc_now(), request_time, :second)
+            age_seconds = DateTime.diff(UtilsDate.utc_now(), request_time, :second)
 
             if age_seconds <= @max_request_age_seconds do
               :ok

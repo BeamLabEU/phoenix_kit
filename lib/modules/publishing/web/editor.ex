@@ -40,6 +40,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias PhoenixKit.Modules.Publishing.Web.Editor.Preview
   alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
   alias PhoenixKit.Modules.Publishing.Web.Editor.Versions
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Import publishing-specific components
   import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
@@ -375,7 +376,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     all_enabled_languages = Storage.enabled_language_codes()
     primary_language = Storage.get_primary_language()
 
-    now = DateTime.utc_now() |> DateTime.truncate(:second) |> Forms.floor_datetime_to_minute()
+    now = UtilsDate.utc_now() |> DateTime.truncate(:second) |> Forms.floor_datetime_to_minute()
     virtual_post = Helpers.build_virtual_post(group_slug, group_mode, primary_language, now)
 
     form = Forms.post_form(virtual_post)

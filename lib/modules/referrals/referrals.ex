@@ -175,7 +175,7 @@ defmodule PhoenixKit.Modules.Referrals do
     code.status &&
       code.number_of_uses < code.max_uses &&
       (is_nil(code.expiration_date) ||
-         DateTime.compare(DateTime.utc_now(), code.expiration_date) == :lt)
+         DateTime.compare(UtilsDate.utc_now(), code.expiration_date) == :lt)
   end
 
   @doc """
@@ -188,7 +188,7 @@ defmodule PhoenixKit.Modules.Referrals do
   """
   def expired?(%__MODULE__{} = code) do
     !is_nil(code.expiration_date) &&
-      DateTime.compare(DateTime.utc_now(), code.expiration_date) != :lt
+      DateTime.compare(UtilsDate.utc_now(), code.expiration_date) != :lt
   end
 
   @doc """
@@ -676,7 +676,7 @@ defmodule PhoenixKit.Modules.Referrals do
       [%PhoenixKit.Modules.Referrals{}, ...]
   """
   def list_valid_codes do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     from(r in __MODULE__,
       where: r.status == true,
@@ -754,7 +754,7 @@ defmodule PhoenixKit.Modules.Referrals do
         changeset
 
       expiration_date ->
-        if DateTime.compare(expiration_date, DateTime.utc_now()) == :gt do
+        if DateTime.compare(expiration_date, UtilsDate.utc_now()) == :gt do
           changeset
         else
           add_error(changeset, :expiration_date, "must be in the future")

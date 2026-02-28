@@ -166,7 +166,7 @@ defmodule PhoenixKit.ScheduledJobs do
       {:ok, %{executed: 5, failed: 1}}
   """
   def process_pending_jobs do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     pending_jobs = get_pending_jobs(now)
 
@@ -199,7 +199,7 @@ defmodule PhoenixKit.ScheduledJobs do
       iex> get_pending_jobs()
       [%ScheduledJob{}, ...]
   """
-  def get_pending_jobs(as_of \\ DateTime.utc_now()) do
+  def get_pending_jobs(as_of \\ UtilsDate.utc_now()) do
     from(j in ScheduledJob,
       where: j.status == "pending",
       where: j.scheduled_at <= ^as_of,

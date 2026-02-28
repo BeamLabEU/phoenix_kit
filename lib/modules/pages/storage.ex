@@ -2014,7 +2014,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
       File.mkdir_p!(trash_dir)
 
       timestamp =
-        DateTime.utc_now()
+        UtilsDate.utc_now()
         |> Calendar.strftime("%Y-%m-%d-%H-%M-%S")
 
       new_name = "#{group_slug}-#{timestamp}"

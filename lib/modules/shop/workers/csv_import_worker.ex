@@ -41,6 +41,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker
   alias PhoenixKit.PubSub.Manager
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
@@ -270,7 +271,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
         error_detail = %{
           "handle" => handle,
           "error" => format_error(error),
-          "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601()
+          "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601()
         }
 
         %{

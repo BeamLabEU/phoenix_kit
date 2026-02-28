@@ -2089,7 +2089,7 @@ defmodule PhoenixKit.Modules.Shop do
   Marks abandoned carts (no activity for X days).
   """
   def mark_abandoned_carts(days \\ 7) do
-    threshold = DateTime.utc_now() |> DateTime.add(-days, :day)
+    threshold = UtilsDate.utc_now() |> DateTime.add(-days, :day)
 
     {count, _} =
       Cart
@@ -2104,7 +2104,7 @@ defmodule PhoenixKit.Modules.Shop do
   Expires old guest carts.
   """
   def expire_old_carts do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
 
     {count, _} =
       Cart

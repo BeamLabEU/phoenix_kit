@@ -31,6 +31,7 @@ defmodule PhoenixKit.Modules.Sync.Web.SocketPlug do
 
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl Plug
   def init(opts), do: opts
@@ -249,7 +250,7 @@ defmodule PhoenixKit.Modules.Sync.Web.SocketPlug do
       query_string: conn.query_string,
       websocket_version: ws_version,
       accept_language: accept_language,
-      connected_at: DateTime.utc_now()
+      connected_at: UtilsDate.utc_now()
     }
   end
 

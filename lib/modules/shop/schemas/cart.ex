@@ -25,6 +25,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @statuses ~w(active merged converted abandoned expired)
 
@@ -191,7 +192,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   def expired?(%__MODULE__{expires_at: nil}), do: false
 
   def expired?(%__MODULE__{expires_at: expires_at}) do
-    DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+    DateTime.compare(UtilsDate.utc_now(), expires_at) == :gt
   end
 
   @doc """
@@ -238,7 +239,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
 
     # Guest carts expire in 30 days
     if is_nil(user_uuid) and not is_nil(session_id) and is_nil(expires_at) do
-      expires = DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
+      expires = UtilsDate.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
       put_change(changeset, :expires_at, expires)
     else
       changeset

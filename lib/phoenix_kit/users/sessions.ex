@@ -27,6 +27,7 @@ defmodule PhoenixKit.Users.Sessions do
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.RepoHelper, as: Repo
   alias PhoenixKit.Users.Auth.{User, UserToken}
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @session_validity_in_days 60
 
@@ -231,7 +232,7 @@ defmodule PhoenixKit.Users.Sessions do
 
   """
   def get_session_stats do
-    now = DateTime.utc_now()
+    now = UtilsDate.utc_now()
     today_start = %{now | hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
 
     # Active sessions
@@ -287,10 +288,10 @@ defmodule PhoenixKit.Users.Sessions do
   end
 
   defp calculate_age_in_days(created_at) do
-    DateTime.diff(DateTime.utc_now(), created_at, :day)
+    DateTime.diff(UtilsDate.utc_now(), created_at, :day)
   end
 
   defp session_expired?(created_at) do
-    DateTime.diff(DateTime.utc_now(), created_at, :day) >= @session_validity_in_days
+    DateTime.diff(UtilsDate.utc_now(), created_at, :day) >= @session_validity_in_days
   end
 end

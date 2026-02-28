@@ -38,6 +38,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
   """
   use Ecto.Schema
   import Ecto.Changeset
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
 
@@ -121,7 +122,7 @@ defmodule PhoenixKit.Modules.Posts.PostView do
   defp validate_viewed_at_not_future(changeset) do
     viewed_at = get_field(changeset, :viewed_at)
 
-    if viewed_at && DateTime.compare(viewed_at, DateTime.utc_now()) == :gt do
+    if viewed_at && DateTime.compare(viewed_at, UtilsDate.utc_now()) == :gt do
       add_error(changeset, :viewed_at, "cannot be in the future")
     else
       changeset

@@ -83,7 +83,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Blocklist do
         |> assign(:show_add_form, false)
         |> assign(:show_import_form, false)
         |> assign(:bulk_action, nil)
-        |> assign(:last_updated, DateTime.utc_now())
+        |> assign(:last_updated, UtilsDate.utc_now())
         |> assign(:statistics, %{})
         |> load_blocklist_data()
 
@@ -324,7 +324,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Blocklist do
 
     {:noreply,
      socket
-     |> assign(:last_updated, DateTime.utc_now())
+     |> assign(:last_updated, UtilsDate.utc_now())
      |> load_blocklist_data()}
   end
 

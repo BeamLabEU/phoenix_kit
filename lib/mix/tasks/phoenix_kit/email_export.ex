@@ -59,6 +59,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Export do
 
   use Mix.Task
   alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl Mix.Task
   def run(args) do
@@ -201,7 +202,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Export do
 
   defp export_json(logs, options) do
     json_data = %{
-      exported_at: DateTime.utc_now(),
+      exported_at: UtilsDate.utc_now(),
       total_records: length(logs),
       filters: build_filters(options),
       logs: logs

@@ -152,8 +152,8 @@ mix compile --warnings-as-errors
 - [x] Fix storage.ex to not write to `user_id` column (set only `user_uuid`)
 - [x] Fix ScheduledJob schema primary key pattern
 - [x] Fix user_form.ex and user_form.html.heex to use `.uuid`
-- [ ] Verify NO writes to any legacy `_id` columns (only NULLs or absent)
-- [ ] Run full test suite with legacy columns dropped (local test)
+- [x] Verify NO writes to any legacy `_id` columns — grep confirms all remaining `user_id:` writes are `user_id: nil` (explicitly nulling) or migration docs/comments
+- [ ] Run full test suite with legacy columns dropped (local test — gate before DB migration)
 
 ### Phase 2 Verification Results
 

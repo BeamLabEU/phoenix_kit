@@ -51,6 +51,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
 
   use Mix.Task
   alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @impl Mix.Task
   def run(args) do
@@ -140,7 +141,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
   end
 
   defp generate_test_message_id do
-    timestamp = DateTime.utc_now() |> DateTime.to_unix()
+    timestamp = UtilsDate.utc_now() |> DateTime.to_unix()
     "test-webhook-#{timestamp}-#{:rand.uniform(9999)}"
   end
 
@@ -156,7 +157,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
             subject: "Test Email for Webhook",
             status: "sent",
             provider: "test_provider",
-            sent_at: DateTime.utc_now()
+            sent_at: UtilsDate.utc_now()
           })
 
         Mix.shell().info("📧 Created test email log: #{message_id}")
@@ -176,7 +177,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     base_event = %{
       "Type" => "Notification",
       "MessageId" => "webhook-test-#{:rand.uniform(99999)}",
-      "Timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "Timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
       "Message" => Jason.encode!(generate_ses_message(event_type, message_id))
     }
 
@@ -187,7 +188,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     %{
       "eventType" => "send",
       "mail" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "messageId" => message_id,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
@@ -200,13 +201,13 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     %{
       "eventType" => "delivery",
       "mail" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "messageId" => message_id,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
       },
       "delivery" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "processingTimeMillis" => 2000,
         "recipients" => ["test@example.com"],
         "smtpResponse" => "250 2.0.0 OK"
@@ -218,7 +219,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     %{
       "eventType" => "bounce",
       "mail" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "messageId" => message_id,
         "source" => "test@phoenixkit.dev",
         "destination" => ["bounce@example.com"]
@@ -226,7 +227,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
       "bounce" => %{
         "bounceType" => "Permanent",
         "bounceSubType" => "General",
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "feedbackId" => "test-bounce-#{:rand.uniform(9999)}",
         "bouncedRecipients" => [
           %{
@@ -244,7 +245,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     %{
       "eventType" => "complaint",
       "mail" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "messageId" => message_id,
         "source" => "test@phoenixkit.dev",
         "destination" => ["complaint@example.com"]
@@ -255,7 +256,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
             "emailAddress" => "complaint@example.com"
           }
         ],
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "feedbackId" => "test-complaint-#{:rand.uniform(9999)}",
         "complaintFeedbackType" => "abuse"
       }
@@ -266,13 +267,13 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     %{
       "eventType" => "open",
       "mail" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "messageId" => message_id,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
       },
       "open" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "userAgent" => "Mozilla/5.0 (Test Webhook)",
         "ipAddress" => "192.0.2.1"
       }
@@ -283,13 +284,13 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     %{
       "eventType" => "click",
       "mail" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "messageId" => message_id,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
       },
       "click" => %{
-        "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "userAgent" => "Mozilla/5.0 (Test Webhook)",
         "ipAddress" => "192.0.2.1",
         "link" => "https://example.com/test-link",

@@ -22,6 +22,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Data URI placeholder for broken images - works without external file serving
   @placeholder_data_uri "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23e5e7eb'/%3E%3Cg fill='%239ca3af'%3E%3Crect x='160' y='140' width='80' height='60' rx='4'/%3E%3Ccircle cx='180' cy='160' r='8'/%3E%3Cpath d='M160 190 l25-20 l15 15 l20-25 l20 30 v10 h-80 z'/%3E%3C/g%3E%3C/svg%3E"
@@ -507,7 +508,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       error: error_details,
       product_id: product_id,
       user_id: user_id,
-      timestamp: DateTime.utc_now()
+      timestamp: UtilsDate.utc_now()
     }
 
     # Log as warning level (not error) since it's gracefully handled

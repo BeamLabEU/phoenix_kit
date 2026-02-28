@@ -804,7 +804,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       "approval_mode" => "auto_approve",
       "metadata" => %{
         "registered_via" => "api",
-        "registered_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "registered_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
         "remote_ip" => get_remote_ip(conn),
         "user_agent" => get_user_agent(conn)
       }

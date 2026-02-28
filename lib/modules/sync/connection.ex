@@ -398,7 +398,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   def expired?(%__MODULE__{expires_at: nil}), do: false
 
   def expired?(%__MODULE__{expires_at: expires_at}) do
-    DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+    DateTime.compare(UtilsDate.utc_now(), expires_at) == :gt
   end
 
   @doc """
@@ -429,7 +429,7 @@ defmodule PhoenixKit.Modules.Sync.Connection do
         allowed_hours_start: start_hour,
         allowed_hours_end: end_hour
       }) do
-    current_hour = DateTime.utc_now().hour
+    current_hour = UtilsDate.utc_now().hour
 
     if start_hour <= end_hour do
       current_hour >= start_hour and current_hour <= end_hour

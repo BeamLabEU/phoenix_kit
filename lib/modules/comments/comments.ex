@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Comments do
 
   ## Architecture
 
-  Comments are linked to resources via `resource_type` (string) + `resource_id` (UUID).
+  Comments are linked to resources via `resource_type` (string) + `resource_uuid` (UUID).
   No foreign key constraints on the resource side — any module can use comments.
 
   ## Resource Handler Callbacks
@@ -175,24 +175,24 @@ defmodule PhoenixKit.Modules.Comments do
   ## Parameters
 
   - `resource_type` - Type of resource (e.g., "post")
-  - `resource_id` - UUID of the resource
+  - `resource_uuid` - UUID of the resource
   - `user_uuid` - UUID of commenter
-  - `attrs` - Comment attributes (content, parent_id, etc.)
+  - `attrs` - Comment attributes (content, parent_uuid, etc.)
   """
-  def create_comment(resource_type, resource_id, user_uuid, attrs) when is_binary(user_uuid) do
+  def create_comment(resource_type, resource_uuid, user_uuid, attrs) when is_binary(user_uuid) do
     if UUIDUtils.valid?(user_uuid) do
-      do_create_comment(resource_type, resource_id, user_uuid, attrs)
+      do_create_comment(resource_type, resource_uuid, user_uuid, attrs)
     else
       {:error, :invalid_user_uuid}
     end
   end
 
-  defp do_create_comment(resource_type, resource_id, user_uuid, attrs) do
+  defp do_create_comment(resource_type, resource_uuid, user_uuid, attrs) do
     repo().transaction(fn ->
       attrs =
         attrs
         |> Map.put(:resource_type, resource_type)
-        |> Map.put(:resource_uuid, resource_id)
+        |> Map.put(:resource_uuid, resource_uuid)
         |> Map.put(:user_uuid, user_uuid)
         |> maybe_calculate_depth()
 
@@ -200,7 +200,7 @@ defmodule PhoenixKit.Modules.Comments do
            |> Comment.changeset(attrs)
            |> repo().insert() do
         {:ok, comment} ->
-          notify_resource_handler(:on_comment_created, resource_type, resource_id, comment)
+          notify_resource_handler(:on_comment_created, resource_type, resource_uuid, comment)
           comment
 
         {:error, changeset} ->
@@ -279,12 +279,12 @@ defmodule PhoenixKit.Modules.Comments do
 
   Returns all published comments organized in a tree structure.
   """
-  def get_comment_tree(resource_type, resource_id) do
+  def get_comment_tree(resource_type, resource_uuid) do
     comments =
       from(c in Comment,
         where:
           c.resource_type == ^resource_type and
-            c.resource_uuid == ^resource_id and
+            c.resource_uuid == ^resource_uuid and
             c.status == "published",
         order_by: [asc: c.inserted_at],
         preload: [:user]
@@ -302,13 +302,13 @@ defmodule PhoenixKit.Modules.Comments do
   - `:preload` - Associations to preload
   - `:status` - Filter by status
   """
-  def list_comments(resource_type, resource_id, opts \\ []) do
+  def list_comments(resource_type, resource_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
     status = Keyword.get(opts, :status)
 
     query =
       from(c in Comment,
-        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_id,
+        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_uuid,
         order_by: [asc: c.inserted_at]
       )
 
@@ -320,12 +320,12 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "Counts comments for a resource."
-  def count_comments(resource_type, resource_id, opts \\ []) do
+  def count_comments(resource_type, resource_uuid, opts \\ []) do
     status = Keyword.get(opts, :status)
 
     query =
       from(c in Comment,
-        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_id
+        where: c.resource_type == ^resource_type and c.resource_uuid == ^resource_uuid
       )
 
     query = if status, do: where(query, [c], c.status == ^status), else: query
@@ -431,7 +431,7 @@ defmodule PhoenixKit.Modules.Comments do
   @doc """
   Resolves resource context (title and admin path) for a list of comments.
 
-  Returns a map of `{resource_type, resource_id} => %{title: ..., path: ...}`
+  Returns a map of `{resource_type, resource_uuid} => %{title: ..., path: ...}`
   by delegating to registered `comment_resource_handlers` that implement
   `resolve_comment_resources/1`.
   """
@@ -456,7 +456,7 @@ defmodule PhoenixKit.Modules.Comments do
     %{"post" => PhoenixKit.Modules.Posts}
   end
 
-  defp resolve_for_type(resource_type, resource_ids) do
+  defp resolve_for_type(resource_type, resource_uuids) do
     handlers = resource_handlers()
 
     case Map.get(handlers, resource_type) do
@@ -465,7 +465,7 @@ defmodule PhoenixKit.Modules.Comments do
 
       mod ->
         if Code.ensure_loaded?(mod) and function_exported?(mod, :resolve_comment_resources, 1) do
-          mod.resolve_comment_resources(resource_ids)
+          mod.resolve_comment_resources(resource_uuids)
         else
           %{}
         end
@@ -581,11 +581,11 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   @doc "Lists all dislikes for a comment."
-  def list_comment_dislikes(comment_id, opts \\ []) do
+  def list_comment_dislikes(comment_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [])
 
     from(d in CommentDislike,
-      where: d.comment_uuid == ^comment_id,
+      where: d.comment_uuid == ^comment_uuid,
       order_by: [desc: d.inserted_at]
     )
     |> repo().all()
@@ -601,8 +601,8 @@ defmodule PhoenixKit.Modules.Comments do
       nil ->
         Map.put(attrs, :depth, 0)
 
-      parent_id ->
-        case repo().get(Comment, parent_id) do
+      parent_uuid ->
+        case repo().get(Comment, parent_uuid) do
           nil -> Map.put(attrs, :depth, 0)
           parent -> Map.put(attrs, :depth, (parent.depth || 0) + 1)
         end
@@ -627,23 +627,23 @@ defmodule PhoenixKit.Modules.Comments do
     Map.put(comment, :children, children)
   end
 
-  defp increment_comment_like_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id)
+  defp increment_comment_like_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid)
     |> repo().update_all(inc: [like_count: 1])
   end
 
-  defp decrement_comment_like_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id and c.like_count > 0)
+  defp decrement_comment_like_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid and c.like_count > 0)
     |> repo().update_all(inc: [like_count: -1])
   end
 
-  defp increment_comment_dislike_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id)
+  defp increment_comment_dislike_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid)
     |> repo().update_all(inc: [dislike_count: 1])
   end
 
-  defp decrement_comment_dislike_count(comment_id) do
-    from(c in Comment, where: c.uuid == ^comment_id and c.dislike_count > 0)
+  defp decrement_comment_dislike_count(comment_uuid) do
+    from(c in Comment, where: c.uuid == ^comment_uuid and c.dislike_count > 0)
     |> repo().update_all(inc: [dislike_count: -1])
   end
 
@@ -666,7 +666,7 @@ defmodule PhoenixKit.Modules.Comments do
     end
   end
 
-  defp notify_resource_handler(callback, resource_type, resource_id, comment) do
+  defp notify_resource_handler(callback, resource_type, resource_uuid, comment) do
     handlers = resource_handlers()
 
     case Map.get(handlers, resource_type) do
@@ -676,7 +676,7 @@ defmodule PhoenixKit.Modules.Comments do
       handler_module ->
         if Code.ensure_loaded?(handler_module) and
              function_exported?(handler_module, callback, 3) do
-          apply(handler_module, callback, [resource_type, resource_id, comment])
+          apply(handler_module, callback, [resource_type, resource_uuid, comment])
         else
           :ok
         end
