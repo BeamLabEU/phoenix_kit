@@ -26,10 +26,10 @@ Broadcasts create/update/delete events across all LiveView sessions.
 
 **Key Functions:**
 - `subscribe_to_entities()` - Subscribe to all entity events
-- `subscribe_to_entity_data(entity_id)` - Subscribe to specific entity's data events
-- `broadcast_entity_created(entity_id)` - Notify about new entity
-- `broadcast_entity_updated(entity_id)` - Notify about entity changes
-- `broadcast_data_updated(entity_id, data_id)` - Notify about data changes
+- `subscribe_to_entity_data(entity_uuid)` - Subscribe to specific entity's data events
+- `broadcast_entity_created(entity_uuid)` - Notify about new entity
+- `broadcast_entity_updated(entity_uuid)` - Notify about entity changes
+- `broadcast_data_updated(entity_uuid, data_uuid)` - Notify about data changes
 
 ### 2. Phoenix.Presence (Collaborative Editing)
 **Location:** `lib/phoenix_kit/entities/presence.ex` + `lib/phoenix_kit/entities/presence_helpers.ex`
@@ -45,7 +45,7 @@ Distributed presence tracking with automatic role assignment for collaborative e
 
 **Key Functions:**
 - `PresenceHelpers.track_editing_session(type, id, socket, user)` - Join editing session
-- `PresenceHelpers.get_editing_role(type, id, socket_id, user_id)` - Determine if owner or spectator
+- `PresenceHelpers.get_editing_role(type, id, socket_id, user_uuid)` - Determine if owner or spectator
 - `PresenceHelpers.get_sorted_presences(type, id)` - Get all editors (FIFO ordered)
 - `PresenceHelpers.subscribe_to_editing(type, id)` - Subscribe to presence changes
 
@@ -177,20 +177,20 @@ defmodule PhoenixKitWeb.Live.MyResourcesLive do
 
   # Handle real-time updates
   @impl true
-  def handle_info({:entity_created, _entity_id}, socket) do
+  def handle_info({:entity_created, _entity_uuid}, socket) do
     # Reload and update the list
     resources = MyContext.list_resources()
     {:noreply, assign(socket, :resources, resources)}
   end
 
   @impl true
-  def handle_info({:entity_updated, _entity_id}, socket) do
+  def handle_info({:entity_updated, _entity_uuid}, socket) do
     resources = MyContext.list_resources()
     {:noreply, assign(socket, :resources, resources)}
   end
 
   @impl true
-  def handle_info({:entity_deleted, _entity_id}, socket) do
+  def handle_info({:entity_deleted, _entity_uuid}, socket) do
     resources = MyContext.list_resources()
     {:noreply, assign(socket, :resources, resources)}
   end
@@ -219,15 +219,15 @@ defmodule PhoenixKitWeb.Live.MyResourceFormLive do
 
     if connected?(socket) do
       # Subscribe to presence changes and form updates
-      PresenceHelpers.subscribe_to_editing(:resource, id)
+      PresenceHelpers.subscribe_to_editing(:resource, resource_uuid)
       Events.subscribe_to_resource_form(form_key)
 
       # Track this editing session (pass user struct, not metadata map)
       current_user = socket.assigns.current_user
-      PresenceHelpers.track_editing_session(:resource, id, socket, current_user)
+      PresenceHelpers.track_editing_session(:resource, resource_uuid, socket, current_user)
 
       # Determine our role (owner or spectator) - returns tuple
-      case PresenceHelpers.get_editing_role(:resource, id, socket.id, current_user.id) do
+      case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.id) do
         {:owner, _presences} ->
           socket = assign(socket, editing_role: :owner)
           {:ok, socket}
@@ -248,7 +248,7 @@ defmodule PhoenixKitWeb.Live.MyResourceFormLive do
       changeset = MyContext.change_resource(socket.assigns.resource, params)
 
       # Broadcast changes to spectators via PubSub
-      Events.broadcast_resource_form_change("resource_#{socket.assigns.resource.id}", %{
+      Events.broadcast_resource_form_change("resource_#{socket.assigns.resource.uuid}", %{
         changeset_params: params
       })
 
@@ -262,11 +262,11 @@ defmodule PhoenixKitWeb.Live.MyResourceFormLive do
   # Handle presence_diff - someone joined or left
   @impl true
   def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
-    resource_id = socket.assigns.resource.id
+    resource_uuid = socket.assigns.resource.uuid
     current_user = socket.assigns.current_user
 
     # Recalculate our role
-    case PresenceHelpers.get_editing_role(:resource, resource_id, socket.id, current_user.id) do
+    case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.id) do
       {:owner, _presences} ->
         old_role = socket.assigns.editing_role
         socket = assign(socket, editing_role: :owner)
@@ -289,7 +289,7 @@ defmodule PhoenixKitWeb.Live.MyResourceFormLive do
   # Handle form changes broadcast from owner
   @impl true
   def handle_info({:resource_form_change, form_key, payload, _source}, socket) do
-    if form_key == "resource_#{socket.assigns.resource.id}" && socket.assigns.editing_role == :spectator do
+    if form_key == "resource_#{socket.assigns.resource.uuid}" && socket.assigns.editing_role == :spectator do
       case Map.get(payload, :changeset_params) do
         params when not is_nil(params) ->
           changeset = MyContext.change_resource(socket.assigns.resource, params)
@@ -312,7 +312,7 @@ defmodule PhoenixKitWeb.Live.MyResourceFormLive do
           {:noreply,
            socket
            |> put_flash(:info, "Resource updated successfully")
-           |> redirect(to: ~p"/admin/resources/#{resource.id}")}
+           |> redirect(to: ~p"/admin/resources/#{resource.uuid}")}
 
         {:error, changeset} ->
           {:noreply, assign(socket, changeset: changeset)}
@@ -350,31 +350,31 @@ defmodule PhoenixKit.Entities.Events do
     Manager.subscribe(@entity_topic)
   end
 
-  def subscribe_to_entity_data(entity_id) do
-    Manager.subscribe(@entity_data_topic_prefix <> to_string(entity_id))
+  def subscribe_to_entity_data(entity_uuid) do
+    Manager.subscribe(@entity_data_topic_prefix <> to_string(entity_uuid))
   end
 
   # Broadcasting functions
-  def broadcast_entity_created(entity_id) do
-    Manager.broadcast(@entity_topic, {:entity_created, entity_id})
+  def broadcast_entity_created(entity_uuid) do
+    Manager.broadcast(@entity_topic, {:entity_created, entity_uuid})
   end
 
-  def broadcast_entity_updated(entity_id) do
-    Manager.broadcast(@entity_topic, {:entity_updated, entity_id})
+  def broadcast_entity_updated(entity_uuid) do
+    Manager.broadcast(@entity_topic, {:entity_updated, entity_uuid})
   end
 
-  def broadcast_entity_deleted(entity_id) do
-    Manager.broadcast(@entity_topic, {:entity_deleted, entity_id})
+  def broadcast_entity_deleted(entity_uuid) do
+    Manager.broadcast(@entity_topic, {:entity_deleted, entity_uuid})
   end
 
-  def broadcast_data_created(entity_id, data_id) do
-    Manager.broadcast(@entity_data_topic_prefix <> to_string(entity_id),
-      {:data_created, entity_id, data_id})
+  def broadcast_data_created(entity_uuid, data_uuid) do
+    Manager.broadcast(@entity_data_topic_prefix <> to_string(entity_uuid),
+      {:data_created, entity_uuid, data_uuid})
   end
 
-  def broadcast_data_updated(entity_id, data_id) do
-    Manager.broadcast(@entity_data_topic_prefix <> to_string(entity_id),
-      {:data_updated, entity_id, data_id})
+  def broadcast_data_updated(entity_uuid, data_uuid) do
+    Manager.broadcast(@entity_data_topic_prefix <> to_string(entity_uuid),
+      {:data_updated, entity_uuid, data_uuid})
   end
 end
 ```
@@ -408,17 +408,17 @@ defmodule PhoenixKit.Entities do
   end
 
   defp notify_entity_event({:ok, %Entity{} = entity}, :created) do
-    Events.broadcast_entity_created(entity.id)
+    Events.broadcast_entity_created(entity.uuid)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %Entity{} = entity}, :updated) do
-    Events.broadcast_entity_updated(entity.id)
+    Events.broadcast_entity_updated(entity.uuid)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %Entity{} = entity}, :deleted) do
-    Events.broadcast_entity_deleted(entity.id)
+    Events.broadcast_entity_deleted(entity.uuid)
     {:ok, entity}
   end
 
@@ -455,13 +455,13 @@ if connected?(socket) do
   current_user = socket.assigns.current_user
 
   # Subscribe to presence changes
-  PresenceHelpers.subscribe_to_editing(:entity, entity_id)
+  PresenceHelpers.subscribe_to_editing(:entity, entity_uuid)
 
   # Track this editing session (pass user struct, not metadata map)
-  PresenceHelpers.track_editing_session(:entity, entity_id, socket, current_user)
+  PresenceHelpers.track_editing_session(:entity, entity_uuid, socket, current_user)
 
   # Determine our role (returns tuple, not bare atom)
-  case PresenceHelpers.get_editing_role(:entity, entity_id, socket.id, current_user.id) do
+  case PresenceHelpers.get_editing_role(:entity, entity_uuid, socket.id, current_user.id) do
     {:owner, _presences} ->
       assign(socket, editing_role: :owner)
 
@@ -481,7 +481,7 @@ if socket.assigns.editing_role == :owner do
   changeset = MyContext.change_resource(resource, params)
 
   # Broadcast changes to spectators via PubSub Events system
-  Events.broadcast_entity_form_change("entity_#{entity_id}", %{
+  Events.broadcast_entity_form_change("entity_#{entity_uuid}", %{
     changeset_params: params,
     last_updated: System.system_time(:millisecond)
   })
@@ -500,11 +500,11 @@ end
 ```elixir
 @impl true
 def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
-  entity_id = socket.assigns.entity.id
+  entity_uuid = socket.assigns.entity.uuid
   current_user = socket.assigns.current_user
 
   # Recalculate our role (returns tuple)
-  case PresenceHelpers.get_editing_role(:entity, entity_id, socket.id, current_user.id) do
+  case PresenceHelpers.get_editing_role(:entity, entity_uuid, socket.id, current_user.id) do
     {:owner, _presences} ->
       old_role = socket.assigns.editing_role
       socket = assign(socket, editing_role: :owner)
@@ -527,7 +527,7 @@ end
 # Handle form changes broadcast from owner
 @impl true
 def handle_info({:entity_form_change, form_key, payload, _source}, socket) do
-  if form_key == "entity_#{socket.assigns.entity.id}" && socket.assigns.editing_role == :spectator do
+  if form_key == "entity_#{socket.assigns.entity.uuid}" && socket.assigns.editing_role == :spectator do
     case Map.get(payload, :changeset_params) do
       params when not is_nil(params) ->
         changeset = MyContext.change_resource(socket.assigns.entity, params)
@@ -573,7 +573,7 @@ Show who else is editing and your role:
 
 ```elixir
 # In mount/3 or handle_info/2
-presences = PresenceHelpers.get_sorted_presences(:entity, entity_id)
+presences = PresenceHelpers.get_sorted_presences(:entity, entity_uuid)
 assign(socket, presences: presences)
 ```
 
@@ -585,8 +585,8 @@ assign(socket, presences: presences)
 # ❌ OLD WAY (no longer needed):
 @impl true
 def terminate(_reason, socket) do
-  Presence.untrack("editor:entity:#{entity_id}:")
-  Presence.clear_data("state:entity:#{entity_id}")
+  Presence.untrack("editor:entity:#{entity_uuid}:")
+  Presence.clear_data("state:entity:#{entity_uuid}")
   :ok
 end
 
@@ -643,7 +643,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesLive do
 
   # Still need handle_info callbacks
   @impl true
-  def handle_info({:entity_created, _entity_id}, socket) do
+  def handle_info({:entity_created, _entity_uuid}, socket) do
     {:noreply, assign(socket, :entities, Entities.list_entities())}
   end
 end
@@ -669,17 +669,17 @@ defmodule MyApp.MyResourcesLive do
   end
 
   @impl true
-  def handle_info({:resource_created, _id}, socket) do
+  def handle_info({:resource_created, _uuid}, socket) do
     {:noreply, assign(socket, :resources, load_resources())}
   end
 
   @impl true
-  def handle_info({:resource_updated, _id}, socket) do
+  def handle_info({:resource_updated, _uuid}, socket) do
     {:noreply, assign(socket, :resources, load_resources())}
   end
 
   @impl true
-  def handle_info({:resource_deleted, _id}, socket) do
+  def handle_info({:resource_deleted, _uuid}, socket) do
     {:noreply, assign(socket, :resources, load_resources())}
   end
 
@@ -710,9 +710,9 @@ defmodule MyApp.MyResourceDetailLive do
   end
 
   @impl true
-  def handle_info({:resource_updated, resource_id}, socket) do
-    if resource_id == socket.assigns.resource.id do
-      resource = MyContext.get_resource!(resource_id)
+  def handle_info({:resource_updated, resource_uuid}, socket) do
+    if resource_uuid == socket.assigns.resource.uuid do
+      resource = MyContext.get_resource!(resource_uuid)
 
       # Check if resource was archived/deleted
       if resource.status == "archived" do
@@ -730,8 +730,8 @@ defmodule MyApp.MyResourceDetailLive do
   end
 
   @impl true
-  def handle_info({:resource_deleted, resource_id}, socket) do
-    if resource_id == socket.assigns.resource.id do
+  def handle_info({:resource_deleted, resource_uuid}, socket) do
+    if resource_uuid == socket.assigns.resource.uuid do
       {:noreply,
        socket
        |> put_flash(:error, "Resource was deleted in another session")
@@ -813,7 +813,7 @@ defmodule MyApp.MyResourceFormLive do
       changeset = MyContext.change_resource(socket.assigns.resource, params)
 
       # Broadcast changes to spectators via PubSub Events
-      Events.broadcast_resource_form_change("resource_#{socket.assigns.resource.id}", %{
+      Events.broadcast_resource_form_change("resource_#{socket.assigns.resource.uuid}", %{
         changeset_params: params,
         last_updated: System.system_time(:millisecond)
       })
@@ -834,7 +834,7 @@ defmodule MyApp.MyResourceFormLive do
           {:noreply,
            socket
            |> put_flash(:info, "Resource updated successfully")
-           |> redirect(to: ~p"/admin/resources/#{resource.id}")}
+           |> redirect(to: ~p"/admin/resources/#{resource.uuid}")}
 
         {:error, changeset} ->
           {:noreply, assign(socket, changeset: changeset)}
@@ -847,13 +847,13 @@ defmodule MyApp.MyResourceFormLive do
   # Handle presence_diff - someone joined or left
   @impl true
   def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
-    resource_id = socket.assigns.resource.id
+    resource_uuid = socket.assigns.resource.uuid
     current_user = socket.assigns.current_user
     old_role = socket.assigns.editing_role
 
     # Recalculate our role (returns tuple)
     {editing_role, presences} =
-      case PresenceHelpers.get_editing_role(:resource, resource_id, socket.id, current_user.id) do
+      case PresenceHelpers.get_editing_role(:resource, resource_uuid, socket.id, current_user.id) do
         {:owner, presences} -> {:owner, presences}
         {:spectator, _owner_meta, presences} -> {:spectator, presences}
       end
@@ -873,7 +873,7 @@ defmodule MyApp.MyResourceFormLive do
   # Handle form changes broadcast from owner
   @impl true
   def handle_info({:resource_form_change, form_key, payload, _source}, socket) do
-    if form_key == "resource_#{socket.assigns.resource.id}" && socket.assigns.editing_role == :spectator do
+    if form_key == "resource_#{socket.assigns.resource.uuid}" && socket.assigns.editing_role == :spectator do
       case Map.get(payload, :changeset_params) do
         params when not is_nil(params) ->
           changeset = MyContext.change_resource(socket.assigns.resource, params)
@@ -1103,8 +1103,8 @@ end
 
 ### 5. Handle Resource Deletion in handle_info
 ```elixir
-def handle_info({:resource_deleted, resource_id}, socket) do
-  if resource_id == socket.assigns.resource.id do
+def handle_info({:resource_deleted, resource_uuid}, socket) do
+  if resource_uuid == socket.assigns.resource.uuid do
     {:noreply,
      socket
      |> put_flash(:error, "Resource deleted in another session")
@@ -1197,7 +1197,7 @@ end
         │  PresenceHelpers (Utility Module)                   │
         │                                                      │
         │  - track_editing_session(type, id, socket, user)    │
-        │  - get_editing_role(type, id, socket_id, user_id)   │
+        │  - get_editing_role(type, id, socket_id, user_uuid)   │
         │    → {:owner, presences} or {:spectator, meta, presences} │
         │  - get_lock_owner(type, id)                         │
         │  - get_sorted_presences(type, id)                   │
