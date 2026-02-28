@@ -9,8 +9,8 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
       # Test bounce event
       mix phoenix_kit.email.test_webhook --event bounce
 
-      # Test open event with specific message ID
-      mix phoenix_kit.email.test_webhook --event open --message-id abc123
+      # Test open event with specific message UUID
+      mix phoenix_kit.email.test_webhook --event open --message-uuid abc123
 
       # Test delivery event
       mix phoenix_kit.email.test_webhook --event delivery
@@ -21,7 +21,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
   ## Options
 
       --event TYPE          Event type to test: bounce, delivery, send, open, click, complaint
-      --message-id ID       Use specific message ID (uses random if not provided)
+      --message-uuid UUID   Use specific message UUID (uses random if not provided)
       --all                 Test all event types
       --endpoint URL        Custom webhook endpoint URL
       --no-verify           Skip signature verification (for testing)
@@ -80,7 +80,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
       OptionParser.parse(args,
         strict: [
           event: :string,
-          message_id: :string,
+          message_uuid: :string,
           all: :boolean,
           endpoint: :string,
           no_verify: :boolean
@@ -122,11 +122,11 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     Mix.shell().info("🧪 Testing #{event_type} event...")
 
     # Create test email log if needed
-    message_id = options[:message_id] || generate_test_message_id()
-    test_log = ensure_test_log(message_id)
+    message_uuid = options[:message_uuid] || generate_test_message_uuid()
+    test_log = ensure_test_log(message_uuid)
 
     # Generate test event
-    test_event = generate_test_event(event_type, message_id, test_log)
+    test_event = generate_test_event(event_type, message_uuid, test_log)
 
     # Test webhook processing
     case test_webhook_processing(test_event, options) do
@@ -140,18 +140,18 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     end
   end
 
-  defp generate_test_message_id do
+  defp generate_test_message_uuid do
     timestamp = UtilsDate.utc_now() |> DateTime.to_unix()
     "test-webhook-#{timestamp}-#{:rand.uniform(9999)}"
   end
 
-  defp ensure_test_log(message_id) do
-    case Emails.get_log_by_message_id(message_id) do
+  defp ensure_test_log(message_uuid) do
+    case Emails.get_log_by_message_id(message_uuid) do
       {:error, :not_found} ->
         # Create a test log
         {:ok, log} =
           Emails.create_log(%{
-            message_id: message_id,
+            message_id: message_uuid,
             to: "test@example.com",
             from: "noreply@phoenixkit.dev",
             subject: "Test Email for Webhook",
@@ -160,11 +160,11 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
             sent_at: UtilsDate.utc_now()
           })
 
-        Mix.shell().info("📧 Created test email log: #{message_id}")
+        Mix.shell().info("📧 Created test email log: #{message_uuid}")
         log
 
       {:ok, log} ->
-        Mix.shell().info("📧 Using existing email log: #{message_id}")
+        Mix.shell().info("📧 Using existing email log: #{message_uuid}")
         log
 
       {:error, reason} ->
@@ -173,23 +173,23 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     end
   end
 
-  defp generate_test_event(event_type, message_id, _log) do
+  defp generate_test_event(event_type, message_uuid, _log) do
     base_event = %{
       "Type" => "Notification",
       "MessageId" => "webhook-test-#{:rand.uniform(99999)}",
       "Timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-      "Message" => Jason.encode!(generate_ses_message(event_type, message_id))
+      "Message" => Jason.encode!(generate_ses_message(event_type, message_uuid))
     }
 
     base_event
   end
 
-  defp generate_ses_message("send", message_id) do
+  defp generate_ses_message("send", message_uuid) do
     %{
       "eventType" => "send",
       "mail" => %{
         "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-        "messageId" => message_id,
+        "messageId" => message_uuid,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
       },
@@ -197,12 +197,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     }
   end
 
-  defp generate_ses_message("delivery", message_id) do
+  defp generate_ses_message("delivery", message_uuid) do
     %{
       "eventType" => "delivery",
       "mail" => %{
         "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-        "messageId" => message_id,
+        "messageId" => message_uuid,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
       },
@@ -215,12 +215,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     }
   end
 
-  defp generate_ses_message("bounce", message_id) do
+  defp generate_ses_message("bounce", message_uuid) do
     %{
       "eventType" => "bounce",
       "mail" => %{
         "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-        "messageId" => message_id,
+        "messageId" => message_uuid,
         "source" => "test@phoenixkit.dev",
         "destination" => ["bounce@example.com"]
       },
@@ -241,12 +241,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     }
   end
 
-  defp generate_ses_message("complaint", message_id) do
+  defp generate_ses_message("complaint", message_uuid) do
     %{
       "eventType" => "complaint",
       "mail" => %{
         "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-        "messageId" => message_id,
+        "messageId" => message_uuid,
         "source" => "test@phoenixkit.dev",
         "destination" => ["complaint@example.com"]
       },
@@ -263,12 +263,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     }
   end
 
-  defp generate_ses_message("open", message_id) do
+  defp generate_ses_message("open", message_uuid) do
     %{
       "eventType" => "open",
       "mail" => %{
         "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-        "messageId" => message_id,
+        "messageId" => message_uuid,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
       },
@@ -280,12 +280,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     }
   end
 
-  defp generate_ses_message("click", message_id) do
+  defp generate_ses_message("click", message_uuid) do
     %{
       "eventType" => "click",
       "mail" => %{
         "timestamp" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-        "messageId" => message_id,
+        "messageId" => message_uuid,
         "source" => "test@phoenixkit.dev",
         "destination" => ["test@example.com"]
       },
