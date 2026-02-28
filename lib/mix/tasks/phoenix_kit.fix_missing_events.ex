@@ -185,7 +185,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       end
 
     event_attrs = %{
-      email_log_id: log.id,
+      email_log_uuid: log.uuid,
       event_type: "bounce",
       occurred_at: log.bounced_at || UtilsDate.utc_now(),
       bounce_type: bounce_type,
@@ -207,7 +207,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
 
   defp create_missing_event(log, "complaint") do
     event_attrs = %{
-      email_log_id: log.id,
+      email_log_uuid: log.uuid,
       event_type: "complaint",
       occurred_at: log.complained_at || UtilsDate.utc_now(),
       complaint_type: "abuse",
@@ -228,7 +228,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
 
   defp create_missing_event(log, "reject") do
     event_attrs = %{
-      email_log_id: log.id,
+      email_log_uuid: log.uuid,
       event_type: "reject",
       occurred_at: log.rejected_at || UtilsDate.utc_now(),
       reject_reason: log.error_message,

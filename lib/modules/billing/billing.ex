@@ -2284,9 +2284,6 @@ defmodule PhoenixKit.Modules.Billing do
       invoice_uuid = opts[:invoice_uuid] ->
         where(query, [t], t.invoice_uuid == ^invoice_uuid)
 
-      invoice_id = opts[:invoice_id] ->
-        where(query, [t], fragment("invoice_id = ?", ^invoice_id))
-
       true ->
         query
     end
@@ -2729,7 +2726,6 @@ defmodule PhoenixKit.Modules.Billing do
   - `user_uuid` - The user creating the subscription (UUID)
   - `attrs` - Subscription attributes:
     - `:subscription_type_uuid` - Required: subscription type UUID
-    - `:subscription_type_id` - Legacy alias, still accepted for backward compatibility
     - `:billing_profile_uuid` - Optional: billing profile UUID to use
     - `:payment_method_uuid` - Optional: saved payment method UUID for renewals
     - `:trial_days` - Optional: override type's trial days
@@ -2746,7 +2742,6 @@ defmodule PhoenixKit.Modules.Billing do
   def create_subscription(user_uuid, attrs) do
     type_uuid =
       attrs[:subscription_type_uuid] || attrs["subscription_type_uuid"] ||
-        attrs[:subscription_type_id] || attrs["subscription_type_id"] ||
         attrs[:plan_uuid] || attrs["plan_uuid"]
 
     with {:ok, type} <- get_subscription_type(type_uuid) do
@@ -3185,14 +3180,14 @@ defmodule PhoenixKit.Modules.Billing do
 
   defp resolve_subscription_type_uuid(_), do: nil
 
-  defp maybe_mark_linked_order_paid(%{order_id: nil}), do: :ok
+  defp maybe_mark_linked_order_paid(%{order_uuid: nil}), do: :ok
 
-  defp maybe_mark_linked_order_paid(%{order_id: order_id} = invoice) do
+  defp maybe_mark_linked_order_paid(%{order_uuid: order_uuid} = invoice) do
     # Get the primary payment method from the invoice's transactions
     invoice_with_txns = repo().preload(invoice, :transactions)
     payment_method = Invoice.primary_payment_method(invoice_with_txns)
 
-    case get_order!(order_id) do
+    case get_order!(order_uuid) do
       %Order{status: "confirmed"} = order ->
         mark_order_paid(order, payment_method: payment_method)
 
@@ -3213,10 +3208,10 @@ defmodule PhoenixKit.Modules.Billing do
     end
   end
 
-  defp maybe_mark_linked_order_refunded(%{order_id: nil}), do: :ok
+  defp maybe_mark_linked_order_refunded(%{order_uuid: nil}), do: :ok
 
-  defp maybe_mark_linked_order_refunded(%{order_id: order_id}) do
-    case get_order!(order_id) do
+  defp maybe_mark_linked_order_refunded(%{order_uuid: order_uuid}) do
+    case get_order!(order_uuid) do
       %Order{status: "paid"} = order ->
         mark_order_refunded(order)
 
