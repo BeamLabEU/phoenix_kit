@@ -1,6 +1,6 @@
 # Plan: Rename `_id` → `_uuid` across all modules
 
-**Status:** Phase 1 Complete - Phase 2 In Progress (Legacy ID Column Removal Blockers)
+**Status:** Phase 1 Complete - Phase 2 Complete - Phase 2b Complete (Post-Review Fixes)
 **Created:** 2026-02-28
 **Updated:** 2026-02-28
 
@@ -177,6 +177,55 @@ mix compile --warnings-as-errors
 | `lib/phoenix_kit/scheduled_jobs.ex` | `job.id` → `job.uuid` in logging |
 | `lib/phoenix_kit_web/users/user_form.ex` | `user.id` → `user.uuid`, `user_id` → `user_uuid` |
 | `lib/phoenix_kit_web/users/user_form.html.heex` | `@user.id` → `@user.uuid` |
+
+---
+
+## Phase 2b: Items Missed by Claude, Found by Kimi Review (COMPLETE)
+
+### Why they were missed
+
+The search strategy during Phase 1 and Phase 2 was **pattern-specific**: greps targeted the exact strings `featured_image_id`, `created_by_id`, `updated_by_id`, `user.id`, and `current_user.id`. This caught direct struct field accesses on the User model but missed a different category of problem: **`user_id` as a variable or map key that holds a UUID value but uses legacy naming**. These cases don't access `.id` on a struct — they just use `user_id` as a name for something that is already a UUID. They were invisible to searches for `\.id\b` because the naming inconsistency was one level removed.
+
+Specifically, the blind spots were:
+
+1. **Presence metadata keys** — `simple_presence.ex` stored the user UUID under the atom key `:user_id` in ETS. The value was correct (a UUID), but the key name was wrong. This was only discoverable by reading the presence tracking code and tracing what key consumers (`live_sessions.ex`, `live_sessions.html.heex`) read back.
+
+2. **`user_id` variable holding a UUID** — `upload_controller.ex` had a function called `get_current_user_id` that returned `user.uuid`. The variable `user_id` throughout the controller and the Oban job args key `user_id:` all held UUID values but had legacy names. A grep for `user.id` would never find this.
+
+3. **Log messages** — `oauth.ex` used `user.id` only in a string interpolation inside a `Logger.info` call. This was syntactically identical to the struct access patterns that were caught elsewhere, but was in a file not included in the original file list and not covered by the targeted greps.
+
+4. **`dashboard/presence.ex` `:ids` format** — `get_tab_viewers/2` had a `:ids` format branch reading `&1[:user_id]` from tab presence metadata, but the metadata was written with key `user_uuid` (line 78 of the same file). This was a latent bug — always returning nil — only visible by reading both the writer and reader of the same data structure.
+
+5. **`live_sessions.ex` tracking map** — built a `user = %{uuid: ..., id: user_id, ...}` map where `id:` held a UUID from `Scope.user_id/1`. The `id:` key was unused by `track_user/2` (which only reads `.uuid` and `.email`), so it was dead code with legacy naming.
+
+### Root cause of the gap
+
+The verification grep at the end of each phase only checked for **strings that were known to be wrong up front** (`featured_image_id`, `user.id`, etc.). It did not check for the inverse: **variables or keys named `user_id` that hold UUIDs**. A complete audit requires both directions:
+
+```bash
+# What was checked (field access on struct)
+grep -rn "\.id\b" lib/ | grep -v socket.id | grep user
+
+# What was NOT checked (variable/key name holding a UUID)
+grep -rn "\buser_id\b" lib/ | grep -v "# \|@doc\|migrations"
+# Then manually verify each hit actually holds an integer vs UUID
+```
+
+### Files fixed in Phase 2b
+
+| File | What was wrong | Fix |
+|------|---------------|-----|
+| `lib/phoenix_kit/admin/simple_presence.ex` | `:user_id` key in ETS metadata held UUID | Renamed key to `:user_uuid` |
+| `lib/phoenix_kit_web/live/users/live_sessions.ex` | Read `&1.user_id` from presence meta; built map with `id: user_id` key | Read `&1.user_uuid`; removed `id:` key |
+| `lib/phoenix_kit_web/live/users/live_sessions.html.heex` | `session.user_id` in template | `session.user_uuid` |
+| `lib/phoenix_kit_web/users/oauth.ex` | `user.id` in Logger.info message | `user.uuid` |
+| `lib/phoenix_kit/dashboard/presence.ex` | `:ids` format read `&1[:user_id]` (always nil); docstring showed integer example | Read `&1[:user_uuid]`; updated docstring |
+| `lib/phoenix_kit_web/controllers/upload_controller.ex` | Function named `get_current_user_id`, variable `user_id`, Oban args key `user_id:`, param name `"user_id"` — all held UUIDs | Renamed everything to `user_uuid` |
+
+### Phase 2b Verification
+
+- **mix compile --warnings-as-errors** — ✅ clean
+- **mix test** — ✅ 488 tests, 0 failures
 
 ---
 
