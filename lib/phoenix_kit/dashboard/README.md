@@ -659,9 +659,9 @@ Badge.compound_context(:organization, {MyApp.Tasks, :get_status_counts},
 # In MyApp.Tasks
 def get_status_counts(org) do
   [
-    %{value: count_completed(org.id), color: :success},
-    %{value: count_pending(org.id), color: :warning},
-    %{value: count_overdue(org.id), color: :error}
+    %{value: count_completed(org.uuid), color: :success},
+    %{value: count_pending(org.uuid), color: :warning},
+    %{value: count_overdue(org.uuid), color: :error}
   ]
 end
 ```
@@ -674,7 +674,7 @@ Badges can subscribe to PubSub topics for automatic updates:
 # Using a key from the message
 badge: %{
   type: :count,
-  subscribe: {"user:#{user_id}:notifications", :unread_count}
+  subscribe: {"user:#{user_uuid}:notifications", :unread_count}
 }
 
 # Using a function to extract the value
@@ -726,8 +726,8 @@ For badges that show different values per user, organization, or other context (
     type: :count,
     context_key: :farm,
     loader: {MyApp.Farms, :printing_count},
-    # {id} is replaced with farm.id at runtime
-    subscribe: {"farm:{id}:stats", fn msg -> msg.printing_count end}
+    # {uuid} is replaced with farm.uuid at runtime
+    subscribe: {"farm:{uuid}:stats", fn msg -> msg.printing_count end}
   }
 }
 ```
@@ -736,13 +736,13 @@ For badges that show different values per user, organization, or other context (
 
 Subscribe topics support `{field}` placeholders that are resolved from the current context:
 
-- `{id}` - context.id
+- `{uuid}` - context.uuid
 - `{name}` - context.name
 - Any field accessible on the context struct/map
 
 Examples:
-- `"org:{id}:alerts"` → `"org:123:alerts"`
-- `"farm:{uuid}:stats"` → `"farm:abc-def:stats"`
+- `"org:{uuid}:alerts"` → `"org:550e8400-e29b-41d4-a716-446655440000:alerts"`
+- `"farm:{uuid}:stats"` → `"farm:abc-def-123:stats"`
 
 ### Loader Function
 
@@ -1152,14 +1152,14 @@ config :phoenix_kit, :dashboard_context_selector,
   display_name: fn farm -> farm.name end,
 
   # Optional settings with defaults shown
-  id_field: :id,                    # Field or function to get ID
+  id_field: :uuid,                   # Field or function to get UUID
   label: "Farm",                    # UI label (e.g., "Switch Farm")
   icon: "hero-building-office",     # Heroicon name
   position: :sidebar,               # :header or :sidebar
   sub_position: :end,               # :start, :end, or {:priority, N}
   separator: "/",                   # Header separator (false to disable)
   empty_behavior: :hide,            # :hide, :show_empty, or {:redirect, "/setup"}
-  session_key: "dashboard_context_id",
+  session_key: "dashboard_context_uuid",
 
   # Optional: Dynamic tabs based on context
   tab_loader: {MyApp.Farms, :get_tabs_for_context}
@@ -1210,7 +1210,7 @@ defmodule MyAppWeb.DashboardLive do
     context = socket.assigns.current_context
 
     if context do
-      items = MyApp.Items.list_for_context(context.id)
+      items = MyApp.Items.list_for_context(context.uuid)
       {:ok, assign(socket, items: items)}
     else
       {:ok, assign(socket, items: [])}
@@ -1220,7 +1220,7 @@ end
 
 # Or use helper functions
 context = PhoenixKit.Dashboard.current_context(socket)
-context_id = PhoenixKit.Dashboard.current_context_id(socket)
+context_uuid = PhoenixKit.Dashboard.current_context_uuid(socket)
 has_multiple = PhoenixKit.Dashboard.has_multiple_contexts?(socket)
 ```
 
@@ -1291,5 +1291,5 @@ separator: false    # Disable separator entirely
 
 - **Single context**: Selector is hidden, user doesn't know multi-context exists
 - **Multiple contexts**: Dropdown appears based on position setting
-- **Context switch**: POST to `/phoenix_kit/context/:id`, session updated, page redirects back
+- **Context switch**: POST to `/phoenix_kit/context/:uuid`, session updated, page redirects back
 - **Persistence**: Selection stored in session, survives navigation
