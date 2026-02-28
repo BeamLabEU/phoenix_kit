@@ -277,7 +277,6 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       reason: reason,
       expires_at: expires_at,
       user_uuid: user_uuid,
-      user_uuid: user_uuid,
       inserted_at: UtilsDate.utc_now(),
       updated_at: UtilsDate.utc_now()
     }
