@@ -176,14 +176,14 @@ defmodule PhoenixKit.Modules.Comments do
 
   - `resource_type` - Type of resource (e.g., "post")
   - `resource_id` - UUID of the resource
-  - `user_id` - User ID of commenter
+  - `user_uuid` - UUID of commenter
   - `attrs` - Comment attributes (content, parent_id, etc.)
   """
-  def create_comment(resource_type, resource_id, user_id, attrs) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
-      do_create_comment(resource_type, resource_id, user_id, attrs)
+  def create_comment(resource_type, resource_id, user_uuid, attrs) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      do_create_comment(resource_type, resource_id, user_uuid, attrs)
     else
-      {:error, :invalid_user_id}
+      {:error, :invalid_user_uuid}
     end
   end
 
@@ -363,7 +363,7 @@ defmodule PhoenixKit.Modules.Comments do
 
   - `:resource_type` - Filter by resource type
   - `:status` - Filter by status
-  - `:user_id` - Filter by user
+  - `:user_uuid` - Filter by user
   - `:search` - Search in content
   - `:page` - Page number (default: 1)
   - `:per_page` - Items per page (default: 20)
@@ -373,7 +373,7 @@ defmodule PhoenixKit.Modules.Comments do
     per_page = Keyword.get(opts, :per_page, 20)
     resource_type = Keyword.get(opts, :resource_type)
     status = Keyword.get(opts, :status)
-    user_id = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     search = Keyword.get(opts, :search)
 
     query =
@@ -386,7 +386,7 @@ defmodule PhoenixKit.Modules.Comments do
       if resource_type, do: where(query, [c], c.resource_type == ^resource_type), else: query
 
     query = if status, do: where(query, [c], c.status == ^status), else: query
-    query = maybe_filter_by_user(query, user_id)
+    query = maybe_filter_by_user(query, user_uuid)
 
     query =
       if search && search != "" do
@@ -658,9 +658,9 @@ defmodule PhoenixKit.Modules.Comments do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
-      where(query, [c], c.user_uuid == ^user_id)
+  defp maybe_filter_by_user(query, user_uuid) when is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
+      where(query, [c], c.user_uuid == ^user_uuid)
     else
       query
     end

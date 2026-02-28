@@ -391,7 +391,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   ## Parameters
 
   - `transfer` - The transfer to approve
-  - `admin_user_id` - The user ID approving the transfer
+  - `admin_user_uuid` - The user ID approving the transfer
 
   ## Examples
 
@@ -399,11 +399,11 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   """
   @spec approve_transfer(Transfer.t(), String.t()) ::
           {:ok, Transfer.t()} | {:error, Ecto.Changeset.t()}
-  def approve_transfer(%Transfer{} = transfer, admin_user_id) do
+  def approve_transfer(%Transfer{} = transfer, admin_user_uuid) do
     repo = RepoHelper.repo()
 
     transfer
-    |> Transfer.approve_changeset(admin_user_id)
+    |> Transfer.approve_changeset(admin_user_uuid)
     |> repo.update()
   end
 
@@ -413,7 +413,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   ## Parameters
 
   - `transfer` - The transfer to deny
-  - `admin_user_id` - The user ID denying the transfer
+  - `admin_user_uuid` - The user ID denying the transfer
   - `reason` - Optional reason for denial
 
   ## Examples
@@ -422,11 +422,11 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   """
   @spec deny_transfer(Transfer.t(), String.t(), String.t() | nil) ::
           {:ok, Transfer.t()} | {:error, Ecto.Changeset.t()}
-  def deny_transfer(%Transfer{} = transfer, admin_user_id, reason \\ nil) do
+  def deny_transfer(%Transfer{} = transfer, admin_user_uuid, reason \\ nil) do
     repo = RepoHelper.repo()
 
     transfer
-    |> Transfer.deny_changeset(admin_user_id, reason)
+    |> Transfer.deny_changeset(admin_user_uuid, reason)
     |> repo.update()
   end
 

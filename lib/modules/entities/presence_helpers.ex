@@ -27,7 +27,7 @@ defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
     topic = editing_topic(type, id)
 
     Presence.track(self(), topic, socket.id, %{
-      user_id: user.uuid,
+      user_uuid: user.uuid,
       user_email: user.email,
       user: user,
       joined_at: System.system_time(:millisecond),

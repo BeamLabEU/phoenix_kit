@@ -1609,7 +1609,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
           # Build owner info - IMPORTANT: use socket_id from KEY not phx_ref
           lock_info = %{
             socket_id: owner_socket_id,
-            user_id: owner_meta.user_id
+            user_uuid: owner_meta.user_uuid
           }
 
           # Map spectators to expected format with correct socket IDs
@@ -1618,7 +1618,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
               %{
                 socket_id: spectator_socket_id,
                 user: meta.user,
-                user_id: meta.user_id
+                user_uuid: meta.user_uuid
               }
             end)
 

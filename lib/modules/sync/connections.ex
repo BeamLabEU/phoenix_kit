@@ -225,7 +225,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   ## Parameters
 
   - `connection` - The connection to approve
-  - `admin_user_id` - The user ID approving the connection
+  - `admin_user_uuid` - The user ID approving the connection
 
   ## Examples
 
@@ -233,11 +233,11 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   """
   @spec approve_connection(Connection.t(), String.t()) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
-  def approve_connection(%Connection{} = connection, admin_user_id) do
+  def approve_connection(%Connection{} = connection, admin_user_uuid) do
     repo = RepoHelper.repo()
 
     connection
-    |> Connection.approve_changeset(admin_user_id)
+    |> Connection.approve_changeset(admin_user_uuid)
     |> repo.update()
   end
 
@@ -247,7 +247,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   ## Parameters
 
   - `connection` - The connection to suspend
-  - `admin_user_id` - The user ID suspending the connection
+  - `admin_user_uuid` - The user ID suspending the connection
   - `reason` - Optional reason for suspension
 
   ## Examples
@@ -256,11 +256,11 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   """
   @spec suspend_connection(Connection.t(), String.t(), String.t() | nil) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
-  def suspend_connection(%Connection{} = connection, admin_user_id, reason \\ nil) do
+  def suspend_connection(%Connection{} = connection, admin_user_uuid, reason \\ nil) do
     repo = RepoHelper.repo()
 
     connection
-    |> Connection.suspend_changeset(admin_user_id, reason)
+    |> Connection.suspend_changeset(admin_user_uuid, reason)
     |> repo.update()
   end
 
@@ -270,7 +270,7 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   ## Parameters
 
   - `connection` - The connection to revoke
-  - `admin_user_id` - The user ID revoking the connection
+  - `admin_user_uuid` - The user ID revoking the connection
   - `reason` - Optional reason for revocation
 
   ## Examples
@@ -279,11 +279,11 @@ defmodule PhoenixKit.Modules.Sync.Connections do
   """
   @spec revoke_connection(Connection.t(), String.t(), String.t() | nil) ::
           {:ok, Connection.t()} | {:error, Ecto.Changeset.t()}
-  def revoke_connection(%Connection{} = connection, admin_user_id, reason \\ nil) do
+  def revoke_connection(%Connection{} = connection, admin_user_uuid, reason \\ nil) do
     repo = RepoHelper.repo()
 
     connection
-    |> Connection.revoke_changeset(admin_user_id, reason)
+    |> Connection.revoke_changeset(admin_user_uuid, reason)
     |> repo.update()
   end
 

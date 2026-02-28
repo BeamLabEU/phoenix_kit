@@ -9,8 +9,8 @@ defmodule PhoenixKit.AuditLog do
 
       # Log an admin password reset
       PhoenixKit.AuditLog.log_password_change(%{
-        target_user_id: 123,
-        admin_user_id: 1,
+        target_user_uuid: 123,
+        admin_user_uuid: 1,
         action: :admin_password_reset,
         ip_address: "192.168.1.1",
         user_agent: "Mozilla/5.0..."
@@ -32,8 +32,8 @@ defmodule PhoenixKit.AuditLog do
 
   ## Parameters
     * `attrs` - Map containing:
-      * `:target_user_id` - ID of the user whose password was changed (required)
-      * `:admin_user_id` - ID of the admin who performed the action (required)
+      * `:target_user_uuid` - ID of the user whose password was changed (required)
+      * `:admin_user_uuid` - ID of the admin who performed the action (required)
       * `:action` - The action performed (default: `:admin_password_reset`)
       * `:ip_address` - IP address of the admin (optional)
       * `:user_agent` - User agent string of the admin (optional)
@@ -42,8 +42,8 @@ defmodule PhoenixKit.AuditLog do
   ## Examples
 
       iex> log_password_change(%{
-      ...>   target_user_id: 123,
-      ...>   admin_user_id: 1,
+      ...>   target_user_uuid: 123,
+      ...>   admin_user_uuid: 1,
       ...>   action: :admin_password_reset,
       ...>   ip_address: "192.168.1.1"
       ...> })
@@ -61,8 +61,8 @@ defmodule PhoenixKit.AuditLog do
 
   ## Parameters
     * `attrs` - Map containing:
-      * `:target_user_id` - ID of the user affected by the action (required)
-      * `:admin_user_id` - ID of the admin who performed the action (required)
+      * `:target_user_uuid` - ID of the user affected by the action (required)
+      * `:admin_user_uuid` - ID of the admin who performed the action (required)
       * `:action` - The action performed (required)
       * `:ip_address` - IP address of the admin (optional)
       * `:user_agent` - User agent string of the admin (optional)
@@ -71,8 +71,8 @@ defmodule PhoenixKit.AuditLog do
   ## Examples
 
       iex> create_log_entry(%{
-      ...>   target_user_id: 123,
-      ...>   admin_user_id: 1,
+      ...>   target_user_uuid: 123,
+      ...>   admin_user_uuid: 1,
       ...>   action: :user_created,
       ...>   ip_address: "192.168.1.1"
       ...> })
@@ -130,8 +130,8 @@ defmodule PhoenixKit.AuditLog do
     * `:limit` - Maximum number of entries to return (default: 100)
     * `:offset` - Number of entries to skip (default: 0)
     * `:action` - Filter by action type
-    * `:target_user_id` - Filter by target user ID
-    * `:admin_user_id` - Filter by admin user ID
+    * `:target_user_uuid` - Filter by target user ID
+    * `:admin_user_uuid` - Filter by admin user ID
     * `:from_date` - Filter entries after this date
     * `:to_date` - Filter entries before this date
 
@@ -152,10 +152,10 @@ defmodule PhoenixKit.AuditLog do
         {:action, action}, query ->
           from(e in query, where: e.action == ^to_string(action))
 
-        {:target_user_id, user_uuid}, query when is_binary(user_uuid) ->
+        {:target_user_uuid, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.target_user_uuid == ^user_uuid)
 
-        {:admin_user_id, user_uuid}, query when is_binary(user_uuid) ->
+        {:admin_user_uuid, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.admin_user_uuid == ^user_uuid)
 
         {:from_date, date}, query ->
@@ -210,10 +210,10 @@ defmodule PhoenixKit.AuditLog do
         {:action, action}, query ->
           from(e in query, where: e.action == ^to_string(action))
 
-        {:target_user_id, user_uuid}, query when is_binary(user_uuid) ->
+        {:target_user_uuid, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.target_user_uuid == ^user_uuid)
 
-        {:admin_user_id, user_uuid}, query when is_binary(user_uuid) ->
+        {:admin_user_uuid, user_uuid}, query when is_binary(user_uuid) ->
           from(e in query, where: e.admin_user_uuid == ^user_uuid)
 
         {:from_date, date}, query ->

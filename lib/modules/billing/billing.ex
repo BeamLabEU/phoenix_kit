@@ -522,7 +522,7 @@ defmodule PhoenixKit.Modules.Billing do
   Lists billing profiles with optional filters.
 
   ## Options
-  - `:user_id` - Filter by user ID
+  - `:user_uuid` - Filter by user UUID
   - `:type` - Filter by type ("individual" or "company")
   - `:search` - Search in name/email/company fields
   - `:page` - Page number
@@ -531,7 +531,7 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def list_billing_profiles(opts \\ []) do
     BillingProfile
-    |> filter_by_user_id(Keyword.get(opts, :user_id))
+    |> filter_by_user_uuid(Keyword.get(opts, :user_uuid))
     |> filter_by_type(Keyword.get(opts, :type))
     |> filter_by_search(Keyword.get(opts, :search))
     |> order_by([bp], desc: bp.is_default, desc: bp.inserted_at)
@@ -539,10 +539,10 @@ defmodule PhoenixKit.Modules.Billing do
     |> repo().all()
   end
 
-  defp filter_by_user_id(query, nil), do: query
+  defp filter_by_user_uuid(query, nil), do: query
 
-  defp filter_by_user_id(query, user_id) do
-    user_uuid = extract_user_uuid(user_id)
+  defp filter_by_user_uuid(query, user_uuid) do
+    user_uuid = extract_user_uuid(user_uuid)
     where(query, [bp], bp.user_uuid == ^user_uuid)
   end
 
@@ -571,8 +571,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Lists billing profiles for a user (shorthand).
   """
-  def list_user_billing_profiles(user_id) do
-    list_billing_profiles(user_id: user_id)
+  def list_user_billing_profiles(user_uuid) do
+    list_billing_profiles(user_uuid: user_uuid)
   end
 
   @doc """
@@ -630,8 +630,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Gets the default billing profile for a user.
   """
-  def get_default_billing_profile(user_id) do
-    user_uuid = extract_user_uuid(user_id)
+  def get_default_billing_profile(user_uuid) do
+    user_uuid = extract_user_uuid(user_uuid)
 
     BillingProfile
     |> where([bp], bp.user_uuid == ^user_uuid and bp.is_default == true)
@@ -750,8 +750,8 @@ defmodule PhoenixKit.Modules.Billing do
     end)
   end
 
-  defp count_user_profiles(user_id) do
-    user_uuid = extract_user_uuid(user_id)
+  defp count_user_profiles(user_uuid) do
+    user_uuid = extract_user_uuid(user_uuid)
 
     BillingProfile
     |> where([bp], bp.user_uuid == ^user_uuid)
@@ -776,8 +776,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Lists orders for a specific user.
   """
-  def list_user_orders(user_id, filters \\ %{}) do
-    user_uuid = extract_user_uuid(user_id)
+  def list_user_orders(user_uuid, filters \\ %{}) do
+    user_uuid = extract_user_uuid(user_uuid)
 
     Order
     |> where([o], o.user_uuid == ^user_uuid)
@@ -1198,8 +1198,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Lists invoices for a specific user.
   """
-  def list_user_invoices(user_id, filters \\ %{}) do
-    user_uuid = extract_user_uuid(user_id)
+  def list_user_invoices(user_uuid, filters \\ %{}) do
+    user_uuid = extract_user_uuid(user_uuid)
 
     Invoice
     |> where([i], i.user_uuid == ^user_uuid)

@@ -246,24 +246,24 @@ defmodule PhoenixKit.Modules.Sync.Transfer do
   @doc """
   Changeset for approving a transfer.
   """
-  def approve_changeset(transfer, admin_user_id) do
+  def approve_changeset(transfer, admin_user_uuid) do
     transfer
     |> change(%{
       status: "approved",
       approved_at: UtilsDate.utc_now(),
-      approved_by_uuid: resolve_user_uuid(admin_user_id)
+      approved_by_uuid: resolve_user_uuid(admin_user_uuid)
     })
   end
 
   @doc """
   Changeset for denying a transfer.
   """
-  def deny_changeset(transfer, admin_user_id, reason \\ nil) do
+  def deny_changeset(transfer, admin_user_uuid, reason \\ nil) do
     transfer
     |> change(%{
       status: "denied",
       denied_at: UtilsDate.utc_now(),
-      denied_by_uuid: resolve_user_uuid(admin_user_id),
+      denied_by_uuid: resolve_user_uuid(admin_user_uuid),
       denial_reason: reason
     })
   end

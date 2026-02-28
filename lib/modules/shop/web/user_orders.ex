@@ -101,12 +101,12 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrders do
   end
 
   defp load_user_orders(socket) do
-    user_id = socket.assigns.current_user.uuid
+    user_uuid = socket.assigns.current_user.uuid
     currency = Shop.get_default_currency()
 
     # Build filters for Billing.list_user_orders
     filters = build_query_filters(socket)
-    all_orders = Billing.list_user_orders(user_id, filters)
+    all_orders = Billing.list_user_orders(user_uuid, filters)
     total_count = length(all_orders)
 
     # Apply pagination manually

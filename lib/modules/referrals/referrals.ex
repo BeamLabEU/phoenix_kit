@@ -365,36 +365,36 @@ defmodule PhoenixKit.Modules.Referrals do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Referrals.use_code("WELCOME2024", user_id)
+      iex> PhoenixKit.Modules.Referrals.use_code("WELCOME2024", user_uuid)
       {:ok, %PhoenixKit.Modules.Referrals.ReferralCodeUsage{}}
 
-      iex> PhoenixKit.Modules.Referrals.use_code("EXPIRED", user_id)
+      iex> PhoenixKit.Modules.Referrals.use_code("EXPIRED", user_uuid)
       {:error, :code_not_found}
   """
-  def use_code(code_string, user_id) when is_binary(code_string) and is_binary(user_id) do
-    if UUIDUtils.valid?(user_id) do
+  def use_code(code_string, user_uuid) when is_binary(code_string) and is_binary(user_uuid) do
+    if UUIDUtils.valid?(user_uuid) do
       case get_code_by_string(code_string) do
         nil -> {:error, :code_not_found}
-        code -> process_code_usage(code, user_id)
+        code -> process_code_usage(code, user_uuid)
       end
     else
-      {:error, :invalid_user_id}
+      {:error, :invalid_user_uuid}
     end
   end
 
-  defp process_code_usage(code, user_id) do
+  defp process_code_usage(code, user_uuid) do
     case valid_for_use?(code) do
-      true -> record_code_usage(code, user_id)
+      true -> record_code_usage(code, user_uuid)
       false -> get_code_error(code)
     end
   end
 
-  defp record_code_usage(code, user_id) do
-    repo().transaction(fn -> do_record_usage(code, user_id) end)
+  defp record_code_usage(code, user_uuid) do
+    repo().transaction(fn -> do_record_usage(code, user_uuid) end)
   end
 
-  defp do_record_usage(code, user_identifier) do
-    user_uuid = resolve_user_uuid(user_identifier)
+  defp do_record_usage(code, user_uuid) do
+    user_uuid = resolve_user_uuid(user_uuid)
 
     usage_result =
       %ReferralCodeUsage{}

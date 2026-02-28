@@ -365,7 +365,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
       iex> PhoenixKit.Users.Auth.Scope.to_map(scope)
       %{
         authenticated?: true,
-        user_id: 1,
+        user_uuid: "019...",
         user_email: "user@example.com",
         user_roles: ["Admin", "User"],
         owner?: false,
@@ -376,7 +376,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
   def to_map(%__MODULE__{} = scope) do
     %{
       authenticated?: authenticated?(scope),
-      user_id: user_id(scope),
+      user_uuid: user_id(scope),
       user_email: user_email(scope),
       user_full_name: user_full_name(scope),
       user_roles: user_roles(scope),

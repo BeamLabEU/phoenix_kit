@@ -46,10 +46,10 @@ defmodule PhoenixKit.Modules.Sync.Connection do
       })
 
       # Approve a pending connection
-      {:ok, conn} = Connections.approve_connection(conn, admin_user_id)
+      {:ok, conn} = Connections.approve_connection(conn, admin_user_uuid)
 
       # Suspend a connection
-      {:ok, conn} = Connections.suspend_connection(conn, admin_user_id, "Security audit")
+      {:ok, conn} = Connections.suspend_connection(conn, admin_user_uuid, "Security audit")
   """
 
   use Ecto.Schema
@@ -200,24 +200,24 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   @doc """
   Changeset for approving a connection.
   """
-  def approve_changeset(connection, admin_user_id) do
+  def approve_changeset(connection, admin_user_uuid) do
     connection
     |> change(%{
       status: "active",
       approved_at: UtilsDate.utc_now(),
-      approved_by_uuid: resolve_user_uuid(admin_user_id)
+      approved_by_uuid: resolve_user_uuid(admin_user_uuid)
     })
   end
 
   @doc """
   Changeset for suspending a connection.
   """
-  def suspend_changeset(connection, admin_user_id, reason \\ nil) do
+  def suspend_changeset(connection, admin_user_uuid, reason \\ nil) do
     connection
     |> change(%{
       status: "suspended",
       suspended_at: UtilsDate.utc_now(),
-      suspended_by_uuid: resolve_user_uuid(admin_user_id),
+      suspended_by_uuid: resolve_user_uuid(admin_user_uuid),
       suspended_reason: reason
     })
   end
@@ -225,12 +225,12 @@ defmodule PhoenixKit.Modules.Sync.Connection do
   @doc """
   Changeset for revoking a connection.
   """
-  def revoke_changeset(connection, admin_user_id, reason \\ nil) do
+  def revoke_changeset(connection, admin_user_uuid, reason \\ nil) do
     connection
     |> change(%{
       status: "revoked",
       revoked_at: UtilsDate.utc_now(),
-      revoked_by_uuid: resolve_user_uuid(admin_user_id),
+      revoked_by_uuid: resolve_user_uuid(admin_user_uuid),
       revoked_reason: reason
     })
   end

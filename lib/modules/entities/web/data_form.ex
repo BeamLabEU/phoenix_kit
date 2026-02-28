@@ -1165,7 +1165,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
           # Build owner info
           lock_info = %{
             socket_id: owner_socket_id,
-            user_id: owner_meta.user_id
+            user_uuid: owner_meta.user_uuid
           }
 
           # Map spectators to expected format
@@ -1174,7 +1174,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
               %{
                 socket_id: spectator_socket_id,
                 user: meta.user,
-                user_id: meta.user_id
+                user_uuid: meta.user_uuid
               }
             end)
 

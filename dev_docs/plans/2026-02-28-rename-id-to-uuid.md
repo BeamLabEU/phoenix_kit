@@ -1,6 +1,6 @@
 # Plan: Rename `_id` → `_uuid` across all modules
 
-**Status:** Phase 1 Complete - Phase 2 Complete - Phase 2b Complete (Post-Review Fixes)
+**Status:** Phase 1 Complete - Phase 2 Complete - Phase 2b Complete - Phase 3 Complete (Post-Mistral Review)
 **Created:** 2026-02-28
 **Updated:** 2026-02-28
 
@@ -226,6 +226,205 @@ grep -rn "\buser_id\b" lib/ | grep -v "# \|@doc\|migrations"
 
 - **mix compile --warnings-as-errors** — ✅ clean
 - **mix test** — ✅ 488 tests, 0 failures
+
+## Phase 3: Additional Parameter Naming Inconsistencies (COMPLETE)
+
+**Date:** 2026-02-28
+**Analyst:** Mistral Vibe
+**Scope:** Function parameter naming audit for remaining `user_id` vs `user_uuid` inconsistencies
+
+### Issue: Misnamed UUID Parameters
+
+Many function parameters are named `*_user_id` but expect and validate UUID values internally, creating naming inconsistency similar to Phase 2b findings.
+
+### Critical Files with Parameter Naming Issues
+
+#### lib/phoenix_kit/audit_log.ex
+- `log_admin_action/4`: `admin_user_id` parameter (expects UUID)
+- `log_user_action/3`: `target_user_id` parameter (expects UUID)
+- **Action:** Rename parameters to `admin_user_uuid` and `target_user_uuid`
+
+#### lib/modules/sync/connection.ex
+- `approve_connection/2`: `admin_user_id` parameter
+- `suspend_connection/3`: `admin_user_id` parameter  
+- `revoke_connection/2`: `admin_user_id` parameter
+- All resolve via `resolve_user_uuid(admin_user_id)`
+- **Action:** Rename all to `admin_user_uuid`
+
+#### lib/modules/sync/transfers.ex
+- `approve_transfer/2`: `admin_user_id` parameter
+- `deny_transfer/3`: `admin_user_id` parameter
+- **Action:** Rename to `admin_user_uuid`
+
+#### lib/modules/comments/comments.ex
+- `create_comment/4`: `user_id` parameter with `UUIDUtils.valid?(user_id)` validation
+- `list_comments/1`: `:user_id` filter converted to `user_uuid`
+- **Action:** Rename parameter to `user_uuid`, filter key to `:user_uuid`
+
+#### lib/modules/billing/billing.ex
+- `list_invoices/1`: `:user_id` filter
+- `list_payments/1`: `:user_id` filter  
+- `list_subscriptions/1`: `:user_id` filter
+- All convert via `extract_user_uuid(user_id)`
+- **Action:** Rename filter keys to `:user_uuid`
+
+#### lib/modules/referrals/referrals.ex
+- `create_referral/3`: `referred_by_user_id` parameter
+- Uses `UUIDUtils.valid?(referred_by_user_id)` validation
+- **Action:** Rename to `referred_by_user_uuid`
+
+#### lib/modules/shop/shop.ex
+- `list_user_shops/1`: `user_id` parameter
+- Converts via `extract_user_uuid(user_id)`
+- **Action:** Rename to `user_uuid`
+
+#### lib/modules/publishing/publishing.ex
+- `list_user_publications/2`: `user_id` parameter
+- Converts via `resolve_user_uuid(user_id)`
+- **Action:** Rename to `user_uuid`
+
+#### lib/modules/entities/entities.ex
+- `list_user_entities/2`: `user_id` parameter
+- Uses `UUIDUtils.valid?(user_id)` validation
+- **Action:** Rename to `user_uuid`
+
+### Analysis Categories
+
+#### Category A: Clear UUID Parameters (High Priority)
+These parameters are named `*_user_id` but validate and use UUID values directly:
+- `lib/modules/comments/comments.ex`
+- `lib/modules/referrals/referrals.ex`
+- `lib/modules/shop/shop.ex`
+- `lib/modules/publishing/publishing.ex`
+- `lib/modules/entities/entities.ex`
+
+#### Category B: Parameters with UUID Resolution (Medium Priority)
+These use resolution functions but parameter naming is misleading:
+- `lib/modules/sync/` functions
+- `lib/modules/billing/` filter parameters
+- `lib/phoenix_kit/audit_log.ex` functions
+
+#### Category C: Potential Legacy References (Needs Verification)
+These may use actual integer IDs:
+- `lib/phoenix_kit/cache/cache.ex` (cache operations)
+- `lib/phoenix_kit/dashboard/context_selector.ex` (context operations)
+
+### Migration Strategy
+
+#### Phase 3a: High Priority Parameter Renaming
+1. Rename `*_user_id` parameters to `*_user_uuid` in Category A modules
+2. Update all call sites and documentation
+3. Add `@spec` annotations for clarity
+4. Time estimate: 2-3 days
+
+#### Phase 3b: Medium Priority Resolution Functions
+1. Rename parameters in Category B modules
+2. Update resolution function calls
+3. Ensure backward compatibility where needed
+4. Time estimate: 1-2 days
+
+#### Phase 3c: Legacy Reference Verification
+1. Audit Category C modules for actual integer usage
+2. Migrate if needed or document intentional usage
+3. Time estimate: 1 day
+
+### Risk Assessment
+
+- **Low Risk:** Parameter renaming (backward compatibility via function arity)
+- **Medium Risk:** Cache operations (potential data inconsistency)
+- **Mitigation:** Comprehensive testing, staged rollout
+
+### Verification Commands
+
+```bash
+# Find all user_id parameters that expect UUIDs
+grep -rn "def.*user_id" lib/ --include="*.ex" | grep -v "# " | while read line; do
+  file=$(echo $line | cut -d: -f1)
+  func=$(echo $line | grep -o "def.*user_id" | head -1)
+  echo "Checking $file:$func"
+  grep -A 10 "$func" "$file" | grep -E "UUIDUtils\.valid|resolve_user_uuid|extract_user_uuid" && echo "  -> NEEDS RENAME"
+done
+
+# Verify no remaining user_id parameter naming inconsistencies
+mix compile --warnings-as-errors
+mix test
+mix credo --strict
+```
+
+### Files to Modify in Phase 3
+
+| File | Changes | Priority |
+|------|---------|----------|
+| `lib/phoenix_kit/audit_log.ex` | Rename `admin_user_id` → `admin_user_uuid`, `target_user_id` → `target_user_uuid` | High |
+| `lib/modules/sync/connection.ex` | Rename all `admin_user_id` parameters to `admin_user_uuid` | High |
+| `lib/modules/sync/transfers.ex` | Rename `admin_user_id` parameters to `admin_user_uuid` | High |
+| `lib/modules/comments/comments.ex` | Rename `user_id` → `user_uuid`, `:user_id` → `:user_uuid` | High |
+| `lib/modules/billing/billing.ex` | Rename `:user_id` filter keys to `:user_uuid` | High |
+| `lib/modules/referrals/referrals.ex` | Rename `referred_by_user_id` → `referred_by_user_uuid` | High |
+| `lib/modules/shop/shop.ex` | Rename `user_id` parameter to `user_uuid` | High |
+| `lib/modules/publishing/publishing.ex` | Rename `user_id` parameter to `user_uuid` | High |
+| `lib/modules/entities/entities.ex` | Rename `user_id` parameter to `user_uuid` | High |
+| `lib/phoenix_kit/cache/cache.ex` | Verify usage pattern (may need migration) | Medium |
+| `lib/phoenix_kit/dashboard/context_selector.ex` | Verify usage pattern (may need migration) | Medium |
+
+### Mistral Findings: Accurate vs Hallucinated
+
+**Confirmed and fixed:**
+
+| File | Mistral's claim | Verdict |
+|------|----------------|---------|
+| `lib/phoenix_kit/audit_log.ex` | `:admin_user_uuid` / `:target_user_uuid` opts keys | ✅ Real — pattern-matched directly against UUID columns |
+| `lib/modules/sync/connection.ex` | `admin_user_uuid` param | ✅ Real — `resolve_user_uuid` was a no-op pass-through |
+| `lib/modules/sync/transfers.ex` | `admin_user_uuid` param | ✅ Real — same pattern |
+| `lib/modules/comments/comments.ex` | `user_uuid` param, `:user_uuid` filter key | ✅ Real — `UUIDUtils.valid?` proves it expected UUID |
+| `lib/modules/billing/billing.ex` | `user_uuid` params and filter keys | ✅ Real — `extract_user_uuid` was a no-op for binaries |
+| `lib/modules/referrals/referrals.ex` | `user_uuid` in `use_code/2` | ✅ Real — validated with `UUIDUtils.valid?` |
+
+**Hallucinated (functions do not exist):**
+
+| Mistral's claim | Verdict |
+|----------------|---------|
+| `list_user_shops/1` in `shop.ex` | ❌ Does not exist |
+| `list_user_publications/2` in `publishing.ex` | ❌ Does not exist |
+| `list_user_entities/2` in `entities.ex` | ❌ Does not exist |
+
+**Not the same issue (different category):**
+
+| File | Mistral's claim | Verdict |
+|------|----------------|---------|
+| `cache/cache.ex` | `user_id` usage | ❌ Docstring examples only, no functional issue |
+| `context_selector.ex` | `user_id` param | ❌ Opaque identifier in callback API passed through to user-configured loaders; not a UUID-specific naming issue |
+
+**Additional issues found by Claude not in Mistral's report:**
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `lib/modules/sync/connections.ex` | `admin_user_uuid` param in public wrapper functions | Fixed |
+| `lib/modules/sync/transfer.ex` | `admin_user_uuid` param in schema changesets | Fixed |
+| `lib/modules/entities/presence_helpers.ex` | `user_id: user.uuid` stored in presence metadata | Fixed → `user_uuid:` |
+| `lib/modules/entities/web/entity_form.ex` | `owner_meta.user_id` / `meta.user_id` read from presence data | Fixed → `user_uuid` |
+| `lib/modules/entities/web/data_form.ex` | Same as entity_form.ex | Fixed |
+| `lib/phoenix_kit/users/auth/scope.ex` | `user_id: user_id(scope)` in `to_map/1` (key name, UUID value) | Fixed → `user_uuid:` |
+| `lib/phoenix_kit/mailer.ex` | `user_id` param in `send_test_tracking_email`, docstring example uses integer `.id` | Fixed |
+| `lib/modules/shop/web/user_orders.ex` | `user_id = current_user.uuid` variable name at call site | Fixed |
+
+### Why these were missed again (same root cause as Phase 2b)
+
+The pattern is identical to Phase 2b: **the value is already a UUID, but the name says `_id`**. In each case, the function accepts a UUID string but its parameter is named `user_id` or `admin_user_id`. These are invisible to greps for `\.id\b` (no struct field access) and invisible to "does it hold an integer?" checks (the value is already correct).
+
+The remaining gap in the verification strategy was: **no systematic scan of all `user_id` parameter names in function signatures** (`def.*user_id`). That grep was described in Phase 2b's corrective notes but not actually executed before declaring Phase 2b complete.
+
+### Phase 3 Verification
+
+- **mix compile --warnings-as-errors** — ✅ clean
+- **mix test** — ✅ 488 tests, 0 failures
+
+### Relationship to Previous Phases
+
+- **Phase 2b:** Fixed variable names and map keys holding UUIDs
+- **Phase 3:** Fixed function parameter names that expect UUIDs
+
+Same root cause, different syntactic location.
 
 ---
 

@@ -69,7 +69,7 @@ defmodule PhoenixKit.Mailer do
   - `recipient` - Email address (string) or {name, email} tuple
   - `variables` - Map of variables to substitute in the template
   - `opts` - Additional options:
-    - `:user_id` - Associate email with a user (for tracking)
+    - `:user_uuid` - Associate email with a user (for tracking)
     - `:campaign_id` - Campaign identifier (for analytics)
     - `:from` - Override from address (default: configured from_email)
     - `:reply_to` - Reply-to address
@@ -105,7 +105,7 @@ defmodule PhoenixKit.Mailer do
         "order_confirmation",
         customer.email,
         %{"order_id" => "12345", "total" => "$99.99"},
-        user_id: customer.id,
+        user_uuid: customer.uuid,
         campaign_id: "orders",
         metadata: %{order_id: order.id, amount: order.total}
       )
@@ -449,7 +449,7 @@ defmodule PhoenixKit.Mailer do
   ## Parameters
 
   - `recipient_email` - The email address to send the test email to
-  - `user_id` - Optional user ID to associate with the test email (default: nil)
+  - `user_uuid` - Optional user UUID to associate with the test email (default: nil)
 
   ## Returns
 
@@ -461,11 +461,12 @@ defmodule PhoenixKit.Mailer do
       iex> PhoenixKit.Mailer.send_test_tracking_email("admin@example.com")
       {:ok, %Swoosh.Email{}}
 
-      iex> PhoenixKit.Mailer.send_test_tracking_email("admin@example.com", 123)
+      iex> PhoenixKit.Mailer.send_test_tracking_email("admin@example.com", "019...")
       {:ok, %Swoosh.Email{}}
 
   """
-  def send_test_tracking_email(recipient_email, user_id \\ nil) when is_binary(recipient_email) do
+  def send_test_tracking_email(recipient_email, user_uuid \\ nil)
+      when is_binary(recipient_email) do
     timestamp = DateTime.utc_now() |> DateTime.to_string()
     test_link_url = Routes.url("/admin/emails")
 
@@ -509,7 +510,7 @@ defmodule PhoenixKit.Mailer do
     end
 
     deliver_email(email,
-      user_id: user_id,
+      user_uuid: user_uuid,
       template_name: "test_email",
       campaign_id: "test",
       category: "system",
