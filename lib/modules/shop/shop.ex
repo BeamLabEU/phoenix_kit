@@ -1397,7 +1397,7 @@ defmodule PhoenixKit.Modules.Shop do
   - `:session_id` - Session ID (for guests)
   """
   def get_or_create_cart(opts) do
-    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     session_id = Keyword.get(opts, :session_id)
 
     case find_active_cart(user_uuid: user_uuid, session_id: session_id) do
@@ -1415,7 +1415,7 @@ defmodule PhoenixKit.Modules.Shop do
   3. If only session_id is provided, search by session_id with no user_uuid
   """
   def find_active_cart(opts) do
-    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     session_id = Keyword.get(opts, :session_id)
 
     base_query =

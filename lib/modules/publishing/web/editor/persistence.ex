@@ -432,12 +432,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
 
     post_identifier = post.slug || post[:uuid]
 
-    # Use user ID so all tabs for the same user recognize their own publishes
-    user_id =
-      get_in(socket.assigns, [:phoenix_kit_current_scope, Access.key(:user), Access.key(:id)])
+    # Use user UUID so all tabs for the same user recognize their own publishes
+    user_uuid =
+      get_in(socket.assigns, [:phoenix_kit_current_scope, Access.key(:user), Access.key(:uuid)])
 
     case Publishing.publish_version(group_slug, post_identifier, current_version,
-           source_id: user_id
+           source_id: user_uuid
          ) do
       :ok ->
         handle_post_save_success(socket, updated_post, old_path)
