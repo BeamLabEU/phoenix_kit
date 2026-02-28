@@ -50,7 +50,7 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
 
   ## Returns
 
-    - `{:ok, %{access_key_id: string, user_id: string, account_id: string, arn: string}}` on success
+    - `{:ok, %{access_key_id: string, aws_user_id: string, account_id: string, arn: string}}` on success
     - `{:error, :invalid_credentials}` for format issues
     - `{:error, :authentication_failed}` for invalid credentials
     - `{:error, :network_error}` for connectivity issues
@@ -64,11 +64,11 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
            {:config, create_config(access_key_id, secret_access_key, region)},
          {:sts_call, {:ok, %{body: body}}} <-
            {:sts_call, STS.get_caller_identity() |> ExAws.request(config)},
-         {:parse, {:ok, user_id, account_id, arn}} <- {:parse, parse_sts_response(body)} do
+         {:parse, {:ok, aws_user_id, account_id, arn}} <- {:parse, parse_sts_response(body)} do
       {:ok,
        %{
          access_key_id: access_key_id,
-         user_id: user_id,
+         aws_user_id: aws_user_id,
          account_id: account_id,
          arn: arn
        }}
@@ -363,12 +363,13 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
   defp parse_sts_response(body) when is_map(body) do
     # ExAws automatically parses the XML response into a map
     # Structure: %{user_id: "...", account: "...", arn: "..."}
-    with {:user_id, user_id} when is_binary(user_id) <- {:user_id, Map.get(body, :user_id)},
+    with {:aws_user_id, aws_user_id} when is_binary(aws_user_id) <-
+           {:aws_user_id, Map.get(body, :user_id)},
          {:account, account} when is_binary(account) <- {:account, Map.get(body, :account)},
          {:arn, arn} when is_binary(arn) <- {:arn, Map.get(body, :arn)} do
-      {:ok, user_id, account, arn}
+      {:ok, aws_user_id, account, arn}
     else
-      {:user_id, _} -> {:error, "Missing or invalid user_id in STS response"}
+      {:aws_user_id, _} -> {:error, "Missing or invalid user_id in STS response"}
       {:account, _} -> {:error, "Missing or invalid account in STS response"}
       {:arn, _} -> {:error, "Missing or invalid arn in STS response"}
     end
@@ -390,10 +391,10 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
     # </GetCallerIdentityResponse>
 
     with true <- String.contains?(body, "<UserId>"),
-         {:ok, user_id} <- extract_xml_value(body, "UserId"),
+         {:ok, aws_user_id} <- extract_xml_value(body, "UserId"),
          {:ok, account_id} <- extract_xml_value(body, "Account"),
          {:ok, arn} <- extract_xml_value(body, "Arn") do
-      {:ok, user_id, account_id, arn}
+      {:ok, aws_user_id, account_id, arn}
     else
       false -> {:error, "Could not find UserId in STS response"}
       {:error, _} -> {:error, "Could not parse all required fields from STS response"}

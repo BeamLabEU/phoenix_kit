@@ -144,7 +144,7 @@ defmodule PhoenixKit.Modules.Emails do
     case {search_type, found?} do
       {:aws_message_id, true} ->
         Logger.info("Found existing email log by AWS message ID", %{
-          log_id: log.uuid,
+          log_uuid: log.uuid,
           current_status: log.status,
           aws_message_id: message_id
         })
@@ -154,7 +154,7 @@ defmodule PhoenixKit.Modules.Emails do
 
       {:internal_message_id, true} ->
         Logger.info("Found existing email log by internal message ID", %{
-          log_id: log.uuid,
+          log_uuid: log.uuid,
           current_status: log.status,
           internal_message_id: message_id,
           aws_message_id: aws_id
@@ -165,7 +165,7 @@ defmodule PhoenixKit.Modules.Emails do
 
       {:unknown_format, true} ->
         Logger.info("Found existing email log by unknown message ID format", %{
-          log_id: log.uuid,
+          log_uuid: log.uuid,
           current_status: log.status,
           search_message_id: message_id,
           aws_message_id: aws_id
@@ -206,7 +206,7 @@ defmodule PhoenixKit.Modules.Emails do
         case Log.find_by_aws_message_id(message_id) do
           {:ok, log} ->
             Logger.info("Found existing email log by AWS message ID (fallback)", %{
-              log_id: log.uuid,
+              log_uuid: log.uuid,
               current_status: log.status,
               aws_message_id: message_id
             })

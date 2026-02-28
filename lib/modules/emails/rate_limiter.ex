@@ -556,7 +556,8 @@ defmodule PhoenixKit.Modules.Emails.RateLimiter do
       iex> RateLimiter.flag_suspicious_activity("018e3c4a-5678-1234-abcd-ef1234567890", "complaint_spam")
       :blocked
   """
-  def flag_suspicious_activity(user_uuid, reason) when is_binary(user_uuid) and is_binary(reason) do
+  def flag_suspicious_activity(user_uuid, reason)
+      when is_binary(user_uuid) and is_binary(reason) do
     case reason do
       "high_bounce_rate" ->
         # Temporarily reduce limits for this user

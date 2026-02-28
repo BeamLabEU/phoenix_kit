@@ -241,7 +241,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   """
   def update_after_send(%Log{} = log, provider_response \\ %{}) do
     Logger.info("EmailInterceptor: Updating email log after send", %{
-      log_id: log.uuid,
+      log_uuid: log.uuid,
       current_message_id: log.message_id,
       response_keys:
         if(is_map(provider_response), do: Map.keys(provider_response), else: "not_map")
@@ -259,7 +259,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
       case extraction_result do
         %{message_id: aws_message_id} = provider_data when is_binary(aws_message_id) ->
           Logger.info("EmailInterceptor: Storing AWS message_id in aws_message_id field", %{
-            log_id: log.uuid,
+            log_uuid: log.uuid,
             internal_message_id: log.message_id,
             aws_message_id: aws_message_id
           })
@@ -306,7 +306,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
           log_extraction_metric(false, log.uuid, nil)
 
           Logger.warning("EmailInterceptor: No provider data extracted", %{
-            log_id: log.uuid,
+            log_uuid: log.uuid,
             response: inspect(provider_response) |> String.slice(0, 300)
           })
 
@@ -337,7 +337,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
       {:error, reason} ->
         Logger.error("EmailInterceptor: Failed to update email log", %{
-          log_id: log.uuid,
+          log_uuid: log.uuid,
           reason: inspect(reason),
           update_attrs: update_attrs
         })

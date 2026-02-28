@@ -54,7 +54,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
       })
 
       # Get all events for an email
-      events = PhoenixKit.Modules.Emails.Event.for_email_log(log_id)
+      events = PhoenixKit.Modules.Emails.Event.for_email_log(email_log_uuid)
   """
 
   use Ecto.Schema
@@ -231,7 +231,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.for_email_log(log_id)
+      iex> PhoenixKit.Modules.Emails.Event.for_email_log(email_log_uuid)
       [%PhoenixKit.Modules.Emails.Event{}, ...]
   """
   def for_email_log(email_log_uuid) when is_binary(email_log_uuid) do
@@ -247,7 +247,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.for_email_log_by_type(log_id, "open")
+      iex> PhoenixKit.Modules.Emails.Event.for_email_log_by_type(email_log_uuid, "open")
       [%PhoenixKit.Modules.Emails.Event{}, ...]
   """
   def for_email_log_by_type(email_log_uuid, event_type)
@@ -267,10 +267,10 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.event_exists?(log_id, "delivery")
+      iex> PhoenixKit.Modules.Emails.Event.event_exists?(email_log_uuid, "delivery")
       true
 
-      iex> PhoenixKit.Modules.Emails.Event.event_exists?(log_id, "open")
+      iex> PhoenixKit.Modules.Emails.Event.event_exists?(email_log_uuid, "open")
       false
   """
   def event_exists?(email_log_uuid, event_type)
@@ -306,7 +306,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.has_event_type?(log_id, "open")
+      iex> PhoenixKit.Modules.Emails.Event.has_event_type?(email_log_uuid, "open")
       true
   """
   def has_event_type?(email_log_uuid, event_type)
@@ -325,7 +325,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.get_latest_event_by_type(log_id, "open")
+      iex> PhoenixKit.Modules.Emails.Event.get_latest_event_by_type(email_log_uuid, "open")
       %PhoenixKit.Modules.Emails.Event{}
   """
   def get_latest_event_by_type(email_log_uuid, event_type)
@@ -362,7 +362,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.create_bounce_event(log_id, "hard", "No such user")
+      iex> PhoenixKit.Modules.Emails.Event.create_bounce_event(email_log_uuid, "hard", "No such user")
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_bounce_event(email_log_uuid, bounce_type, reason \\ nil)
@@ -386,7 +386,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.create_complaint_event(log_id, "abuse")
+      iex> PhoenixKit.Modules.Emails.Event.create_complaint_event(email_log_uuid, "abuse")
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_complaint_event(email_log_uuid, complaint_type \\ "abuse", feedback_id \\ nil)
@@ -410,7 +410,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.create_open_event(log_id, "192.168.1.1", "Mozilla/5.0...")
+      iex> PhoenixKit.Modules.Emails.Event.create_open_event(email_log_uuid, "192.168.1.1", "Mozilla/5.0...")
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_open_event(email_log_uuid, ip_address \\ nil, user_agent \\ nil, geo_data \\ %{})
@@ -436,7 +436,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.create_click_event(log_id, "https://example.com/link", "192.168.1.1")
+      iex> PhoenixKit.Modules.Emails.Event.create_click_event(email_log_uuid, "https://example.com/link", "192.168.1.1")
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_click_event(
@@ -470,7 +470,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.create_queued_event(log_id)
+      iex> PhoenixKit.Modules.Emails.Event.create_queued_event(email_log_uuid)
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_queued_event(email_log_uuid) when is_binary(email_log_uuid) do
@@ -488,7 +488,7 @@ defmodule PhoenixKit.Modules.Emails.Event do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Event.create_send_event(log_id)
+      iex> PhoenixKit.Modules.Emails.Event.create_send_event(email_log_uuid)
       {:ok, %PhoenixKit.Modules.Emails.Event{}}
   """
   def create_send_event(email_log_uuid, provider \\ nil)
