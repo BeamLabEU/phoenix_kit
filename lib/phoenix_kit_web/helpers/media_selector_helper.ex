@@ -18,7 +18,7 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
         case MediaSelectorHelper.parse_selected_media(params) do
           {:ok, [file_id]} ->
             socket
-            |> assign(:featured_image_id, file_id)
+            |> assign(:featured_image_uuid, file_id)
             |> put_flash(:info, "Image selected!")
 
           {:ok, file_ids} ->

@@ -177,7 +177,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
         build_content(version, %{
           data: %{
             "description" => "A test post",
-            "featured_image_id" => "img-123",
+            "featured_image_uuid" => "img-123",
             "previous_url_slugs" => ["old-url"]
           }
         })
@@ -189,7 +189,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
       assert result.metadata.status == "published"
       assert result.metadata.slug == "hello-world"
       assert result.metadata.version == 1
-      assert result.metadata.featured_image_id == "img-123"
+      assert result.metadata.featured_image_uuid == "img-123"
       assert result.metadata.previous_url_slugs == ["old-url"]
       assert result.metadata.published_at == "2025-06-15T14:30:00Z"
       assert result.metadata.primary_language == "en"

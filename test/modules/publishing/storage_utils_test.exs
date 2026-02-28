@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Publishing.StorageUtilsTest do
     test "returns true when only status changed" do
       post = %{
         content: "content",
-        metadata: %{title: "Title", status: "draft", featured_image_id: nil}
+        metadata: %{title: "Title", status: "draft", featured_image_uuid: nil}
       }
 
       params = %{"status" => "published", "content" => "content", "title" => "Title"}
@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Publishing.StorageUtilsTest do
     test "returns false when content also changed" do
       post = %{
         content: "old content",
-        metadata: %{title: "Title", status: "draft", featured_image_id: nil}
+        metadata: %{title: "Title", status: "draft", featured_image_uuid: nil}
       }
 
       params = %{"status" => "published", "content" => "new content"}
@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Publishing.StorageUtilsTest do
     test "returns false when status unchanged" do
       post = %{
         content: "content",
-        metadata: %{title: "Title", status: "draft", featured_image_id: nil}
+        metadata: %{title: "Title", status: "draft", featured_image_uuid: nil}
       }
 
       params = %{"status" => "draft"}
@@ -85,10 +85,10 @@ defmodule PhoenixKit.Modules.Publishing.StorageUtilsTest do
     test "returns false when featured image also changed" do
       post = %{
         content: "content",
-        metadata: %{title: "Title", status: "draft", featured_image_id: nil}
+        metadata: %{title: "Title", status: "draft", featured_image_uuid: nil}
       }
 
-      params = %{"status" => "published", "featured_image_id" => "img-123"}
+      params = %{"status" => "published", "featured_image_uuid" => "img-123"}
 
       refute Storage.status_change_only?(post, params)
     end

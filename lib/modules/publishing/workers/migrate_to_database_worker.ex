@@ -322,7 +322,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigrateToDatabaseWorker do
 
     %{}
     |> maybe_put("allow_version_access", metadata[:allow_version_access])
-    |> maybe_put("featured_image", metadata[:featured_image_id])
+    |> maybe_put("featured_image", metadata[:featured_image_uuid])
     |> maybe_put("tags", metadata[:tags])
   end
 
@@ -332,7 +332,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigrateToDatabaseWorker do
     %{}
     |> maybe_put("description", metadata[:description])
     |> maybe_put("previous_url_slugs", metadata[:previous_url_slugs])
-    |> maybe_put("featured_image_id", metadata[:featured_image_id])
+    |> maybe_put("featured_image_uuid", metadata[:featured_image_uuid])
     |> maybe_put("seo_title", metadata[:seo_title])
     |> maybe_put("excerpt", metadata[:excerpt])
   end

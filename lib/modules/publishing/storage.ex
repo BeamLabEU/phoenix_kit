@@ -773,8 +773,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     content_changing? = content_changed?(post, params)
 
-    current_image = Map.get(post.metadata, :featured_image_id)
-    new_image = Helpers.resolve_featured_image_id(params, post.metadata)
+    current_image = Map.get(post.metadata, :featured_image_uuid)
+    new_image = Helpers.resolve_featured_image_uuid(params, post.metadata)
     image_changing? = current_image != new_image
 
     status_changing? and not content_changing? and not image_changing?

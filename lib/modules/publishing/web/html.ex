@@ -413,7 +413,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def featured_image_url(post, variant \\ "medium") do
     post.metadata
-    |> Map.get(:featured_image_id)
+    |> Map.get(:featured_image_uuid)
     |> resolve_featured_image_url(variant)
   end
 

@@ -81,7 +81,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       "title" => get_title_for_form(post),
       "status" => post.metadata.status || "draft",
       "published_at" => get_published_at(post),
-      "featured_image_id" => Map.get(post.metadata, :featured_image_id, ""),
+      "featured_image_uuid" => Map.get(post.metadata, :featured_image_uuid, ""),
       "url_slug" => get_url_slug_for_form(post)
     }
   end
@@ -144,9 +144,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       |> to_string()
       |> String.trim()
 
-    featured_image_id =
+    featured_image_uuid =
       form
-      |> Map.get("featured_image_id", "")
+      |> Map.get("featured_image_uuid", "")
       |> to_string()
       |> String.trim()
 
@@ -163,7 +163,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
         "title" => title,
         "status" => Map.get(form, "status", "draft") || "draft",
         "published_at" => normalize_published_at(Map.get(form, "published_at")),
-        "featured_image_id" => featured_image_id,
+        "featured_image_uuid" => featured_image_uuid,
         "url_slug" => url_slug
       }
 
@@ -184,7 +184,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       "status" => "draft",
       "published_at" => "",
       "slug" => "",
-      "featured_image_id" => "",
+      "featured_image_uuid" => "",
       "url_slug" => ""
     }
 
@@ -591,6 +591,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   Updates form with selected media file.
   """
   def update_form_with_media(form, file_id) do
-    Map.put(form, "featured_image_id", file_id)
+    Map.put(form, "featured_image_uuid", file_id)
   end
 end

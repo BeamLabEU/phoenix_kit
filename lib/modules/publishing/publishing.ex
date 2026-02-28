@@ -952,8 +952,8 @@ defmodule PhoenixKit.Modules.Publishing do
     primary_language = Storage.get_primary_language()
     now = UtilsDate.utc_now()
 
-    # Resolve user IDs for audit
-    {created_by_uuid, created_by_id} = resolve_scope_user_ids(scope)
+    # Resolve user UUID for audit
+    created_by_uuid = resolve_scope_user_ids(scope)
 
     # Generate slug for slug-mode groups
     slug_result =
@@ -977,9 +977,7 @@ defmodule PhoenixKit.Modules.Publishing do
         primary_language: primary_language,
         published_at: now,
         created_by_uuid: created_by_uuid,
-        created_by_id: created_by_id,
-        updated_by_uuid: created_by_uuid,
-        updated_by_id: created_by_id
+        updated_by_uuid: created_by_uuid
       }
 
       # Add date/time for timestamp mode
@@ -999,8 +997,7 @@ defmodule PhoenixKit.Modules.Publishing do
                post_uuid: db_post.uuid,
                version_number: 1,
                status: "draft",
-               created_by_uuid: created_by_uuid,
-               created_by_id: created_by_id
+               created_by_uuid: created_by_uuid
              }),
            {:ok, _content} <-
              DBStorage.create_content(%{
@@ -1040,12 +1037,10 @@ defmodule PhoenixKit.Modules.Publishing do
     {:error, reason} -> {:error, reason}
   end
 
-  defp resolve_scope_user_ids(nil), do: {nil, nil}
+  defp resolve_scope_user_ids(nil), do: nil
 
   defp resolve_scope_user_ids(scope) do
-    user_id = Scope.user_id(scope)
-    user_uuid = if scope.user, do: scope.user.uuid, else: nil
-    {user_uuid, user_id}
+    Scope.user_id(scope)
   end
 
   @doc """
@@ -1562,9 +1557,9 @@ defmodule PhoenixKit.Modules.Publishing do
     data = existing_data
 
     data =
-      case Map.get(params, "featured_image_id") do
+      case Map.get(params, "featured_image_uuid") do
         nil -> data
-        id -> Map.put(data, "featured_image_id", id)
+        id -> Map.put(data, "featured_image_uuid", id)
       end
 
     case Map.get(params, "description", post[:metadata][:description]) do
@@ -1711,9 +1706,9 @@ defmodule PhoenixKit.Modules.Publishing do
     unless db_post, do: throw({:error, :post_not_found})
 
     scope = fetch_option(opts, :scope)
-    {created_by_uuid, created_by_id} = resolve_scope_user_ids(scope)
+    created_by_uuid = resolve_scope_user_ids(scope)
 
-    user_opts = %{created_by_uuid: created_by_uuid, created_by_id: created_by_id}
+    user_opts = %{created_by_uuid: created_by_uuid}
 
     result =
       if source_version do
@@ -1725,8 +1720,7 @@ defmodule PhoenixKit.Modules.Publishing do
                  post_uuid: db_post.uuid,
                  version_number: DBStorage.next_version_number(db_post.uuid),
                  status: "draft",
-                 created_by_uuid: created_by_uuid,
-                 created_by_id: created_by_id
+                 created_by_uuid: created_by_uuid
                }),
              {:ok, _content} <-
                DBStorage.create_content(%{
@@ -2226,7 +2220,7 @@ defmodule PhoenixKit.Modules.Publishing do
       case action do
         :create ->
           %{
-            created_by_id: user_id,
+            created_by_uuid: user_id,
             created_by_email: user_email
           }
 
@@ -2235,7 +2229,7 @@ defmodule PhoenixKit.Modules.Publishing do
       end
 
     base
-    |> maybe_put_audit(:updated_by_id, user_id)
+    |> maybe_put_audit(:updated_by_uuid, user_id)
     |> maybe_put_audit(:updated_by_email, user_email)
   end
 

@@ -19,7 +19,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
   - `last_error` - Error message from last failed attempt
   - `args` - Additional arguments passed to the handler
   - `priority` - Execution priority (higher = more urgent)
-  - `created_by_id` - Optional user who created the job
+  - `created_by_uuid` - Optional user who created the job
   """
 
   use Ecto.Schema

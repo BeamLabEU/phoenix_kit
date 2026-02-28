@@ -735,7 +735,7 @@ defmodule PhoenixKit.Modules.Storage do
        dynamic(
          [f],
          fragment(
-           "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_contents pc WHERE pc.data->>'featured_image_id' = ?::text)",
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_contents pc WHERE pc.data->>'featured_image_uuid' = ?::text)",
            f.uuid
          )
        )},
@@ -751,7 +751,7 @@ defmodule PhoenixKit.Modules.Storage do
        dynamic(
          [f],
          fragment(
-           "NOT EXISTS (SELECT 1 FROM phoenix_kit_posts p WHERE p.metadata->>'featured_image_id' = ?::text)",
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_posts p WHERE p.metadata->>'featured_image_uuid' = ?::text)",
            f.uuid
          )
        )}

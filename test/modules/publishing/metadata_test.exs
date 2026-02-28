@@ -142,9 +142,9 @@ defmodule PhoenixKit.Modules.Publishing.MetadataTest do
       status: draft
       published_at: 2025-01-01T00:00:00Z
       created_at: 2025-01-01T00:00:00Z
-      created_by_id: 42
+      created_by_uuid: 42
       created_by_email: user@example.com
-      updated_by_id: 43
+      updated_by_uuid: 43
       updated_by_email: editor@example.com
       ---
 
@@ -153,9 +153,9 @@ defmodule PhoenixKit.Modules.Publishing.MetadataTest do
 
       {:ok, metadata, _content} = Metadata.parse_with_content(input)
       assert metadata.created_at == "2025-01-01T00:00:00Z"
-      assert metadata.created_by_id == "42"
+      assert metadata.created_by_uuid == "42"
       assert metadata.created_by_email == "user@example.com"
-      assert metadata.updated_by_id == "43"
+      assert metadata.updated_by_uuid == "43"
       assert metadata.updated_by_email == "editor@example.com"
     end
 
@@ -193,14 +193,14 @@ defmodule PhoenixKit.Modules.Publishing.MetadataTest do
         slug: "test",
         status: "draft",
         published_at: "2025-01-01T00:00:00Z",
-        featured_image_id: "img-123",
+        featured_image_uuid: "img-123",
         version: 2,
         primary_language: "en",
         allow_version_access: true
       }
 
       result = Metadata.serialize(metadata)
-      assert result =~ "featured_image_id: img-123"
+      assert result =~ "featured_image_uuid: img-123"
       assert result =~ "version: 2"
       assert result =~ "primary_language: en"
       assert result =~ "allow_version_access: true"
@@ -211,13 +211,13 @@ defmodule PhoenixKit.Modules.Publishing.MetadataTest do
         slug: "minimal",
         status: "draft",
         published_at: "2025-01-01T00:00:00Z",
-        featured_image_id: nil,
+        featured_image_uuid: nil,
         version: nil,
         url_slug: nil
       }
 
       result = Metadata.serialize(metadata)
-      refute result =~ "featured_image_id"
+      refute result =~ "featured_image_uuid"
       refute result =~ "version:"
       refute result =~ "url_slug"
     end
@@ -276,7 +276,7 @@ defmodule PhoenixKit.Modules.Publishing.MetadataTest do
         url_slug: "custom-url",
         previous_url_slugs: ["old-url"],
         primary_language: "en",
-        featured_image_id: "img-abc",
+        featured_image_uuid: "img-abc",
         created_at: "2025-06-01T00:00:00Z",
         created_by_email: "author@test.com"
       }
@@ -294,7 +294,7 @@ defmodule PhoenixKit.Modules.Publishing.MetadataTest do
       assert parsed.url_slug == original.url_slug
       assert parsed.previous_url_slugs == original.previous_url_slugs
       assert parsed.primary_language == original.primary_language
-      assert parsed.featured_image_id == original.featured_image_id
+      assert parsed.featured_image_uuid == original.featured_image_uuid
     end
   end
 

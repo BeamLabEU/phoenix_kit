@@ -765,7 +765,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns[:readonly?] do
       {:noreply, socket}
     else
-      updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
+      updated_form = Map.put(socket.assigns.form, "featured_image_uuid", "")
 
       socket =
         socket

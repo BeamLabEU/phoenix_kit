@@ -330,7 +330,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
            version_number: new_number,
            status: "draft",
            created_by_uuid: opts[:created_by_uuid],
-           created_by_id: opts[:created_by_id],
            data: %{"created_from" => source_version.version_number}
          }) do
       {:ok, new_version} -> new_version

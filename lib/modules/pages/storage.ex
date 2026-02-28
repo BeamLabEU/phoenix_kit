@@ -696,7 +696,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
   def update_post(_group_slug, post, params, audit_meta) do
     audit_meta = Map.new(audit_meta)
 
-    featured_image_id = Helpers.resolve_featured_image_id(params, post.metadata)
+    featured_image_uuid = Helpers.resolve_featured_image_uuid(params, post.metadata)
     current_status = Map.get(post.metadata, :status, "draft")
     new_status = Map.get(params, "status", current_status)
     is_primary_language = Map.get(audit_meta, :is_primary_language, true)
@@ -707,7 +707,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
       |> Map.put(:title, Map.get(params, "title", post.metadata.title))
       |> Map.put(:status, new_status)
       |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
-      |> Map.put(:featured_image_id, featured_image_id)
+      |> Map.put(:featured_image_uuid, featured_image_uuid)
       |> Helpers.apply_update_audit_metadata(audit_meta)
 
     new_content = Map.get(params, "content", post.content)
@@ -1231,14 +1231,14 @@ defmodule PhoenixKit.Modules.Pages.Storage do
 
         {final_metadata, final_content} =
           if lang_code == post.language and Path.basename(version_dir) == "v#{post.version || 1}" do
-            featured_image_id = Helpers.resolve_featured_image_id(params, metadata)
+            featured_image_uuid = Helpers.resolve_featured_image_uuid(params, metadata)
 
             updated_metadata =
               base_metadata
               |> Map.put(:title, Map.get(params, "title", metadata.title))
               |> Map.put(:status, Map.get(params, "status", metadata.status))
               |> Map.put(:published_at, Map.get(params, "published_at", metadata.published_at))
-              |> Map.put(:featured_image_id, featured_image_id)
+              |> Map.put(:featured_image_uuid, featured_image_uuid)
 
             {updated_metadata, Map.get(params, "content", content)}
           else
@@ -1280,14 +1280,14 @@ defmodule PhoenixKit.Modules.Pages.Storage do
 
         {final_metadata, final_content} =
           if lang_code == post.language do
-            featured_image_id = Helpers.resolve_featured_image_id(params, metadata)
+            featured_image_uuid = Helpers.resolve_featured_image_uuid(params, metadata)
 
             updated_metadata =
               base_metadata
               |> Map.put(:title, Map.get(params, "title", metadata.title))
               |> Map.put(:status, Map.get(params, "status", metadata.status))
               |> Map.put(:published_at, Map.get(params, "published_at", metadata.published_at))
-              |> Map.put(:featured_image_id, featured_image_id)
+              |> Map.put(:featured_image_uuid, featured_image_uuid)
 
             {updated_metadata, Map.get(params, "content", content)}
           else
@@ -1349,14 +1349,14 @@ defmodule PhoenixKit.Modules.Pages.Storage do
           :version_created_at,
           :version_created_from,
           :allow_version_access,
-          :created_by_id,
+          :created_by_uuid,
           :created_by_email,
-          :updated_by_id,
+          :updated_by_uuid,
           :updated_by_email
         ])
         |> Map.put(:title, "")
         |> Map.put(:description, nil)
-        |> Map.put(:featured_image_id, nil)
+        |> Map.put(:featured_image_uuid, nil)
         |> Map.put(:status, "draft")
 
       serialized = Metadata.serialize(metadata) <> "\n\n"
@@ -1515,7 +1515,7 @@ defmodule PhoenixKit.Modules.Pages.Storage do
       if is_primary do
         new_metadata
         |> Map.put(:title, Map.get(params, "title", Map.get(metadata, :title, "")))
-        |> Map.put(:featured_image_id, Helpers.resolve_featured_image_id(params, metadata))
+        |> Map.put(:featured_image_uuid, Helpers.resolve_featured_image_uuid(params, metadata))
       else
         new_metadata
       end
@@ -1660,8 +1660,8 @@ defmodule PhoenixKit.Modules.Pages.Storage do
             meta
             |> Map.put(:title, Map.get(params, "title", source_metadata.title))
             |> Map.put(
-              :featured_image_id,
-              Helpers.resolve_featured_image_id(params, source_metadata)
+              :featured_image_uuid,
+              Helpers.resolve_featured_image_uuid(params, source_metadata)
             )
           else
             meta
@@ -1985,8 +1985,8 @@ defmodule PhoenixKit.Modules.Pages.Storage do
 
     content_changing? = content_changed?(post, params)
 
-    current_image = Map.get(post.metadata, :featured_image_id)
-    new_image = Helpers.resolve_featured_image_id(params, post.metadata)
+    current_image = Map.get(post.metadata, :featured_image_uuid)
+    new_image = Helpers.resolve_featured_image_uuid(params, post.metadata)
     image_changing? = current_image != new_image
 
     status_changing? and not content_changing? and not image_changing?

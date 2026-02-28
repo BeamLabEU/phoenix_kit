@@ -9,12 +9,11 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
 
   - `description` - SEO meta description
   - `previous_url_slugs` - List of previous URL slugs for 301 redirects
-  - `featured_image_id` - Per-language featured image override
+  - `featured_image_uuid` - Per-language featured image override
   - `seo_title` - Custom SEO title (if different from title)
   - `excerpt` - Custom excerpt (if different from auto-generated)
   - `custom_css` - Per-language custom CSS
   - `updated_by_uuid` - UUID of last editor for this language
-  - `updated_by_id` - Integer ID of last editor (dual-write)
   """
 
   use Ecto.Schema
@@ -99,8 +98,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
   def get_previous_url_slugs(%__MODULE__{data: data}),
     do: Map.get(data, "previous_url_slugs", [])
 
-  @doc "Returns the per-language featured image ID."
-  def get_featured_image_id(%__MODULE__{data: data}), do: Map.get(data, "featured_image_id")
+  @doc "Returns the per-language featured image UUID."
+  def get_featured_image_uuid(%__MODULE__{data: data}), do: Map.get(data, "featured_image_uuid")
 
   @doc "Returns the custom SEO title."
   def get_seo_title(%__MODULE__{data: data}), do: Map.get(data, "seo_title")

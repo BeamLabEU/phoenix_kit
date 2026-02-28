@@ -59,7 +59,7 @@ defmodule PhoenixKit.ScheduledJobs do
   - `opts` - Optional keyword list with:
     - `:priority` - Job priority (default: 0)
     - `:max_attempts` - Max retry attempts (default: 3)
-    - `:created_by_id` - UUID of user creating the job
+    - `:created_by_uuid` - UUID of user creating the job
 
   ## Returns
 
@@ -84,7 +84,7 @@ defmodule PhoenixKit.ScheduledJobs do
       args: args,
       priority: Keyword.get(opts, :priority, 0),
       max_attempts: Keyword.get(opts, :max_attempts, 3),
-      created_by_id: Keyword.get(opts, :created_by_id)
+      created_by_uuid: Keyword.get(opts, :created_by_uuid)
     }
 
     %ScheduledJob{}

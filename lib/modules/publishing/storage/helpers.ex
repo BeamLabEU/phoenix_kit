@@ -19,15 +19,15 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
   """
   @spec apply_creation_audit_metadata(map(), map()) :: map()
   def apply_creation_audit_metadata(metadata, audit_meta) do
-    created_id = audit_value(audit_meta, :created_by_id)
+    created_id = audit_value(audit_meta, :created_by_uuid)
     created_email = audit_value(audit_meta, :created_by_email)
-    updated_id = audit_value(audit_meta, :updated_by_id) || created_id
+    updated_id = audit_value(audit_meta, :updated_by_uuid) || created_id
     updated_email = audit_value(audit_meta, :updated_by_email) || created_email
 
     metadata
-    |> maybe_put_audit_field(:created_by_id, created_id)
+    |> maybe_put_audit_field(:created_by_uuid, created_id)
     |> maybe_put_audit_field(:created_by_email, created_email)
-    |> maybe_put_audit_field(:updated_by_id, updated_id)
+    |> maybe_put_audit_field(:updated_by_uuid, updated_id)
     |> maybe_put_audit_field(:updated_by_email, updated_email)
   end
 
@@ -38,7 +38,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
   @spec apply_update_audit_metadata(map(), map()) :: map()
   def apply_update_audit_metadata(metadata, audit_meta) do
     metadata
-    |> maybe_put_audit_field(:updated_by_id, audit_value(audit_meta, :updated_by_id))
+    |> maybe_put_audit_field(:updated_by_uuid, audit_value(audit_meta, :updated_by_uuid))
     |> maybe_put_audit_field(:updated_by_email, audit_value(audit_meta, :updated_by_email))
   end
 
@@ -82,17 +82,17 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
   end
 
   @doc """
-  Resolves featured_image_id from params or existing metadata.
+  Resolves featured_image_uuid from params or existing metadata.
   """
-  @spec resolve_featured_image_id(map(), map()) :: String.t() | nil
-  def resolve_featured_image_id(params, metadata) do
-    case Map.fetch(params, "featured_image_id") do
-      {:ok, value} -> normalize_featured_image_id(value)
-      :error -> metadata_value(metadata, :featured_image_id)
+  @spec resolve_featured_image_uuid(map(), map()) :: String.t() | nil
+  def resolve_featured_image_uuid(params, metadata) do
+    case Map.fetch(params, "featured_image_uuid") do
+      {:ok, value} -> normalize_featured_image_uuid(value)
+      :error -> metadata_value(metadata, :featured_image_uuid)
     end
   end
 
-  defp normalize_featured_image_id(value) when is_binary(value) do
+  defp normalize_featured_image_uuid(value) when is_binary(value) do
     value
     |> String.trim()
     |> case do
@@ -101,7 +101,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
     end
   end
 
-  defp normalize_featured_image_id(_), do: nil
+  defp normalize_featured_image_uuid(_), do: nil
 
   @doc """
   Resolves url_slug from params or existing metadata.
@@ -338,7 +338,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
       :published_at,
       Map.get(params, "published_at", metadata_value(post.metadata, :published_at))
     )
-    |> Map.put(:featured_image_id, resolve_featured_image_id(params, post.metadata))
+    |> Map.put(:featured_image_uuid, resolve_featured_image_uuid(params, post.metadata))
     |> Map.put(:created_at, Map.get(post.metadata, :created_at))
     |> Map.put(:slug, post.slug)
     |> Map.put(:version, Map.get(post.metadata, :version, 1))

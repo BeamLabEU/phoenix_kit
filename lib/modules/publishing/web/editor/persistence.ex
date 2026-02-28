@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   def perform_save(socket) do
     params =
       socket.assigns.form
-      |> Map.take(["status", "published_at", "slug", "featured_image_id", "url_slug", "title"])
+      |> Map.take(["status", "published_at", "slug", "featured_image_uuid", "url_slug", "title"])
       |> Map.put("content", socket.assigns.content)
 
     params =

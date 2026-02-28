@@ -189,7 +189,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       url_slug: content.url_slug,
       previous_url_slugs: PublishingContent.get_previous_url_slugs(content),
       published_at: format_datetime(post.published_at),
-      featured_image_id: PublishingContent.get_featured_image_id(content),
+      featured_image_uuid: PublishingContent.get_featured_image_uuid(content),
       primary_language: post.primary_language
     }
   end
@@ -201,7 +201,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       status: post.status,
       slug: post.slug,
       published_at: format_datetime(post.published_at),
-      featured_image_id: nil,
+      featured_image_uuid: nil,
       primary_language: post.primary_language
     }
   end
@@ -213,7 +213,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       status: content.status,
       slug: post.slug,
       published_at: format_datetime(post.published_at),
-      featured_image_id: PublishingContent.get_featured_image_id(content),
+      featured_image_uuid: PublishingContent.get_featured_image_uuid(content),
       primary_language: post.primary_language
     }
   end

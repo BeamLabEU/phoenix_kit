@@ -751,7 +751,7 @@
                     </span>
                   </label>
 
-                  <%= if preview_url = featured_image_preview_url(@form["featured_image_id"]) do %>
+                  <%= if preview_url = featured_image_preview_url(@form["featured_image_uuid"]) do %>
                     <%!-- Image Preview with Actions --%>
                     <div class="space-y-3">
                       <div class="relative group">
@@ -850,8 +850,8 @@
                     <div class="px-3 pb-3 pt-2">
                       <input
                         type="text"
-                        name="featured_image_id"
-                        value={@form["featured_image_id"]}
+                        name="featured_image_uuid"
+                        value={@form["featured_image_uuid"]}
                         class={"input input-bordered input-sm w-full font-mono text-xs #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
                         placeholder="018e3c4a-9f6b-7890-abcd-ef1234567890"
                         readonly={@readonly? or @viewing_older_version}

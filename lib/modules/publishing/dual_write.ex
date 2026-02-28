@@ -105,8 +105,8 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
         throw(:skip)
       end
 
-      # Resolve user UUIDs for dual-write
-      {created_by_uuid, created_by_id} = resolve_user_ids(opts)
+      # Resolve user UUID for dual-write
+      created_by_uuid = resolve_user_ids(opts)
 
       # Create the post
       {:ok, db_post} =
@@ -120,9 +120,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
           post_date: post_map[:date],
           post_time: post_map[:time],
           created_by_uuid: created_by_uuid,
-          created_by_id: created_by_id,
           updated_by_uuid: created_by_uuid,
-          updated_by_id: created_by_id,
           data: extract_post_data(post_map)
         })
 
@@ -134,8 +132,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
           post_uuid: db_post.uuid,
           version_number: version_number,
           status: post_map[:metadata][:status] || "draft",
-          created_by_uuid: created_by_uuid,
-          created_by_id: created_by_id
+          created_by_uuid: created_by_uuid
         })
 
       # Create content for the language
@@ -205,7 +202,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
         throw(:skip)
       end
 
-      {created_by_uuid, created_by_id} = resolve_user_ids(opts)
+      created_by_uuid = resolve_user_ids(opts)
       version_number = post_map[:version] || DBStorage.next_version_number(db_post.uuid)
 
       {:ok, db_version} =
@@ -214,7 +211,6 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
           version_number: version_number,
           status: "draft",
           created_by_uuid: created_by_uuid,
-          created_by_id: created_by_id,
           data: %{"created_from" => opts[:source_version]}
         })
 
@@ -404,9 +400,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
   end
 
   defp resolve_user_ids(opts) do
-    uuid = opts[:user_uuid] || opts[:created_by_uuid]
-    id = opts[:user_id] || opts[:created_by_id]
-    {uuid, id}
+    opts[:user_uuid] || opts[:created_by_uuid]
   end
 
   defp parse_datetime(nil), do: nil
@@ -426,7 +420,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
 
     %{}
     |> maybe_put("allow_version_access", metadata[:allow_version_access])
-    |> maybe_put("featured_image", metadata[:featured_image_id])
+    |> maybe_put("featured_image", metadata[:featured_image_uuid])
     |> maybe_put("tags", metadata[:tags])
   end
 
@@ -436,7 +430,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
     %{}
     |> maybe_put("description", metadata[:description])
     |> maybe_put("previous_url_slugs", metadata[:previous_url_slugs])
-    |> maybe_put("featured_image_id", metadata[:featured_image_id])
+    |> maybe_put("featured_image_uuid", metadata[:featured_image_uuid])
     |> maybe_put("seo_title", metadata[:seo_title])
     |> maybe_put("excerpt", metadata[:excerpt])
   end

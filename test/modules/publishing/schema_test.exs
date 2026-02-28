@@ -341,7 +341,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
 
       assert PublishingContent.get_description(content) == nil
       assert PublishingContent.get_previous_url_slugs(content) == []
-      assert PublishingContent.get_featured_image_id(content) == nil
+      assert PublishingContent.get_featured_image_uuid(content) == nil
       assert PublishingContent.get_seo_title(content) == nil
       assert PublishingContent.get_excerpt(content) == nil
       assert PublishingContent.get_updated_by_uuid(content) == nil
@@ -352,7 +352,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
         data: %{
           "description" => "A test post",
           "previous_url_slugs" => ["old-slug"],
-          "featured_image_id" => "img-456",
+          "featured_image_uuid" => "img-456",
           "seo_title" => "SEO Title",
           "excerpt" => "Custom excerpt",
           "updated_by_uuid" => "uuid-789"
@@ -361,7 +361,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
 
       assert PublishingContent.get_description(content) == "A test post"
       assert PublishingContent.get_previous_url_slugs(content) == ["old-slug"]
-      assert PublishingContent.get_featured_image_id(content) == "img-456"
+      assert PublishingContent.get_featured_image_uuid(content) == "img-456"
       assert PublishingContent.get_seo_title(content) == "SEO Title"
       assert PublishingContent.get_excerpt(content) == "Custom excerpt"
       assert PublishingContent.get_updated_by_uuid(content) == "uuid-789"

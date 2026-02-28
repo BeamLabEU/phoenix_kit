@@ -504,7 +504,7 @@ defmodule PhoenixKit.Modules.Posts do
   - `scheduled_at` - DateTime to publish at (must be in future)
   - `attrs` - Additional attributes to update (title, content, etc.)
   - `opts` - Options
-    - `:created_by_id` - UUID of user scheduling the post
+    - `:created_by_uuid` - UUID of user scheduling the post
 
   ## Examples
 

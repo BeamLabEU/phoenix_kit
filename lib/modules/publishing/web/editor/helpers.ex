@@ -208,7 +208,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
         status: "draft",
         published_at: DateTime.to_iso8601(now),
         slug: "",
-        featured_image_id: nil
+        featured_image_uuid: nil
       },
       content: "",
       language: primary_language,
@@ -242,7 +242,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
         title: "",
         status: "draft",
         published_at: DateTime.to_iso8601(now),
-        featured_image_id: nil
+        featured_image_uuid: nil
       },
       content: "",
       language: primary_language,
@@ -274,19 +274,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   Gets the preview URL for a featured image.
   """
   def featured_image_preview_url(value) do
-    case sanitize_featured_image_id(value) do
+    case sanitize_featured_image_uuid(value) do
       nil ->
         nil
 
       file_id ->
-        PublishingHTML.featured_image_url(%{metadata: %{featured_image_id: file_id}}, "medium")
+        PublishingHTML.featured_image_url(%{metadata: %{featured_image_uuid: file_id}}, "medium")
     end
   end
 
   @doc """
   Sanitizes a featured image ID value.
   """
-  def sanitize_featured_image_id(value) when is_binary(value) do
+  def sanitize_featured_image_uuid(value) when is_binary(value) do
     value
     |> String.trim()
     |> case do
@@ -295,7 +295,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     end
   end
 
-  def sanitize_featured_image_id(_), do: nil
+  def sanitize_featured_image_uuid(_), do: nil
 
   # ============================================================================
   # URL Construction Helpers

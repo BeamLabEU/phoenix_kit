@@ -297,7 +297,7 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `slug` – Post slug (required, used for file path in slug mode)
 - `status` – Publication status: `draft`, `published`, or `archived`
 - `published_at` – Publication timestamp (ISO8601 format)
-- `featured_image_id` – Optional reference to a featured image asset
+- `featured_image_uuid` – Optional reference to a featured image asset
 - `description` – Optional post description/excerpt for SEO
 - `version`, `version_created_at`, `version_created_from` – Managed automatically for versioned posts
 - `allow_version_access` – Enables public viewing of historical versions when set to `true`
@@ -305,9 +305,9 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 **Audit Fields (optional):**
 
 - `created_at` – Creation timestamp (for audit purposes)
-- `created_by_id` – User ID who created the post
+- `created_by_uuid` – User ID who created the post
 - `created_by_email` – Email of user who created the post
-- `updated_by_id` – User ID who last updated the post
+- `updated_by_uuid` – User ID who last updated the post
 - `updated_by_email` – Email of user who last updated the post
 
 **Advanced: PHK Component Format**
@@ -495,7 +495,7 @@ The context layer routes all writes to the database:
 {:ok, post} = Publishing.create_post("docs", %{
   title: "Getting Started",
   slug: "get-started",
-  scope: current_user_scope  # Optional: records created_by_id/email
+  scope: current_user_scope  # Optional: records created_by_uuid/email
 })
 
 # List posts (routes by group mode)
@@ -511,7 +511,7 @@ posts = Publishing.list_posts("docs", "es")  # With language preference
   "title" => "Updated Title",
   "slug" => "new-slug",  # Slug mode: updates DB, tracks old slug for redirects
   "content" => "Updated content..."
-}, scope: current_user_scope)  # Optional 4th arg: records updated_by_id/email
+}, scope: current_user_scope)  # Optional 4th arg: records updated_by_uuid/email
 
 # Add translation
 {:ok, spanish_post} = Publishing.add_language_to_post("docs", "getting-started", "es")
@@ -777,7 +777,7 @@ Posts can have an optional featured image:
 - Click "Select Featured Image" to open the media picker
 - Preview displays below the image selector
 - Click "Clear" to remove the featured image
-- Stored as `featured_image_id` in frontmatter
+- Stored as `featured_image_uuid` in frontmatter
 
 **Migration Gate:**
 

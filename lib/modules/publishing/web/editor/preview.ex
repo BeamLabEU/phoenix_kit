@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
           ""
         ),
       slug: preview_slug(form, post),
-      featured_image_id: Map.get(form, "featured_image_id", ""),
+      featured_image_uuid: Map.get(form, "featured_image_uuid", ""),
       url_slug: Map.get(form, "url_slug", "")
     }
 
@@ -214,7 +214,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       "title" => metadata[:title] || "",
       "status" => metadata[:status] || "draft",
       "published_at" => metadata[:published_at] || "",
-      "featured_image_id" => metadata[:featured_image_id] || "",
+      "featured_image_uuid" => metadata[:featured_image_uuid] || "",
       "url_slug" => metadata[:url_slug] || ""
     }
     |> maybe_put_form_slug(metadata[:slug], mode)
@@ -228,7 +228,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   defp supplement_form_from_disk(form, disk_post) do
     Enum.reduce(
       [
-        {"featured_image_id", Map.get(disk_post.metadata, :featured_image_id)},
+        {"featured_image_uuid", Map.get(disk_post.metadata, :featured_image_uuid)},
         {"url_slug", Map.get(disk_post.metadata, :url_slug) || Map.get(disk_post, :url_slug)}
       ],
       form,
@@ -329,7 +329,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     metadata_map =
       Enum.reduce(metadata, %{}, fn
         {key, value}, acc
-        when key in [:status, :published_at, :slug, :featured_image_id, :url_slug] ->
+        when key in [:status, :published_at, :slug, :featured_image_uuid, :url_slug] ->
           Map.put(acc, key, value)
 
         {"status", value}, acc ->
@@ -341,8 +341,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
         {"slug", value}, acc ->
           Map.put(acc, :slug, value)
 
-        {"featured_image_id", value}, acc ->
-          Map.put(acc, :featured_image_id, value)
+        {"featured_image_uuid", value}, acc ->
+          Map.put(acc, :featured_image_uuid, value)
 
         {"url_slug", value}, acc ->
           Map.put(acc, :url_slug, value)
