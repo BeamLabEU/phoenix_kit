@@ -11,6 +11,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.PubSub.Manager
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @table_name :phoenix_kit_sessions
   @server_name __MODULE__
@@ -35,7 +36,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
       metadata
       |> Map.put(:type, :anonymous)
       |> Map.put(:session_id, session_id)
-      |> Map.put_new(:connected_at, DateTime.utc_now())
+      |> Map.put_new(:connected_at, UtilsDate.utc_now())
 
     case GenServer.call(@server_name, {:track, key, metadata}) do
       :ok ->
@@ -63,7 +64,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
       |> Map.put(:type, :authenticated)
       |> Map.put(:user_uuid, user.uuid)
       |> Map.put(:user_email, user.email)
-      |> Map.put_new(:connected_at, DateTime.utc_now())
+      |> Map.put_new(:connected_at, UtilsDate.utc_now())
 
     case GenServer.call(@server_name, {:track, key, metadata}) do
       :ok ->
@@ -148,7 +149,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
       unique_anonymous_visitors: length(Enum.uniq_by(anonymous_sessions, & &1.session_id)),
       active_authenticated_users: length(Enum.uniq_by(authenticated_sessions, & &1.user_uuid)),
       top_pages: page_stats,
-      last_updated: DateTime.utc_now()
+      last_updated: UtilsDate.utc_now()
     }
   end
 
@@ -259,7 +260,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
 
   defp cleanup_old_sessions do
     # Remove sessions older than 1 hour
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    one_hour_ago = DateTime.add(UtilsDate.utc_now(), -3600, :second)
 
     @table_name
     |> :ets.tab2list()
