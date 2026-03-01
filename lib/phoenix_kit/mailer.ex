@@ -364,13 +364,13 @@ defmodule PhoenixKit.Mailer do
   defp handle_delivery_result(email, result, opts) do
     # Only process if email tracking is enabled
     if Emails.enabled?() do
-      case extract_log_id_from_email(email) do
+      case extract_log_uuid_from_email(email) do
         nil ->
-          # No log ID found, skip tracking
+          # No log UUID found, skip tracking
           :ok
 
-        log_id ->
-          case Emails.get_log!(log_id) do
+        log_uuid ->
+          case Emails.get_log!(log_uuid) do
             nil -> :ok
             log -> update_log_after_delivery(log, result, opts)
           end
@@ -384,7 +384,7 @@ defmodule PhoenixKit.Mailer do
   end
 
   # Extract log UUID from email headers
-  defp extract_log_id_from_email(email) do
+  defp extract_log_uuid_from_email(email) do
     case get_in(email.headers, ["X-PhoenixKit-Log-Id"]) do
       nil -> nil
       log_uuid when is_binary(log_uuid) -> log_uuid
