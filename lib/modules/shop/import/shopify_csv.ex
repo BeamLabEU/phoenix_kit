@@ -13,7 +13,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       ShopifyCSV.import("/path/to/products.csv")
 
       # Import with custom config
-      config = Shop.get_import_config!(config_id)
+      config = Shop.get_import_config!(config_uuid)
       ShopifyCSV.import("/path/to/products.csv", config: config)
 
       # Import to specific category

@@ -455,9 +455,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           {:ok, updated_log} =
             Shop.update_import_log(import_log, %{status: "pending", error_details: []})
 
-          # Re-enqueue job with language and config_id
+          # Re-enqueue job with language and config_uuid
           language = socket.assigns.current_language
-          config_id = get_in(import_log.options, ["config_id"])
+          config_uuid = get_in(import_log.options, ["config_id"])
 
           worker_args = %{
             import_log_id: updated_log.uuid,
@@ -466,7 +466,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           }
 
           worker_args =
-            if config_id, do: Map.put(worker_args, :config_id, config_id), else: worker_args
+            if config_uuid, do: Map.put(worker_args, :config_id, config_uuid), else: worker_args
 
           worker_args
           |> CSVImportWorker.new()
@@ -522,17 +522,17 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     # Convert mappings to format expected by worker
     worker_mappings = convert_mappings_for_worker(mappings)
 
-    # Create import log with config_id
-    config_id = socket.assigns.selected_config_id
+    # Create import log with config_uuid
+    config_uuid = socket.assigns.selected_config_id
 
     case Shop.create_import_log(%{
            filename: filename,
            file_path: dest_path,
            user_uuid: user.uuid,
-           options: %{"option_mappings" => worker_mappings, "config_id" => config_id}
+           options: %{"option_mappings" => worker_mappings, "config_id" => config_uuid}
          }) do
       {:ok, import_log} ->
-        # Enqueue Oban job with language, mappings, config_id, and download_images option
+        # Enqueue Oban job with language, mappings, config_uuid, and download_images option
         language = socket.assigns.current_language
         download_images = socket.assigns.download_images
 
@@ -548,7 +548,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         }
 
         worker_args =
-          if config_id, do: Map.put(worker_args, :config_id, config_id), else: worker_args
+          if config_uuid, do: Map.put(worker_args, :config_id, config_uuid), else: worker_args
 
         worker_args
         |> CSVImportWorker.new()
