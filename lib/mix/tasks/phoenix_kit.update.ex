@@ -923,33 +923,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Mix.shell().info("\n⏳ Running database migration...")
 
       try do
-        case System.cmd("mix", ["ecto.migrate"], stderr_to_stdout: true) do
-          {output, 0} ->
-            # Check if migrations were actually applied or already up-to-date
-            cond do
-              String.contains?(output, "Migrations already up") ->
-                Mix.shell().info("\n✅ Already up to date - no migrations needed.")
-                Mix.shell().info(output)
+        # Run ecto.migrate in-process so it shares the current Repo pool
+        # (capped to 2 connections with Oban disabled and update_mode set).
+        # Using System.cmd("mix", ["ecto.migrate"]) would spawn a separate
+        # BEAM that starts its own full app with pool_size=20, bypassing
+        # all update_mode optimisations and saturating PgBouncer.
+        #
+        # Re-enable the task first since Mix tracks which tasks have run
+        # and ecto.migrate may have been invoked earlier in the session.
+        Mix.Task.reenable("ecto.migrate")
+        Mix.Task.run("ecto.migrate")
 
-              String.contains?(output, "Migrated") ->
-                Mix.shell().info("\n✅ Migration completed successfully!")
-                Mix.shell().info(output)
-                show_update_success_notice()
-
-              true ->
-                # Fallback for unexpected output format
-                Mix.shell().info("\n✅ Migration command completed.")
-                Mix.shell().info(output)
-            end
-
-          {output, _} ->
-            Mix.shell().info("\n❌ Migration failed:")
-            Mix.shell().info(output)
-            show_manual_migration_instructions()
-        end
+        Mix.shell().info("\n✅ Migration completed successfully!")
+        show_update_success_notice()
       rescue
         error ->
-          Mix.shell().info("\n⚠️  Migration execution failed: #{inspect(error)}")
+          Mix.shell().info("\n⚠️  Migration failed: #{Exception.message(error)}")
           show_manual_migration_instructions()
       end
     end
