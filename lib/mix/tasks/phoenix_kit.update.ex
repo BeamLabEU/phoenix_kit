@@ -202,10 +202,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
 
-              # Use a minimal DB pool so we don't saturate PgBouncer when the production
-              # app is already running (production pool + update pool would exceed server
-              # capacity and cause 15s timeouts on all startup queries).
-              System.put_env("POOL_SIZE", "2")
+              # Cap the Ecto pool to 2 connections before app.start so we don't
+              # saturate PgBouncer when the production app is already running.
+              # System.put_env("POOL_SIZE", ...) is too late (runtime.exs already
+              # evaluated); Application.put_env overrides it directly in the app config
+              # which Ecto reads when it initialises the connection pool.
+              cap_repo_pool_size_for_update(2)
 
               Mix.Task.run("app.start")
               result = super(argv)
@@ -1433,6 +1435,28 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       """
 
       Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Reduce Ecto repo pool sizes before app.start so the update task uses few
+    # DB connections and doesn't starve the production app via PgBouncer.
+    # runtime.exs already ran (setting pool_size from POOL_SIZE env), so we
+    # override the Application config directly — Ecto reads it when it starts.
+    defp cap_repo_pool_size_for_update(pool_size) do
+      app_name = Mix.Project.config()[:app]
+
+      repos =
+        Application.get_env(app_name, :ecto_repos, []) ++
+          Application.get_env(:phoenix_kit, :ecto_repos, [])
+
+      Enum.each(repos, fn repo ->
+        current = Application.get_env(app_name, repo, [])
+
+        if current != [] do
+          Application.put_env(app_name, repo, Keyword.put(current, :pool_size, pool_size))
+        end
+      end)
+    rescue
+      _ -> :ok
     end
   end
 
