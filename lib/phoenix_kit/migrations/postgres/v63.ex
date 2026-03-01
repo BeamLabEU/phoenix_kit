@@ -166,13 +166,23 @@ defmodule PhoenixKit.Migrations.Postgres.V63 do
       execute("ALTER TABLE #{table_name} ADD COLUMN matched_email_log_uuid UUID")
 
       if table_exists?(:phoenix_kit_email_logs, escaped_prefix) do
+        # Wrapped in a DO block with EXCEPTION handler so that a type mismatch
+        # (e.g. email_logs.uuid is character varying on some installs) does not
+        # abort the outer migration transaction.  The ::uuid cast handles the
+        # varchar case; V70 re-runs the backfill once the column type is fixed.
         execute("""
-        UPDATE #{table_name} e
-        SET matched_email_log_uuid = l.uuid
-        FROM #{email_logs_table} l
-        WHERE e.matched_email_log_id = l.id
-          AND e.matched_email_log_uuid IS NULL
-          AND e.matched_email_log_id IS NOT NULL
+        DO $$
+        BEGIN
+          UPDATE #{table_name} e
+          SET matched_email_log_uuid = l.uuid::uuid
+          FROM #{email_logs_table} l
+          WHERE e.matched_email_log_id = l.id
+            AND e.matched_email_log_uuid IS NULL
+            AND e.matched_email_log_id IS NOT NULL;
+        EXCEPTION
+          WHEN OTHERS THEN
+            RAISE WARNING 'PhoenixKit: skipping matched_email_log_uuid backfill — %', SQLERRM;
+        END $$;
         """)
       end
 
