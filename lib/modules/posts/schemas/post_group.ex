@@ -11,7 +11,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
   - `name` - Group name (e.g., "Travel Photos", "Work Projects")
   - `slug` - URL-safe slug (e.g., "travel-photos")
   - `description` - Optional group description
-  - `cover_image_id` - Optional cover image (reference to file)
+  - `cover_image_uuid` - Optional cover image (reference to file)
   - `post_count` - Denormalized counter (updated via context)
   - `is_public` - Whether group is visible to others
   - `position` - Manual ordering of user's groups
@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
         name: "Travel Adventures",
         slug: "travel-adventures",
         description: "My favorite travel moments",
-        cover_image_id: "018e3c4a-1234-5678-abcd-ef1234567890",
+        cover_image_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         post_count: 23,
         is_public: true,
         position: 1
@@ -37,7 +37,7 @@ defmodule PhoenixKit.Modules.Posts.PostGroup do
         name: "Client Projects",
         slug: "client-projects",
         description: nil,
-        cover_image_id: nil,
+        cover_image_uuid: nil,
         post_count: 0,
         is_public: false,
         position: 2
