@@ -202,11 +202,17 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
 
-              # Cap the Ecto pool to 2 connections before app.start so we don't
-              # saturate PgBouncer when the production app is already running.
-              # System.put_env("POOL_SIZE", ...) is too late (runtime.exs already
-              # evaluated); Application.put_env overrides it directly in the app config
-              # which Ecto reads when it initialises the connection pool.
+              # Cap the Ecto pool to 2 connections so we don't saturate PgBouncer
+              # when the production app is already running.
+              #
+              # The sequencing is critical:
+              # 1. Run app.config first — this evaluates config/runtime.exs (which
+              #    reads POOL_SIZE env and sets pool_size: N in Application env).
+              # 2. THEN override pool_size to 2 via Application.put_env, after
+              #    runtime.exs has already run and can no longer overwrite us.
+              # 3. THEN start app — app.config won't run again (Mix tracks ran tasks),
+              #    so Ecto initialises the pool with our capped pool_size: 2.
+              Mix.Task.run("app.config")
               cap_repo_pool_size_for_update(2)
 
               Mix.Task.run("app.start")
@@ -1439,8 +1445,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     # Reduce Ecto repo pool sizes before app.start so the update task uses few
     # DB connections and doesn't starve the production app via PgBouncer.
-    # runtime.exs already ran (setting pool_size from POOL_SIZE env), so we
-    # override the Application config directly — Ecto reads it when it starts.
+    # Must be called AFTER Mix.Task.run("app.config") so that runtime.exs has
+    # already set pool_size from the POOL_SIZE env — then we override it here.
     defp cap_repo_pool_size_for_update(pool_size) do
       app_name = Mix.Project.config()[:app]
 
@@ -1450,13 +1456,13 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       Enum.each(repos, fn repo ->
         current = Application.get_env(app_name, repo, [])
-
-        if current != [] do
-          Application.put_env(app_name, repo, Keyword.put(current, :pool_size, pool_size))
-        end
+        updated = Keyword.put(current, :pool_size, pool_size)
+        Application.put_env(app_name, repo, updated)
+        Mix.shell().info("PhoenixKit: capped #{inspect(repo)} pool_size to #{pool_size}")
       end)
     rescue
-      _ -> :ok
+      e ->
+        Mix.shell().info("PhoenixKit: could not cap repo pool_size: #{inspect(e)}")
     end
   end
 
