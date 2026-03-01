@@ -54,7 +54,7 @@ defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
           # I'm read-only, sync with owner's state
       end
   """
-  def get_editing_role(type, id, socket_id, current_user_id) do
+  def get_editing_role(type, id, socket_id, current_user_uuid) do
     presences = get_sorted_presences(type, id)
 
     case presences do
@@ -69,7 +69,7 @@ defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
 
       [{_other_socket_id, owner_meta} | _rest] ->
         # Check if same user (different tab) or different user
-        if owner_meta.user_uuid == current_user_id do
+        if owner_meta.user_uuid == current_user_uuid do
           # Same user, different tab - treat as owner so both tabs can edit
           {:owner, presences}
         else

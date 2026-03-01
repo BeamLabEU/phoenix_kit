@@ -35,12 +35,12 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     project_title = Settings.get_project_title()
 
     # Determine if this is a new post or editing existing
-    post_id = Map.get(params, "id")
+    post_uuid = Map.get(params, "id")
 
     socket =
-      if post_id do
+      if post_uuid do
         # Editing existing post
-        case Posts.get_post!(post_id, preload: [:user, :media, :tags, :groups, :mentions]) do
+        case Posts.get_post!(post_uuid, preload: [:user, :media, :tags, :groups, :mentions]) do
           nil ->
             socket
             |> put_flash(:error, "Post not found")
@@ -119,10 +119,10 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     # Generate slug if auto-slug is enabled and slug is empty
     post_params = maybe_generate_slug(post_params)
 
-    # Get post_id - handle both struct and map cases
-    post_id = Map.get(socket.assigns.post, :uuid)
+    # Get post_uuid - handle both struct and map cases
+    post_uuid = Map.get(socket.assigns.post, :uuid)
 
-    save_post(socket, post_id, post_params, tags)
+    save_post(socket, post_uuid, post_params, tags)
   end
 
   @impl true
@@ -163,12 +163,12 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   @impl true
   def handle_event("remove_post_image", %{"id" => media_id}, socket) do
-    post_id = Map.get(socket.assigns.post, :uuid)
+    post_uuid = Map.get(socket.assigns.post, :uuid)
 
-    if post_id do
+    if post_uuid do
       # Existing post - remove from database
       Posts.detach_media_by_id(media_id)
-      post_images = Posts.list_post_media(post_id, preload: [:file])
+      post_images = Posts.list_post_media(post_uuid, preload: [:file])
       {:noreply, assign(socket, :post_images, post_images)}
     else
       # New post - remove from temporary list
@@ -186,19 +186,19 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   @impl true
   def handle_event("reorder_post_images", %{"ordered_ids" => ordered_ids}, socket) do
-    post_id = Map.get(socket.assigns.post, :uuid)
+    post_uuid = Map.get(socket.assigns.post, :uuid)
 
-    if post_id do
+    if post_uuid do
       # Existing post - update positions in database
       positions =
         ordered_ids
         |> Enum.with_index(1)
         |> Map.new(fn {file_id, position} -> {file_id, position} end)
 
-      Posts.reorder_media(post_id, positions)
+      Posts.reorder_media(post_uuid, positions)
 
       # Reload images to reflect new order
-      post_images = Posts.list_post_media(post_id, preload: [:file])
+      post_images = Posts.list_post_media(post_uuid, preload: [:file])
       {:noreply, assign(socket, :post_images, post_images)}
     else
       # New post - reorder in memory
@@ -241,9 +241,9 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
       cond do
         # Post images selection (supports multiple files)
         not Enum.empty?(file_ids) && socket.assigns.selecting_featured_image ->
-          post_id = Map.get(socket.assigns.post, :uuid)
+          post_uuid = Map.get(socket.assigns.post, :uuid)
 
-          if post_id do
+          if post_uuid do
             # Existing post - save all selected images to database
             # Get current max position
             current_images = socket.assigns.post_images
@@ -255,11 +255,11 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
             file_ids
             |> Enum.with_index(max_position + 1)
             |> Enum.each(fn {file_id, position} ->
-              Posts.attach_media(post_id, file_id, position: position)
+              Posts.attach_media(post_uuid, file_id, position: position)
             end)
 
             # Reload all images
-            post_images = Posts.list_post_media(post_id, preload: [:file])
+            post_images = Posts.list_post_media(post_uuid, preload: [:file])
 
             socket
             |> assign(:post_images, post_images)
@@ -407,7 +407,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     end
   end
 
-  defp save_post(socket, _post_id, post_params, tags) do
+  defp save_post(socket, _post_uuid, post_params, tags) do
     # Convert scheduled_at from user's local time to UTC
     post_params = convert_scheduled_at_to_utc(post_params, socket.assigns.current_user)
     post = socket.assigns.post
@@ -526,11 +526,11 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   end
 
   defp load_post_images(socket) do
-    post_id = Map.get(socket.assigns.post, :uuid)
+    post_uuid = Map.get(socket.assigns.post, :uuid)
 
     post_images =
-      if post_id do
-        Posts.list_post_media(post_id, preload: [:file])
+      if post_uuid do
+        Posts.list_post_media(post_uuid, preload: [:file])
       else
         []
       end

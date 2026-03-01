@@ -2610,8 +2610,8 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Examples
 
-      Billing.list_subscriptions(user_id)
-      Billing.list_subscriptions(user_id, status: "active")
+      Billing.list_subscriptions(user_uuid)
+      Billing.list_subscriptions(user_uuid, status: "active")
   """
   def list_subscriptions(opts \\ [])
 

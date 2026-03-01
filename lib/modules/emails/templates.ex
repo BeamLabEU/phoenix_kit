@@ -279,8 +279,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       {:ok, %Template{status: "archived"}}
 
   """
-  def archive_template(%Template{} = template, user_id \\ nil) do
-    user_uuid = resolve_user_uuid(user_id)
+  def archive_template(%Template{} = template, user_uuid \\ nil) do
+    user_uuid = resolve_user_uuid(user_uuid)
 
     update_template(template, %{
       status: "archived",
@@ -297,8 +297,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       {:ok, %Template{status: "active"}}
 
   """
-  def activate_template(%Template{} = template, user_id \\ nil) do
-    user_uuid = resolve_user_uuid(user_id)
+  def activate_template(%Template{} = template, user_uuid \\ nil) do
+    user_uuid = resolve_user_uuid(user_uuid)
 
     update_template(template, %{
       status: "active",
