@@ -17,11 +17,18 @@ defmodule PhoenixKit.Migrations.Postgres.V50 do
   def up(%{prefix: prefix} = _opts) do
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
 
+    schema = if prefix && prefix != "public", do: prefix, else: "public"
+
     # Check at the Elixir level first — if the column already exists, skip the
     # ALTER TABLE entirely. This avoids acquiring ACCESS EXCLUSIVE lock when the
     # column is already present (common on retry after a previous lock timeout).
-    # Only attempt the DDL when the column is genuinely missing.
-    unless column_exists?(:phoenix_kit_buckets, :access_type, prefix: prefix) do
+    %{rows: rows} =
+      repo().query!(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'phoenix_kit_buckets' AND column_name = 'access_type'",
+        [schema]
+      )
+
+    if rows == [] do
       # On PostgreSQL 11+, ADD COLUMN with a constant DEFAULT is a metadata-only
       # operation — the lock is held for milliseconds once acquired. Set a 30s
       # timeout so we wait long enough for a brief window in production traffic.
