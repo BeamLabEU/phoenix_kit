@@ -1443,10 +1443,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Igniter.add_notice(igniter, String.trim(notice))
     end
 
-    # Reduce Ecto repo pool sizes before app.start so the update task uses few
-    # DB connections and doesn't starve the production app via PgBouncer.
-    # Must be called AFTER Mix.Task.run("app.config") so that runtime.exs has
-    # already set pool_size from the POOL_SIZE env — then we override it here.
+    # Reduce Ecto repo pool sizes and disable Oban queue workers before app.start
+    # so the update task uses minimal DB connections and doesn't starve the
+    # production app via PgBouncer. Must be called AFTER app.config so that
+    # runtime.exs has already applied its settings — then we override here.
     defp cap_repo_pool_size_for_update(pool_size) do
       app_name = Mix.Project.config()[:app]
 
@@ -1460,9 +1460,28 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         Application.put_env(app_name, repo, updated)
         Mix.shell().info("PhoenixKit: capped #{inspect(repo)} pool_size to #{pool_size}")
       end)
+
+      # Disable Oban queue workers so they don't consume all pool connections
+      # before the settings cache warms and Dashboard.Registry initialises.
+      # With pool_size=2, 7+ Oban producers would otherwise starve everything else.
+      disable_oban_queues_for_update(app_name)
     rescue
       e ->
         Mix.shell().info("PhoenixKit: could not cap repo pool_size: #{inspect(e)}")
+    end
+
+    defp disable_oban_queues_for_update(app_name) do
+      case Application.get_env(app_name, Oban) do
+        nil ->
+          :ok
+
+        oban_config ->
+          updated = oban_config |> Keyword.put(:queues, []) |> Keyword.put(:plugins, [])
+          Application.put_env(app_name, Oban, updated)
+          Mix.shell().info("PhoenixKit: disabled Oban queues/plugins for update task")
+      end
+    rescue
+      _ -> :ok
     end
   end
 
