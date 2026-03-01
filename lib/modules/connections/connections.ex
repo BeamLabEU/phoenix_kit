@@ -462,7 +462,7 @@ defmodule PhoenixKit.Modules.Connections do
 
   ## Parameters
 
-  - `connection_or_id` - Connection struct or connection ID
+  - `connection_or_uuid` - Connection struct or connection UUID
 
   ## Returns
 
@@ -513,7 +513,7 @@ defmodule PhoenixKit.Modules.Connections do
 
   ## Parameters
 
-  - `connection_or_id` - Connection struct or connection ID
+  - `connection_or_uuid` - Connection struct or connection UUID
 
   ## Returns
 

@@ -56,7 +56,7 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
   the lower UUID is always stored as user_a_uuid for consistent querying.
   """
   def changeset(history, attrs) do
-    attrs = normalize_user_ids(attrs)
+    attrs = normalize_user_uuids(attrs)
 
     history
     |> cast(attrs, [
@@ -74,12 +74,12 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
   end
 
   # Normalize user UUIDs so user_a_uuid < user_b_uuid for consistent storage
-  defp normalize_user_ids(%{user_a_uuid: a_uuid, user_b_uuid: b_uuid} = attrs)
+  defp normalize_user_uuids(%{user_a_uuid: a_uuid, user_b_uuid: b_uuid} = attrs)
        when is_binary(a_uuid) and is_binary(b_uuid) and a_uuid > b_uuid do
     %{attrs | user_a_uuid: b_uuid, user_b_uuid: a_uuid}
   end
 
-  defp normalize_user_ids(attrs), do: attrs
+  defp normalize_user_uuids(attrs), do: attrs
 
   defp put_timestamp(changeset) do
     put_change(
