@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
       %{
         "source_module" => "users",    # Source module identifier
         "priority" => "high",           # Email priority (optional)
-        "requires_user" => true         # Whether user_id is required (optional)
+        "requires_user" => true         # Whether user_uuid is required (optional)
       }
 
   ## Status

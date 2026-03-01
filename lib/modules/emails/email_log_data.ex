@@ -18,7 +18,6 @@ defmodule PhoenixKit.Modules.Emails.EmailLogData do
   - `size_bytes` - Estimated email size in bytes
   - `template_name` - Template identifier if applicable
   - `campaign_id` - Campaign identifier if applicable
-  - `user_id` - Associated user integer ID
   - `user_uuid` - Associated user UUID
   - `provider` - Email delivery provider name
   - `configuration_set` - AWS SES configuration set name
@@ -38,7 +37,6 @@ defmodule PhoenixKit.Modules.Emails.EmailLogData do
     :size_bytes,
     :template_name,
     :campaign_id,
-    :user_id,
     :user_uuid,
     :provider,
     :configuration_set,
@@ -57,7 +55,6 @@ defmodule PhoenixKit.Modules.Emails.EmailLogData do
           size_bytes: integer() | nil,
           template_name: String.t() | nil,
           campaign_id: String.t() | nil,
-          user_id: integer() | nil,
           user_uuid: String.t() | nil,
           provider: String.t() | nil,
           configuration_set: String.t() | nil,

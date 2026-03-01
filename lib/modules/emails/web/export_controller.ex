@@ -147,14 +147,14 @@ defmodule PhoenixKit.Modules.Emails.Web.ExportController do
 
   Returns CSV file with detailed email information and events.
   """
-  def export_email_details(conn, %{"id" => email_id}) do
+  def export_email_details(conn, %{"id" => email_uuid}) do
     if Emails.enabled?() do
       try do
-        log = Emails.get_log!(email_id)
+        log = Emails.get_log!(email_uuid)
         # Get events for this email - use the log's uuid for Event query
         events = Emails.list_events_for_log(log.uuid)
 
-        filename = "email_#{email_id}_details_#{Date.utc_today()}.csv"
+        filename = "email_#{email_uuid}_details_#{Date.utc_today()}.csv"
 
         # Generate CSV content
         csv_content = generate_email_details_csv(log, events)
