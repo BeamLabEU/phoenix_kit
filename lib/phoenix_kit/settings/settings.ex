@@ -1605,22 +1605,27 @@ defmodule PhoenixKit.Settings do
 
   # Queries database for a single setting and caches the result
   defp query_and_cache_setting(key) do
-    # Check if repository is available before attempting query
-    if repo_available?() do
-      case repo().get_by(Setting, key: key) do
-        %Setting{value: value} ->
-          PhoenixKit.Cache.put(@cache_name, key, value)
-          value
-
-        nil ->
-          # Cache a sentinel value to indicate this setting doesn't exist
-          # This prevents repeated database queries for non-existent settings
-          PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
-          nil
-      end
-    else
-      # Repository not started yet - return nil silently
+    # In update_mode, skip DB — return nil immediately.
+    if Application.get_env(:phoenix_kit, :update_mode, false) do
       nil
+    else
+      # Check if repository is available before attempting query
+      if repo_available?() do
+        case repo().get_by(Setting, key: key) do
+          %Setting{value: value} ->
+            PhoenixKit.Cache.put(@cache_name, key, value)
+            value
+
+          nil ->
+            # Cache a sentinel value to indicate this setting doesn't exist
+            # This prevents repeated database queries for non-existent settings
+            PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
+            nil
+        end
+      else
+        # Repository not started yet - return nil silently
+        nil
+      end
     end
   rescue
     error ->
