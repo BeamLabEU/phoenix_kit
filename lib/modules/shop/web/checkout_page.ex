@@ -297,10 +297,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   end
 
   @impl true
-  def handle_event("select_profile", %{"profile_uuid" => profile_id}, socket) do
+  def handle_event("select_profile", %{"profile_uuid" => profile_uuid}, socket) do
     {:noreply,
      socket
-     |> assign(:selected_profile_uuid, profile_id)
+     |> assign(:selected_profile_uuid, profile_uuid)
      |> assign(:use_new_profile, false)}
   end
 

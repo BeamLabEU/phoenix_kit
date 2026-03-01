@@ -291,8 +291,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
      |> assign(:media_selection_target, :gallery)}
   end
 
-  def handle_event("remove_image", %{"id" => id}, socket) do
-    updated = Enum.reject(socket.assigns.all_image_uuids, &(&1 == id))
+  def handle_event("remove_image", %{"uuid" => uuid}, socket) do
+    updated = Enum.reject(socket.assigns.all_image_uuids, &(&1 == uuid))
     {:noreply, assign(socket, :all_image_uuids, updated)}
   end
 
@@ -1665,18 +1665,18 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                 gap="gap-3"
                 item_class="relative group"
               >
-                <:item :let={image_id}>
+                <:item :let={image_uuid}>
                   <div class="relative">
                     <img
-                      src={get_image_url(image_id, "thumbnail")}
+                      src={get_image_url(image_uuid, "thumbnail")}
                       class={[
                         "w-full aspect-square object-cover rounded-lg shadow",
-                        image_id == List.first(@all_image_uuids) &&
+                        image_uuid == List.first(@all_image_uuids) &&
                           "ring-2 ring-primary ring-offset-2"
                       ]}
                     />
                     <%!-- Featured badge on first image --%>
-                    <%= if image_id == List.first(@all_image_uuids) do %>
+                    <%= if image_uuid == List.first(@all_image_uuids) do %>
                       <span class="absolute top-1 left-1 badge badge-primary badge-sm">
                         <.icon name="hero-star" class="w-3 h-3 mr-1" /> Featured
                       </span>
@@ -1685,7 +1685,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                     <button
                       type="button"
                       phx-click="remove_image"
-                      phx-value-id={image_id}
+                      phx-value-uuid={image_uuid}
                       class="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <.icon name="hero-x-mark" class="w-3 h-3" />
