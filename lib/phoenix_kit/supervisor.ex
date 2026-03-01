@@ -18,14 +18,15 @@ defmodule PhoenixKit.Supervisor do
   # Minimal set of children needed when running mix phoenix_kit.update.
   # Skips Dashboard.Registry, OAuthConfigLoader, module workers, and presence
   # so the update task only needs 1-2 DB connections for migrations.
+  # Settings cache starts with NO warmer — all Settings functions return nil/%{}
+  # in update_mode anyway, so warming would just spam warnings every 10 s.
   defp build_children(true = _update_mode) do
     [
       PhoenixKit.PubSub.Manager,
       {PhoenixKit.Cache.Registry, []},
       PhoenixKit.ModuleRegistry,
       Supervisor.child_spec(
-        {PhoenixKit.Cache,
-         name: :settings, sync_init: false, warmer: &PhoenixKit.Settings.warm_cache_data/0},
+        {PhoenixKit.Cache, name: :settings},
         id: :settings_cache
       ),
       PhoenixKit.Users.RateLimiter.Backend
