@@ -102,7 +102,7 @@ defmodule PhoenixKit.Cache do
   ## Examples
 
       PhoenixKit.Cache.get(:settings, "date_format", "Y-m-d")
-      PhoenixKit.Cache.get(:user_roles, user_id, [])
+      PhoenixKit.Cache.get(:user_roles, user_uuid, [])
 
   """
   @spec get(cache_name(), cache_key(), default_value()) :: cache_value()
@@ -170,7 +170,7 @@ defmodule PhoenixKit.Cache do
   ## Examples
 
       PhoenixKit.Cache.put(:settings, "date_format", "m/d/Y")
-      PhoenixKit.Cache.put(:user_roles, user_id, ["admin", "user"])
+      PhoenixKit.Cache.put(:user_roles, user_uuid, ["admin", "user"])
 
   """
   @spec put(cache_name(), cache_key(), cache_value()) :: :ok
