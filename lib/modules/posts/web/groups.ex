@@ -77,18 +77,18 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Groups do
   end
 
   @impl true
-  def handle_event("view_group", %{"id" => group_id}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/posts/groups/#{group_id}"))}
+  def handle_event("view_group", %{"id" => group_uuid}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/posts/groups/#{group_uuid}"))}
   end
 
   @impl true
-  def handle_event("edit_group", %{"id" => group_id}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/posts/groups/#{group_id}/edit"))}
+  def handle_event("edit_group", %{"id" => group_uuid}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/posts/groups/#{group_uuid}/edit"))}
   end
 
   @impl true
-  def handle_event("delete_group", %{"id" => group_id}, socket) do
-    case Posts.get_group(group_id) do
+  def handle_event("delete_group", %{"id" => group_uuid}, socket) do
+    case Posts.get_group(group_uuid) do
       nil ->
         {:noreply, socket |> put_flash(:error, "Group not found")}
 

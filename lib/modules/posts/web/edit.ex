@@ -162,22 +162,22 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   end
 
   @impl true
-  def handle_event("remove_post_image", %{"id" => media_id}, socket) do
+  def handle_event("remove_post_image", %{"id" => media_uuid}, socket) do
     post_uuid = Map.get(socket.assigns.post, :uuid)
 
     if post_uuid do
       # Existing post - remove from database
-      Posts.detach_media_by_id(media_id)
+      Posts.detach_media_by_id(media_uuid)
       post_images = Posts.list_post_media(post_uuid, preload: [:file])
       {:noreply, assign(socket, :post_images, post_images)}
     else
       # New post - remove from temporary list
       post_images =
         Enum.reject(socket.assigns.post_images, fn img ->
-          to_string(img.file_uuid) == media_id || to_string(img[:uuid]) == media_id
+          to_string(img.file_uuid) == media_uuid || to_string(img[:uuid]) == media_uuid
         end)
 
-      pending_ids = Enum.reject(socket.assigns[:pending_image_ids] || [], &(&1 == media_id))
+      pending_ids = Enum.reject(socket.assigns[:pending_image_ids] || [], &(&1 == media_uuid))
 
       {:noreply,
        socket |> assign(:post_images, post_images) |> assign(:pending_image_ids, pending_ids)}
@@ -193,7 +193,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
       positions =
         ordered_ids
         |> Enum.with_index(1)
-        |> Map.new(fn {file_id, position} -> {file_id, position} end)
+        |> Map.new(fn {file_uuid, position} -> {file_uuid, position} end)
 
       Posts.reorder_media(post_uuid, positions)
 
@@ -205,8 +205,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
       reordered =
         ordered_ids
         |> Enum.with_index(1)
-        |> Enum.map(fn {file_id, position} ->
-          img = Enum.find(socket.assigns.post_images, &(to_string(&1.file_uuid) == file_id))
+        |> Enum.map(fn {file_uuid, position} ->
+          img = Enum.find(socket.assigns.post_images, &(to_string(&1.file_uuid) == file_uuid))
           %{img | position: position}
         end)
         |> Enum.reject(&is_nil/1)
@@ -236,11 +236,11 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   end
 
   # Handle media selection from MediaSelectorModal
-  def handle_info({:media_selected, file_ids}, socket) do
+  def handle_info({:media_selected, file_uuids}, socket) do
     socket =
       cond do
         # Post images selection (supports multiple files)
-        not Enum.empty?(file_ids) && socket.assigns.selecting_featured_image ->
+        not Enum.empty?(file_uuids) && socket.assigns.selecting_featured_image ->
           post_uuid = Map.get(socket.assigns.post, :uuid)
 
           if post_uuid do
@@ -252,10 +252,10 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
               Enum.reduce(current_images, 0, fn img, acc -> max(acc, img.position) end)
 
             # Add new images with incremental positions
-            file_ids
+            file_uuids
             |> Enum.with_index(max_position + 1)
-            |> Enum.each(fn {file_id, position} ->
-              Posts.attach_media(post_uuid, file_id, position: position)
+            |> Enum.each(fn {file_uuid, position} ->
+              Posts.attach_media(post_uuid, file_uuid, position: position)
             end)
 
             # Reload all images
@@ -266,7 +266,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
             |> assign(:show_media_selector, false)
             |> assign(:selecting_featured_image, false)
           else
-            # New post - store file_ids temporarily until post is saved
+            # New post - store file_uuids temporarily until post is saved
             # Create temporary structs for display
             current_images = socket.assigns[:post_images] || []
 
@@ -274,26 +274,29 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
               Enum.reduce(current_images, 0, fn img, acc -> max(acc, img.position) end)
 
             new_images =
-              file_ids
+              file_uuids
               |> Enum.with_index(max_position + 1)
-              |> Enum.map(fn {file_id, position} ->
-                %{file_uuid: file_id, file: nil, position: position, id: nil}
+              |> Enum.map(fn {file_uuid, position} ->
+                %{file_uuid: file_uuid, file: nil, position: position, id: nil}
               end)
 
             socket
             |> assign(:post_images, current_images ++ new_images)
-            |> assign(:pending_image_ids, (socket.assigns[:pending_image_ids] || []) ++ file_ids)
+            |> assign(
+              :pending_image_ids,
+              (socket.assigns[:pending_image_ids] || []) ++ file_uuids
+            )
             |> assign(:show_media_selector, false)
             |> assign(:selecting_featured_image, false)
           end
 
         # Content image insertion (supports multiple files)
-        not Enum.empty?(file_ids) && socket.assigns.inserting_media_type ->
+        not Enum.empty?(file_uuids) && socket.assigns.inserting_media_type ->
           media_type = socket.assigns.inserting_media_type
 
           # Build JS commands for all selected files
           js_code =
-            file_ids
+            file_uuids
             |> Enum.map_join("; ", fn fid ->
               file_url = get_file_url(fid)
 
@@ -328,20 +331,20 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   ## --- Private Helper Functions ---
 
   # Get a URL for a file from storage (for standard markdown image syntax)
-  defp get_file_url(file_id) do
+  defp get_file_url(file_uuid) do
     # Use "original" variant for the full-size image
-    URLSigner.signed_url(file_id, "original")
+    URLSigner.signed_url(file_uuid, "original")
   end
 
   # Get URL for featured image (used in template)
   def get_featured_image_url(nil), do: nil
 
-  def get_featured_image_url(%{file: %{uuid: file_id}}) when not is_nil(file_id) do
-    get_file_url(file_id)
+  def get_featured_image_url(%{file: %{uuid: file_uuid}}) when not is_nil(file_uuid) do
+    get_file_url(file_uuid)
   end
 
-  def get_featured_image_url(%{file_uuid: file_id}) when not is_nil(file_id) do
-    get_file_url(file_id)
+  def get_featured_image_url(%{file_uuid: file_uuid}) when not is_nil(file_uuid) do
+    get_file_url(file_uuid)
   end
 
   def get_featured_image_url(_), do: nil
@@ -384,8 +387,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
           pending_ids
           |> Enum.with_index(1)
-          |> Enum.each(fn {file_id, position} ->
-            Posts.attach_media(post.uuid, file_id, position: position)
+          |> Enum.each(fn {file_uuid, position} ->
+            Posts.attach_media(post.uuid, file_uuid, position: position)
           end)
 
           {:noreply,

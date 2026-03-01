@@ -35,8 +35,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
     allow_groups = Settings.get_setting("posts_allow_groups", "true") == "true"
 
     if allow_groups do
-      group_id = Map.get(params, "id")
-      socket = load_group_form(socket, group_id, current_user, project_title)
+      group_uuid = Map.get(params, "id")
+      socket = load_group_form(socket, group_uuid, current_user, project_title)
       {:ok, socket}
     else
       {:ok,
@@ -64,8 +64,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
     |> assign(:current_user, current_user)
   end
 
-  defp load_group_form(socket, group_id, current_user, project_title) do
-    case Posts.get_group(group_id) do
+  defp load_group_form(socket, group_uuid, current_user, project_title) do
+    case Posts.get_group(group_uuid) do
       nil ->
         socket
         |> put_flash(:error, "Group not found")
@@ -145,7 +145,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
     end
   end
 
-  defp save_group(socket, _group_id, group_params) do
+  defp save_group(socket, _group_uuid, group_params) do
     # Updating existing group
     case Posts.update_group(socket.assigns.group, group_params) do
       {:ok, group} ->
