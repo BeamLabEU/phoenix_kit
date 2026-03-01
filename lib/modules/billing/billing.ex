@@ -2280,12 +2280,10 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   defp filter_transactions_by_invoice(query, opts) do
-    cond do
-      invoice_uuid = opts[:invoice_uuid] ->
-        where(query, [t], t.invoice_uuid == ^invoice_uuid)
-
-      true ->
-        query
+    if invoice_uuid = opts[:invoice_uuid] do
+      where(query, [t], t.invoice_uuid == ^invoice_uuid)
+    else
+      query
     end
   end
 
@@ -2329,12 +2327,10 @@ defmodule PhoenixKit.Modules.Billing do
       |> select([t], count(t.uuid))
 
     count_query =
-      cond do
-        invoice_uuid = opts[:invoice_uuid] ->
-          where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
-
-        true ->
-          count_query
+      if invoice_uuid = opts[:invoice_uuid] do
+        where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
+      else
+        count_query
       end
 
     count_query =

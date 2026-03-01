@@ -26,7 +26,7 @@
                 <span class="label-text">Select Customer</span>
               </label>
               <select
-                name="user_id"
+                name="user_uuid"
                 class="select select-bordered"
                 phx-change="select_user"
               >
@@ -85,7 +85,7 @@
                         <.link
                           navigate={
                             PhoenixKit.Utils.Routes.path(
-                              "/admin/billing/profiles/new?user_id=#{@selected_user_uuid}"
+                              "/admin/billing/profiles/new?user_uuid=#{@selected_user_uuid}"
                             )
                           }
                           class="link font-medium"

@@ -96,7 +96,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
         cancel_url: Keyword.fetch!(opts, :cancel_url),
         client_reference_id: to_string(invoice.uuid),
         metadata: %{
-          invoice_id: to_string(invoice.uuid),
+          invoice_uuid: to_string(invoice.uuid),
           invoice_number: invoice.invoice_number
         }
       }
@@ -115,7 +115,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
              url: url,
              provider: :stripe,
              expires_at: DateTime.from_unix!(expires_at),
-             metadata: %{invoice_id: invoice.uuid}
+             metadata: %{invoice_uuid: invoice.uuid}
            }}
 
         {:error, reason} ->
@@ -150,7 +150,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
         cancel_url: Keyword.fetch!(opts, :cancel_url),
         payment_method_types: ["card"],
         metadata: %{
-          user_id: to_string(user.uuid)
+          user_uuid: to_string(user.uuid)
         }
       }
 
@@ -161,7 +161,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
              id: id,
              url: url,
              provider: :stripe,
-             metadata: %{user_id: user.uuid, customer_id: customer_id}
+             metadata: %{user_uuid: user.uuid, customer_id: customer_id}
            }}
 
         {:error, reason} ->
@@ -180,7 +180,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
 
   - `:currency` - Currency code (default: EUR)
   - `:description` - Description for the charge
-  - `:invoice_id` - Associated invoice ID
+  - `:invoice_uuid` - Associated invoice UUID
   - `:metadata` - Additional metadata
 
   ## Examples
@@ -204,7 +204,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
         description: Keyword.get(opts, :description, "PhoenixKit subscription payment"),
         metadata:
           %{
-            payment_method_id: to_string(payment_method.uuid)
+            payment_method_uuid: to_string(payment_method.uuid)
           }
           |> maybe_merge_invoice_metadata(opts)
       }
@@ -608,9 +608,9 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
   end
 
   defp maybe_merge_invoice_metadata(metadata, opts) do
-    case Keyword.get(opts, :invoice_id) do
+    case Keyword.get(opts, :invoice_uuid) do
       nil -> metadata
-      invoice_id -> Map.put(metadata, :invoice_id, to_string(invoice_id))
+      invoice_uuid -> Map.put(metadata, :invoice_uuid, to_string(invoice_uuid))
     end
   end
 
@@ -622,7 +622,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
         params = %{
           email: user.email,
           metadata: %{
-            user_id: to_string(user.uuid)
+            user_uuid: to_string(user.uuid)
           }
         }
 
@@ -711,7 +711,9 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
          customer_email: object["customer_email"],
          payment_intent_id: object["payment_intent"],
          setup_intent_id: object["setup_intent"],
-         invoice_id: get_in(object, ["metadata", "invoice_id"]),
+         invoice_uuid:
+           get_in(object, ["metadata", "invoice_uuid"]) ||
+             get_in(object, ["metadata", "invoice_id"]),
          mode: object["mode"],
          amount_total: object["amount_total"],
          currency: object["currency"]
@@ -725,7 +727,9 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
        type: "checkout.expired",
        data: %{
          session_id: object["id"],
-         invoice_id: get_in(object, ["metadata", "invoice_id"])
+         invoice_uuid:
+           get_in(object, ["metadata", "invoice_uuid"]) ||
+             get_in(object, ["metadata", "invoice_id"])
        }
      }}
   end
@@ -741,7 +745,9 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
          currency: object["currency"],
          customer_id: object["customer"],
          payment_method_id: object["payment_method"],
-         invoice_id: get_in(object, ["metadata", "invoice_id"])
+         invoice_uuid:
+           get_in(object, ["metadata", "invoice_uuid"]) ||
+             get_in(object, ["metadata", "invoice_id"])
        }
      }}
   end
@@ -755,7 +761,9 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
          error_code: get_in(object, ["last_payment_error", "code"]),
          error_message: get_in(object, ["last_payment_error", "message"]),
          customer_id: object["customer"],
-         invoice_id: get_in(object, ["metadata", "invoice_id"])
+         invoice_uuid:
+           get_in(object, ["metadata", "invoice_uuid"]) ||
+             get_in(object, ["metadata", "invoice_id"])
        }
      }}
   end
@@ -781,7 +789,9 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
          setup_intent_id: object["id"],
          payment_method_id: object["payment_method"],
          customer_id: object["customer"],
-         user_id: get_in(object, ["metadata", "user_id"])
+         user_uuid:
+           get_in(object, ["metadata", "user_uuid"]) ||
+             get_in(object, ["metadata", "user_id"])
        }
      }}
   end

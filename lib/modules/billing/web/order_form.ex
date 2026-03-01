@@ -122,7 +122,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
   end
 
   @impl true
-  def handle_event("select_user", %{"user_id" => user_uuid}, socket) do
+  def handle_event("select_user", %{"user_uuid" => user_uuid}, socket) do
     user_uuid = if user_uuid == "", do: nil, else: user_uuid
     billing_profiles = if user_uuid, do: Billing.list_user_billing_profiles(user_uuid), else: []
 
