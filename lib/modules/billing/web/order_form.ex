@@ -122,14 +122,14 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
   end
 
   @impl true
-  def handle_event("select_user", %{"user_id" => user_id}, socket) do
-    user_id = if user_id == "", do: nil, else: user_id
-    billing_profiles = if user_id, do: Billing.list_user_billing_profiles(user_id), else: []
+  def handle_event("select_user", %{"user_uuid" => user_uuid}, socket) do
+    user_uuid = if user_uuid == "", do: nil, else: user_uuid
+    billing_profiles = if user_uuid, do: Billing.list_user_billing_profiles(user_uuid), else: []
 
     # Auto-select default profile if available, otherwise select first profile
     default_profile = Enum.find(billing_profiles, & &1.is_default)
     selected_profile = default_profile || List.first(billing_profiles)
-    selected_profile_id = if selected_profile, do: selected_profile.uuid, else: nil
+    selected_profile_uuid = if selected_profile, do: selected_profile.uuid, else: nil
 
     # Get country tax info for selected profile
     {country_tax_rate, country_name, country_vat_percent} =
@@ -141,9 +141,9 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
 
     {:noreply,
      socket
-     |> assign(:selected_user_uuid, user_id)
+     |> assign(:selected_user_uuid, user_uuid)
      |> assign(:billing_profiles, billing_profiles)
-     |> assign(:selected_billing_profile_uuid, selected_profile_id)
+     |> assign(:selected_billing_profile_uuid, selected_profile_uuid)
      |> assign(:country_tax_rate, country_tax_rate)
      |> assign(:country_name, country_name)
      |> assign(:country_vat_percent, country_vat_percent)}

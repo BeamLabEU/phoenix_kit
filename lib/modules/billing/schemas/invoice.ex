@@ -8,8 +8,8 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   ## Schema Fields
 
   ### Identity & Relations
-  - `user_id`: Foreign key to the user
-  - `order_id`: Foreign key to the source order (optional)
+  - `user_uuid`: Foreign key to the user
+  - `order_uuid`: Foreign key to the source order (optional)
   - `invoice_number`: Unique invoice identifier (e.g., "INV-2024-0001")
   - `status`: Invoice status workflow
 

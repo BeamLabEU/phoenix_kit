@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
   def create_setup_session(user, opts) do
     # Add user_id to opts
     merged_opts =
-      Keyword.put(opts, :user_id, user[:uuid] || user["uuid"] || user[:id] || user["id"])
+      Keyword.put(opts, :user_uuid, user[:uuid] || user["uuid"] || user[:id] || user["id"])
 
     with {:ok, token} <- get_access_token(),
          {:ok, setup_token} <- create_setup_token(token, merged_opts) do
@@ -287,7 +287,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
   defp create_setup_token(token, opts) do
     success_url = opts[:success_url] || opts["success_url"]
     cancel_url = opts[:cancel_url] || opts["cancel_url"]
-    user_id = opts[:user_id] || opts["user_id"]
+    user_uuid = opts[:user_uuid] || opts["user_uuid"]
 
     body = %{
       payment_source: %{
@@ -302,7 +302,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
         }
       },
       customer: %{
-        id: "user_#{user_id}"
+        id: "user_#{user_uuid}"
       }
     }
 
@@ -383,7 +383,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
        data: %{
          session_id: order_id,
          mode: "payment",
-         invoice_id: custom_id["invoice_id"],
+         invoice_uuid: custom_id["invoice_uuid"] || custom_id["invoice_id"],
          payment_intent_id: order_id
        },
        raw_payload: payload
@@ -402,7 +402,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
        provider: :paypal,
        data: %{
          charge_id: capture_id,
-         invoice_id: custom_id["invoice_id"],
+         invoice_uuid: custom_id["invoice_uuid"] || custom_id["invoice_id"],
          amount: parse_amount(amount["value"]),
          currency: amount["currency_code"]
        },
@@ -419,7 +419,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
        type: "payment.failed",
        provider: :paypal,
        data: %{
-         invoice_id: custom_id["invoice_id"],
+         invoice_uuid: custom_id["invoice_uuid"] || custom_id["invoice_id"],
          error_code: "CAPTURE_DENIED",
          error_message: "Payment capture was denied"
        },

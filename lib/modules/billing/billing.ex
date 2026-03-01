@@ -965,7 +965,7 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def update_order(%Order{} = order, attrs) do
     if Order.editable?(order) do
-      # Update billing_snapshot if billing_profile_id changed
+      # Update billing_snapshot if billing_profile_uuid changed
       attrs = maybe_update_billing_snapshot(order, attrs)
 
       result =
@@ -2240,7 +2240,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Options
 
-  - `:invoice_id` - Filter by invoice
+  - `:invoice_uuid` - Filter by invoice
   - `:user_uuid` - Filter by user who created the transaction
   - `:payment_method` - Filter by payment method
   - `:type` - Filter by type: "payment" (amount > 0) or "refund" (amount < 0)
@@ -2280,15 +2280,10 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   defp filter_transactions_by_invoice(query, opts) do
-    cond do
-      invoice_uuid = opts[:invoice_uuid] ->
-        where(query, [t], t.invoice_uuid == ^invoice_uuid)
-
-      invoice_id = opts[:invoice_id] ->
-        where(query, [t], fragment("invoice_id = ?", ^invoice_id))
-
-      true ->
-        query
+    if invoice_uuid = opts[:invoice_uuid] do
+      where(query, [t], t.invoice_uuid == ^invoice_uuid)
+    else
+      query
     end
   end
 
@@ -2332,15 +2327,10 @@ defmodule PhoenixKit.Modules.Billing do
       |> select([t], count(t.uuid))
 
     count_query =
-      cond do
-        invoice_uuid = opts[:invoice_uuid] ->
-          where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
-
-        invoice_id = opts[:invoice_id] ->
-          where(count_query, [t], fragment("invoice_id = ?", ^invoice_id))
-
-        true ->
-          count_query
+      if invoice_uuid = opts[:invoice_uuid] do
+        where(count_query, [t], t.invoice_uuid == ^invoice_uuid)
+      else
+        count_query
       end
 
     count_query =
@@ -2616,8 +2606,8 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Examples
 
-      Billing.list_subscriptions(user_id)
-      Billing.list_subscriptions(user_id, status: "active")
+      Billing.list_subscriptions(user_uuid)
+      Billing.list_subscriptions(user_uuid, status: "active")
   """
   def list_subscriptions(opts \\ [])
 
@@ -2746,7 +2736,6 @@ defmodule PhoenixKit.Modules.Billing do
   def create_subscription(user_uuid, attrs) do
     type_uuid =
       attrs[:subscription_type_uuid] || attrs["subscription_type_uuid"] ||
-        attrs[:subscription_type_id] || attrs["subscription_type_id"] ||
         attrs[:plan_uuid] || attrs["plan_uuid"]
 
     with {:ok, type} <- get_subscription_type(type_uuid) do
@@ -3185,14 +3174,14 @@ defmodule PhoenixKit.Modules.Billing do
 
   defp resolve_subscription_type_uuid(_), do: nil
 
-  defp maybe_mark_linked_order_paid(%{order_id: nil}), do: :ok
+  defp maybe_mark_linked_order_paid(%{order_uuid: nil}), do: :ok
 
-  defp maybe_mark_linked_order_paid(%{order_id: order_id} = invoice) do
+  defp maybe_mark_linked_order_paid(%{order_uuid: order_uuid} = invoice) do
     # Get the primary payment method from the invoice's transactions
     invoice_with_txns = repo().preload(invoice, :transactions)
     payment_method = Invoice.primary_payment_method(invoice_with_txns)
 
-    case get_order!(order_id) do
+    case get_order!(order_uuid) do
       %Order{status: "confirmed"} = order ->
         mark_order_paid(order, payment_method: payment_method)
 
@@ -3213,10 +3202,10 @@ defmodule PhoenixKit.Modules.Billing do
     end
   end
 
-  defp maybe_mark_linked_order_refunded(%{order_id: nil}), do: :ok
+  defp maybe_mark_linked_order_refunded(%{order_uuid: nil}), do: :ok
 
-  defp maybe_mark_linked_order_refunded(%{order_id: order_id}) do
-    case get_order!(order_id) do
+  defp maybe_mark_linked_order_refunded(%{order_uuid: order_uuid}) do
+    case get_order!(order_uuid) do
       %Order{status: "paid"} = order ->
         mark_order_refunded(order)
 
