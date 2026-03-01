@@ -39,8 +39,8 @@ defmodule PhoenixKit.Admin.Events do
   ### Presence Events
   - `{:anonymous_session_connected, session_id, session_info}` - Anonymous visitor connected
   - `{:anonymous_session_disconnected, session_id}` - Anonymous visitor disconnected
-  - `{:user_session_connected, user_id, session_info}` - Authenticated user connected
-  - `{:user_session_disconnected, user_id, session_id}` - Authenticated user disconnected
+  - `{:user_session_connected, user_uuid, session_info}` - Authenticated user connected
+  - `{:user_session_disconnected, user_uuid, session_id}` - Authenticated user disconnected
   - `{:presence_stats_updated, stats}` - Real-time presence statistics updated
 
   ### Statistics Events
@@ -215,15 +215,15 @@ defmodule PhoenixKit.Admin.Events do
   @doc """
   Broadcasts authenticated user session connection event to admin panels.
   """
-  def broadcast_user_session_connected(user_id, session_info) do
-    broadcast(@topic_presence, {:user_session_connected, user_id, session_info})
+  def broadcast_user_session_connected(user_uuid, session_info) do
+    broadcast(@topic_presence, {:user_session_connected, user_uuid, session_info})
   end
 
   @doc """
   Broadcasts authenticated user session disconnection event to admin panels.
   """
-  def broadcast_user_session_disconnected(user_id, session_id) do
-    broadcast(@topic_presence, {:user_session_disconnected, user_id, session_id})
+  def broadcast_user_session_disconnected(user_uuid, session_id) do
+    broadcast(@topic_presence, {:user_session_disconnected, user_uuid, session_id})
   end
 
   @doc """

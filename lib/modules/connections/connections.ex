@@ -30,8 +30,8 @@ defmodule PhoenixKit.Modules.Connections do
 
   ### In a LiveView
 
-      def handle_event("follow", %{"user_id" => user_id}, socket) do
-        target_user = get_user(user_id)
+      def handle_event("follow", %{"user_uuid" => user_uuid}, socket) do
+        target_user = get_user(user_uuid)
 
         case Connections.follow(socket.assigns.current_user, target_user) do
           {:ok, _follow} -> {:noreply, put_flash(socket, :info, "Now following!")}
@@ -477,8 +477,8 @@ defmodule PhoenixKit.Modules.Connections do
 
   def accept_connection(%Connection{}), do: {:error, :not_pending}
 
-  def accept_connection(connection_id) when is_binary(connection_id) do
-    case repo().get(Connection, connection_id) do
+  def accept_connection(connection_uuid) when is_binary(connection_uuid) do
+    case repo().get(Connection, connection_uuid) do
       nil -> {:error, :not_found}
       connection -> accept_connection(connection)
     end
@@ -541,8 +541,8 @@ defmodule PhoenixKit.Modules.Connections do
 
   def reject_connection(%Connection{}), do: {:error, :not_pending}
 
-  def reject_connection(connection_id) when is_binary(connection_id) do
-    case repo().get(Connection, connection_id) do
+  def reject_connection(connection_uuid) when is_binary(connection_uuid) do
+    case repo().get(Connection, connection_uuid) do
       nil -> {:error, :not_found}
       connection -> reject_connection(connection)
     end
