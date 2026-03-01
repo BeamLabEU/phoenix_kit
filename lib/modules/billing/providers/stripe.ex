@@ -744,7 +744,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
          amount: object["amount"],
          currency: object["currency"],
          customer_id: object["customer"],
-         payment_method_id: object["payment_method"],
+         payment_method_uuid: object["payment_method"],
          invoice_uuid:
            get_in(object, ["metadata", "invoice_uuid"]) ||
              get_in(object, ["metadata", "invoice_id"])
@@ -787,7 +787,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Stripe do
        type: "setup.completed",
        data: %{
          setup_intent_id: object["id"],
-         payment_method_id: object["payment_method"],
+         payment_method_uuid: object["payment_method"],
          customer_id: object["customer"],
          user_uuid:
            get_in(object, ["metadata", "user_uuid"]) ||
