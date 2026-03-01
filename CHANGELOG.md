@@ -1,3 +1,35 @@
+## 1.7.53 - 2026-03-01
+- Fix V56/V63 migration crash: `email_log_uuid` backfill fails with `datatype_mismatch` when `phoenix_kit_email_logs.uuid` is `character varying` instead of native `uuid` type
+- Fix UUIDFKColumns: replace broken Elixir `rescue` with PostgreSQL `EXCEPTION` handler inside DO blocks — prevents outer transaction abort on backfill failure
+- Add `::uuid` explicit cast in all UUIDFKColumns backfill SQL to handle varchar source columns gracefully
+- Fix V56: add pre-step to convert varchar `uuid` columns on all FK source tables to native `uuid` type before `UUIDFKColumns.up` runs
+- Fix V63: wrap `matched_email_log_uuid` backfill in DO block with EXCEPTION handler and `::uuid` cast
+- Add V70 migration: re-backfills `email_log_uuid` and `matched_email_log_uuid` for installs where V56/V63 silently skipped the backfill; resets stale random UUIDs written by the V56 NULL-fill fallback
+- Add investigation doc: `dev_docs/investigations/2026-03-01-varchar-uuid-migration-bug.md`
+
+## 1.7.52 - 2026-02-28
+- Add translatable `title` field to posts and fix timestamp-mode post handling
+- Add V69 migration: make role table integer FK columns nullable
+- Add `mix precommit` alias (`compile → format → credo --strict`) to `mix.exs`
+- Update AGENTS.md with pre-commit instructions, replacing old minimal checklist
+- Rename `Scope.user_id` → `Scope.user_uuid` for consistency
+- Rename `user_id` → `user_uuid` across event handlers, templates, and messages
+- Rename `user_id` → `user_uuid` in emails rate_limiter; `log_id` → `log_uuid` in emails interceptor, SQS processor, and sync task
+- Rename `user_id` → `aws_user_id` in AWS credentials verifier
+- Rename `resource_id` → `resource_uuid` in scheduled jobs
+- Rename `_id` → `_uuid` in billing, shop, AI, entities, legal, posts, tickets, storage, scheduled jobs, and permissions
+- Rename `_id` → `_uuid` across metadata, forms, helpers, and tests
+- Replace `DateTime.utc_now()` with `UtilsDate.utc_now()` across codebase
+- Remove redundant `connection_id` parameter from sync `connection_notifier`
+- Fix crash bugs: `.user_id` struct access → `.user_uuid` in billing events and order_form
+- Fix UUID field references for webhook_events and post images
+- Fix duplicate map keys left from UUID migration in hooks and rate_limiter
+- Fix alias ordering Credo violations across 18 files
+- Fix timestamp-mode post lookups, migration ordering, and admin UI (PR #376 review follow-up)
+- Fix `tab_callback_context` missing clause; demote double-wrap log to debug
+- Add dialyzer ignore for unused `tab_callback_context` clause
+- Update integration guide, making-pages-live guide, dashboard README, and usage-rules to use UUID terminology
+
 ## 1.7.51 - 2026-02-26
 - Add V64 migration: fix login crash by replacing `user_id` check constraint with `user_uuid` on user tokens table
 - Add V65 migration: rename `SubscriptionPlan` to `SubscriptionType` (table, columns, indexes, constraints)

@@ -21,11 +21,11 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   alias PhoenixKit.Utils.Routes
 
   @impl true
-  def mount(%{"id" => id}, _session, socket) do
+  def mount(%{"id" => ticket_uuid}, _session, socket) do
     if Tickets.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
-      case Tickets.get_ticket(id, preload: [:user, :assigned_to]) do
+      case Tickets.get_ticket(ticket_uuid, preload: [:user, :assigned_to]) do
         nil ->
           {:ok,
            socket
@@ -170,8 +170,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   end
 
   @impl true
-  def handle_event("delete_comment", %{"id" => comment_id}, socket) do
-    case Tickets.get_comment!(comment_id) do
+  def handle_event("delete_comment", %{"uuid" => comment_uuid}, socket) do
+    case Tickets.get_comment!(comment_uuid) do
       nil ->
         {:noreply, put_flash(socket, :error, "Comment not found")}
 
@@ -201,8 +201,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
   end
 
   @impl true
-  def handle_event("remove_attachment", %{"id" => attachment_id}, socket) do
-    case Tickets.remove_attachment(attachment_id) do
+  def handle_event("remove_attachment", %{"uuid" => attachment_uuid}, socket) do
+    case Tickets.remove_attachment(attachment_uuid) do
       {:ok, _} ->
         {:noreply,
          socket

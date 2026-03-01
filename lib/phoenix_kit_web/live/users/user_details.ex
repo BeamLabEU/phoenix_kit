@@ -68,7 +68,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           |> assign(:connections_stats, connections_stats)
           |> assign(:admin_notes, admin_notes)
           |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))
-          |> assign(:editing_note_id, nil)
+          |> assign(:editing_note_uuid, nil)
 
         {:ok, socket}
     end
@@ -151,15 +151,15 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   end
 
   @impl true
-  def handle_event("edit_note", %{"uuid" => note_id}, socket) do
-    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_id))
+  def handle_event("edit_note", %{"uuid" => note_uuid}, socket) do
+    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_uuid))
 
     if note do
       changeset = Auth.change_admin_note(note)
 
       {:noreply,
        socket
-       |> assign(:editing_note_id, note_id)
+       |> assign(:editing_note_uuid, note_uuid)
        |> assign(:note_form, to_form(changeset))}
     else
       {:noreply, socket}
@@ -170,14 +170,14 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   def handle_event("cancel_edit", _params, socket) do
     {:noreply,
      socket
-     |> assign(:editing_note_id, nil)
+     |> assign(:editing_note_uuid, nil)
      |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))}
   end
 
   @impl true
   def handle_event("update_note", %{"admin_note" => note_params}, socket) do
-    note_id = socket.assigns.editing_note_id
-    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_id))
+    note_uuid = socket.assigns.editing_note_uuid
+    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_uuid))
 
     if note do
       case Auth.update_admin_note(note, note_params) do
@@ -187,7 +187,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           {:noreply,
            socket
            |> assign(:admin_notes, admin_notes)
-           |> assign(:editing_note_id, nil)
+           |> assign(:editing_note_uuid, nil)
            |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))
            |> put_flash(:info, gettext("Note updated successfully"))}
 
@@ -200,8 +200,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   end
 
   @impl true
-  def handle_event("delete_note", %{"uuid" => note_id}, socket) do
-    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_id))
+  def handle_event("delete_note", %{"uuid" => note_uuid}, socket) do
+    note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_uuid))
 
     if note do
       case Auth.delete_admin_note(note) do

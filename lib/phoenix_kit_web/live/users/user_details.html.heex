@@ -325,7 +325,7 @@
           <div class="card bg-base-200 shadow-sm">
             <div class="card-body">
               <h3 class="card-title text-lg">
-                <%= if @editing_note_id do %>
+                <%= if @editing_note_uuid do %>
                   {gettext("Edit Note")}
                 <% else %>
                   {gettext("Add Note")}
@@ -333,7 +333,7 @@
               </h3>
               <.form
                 for={@note_form}
-                phx-submit={if @editing_note_id, do: "update_note", else: "add_note"}
+                phx-submit={if @editing_note_uuid, do: "update_note", else: "add_note"}
                 class="space-y-4"
               >
                 <div class="form-control">
@@ -345,7 +345,7 @@
                   >{Phoenix.HTML.Form.input_value(@note_form, :content)}</textarea>
                 </div>
                 <div class="flex justify-end gap-2">
-                  <%= if @editing_note_id do %>
+                  <%= if @editing_note_uuid do %>
                     <button type="button" class="btn btn-ghost" phx-click="cancel_edit">
                       {gettext("Cancel")}
                     </button>

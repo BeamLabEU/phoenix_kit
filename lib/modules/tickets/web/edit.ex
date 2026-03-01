@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
     |> assign(:all_users, list_all_users())
     |> assign(:action, :new)
     |> assign(:show_media_selector, false)
-    |> assign(:pending_file_ids, [])
+    |> assign(:pending_file_uuids, [])
     |> assign(:pending_files, [])
     |> assign(
       :attachments_enabled,
@@ -104,50 +104,50 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
   end
 
   @impl true
-  def handle_event("remove_pending_file", %{"id" => file_id}, socket) do
-    pending_file_ids = Enum.reject(socket.assigns.pending_file_ids, &(&1 == file_id))
-    pending_files = Enum.reject(socket.assigns.pending_files, &(&1.uuid == file_id))
+  def handle_event("remove_pending_file", %{"uuid" => file_uuid}, socket) do
+    pending_file_uuids = Enum.reject(socket.assigns.pending_file_uuids, &(&1 == file_uuid))
+    pending_files = Enum.reject(socket.assigns.pending_files, &(&1.uuid == file_uuid))
 
     {:noreply,
      socket
-     |> assign(:pending_file_ids, pending_file_ids)
+     |> assign(:pending_file_uuids, pending_file_uuids)
      |> assign(:pending_files, pending_files)}
   end
 
   @impl true
-  def handle_info({:media_selected, file_ids}, socket) do
+  def handle_info({:media_selected, file_uuids}, socket) do
     # Load file details for display
     pending_files =
-      Enum.map(file_ids, fn file_id ->
-        Storage.get_file(file_id)
+      Enum.map(file_uuids, fn file_uuid ->
+        Storage.get_file(file_uuid)
       end)
       |> Enum.reject(&is_nil/1)
 
     {:noreply,
      socket
      |> assign(:show_media_selector, false)
-     |> assign(:pending_file_ids, file_ids)
+     |> assign(:pending_file_uuids, file_uuids)
      |> assign(:pending_files, pending_files)}
   end
 
   defp save_ticket(socket, :new, params) do
     current_user = socket.assigns.current_user
-    pending_file_ids = socket.assigns.pending_file_ids
+    pending_file_uuids = socket.assigns.pending_file_uuids
 
     # Use the selected user or default to current user
-    user_id =
+    user_uuid =
       case Map.get(params, "user_id") do
         nil -> current_user.uuid
         "" -> current_user.uuid
-        id -> id
+        uuid -> uuid
       end
 
     try do
-      case Tickets.create_ticket(user_id, params) do
+      case Tickets.create_ticket(user_uuid, params) do
         {:ok, ticket} ->
           # Add pending attachments to the newly created ticket
-          Enum.each(pending_file_ids, fn file_id ->
-            Tickets.add_attachment_to_ticket(ticket.uuid, file_id)
+          Enum.each(pending_file_uuids, fn file_uuid ->
+            Tickets.add_attachment_to_ticket(ticket.uuid, file_uuid)
           end)
 
           {:noreply,

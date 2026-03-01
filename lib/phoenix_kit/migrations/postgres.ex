@@ -520,7 +520,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V69 - Make legacy integer FK columns nullable on role tables ⚡ LATEST
+  ### V69 - Make legacy integer FK columns nullable on role tables
   - Drops NOT NULL on `user_id` and `role_id` in `phoenix_kit_user_role_assignments`
   - Drops NOT NULL on `role_id` in `phoenix_kit_role_permissions`
   - Fixes role assignment and permission inserts failing with not_null_violation
@@ -528,6 +528,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Drops NOT NULL on `slug` in `phoenix_kit_publishing_posts`
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
+
+  ### V70 - Re-backfill UUID FK columns silently skipped in V56/V63 ⚡ LATEST
+  - Fixes installs where `phoenix_kit_email_logs.uuid` was `character varying` instead
+    of native `uuid` type, causing V56's backfill to fail or be silently skipped
+  - Converts `phoenix_kit_email_logs.uuid` to native `uuid` type if needed
+  - Re-backfills `email_log_uuid` in `phoenix_kit_email_events` (resets stale random
+    UUIDs written by the V56 NULL-fill fallback, then re-runs the proper JOIN backfill)
+  - Re-backfills `matched_email_log_uuid` in `phoenix_kit_email_orphaned_events`
+  - All operations idempotent — safe on every install
 
   ## Migration Paths
 
@@ -587,7 +596,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 70
+  @current_version 71
   @default_prefix "public"
 
   @doc false

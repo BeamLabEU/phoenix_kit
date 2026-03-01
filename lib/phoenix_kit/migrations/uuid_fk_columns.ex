@@ -560,19 +560,42 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
     else
       simple_backfill(table_name, int_fk, uuid_fk, source_name)
     end
-  rescue
-    # If column doesn't exist yet (shouldn't happen), silently skip
-    _ -> :ok
   end
+
+  # Both backfill helpers wrap the UPDATE in a DO block with a PL/pgSQL
+  # EXCEPTION handler.  This is intentional and critical:
+  #
+  # - A plain Elixir `rescue` is NOT sufficient.  When a PostgreSQL statement
+  #   fails, the connection's transaction enters an aborted state (ERROR 25P02).
+  #   The Elixir rescue catches the exception, but the DB transaction is already
+  #   dead — every subsequent execute/1 call fails with "current transaction is
+  #   aborted", eventually crashing the migration.
+  #
+  # - The EXCEPTION clause inside the DO block catches the error *before* it
+  #   reaches the outer transaction.  The outer transaction stays healthy and
+  #   migration execution continues normally.
+  #
+  # The `::uuid` cast on `s.uuid` handles source tables whose `uuid` column
+  # was created as `character varying` rather than the native PostgreSQL `uuid`
+  # type (e.g. when a manual migration pre-empted V40's proper ADD COLUMN).
+  # Casting varchar → uuid succeeds as long as the stored value is a valid
+  # UUID string, which it always should be.
 
   defp simple_backfill(table_name, int_fk, uuid_fk, source_name) do
     execute("""
-    UPDATE #{table_name} t
-    SET #{uuid_fk} = s.uuid
-    FROM #{source_name} s
-    WHERE s.id = t.#{int_fk}
-      AND t.#{uuid_fk} IS NULL
-      AND t.#{int_fk} IS NOT NULL
+    DO $$
+    BEGIN
+      UPDATE #{table_name} t
+      SET #{uuid_fk} = s.uuid::uuid
+      FROM #{source_name} s
+      WHERE s.id = t.#{int_fk}
+        AND t.#{uuid_fk} IS NULL
+        AND t.#{int_fk} IS NOT NULL;
+    EXCEPTION
+      WHEN OTHERS THEN
+        RAISE WARNING 'PhoenixKit: skipping % backfill from % — %',
+          '#{uuid_fk}', '#{source_name}', SQLERRM;
+    END $$;
     """)
   end
 
@@ -584,7 +607,7 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
     BEGIN
       LOOP
         UPDATE #{table_name} t
-        SET #{uuid_fk} = s.uuid
+        SET #{uuid_fk} = s.uuid::uuid
         FROM #{source_name} s
         WHERE s.id = t.#{int_fk}
           AND t.#{uuid_fk} IS NULL
@@ -600,6 +623,10 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
         EXIT WHEN batch_count = 0;
         PERFORM pg_sleep(0.01);
       END LOOP;
+    EXCEPTION
+      WHEN OTHERS THEN
+        RAISE WARNING 'PhoenixKit: skipping % batched backfill from % — %',
+          '#{uuid_fk}', '#{source_name}', SQLERRM;
     END $$;
     """)
   end

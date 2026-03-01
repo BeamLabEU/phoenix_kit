@@ -543,12 +543,12 @@ defmodule PhoenixKitWeb.Integration do
                :receipt,
                as: :billing_receipt_print
 
-          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
+          live "/admin/billing/invoices/:id/credit-note/:transaction_uuid",
                PhoenixKit.Modules.Billing.Web.CreditNotePrint,
                :credit_note,
                as: :billing_credit_note
 
-          live "/admin/billing/invoices/:id/payment/:transaction_id",
+          live "/admin/billing/invoices/:id/payment/:transaction_uuid",
                PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint,
                :payment_confirmation,
                as: :billing_payment_confirmation

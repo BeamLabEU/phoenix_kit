@@ -58,9 +58,9 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
             |> assign(:send_email, get_default_email(invoice))
             |> assign(:send_receipt_email, get_default_email(invoice))
             |> assign(:send_credit_note_email, get_default_email(invoice))
-            |> assign(:send_credit_note_transaction_id, nil)
+            |> assign(:send_credit_note_transaction_uuid, nil)
             |> assign(:send_payment_confirmation_email, get_default_email(invoice))
-            |> assign(:send_payment_confirmation_transaction_id, nil)
+            |> assign(:send_payment_confirmation_transaction_uuid, nil)
 
           {:ok, socket}
       end
@@ -136,12 +136,16 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
   end
 
   @impl true
-  def handle_event("open_send_credit_note_modal", %{"transaction-id" => transaction_id}, socket) do
+  def handle_event(
+        "open_send_credit_note_modal",
+        %{"transaction-uuid" => transaction_uuid},
+        socket
+      ) do
     {:noreply,
      socket
      |> assign(:show_send_credit_note_modal, true)
      |> assign(:send_credit_note_email, get_default_email(socket.assigns.invoice))
-     |> assign(:send_credit_note_transaction_id, transaction_id)}
+     |> assign(:send_credit_note_transaction_uuid, transaction_uuid)}
   end
 
   @impl true
@@ -149,20 +153,20 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
     {:noreply,
      socket
      |> assign(:show_send_credit_note_modal, false)
-     |> assign(:send_credit_note_transaction_id, nil)}
+     |> assign(:send_credit_note_transaction_uuid, nil)}
   end
 
   @impl true
   def handle_event(
         "open_send_payment_confirmation_modal",
-        %{"transaction-id" => transaction_id},
+        %{"transaction-uuid" => transaction_uuid},
         socket
       ) do
     {:noreply,
      socket
      |> assign(:show_send_payment_confirmation_modal, true)
      |> assign(:send_payment_confirmation_email, get_default_email(socket.assigns.invoice))
-     |> assign(:send_payment_confirmation_transaction_id, transaction_id)}
+     |> assign(:send_payment_confirmation_transaction_uuid, transaction_uuid)}
   end
 
   @impl true
@@ -170,7 +174,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
     {:noreply,
      socket
      |> assign(:show_send_payment_confirmation_modal, false)
-     |> assign(:send_payment_confirmation_transaction_id, nil)}
+     |> assign(:send_payment_confirmation_transaction_uuid, nil)}
   end
 
   # Form Updates

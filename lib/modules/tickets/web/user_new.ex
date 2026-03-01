@@ -136,7 +136,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserNew do
     uploaded_files =
       consume_uploaded_entries(socket, :attachments, fn %{path: path}, entry ->
         ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-        user_id = current_user.uuid
+        user_uuid = current_user.uuid
 
         {:ok, _stat} = File.stat(path)
         file_hash = Auth.calculate_file_hash(path)
@@ -144,7 +144,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserNew do
         case Storage.store_file_in_buckets(
                path,
                "document",
-               user_id,
+               user_uuid,
                file_hash,
                ext,
                entry.client_name

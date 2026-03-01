@@ -63,8 +63,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     {:noreply, socket}
   end
 
-  def handle_event("show_edit_role", %{"role_id" => role_id_str}, socket) do
-    role = find_role_by_id(socket.assigns.roles, role_id_str)
+  def handle_event("show_edit_role", %{"role_uuid" => role_uuid}, socket) do
+    role = find_role_by_id(socket.assigns.roles, role_uuid)
 
     if role && !role.is_system_role do
       form = to_form(Role.changeset(role, %{}))
@@ -152,12 +152,12 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   # New events for confirmation modal
   def handle_event(
         "request_delete_role",
-        %{"role_id" => role_id, "role_name" => role_name},
+        %{"role_uuid" => role_uuid, "role_name" => role_name},
         socket
       ) do
     delete_confirmation = %{
       show: true,
-      role_id: role_id,
+      role_uuid: role_uuid,
       role_name: role_name
     }
 
@@ -169,29 +169,29 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   end
 
   def handle_event("confirm_delete_role", _params, socket) do
-    role_id = Map.get(socket.assigns.delete_confirmation, :role_id)
+    role_uuid = Map.get(socket.assigns.delete_confirmation, :role_uuid)
 
-    if is_nil(role_id) do
+    if is_nil(role_uuid) do
       {:noreply, assign(socket, :delete_confirmation, %{show: false})}
     else
       # Close modal first
       socket = assign(socket, :delete_confirmation, %{show: false})
 
       # Execute the deletion
-      handle_delete_role(role_id, socket)
+      handle_delete_role(role_uuid, socket)
     end
   end
 
   # Keep old handler for backward compatibility
-  def handle_event("delete_role", %{"role_id" => role_id}, socket) do
-    handle_delete_role(role_id, socket)
+  def handle_event("delete_role", %{"role_uuid" => role_uuid}, socket) do
+    handle_delete_role(role_uuid, socket)
   end
 
   # --- Permission Editor Events ---
 
-  def handle_event("show_permissions_editor", %{"role_id" => role_id_str}, socket) do
+  def handle_event("show_permissions_editor", %{"role_uuid" => role_uuid}, socket) do
     if can_manage_permissions?(socket) do
-      role = find_role_by_id(socket.assigns.roles, role_id_str)
+      role = find_role_by_id(socket.assigns.roles, role_uuid)
       scope = socket.assigns[:phoenix_kit_current_scope]
 
       with true <- role != nil,
@@ -327,8 +327,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   end
 
   # Keep the old handler for backward compatibility and make it private
-  defp handle_delete_role(role_id, socket) when is_binary(role_id) do
-    role = find_role_by_id(socket.assigns.roles, role_id)
+  defp handle_delete_role(role_uuid, socket) when is_binary(role_uuid) do
+    role = find_role_by_id(socket.assigns.roles, role_uuid)
 
     if role && !role.is_system_role do
       case Roles.delete_role(role) do
@@ -421,16 +421,16 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     {:noreply, socket}
   end
 
-  def handle_info({:permission_granted, role_id, _key}, socket) do
-    {:noreply, refresh_permissions_if_editing(socket, role_id)}
+  def handle_info({:permission_granted, role_uuid, _key}, socket) do
+    {:noreply, refresh_permissions_if_editing(socket, role_uuid)}
   end
 
-  def handle_info({:permission_revoked, role_id, _key}, socket) do
-    {:noreply, refresh_permissions_if_editing(socket, role_id)}
+  def handle_info({:permission_revoked, role_uuid, _key}, socket) do
+    {:noreply, refresh_permissions_if_editing(socket, role_uuid)}
   end
 
-  def handle_info({:permissions_synced, role_id, _keys}, socket) do
-    {:noreply, refresh_permissions_if_editing(socket, role_id)}
+  def handle_info({:permissions_synced, role_uuid, _keys}, socket) do
+    {:noreply, refresh_permissions_if_editing(socket, role_uuid)}
   end
 
   def handle_info({:module_enabled, _key}, socket) do
@@ -500,11 +500,11 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     end)
   end
 
-  defp refresh_permissions_if_editing(socket, role_id) do
+  defp refresh_permissions_if_editing(socket, role_uuid) do
     role = socket.assigns[:permissions_role]
 
     if socket.assigns.show_permissions_editor && role &&
-         (role.id == role_id or to_string(role.uuid) == to_string(role_id)) do
+         (role.id == role_uuid or to_string(role.uuid) == to_string(role_uuid)) do
       reload_permission_editor_data(socket)
     else
       socket

@@ -25,24 +25,24 @@ defmodule PhoenixKit.Modules.Tickets do
   ## Examples
 
       # Create a ticket
-      {:ok, ticket} = Tickets.create_ticket(user_id, %{
+      {:ok, ticket} = Tickets.create_ticket(user_uuid, %{
         title: "Cannot login",
         description: "I get an error when trying to login..."
       })
 
       # Assign to support staff
-      {:ok, ticket} = Tickets.assign_ticket(ticket, staff_user_id, current_user)
+      {:ok, ticket} = Tickets.assign_ticket(ticket, staff_user_uuid, current_user)
 
       # Start working on it
       {:ok, ticket} = Tickets.start_progress(ticket, current_user)
 
       # Add a public comment
-      {:ok, comment} = Tickets.create_comment(ticket.uuid, staff_user_id, %{
+      {:ok, comment} = Tickets.create_comment(ticket.uuid, staff_user_uuid, %{
         content: "We're looking into this issue."
       })
 
       # Add an internal note (hidden from customer)
-      {:ok, note} = Tickets.create_internal_note(ticket.uuid, staff_user_id, %{
+      {:ok, note} = Tickets.create_internal_note(ticket.uuid, staff_user_uuid, %{
         content: "Customer seems frustrated. Need to escalate."
       })
 
@@ -239,7 +239,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Parameters
 
-  - `user_id` - Customer who created the ticket
+  - `user_uuid` - Customer who created the ticket
   - `attrs` - Ticket attributes (title, description)
 
   ## Examples
@@ -250,8 +250,8 @@ defmodule PhoenixKit.Modules.Tickets do
       iex> create_ticket(42, %{title: ""})
       {:error, %Ecto.Changeset{}}
   """
-  def create_ticket(user_id, attrs) when is_binary(user_id) do
-    create_ticket_with_uuid(user_id, attrs)
+  def create_ticket(user_uuid, attrs) when is_binary(user_uuid) do
+    create_ticket_with_uuid(user_uuid, attrs)
   end
 
   defp create_ticket_with_uuid(user_uuid, attrs) do
@@ -406,7 +406,7 @@ defmodule PhoenixKit.Modules.Tickets do
       [%Ticket{}, ...]
   """
   def list_tickets(opts \\ []) do
-    user_id = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_id)
     assigned_to_uuid = Keyword.get(opts, :assigned_to_uuid)
     status = Keyword.get(opts, :status)
     search = Keyword.get(opts, :search)
@@ -415,7 +415,7 @@ defmodule PhoenixKit.Modules.Tickets do
     per_page = Keyword.get(opts, :per_page, 20)
 
     Ticket
-    |> maybe_filter_by_user(user_id)
+    |> maybe_filter_by_user(user_uuid)
     |> maybe_filter_by_assigned_to(assigned_to_uuid)
     |> maybe_filter_by_status(status)
     |> maybe_search_tickets(search)
@@ -436,15 +436,15 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists tickets assigned to a specific handler.
   """
-  def list_tickets_assigned_to(handler_id, opts \\ []) when is_binary(handler_id) do
-    list_tickets(Keyword.put(opts, :assigned_to_uuid, handler_id))
+  def list_tickets_assigned_to(handler_uuid, opts \\ []) when is_binary(handler_uuid) do
+    list_tickets(Keyword.put(opts, :assigned_to_uuid, handler_uuid))
   end
 
   @doc """
   Lists tickets created by a specific user.
   """
-  def list_user_tickets(user_id, opts \\ []) when is_binary(user_id) do
-    list_tickets(Keyword.put(opts, :user_id, user_id))
+  def list_user_tickets(user_uuid, opts \\ []) when is_binary(user_uuid) do
+    list_tickets(Keyword.put(opts, :user_id, user_uuid))
   end
 
   # ============================================================================
@@ -582,7 +582,7 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   defp transition_status(%Ticket{} = ticket, new_status, changed_by, reason \\ nil) do
-    changed_by_id = get_user_uuid(changed_by)
+    changed_by_uuid = get_user_uuid(changed_by)
     old_status = ticket.status
 
     if Ticket.valid_transition?(old_status, new_status) do
@@ -610,7 +610,7 @@ defmodule PhoenixKit.Modules.Tickets do
              |> Ticket.changeset(attrs)
              |> repo().update() do
           {:ok, updated_ticket} ->
-            create_status_history(ticket.uuid, changed_by_id, old_status, new_status, reason)
+            create_status_history(ticket.uuid, changed_by_uuid, old_status, new_status, reason)
 
             # Broadcast status change event
             Events.broadcast_ticket_status_changed(updated_ticket, old_status, new_status)
@@ -647,22 +647,22 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Parameters
 
-  - `ticket_id` - ID of the ticket
-  - `user_id` - ID of the commenter
+  - `ticket_uuid` - ID of the ticket
+  - `user_uuid` - ID of the commenter
   - `attrs` - Comment attributes (content, optional parent_id)
 
   ## Examples
 
-      iex> create_comment(ticket.uuid, user_id, %{content: "Thanks for looking into this!"})
+      iex> create_comment(ticket.uuid, user_uuid, %{content: "Thanks for looking into this!"})
       {:ok, %TicketComment{}}
   """
-  def create_comment(ticket_id, user_id, attrs) when is_binary(user_id) do
+  def create_comment(ticket_uuid, user_uuid, attrs) when is_binary(user_uuid) do
     # Accept UUID strings directly
     attrs =
       attrs
       |> ensure_string_keys()
-      |> Map.put("ticket_id", ticket_id)
-      |> Map.put("user_uuid", user_id)
+      |> Map.put("ticket_uuid", ticket_uuid)
+      |> Map.put("user_uuid", user_uuid)
       |> Map.put("is_internal", false)
 
     attrs = maybe_calculate_depth(attrs)
@@ -672,10 +672,10 @@ defmodule PhoenixKit.Modules.Tickets do
            |> TicketComment.changeset(attrs)
            |> repo().insert() do
         {:ok, comment} ->
-          increment_comment_count(ticket_id)
+          increment_comment_count(ticket_uuid)
 
           # Load ticket for broadcast
-          ticket = repo().get(Ticket, ticket_id)
+          ticket = repo().get(Ticket, ticket_uuid)
 
           # Broadcast comment created event
           Events.broadcast_comment_created(comment, ticket)
@@ -693,22 +693,22 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Parameters
 
-  - `ticket_id` - ID of the ticket
-  - `user_id` - ID of the staff member
+  - `ticket_uuid` - ID of the ticket
+  - `user_uuid` - ID of the staff member
   - `attrs` - Note attributes (content)
 
   ## Examples
 
-      iex> create_internal_note(ticket.uuid, staff_id, %{content: "Customer seems frustrated"})
+      iex> create_internal_note(ticket.uuid, staff_uuid, %{content: "Customer seems frustrated"})
       {:ok, %TicketComment{is_internal: true}}
   """
-  def create_internal_note(ticket_id, user_id, attrs) when is_binary(user_id) do
+  def create_internal_note(ticket_uuid, user_uuid, attrs) when is_binary(user_uuid) do
     # Accept UUID strings directly
     attrs =
       attrs
       |> ensure_string_keys()
-      |> Map.put("ticket_id", ticket_id)
-      |> Map.put("user_uuid", user_id)
+      |> Map.put("ticket_uuid", ticket_uuid)
+      |> Map.put("user_uuid", user_uuid)
       |> Map.put("is_internal", true)
 
     attrs = maybe_calculate_depth(attrs)
@@ -719,7 +719,7 @@ defmodule PhoenixKit.Modules.Tickets do
     |> case do
       {:ok, comment} ->
         # Load ticket for broadcast
-        ticket = repo().get(Ticket, ticket_id)
+        ticket = repo().get(Ticket, ticket_uuid)
 
         # Broadcast internal note created event
         Events.broadcast_internal_note_created(comment, ticket)
@@ -773,11 +773,11 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists public comments for a ticket (excludes internal notes).
   """
-  def list_public_comments(ticket_id, opts \\ []) do
+  def list_public_comments(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_uuid == ^ticket_id and c.is_internal == false,
+      where: c.ticket_uuid == ^ticket_uuid and c.is_internal == false,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -788,11 +788,11 @@ defmodule PhoenixKit.Modules.Tickets do
   Lists all comments for a ticket (includes internal notes).
   For staff use only.
   """
-  def list_all_comments(ticket_id, opts \\ []) do
+  def list_all_comments(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_uuid == ^ticket_id,
+      where: c.ticket_uuid == ^ticket_uuid,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -802,11 +802,11 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists only internal notes for a ticket.
   """
-  def list_internal_notes(ticket_id, opts \\ []) do
+  def list_internal_notes(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:user])
 
     from(c in TicketComment,
-      where: c.ticket_uuid == ^ticket_id and c.is_internal == true,
+      where: c.ticket_uuid == ^ticket_uuid and c.is_internal == true,
       order_by: [asc: c.inserted_at]
     )
     |> repo().all()
@@ -824,13 +824,13 @@ defmodule PhoenixKit.Modules.Tickets do
     end
   end
 
-  defp increment_comment_count(ticket_id) do
-    from(t in Ticket, where: t.uuid == ^ticket_id)
+  defp increment_comment_count(ticket_uuid) do
+    from(t in Ticket, where: t.uuid == ^ticket_uuid)
     |> repo().update_all(inc: [comment_count: 1])
   end
 
-  defp decrement_comment_count(ticket_id) do
-    from(t in Ticket, where: t.uuid == ^ticket_id)
+  defp decrement_comment_count(ticket_uuid) do
+    from(t in Ticket, where: t.uuid == ^ticket_uuid)
     |> repo().update_all(inc: [comment_count: -1])
   end
 
@@ -850,7 +850,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Parameters
 
-  - `ticket_id` - ID of the ticket
+  - `ticket_uuid` - ID of the ticket
   - `file_id` - ID of the uploaded file
   - `opts` - Options
     - `:position` - Display order (default: auto-calculated)
@@ -895,19 +895,19 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Removes an attachment.
   """
-  def remove_attachment(attachment_id) do
-    attachment = repo().get!(TicketAttachment, attachment_id)
+  def remove_attachment(attachment_uuid) do
+    attachment = repo().get!(TicketAttachment, attachment_uuid)
     repo().delete(attachment)
   end
 
   @doc """
   Lists attachments for a ticket.
   """
-  def list_ticket_attachments(ticket_id, opts \\ []) do
+  def list_ticket_attachments(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:file])
 
     from(a in TicketAttachment,
-      where: a.ticket_uuid == ^ticket_id and is_nil(a.comment_uuid),
+      where: a.ticket_uuid == ^ticket_uuid and is_nil(a.comment_uuid),
       order_by: [asc: a.position]
     )
     |> repo().all()
@@ -917,29 +917,29 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Lists attachments for a comment.
   """
-  def list_comment_attachments(comment_id, opts \\ []) do
+  def list_comment_attachments(comment_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:file])
 
     from(a in TicketAttachment,
-      where: a.comment_uuid == ^comment_id,
+      where: a.comment_uuid == ^comment_uuid,
       order_by: [asc: a.position]
     )
     |> repo().all()
     |> repo().preload(preloads)
   end
 
-  defp next_ticket_attachment_position(ticket_id) do
+  defp next_ticket_attachment_position(ticket_uuid) do
     from(a in TicketAttachment,
-      where: a.ticket_uuid == ^ticket_id and is_nil(a.comment_uuid),
+      where: a.ticket_uuid == ^ticket_uuid and is_nil(a.comment_uuid),
       select: coalesce(max(a.position), 0)
     )
     |> repo().one()
     |> Kernel.+(1)
   end
 
-  defp next_comment_attachment_position(comment_id) do
+  defp next_comment_attachment_position(comment_uuid) do
     from(a in TicketAttachment,
-      where: a.comment_uuid == ^comment_id,
+      where: a.comment_uuid == ^comment_uuid,
       select: coalesce(max(a.position), 0)
     )
     |> repo().one()
@@ -953,11 +953,11 @@ defmodule PhoenixKit.Modules.Tickets do
   @doc """
   Gets the status history for a ticket.
   """
-  def get_status_history(ticket_id, opts \\ []) do
+  def get_status_history(ticket_uuid, opts \\ []) do
     preloads = Keyword.get(opts, :preload, [:changed_by])
 
     from(h in TicketStatusHistory,
-      where: h.ticket_uuid == ^ticket_id,
+      where: h.ticket_uuid == ^ticket_uuid,
       order_by: [asc: h.inserted_at]
     )
     |> repo().all()
@@ -995,8 +995,8 @@ defmodule PhoenixKit.Modules.Tickets do
 
   defp maybe_filter_by_user(query, nil), do: query
 
-  defp maybe_filter_by_user(query, user_id) when is_binary(user_id) do
-    where(query, [t], t.user_uuid == ^user_id)
+  defp maybe_filter_by_user(query, user_uuid) when is_binary(user_uuid) do
+    where(query, [t], t.user_uuid == ^user_uuid)
   end
 
   defp maybe_filter_by_assigned_to(query, nil), do: query
@@ -1005,8 +1005,8 @@ defmodule PhoenixKit.Modules.Tickets do
     where(query, [t], is_nil(t.assigned_to_uuid))
   end
 
-  defp maybe_filter_by_assigned_to(query, assigned_to_id) when is_binary(assigned_to_id) do
-    where(query, [t], t.assigned_to_uuid == ^assigned_to_id)
+  defp maybe_filter_by_assigned_to(query, assigned_to_uuid) when is_binary(assigned_to_uuid) do
+    where(query, [t], t.assigned_to_uuid == ^assigned_to_uuid)
   end
 
   defp maybe_filter_by_status(query, nil), do: query
