@@ -8,7 +8,7 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrderDetails do
   - Order status
 
   Security:
-  - Users can only view their own orders (user_id check)
+  - Users can only view their own orders (user_uuid check)
   """
   use PhoenixKitWeb, :live_view
 

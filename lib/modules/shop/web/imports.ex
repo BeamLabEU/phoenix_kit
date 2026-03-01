@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       |> assign(:migration_in_progress, migration_stats.in_progress > 0)
       |> assign(:import_configs, import_configs)
       |> assign(:selected_config, default_config)
-      |> assign(:selected_config_id, if(default_config, do: default_config.uuid))
+      |> assign(:selected_config_uuid, if(default_config, do: default_config.uuid))
       # Multi-step wizard state
       |> assign(:import_step, :upload)
       |> assign(:format_mod, nil)
@@ -249,24 +249,24 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   end
 
   @impl true
-  def handle_event("select_config", %{"config_id" => ""}, socket) do
+  def handle_event("select_config", %{"config_uuid" => ""}, socket) do
     socket =
       socket
       |> assign(:selected_config, nil)
-      |> assign(:selected_config_id, nil)
+      |> assign(:selected_config_uuid, nil)
       |> maybe_reanalyze_csv()
 
     {:noreply, socket}
   end
 
   @impl true
-  def handle_event("select_config", %{"config_id" => id_str}, socket) do
+  def handle_event("select_config", %{"config_uuid" => id_str}, socket) do
     config = Enum.find(socket.assigns.import_configs, &(&1.uuid == id_str))
 
     socket =
       socket
       |> assign(:selected_config, config)
-      |> assign(:selected_config_id, if(config, do: config.uuid))
+      |> assign(:selected_config_uuid, if(config, do: config.uuid))
       |> maybe_reanalyze_csv()
 
     {:noreply, socket}
@@ -457,16 +457,21 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
           # Re-enqueue job with language and config_uuid
           language = socket.assigns.current_language
-          config_uuid = get_in(import_log.options, ["config_id"])
+
+          config_uuid =
+            get_in(import_log.options, ["config_uuid"]) ||
+              get_in(import_log.options, ["config_id"])
 
           worker_args = %{
-            import_log_id: updated_log.uuid,
+            import_log_uuid: updated_log.uuid,
             path: import_log.file_path,
             language: language
           }
 
           worker_args =
-            if config_uuid, do: Map.put(worker_args, :config_id, config_uuid), else: worker_args
+            if config_uuid,
+              do: Map.put(worker_args, :config_uuid, config_uuid),
+              else: worker_args
 
           worker_args
           |> CSVImportWorker.new()
@@ -523,13 +528,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     worker_mappings = convert_mappings_for_worker(mappings)
 
     # Create import log with config_uuid
-    config_uuid = socket.assigns.selected_config_id
+    config_uuid = socket.assigns.selected_config_uuid
 
     case Shop.create_import_log(%{
            filename: filename,
            file_path: dest_path,
            user_uuid: user.uuid,
-           options: %{"option_mappings" => worker_mappings, "config_id" => config_uuid}
+           options: %{"option_mappings" => worker_mappings, "config_uuid" => config_uuid}
          }) do
       {:ok, import_log} ->
         # Enqueue Oban job with language, mappings, config_uuid, and download_images option
@@ -539,7 +544,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         skip_empty_categories = socket.assigns[:skip_empty_categories] || false
 
         worker_args = %{
-          import_log_id: import_log.uuid,
+          import_log_uuid: import_log.uuid,
           path: dest_path,
           language: language,
           option_mappings: worker_mappings,
@@ -548,7 +553,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         }
 
         worker_args =
-          if config_uuid, do: Map.put(worker_args, :config_id, config_uuid), else: worker_args
+          if config_uuid,
+            do: Map.put(worker_args, :config_uuid, config_uuid),
+            else: worker_args
 
         worker_args
         |> CSVImportWorker.new()
@@ -850,7 +857,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   skip_empty_categories={@skip_empty_categories}
                   import_configs={@import_configs}
                   selected_config={@selected_config}
-                  selected_config_id={@selected_config_id}
+                  selected_config_uuid={@selected_config_uuid}
                 />
               <% :configure -> %>
                 <.render_configure_step
@@ -861,7 +868,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                   format_name={@format_name}
                   import_configs={@import_configs}
                   selected_config={@selected_config}
-                  selected_config_id={@selected_config_id}
+                  selected_config_uuid={@selected_config_uuid}
                 />
               <% :confirm -> %>
                 <.render_confirm_step
@@ -1160,11 +1167,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         <select
           class="select select-bordered w-full"
           phx-change="select_config"
-          name="config_id"
+          name="config_uuid"
         >
           <option value="">No filter (import all products)</option>
           <%= for config <- @import_configs do %>
-            <option value={config.uuid} selected={@selected_config_id == config.uuid}>
+            <option value={config.uuid} selected={@selected_config_uuid == config.uuid}>
               {config.name}{if config.is_default, do: " (default)"}
             </option>
           <% end %>
@@ -1305,11 +1312,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
         <select
           class="select select-bordered w-full"
           phx-change="select_config"
-          name="config_id"
+          name="config_uuid"
         >
           <option value="">No filter (import all products)</option>
           <%= for config <- @import_configs do %>
-            <option value={config.uuid} selected={@selected_config_id == config.uuid}>
+            <option value={config.uuid} selected={@selected_config_uuid == config.uuid}>
               {config.name}{if config.is_default, do: " (default)"}
             </option>
           <% end %>

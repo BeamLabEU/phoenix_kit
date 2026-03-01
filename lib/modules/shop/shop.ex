@@ -302,7 +302,7 @@ defmodule PhoenixKit.Modules.Shop do
   ## Options
   - `:status` - Filter by status (draft, active, archived)
   - `:product_type` - Filter by type (physical, digital)
-  - `:category_id` - Filter by category
+  - `:category_uuid` - Filter by category
   - `:search` - Search in title and description
   - `:page` - Page number
   - `:per_page` - Items per page
@@ -892,7 +892,7 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
-  Returns a map of category_id => product_count for all categories.
+  Returns a map of category_uuid => product_count for all categories.
   """
   def product_counts_by_category do
     Product
@@ -1112,7 +1112,7 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Bulk update category parent.
   Returns count of updated categories. Excludes the target parent from the update set
-  to prevent self-reference. Uses a single UPDATE with subquery to resolve parent_id.
+  to prevent self-reference. Uses a single UPDATE with subquery to resolve parent_uuid.
   """
   def bulk_update_category_parent(ids, parent_uuid) when is_list(ids) do
     # Exclude the target parent and its ancestors from update set to prevent cycles
@@ -1204,9 +1204,9 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
-  Ensures a category has a featured_product_id set.
+  Ensures a category has a featured_product_uuid set.
 
-  If the category has no image_id and no featured_product_id, auto-detects the
+  If the category has no image_uuid and no featured_product_uuid, auto-detects the
   first active product with an image and saves it. Returns the (possibly updated)
   category with :featured_product preloaded.
   """
@@ -1247,10 +1247,10 @@ defmodule PhoenixKit.Modules.Shop do
   Returns a list of {name, id} tuples for products in a category that have images.
   Used for the featured product dropdown in the admin category form.
   """
-  def list_category_product_options(category_id) do
+  def list_category_product_options(category_uuid) do
     default_lang = Translations.default_language()
 
-    query = category_product_options_query(category_id)
+    query = category_product_options_query(category_uuid)
 
     if query do
       query
@@ -2137,7 +2137,7 @@ defmodule PhoenixKit.Modules.Shop do
   Takes an active cart with items and creates an Order with:
   - All cart items as line_items
   - Shipping as additional line item (if selected)
-  - Billing profile snapshot (from profile_id or direct billing_data)
+  - Billing profile snapshot (from profile_uuid or direct billing_data)
   - Cart marked as "converted"
 
   For guest checkout (no user_uuid on cart):
@@ -2503,7 +2503,7 @@ defmodule PhoenixKit.Modules.Shop do
     query
     |> filter_by_status(Keyword.get(opts, :status))
     |> filter_by_product_type(Keyword.get(opts, :product_type))
-    |> filter_by_category(Keyword.get(opts, :category_id))
+    |> filter_by_category(Keyword.get(opts, :category_uuid))
     |> filter_by_product_search(Keyword.get(opts, :search))
     |> filter_by_visible_categories(Keyword.get(opts, :exclude_hidden_categories, false))
     |> filter_by_price_range(Keyword.get(opts, :price_min), Keyword.get(opts, :price_max))
@@ -3248,7 +3248,7 @@ defmodule PhoenixKit.Modules.Shop do
   ## Parameters
 
     - `language` - Language code for translations
-    - `opts` - Standard list options: `:page`, `:per_page`, `:status`, `:category_id`, etc.
+    - `opts` - Standard list options: `:page`, `:per_page`, `:status`, `:category_uuid`, etc.
 
   ## Examples
 
@@ -3478,7 +3478,7 @@ defmodule PhoenixKit.Modules.Shop do
       iex> Shop.product_slug_exists?("maceta-geometrica", "es-ES")
       true
 
-      iex> Shop.product_slug_exists?("maceta-geometrica", "es-ES", exclude_id: 123)
+      iex> Shop.product_slug_exists?("maceta-geometrica", "es-ES", exclude_uuid: "some-uuid")
       false
   """
   def product_slug_exists?(slug, language, opts \\ []) do

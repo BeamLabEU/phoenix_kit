@@ -66,14 +66,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   end
 
   @impl true
-  def handle_event("update_quantity", %{"item_id" => item_uuid, "quantity" => quantity}, socket) do
+  def handle_event("update_quantity", %{"item_uuid" => item_uuid, "quantity" => quantity}, socket) do
     quantity = max(1, String.to_integer(quantity))
 
     update_item_quantity(socket, item_uuid, quantity)
   end
 
   @impl true
-  def handle_event("remove_item", %{"item_id" => item_uuid}, socket) do
+  def handle_event("remove_item", %{"item_uuid" => item_uuid}, socket) do
     item = Enum.find(socket.assigns.cart.items, &(&1.uuid == item_uuid))
 
     if item do
@@ -344,7 +344,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                             </td>
                             <td class="text-center">
                               <form phx-change="update_quantity" class="inline">
-                                <input type="hidden" name="item_id" value={item.uuid} />
+                                <input type="hidden" name="item_uuid" value={item.uuid} />
                                 <input
                                   type="number"
                                   name="quantity"
@@ -365,7 +365,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                             <td>
                               <button
                                 phx-click="remove_item"
-                                phx-value-item_id={item.uuid}
+                                phx-value-item_uuid={item.uuid}
                                 class="btn btn-ghost btn-sm text-error"
                               >
                                 <.icon name="hero-trash" class="w-4 h-4" />

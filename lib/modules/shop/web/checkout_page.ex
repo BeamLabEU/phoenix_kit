@@ -141,7 +141,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     |> assign(:needs_payment_selection, assigns.needs_payment_selection)
     |> assign(:billing_profiles, assigns.billing_profiles)
     |> assign(
-      :selected_profile_id,
+      :selected_profile_uuid,
       if(assigns.selected_profile, do: assigns.selected_profile.uuid)
     )
     |> assign(:use_new_profile, assigns.is_guest or assigns.billing_profiles == [])
@@ -297,10 +297,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   end
 
   @impl true
-  def handle_event("select_profile", %{"profile_id" => profile_id}, socket) do
+  def handle_event("select_profile", %{"profile_uuid" => profile_id}, socket) do
     {:noreply,
      socket
-     |> assign(:selected_profile_id, profile_id)
+     |> assign(:selected_profile_uuid, profile_id)
      |> assign(:use_new_profile, false)}
   end
 
@@ -310,7 +310,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     billing_data =
       case Enum.find(
              socket.assigns.billing_profiles,
-             &(to_string(&1.uuid) == to_string(socket.assigns.selected_profile_id))
+             &(to_string(&1.uuid) == to_string(socket.assigns.selected_profile_uuid))
            ) do
         nil -> socket.assigns.billing_data
         profile -> profile_to_billing_data(profile, socket.assigns.cart)
@@ -320,7 +320,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
      socket
      |> assign(:use_new_profile, true)
      |> assign(:billing_data, billing_data)
-     |> assign(:selected_profile_id, nil)}
+     |> assign(:selected_profile_uuid, nil)}
   end
 
   @impl true
@@ -332,7 +332,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     {:noreply,
      socket
      |> assign(:use_new_profile, false)
-     |> assign(:selected_profile_id, if(profile, do: profile.uuid))}
+     |> assign(:selected_profile_uuid, if(profile, do: profile.uuid))}
   end
 
   @impl true
@@ -356,7 +356,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
          |> put_flash(:error, "Please fill in all required fields")}
       end
     else
-      if is_nil(socket.assigns.selected_profile_id) do
+      if is_nil(socket.assigns.selected_profile_uuid) do
         {:noreply, put_flash(socket, :error, "Please select a billing profile")}
       else
         {:noreply, assign(socket, :step, :review)}
@@ -389,7 +389,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
         [billing_data: socket.assigns.billing_data, user_uuid: user_uuid]
       else
         # Logged-in user with existing profile
-        [billing_profile_uuid: socket.assigns.selected_profile_id, user_uuid: user_uuid]
+        [billing_profile_uuid: socket.assigns.selected_profile_uuid, user_uuid: user_uuid]
       end
 
     case Shop.convert_cart_to_order(cart, opts) do
@@ -578,7 +578,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
                 <.billing_step
                   is_guest={@is_guest}
                   billing_profiles={@billing_profiles}
-                  selected_profile_id={@selected_profile_id}
+                  selected_profile_uuid={@selected_profile_uuid}
                   use_new_profile={@use_new_profile}
                   needs_profile_selection={@needs_profile_selection}
                   billing_data={@billing_data}
@@ -591,7 +591,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
                   cart={@cart}
                   is_guest={@is_guest}
                   billing_profiles={@billing_profiles}
-                  selected_profile_id={@selected_profile_id}
+                  selected_profile_uuid={@selected_profile_uuid}
                   use_new_profile={@use_new_profile}
                   billing_data={@billing_data}
                   currency={@currency}
@@ -689,7 +689,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           <%!-- Authenticated user with multiple profiles - show selector --%>
           <.profile_selector
             billing_profiles={@billing_profiles}
-            selected_profile_id={@selected_profile_id}
+            selected_profile_uuid={@selected_profile_uuid}
             needs_profile_selection={@needs_profile_selection}
           />
         <% end %>
@@ -732,7 +732,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       <%= for profile <- @billing_profiles do %>
         <div class={[
           "flex items-start gap-4 p-4 border rounded-lg transition-colors",
-          if(to_string(@selected_profile_id) == to_string(profile.uuid),
+          if(to_string(@selected_profile_uuid) == to_string(profile.uuid),
             do: "border-primary bg-primary/5",
             else: "border-base-300 hover:border-primary/50"
           )
@@ -742,9 +742,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
               type="radio"
               name="profile"
               value={profile.uuid}
-              checked={to_string(@selected_profile_id) == to_string(profile.uuid)}
+              checked={to_string(@selected_profile_uuid) == to_string(profile.uuid)}
               phx-click="select_profile"
-              phx-value-profile_id={profile.uuid}
+              phx-value-profile_uuid={profile.uuid}
               class="radio radio-primary mt-1"
             />
             <div class="flex-1">
@@ -765,7 +765,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
             </div>
           </label>
           <%!-- Edit button for selected profile --%>
-          <%= if to_string(@selected_profile_id) == to_string(profile.uuid) do %>
+          <%= if to_string(@selected_profile_uuid) == to_string(profile.uuid) do %>
             <.link
               navigate={
                 Routes.path("/dashboard/billing-profiles/#{profile.uuid}/edit?return_to=/checkout")
@@ -910,7 +910,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       else
         Enum.find(
           assigns.billing_profiles,
-          &(to_string(&1.uuid) == to_string(assigns.selected_profile_id))
+          &(to_string(&1.uuid) == to_string(assigns.selected_profile_uuid))
         )
       end
 

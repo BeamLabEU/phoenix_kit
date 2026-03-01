@@ -58,7 +58,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
     search = params["search"] || ""
     status = if params["status"] in ["", nil], do: nil, else: params["status"]
     type = if params["type"] in ["", nil], do: nil, else: params["type"]
-    category_id = parse_category_id(params["category"])
+    category_uuid = parse_category_uuid(params["category"])
 
     opts = [
       page: page,
@@ -66,7 +66,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       search: search,
       status: status,
       product_type: type,
-      category_id: category_id,
+      category_uuid: category_uuid,
       preload: [:category]
     ]
 
@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:search, search)
       |> assign(:status_filter, status)
       |> assign(:type_filter, type)
-      |> assign(:category_filter, category_id)
+      |> assign(:category_filter, category_uuid)
 
     {:noreply, socket}
   end
@@ -124,11 +124,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   @impl true
   def handle_event("filter_category", %{"category" => category}, socket) do
-    category_id = parse_category_id(category)
+    category_uuid = parse_category_uuid(category)
 
     socket =
       socket
-      |> assign(:category_filter, category_id)
+      |> assign(:category_filter, category_uuid)
       |> assign(:page, 1)
       |> load_products()
 
@@ -188,7 +188,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
             search: socket.assigns.search,
             status: socket.assigns.status_filter,
             product_type: socket.assigns.type_filter,
-            category_id: socket.assigns.category_filter,
+            category_uuid: socket.assigns.category_filter,
             preload: [:category]
           )
 
@@ -343,7 +343,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
         search: socket.assigns.search,
         status: socket.assigns.status_filter,
         product_type: socket.assigns.type_filter,
-        category_id: socket.assigns.category_filter,
+        category_uuid: socket.assigns.category_filter,
         preload: [:category]
       )
 
@@ -807,9 +807,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       Enum.all?(products, fn p -> MapSet.member?(selected_uuids, p.uuid) end)
   end
 
-  defp parse_category_id(nil), do: nil
-  defp parse_category_id(""), do: nil
-  defp parse_category_id(id) when is_binary(id), do: id
+  defp parse_category_uuid(nil), do: nil
+  defp parse_category_uuid(""), do: nil
+  defp parse_category_uuid(id) when is_binary(id), do: id
 
   defp status_badge_class("active"), do: "badge badge-success"
   defp status_badge_class("draft"), do: "badge badge-warning"

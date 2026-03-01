@@ -161,14 +161,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       |> Map.put(:action, :validate)
 
     # Update option schema if category changed
-    new_category_id = product_params["category_uuid"] || product_params["category_id"]
+    new_category_uuid = product_params["category_uuid"]
 
-    old_category_id =
+    old_category_uuid =
       socket.assigns.product.category_uuid
 
     socket =
-      if new_category_id != old_category_id do
-        option_schema = get_schema_for_category_id(new_category_id)
+      if new_category_uuid != old_category_uuid do
+        option_schema = get_schema_for_category_uuid(new_category_uuid)
         price_affecting_options = get_price_affecting_options(option_schema)
 
         socket
@@ -1963,19 +1963,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     """
   end
 
-  # Get option schema based on category_id string
-  defp get_schema_for_category_id(nil), do: Options.get_enabled_global_options()
-  defp get_schema_for_category_id(""), do: Options.get_enabled_global_options()
+  # Get option schema based on category_uuid string
+  defp get_schema_for_category_uuid(nil), do: Options.get_enabled_global_options()
+  defp get_schema_for_category_uuid(""), do: Options.get_enabled_global_options()
 
-  defp get_schema_for_category_id(category_id) when is_binary(category_id) do
-    category = Shop.get_category!(category_id)
+  defp get_schema_for_category_uuid(category_uuid) when is_binary(category_uuid) do
+    category = Shop.get_category!(category_uuid)
     product = %Product{category: category, category_uuid: category.uuid}
     Options.get_option_schema_for_product(product)
   rescue
     _ -> Options.get_enabled_global_options()
   end
 
-  defp get_schema_for_category_id(_), do: Options.get_enabled_global_options()
+  defp get_schema_for_category_uuid(_), do: Options.get_enabled_global_options()
 
   # Clean up _option_values - remove entries where all values are selected (use defaults)
   defp clean_option_values(metadata, option_schema, original_option_values) do

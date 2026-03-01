@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportConfigs do
       |> assign(:show_modal, false)
       |> assign(:editing_config, nil)
       |> assign(:form_data, initial_form_data())
-      |> assign(:delete_confirm_id, nil)
+      |> assign(:delete_confirm_uuid, nil)
 
     {:ok, socket}
   end

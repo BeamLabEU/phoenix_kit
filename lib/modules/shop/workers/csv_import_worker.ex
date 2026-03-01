@@ -7,18 +7,18 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   ## Job Arguments
 
-  - `import_log_id` - ID of the ImportLog record
+  - `import_log_uuid` - UUID of the ImportLog record
   - `path` - Path to the uploaded CSV file
-  - `config_id` - Optional ImportConfig ID for filtering rules
+  - `config_uuid` - Optional ImportConfig UUID for filtering rules
 
   ## Usage
 
   The Imports LiveView enqueues jobs after file upload:
 
       CSVImportWorker.new(%{
-        import_log_id: log.uuid,
+        import_log_uuid: log.uuid,
         path: "/tmp/uploads/products.csv",
-        config_id: config.uuid  # optional
+        config_uuid: config.uuid  # optional
       })
       |> Oban.insert()
 
@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   use Oban.Worker,
     queue: :shop_imports,
     max_attempts: 3,
-    unique: [period: :infinity, keys: [:import_log_id], states: :incomplete]
+    unique: [period: :infinity, keys: [:import_log_uuid], states: :incomplete]
 
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Import.{CSVValidator, FormatDetector}
@@ -48,10 +48,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   @progress_interval 50
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: args}) do
-    import_log_uuid = Map.fetch!(args, "import_log_id")
+  def perform(%Oban.Job{args: %{"import_log_uuid" => _} = args}) do
+    import_log_uuid = Map.fetch!(args, "import_log_uuid")
     path = Map.fetch!(args, "path")
-    config_uuid = Map.get(args, "config_id")
+    config_uuid = Map.get(args, "config_uuid")
     language = Map.get(args, "language") || default_import_language()
     option_mappings = Map.get(args, "option_mappings", [])
     download_images = Map.get(args, "download_images", false)
@@ -89,6 +89,22 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
+  # Backward-compat clause: old key names (import_log_id / config_id) delegate to new clause
+  def perform(%Oban.Job{args: %{"import_log_id" => _} = args} = job) do
+    new_args =
+      args
+      |> Map.delete("import_log_id")
+      |> Map.put("import_log_uuid", args["import_log_id"])
+      |> then(fn a ->
+        case Map.pop(a, "config_id") do
+          {nil, a} -> a
+          {v, a} -> Map.put(a, "config_uuid", v)
+        end
+      end)
+
+    perform(%Oban.Job{job | args: new_args})
+  end
+
   # ============================================
   # PRIVATE HELPERS
   # ============================================
@@ -101,7 +117,9 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp load_config(nil, import_log) do
-    config_uuid = get_in(import_log.options, ["config_id"])
+    config_uuid =
+      get_in(import_log.options, ["config_uuid"]) ||
+        get_in(import_log.options, ["config_id"])
 
     if config_uuid do
       load_config_by_id(config_uuid)
@@ -210,7 +228,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       error_count: 0,
       error_details: [],
       image_jobs_queued: 0,
-      product_ids: []
+      product_uuids: []
     }
 
     result =
@@ -257,14 +275,14 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
         %{
           stats
           | imported_count: stats.imported_count + 1,
-            product_ids: [product.uuid | stats.product_ids]
+            product_uuids: [product.uuid | stats.product_uuids]
         }
 
       {:updated, _handle, product} ->
         %{
           stats
           | updated_count: stats.updated_count + 1,
-            product_ids: [product.uuid | stats.product_ids]
+            product_uuids: [product.uuid | stats.product_uuids]
         }
 
       {:error, handle, error} ->
@@ -334,7 +352,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp complete_import(import_log, stats) do
-    corrected_stats = Map.update!(stats, :product_ids, &Enum.reverse/1)
+    corrected_stats = Map.update!(stats, :product_uuids, &Enum.reverse/1)
     Shop.complete_import(import_log, corrected_stats)
   end
 

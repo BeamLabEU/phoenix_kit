@@ -12,7 +12,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
 
   ## Identity
 
-  Each cart has either `user_id` (for authenticated users) or `session_id` (for guests).
+  Each cart has either `user_uuid` (for authenticated users) or `session_id` (for guests).
   Guest carts have an `expires_at` timestamp (30 days by default).
   When a guest logs in, their cart is either converted to a user cart or merged
   with an existing user cart.
