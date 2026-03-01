@@ -1042,7 +1042,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
         # Temp map, nothing to update
         :ok
 
-      _id ->
+      _uuid ->
         current_metadata = Map.get(connection, :metadata) || %{}
 
         notification_data = %{
