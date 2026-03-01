@@ -387,24 +387,38 @@ defmodule PhoenixKit.Cache do
         {:ok, state, {:continue, {:warm_critical, critical_warmer, warmer}}}
 
       sync_init and warmer ->
-        # Warm synchronously inside init/1 so the supervisor blocks until the cache is
-        # populated. This guarantees that downstream GenServers started after us (e.g.
-        # Dashboard.Registry) see a warm cache instead of cold-miss fallbacks.
-        case warm_with_retry(warmer, name, 3, 100) do
-          {:ok, data} when is_map(data) and map_size(data) > 0 ->
+        # Attempt synchronous warming with a 5-second cap so we don't block the supervisor
+        # indefinitely when the DB is under heavy load (e.g. during mix phoenix_kit.update
+        # while the production app is already holding connections).
+        # On success: downstream GenServers (Dashboard.Registry) start with a warm cache.
+        # On timeout/failure: start empty and schedule an async retry after 5 s, giving
+        # the DB time to shed load before we try again.
+        task = Task.async(fn -> safe_warm(warmer) end)
+
+        case Task.yield(task, 5_000) do
+          {:ok, {:ok, data}} when is_map(data) and map_size(data) > 0 ->
             warm_critical_data(state, data)
 
             Logger.info(
               "Synchronously warmed cache #{name} with #{map_size(data)} entries (sync_init)"
             )
 
-          {:ok, _empty} ->
-            Logger.warning("Cache #{name} sync_init: warmer returned no data, starting empty")
-
-          {:error, error} ->
-            Logger.error(
-              "Cache #{name} sync_init: warming failed: #{inspect(error)}, starting empty"
+          {:ok, _} ->
+            Logger.warning(
+              "Cache #{name} sync_init: warmer returned empty data, retrying async in 5 s"
             )
+
+            Process.send_after(self(), :warm_cache, 5_000)
+
+          nil ->
+            # Task is still running (DB blocked); kill it and retry async
+            Task.shutdown(task, :brutal_kill)
+
+            Logger.warning(
+              "Cache #{name} sync_init: warming timed out (DB busy?), retrying async in 5 s"
+            )
+
+            Process.send_after(self(), :warm_cache, 5_000)
         end
 
         {:ok, state}
@@ -563,12 +577,22 @@ defmodule PhoenixKit.Cache do
   @impl GenServer
   def handle_cast(:warm, %{warmer: warmer} = state) do
     case safe_warm(warmer) do
-      {:ok, data} when is_map(data) ->
+      {:ok, data} when is_map(data) and map_size(data) > 0 ->
         put_multiple(state.name, data)
         Logger.info("Warmed cache #{state.name} with #{map_size(data)} entries")
 
+      {:ok, _empty} ->
+        # Warmer ran but returned nothing — DB might not be ready yet. Retry in 10 s.
+        Logger.warning("Cache #{state.name}: warmer returned empty data, retrying in 10 s")
+        Process.send_after(self(), :warm_cache, 10_000)
+
       {:error, error} ->
-        Logger.warning("Failed to warm cache #{state.name}: #{inspect(error)}")
+        # DB error (timeout, connection refused, etc.). Retry in 10 s.
+        Logger.warning(
+          "Cache #{state.name}: warming failed (#{inspect(error)}), retrying in 10 s"
+        )
+
+        Process.send_after(self(), :warm_cache, 10_000)
 
       _ ->
         Logger.warning("Warmer for cache #{state.name} returned invalid data (expected map)")
