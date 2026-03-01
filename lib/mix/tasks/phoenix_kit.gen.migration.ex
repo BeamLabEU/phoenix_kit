@@ -77,26 +77,32 @@ defmodule Mix.Tasks.PhoenixKit.Gen.Migration do
       def change do
         execute "CREATE EXTENSION IF NOT EXISTS citext", ""
 
-        create table(:#{users_table}) do
+        create table(:#{users_table}, primary_key: false) do
+          add :uuid, :binary_id, primary_key: true
           add :email, :citext, null: false
           add :hashed_password, :string, null: false
-          add :confirmed_at, :naive_datetime
+          add :confirmed_at, :utc_datetime
 
-          timestamps()
+          timestamps(type: :utc_datetime)
         end
 
         create unique_index(:#{users_table}, [:email])
 
-        create table(:#{tokens_table}) do
-          add :user_id, references(:#{users_table}, on_delete: :delete_all), null: false
+        create table(:#{tokens_table}, primary_key: false) do
+          add :uuid, :binary_id, primary_key: true
+          add :user_uuid,
+            references(:#{users_table}, column: :uuid, type: :binary_id, on_delete: :delete_all),
+            null: false
           add :token, :binary, null: false
           add :context, :string, null: false
           add :sent_to, :string
+          add :ip_address, :string
+          add :user_agent_hash, :string
 
-          timestamps(updated_at: false)
+          timestamps(type: :utc_datetime, updated_at: false)
         end
 
-        create index(:#{tokens_table}, [:user_id])
+        create index(:#{tokens_table}, [:user_uuid])
         create unique_index(:#{tokens_table}, [:context, :token])
       end
     end
