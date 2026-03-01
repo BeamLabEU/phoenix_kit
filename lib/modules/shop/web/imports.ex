@@ -383,7 +383,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_info(
-        {:product_migrated, %{product_id: _product_id, images_migrated: _count}},
+        {:product_migrated, %{product_uuid: _product_uuid, images_migrated: _count}},
         socket
       ) do
     # Update stats on each product completion

@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
   ## Job Arguments
 
-    * `"product_id"` - The product UUID to migrate
+    * `"product_uuid"` - The product UUID to migrate
     * `"user_uuid"` - The user UUID for ownership of stored files
 
   ## Queue
@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
   ## Usage
 
       # Queue a single product for migration
-      %{product_id: product_id, user_uuid: user_uuid}
+      %{product_uuid: product_uuid, user_uuid: user_uuid}
       |> ImageMigrationWorker.new()
       |> Oban.insert()
 
@@ -33,12 +33,12 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
   alias PhoenixKit.Modules.Shop.Services.ImageDownloader
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"product_id" => product_id, "user_uuid" => user_uuid}}) do
-    Logger.info("Starting image migration for product #{product_id}")
+  def perform(%Oban.Job{args: %{"product_uuid" => product_uuid, "user_uuid" => user_uuid}}) do
+    Logger.info("Starting image migration for product #{product_uuid}")
 
-    case Shop.get_product(product_id) do
+    case Shop.get_product(product_uuid) do
       nil ->
-        Logger.warning("Product not found: #{product_id}")
+        Logger.warning("Product not found: #{product_uuid}")
         {:error, :product_not_found}
 
       product ->
@@ -46,9 +46,14 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     end
   end
 
-  # Backward-compat: jobs queued before the user_id → user_uuid rename
-  def perform(%Oban.Job{args: %{"product_id" => product_id, "user_id" => user_uuid}}) do
-    perform(%Oban.Job{args: %{"product_id" => product_id, "user_uuid" => user_uuid}})
+  # Backward-compat: jobs queued before the product_id → product_uuid rename
+  def perform(%Oban.Job{args: %{"product_id" => product_uuid, "user_uuid" => user_uuid}}) do
+    perform(%Oban.Job{args: %{"product_uuid" => product_uuid, "user_uuid" => user_uuid}})
+  end
+
+  # Backward-compat: jobs queued with both old keys (product_id + user_id)
+  def perform(%Oban.Job{args: %{"product_id" => product_uuid, "user_id" => user_uuid}}) do
+    perform(%Oban.Job{args: %{"product_uuid" => product_uuid, "user_uuid" => user_uuid}})
   end
 
   defp migrate_product_images(product, user_uuid) do
@@ -290,14 +295,14 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
   # PubSub broadcasts for progress tracking
 
-  defp broadcast_progress(product_id, index, total, url, result) do
+  defp broadcast_progress(product_uuid, index, total, url, result) do
     status = if match?({:ok, _}, result), do: :success, else: :failed
 
     PhoenixKit.PubSubHelper.broadcast(
-      "shop:image_migration:#{product_id}",
+      "shop:image_migration:#{product_uuid}",
       {:image_progress,
        %{
-         product_id: product_id,
+         product_uuid: product_uuid,
          current: index,
          total: total,
          url: url,
@@ -306,12 +311,12 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     )
   end
 
-  defp broadcast_complete(product_id, image_count) do
+  defp broadcast_complete(product_uuid, image_count) do
     PhoenixKit.PubSubHelper.broadcast(
-      "shop:image_migration:#{product_id}",
+      "shop:image_migration:#{product_uuid}",
       {:migration_complete,
        %{
-         product_id: product_id,
+         product_uuid: product_uuid,
          images_migrated: image_count
        }}
     )
@@ -319,7 +324,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     # Also broadcast to the batch migration topic
     PhoenixKit.PubSubHelper.broadcast(
       "shop:image_migration:batch",
-      {:product_migrated, %{product_id: product_id, images_migrated: image_count}}
+      {:product_migrated, %{product_uuid: product_uuid, images_migrated: image_count}}
     )
   end
 end
