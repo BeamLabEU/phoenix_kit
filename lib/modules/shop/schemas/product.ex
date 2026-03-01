@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
   - `featured_image` - Main image URL
   - `seo_title` - SEO title
   - `seo_description` - SEO description
-  - `file_id` - Storage file reference (digital products)
+  - `file_uuid` - Storage file reference (digital products)
   - `download_limit` - Max downloads (digital)
   - `download_expiry_days` - Days until download expires
   - `metadata` - JSONB for custom fields

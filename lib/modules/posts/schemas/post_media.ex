@@ -8,7 +8,7 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
   ## Fields
 
   - `post_uuid` - Reference to the post
-  - `file_id` - Reference to the uploaded file (PhoenixKit.Storage.File)
+  - `file_uuid` - Reference to the uploaded file (PhoenixKit.Storage.File)
   - `position` - Display order (1, 2, 3, etc.)
   - `caption` - Optional caption/alt text for the image
 
@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
       # First image in post
       %PostMedia{
         post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        file_id: "018e3c4a-1234-5678-abcd-ef1234567890",
+        file_uuid: "018e3c4a-1234-5678-abcd-ef1234567890",
         position: 1,
         caption: "Beautiful sunset at the beach"
       }
@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
       # Second image
       %PostMedia{
         post_uuid: "018e3c4a-9f6b-7890-abcd-ef1234567890",
-        file_id: "018e3c4a-5678-1234-abcd-ef1234567890",
+        file_uuid: "018e3c4a-5678-1234-abcd-ef1234567890",
         position: 2,
         caption: nil
       }
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Posts.PostMedia do
   ## Required Fields
 
   - `post_uuid` - Reference to post
-  - `file_id` - Reference to file
+  - `file_uuid` - Reference to file
   - `position` - Display order (must be positive)
 
   ## Validation Rules
