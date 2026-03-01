@@ -121,18 +121,22 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
   end
 
   @impl true
-  def handle_event("select_new_subscription_type", %{"subscription_type_uuid" => type_id}, socket) do
-    type_id = if type_id == "", do: nil, else: type_id
-    {:noreply, assign(socket, :selected_new_subscription_type_uuid, type_id)}
+  def handle_event(
+        "select_new_subscription_type",
+        %{"subscription_type_uuid" => type_uuid},
+        socket
+      ) do
+    type_uuid = if type_uuid == "", do: nil, else: type_uuid
+    {:noreply, assign(socket, :selected_new_subscription_type_uuid, type_uuid)}
   end
 
   @impl true
   def handle_event("change_subscription_type", _params, socket) do
-    %{subscription: subscription, selected_new_subscription_type_uuid: new_type_id} =
+    %{subscription: subscription, selected_new_subscription_type_uuid: new_type_uuid} =
       socket.assigns
 
-    if new_type_id && to_string(new_type_id) != to_string(subscription.subscription_type_uuid) do
-      case Billing.change_subscription_type(subscription, new_type_id) do
+    if new_type_uuid && to_string(new_type_uuid) != to_string(subscription.subscription_type_uuid) do
+      case Billing.change_subscription_type(subscription, new_type_uuid) do
         {:ok, updated_subscription} ->
           {:noreply,
            socket

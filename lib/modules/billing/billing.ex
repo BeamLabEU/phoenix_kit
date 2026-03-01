@@ -2841,10 +2841,10 @@ defmodule PhoenixKit.Modules.Billing do
 
   By default, the new type takes effect at the next billing cycle.
   """
-  def change_subscription_type(%Subscription{} = subscription, new_type_id, _opts \\ []) do
+  def change_subscription_type(%Subscription{} = subscription, new_type_uuid, _opts \\ []) do
     old_type_uuid = subscription.subscription_type_uuid
 
-    type_uuid = resolve_subscription_type_uuid(new_type_id)
+    type_uuid = resolve_subscription_type_uuid(new_type_uuid)
 
     result =
       subscription
@@ -2856,7 +2856,7 @@ defmodule PhoenixKit.Modules.Billing do
         Events.broadcast_subscription_type_changed(
           updated_subscription,
           old_type_uuid,
-          new_type_id
+          new_type_uuid
         )
 
         {:ok, updated_subscription}

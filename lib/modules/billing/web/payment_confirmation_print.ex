@@ -15,9 +15,9 @@ defmodule PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint do
   alias PhoenixKit.Utils.Routes
 
   @impl true
-  def mount(%{"id" => invoice_id, "transaction_id" => transaction_id}, _session, socket) do
+  def mount(%{"id" => invoice_uuid, "transaction_id" => transaction_id}, _session, socket) do
     with true <- Billing.enabled?(),
-         %{} = invoice <- Billing.get_invoice(invoice_id, preload: [:user, :order]),
+         %{} = invoice <- Billing.get_invoice(invoice_uuid, preload: [:user, :order]),
          %Transaction{} = transaction <- Billing.get_transaction(transaction_id),
          true <- Transaction.payment?(transaction) do
       mount_payment_confirmation(socket, invoice, transaction)
@@ -30,14 +30,14 @@ defmodule PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint do
 
       nil ->
         error_msg =
-          if Billing.get_invoice(invoice_id) == nil,
+          if Billing.get_invoice(invoice_uuid) == nil,
             do: "Invoice not found",
             else: "Transaction not found"
 
         redirect_path =
-          if Billing.get_invoice(invoice_id) == nil,
+          if Billing.get_invoice(invoice_uuid) == nil,
             do: Routes.path("/admin/billing/invoices"),
-            else: Routes.path("/admin/billing/invoices/#{invoice_id}")
+            else: Routes.path("/admin/billing/invoices/#{invoice_uuid}")
 
         {:ok,
          socket
@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint do
         {:ok,
          socket
          |> put_flash(:error, "Transaction is not a payment")
-         |> push_navigate(to: Routes.path("/admin/billing/invoices/#{invoice_id}"))}
+         |> push_navigate(to: Routes.path("/admin/billing/invoices/#{invoice_uuid}"))}
     end
   end
 

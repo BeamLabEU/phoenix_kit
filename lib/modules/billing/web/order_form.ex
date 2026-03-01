@@ -129,7 +129,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
     # Auto-select default profile if available, otherwise select first profile
     default_profile = Enum.find(billing_profiles, & &1.is_default)
     selected_profile = default_profile || List.first(billing_profiles)
-    selected_profile_id = if selected_profile, do: selected_profile.uuid, else: nil
+    selected_profile_uuid = if selected_profile, do: selected_profile.uuid, else: nil
 
     # Get country tax info for selected profile
     {country_tax_rate, country_name, country_vat_percent} =
@@ -143,7 +143,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
      socket
      |> assign(:selected_user_uuid, user_id)
      |> assign(:billing_profiles, billing_profiles)
-     |> assign(:selected_billing_profile_uuid, selected_profile_id)
+     |> assign(:selected_billing_profile_uuid, selected_profile_uuid)
      |> assign(:country_tax_rate, country_tax_rate)
      |> assign(:country_name, country_name)
      |> assign(:country_vat_percent, country_vat_percent)}
@@ -152,15 +152,15 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
   @impl true
   def handle_event(
         "select_billing_profile",
-        %{"order" => %{"billing_profile_uuid" => profile_id}},
+        %{"order" => %{"billing_profile_uuid" => profile_uuid}},
         socket
       ) do
-    handle_billing_profile_selection(profile_id, socket)
+    handle_billing_profile_selection(profile_uuid, socket)
   end
 
   @impl true
-  def handle_event("select_billing_profile", %{"profile_id" => profile_id}, socket) do
-    handle_billing_profile_selection(profile_id, socket)
+  def handle_event("select_billing_profile", %{"profile_id" => profile_uuid}, socket) do
+    handle_billing_profile_selection(profile_uuid, socket)
   end
 
   @impl true
@@ -272,12 +272,12 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
       {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
-  defp handle_billing_profile_selection(profile_id, socket) do
-    profile_id = if profile_id == "", do: nil, else: profile_id
+  defp handle_billing_profile_selection(profile_uuid, socket) do
+    profile_uuid = if profile_uuid == "", do: nil, else: profile_uuid
 
     {country_tax_rate, country_name, country_vat_percent} =
-      if profile_id do
-        case Billing.get_billing_profile(profile_id) do
+      if profile_uuid do
+        case Billing.get_billing_profile(profile_uuid) do
           nil -> {nil, nil, nil}
           profile -> get_country_tax_info(profile.country)
         end
@@ -287,7 +287,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
 
     {:noreply,
      socket
-     |> assign(:selected_billing_profile_uuid, profile_id)
+     |> assign(:selected_billing_profile_uuid, profile_uuid)
      |> assign(:country_tax_rate, country_tax_rate)
      |> assign(:country_name, country_name)
      |> assign(:country_vat_percent, country_vat_percent)}
