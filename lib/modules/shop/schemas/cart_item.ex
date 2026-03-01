@@ -11,8 +11,8 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
 
   ## Fields
 
-  - `cart_id` - Reference to the cart (required)
-  - `product_id` - Reference to the product (nullable, ON DELETE SET NULL)
+  - `cart_uuid` - Reference to the cart (required)
+  - `product_uuid` - Reference to the product (nullable, ON DELETE SET NULL)
   - `product_title` - Product title snapshot (required)
   - `product_slug` - Product slug snapshot
   - `product_sku` - Product SKU snapshot
@@ -113,7 +113,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
 
       iex> from_product(product, 2)
       %{
-        product_id: 1,
+        product_uuid: "01234567-...",
         product_title: "Widget",
         product_slug: "widget",
         unit_price: Decimal.new("19.99"),
@@ -218,7 +218,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   end
 
   @doc """
-  Returns true if the product has been deleted (product_id is nil after SET NULL).
+  Returns true if the product has been deleted (product_uuid is nil after SET NULL).
   """
   def product_deleted?(%__MODULE__{product_uuid: nil}), do: true
   def product_deleted?(_), do: false

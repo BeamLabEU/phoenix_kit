@@ -1559,7 +1559,7 @@ defmodule PhoenixKit.Modules.Emails do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.get_log!(123)
+      iex> PhoenixKit.Modules.Emails.get_log!("018f1234-5678-7890-abcd-ef1234567890")
       %Log{}
   """
   def get_log!(id) do

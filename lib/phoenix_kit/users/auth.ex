@@ -1570,7 +1570,7 @@ defmodule PhoenixKit.Users.Auth do
   - `user` - The User struct to update
   - `file_path` - Path to the uploaded file (temporary location)
   - `filename` - Original filename for the upload
-  - `user_id` - The user ID owning this file (defaults to user.uuid)
+  - `user_uuid` - The user UUID owning this file (defaults to user.uuid)
 
   ## Returns
   - `{:ok, user}` - Avatar saved successfully
@@ -1581,8 +1581,8 @@ defmodule PhoenixKit.Users.Auth do
       # Store avatar in default location with automatic variant generation
       {:ok, updated_user} = Auth.update_user_avatar(user, "/tmp/upload_xyz", "avatar.jpg")
 
-      # Store with explicit user_id (for custom workflows)
-      {:ok, updated_user} = Auth.update_user_avatar(user, "/tmp/upload_xyz", "avatar.jpg", custom_user_id)
+      # Store with explicit user_uuid (for custom workflows)
+      {:ok, updated_user} = Auth.update_user_avatar(user, "/tmp/upload_xyz", "avatar.jpg", custom_user_uuid)
 
   ## Automatically Generated Variants
   The storage layer automatically generates these image variants:
@@ -2188,9 +2188,9 @@ defmodule PhoenixKit.Users.Auth do
   - Admin notes
 
   ### Anonymize (preserve data, remove PII)
-  - Orders - SET NULL on user_id, preserve financial records
-  - Posts - Keep content, set user_id to NULL, mark as deleted author
-  - Comments - Keep content, set user_id to NULL, mark as deleted author
+  - Orders - SET NULL on user_uuid, preserve financial records
+  - Posts - Keep content, set user_uuid to NULL, mark as deleted author
+  - Comments - Keep content, set user_uuid to NULL, mark as deleted author
   - Tickets - Preserve for support history, anonymize
   - Email logs - Retain for compliance, anonymize
   - Files - Anonymize ownership
@@ -2373,13 +2373,13 @@ defmodule PhoenixKit.Users.Auth do
   defp anonymize_user_data(%User{} = user) do
     anonymized_count = 0
 
-    # Anonymize orders - set user_id to NULL
+    # Anonymize orders - set user_uuid to NULL
     orders_count = anonymize_user_orders(user.uuid)
 
-    # Anonymize posts - set user_id to NULL, mark as deleted author
+    # Anonymize posts - set user_uuid to NULL, mark as deleted author
     posts_count = anonymize_user_posts(user.uuid)
 
-    # Anonymize comments - set user_id to NULL, mark as deleted author
+    # Anonymize comments - set user_uuid to NULL, mark as deleted author
     comments_count = anonymize_user_comments(user.uuid)
 
     # Anonymize tickets - preserve for support history
@@ -2400,7 +2400,7 @@ defmodule PhoenixKit.Users.Auth do
       files_count
   end
 
-  # Anonymize orders by setting user_id to NULL
+  # Anonymize orders by setting user_uuid to NULL
   defp anonymize_user_orders(user_uuid) do
     # Check if Orders module exists and has the schema
     # Note: Order schema doesn't exist in Shop module yet - this is for future compatibility
@@ -2425,7 +2425,7 @@ defmodule PhoenixKit.Users.Auth do
     _ -> 0
   end
 
-  # Anonymize posts by setting user_id to NULL and marking deleted author
+  # Anonymize posts by setting user_uuid to NULL and marking deleted author
   defp anonymize_user_posts(user_uuid) do
     module = Module.concat([PhoenixKit, Modules, Posts, Post])
 
@@ -2449,7 +2449,7 @@ defmodule PhoenixKit.Users.Auth do
     _ -> 0
   end
 
-  # Anonymize comments by setting user_id to NULL and marking deleted author
+  # Anonymize comments by setting user_uuid to NULL and marking deleted author
   defp anonymize_user_comments(user_uuid) do
     # Anonymize legacy PostComments (Posts module)
     legacy_count = anonymize_legacy_post_comments(user_uuid)

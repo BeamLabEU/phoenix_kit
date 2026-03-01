@@ -19,15 +19,15 @@ defmodule PhoenixKit.Modules.Publishing.Storage.Helpers do
   """
   @spec apply_creation_audit_metadata(map(), map()) :: map()
   def apply_creation_audit_metadata(metadata, audit_meta) do
-    created_id = audit_value(audit_meta, :created_by_uuid)
+    created_uuid = audit_value(audit_meta, :created_by_uuid)
     created_email = audit_value(audit_meta, :created_by_email)
-    updated_id = audit_value(audit_meta, :updated_by_uuid) || created_id
+    updated_uuid = audit_value(audit_meta, :updated_by_uuid) || created_uuid
     updated_email = audit_value(audit_meta, :updated_by_email) || created_email
 
     metadata
-    |> maybe_put_audit_field(:created_by_uuid, created_id)
+    |> maybe_put_audit_field(:created_by_uuid, created_uuid)
     |> maybe_put_audit_field(:created_by_email, created_email)
-    |> maybe_put_audit_field(:updated_by_uuid, updated_id)
+    |> maybe_put_audit_field(:updated_by_uuid, updated_uuid)
     |> maybe_put_audit_field(:updated_by_email, updated_email)
   end
 

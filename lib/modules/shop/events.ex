@@ -8,19 +8,19 @@ defmodule PhoenixKit.Modules.Shop.Events do
 
   ## Topics
 
-  - `shop:cart:user:{user_id}` - Cart events for authenticated users
+  - `shop:cart:user:{user_uuid}` - Cart events for authenticated users
   - `shop:cart:session:{session_id}` - Cart events for guest sessions
   - `shop:products` - Product events (created, updated, deleted)
   - `shop:categories` - Category events (created, updated, deleted)
   - `shop:inventory` - Inventory events (stock changes)
-  - `shop:products:{product_id}` - Individual product events
+  - `shop:products:{product_uuid}` - Individual product events
 
   ## Events
 
   ### Cart Events
   - `{:cart_updated, cart}` - Cart totals changed (generic update)
   - `{:item_added, cart, item}` - Item added to cart
-  - `{:item_removed, cart, item_id}` - Item removed from cart
+  - `{:item_removed, cart, item_uuid}` - Item removed from cart
   - `{:quantity_updated, cart, item}` - Item quantity changed
   - `{:shipping_selected, cart}` - Shipping method selected/changed
   - `{:payment_selected, cart}` - Payment option selected/changed
@@ -29,21 +29,21 @@ defmodule PhoenixKit.Modules.Shop.Events do
   ### Product Events
   - `{:product_created, product}` - New product created
   - `{:product_updated, product}` - Product updated
-  - `{:product_deleted, product_id}` - Product deleted
+  - `{:product_deleted, product_uuid}` - Product deleted
   - `{:products_bulk_status_changed, product_ids, status}` - Bulk status update
 
   ### Category Events
   - `{:category_created, category}` - New category created
   - `{:category_updated, category}` - Category updated
-  - `{:category_deleted, category_id}` - Category deleted
+  - `{:category_deleted, category_uuid}` - Category deleted
 
   ### Inventory Events
-  - `{:inventory_updated, product_id, stock_change}` - Stock level changed
+  - `{:inventory_updated, product_uuid, stock_change}` - Stock level changed
 
   ## Examples
 
       # Subscribe to cart updates for authenticated user
-      Events.subscribe_to_user_cart(user_id)
+      Events.subscribe_to_user_cart(user_uuid)
 
       # Subscribe to cart updates for guest session
       Events.subscribe_to_session_cart(session_id)
@@ -100,8 +100,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Returns the PubSub topic for a user's cart.
   """
-  def user_cart_topic(user_id) when not is_nil(user_id) do
-    "shop:cart:user:#{user_id}"
+  def user_cart_topic(user_uuid) when not is_nil(user_uuid) do
+    "shop:cart:user:#{user_uuid}"
   end
 
   @doc """
@@ -124,8 +124,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Returns the PubSub topic for a specific product.
   """
-  def product_topic(product_id) when not is_nil(product_id) do
-    "#{@products_topic}:#{product_id}"
+  def product_topic(product_uuid) when not is_nil(product_uuid) do
+    "#{@products_topic}:#{product_uuid}"
   end
 
   # ============================================
@@ -146,8 +146,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Subscribes to events for a specific product.
   """
-  def subscribe_product(product_id) when not is_nil(product_id) do
-    Manager.subscribe(product_topic(product_id))
+  def subscribe_product(product_uuid) when not is_nil(product_uuid) do
+    Manager.subscribe(product_topic(product_uuid))
   end
 
   # --------------------------------------------
@@ -185,8 +185,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Subscribes to cart events for an authenticated user.
   """
-  def subscribe_to_user_cart(user_id) when not is_nil(user_id) do
-    Manager.subscribe(user_cart_topic(user_id))
+  def subscribe_to_user_cart(user_uuid) when not is_nil(user_uuid) do
+    Manager.subscribe(user_cart_topic(user_uuid))
   end
 
   @doc """
@@ -208,8 +208,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Unsubscribes from cart events for an authenticated user.
   """
-  def unsubscribe_from_user_cart(user_id) when not is_nil(user_id) do
-    Manager.unsubscribe(user_cart_topic(user_id))
+  def unsubscribe_from_user_cart(user_uuid) when not is_nil(user_uuid) do
+    Manager.unsubscribe(user_cart_topic(user_uuid))
   end
 
   @doc """
@@ -241,8 +241,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Broadcasts product deleted event.
   """
-  def broadcast_product_deleted(product_id) do
-    broadcast(@products_topic, {:product_deleted, product_id})
+  def broadcast_product_deleted(product_uuid) do
+    broadcast(@products_topic, {:product_deleted, product_uuid})
   end
 
   @doc """
@@ -273,8 +273,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Broadcasts category deleted event.
   """
-  def broadcast_category_deleted(category_id) do
-    broadcast(@categories_topic, {:category_deleted, category_id})
+  def broadcast_category_deleted(category_uuid) do
+    broadcast(@categories_topic, {:category_deleted, category_uuid})
   end
 
   @doc """
@@ -305,9 +305,9 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Broadcasts inventory updated event.
   """
-  def broadcast_inventory_updated(product_id, stock_change) do
-    broadcast(@inventory_topic, {:inventory_updated, product_id, stock_change})
-    broadcast(product_topic(product_id), {:inventory_updated, product_id, stock_change})
+  def broadcast_inventory_updated(product_uuid, stock_change) do
+    broadcast(@inventory_topic, {:inventory_updated, product_uuid, stock_change})
+    broadcast(product_topic(product_uuid), {:inventory_updated, product_uuid, stock_change})
   end
 
   # ============================================
@@ -331,8 +331,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Broadcasts item removed event.
   """
-  def broadcast_item_removed(%Cart{} = cart, item_id) do
-    broadcast_to_cart(cart, {:item_removed, cart, item_id})
+  def broadcast_item_removed(%Cart{} = cart, item_uuid) do
+    broadcast_to_cart(cart, {:item_removed, cart, item_uuid})
   end
 
   @doc """

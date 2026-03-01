@@ -2206,7 +2206,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   @doc false
   def audit_metadata(scope, action) do
-    user_id =
+    user_uuid =
       scope
       |> Scope.user_uuid()
       |> normalize_audit_value()
@@ -2220,7 +2220,7 @@ defmodule PhoenixKit.Modules.Publishing do
       case action do
         :create ->
           %{
-            created_by_uuid: user_id,
+            created_by_uuid: user_uuid,
             created_by_email: user_email
           }
 
@@ -2229,7 +2229,7 @@ defmodule PhoenixKit.Modules.Publishing do
       end
 
     base
-    |> maybe_put_audit(:updated_by_uuid, user_id)
+    |> maybe_put_audit(:updated_by_uuid, user_uuid)
     |> maybe_put_audit(:updated_by_email, user_email)
   end
 
@@ -2390,7 +2390,7 @@ defmodule PhoenixKit.Modules.Publishing do
   - `:source_language` - Source language to translate from (defaults to primary language)
   - `:target_languages` - List of target language codes (defaults to all enabled except source)
   - `:version` - Version number to translate (defaults to latest/published)
-  - `:user_id` - User ID for audit trail
+  - `:user_id` - User UUID for audit trail
 
   ## Configuration
 

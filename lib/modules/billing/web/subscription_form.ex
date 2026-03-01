@@ -62,8 +62,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   end
 
   @impl true
-  def handle_event("select_user", %{"id" => user_id}, socket) do
-    case Auth.get_user(user_id) do
+  def handle_event("select_user", %{"id" => user_uuid}, socket) do
+    case Auth.get_user(user_uuid) do
       nil ->
         {:noreply, put_flash(socket, :error, "User not found")}
 
@@ -92,13 +92,13 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   end
 
   @impl true
-  def handle_event("select_subscription_type", %{"subscription_type_uuid" => type_id}, socket) do
-    type_id = if type_id == "", do: nil, else: type_id
+  def handle_event("select_subscription_type", %{"subscription_type_uuid" => type_uuid}, socket) do
+    type_uuid = if type_uuid == "", do: nil, else: type_uuid
 
     # Get subscription type's default trial days
     trial_days =
-      if type_id do
-        case Enum.find(socket.assigns.subscription_types, &(to_string(&1.uuid) == type_id)) do
+      if type_uuid do
+        case Enum.find(socket.assigns.subscription_types, &(to_string(&1.uuid) == type_uuid)) do
           %{trial_days: days} when is_integer(days) and days > 0 -> to_string(days)
           _ -> ""
         end
@@ -108,15 +108,15 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
 
     {:noreply,
      socket
-     |> assign(:selected_subscription_type_uuid, type_id)
+     |> assign(:selected_subscription_type_uuid, type_uuid)
      |> assign(:trial_days, trial_days)
      |> assign(:enable_trial, trial_days != "")}
   end
 
   @impl true
-  def handle_event("select_payment_method", %{"payment_method_uuid" => pm_id}, socket) do
-    pm_id = if pm_id == "", do: nil, else: pm_id
-    {:noreply, assign(socket, :selected_payment_method_uuid, pm_id)}
+  def handle_event("select_payment_method", %{"payment_method_uuid" => pm_uuid}, socket) do
+    pm_uuid = if pm_uuid == "", do: nil, else: pm_uuid
+    {:noreply, assign(socket, :selected_payment_method_uuid, pm_uuid)}
   end
 
   @impl true
@@ -139,8 +139,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   def handle_event("save", _params, socket) do
     %{
       selected_user: user,
-      selected_subscription_type_uuid: type_id,
-      selected_payment_method_uuid: pm_id,
+      selected_subscription_type_uuid: type_uuid,
+      selected_payment_method_uuid: pm_uuid,
       enable_trial: enable_trial,
       trial_days: trial_days
     } = socket.assigns
@@ -149,13 +149,13 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
       is_nil(user) ->
         {:noreply, assign(socket, :error, "Please select a customer")}
 
-      is_nil(type_id) ->
+      is_nil(type_uuid) ->
         {:noreply, assign(socket, :error, "Please select a subscription type")}
 
       true ->
         attrs = %{
-          subscription_type_uuid: type_id,
-          payment_method_uuid: pm_id,
+          subscription_type_uuid: type_uuid,
+          payment_method_uuid: pm_uuid,
           trial_days:
             if(enable_trial && trial_days != "", do: String.to_integer(trial_days), else: 0)
         }

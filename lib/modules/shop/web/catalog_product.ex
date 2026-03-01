@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         # Get session_id for guest cart
         session_id = session["shop_session_id"] || generate_session_id()
         user = Helpers.get_current_user(socket)
-        user_id = if user, do: user.uuid, else: nil
+        user_uuid = if user, do: user.uuid, else: nil
 
         currency = Shop.get_default_currency()
 
@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         calculated_price = Shop.calculate_product_price(product, selected_specs)
 
         # Check if product is already in cart
-        cart_item = find_cart_item_with_specs(user_id, session_id, product.uuid, selected_specs)
+        cart_item = find_cart_item_with_specs(user_uuid, session_id, product.uuid, selected_specs)
 
         # Calculate missing required specs for UI (check all selectable specs, not just price-affecting)
         missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
@@ -112,8 +112,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           |> assign(:currency, currency)
           |> assign(:quantity, 1)
           |> assign(:session_id, session_id)
-          |> assign(:user_id, user_id)
-          |> assign(:user_uuid, if(user, do: user.uuid))
+          |> assign(:user_uuid, user_uuid)
           |> assign(:selected_image, first_image(product))
           |> assign(:adding_to_cart, false)
           |> assign(:authenticated, authenticated)
@@ -201,7 +200,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     # This is acceptable since this path is only hit on first mount, not during LiveView lifecycle
     session_id = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
     user = Helpers.get_current_user(socket)
-    user_id = if user, do: user.uuid, else: nil
+    user_uuid = if user, do: user.uuid, else: nil
 
     currency = Shop.get_default_currency()
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
@@ -212,7 +211,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     selectable_specs = Shop.get_selectable_specs(product)
     selected_specs = build_default_specs(selectable_specs, product.metadata || %{})
     calculated_price = Shop.calculate_product_price(product, selected_specs)
-    cart_item = find_cart_item_with_specs(user_id, session_id, product.uuid, selected_specs)
+    cart_item = find_cart_item_with_specs(user_uuid, session_id, product.uuid, selected_specs)
     missing_required_specs = get_missing_required_specs(selected_specs, selectable_specs)
 
     all_categories = Shop.list_active_categories(preload: [:featured_product])
@@ -246,7 +245,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       |> assign(:currency, currency)
       |> assign(:quantity, 1)
       |> assign(:session_id, session_id)
-      |> assign(:user_id, user_id)
+      |> assign(:user_uuid, user_uuid)
       |> assign(:selected_image, first_image(product))
       |> assign(:adding_to_cart, false)
       |> assign(:authenticated, authenticated)
@@ -314,7 +313,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     # Check if this combination is in cart
     cart_item =
       find_cart_item_with_specs(
-        socket.assigns.user_id,
+        socket.assigns.user_uuid,
         socket.assigns.session_id,
         product.uuid,
         selected_specs
@@ -368,8 +367,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     # Get or create cart
     {:ok, cart} =
       Shop.get_or_create_cart(
-        user_id: socket.assigns.user_id,
-        user_uuid: socket.assigns[:user_uuid],
+        user_uuid: socket.assigns.user_uuid,
         session_id: socket.assigns.session_id
       )
 
@@ -428,7 +426,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           "Failed to add to cart",
           reason,
           socket.assigns.product.uuid,
-          socket.assigns.user_id
+          socket.assigns.user_uuid
         )
 
         {:noreply,
@@ -445,7 +443,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           "Failed to add to cart",
           {code, detail},
           socket.assigns.product.uuid,
-          socket.assigns.user_id
+          socket.assigns.user_uuid
         )
 
         # Show user-friendly message based on error code
@@ -500,14 +498,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   # Log cart errors for admin monitoring and debugging
   # In production, this could trigger alerts via email, Slack, or error tracking service
-  defp log_cart_error(message, error_details, product_id, user_id) do
+  defp log_cart_error(message, error_details, product_uuid, user_uuid) do
     require Logger
 
     error_info = %{
       message: message,
       error: error_details,
-      product_id: product_id,
-      user_id: user_id,
+      product_uuid: product_uuid,
+      user_uuid: user_uuid,
       timestamp: UtilsDate.utc_now()
     }
 
@@ -1224,8 +1222,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   # Find cart item matching selected specs
-  defp find_cart_item_with_specs(user_id, session_id, product_uuid, selected_specs) do
-    case Shop.find_active_cart(user_id: user_id, session_id: session_id) do
+  defp find_cart_item_with_specs(user_uuid, session_id, product_uuid, selected_specs) do
+    case Shop.find_active_cart(user_uuid: user_uuid, session_id: session_id) do
       %{items: items} when is_list(items) ->
         Enum.find(items, fn item ->
           item.product_uuid == product_uuid &&

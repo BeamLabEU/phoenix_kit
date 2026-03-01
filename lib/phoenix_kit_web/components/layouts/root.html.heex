@@ -119,10 +119,10 @@
       <p>Welcome back, {PhoenixKit.Users.Auth.Scope.user_email(@phoenix_kit_current_scope)}!</p>
     <% end %> --%>
 
-    <%!-- Access user ID for database queries or links --%>
+    <%!-- Access user UUID for database queries or links --%>
     <%!-- <%= if assigns[:phoenix_kit_current_scope] do %>
-      <%= if user_id = PhoenixKit.Users.Auth.Scope.user_id(@phoenix_kit_current_scope) do %>
-        <.link href={PhoenixKit.Utils.Routes.path("/admin/users/#{user_id}")}>View Profile</.link>
+      <%= if user_uuid = PhoenixKit.Users.Auth.Scope.user_uuid(@phoenix_kit_current_scope) do %>
+        <.link href={PhoenixKit.Utils.Routes.path("/admin/users/#{user_uuid}")}>View Profile</.link>
       <% end %>
     <% end %> --%>
 

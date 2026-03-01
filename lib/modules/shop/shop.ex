@@ -878,7 +878,7 @@ defmodule PhoenixKit.Modules.Shop do
   Lists all categories.
 
   ## Options
-  - `:parent_id` - Filter by parent (nil for root categories)
+  - `:parent_uuid` - Filter by parent UUID (nil for root categories)
   - `:status` - Filter by status: "active", "hidden", "archived", or list of statuses
   - `:search` - Search in name
   - `:preload` - Associations to preload
@@ -911,7 +911,7 @@ defmodule PhoenixKit.Modules.Shop do
   Lists root categories (no parent).
   """
   def list_root_categories(opts \\ []) do
-    list_categories(Keyword.put(opts, :parent_id, nil))
+    list_categories(Keyword.put(opts, :parent_uuid, nil))
   end
 
   @doc """
@@ -1397,7 +1397,7 @@ defmodule PhoenixKit.Modules.Shop do
   - `:session_id` - Session ID (for guests)
   """
   def get_or_create_cart(opts) do
-    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     session_id = Keyword.get(opts, :session_id)
 
     case find_active_cart(user_uuid: user_uuid, session_id: session_id) do
@@ -1415,7 +1415,7 @@ defmodule PhoenixKit.Modules.Shop do
   3. If only session_id is provided, search by session_id with no user_uuid
   """
   def find_active_cart(opts) do
-    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     session_id = Keyword.get(opts, :session_id)
 
     base_query =
@@ -2598,15 +2598,10 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp apply_category_filters(query, opts) do
     query
-    |> filter_by_parent(Keyword.get(opts, :parent_id, :skip))
     |> filter_by_parent_uuid(Keyword.get(opts, :parent_uuid, :skip))
     |> filter_by_category_status(Keyword.get(opts, :status, :skip))
     |> filter_by_category_search(Keyword.get(opts, :search))
   end
-
-  defp filter_by_parent(query, :skip), do: query
-  defp filter_by_parent(query, nil), do: where(query, [c], is_nil(c.parent_uuid))
-  defp filter_by_parent(query, id), do: where(query, [c], fragment("parent_id = ?", ^id))
 
   defp filter_by_parent_uuid(query, :skip), do: query
   defp filter_by_parent_uuid(query, nil), do: where(query, [c], is_nil(c.parent_uuid))

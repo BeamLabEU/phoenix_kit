@@ -8,13 +8,13 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   ## Usage
 
       # Download and store a single image
-      {:ok, file_id} = ImageDownloader.download_and_store(url, user_id)
+      {:ok, file_id} = ImageDownloader.download_and_store(url, user_uuid)
 
       # Download with options
-      {:ok, file_id} = ImageDownloader.download_and_store(url, user_id, timeout: 30_000)
+      {:ok, file_id} = ImageDownloader.download_and_store(url, user_uuid, timeout: 30_000)
 
       # Batch download multiple images
-      results = ImageDownloader.download_batch(urls, user_id)
+      results = ImageDownloader.download_batch(urls, user_uuid)
       # => [{url, {:ok, file_id}}, {url, {:error, reason}}, ...]
 
   """
@@ -74,16 +74,16 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
 
   ## Examples
 
-      iex> download_and_store("https://cdn.shopify.com/image.jpg", user_id)
+      iex> download_and_store("https://cdn.shopify.com/image.jpg", user_uuid)
       {:ok, "018f1234-5678-7890-abcd-ef1234567890"}
 
-      iex> download_and_store("https://example.com/404.jpg", user_id)
+      iex> download_and_store("https://example.com/404.jpg", user_uuid)
       {:error, :not_found}
 
   """
-  @spec download_and_store(String.t(), String.t() | integer(), keyword()) ::
+  @spec download_and_store(String.t(), String.t() | nil, keyword()) ::
           {:ok, String.t()} | {:error, atom() | String.t()}
-  def download_and_store(url, user_id, opts \\ []) when is_binary(url) do
+  def download_and_store(url, user_uuid, opts \\ []) when is_binary(url) do
     metadata = Keyword.get(opts, :metadata, %{})
 
     with {:ok, temp_path, content_type, size} <- download_image(url, opts) do
@@ -107,20 +107,20 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
             "[ImageDownloader] Storing new file from URL #{url}, temp_path=#{temp_path}, size=#{size}"
           )
 
-          store_new_file(temp_path, filename, content_type, size, user_id, url, metadata)
+          store_new_file(temp_path, filename, content_type, size, user_uuid, url, metadata)
       end
     end
   end
 
   # Store a new file after verifying it exists
-  defp store_new_file(temp_path, filename, content_type, size, user_id, url, metadata) do
+  defp store_new_file(temp_path, filename, content_type, size, user_uuid, url, metadata) do
     if File.exists?(temp_path) do
       result =
         Storage.store_file(temp_path,
           filename: filename,
           content_type: content_type,
           size_bytes: size,
-          user_id: user_id,
+          user_uuid: user_uuid,
           metadata: Map.merge(metadata, %{"source_url" => url})
         )
 
@@ -182,13 +182,13 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
 
   ## Examples
 
-      iex> download_batch(["url1", "url2", "url3"], user_id)
+      iex> download_batch(["url1", "url2", "url3"], user_uuid)
       [{"url1", {:ok, "uuid-1"}}, {"url2", {:ok, "uuid-2"}}, {"url3", {:error, :timeout}}]
 
   """
-  @spec download_batch([String.t()], String.t() | integer(), keyword()) ::
+  @spec download_batch([String.t()], String.t() | nil, keyword()) ::
           [{String.t(), {:ok, String.t()} | {:error, atom() | String.t()}}]
-  def download_batch(urls, user_id, opts \\ []) when is_list(urls) do
+  def download_batch(urls, user_uuid, opts \\ []) when is_list(urls) do
     concurrency = Keyword.get(opts, :concurrency, 5)
     on_progress = Keyword.get(opts, :on_progress)
     total = length(urls)
@@ -199,7 +199,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
     indexed_urls
     |> Task.async_stream(
       fn {url, index} ->
-        result = download_and_store(url, user_id, opts)
+        result = download_and_store(url, user_uuid, opts)
 
         if on_progress do
           on_progress.(url, result, index, total)

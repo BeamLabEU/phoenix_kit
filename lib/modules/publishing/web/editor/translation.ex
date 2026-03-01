@@ -130,7 +130,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   """
   def do_enqueue_translation(socket, target_languages) do
     user = socket.assigns[:phoenix_kit_current_scope]
-    user_id = if user, do: user.user.uuid, else: nil
+    user_uuid = if user, do: user.user.uuid, else: nil
     post = socket.assigns.post
 
     # Get the source language from the post's stored primary_language
@@ -151,7 +151,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
            post_identifier,
            endpoint_id: socket.assigns.ai_selected_endpoint_id,
            version: socket.assigns.current_version,
-           user_id: user_id,
+           user_id: user_uuid,
            target_languages: target_languages,
            source_language: source_language
          ) do

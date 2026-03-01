@@ -123,18 +123,18 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   end
 
   @impl true
-  def handle_event("view_post", %{"id" => post_id}, socket) do
-    {:noreply, socket |> push_navigate(to: Routes.path("/admin/posts/#{post_id}"))}
+  def handle_event("view_post", %{"id" => post_uuid}, socket) do
+    {:noreply, socket |> push_navigate(to: Routes.path("/admin/posts/#{post_uuid}"))}
   end
 
   @impl true
-  def handle_event("edit_post", %{"id" => post_id}, socket) do
-    {:noreply, socket |> push_navigate(to: Routes.path("/admin/posts/#{post_id}/edit"))}
+  def handle_event("edit_post", %{"id" => post_uuid}, socket) do
+    {:noreply, socket |> push_navigate(to: Routes.path("/admin/posts/#{post_uuid}/edit"))}
   end
 
   @impl true
-  def handle_event("delete_post", %{"id" => post_id}, socket) do
-    case Posts.get_post!(post_id) do
+  def handle_event("delete_post", %{"id" => post_uuid}, socket) do
+    case Posts.get_post!(post_uuid) do
       nil ->
         {:noreply, socket |> put_flash(:error, "Post not found")}
 
@@ -154,8 +154,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   end
 
   @impl true
-  def handle_event("publish_post", %{"id" => post_id}, socket) do
-    case Posts.get_post!(post_id) do
+  def handle_event("publish_post", %{"id" => post_uuid}, socket) do
+    case Posts.get_post!(post_uuid) do
       nil ->
         {:noreply, socket |> put_flash(:error, "Post not found")}
 
@@ -175,8 +175,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   end
 
   @impl true
-  def handle_event("draft_post", %{"id" => post_id}, socket) do
-    case Posts.get_post!(post_id) do
+  def handle_event("draft_post", %{"id" => post_uuid}, socket) do
+    case Posts.get_post!(post_uuid) do
       nil ->
         {:noreply, socket |> put_flash(:error, "Post not found")}
 
@@ -196,12 +196,12 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   end
 
   @impl true
-  def handle_event("select_post", %{"id" => post_id, "value" => value}, socket) do
+  def handle_event("select_post", %{"id" => post_uuid, "value" => value}, socket) do
     selected_posts =
       if value == "on" do
-        [post_id | socket.assigns.selected_posts] |> Enum.uniq()
+        [post_uuid | socket.assigns.selected_posts] |> Enum.uniq()
       else
-        Enum.reject(socket.assigns.selected_posts, &(&1 == post_id))
+        Enum.reject(socket.assigns.selected_posts, &(&1 == post_uuid))
       end
 
     {:noreply, assign(socket, :selected_posts, selected_posts)}
@@ -222,8 +222,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   @impl true
   def handle_event("bulk_publish", _params, socket) do
     count =
-      Enum.reduce(socket.assigns.selected_posts, 0, fn post_id, acc ->
-        case Posts.get_post!(post_id) do
+      Enum.reduce(socket.assigns.selected_posts, 0, fn post_uuid, acc ->
+        case Posts.get_post!(post_uuid) do
           nil ->
             acc
 
@@ -246,8 +246,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   @impl true
   def handle_event("bulk_delete", _params, socket) do
     count =
-      Enum.reduce(socket.assigns.selected_posts, 0, fn post_id, acc ->
-        case Posts.get_post!(post_id) do
+      Enum.reduce(socket.assigns.selected_posts, 0, fn post_uuid, acc ->
+        case Posts.get_post!(post_uuid) do
           nil ->
             acc
 

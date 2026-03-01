@@ -151,7 +151,7 @@ defmodule PhoenixKit.Mailer do
           delivery_opts =
             opts
             |> Keyword.put(:template_name, template_name)
-            |> Keyword.put(:template_id, template.id)
+            |> Keyword.put(:template_uuid, template.uuid)
             |> Keyword.put_new(:campaign_id, template.category)
             |> Keyword.put(:category, template.category)
             |> Keyword.put_new(:source_module, source_module)
@@ -383,17 +383,11 @@ defmodule PhoenixKit.Mailer do
       :ok
   end
 
-  # Extract log ID from email headers
+  # Extract log UUID from email headers
   defp extract_log_id_from_email(email) do
     case get_in(email.headers, ["X-PhoenixKit-Log-Id"]) do
-      nil ->
-        nil
-
-      log_id_str ->
-        case Integer.parse(log_id_str) do
-          {log_id, _} -> log_id
-          _ -> nil
-        end
+      nil -> nil
+      log_uuid when is_binary(log_uuid) -> log_uuid
     end
   end
 

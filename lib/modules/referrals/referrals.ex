@@ -263,13 +263,10 @@ defmodule PhoenixKit.Modules.Referrals do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Referrals.get_code!(123)
-      %PhoenixKit.Modules.Referrals{}
-
       iex> PhoenixKit.Modules.Referrals.get_code!("550e8400-e29b-41d4-a716-446655440000")
       %PhoenixKit.Modules.Referrals{}
 
-      iex> PhoenixKit.Modules.Referrals.get_code!(456)
+      iex> PhoenixKit.Modules.Referrals.get_code!("00000000-0000-0000-0000-000000000000")
       ** (Ecto.NoResultsError)
   """
   def get_code!(id) do

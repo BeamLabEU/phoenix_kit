@@ -479,10 +479,10 @@ defmodule PhoenixKit.Modules.Entities do
     if has_created_by_uuid do
       attrs
     else
-      case Auth.get_first_admin_id() do
+      case Auth.get_first_admin_uuid() do
         nil ->
           # Fall back to first user if no admin exists
-          case Auth.get_first_user_id() do
+          case Auth.get_first_user_uuid() do
             nil -> attrs
             user_uuid -> Map.put(attrs, :created_by_uuid, user_uuid)
           end

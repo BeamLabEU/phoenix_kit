@@ -199,7 +199,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
        ) do
     categories_map = build_categories_map()
     download_images = download_images_arg || should_download_images?(config)
-    user_id = import_log.user_uuid
+    user_uuid = import_log.user_uuid
 
     opts = [language: language, option_mappings: option_mappings]
 
@@ -219,7 +219,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       |> Enum.reduce(stats, fn {attrs, index}, acc ->
         result = upsert_product(attrs)
         new_acc = update_stats(acc, result)
-        new_acc = maybe_queue_image_migration(new_acc, result, download_images, user_id)
+        new_acc = maybe_queue_image_migration(new_acc, result, download_images, user_uuid)
 
         if rem(index, @progress_interval) == 0 do
           broadcast_progress(import_log.uuid, index, import_log.total_rows, new_acc)
@@ -291,15 +291,15 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   defp should_download_images?(%ImportConfig{download_images: true}), do: true
   defp should_download_images?(_), do: false
 
-  defp maybe_queue_image_migration(stats, result, download_images, user_id) do
+  defp maybe_queue_image_migration(stats, result, download_images, user_uuid) do
     if download_images do
       case result do
         {:imported, _handle, product} ->
-          queue_image_job(product, user_id)
+          queue_image_job(product, user_uuid)
           %{stats | image_jobs_queued: stats.image_jobs_queued + 1}
 
         {:updated, _handle, product} ->
-          queue_image_job(product, user_id)
+          queue_image_job(product, user_uuid)
           %{stats | image_jobs_queued: stats.image_jobs_queued + 1}
 
         _ ->
@@ -310,14 +310,14 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp queue_image_job(product, user_id) do
+  defp queue_image_job(product, user_uuid) do
     has_legacy = has_legacy_images?(product)
     has_storage = has_storage_images?(product)
 
     if has_legacy and not has_storage do
       ImageMigrationWorker.new(%{
         product_id: product.uuid,
-        user_id: user_id
+        user_uuid: user_uuid
       })
       |> Oban.insert()
     end

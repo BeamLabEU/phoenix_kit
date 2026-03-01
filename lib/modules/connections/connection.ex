@@ -103,11 +103,6 @@ defmodule PhoenixKit.Modules.Connections.Connection do
   - `requester_uuid` - UUID of the user sending the request
   - `recipient_uuid` - UUID of the user receiving the request
 
-  ## Optional Fields (dual-write)
-
-  - `requester_id` - Integer ID (deprecated)
-  - `recipient_id` - Integer ID (deprecated)
-
   ## Validation Rules
 
   - Both user UUIDs are required

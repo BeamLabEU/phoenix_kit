@@ -2240,7 +2240,7 @@ defmodule PhoenixKit.Modules.Billing do
 
   ## Options
 
-  - `:invoice_uuid` - Filter by invoice
+  - `:invoice_uuid` - Filter by invoice UUID
   - `:user_uuid` - Filter by user who created the transaction
   - `:payment_method` - Filter by payment method
   - `:type` - Filter by type: "payment" (amount > 0) or "refund" (amount < 0)
@@ -2719,7 +2719,6 @@ defmodule PhoenixKit.Modules.Billing do
   - `user_uuid` - The user creating the subscription (UUID)
   - `attrs` - Subscription attributes:
     - `:subscription_type_uuid` - Required: subscription type UUID
-    - `:subscription_type_id` - Legacy alias, still accepted for backward compatibility
     - `:billing_profile_uuid` - Optional: billing profile UUID to use
     - `:payment_method_uuid` - Optional: saved payment method UUID for renewals
     - `:trial_days` - Optional: override type's trial days
@@ -2838,10 +2837,10 @@ defmodule PhoenixKit.Modules.Billing do
 
   By default, the new type takes effect at the next billing cycle.
   """
-  def change_subscription_type(%Subscription{} = subscription, new_type_id, _opts \\ []) do
+  def change_subscription_type(%Subscription{} = subscription, new_type_uuid, _opts \\ []) do
     old_type_uuid = subscription.subscription_type_uuid
 
-    type_uuid = resolve_subscription_type_uuid(new_type_id)
+    type_uuid = resolve_subscription_type_uuid(new_type_uuid)
 
     result =
       subscription
@@ -2853,7 +2852,7 @@ defmodule PhoenixKit.Modules.Billing do
         Events.broadcast_subscription_type_changed(
           updated_subscription,
           old_type_uuid,
-          new_type_id
+          new_type_uuid
         )
 
         {:ok, updated_subscription}
@@ -3214,8 +3213,8 @@ defmodule PhoenixKit.Modules.Billing do
     end
   end
 
-  defp handle_refund_transaction(invoice_id) do
-    invoice = get_invoice!(invoice_id)
+  defp handle_refund_transaction(invoice_uuid) do
+    invoice = get_invoice!(invoice_uuid)
     update_receipt_status(invoice)
 
     # If fully refunded (paid_amount = 0), mark invoice as void and order as refunded

@@ -279,8 +279,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       {:ok, %Template{status: "archived"}}
 
   """
-  def archive_template(%Template{} = template, user_id \\ nil) do
-    user_uuid = resolve_user_uuid(user_id)
+  def archive_template(%Template{} = template, user_uuid \\ nil) do
+    user_uuid = resolve_user_uuid(user_uuid)
 
     update_template(template, %{
       status: "archived",
@@ -297,8 +297,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       {:ok, %Template{status: "active"}}
 
   """
-  def activate_template(%Template{} = template, user_id \\ nil) do
-    user_uuid = resolve_user_uuid(user_id)
+  def activate_template(%Template{} = template, user_uuid \\ nil) do
+    user_uuid = resolve_user_uuid(user_uuid)
 
     update_template(template, %{
       status: "active",
@@ -447,8 +447,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
         "order_confirmation",
         customer.email,
         %{"order_number" => order.number},
-        user_id: customer.id,
-        metadata: %{order_id: order.id}
+        user_uuid: customer.uuid,
+        metadata: %{order_uuid: order.uuid}
       )
   """
   def send_email(template_name, recipient, variables \\ %{}, opts \\ []) do

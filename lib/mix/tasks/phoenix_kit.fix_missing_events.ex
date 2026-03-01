@@ -13,13 +13,13 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       # Dry run (show what would be fixed without making changes)
       mix phoenix_kit.fix_missing_events --dry-run
 
-      # Fix specific log ID
-      mix phoenix_kit.fix_missing_events --log-id 95
+      # Fix specific log by UUID
+      mix phoenix_kit.fix_missing_events --log-uuid 018f1234-5678-7890-abcd-ef1234567890
 
   ## Options
 
     * `--dry-run` - Show missing events without creating them
-    * `--log-id` - Fix specific log ID only
+    * `--log-uuid` - Fix specific log UUID only
     * `--help` - Show this help
 
   ## Examples
@@ -31,7 +31,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       mix phoenix_kit.fix_missing_events --dry-run
 
       # Fix specific email log
-      mix phoenix_kit.fix_missing_events --log-id 95
+      mix phoenix_kit.fix_missing_events --log-uuid 018f1234-5678-7890-abcd-ef1234567890
 
   """
 
@@ -46,13 +46,13 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
 
   @switches [
     dry_run: :boolean,
-    log_id: :integer,
+    log_uuid: :string,
     help: :boolean
   ]
 
   @aliases [
     d: :dry_run,
-    l: :log_id,
+    l: :log_uuid,
     h: :help
   ]
 
@@ -64,9 +64,9 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       opts[:help] ->
         show_help()
 
-      opts[:log_id] ->
+      opts[:log_uuid] ->
         Mix.Task.run("app.start")
-        fix_single_log(opts[:log_id], opts[:dry_run] || false)
+        fix_single_log(opts[:log_uuid], opts[:dry_run] || false)
 
       true ->
         Mix.Task.run("app.start")
@@ -78,14 +78,14 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
     Mix.shell().info(@moduledoc)
   end
 
-  defp fix_single_log(log_id, dry_run) do
-    Mix.shell().info("\n=== Checking Log ID #{log_id} ===\n")
+  defp fix_single_log(log_uuid, dry_run) do
+    Mix.shell().info("\n=== Checking Log UUID #{log_uuid} ===\n")
 
-    log = repo().get_by!(Log, id: log_id) |> repo().preload(:events)
+    log = repo().get_by!(Log, uuid: log_uuid) |> repo().preload(:events)
 
     case find_missing_event_type(log) do
       nil ->
-        Mix.shell().info("✅ Log #{log_id} has all required events")
+        Mix.shell().info("✅ Log #{log_uuid} has all required events")
 
       event_type ->
         Mix.shell().info("❌ Missing #{event_type} event")
@@ -185,7 +185,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       end
 
     event_attrs = %{
-      email_log_id: log.id,
+      email_log_uuid: log.uuid,
       event_type: "bounce",
       occurred_at: log.bounced_at || UtilsDate.utc_now(),
       bounce_type: bounce_type,
@@ -207,7 +207,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
 
   defp create_missing_event(log, "complaint") do
     event_attrs = %{
-      email_log_id: log.id,
+      email_log_uuid: log.uuid,
       event_type: "complaint",
       occurred_at: log.complained_at || UtilsDate.utc_now(),
       complaint_type: "abuse",
@@ -228,7 +228,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
 
   defp create_missing_event(log, "reject") do
     event_attrs = %{
-      email_log_id: log.id,
+      email_log_uuid: log.uuid,
       event_type: "reject",
       occurred_at: log.rejected_at || UtilsDate.utc_now(),
       reject_reason: log.error_message,
