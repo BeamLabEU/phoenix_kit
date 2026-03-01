@@ -51,7 +51,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   def perform(%Oban.Job{args: args}) do
     import_log_id = Map.fetch!(args, "import_log_id")
     path = Map.fetch!(args, "path")
-    config_id = Map.get(args, "config_id")
+    config_uuid = Map.get(args, "config_id")
     language = Map.get(args, "language") || default_import_language()
     option_mappings = Map.get(args, "option_mappings", [])
     download_images = Map.get(args, "download_images", false)
@@ -60,7 +60,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     Logger.info("CSVImportWorker: Starting import #{import_log_id} from #{path}")
 
     with {:ok, import_log} <- get_import_log(import_log_id),
-         {:ok, config} <- load_config(config_id, import_log),
+         {:ok, config} <- load_config(config_uuid, import_log),
          {:ok, format_mod} <- detect_format(path),
          :ok <- validate_file(path, format_mod, config),
          {:ok, total_rows} <- count_products(path, format_mod, config),
@@ -101,10 +101,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp load_config(nil, import_log) do
-    config_id = get_in(import_log.options, ["config_id"])
+    config_uuid = get_in(import_log.options, ["config_id"])
 
-    if config_id do
-      load_config_by_id(config_id)
+    if config_uuid do
+      load_config_by_id(config_uuid)
     else
       case Shop.get_default_import_config() do
         nil -> {:ok, nil}
@@ -113,12 +113,12 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp load_config(config_id, _import_log) when is_binary(config_id) do
-    load_config_by_id(config_id)
+  defp load_config(config_uuid, _import_log) when is_binary(config_uuid) do
+    load_config_by_id(config_uuid)
   end
 
-  defp load_config_by_id(config_id) do
-    case Shop.get_import_config(config_id) do
+  defp load_config_by_id(config_uuid) do
+    case Shop.get_import_config(config_uuid) do
       nil -> {:ok, nil}
       config -> {:ok, config}
     end

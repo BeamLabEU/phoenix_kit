@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Shop.Events do
   - `{:product_created, product}` - New product created
   - `{:product_updated, product}` - Product updated
   - `{:product_deleted, product_uuid}` - Product deleted
-  - `{:products_bulk_status_changed, product_ids, status}` - Bulk status update
+  - `{:products_bulk_status_changed, product_uuids, status}` - Bulk status update
 
   ### Category Events
   - `{:category_created, category}` - New category created
@@ -248,8 +248,8 @@ defmodule PhoenixKit.Modules.Shop.Events do
   @doc """
   Broadcasts bulk product status changed event.
   """
-  def broadcast_products_bulk_status_changed(product_ids, status) do
-    broadcast(@products_topic, {:products_bulk_status_changed, product_ids, status})
+  def broadcast_products_bulk_status_changed(product_uuids, status) do
+    broadcast(@products_topic, {:products_bulk_status_changed, product_uuids, status})
   end
 
   # ============================================
