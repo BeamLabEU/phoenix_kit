@@ -20,9 +20,9 @@
             <% else %>
               Select one or more images
             <% end %>
-            <%= if MapSet.size(@selected_ids) > 0 do %>
+            <%= if MapSet.size(@selected_uuids) > 0 do %>
               <span class="badge badge-primary ml-2">
-                {MapSet.size(@selected_ids)} selected
+                {MapSet.size(@selected_uuids)} selected
               </span>
             <% end %>
           </p>
@@ -34,7 +34,7 @@
           <button
             phx-click="confirm_selection"
             class="btn btn-primary"
-            disabled={MapSet.size(@selected_ids) == 0}
+            disabled={MapSet.size(@selected_uuids) == 0}
           >
             <.icon name="hero-check" class="w-4 h-4 mr-1" /> Confirm Selection
           </button>
@@ -135,10 +135,10 @@
         <% else %>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <%= for file <- @uploaded_files do %>
-              <% is_selected = MapSet.member?(@selected_ids, file.file_id) %>
+              <% is_selected = MapSet.member?(@selected_uuids, file.uuid) %>
               <div
                 phx-click="toggle_selection"
-                phx-value-file-id={file.file_id}
+                phx-value-file-uuid={file.uuid}
                 class={"card bg-base-200 shadow-md cursor-pointer transition-all hover:shadow-xl #{if is_selected, do: "ring-4 ring-primary", else: ""}"}
               >
                 <%!-- Thumbnail --%>

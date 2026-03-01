@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
     # Parse query parameters
     return_to = params["return_to"] || "/"
     mode = parse_mode(params["mode"])
-    selected_ids = parse_selected_ids(params["selected"])
+    selected_uuids = parse_selected_uuids(params["selected"])
     filter = parse_filter(params["filter"])
     page = String.to_integer(params["page"] || "1")
 
@@ -56,7 +56,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
       |> assign(:page_title, "Select Media")
       |> assign(:return_to, return_to)
       |> assign(:selection_mode, mode)
-      |> assign(:selected_ids, selected_ids)
+      |> assign(:selected_uuids, selected_uuids)
       |> assign(:file_type_filter, filter)
       |> assign(:search_query, "")
       |> assign(:current_page, page)
@@ -88,34 +88,34 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_selection", %{"file-id" => file_id}, socket) do
-    selected_ids = socket.assigns.selected_ids
+  def handle_event("toggle_selection", %{"file-uuid" => file_uuid}, socket) do
+    selected_uuids = socket.assigns.selected_uuids
     mode = socket.assigns.selection_mode
 
-    new_selected_ids =
+    new_selected_uuids =
       case mode do
         :single ->
           # Single mode: replace selection
-          MapSet.new([file_id])
+          MapSet.new([file_uuid])
 
         :multiple ->
           # Multiple mode: toggle selection
-          if MapSet.member?(selected_ids, file_id) do
-            MapSet.delete(selected_ids, file_id)
+          if MapSet.member?(selected_uuids, file_uuid) do
+            MapSet.delete(selected_uuids, file_uuid)
           else
-            MapSet.put(selected_ids, file_id)
+            MapSet.put(selected_uuids, file_uuid)
           end
       end
 
-    {:noreply, assign(socket, :selected_ids, new_selected_ids)}
+    {:noreply, assign(socket, :selected_uuids, new_selected_uuids)}
   end
 
   def handle_event("confirm_selection", _params, socket) do
     return_to = socket.assigns.return_to
-    selected_ids = socket.assigns.selected_ids
+    selected_uuids = socket.assigns.selected_uuids
 
     # Build return URL with selected_media param
-    selected_media_param = selected_ids |> MapSet.to_list() |> Enum.join(",")
+    selected_media_param = selected_uuids |> MapSet.to_list() |> Enum.join(",")
 
     return_url =
       if String.contains?(return_to, "?") do
@@ -347,9 +347,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
   defp parse_mode("multiple"), do: :multiple
   defp parse_mode(_), do: :single
 
-  defp parse_selected_ids(nil), do: MapSet.new()
+  defp parse_selected_uuids(nil), do: MapSet.new()
 
-  defp parse_selected_ids(selected_string) when is_binary(selected_string) do
+  defp parse_selected_uuids(selected_string) when is_binary(selected_string) do
     selected_string
     |> String.split(",")
     |> Enum.map(&String.trim/1)
@@ -357,7 +357,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
     |> MapSet.new()
   end
 
-  defp parse_selected_ids(_), do: MapSet.new()
+  defp parse_selected_uuids(_), do: MapSet.new()
 
   defp parse_filter(nil), do: :all
   defp parse_filter("image"), do: :image

@@ -79,7 +79,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
       |> assign(:show_media_selector, false)
       |> assign(:media_selection_mode, :single)
-      |> assign(:media_selected_ids, MapSet.new())
+      |> assign(:media_selected_uuids, MapSet.new())
       |> assign(:is_autosaving, false)
       |> assign(:autosave_timer, nil)
       |> assign(:slug_manually_set, false)
@@ -1083,11 +1083,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Handle Info - Media
   # ============================================================================
 
-  def handle_info({:media_selected, file_ids}, socket) do
+  def handle_info({:media_selected, file_uuids}, socket) do
     if socket.assigns[:readonly?] do
       {:noreply, assign(socket, :show_media_selector, false)}
     else
-      handle_media_selected(socket, file_ids)
+      handle_media_selected(socket, file_uuids)
     end
   end
 
@@ -1392,9 +1392,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  # Handle version published with source_id (user ID)
+  # Handle version published with source_id (user UUID)
   def handle_info(
-        {:post_version_published, group_slug, post_slug, published_version, source_user_id},
+        {:post_version_published, group_slug, post_slug, published_version, source_user_uuid},
         socket
       ) do
     is_our_post =
@@ -1403,10 +1403,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         socket.assigns.post[:slug] == post_slug
 
     # Ignore if same user published (works across all their tabs)
-    our_user_id =
-      get_in(socket.assigns, [:phoenix_kit_current_scope, Access.key(:user), Access.key(:id)])
+    our_user_uuid =
+      get_in(socket.assigns, [:phoenix_kit_current_scope, Access.key(:user), Access.key(:uuid)])
 
-    from_us = source_user_id != nil && source_user_id == our_user_id
+    from_us = source_user_uuid != nil && source_user_uuid == our_user_uuid
 
     cond do
       !is_our_post ->

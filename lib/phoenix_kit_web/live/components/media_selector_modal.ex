@@ -11,7 +11,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       socket
       |> assign(:show_media_selector, false)
       |> assign(:media_selection_mode, :single)
-      |> assign(:media_selected_ids, [])
+      |> assign(:media_selected_uuids, [])
 
       # In template (IMPORTANT: Must pass phoenix_kit_current_user for uploads to work)
       <.live_component
@@ -19,7 +19,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
         id="media-selector-modal"
         show={@show_media_selector}
         mode={@media_selection_mode}
-        selected_ids={@media_selected_ids}
+        selected_uuids={@media_selected_uuids}
         phoenix_kit_current_user={@phoenix_kit_current_user}
       />
 
@@ -31,7 +31,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       # To receive selected media
       def handle_info({:media_selected, file_uuids}, socket) do
         # Handle the selected file UUIDs
-        {:noreply, socket |> assign(:gallery_ids, file_uuids)}
+        {:noreply, socket |> assign(:gallery_uuids, file_uuids)}
       end
   """
   use PhoenixKitWeb, :live_component
@@ -56,7 +56,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
     # Save previous state BEFORE assigning new values
     was_shown = socket.assigns[:show] || false
-    previous_selected_ids = socket.assigns[:selected_ids]
+    previous_selected_uuids = socket.assigns[:selected_uuids]
 
     socket =
       socket
@@ -71,21 +71,21 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign_new(:total_pages, fn -> 0 end)
       |> maybe_allow_upload(has_buckets)
 
-    # Handle selected_ids - only reset when modal is opening, otherwise preserve selection
+    # Handle selected_uuids - only reset when modal is opening, otherwise preserve selection
     socket =
       cond do
         # Modal is opening (show transitions from false to true) - initialize from incoming assigns
         assigns[:show] && !was_shown ->
-          selected_ids_list = assigns[:selected_ids] || []
-          assign(socket, :selected_ids, MapSet.new(selected_ids_list))
+          selected_uuids_list = assigns[:selected_uuids] || []
+          assign(socket, :selected_uuids, MapSet.new(selected_uuids_list))
 
         # Modal already open and has selection state - preserve it
-        is_struct(previous_selected_ids, MapSet) ->
-          assign(socket, :selected_ids, previous_selected_ids)
+        is_struct(previous_selected_uuids, MapSet) ->
+          assign(socket, :selected_uuids, previous_selected_uuids)
 
         # First mount or no previous state - initialize empty
         true ->
-          assign(socket, :selected_ids, MapSet.new([]))
+          assign(socket, :selected_uuids, MapSet.new([]))
       end
 
     # Load files if modal is shown
@@ -129,24 +129,24 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_selection", %{"file-id" => file_uuid}, socket) do
-    selected_ids = socket.assigns.selected_ids
+  def handle_event("toggle_selection", %{"file-uuid" => file_uuid}, socket) do
+    selected_uuids = socket.assigns.selected_uuids
     mode = socket.assigns.mode
 
     Logger.debug(
       "MediaSelectorModal toggle_selection: mode=#{inspect(mode)}, file_uuid=#{file_uuid}"
     )
 
-    new_selected_ids =
+    new_selected_uuids =
       case mode do
         :single ->
           MapSet.new([file_uuid])
 
         :multiple ->
-          if MapSet.member?(selected_ids, file_uuid) do
-            MapSet.delete(selected_ids, file_uuid)
+          if MapSet.member?(selected_uuids, file_uuid) do
+            MapSet.delete(selected_uuids, file_uuid)
           else
-            MapSet.put(selected_ids, file_uuid)
+            MapSet.put(selected_uuids, file_uuid)
           end
 
         # Handle string versions in case they come through as strings
@@ -154,10 +154,10 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
           MapSet.new([file_uuid])
 
         "multiple" ->
-          if MapSet.member?(selected_ids, file_uuid) do
-            MapSet.delete(selected_ids, file_uuid)
+          if MapSet.member?(selected_uuids, file_uuid) do
+            MapSet.delete(selected_uuids, file_uuid)
           else
-            MapSet.put(selected_ids, file_uuid)
+            MapSet.put(selected_uuids, file_uuid)
           end
 
         # Default to single select for any unexpected value
@@ -165,14 +165,14 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
           MapSet.new([file_uuid])
       end
 
-    {:noreply, assign(socket, :selected_ids, new_selected_ids)}
+    {:noreply, assign(socket, :selected_uuids, new_selected_uuids)}
   end
 
   def handle_event("confirm_selection", _params, socket) do
-    selected_ids = socket.assigns.selected_ids |> MapSet.to_list()
+    selected_uuids = socket.assigns.selected_uuids |> MapSet.to_list()
 
     # Send selected IDs to parent LiveView
-    send(self(), {:media_selected, selected_ids})
+    send(self(), {:media_selected, selected_uuids})
 
     # Close modal
     {:noreply, assign(socket, :show, false)}
@@ -274,17 +274,17 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
             {files, total_count} = load_files(socket, socket.assigns.current_page)
             total_pages = ceil(total_count / socket.assigns.per_page)
 
-            selected_ids =
+            selected_uuids =
               case socket.assigns.mode do
                 :single -> MapSet.new([file_uuid])
-                :multiple -> MapSet.put(socket.assigns.selected_ids, file_uuid)
+                :multiple -> MapSet.put(socket.assigns.selected_uuids, file_uuid)
               end
 
             socket
             |> assign(:uploaded_files, files)
             |> assign(:total_count, total_count)
             |> assign(:total_pages, total_pages)
-            |> assign(:selected_ids, selected_ids)
+            |> assign(:selected_uuids, selected_uuids)
 
           _ ->
             # Upload failed - show error message
