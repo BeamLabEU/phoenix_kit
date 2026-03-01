@@ -2,7 +2,7 @@
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title="Media Detail"
-  current_path={Routes.path("/admin/media/#{@file_id}")}
+  current_path={Routes.path("/admin/media/#{@file_uuid}")}
   project_title={@project_title}
   current_locale={@current_locale}
 >
@@ -243,9 +243,9 @@
                 </div>
 
                 <div>
-                  <span class="font-semibold text-base-content/70">File ID:</span>
+                  <span class="font-semibold text-base-content/70">File UUID:</span>
                   <p class="text-base-content mt-1 break-all font-mono text-[10px]">
-                    {@file_data.file_id}
+                    {@file_data.file_uuid}
                   </p>
                 </div>
 

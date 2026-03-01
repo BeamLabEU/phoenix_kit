@@ -20,14 +20,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   alias PhoenixKit.Utils.Slug
 
   @impl true
-  def mount(%{"entity_slug" => entity_slug, "id" => id} = params, _session, socket) do
+  def mount(%{"entity_slug" => entity_slug, "uuid" => uuid} = params, _session, socket) do
     # Set locale for LiveView process
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
     # Edit mode with slug
     entity = Entities.get_entity_by_name(entity_slug)
-    data_record = EntityData.get!(id)
+    data_record = EntityData.get!(uuid)
     changeset = EntityData.change(data_record)
 
     mount_data_form(socket, entity, data_record, changeset, gettext("Edit Data"), locale)

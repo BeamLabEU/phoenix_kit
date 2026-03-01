@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:category_filter, nil)
       |> assign(:categories, categories)
       |> assign(:currency, currency)
-      |> assign(:selected_ids, MapSet.new())
+      |> assign(:selected_uuids, MapSet.new())
       |> assign(:show_bulk_modal, nil)
       |> assign(:current_language, current_language)
       |> assign(:delete_target, nil)
@@ -235,7 +235,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   # Bulk selection events
   @impl true
   def handle_event("toggle_select", %{"uuid" => uuid}, socket) do
-    selected = socket.assigns.selected_ids
+    selected = socket.assigns.selected_uuids
 
     selected =
       if MapSet.member?(selected, uuid) do
@@ -244,13 +244,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
         MapSet.put(selected, uuid)
       end
 
-    {:noreply, assign(socket, :selected_ids, selected)}
+    {:noreply, assign(socket, :selected_uuids, selected)}
   end
 
   @impl true
   def handle_event("select_all", _params, socket) do
     all_uuids = Enum.map(socket.assigns.products, & &1.uuid) |> MapSet.new()
-    current = socket.assigns.selected_ids
+    current = socket.assigns.selected_uuids
 
     selected =
       if MapSet.subset?(all_uuids, current) do
@@ -259,12 +259,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
         MapSet.union(current, all_uuids)
       end
 
-    {:noreply, assign(socket, :selected_ids, selected)}
+    {:noreply, assign(socket, :selected_uuids, selected)}
   end
 
   @impl true
   def handle_event("clear_selection", _params, socket) do
-    {:noreply, assign(socket, :selected_ids, MapSet.new())}
+    {:noreply, assign(socket, :selected_uuids, MapSet.new())}
   end
 
   # Bulk action modals
@@ -281,29 +281,29 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   # Bulk actions
   @impl true
   def handle_event("bulk_change_status", %{"status" => status}, socket) do
-    ids = MapSet.to_list(socket.assigns.selected_ids)
-    count = Shop.bulk_update_product_status(ids, status)
+    uuids = MapSet.to_list(socket.assigns.selected_uuids)
+    count = Shop.bulk_update_product_status(uuids, status)
 
     socket = load_products(socket)
 
     {:noreply,
      socket
-     |> assign(:selected_ids, MapSet.new())
+     |> assign(:selected_uuids, MapSet.new())
      |> assign(:show_bulk_modal, nil)
      |> put_flash(:info, "#{count} products updated to #{status}")}
   end
 
   @impl true
-  def handle_event("bulk_change_category", %{"category_uuid" => category_uuid}, socket) do
-    ids = MapSet.to_list(socket.assigns.selected_ids)
-    category_uuid = if category_uuid == "", do: nil, else: category_uuid
-    count = Shop.bulk_update_product_category(ids, category_uuid)
+  def handle_event("bulk_change_category", %{"category_id" => category_id}, socket) do
+    uuids = MapSet.to_list(socket.assigns.selected_uuids)
+    category_id = if category_id == "", do: nil, else: category_id
+    count = Shop.bulk_update_product_category(uuids, category_id)
 
     socket = load_products(socket)
 
     {:noreply,
      socket
-     |> assign(:selected_ids, MapSet.new())
+     |> assign(:selected_uuids, MapSet.new())
      |> assign(:show_bulk_modal, nil)
      |> put_flash(:info, "#{count} products moved")}
   end
@@ -315,21 +315,21 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   @impl true
   def handle_event("bulk_delete", _params, socket) do
-    ids = MapSet.to_list(socket.assigns.selected_ids)
+    uuids = MapSet.to_list(socket.assigns.selected_uuids)
 
     file_uuids =
       if socket.assigns.bulk_delete_media,
-        do: Shop.collect_products_file_uuids(ids),
+        do: Shop.collect_products_file_uuids(uuids),
         else: []
 
-    count = Shop.bulk_delete_products(ids)
+    count = Shop.bulk_delete_products(uuids)
     if file_uuids != [], do: Storage.queue_file_cleanup(file_uuids)
 
     socket = load_products(socket)
 
     {:noreply,
      socket
-     |> assign(:selected_ids, MapSet.new())
+     |> assign(:selected_uuids, MapSet.new())
      |> assign(:show_bulk_modal, nil)
      |> assign(:bulk_delete_media, false)
      |> put_flash(:info, "#{count} products deleted")}
@@ -468,12 +468,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
         </div>
 
         <%!-- Bulk Actions Bar --%>
-        <%= if MapSet.size(@selected_ids) > 0 do %>
+        <%= if MapSet.size(@selected_uuids) > 0 do %>
           <div class="bg-primary/10 border border-primary/30 rounded-lg p-4 mb-6">
             <div class="flex flex-wrap items-center justify-between gap-4">
               <div class="flex items-center gap-2">
                 <span class="badge badge-primary badge-lg">
-                  {MapSet.size(@selected_ids)} selected
+                  {MapSet.size(@selected_uuids)} selected
                 </span>
                 <button phx-click="clear_selection" class="btn btn-ghost btn-sm">
                   Clear selection
@@ -518,7 +518,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                         type="checkbox"
                         class="checkbox checkbox-sm"
                         phx-click="select_all"
-                        checked={all_selected?(@products, @selected_ids)}
+                        checked={all_selected?(@products, @selected_uuids)}
                       />
                     </label>
                   </th>
@@ -543,7 +543,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                   <%= for product <- @products do %>
                     <tr class={[
                       "hover",
-                      if(MapSet.member?(@selected_ids, product.uuid), do: "bg-primary/5", else: "")
+                      if(MapSet.member?(@selected_uuids, product.uuid), do: "bg-primary/5", else: "")
                     ]}>
                       <td>
                         <label class="cursor-pointer">
@@ -552,7 +552,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                             class="checkbox checkbox-sm"
                             phx-click="toggle_select"
                             phx-value-uuid={product.uuid}
-                            checked={MapSet.member?(@selected_ids, product.uuid)}
+                            checked={MapSet.member?(@selected_uuids, product.uuid)}
                           />
                         </label>
                       </td>
@@ -675,7 +675,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
           <div class="modal-box">
             <h3 class="font-bold text-lg mb-4">Change Status</h3>
             <p class="text-base-content/70 mb-4">
-              Update status for {MapSet.size(@selected_ids)} selected products
+              Update status for {MapSet.size(@selected_uuids)} selected products
             </p>
             <div class="flex flex-col gap-2">
               <button
@@ -714,7 +714,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
           <div class="modal-box">
             <h3 class="font-bold text-lg mb-4">Move to Category</h3>
             <p class="text-base-content/70 mb-4">
-              Move {MapSet.size(@selected_ids)} selected products to a category
+              Move {MapSet.size(@selected_uuids)} selected products to a category
             </p>
             <div class="flex flex-col gap-2">
               <button
@@ -752,7 +752,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
           <div class="modal-box">
             <h3 class="font-bold text-lg text-error mb-4">Delete Products</h3>
             <p class="text-base-content/70 mb-4">
-              Are you sure you want to delete {MapSet.size(@selected_ids)} products?
+              Are you sure you want to delete {MapSet.size(@selected_uuids)} products?
               This action cannot be undone.
             </p>
             <label class="label cursor-pointer justify-start gap-3">
@@ -802,9 +802,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
     """
   end
 
-  defp all_selected?(products, selected_ids) do
+  defp all_selected?(products, selected_uuids) do
     products != [] and
-      Enum.all?(products, fn p -> MapSet.member?(selected_ids, p.uuid) end)
+      Enum.all?(products, fn p -> MapSet.member?(selected_uuids, p.uuid) end)
   end
 
   defp parse_category_uuid(nil), do: nil

@@ -135,10 +135,10 @@
         <% else %>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <%= for file <- @uploaded_files do %>
-              <% is_selected = MapSet.member?(@selected_uuids, file.uuid) %>
+              <% is_selected = MapSet.member?(@selected_uuids, file.file_uuid) %>
               <div
                 phx-click="toggle_selection"
-                phx-value-file-uuid={file.uuid}
+                phx-value-file-uuid={file.file_uuid}
                 class={"card bg-base-200 shadow-md cursor-pointer transition-all hover:shadow-xl #{if is_selected, do: "ring-4 ring-primary", else: ""}"}
               >
                 <%!-- Thumbnail --%>

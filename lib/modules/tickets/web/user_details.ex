@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
               |> assign(:current_user, current_user)
               |> assign(:comment_content, "")
               |> assign(:attachments_enabled, attachments_enabled)
-              |> assign(:pending_comment_file_ids, [])
+              |> assign(:pending_comment_file_uuids, [])
               |> assign(:pending_comment_files, [])
               |> load_public_comments()
               |> load_attachments()
@@ -94,21 +94,21 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
     else
       # Process any pending uploads first
       socket = process_comment_uploads(socket)
-      pending_file_ids = socket.assigns.pending_comment_file_ids
+      pending_file_uuids = socket.assigns.pending_comment_file_uuids
 
       # Users can only add public comments (is_internal is always false)
       case Tickets.create_comment(ticket.uuid, current_user.uuid, %{content: content}) do
         {:ok, comment} ->
           # Attach any pending files to the comment
-          Enum.each(pending_file_ids, fn file_id ->
-            Tickets.add_attachment_to_comment(comment.uuid, file_id)
+          Enum.each(pending_file_uuids, fn file_uuid ->
+            Tickets.add_attachment_to_comment(comment.uuid, file_uuid)
           end)
 
           {:noreply,
            socket
            |> put_flash(:info, gettext("Comment added"))
            |> assign(:comment_content, "")
-           |> assign(:pending_comment_file_ids, [])
+           |> assign(:pending_comment_file_uuids, [])
            |> assign(:pending_comment_files, [])
            |> reload_ticket()
            |> load_public_comments()}
@@ -131,13 +131,15 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
   end
 
   @impl true
-  def handle_event("remove_pending_comment_file", %{"id" => file_id}, socket) do
-    pending_file_ids = Enum.reject(socket.assigns.pending_comment_file_ids, &(&1 == file_id))
-    pending_files = Enum.reject(socket.assigns.pending_comment_files, &(&1.uuid == file_id))
+  def handle_event("remove_pending_comment_file", %{"uuid" => file_uuid}, socket) do
+    pending_file_uuids =
+      Enum.reject(socket.assigns.pending_comment_file_uuids, &(&1 == file_uuid))
+
+    pending_files = Enum.reject(socket.assigns.pending_comment_files, &(&1.uuid == file_uuid))
 
     {:noreply,
      socket
-     |> assign(:pending_comment_file_ids, pending_file_ids)
+     |> assign(:pending_comment_file_uuids, pending_file_uuids)
      |> assign(:pending_comment_files, pending_files)}
   end
 
@@ -210,10 +212,13 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
       |> Enum.filter(&match?({:ok, _}, &1))
       |> Enum.map(fn {:ok, file} -> file end)
 
-    new_file_ids = Enum.map(new_files, & &1.uuid)
+    new_file_uuids = Enum.map(new_files, & &1.uuid)
 
     socket
-    |> assign(:pending_comment_file_ids, socket.assigns.pending_comment_file_ids ++ new_file_ids)
+    |> assign(
+      :pending_comment_file_uuids,
+      socket.assigns.pending_comment_file_uuids ++ new_file_uuids
+    )
     |> assign(:pending_comment_files, socket.assigns.pending_comment_files ++ new_files)
   end
 end

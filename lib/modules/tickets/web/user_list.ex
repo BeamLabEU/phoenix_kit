@@ -106,8 +106,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   end
 
   defp load_user_tickets(socket) do
-    user_id = socket.assigns.current_user.uuid
-    opts = build_query_opts(socket, user_id)
+    user_uuid = socket.assigns.current_user.uuid
+    opts = build_query_opts(socket, user_uuid)
 
     # Get all tickets for counting, then paginate
     all_opts = Keyword.drop(opts, [:page, :per_page])
@@ -126,11 +126,11 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
     |> assign(:total_pages, total_pages)
   end
 
-  defp build_query_opts(socket, user_id) do
+  defp build_query_opts(socket, user_uuid) do
     opts = [
       page: socket.assigns.page,
       per_page: socket.assigns.per_page,
-      user_id: user_id,
+      user_id: user_uuid,
       preload: [:assigned_to]
     ]
 
@@ -155,9 +155,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   @impl true
   def handle_info({:ticket_created, ticket}, socket) do
     # Only add if it belongs to current user and matches filters
-    current_user_id = socket.assigns.current_user.uuid
+    current_user_uuid = socket.assigns.current_user.uuid
 
-    if ticket.user_uuid == current_user_id && ticket_matches_filters?(ticket, socket) do
+    if ticket.user_uuid == current_user_uuid && ticket_matches_filters?(ticket, socket) do
       tickets = [ticket | socket.assigns.tickets]
       total_count = socket.assigns.total_count + 1
 

@@ -237,8 +237,8 @@ defmodule PhoenixKitWeb.Integration do
 
         # Storage API routes (file upload and serving)
         post "/api/upload", UploadController, :create
-        get "/file/:file_id/:variant/:token", FileController, :show
-        get "/api/files/:file_id/info", FileController, :info
+        get "/file/:file_uuid/:variant/:token", FileController, :show
+        get "/api/files/:file_uuid/info", FileController, :info
 
         # Cookie consent widget config (public API for JS auto-injection)
         get "/api/consent-config", Controllers.ConsentConfigController, :config
@@ -460,7 +460,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
         live "/admin/users/sessions", Live.Users.Sessions, :index
         live "/admin/media", Live.Users.Media, :index
-        live "/admin/media/:file_id", Live.Users.MediaDetail, :show
+        live "/admin/media/:file_uuid", Live.Users.MediaDetail, :show
         live "/admin/media/selector", Live.Users.MediaSelector, :index
         live "/admin/settings", Live.Settings, :index
         live "/admin/settings/users", Live.Settings.Users, :index
@@ -653,12 +653,12 @@ defmodule PhoenixKitWeb.Integration do
                :new,
                as: :entities_data_new
 
-          live "/admin/entities/:entity_slug/data/:id",
+          live "/admin/entities/:entity_slug/data/:uuid",
                PhoenixKit.Modules.Entities.Web.DataForm,
                :show,
                as: :entities_data_show
 
-          live "/admin/entities/:entity_slug/data/:id/edit",
+          live "/admin/entities/:entity_slug/data/:uuid/edit",
                PhoenixKit.Modules.Entities.Web.DataForm,
                :edit,
                as: :entities_data_edit

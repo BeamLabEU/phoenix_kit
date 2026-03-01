@@ -1744,7 +1744,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           id="media-selector-modal"
           show={@show_media_selector}
           mode={@media_selection_mode}
-          selected_ids={@all_image_uuids}
+          selected_uuids={@all_image_ids}
           phoenix_kit_current_user={@phoenix_kit_current_user}
         />
       </div>

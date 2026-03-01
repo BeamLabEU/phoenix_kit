@@ -42,7 +42,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/media"))
       |> assign(:show_upload, false)
-      |> assign(:last_uploaded_file_ids, [])
+      |> assign(:last_uploaded_file_uuids, [])
       |> assign(:has_buckets, has_buckets)
       |> assign(:filter_orphaned, false)
       |> assign(:orphaned_count, 0)
@@ -153,10 +153,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, cancel_upload(socket, :media_files, ref)}
   end
 
-  def handle_info({:file_uploaded, file_id}, socket) do
+  def handle_info({:file_uploaded, file_uuid}, socket) do
     # This event can be used by other modules listening to uploaded files
     # For example, avatar upload systems can listen for this event
-    Logger.info("File uploaded with ID: #{file_id}")
+    Logger.info("File uploaded with ID: #{file_uuid}")
     {:noreply, socket}
   end
 
@@ -193,8 +193,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {refreshed_files, total_count} = load_existing_files(page, per_page)
     total_pages = ceil(total_count / per_page)
 
-    # Extract file IDs for callbacks (only from successful uploads)
-    file_ids = Enum.map(uploaded_files, &get_file_id/1) |> Enum.reject(&is_nil/1)
+    # Extract file UUIDs for callbacks (only from successful uploads)
+    file_uuids = Enum.map(uploaded_files, &get_file_uuid/1) |> Enum.reject(&is_nil/1)
 
     # Build flash message based on upload results
     {flash_type, flash_message} = build_upload_flash_message(uploaded_files)
@@ -204,20 +204,20 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:uploaded_files, refreshed_files)
       |> assign(:total_count, total_count)
       |> assign(:total_pages, total_pages)
-      |> assign(:last_uploaded_file_ids, file_ids)
+      |> assign(:last_uploaded_file_uuids, file_uuids)
       |> put_flash(flash_type, flash_message)
 
     {:noreply, socket}
   end
 
-  defp get_file_id({:ok, %{file_id: file_id}}), do: file_id
-  defp get_file_id({:postpone, _}), do: nil
-  defp get_file_id(_), do: nil
+  defp get_file_uuid({:ok, %{file_uuid: file_uuid}}), do: file_uuid
+  defp get_file_uuid({:postpone, _}), do: nil
+  defp get_file_uuid(_), do: nil
 
   # Generate URLs from pre-loaded instances (no database query needed)
-  defp generate_urls_from_instances(instances, file_id) do
+  defp generate_urls_from_instances(instances, file_uuid) do
     Enum.reduce(instances, %{}, fn instance, acc ->
-      url = URLSigner.signed_url(file_id, instance.variant_name)
+      url = URLSigner.signed_url(file_uuid, instance.variant_name)
       Map.put(acc, instance.variant_name, url)
     end)
   end
@@ -255,12 +255,12 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     total_count = Storage.count_orphaned_files()
 
     files = Storage.find_orphaned_files(limit: per_page, offset: offset)
-    file_ids = Enum.map(files, & &1.uuid)
+    file_uuids = Enum.map(files, & &1.uuid)
 
     instances_by_file =
-      if file_ids != [] do
+      if file_uuids != [] do
         from(fi in FileInstance,
-          where: fi.file_uuid in ^file_ids
+          where: fi.file_uuid in ^file_uuids
         )
         |> repo.all()
         |> Enum.group_by(& &1.file_uuid)
@@ -274,7 +274,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         urls = generate_urls_from_instances(instances, file.uuid)
 
         %{
-          file_id: file.uuid,
+          file_uuid: file.uuid,
           filename: file.original_file_name || file.file_name || "Unknown",
           original_filename: file.original_file_name,
           file_type: file.file_type,
@@ -308,12 +308,12 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> repo.all()
 
     # Batch load ALL file instances in ONE query instead of N queries
-    file_ids = Enum.map(files, & &1.uuid)
+    file_uuids = Enum.map(files, & &1.uuid)
 
     instances_by_file =
-      if file_ids != [] do
+      if file_uuids != [] do
         from(fi in FileInstance,
-          where: fi.file_uuid in ^file_ids
+          where: fi.file_uuid in ^file_uuids
         )
         |> repo.all()
         |> Enum.group_by(& &1.file_uuid)
@@ -329,7 +329,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         urls = generate_urls_from_instances(instances, file.uuid)
 
         %{
-          file_id: file.uuid,
+          file_uuid: file.uuid,
           filename: file.original_file_name || file.file_name || "Unknown",
           original_filename: file.original_file_name,
           file_type: file.file_type,
@@ -383,7 +383,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   defp build_upload_result(file, entry, file_type, mime_type, file_size, is_duplicate) do
     result = %{
-      file_id: file.uuid,
+      file_uuid: file.uuid,
       filename: entry.client_name,
       file_type: file_type,
       mime_type: mime_type,
