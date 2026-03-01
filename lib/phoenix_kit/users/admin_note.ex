@@ -8,8 +8,8 @@ defmodule PhoenixKit.Users.AdminNote do
 
   ## Fields
 
-  - `user_id` - The user being noted about
-  - `author_id` - The admin who wrote the note
+  - `user_uuid` - The user being noted about
+  - `author_uuid` - The admin who wrote the note
   - `content` - The note content
   - `inserted_at` - When the note was created
   - `updated_at` - When the note was last updated

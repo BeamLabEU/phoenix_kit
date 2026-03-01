@@ -350,37 +350,6 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Gets the UUID of the first admin user.
-
-  Convenience function that returns just the user UUID, useful for
-  setting `created_by` fields programmatically.
-
-  Deprecated name kept for backwards compatibility - returns UUID now.
-  Prefer `get_first_admin_uuid/0` for new code.
-
-  ## Examples
-
-      iex> get_first_admin_id()
-      "01924..."
-
-      iex> get_first_admin_id()
-      nil  # No admin users exist
-
-      # Common usage for creating entities
-      PhoenixKit.Modules.Entities.create_entity(%{
-        name: "contact",
-        display_name: "Contact",
-        created_by: PhoenixKit.Users.Auth.get_first_admin_id()
-      })
-  """
-  def get_first_admin_id do
-    case get_first_admin() do
-      nil -> nil
-      user -> user.uuid
-    end
-  end
-
-  @doc """
   Gets the first user in the system (by insertion order).
 
   Returns the earliest registered user (by UUID, which is time-ordered via UUIDv7).
