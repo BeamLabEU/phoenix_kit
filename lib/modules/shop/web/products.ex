@@ -294,10 +294,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_event("bulk_change_category", %{"category_id" => category_id}, socket) do
+  def handle_event("bulk_change_category", %{"category_uuid" => category_uuid}, socket) do
     uuids = MapSet.to_list(socket.assigns.selected_uuids)
-    category_id = if category_id == "", do: nil, else: category_id
-    count = Shop.bulk_update_product_category(uuids, category_id)
+    category_uuid = if category_uuid == "", do: nil, else: category_uuid
+    count = Shop.bulk_update_product_category(uuids, category_uuid)
 
     socket = load_products(socket)
 
@@ -719,7 +719,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
             <div class="flex flex-col gap-2">
               <button
                 phx-click="bulk_change_category"
-                phx-value-category_id=""
+                phx-value-category_uuid=""
                 class="btn btn-ghost justify-start"
               >
                 <.icon name="hero-x-mark" class="w-5 h-5 mr-2" /> No Category
@@ -727,7 +727,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
               <%= for category <- @categories do %>
                 <button
                   phx-click="bulk_change_category"
-                  phx-value-category_id={category.uuid}
+                  phx-value-category_uuid={category.uuid}
                   class="btn btn-outline justify-start"
                 >
                   <.icon name="hero-folder" class="w-5 h-5 mr-2" /> {Translations.get(

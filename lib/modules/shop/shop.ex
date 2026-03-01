@@ -686,10 +686,10 @@ defmodule PhoenixKit.Modules.Shop do
   Bulk update product category.
   Returns count of updated products.
   """
-  def bulk_update_product_category(ids, category_id) when is_list(ids) do
+  def bulk_update_product_category(uuids, category_uuid) when is_list(uuids) do
     cat_uuid =
-      if category_id do
-        case repo().get(Category, category_id) do
+      if category_uuid do
+        case repo().get_by(Category, uuid: category_uuid) do
           nil -> nil
           cat -> cat.uuid
         end
@@ -698,10 +698,10 @@ defmodule PhoenixKit.Modules.Shop do
       end
 
     # Don't unassign category if a specific category was requested but not found
-    if category_id && is_nil(cat_uuid) do
+    if category_uuid && is_nil(cat_uuid) do
       0
     else
-      query = Product |> where([p], p.uuid in ^ids)
+      query = Product |> where([p], p.uuid in ^uuids)
 
       {count, _} =
         query
