@@ -48,30 +48,21 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
   def mount(%{"id" => id}, _session, socket) do
     # Check if email is enabled
     if Emails.enabled?() do
-      case Integer.parse(id) do
-        {email_id, _} ->
-          # Get project title from settings
-          project_title = Settings.get_project_title()
+      # Get project title from settings
+      project_title = Settings.get_project_title()
 
-          socket =
-            socket
-            |> assign(:email_id, email_id)
-            |> assign(:project_title, project_title)
-            |> assign(:email_log, nil)
-            |> assign(:events, [])
-            |> assign(:related_emails, [])
-            |> assign(:loading, true)
-            |> assign(:syncing, false)
-            |> load_email_data()
+      socket =
+        socket
+        |> assign(:email_uuid, id)
+        |> assign(:project_title, project_title)
+        |> assign(:email_log, nil)
+        |> assign(:events, [])
+        |> assign(:related_emails, [])
+        |> assign(:loading, true)
+        |> assign(:syncing, false)
+        |> load_email_data()
 
-          {:ok, socket}
-
-        _ ->
-          {:ok,
-           socket
-           |> put_flash(:error, "Invalid email ID")
-           |> push_navigate(to: Routes.path("/admin/emails"))}
-      end
+      {:ok, socket}
     else
       {:ok,
        socket
@@ -165,11 +156,11 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
 
   # Load email data and related information
   defp load_email_data(socket) do
-    email_id = socket.assigns.email_id
+    email_uuid = socket.assigns.email_uuid
 
     try do
-      email_log = Emails.get_log!(email_id)
-      events = Emails.list_events_for_log(email_id)
+      email_log = Emails.get_log!(email_uuid)
+      events = Emails.list_events_for_log(email_uuid)
       related_emails = get_related_emails(email_log)
 
       socket
@@ -179,7 +170,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
       |> assign(:loading, false)
       |> assign(:show_headers, false)
       |> assign(:show_body, false)
-      |> assign(:page_title, "Email ##{email_id}")
+      |> assign(:page_title, "Email ##{email_uuid}")
     rescue
       Ecto.NoResultsError ->
         socket

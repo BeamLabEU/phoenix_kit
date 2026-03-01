@@ -1083,8 +1083,8 @@ defmodule PhoenixKit.Modules.Emails.Log do
             ilike(l.campaign_id, ^search_pattern)
         )
 
-      {:user_id, user_id}, query when is_binary(user_id) ->
-        where(query, [log: l], l.user_uuid == ^user_id)
+      {:user_uuid, user_uuid}, query when is_binary(user_uuid) ->
+        where(query, [log: l], l.user_uuid == ^user_uuid)
 
       _other, query ->
         query
@@ -1123,7 +1123,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
       provider: Keyword.get(opts, :provider, "unknown"),
       template_name: Keyword.get(opts, :template_name),
       campaign_id: Keyword.get(opts, :campaign_id),
-      user_id: Keyword.get(opts, :user_id),
       user_uuid: Keyword.get(opts, :user_uuid),
       configuration_set: Keyword.get(opts, :configuration_set),
       message_tags: Keyword.get(opts, :message_tags, %{}),

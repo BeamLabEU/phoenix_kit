@@ -93,8 +93,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
   end
 
   @impl true
-  def handle_event("retry_email", %{"email_id" => email_id}, socket) do
-    case retry_failed_email(email_id) do
+  def handle_event("retry_email", %{"email_uuid" => email_uuid}, socket) do
+    case retry_failed_email(email_uuid) do
       {:ok, _log} ->
         {:noreply,
          socket
@@ -109,14 +109,14 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
   end
 
   @impl true
-  def handle_event("toggle_email_selection", %{"email_id" => email_id}, socket) do
+  def handle_event("toggle_email_selection", %{"email_uuid" => email_uuid}, socket) do
     selected = socket.assigns.selected_emails
 
     new_selected =
-      if email_id in selected do
-        List.delete(selected, email_id)
+      if email_uuid in selected do
+        List.delete(selected, email_uuid)
       else
-        [email_id | selected]
+        [email_uuid | selected]
       end
 
     {:noreply, assign(socket, :selected_emails, new_selected)}
@@ -230,9 +230,9 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
     end
   end
 
-  defp retry_failed_email(email_id) do
+  defp retry_failed_email(email_uuid) do
     # Get the email log
-    log = Emails.get_log!(email_id)
+    log = Emails.get_log!(email_uuid)
 
     # Update status to "queued" for retry and increment retry_count
     Emails.update_log_status(log, "queued")
@@ -247,7 +247,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
       {:error, :not_found}
 
     error ->
-      Logger.error("Failed to retry email #{email_id}: #{inspect(error)}")
+      Logger.error("Failed to retry email #{email_uuid}: #{inspect(error)}")
       {:error, :retry_failed}
   end
 

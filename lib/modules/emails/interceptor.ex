@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
       # With additional context
       logged_email = PhoenixKit.Modules.Emails.Interceptor.intercept_before_send(email,
-        user_id: 123,
+        user_uuid: "018f1234-5678-7890-abcd-ef1234567890",
         template_name: "welcome_email",
         campaign_id: "welcome_series"
       )
@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
   ## Options
 
-  - `:user_id` - Associate with a specific user
+  - `:user_uuid` - Associate with a specific user
   - `:template_name` - Name of the email template
   - `:campaign_id` - Campaign identifier for grouping
   - `:provider` - Override provider detection
@@ -77,7 +77,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   ## Examples
 
       iex> email = new() |> to("user@example.com") |> from("app@example.com")
-      iex> PhoenixKit.Modules.Emails.Interceptor.intercept_before_send(email, user_id: 123)
+      iex> PhoenixKit.Modules.Emails.Interceptor.intercept_before_send(email, user_uuid: "018f1234-5678-7890-abcd-ef1234567890")
       %Swoosh.Email{headers: %{"X-PhoenixKit-Log-Id" => "456"}}
   """
   def intercept_before_send(%Email{} = email, opts \\ []) do
@@ -154,7 +154,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Emails.Interceptor.create_email_log(email, user_id: 123)
+      iex> PhoenixKit.Modules.Emails.Interceptor.create_email_log(email, user_uuid: "018f1234-5678-7890-abcd-ef1234567890")
       {:ok, %Log{}}
   """
   def create_email_log(%Email{} = email, opts \\ []) do
@@ -370,8 +370,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
 
   # Extract comprehensive data from Swoosh.Email
   defp extract_email_data(%Email{} = email, opts) do
-    user_id = Keyword.get(opts, :user_id)
-    user_uuid = Keyword.get(opts, :user_uuid) || resolve_user_uuid(user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
 
     %EmailLogData{
       message_id: generate_message_id(email, opts),
@@ -385,7 +384,6 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
       size_bytes: estimate_email_size(email),
       template_name: Keyword.get(opts, :template_name),
       campaign_id: Keyword.get(opts, :campaign_id),
-      user_id: user_id,
       user_uuid: user_uuid,
       provider: detect_provider(email, opts),
       configuration_set: get_configuration_set(opts),
@@ -575,7 +573,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
       %{}
       |> maybe_add_tag("template", Keyword.get(opts, :template_name))
       |> maybe_add_tag("campaign", Keyword.get(opts, :campaign_id))
-      |> maybe_add_user_id(Keyword.get(opts, :user_id))
+      |> maybe_add_user_uuid(Keyword.get(opts, :user_uuid))
       |> maybe_add_tag("category", Keyword.get(opts, :category))
       |> maybe_add_tag("source_module", Keyword.get(opts, :source_module))
       |> add_email_type(email, opts)
@@ -592,9 +590,9 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   defp maybe_add_tag(tags, _key, nil), do: tags
   defp maybe_add_tag(tags, key, value), do: Map.put(tags, key, value)
 
-  # Add user_id tag with string conversion
-  defp maybe_add_user_id(tags, nil), do: tags
-  defp maybe_add_user_id(tags, user_id), do: Map.put(tags, "user_id", to_string(user_id))
+  # Add user_uuid tag
+  defp maybe_add_user_uuid(tags, nil), do: tags
+  defp maybe_add_user_uuid(tags, user_uuid), do: Map.put(tags, "user_uuid", user_uuid)
 
   # Add email type - use template category if available, otherwise detect from content
   defp add_email_type(tags, email, opts) do
@@ -854,8 +852,4 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
   defp type_of(value) when is_atom(value), do: "atom"
   defp type_of(value) when is_integer(value), do: "integer"
   defp type_of(_), do: "other"
-
-  # Resolves user UUID from user_uuid string (passthrough) or nil
-  defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
-  defp resolve_user_uuid(_), do: nil
 end
