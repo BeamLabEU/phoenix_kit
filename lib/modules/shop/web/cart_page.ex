@@ -66,15 +66,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   end
 
   @impl true
-  def handle_event("update_quantity", %{"item_id" => item_id, "quantity" => quantity}, socket) do
+  def handle_event("update_quantity", %{"item_id" => item_uuid, "quantity" => quantity}, socket) do
     quantity = max(1, String.to_integer(quantity))
 
-    update_item_quantity(socket, item_id, quantity)
+    update_item_quantity(socket, item_uuid, quantity)
   end
 
   @impl true
-  def handle_event("remove_item", %{"item_id" => item_id}, socket) do
-    item = Enum.find(socket.assigns.cart.items, &(&1.uuid == item_id))
+  def handle_event("remove_item", %{"item_id" => item_uuid}, socket) do
+    item = Enum.find(socket.assigns.cart.items, &(&1.uuid == item_uuid))
 
     if item do
       case Shop.remove_from_cart(item) do
@@ -130,8 +130,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     end
   end
 
-  defp update_item_quantity(socket, item_id, quantity) do
-    item = Enum.find(socket.assigns.cart.items, &(&1.uuid == item_id))
+  defp update_item_quantity(socket, item_uuid, quantity) do
+    item = Enum.find(socket.assigns.cart.items, &(&1.uuid == item_uuid))
 
     if item do
       case Shop.update_cart_item(item, quantity) do
