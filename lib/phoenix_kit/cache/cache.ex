@@ -625,12 +625,20 @@ defmodule PhoenixKit.Cache do
 
   defp warm_critical_data(%{name: name, table: table, ttl: ttl}, data) do
     Enum.each(data, fn {key, value} ->
-      expires_at = if ttl, do: System.monotonic_time(:millisecond) + ttl, else: nil
-      :ets.insert(table, {key, value, expires_at})
+      # Use 2-tuple when no TTL (matches handle_call pattern [{^key, value}])
+      # Use 3-tuple only when TTL is set (matches [{^key, value, expires_at}] when is_integer)
+      entry =
+        if ttl do
+          {key, value, System.monotonic_time(:millisecond) + ttl}
+        else
+          {key, value}
+        end
+
+      :ets.insert(table, entry)
 
       # Also write to legacy cache_settings table if this is settings cache
       if name == :settings do
-        :ets.insert(:cache_settings, {key, value, expires_at})
+        :ets.insert(:cache_settings, entry)
       end
     end)
   end
