@@ -248,22 +248,22 @@ defmodule PhoenixKit.Admin.Events do
   @doc """
   Broadcasts permission granted event to admin panels.
   """
-  def broadcast_permission_granted(role_id, module_key) do
-    broadcast(@topic_permissions, {:permission_granted, role_id, module_key})
+  def broadcast_permission_granted(role_uuid, module_key) do
+    broadcast(@topic_permissions, {:permission_granted, role_uuid, module_key})
   end
 
   @doc """
   Broadcasts permission revoked event to admin panels.
   """
-  def broadcast_permission_revoked(role_id, module_key) do
-    broadcast(@topic_permissions, {:permission_revoked, role_id, module_key})
+  def broadcast_permission_revoked(role_uuid, module_key) do
+    broadcast(@topic_permissions, {:permission_revoked, role_uuid, module_key})
   end
 
   @doc """
   Broadcasts permissions synced event to admin panels.
   """
-  def broadcast_permissions_synced(role_id, module_keys) do
-    broadcast(@topic_permissions, {:permissions_synced, role_id, module_keys})
+  def broadcast_permissions_synced(role_uuid, module_keys) do
+    broadcast(@topic_permissions, {:permissions_synced, role_uuid, module_keys})
   end
 
   ## Module Events

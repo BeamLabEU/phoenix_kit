@@ -104,7 +104,7 @@ defmodule PhoenixKit.Dashboard do
         badge: %{
           type: :count,
           color: :error,
-          subscribe: {"user:\#{user_id}:notifications", :unread_count}
+          subscribe: {"user:\#{user_uuid}:notifications", :unread_count}
         }
       }
 
