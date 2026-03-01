@@ -12,7 +12,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
       MigratePrimaryLanguageWorker.enqueue("docs", "en")
 
       # Or with options
-      MigratePrimaryLanguageWorker.enqueue("docs", "en", user_id: 123)
+      MigratePrimaryLanguageWorker.enqueue("docs", "en", user_id: "019145a1-0000-7000-8000-000000000001")
 
   ## Job Arguments
 
@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
   def perform(%Oban.Job{args: args}) do
     group_slug = Map.fetch!(args, "group_slug")
     primary_language = Map.fetch!(args, "primary_language")
-    _user_id = Map.get(args, "user_id")
+    _user_uuid = Map.get(args, "user_id")
 
     Logger.info(
       "[MigratePrimaryLanguageWorker] Starting migration for #{group_slug} to #{primary_language}"
@@ -170,7 +170,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
   ## Examples
 
       MigratePrimaryLanguageWorker.create_job("docs", "en")
-      MigratePrimaryLanguageWorker.create_job("docs", "en", user_id: 123)
+      MigratePrimaryLanguageWorker.create_job("docs", "en", user_id: "019145a1-0000-7000-8000-000000000001")
 
   """
   def create_job(group_slug, primary_language, opts \\ []) do

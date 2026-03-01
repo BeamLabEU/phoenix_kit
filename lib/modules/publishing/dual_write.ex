@@ -106,7 +106,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
       end
 
       # Resolve user UUID for dual-write
-      created_by_uuid = resolve_user_ids(opts)
+      created_by_uuid = resolve_user_uuids(opts)
 
       # Create the post
       {:ok, db_post} =
@@ -202,7 +202,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
         throw(:skip)
       end
 
-      created_by_uuid = resolve_user_ids(opts)
+      created_by_uuid = resolve_user_uuids(opts)
       version_number = post_map[:version] || DBStorage.next_version_number(db_post.uuid)
 
       {:ok, db_version} =
@@ -399,7 +399,7 @@ defmodule PhoenixKit.Modules.Publishing.DualWrite do
     :skip -> :ok
   end
 
-  defp resolve_user_ids(opts) do
+  defp resolve_user_uuids(opts) do
     opts[:user_uuid] || opts[:created_by_uuid]
   end
 
