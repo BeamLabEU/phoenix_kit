@@ -965,7 +965,7 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def update_order(%Order{} = order, attrs) do
     if Order.editable?(order) do
-      # Update billing_snapshot if billing_profile_id changed
+      # Update billing_snapshot if billing_profile_uuid changed
       attrs = maybe_update_billing_snapshot(order, attrs)
 
       result =

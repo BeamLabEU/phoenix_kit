@@ -148,8 +148,8 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
     end
   end
 
-  def handle_event("deny_transfer", %{"transfer_id" => id, "reason" => reason}, socket) do
-    transfer = Transfers.get_transfer!(id)
+  def handle_event("deny_transfer", %{"transfer_id" => transfer_uuid, "reason" => reason}, socket) do
+    transfer = Transfers.get_transfer!(transfer_uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
     reason = if reason == "", do: nil, else: reason
 
