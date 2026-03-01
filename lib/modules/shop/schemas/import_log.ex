@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
     # Metadata
     field :options, :map, default: %{}
     field :error_details, {:array, :map}, default: []
-    field :product_ids, {:array, :integer}, default: []
+    field :product_uuids, {:array, Ecto.UUID}, default: []
 
     # Timing
     field :started_at, :utc_datetime
@@ -124,7 +124,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
       :skipped_count,
       :error_count,
       :error_details,
-      :product_ids
+      :product_uuids
     ])
     |> change(%{
       status: "completed",

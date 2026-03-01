@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:show_media_selector, false)
     |> assign(:media_selection_mode, :single)
     |> assign(:media_selection_target, nil)
-    |> assign(:all_image_ids, [])
+    |> assign(:all_image_uuids, [])
     |> assign(:new_value_inputs, %{})
     |> assign(:selected_option_values, %{})
     |> assign(:original_option_values, %{})
@@ -75,11 +75,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     # Build unified image list: featured first, then gallery (for unified drag-and-drop UI)
     gallery_ids = product.image_ids || []
     featured_id = product.featured_image_uuid
-    all_image_ids = build_all_image_ids(featured_id, gallery_ids)
-    valid_image_ids = all_image_ids
+    all_image_uuids = build_all_image_uuids(featured_id, gallery_ids)
+    valid_image_uuids = all_image_uuids
 
     # Clean stale image mappings (images that no longer exist)
-    {metadata, had_stale_mappings} = clean_stale_image_mappings(metadata, valid_image_ids)
+    {metadata, had_stale_mappings} = clean_stale_image_mappings(metadata, valid_image_uuids)
 
     # Calculate price range for display (pass metadata for custom modifiers)
     base_price = product.price || Decimal.new("0")
@@ -110,7 +110,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:show_media_selector, false)
     |> assign(:media_selection_mode, :single)
     |> assign(:media_selection_target, nil)
-    |> assign(:all_image_ids, all_image_ids)
+    |> assign(:all_image_uuids, all_image_uuids)
     |> assign(:new_value_inputs, %{})
     |> assign(:selected_option_values, selected_option_values)
     |> assign(:add_option_key, "")
@@ -161,14 +161,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       |> Map.put(:action, :validate)
 
     # Update option schema if category changed
-    new_category_id = product_params["category_uuid"] || product_params["category_id"]
+    new_category_uuid = product_params["category_uuid"]
 
-    old_category_id =
+    old_category_uuid =
       socket.assigns.product.category_uuid
 
     socket =
-      if new_category_id != old_category_id do
-        option_schema = get_schema_for_category_id(new_category_id)
+      if new_category_uuid != old_category_uuid do
+        option_schema = get_schema_for_category_uuid(new_category_uuid)
         price_affecting_options = get_price_affecting_options(option_schema)
 
         socket
@@ -236,8 +236,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       )
 
     # Clean up _image_mappings - remove empty values and invalid image IDs
-    valid_image_ids = build_valid_image_ids(socket.assigns)
-    metadata = clean_image_mappings(metadata, valid_image_ids)
+    valid_image_uuids = build_valid_image_uuids(socket.assigns)
+    metadata = clean_image_mappings(metadata, valid_image_uuids)
 
     # Clean up metadata - convert multiselect arrays if needed
     cleaned_metadata =
@@ -251,7 +251,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     product_params = Map.put(product_params, "metadata", cleaned_metadata)
 
     # Extract featured and gallery from unified image list
-    all_images = socket.assigns.all_image_ids
+    all_images = socket.assigns.all_image_uuids
     featured_id = List.first(all_images)
     gallery_ids = Enum.drop(all_images, 1)
 
@@ -292,12 +292,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   def handle_event("remove_image", %{"id" => id}, socket) do
-    updated = Enum.reject(socket.assigns.all_image_ids, &(&1 == id))
-    {:noreply, assign(socket, :all_image_ids, updated)}
+    updated = Enum.reject(socket.assigns.all_image_uuids, &(&1 == id))
+    {:noreply, assign(socket, :all_image_uuids, updated)}
   end
 
   def handle_event("reorder_images", %{"ordered_ids" => ordered_ids}, socket) do
-    {:noreply, assign(socket, :all_image_ids, ordered_ids)}
+    {:noreply, assign(socket, :all_image_uuids, ordered_ids)}
   end
 
   # ===========================================
@@ -508,9 +508,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   defp apply_media_selection(socket, :gallery, file_ids) do
-    current = socket.assigns.all_image_ids
+    current = socket.assigns.all_image_uuids
     new_ids = Enum.reject(file_ids, &(&1 in current))
-    assign(socket, :all_image_ids, current ++ new_ids)
+    assign(socket, :all_image_uuids, current ++ new_ids)
   end
 
   defp apply_media_selection(socket, _, _), do: socket
@@ -1583,7 +1583,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           <% end %>
 
           <%!-- Variant Images Section - supports both Storage and legacy URL-based images --%>
-          <% has_storage_images = @all_image_ids != [] %>
+          <% has_storage_images = @all_image_uuids != [] %>
           <% legacy_images = get_legacy_images(@product) %>
           <% has_legacy_images = legacy_images != [] %>
           <%= if (has_storage_images or has_legacy_images) and has_mappable_options?(assigns) do %>
@@ -1609,7 +1609,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                           >
                             <option value="">No image</option>
                             <%!-- Storage images (unified list - first is featured) --%>
-                            <%= for {image_id, idx} <- Enum.with_index(@all_image_ids) do %>
+                            <%= for {image_id, idx} <- Enum.with_index(@all_image_uuids) do %>
                               <option
                                 value={image_id}
                                 selected={get_image_mapping(@metadata, option_key, value) == image_id}
@@ -1658,7 +1658,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
               <.draggable_list
                 id="product-images"
-                items={@all_image_ids}
+                items={@all_image_uuids}
                 on_reorder="reorder_images"
                 item_id={& &1}
                 cols={6}
@@ -1671,12 +1671,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                       src={get_image_url(image_id, "thumbnail")}
                       class={[
                         "w-full aspect-square object-cover rounded-lg shadow",
-                        image_id == List.first(@all_image_ids) &&
+                        image_id == List.first(@all_image_uuids) &&
                           "ring-2 ring-primary ring-offset-2"
                       ]}
                     />
                     <%!-- Featured badge on first image --%>
-                    <%= if image_id == List.first(@all_image_ids) do %>
+                    <%= if image_id == List.first(@all_image_uuids) do %>
                       <span class="absolute top-1 left-1 badge badge-primary badge-sm">
                         <.icon name="hero-star" class="w-3 h-3 mr-1" /> Featured
                       </span>
@@ -1753,9 +1753,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   # Build unified image list from featured + gallery (featured always first)
-  defp build_all_image_ids(nil, gallery_ids), do: Enum.uniq(gallery_ids)
+  defp build_all_image_uuids(nil, gallery_ids), do: Enum.uniq(gallery_ids)
 
-  defp build_all_image_ids(featured_id, gallery_ids) do
+  defp build_all_image_uuids(featured_id, gallery_ids) do
     [featured_id | Enum.reject(gallery_ids, &(&1 == featured_id))]
     |> Enum.uniq()
   end
@@ -1963,19 +1963,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     """
   end
 
-  # Get option schema based on category_id string
-  defp get_schema_for_category_id(nil), do: Options.get_enabled_global_options()
-  defp get_schema_for_category_id(""), do: Options.get_enabled_global_options()
+  # Get option schema based on category_uuid string
+  defp get_schema_for_category_uuid(nil), do: Options.get_enabled_global_options()
+  defp get_schema_for_category_uuid(""), do: Options.get_enabled_global_options()
 
-  defp get_schema_for_category_id(category_id) when is_binary(category_id) do
-    category = Shop.get_category!(category_id)
+  defp get_schema_for_category_uuid(category_uuid) when is_binary(category_uuid) do
+    category = Shop.get_category!(category_uuid)
     product = %Product{category: category, category_uuid: category.uuid}
     Options.get_option_schema_for_product(product)
   rescue
     _ -> Options.get_enabled_global_options()
   end
 
-  defp get_schema_for_category_id(_), do: Options.get_enabled_global_options()
+  defp get_schema_for_category_uuid(_), do: Options.get_enabled_global_options()
 
   # Clean up _option_values - remove entries where all values are selected (use defaults)
   defp clean_option_values(metadata, option_schema, original_option_values) do
@@ -2255,13 +2255,13 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   # ===========================================
 
   # Build list of valid image IDs from socket assigns
-  defp build_valid_image_ids(assigns) do
-    assigns[:all_image_ids] || []
+  defp build_valid_image_uuids(assigns) do
+    assigns[:all_image_uuids] || []
   end
 
   # Clean up _image_mappings - remove empty values and invalid image IDs
   # Preserves URL values (starting with "http") for legacy Shopify images
-  defp clean_image_mappings(metadata, valid_image_ids) do
+  defp clean_image_mappings(metadata, valid_image_uuids) do
     case metadata["_image_mappings"] do
       nil ->
         metadata
@@ -2272,7 +2272,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           |> Enum.map(fn {option_key, value_mappings} ->
             cleaned_values =
               value_mappings
-              |> Enum.reject(&invalid_image_mapping?(&1, valid_image_ids))
+              |> Enum.reject(&invalid_image_mapping?(&1, valid_image_uuids))
               |> Map.new()
 
             {option_key, cleaned_values}

@@ -73,7 +73,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       |> assign(:min_price, min_price)
       |> assign(:max_price, max_price)
       |> assign(:all_images, all_images)
-      |> assign(:selected_image_id, first_image_id)
+      |> assign(:selected_image_uuid, first_image_id)
       |> assign(:selectable_specs, selectable_specs)
       |> assign(:selected_specs, selected_specs)
       |> assign(:show_delete_modal, false)
@@ -123,7 +123,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   @impl true
   def handle_event("select_image", %{"id" => image_id}, socket) do
-    {:noreply, assign(socket, :selected_image_id, image_id)}
+    {:noreply, assign(socket, :selected_image_uuid, image_id)}
   end
 
   @impl true
@@ -131,14 +131,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     product = socket.assigns.product
     selected_specs = Map.put(socket.assigns.selected_specs, key, value)
 
-    # Check for image mapping - update selected_image_id if mapping exists
-    selected_image_id =
-      get_mapped_image_id(product, key, value, socket.assigns.selected_image_id)
+    # Check for image mapping - update selected_image_uuid if mapping exists
+    selected_image_uuid =
+      get_mapped_image_id(product, key, value, socket.assigns.selected_image_uuid)
 
     {:noreply,
      socket
      |> assign(:selected_specs, selected_specs)
-     |> assign(:selected_image_id, selected_image_id)}
+     |> assign(:selected_image_uuid, selected_image_uuid)}
   end
 
   @impl true
@@ -234,7 +234,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Image</h2>
-                <% selected_url = get_image_url_by_id(@product, @selected_image_id) %>
+                <% selected_url = get_image_url_by_id(@product, @selected_image_uuid) %>
                 <div class="aspect-video bg-base-200 rounded-lg overflow-hidden">
                   <%= if selected_url do %>
                     <img
@@ -259,7 +259,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                           phx-value-id={image_id}
                           class={[
                             "w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-base-200 transition-all",
-                            image_id == @selected_image_id && "ring-2 ring-primary ring-offset-2"
+                            image_id == @selected_image_uuid && "ring-2 ring-primary ring-offset-2"
                           ]}
                         >
                           <img src={url} alt="Thumbnail" class="w-full h-full object-cover" />
