@@ -2,7 +2,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   @moduledoc """
   Single media file detail view for PhoenixKit admin panel.
 
-  Provides a shareable view for a specific uploaded media file by file_id.
+  Provides a shareable view for a specific uploaded media file by file_uuid.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -26,8 +26,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    # Get file_id from params
-    file_id = params["file_id"]
+    # Get file_uuid from params
+    file_uuid = params["file_uuid"]
 
     # Batch load all settings needed for this page
     settings =
@@ -41,9 +41,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       |> assign(:page_title, "Media Detail")
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
-      |> assign(:file_id, file_id)
+      |> assign(:file_uuid, file_uuid)
       |> assign(:show_delete_modal, false)
-      |> load_file_data(file_id)
+      |> load_file_data(file_uuid)
 
     {:ok, socket}
   end
@@ -147,18 +147,18 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     end
   end
 
-  defp load_file_data(socket, file_id) do
+  defp load_file_data(socket, file_uuid) do
     repo = PhoenixKit.Config.get_repo()
 
-    case repo.get(File, file_id) do
+    case repo.get(File, file_uuid) do
       nil ->
         socket
         |> assign(:file, nil)
         |> assign(:file_data, nil)
 
       file ->
-        instances = load_file_instances(file_id, repo)
-        urls = generate_urls_from_instances(instances, file_id)
+        instances = load_file_instances(file_uuid, repo)
+        urls = generate_urls_from_instances(instances, file_uuid)
         locations = load_original_locations(instances, repo)
         {title, description, tags} = extract_metadata_fields(file.metadata)
         user_name = get_user_name(file.user_uuid, repo)
@@ -173,9 +173,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     end
   end
 
-  defp load_file_instances(file_id, repo) do
+  defp load_file_instances(file_uuid, repo) do
     FileInstance
-    |> where([fi], fi.file_uuid == ^file_id)
+    |> where([fi], fi.file_uuid == ^file_uuid)
     |> repo.all()
   end
 
@@ -207,7 +207,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   defp build_file_data(file, urls, locations, {title, description, tags}, user_name) do
     %{
-      file_id: file.uuid,
+      file_uuid: file.uuid,
       filename: file.original_file_name || file.file_name || "Unknown",
       original_filename: file.original_file_name,
       file_type: file.file_type,
@@ -227,9 +227,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   end
 
   # Generate URLs from pre-loaded instances (no database query needed)
-  defp generate_urls_from_instances(instances, file_id) do
+  defp generate_urls_from_instances(instances, file_uuid) do
     Enum.reduce(instances, %{}, fn instance, acc ->
-      url = URLSigner.signed_url(file_id, instance.variant_name)
+      url = URLSigner.signed_url(file_uuid, instance.variant_name)
       Map.put(acc, instance.variant_name, url)
     end)
   end

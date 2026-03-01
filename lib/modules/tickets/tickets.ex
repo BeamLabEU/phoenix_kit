@@ -25,24 +25,24 @@ defmodule PhoenixKit.Modules.Tickets do
   ## Examples
 
       # Create a ticket
-      {:ok, ticket} = Tickets.create_ticket(user_id, %{
+      {:ok, ticket} = Tickets.create_ticket(user_uuid, %{
         title: "Cannot login",
         description: "I get an error when trying to login..."
       })
 
       # Assign to support staff
-      {:ok, ticket} = Tickets.assign_ticket(ticket, staff_user_id, current_user)
+      {:ok, ticket} = Tickets.assign_ticket(ticket, staff_user_uuid, current_user)
 
       # Start working on it
       {:ok, ticket} = Tickets.start_progress(ticket, current_user)
 
       # Add a public comment
-      {:ok, comment} = Tickets.create_comment(ticket.uuid, staff_user_id, %{
+      {:ok, comment} = Tickets.create_comment(ticket.uuid, staff_user_uuid, %{
         content: "We're looking into this issue."
       })
 
       # Add an internal note (hidden from customer)
-      {:ok, note} = Tickets.create_internal_note(ticket.uuid, staff_user_id, %{
+      {:ok, note} = Tickets.create_internal_note(ticket.uuid, staff_user_uuid, %{
         content: "Customer seems frustrated. Need to escalate."
       })
 
@@ -653,7 +653,7 @@ defmodule PhoenixKit.Modules.Tickets do
 
   ## Examples
 
-      iex> create_comment(ticket.uuid, user_id, %{content: "Thanks for looking into this!"})
+      iex> create_comment(ticket.uuid, user_uuid, %{content: "Thanks for looking into this!"})
       {:ok, %TicketComment{}}
   """
   def create_comment(ticket_uuid, user_uuid, attrs) when is_binary(user_uuid) do
