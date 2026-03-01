@@ -430,10 +430,20 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         "PhoenixKit#{String.capitalize(action)}V#{current_version_padded}ToV#{target_version_padded}"
 
       # Create migration content
+      # @disable_ddl_transaction is critical: without it, Ecto wraps the entire
+      # migration in a single transaction.  ALTER TABLE requires AccessExclusiveLock,
+      # which blocks (and is blocked by) every other connection on the table.
+      # A long-running transaction holding such locks on dozens of tables will deadlock
+      # with the production app's normal queries — even on an empty database.
+      # With DDL transaction disabled each statement auto-commits, so locks are held
+      # only for milliseconds per ALTER TABLE.  PhoenixKit migrations are already
+      # fully idempotent (IF NOT EXISTS / IF EXISTS guards), so partial runs are safe.
       migration_content = """
       defmodule Ecto.Migrations.#{module_name} do
         @moduledoc false
         use Ecto.Migration
+
+        @disable_ddl_transaction true
 
         def up do
           # PhoenixKit Update Migration: V#{current_version_padded} -> V#{target_version_padded}
