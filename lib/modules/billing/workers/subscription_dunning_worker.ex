@@ -32,7 +32,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   ## Manual Trigger
 
   ```elixir
-  %{subscription_id: 123}
+  %{subscription_id: "019145a1-0000-7000-8000-000000000001"}
   |> SubscriptionDunningWorker.new()
   |> Oban.insert()
   ```
@@ -51,10 +51,10 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   require Logger
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"subscription_id" => subscription_id}}) do
-    case get_subscription_with_preloads(subscription_id) do
+  def perform(%Oban.Job{args: %{"subscription_id" => subscription_uuid}}) do
+    case get_subscription_with_preloads(subscription_uuid) do
       nil ->
-        Logger.warning("Subscription #{subscription_id} not found for dunning")
+        Logger.warning("Subscription #{subscription_uuid} not found for dunning")
         :ok
 
       subscription ->
