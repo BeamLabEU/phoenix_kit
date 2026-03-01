@@ -379,20 +379,20 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
 
     - `slug` - The slug to check
     - `language` - Language code
-    - `exclude_id` - Product ID to exclude from check (for edits)
+    - `exclude_uuid` - Product UUID to exclude from check (for edits)
 
   ## Examples
 
       iex> SlugResolver.product_slug_exists?("geometric-planter", "en-US")
       true
 
-      iex> SlugResolver.product_slug_exists?("geometric-planter", "en-US", exclude_id: 123)
-      false  # Excludes product 123 from check
+      iex> SlugResolver.product_slug_exists?("geometric-planter", "en-US", exclude_uuid: "some-uuid")
+      false  # Excludes product with given UUID from check
   """
   @spec product_slug_exists?(String.t(), String.t(), keyword()) :: boolean()
   def product_slug_exists?(slug, language, opts \\ []) do
     lang = normalize_language(language)
-    exclude_id = Keyword.get(opts, :exclude_id)
+    exclude_uuid = Keyword.get(opts, :exclude_uuid)
 
     # Localized fields: slug is a JSONB map
     query =
@@ -407,8 +407,8 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
       )
 
     query =
-      if is_binary(exclude_id) && match?({:ok, _}, Ecto.UUID.cast(exclude_id)) do
-        from(p in query, where: p.uuid != ^exclude_id)
+      if is_binary(exclude_uuid) && match?({:ok, _}, Ecto.UUID.cast(exclude_uuid)) do
+        from(p in query, where: p.uuid != ^exclude_uuid)
       else
         query
       end
@@ -427,7 +427,7 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
   @spec category_slug_exists?(String.t(), String.t(), keyword()) :: boolean()
   def category_slug_exists?(slug, language, opts \\ []) do
     lang = normalize_language(language)
-    exclude_id = Keyword.get(opts, :exclude_id)
+    exclude_uuid = Keyword.get(opts, :exclude_uuid)
 
     # Localized fields: slug is a JSONB map
     query =
@@ -442,8 +442,8 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
       )
 
     query =
-      if is_binary(exclude_id) && match?({:ok, _}, Ecto.UUID.cast(exclude_id)) do
-        from(c in query, where: c.uuid != ^exclude_id)
+      if is_binary(exclude_uuid) && match?({:ok, _}, Ecto.UUID.cast(exclude_uuid)) do
+        from(c in query, where: c.uuid != ^exclude_uuid)
       else
         query
       end

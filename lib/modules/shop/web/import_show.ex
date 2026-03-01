@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportShow do
          |> push_navigate(to: Routes.path("/admin/shop/imports"))}
 
       import_log ->
-        products = load_products(import_log.product_ids || [])
+        products = load_products(import_log.product_uuids || [])
 
         socket =
           socket
@@ -43,8 +43,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportShow do
 
   defp load_products([]), do: []
 
-  defp load_products(product_ids) do
-    Shop.list_products_by_ids(product_ids)
+  defp load_products(product_uuids) do
+    Shop.list_products_by_ids(product_uuids)
   end
 
   defp format_datetime(nil), do: "-"

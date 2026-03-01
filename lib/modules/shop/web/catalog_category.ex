@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
           Shop.list_products_with_count(
             [
               status: "active",
-              category_id: category.uuid,
+              category_uuid: category.uuid,
               page: 1,
               per_page: page * per_page,
               preload: [:category]
@@ -129,7 +129,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
         Shop.list_products_with_count(
           [
             status: "active",
-            category_id: socket.assigns.category.uuid,
+            category_uuid: socket.assigns.category.uuid,
             page: 1,
             per_page: effective_page * socket.assigns.per_page,
             preload: [:category]

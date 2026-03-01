@@ -58,7 +58,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
     search = params["search"] || ""
     status = if params["status"] in ["", nil], do: nil, else: params["status"]
     type = if params["type"] in ["", nil], do: nil, else: params["type"]
-    category_id = parse_category_id(params["category"])
+    category_uuid = parse_category_uuid(params["category"])
 
     opts = [
       page: page,
@@ -66,7 +66,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       search: search,
       status: status,
       product_type: type,
-      category_id: category_id,
+      category_uuid: category_uuid,
       preload: [:category]
     ]
 
@@ -80,7 +80,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:search, search)
       |> assign(:status_filter, status)
       |> assign(:type_filter, type)
-      |> assign(:category_filter, category_id)
+      |> assign(:category_filter, category_uuid)
 
     {:noreply, socket}
   end
@@ -124,11 +124,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   @impl true
   def handle_event("filter_category", %{"category" => category}, socket) do
-    category_id = parse_category_id(category)
+    category_uuid = parse_category_uuid(category)
 
     socket =
       socket
-      |> assign(:category_filter, category_id)
+      |> assign(:category_filter, category_uuid)
       |> assign(:page, 1)
       |> load_products()
 
@@ -188,7 +188,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
             search: socket.assigns.search,
             status: socket.assigns.status_filter,
             product_type: socket.assigns.type_filter,
-            category_id: socket.assigns.category_filter,
+            category_uuid: socket.assigns.category_filter,
             preload: [:category]
           )
 
@@ -294,10 +294,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_event("bulk_change_category", %{"category_id" => category_id}, socket) do
+  def handle_event("bulk_change_category", %{"category_uuid" => category_uuid}, socket) do
     ids = MapSet.to_list(socket.assigns.selected_ids)
-    category_id = if category_id == "", do: nil, else: category_id
-    count = Shop.bulk_update_product_category(ids, category_id)
+    category_uuid = if category_uuid == "", do: nil, else: category_uuid
+    count = Shop.bulk_update_product_category(ids, category_uuid)
 
     socket = load_products(socket)
 
@@ -343,7 +343,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
         search: socket.assigns.search,
         status: socket.assigns.status_filter,
         product_type: socket.assigns.type_filter,
-        category_id: socket.assigns.category_filter,
+        category_uuid: socket.assigns.category_filter,
         preload: [:category]
       )
 
@@ -719,7 +719,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
             <div class="flex flex-col gap-2">
               <button
                 phx-click="bulk_change_category"
-                phx-value-category_id=""
+                phx-value-category_uuid=""
                 class="btn btn-ghost justify-start"
               >
                 <.icon name="hero-x-mark" class="w-5 h-5 mr-2" /> No Category
@@ -727,7 +727,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
               <%= for category <- @categories do %>
                 <button
                   phx-click="bulk_change_category"
-                  phx-value-category_id={category.uuid}
+                  phx-value-category_uuid={category.uuid}
                   class="btn btn-outline justify-start"
                 >
                   <.icon name="hero-folder" class="w-5 h-5 mr-2" /> {Translations.get(
@@ -807,9 +807,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       Enum.all?(products, fn p -> MapSet.member?(selected_ids, p.uuid) end)
   end
 
-  defp parse_category_id(nil), do: nil
-  defp parse_category_id(""), do: nil
-  defp parse_category_id(id) when is_binary(id), do: id
+  defp parse_category_uuid(nil), do: nil
+  defp parse_category_uuid(""), do: nil
+  defp parse_category_uuid(id) when is_binary(id), do: id
 
   defp status_badge_class("active"), do: "badge badge-success"
   defp status_badge_class("draft"), do: "badge badge-warning"
