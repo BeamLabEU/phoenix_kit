@@ -19,29 +19,31 @@ defmodule PhoenixKit.Migrations.Postgres.V50 do
 
     schema = if prefix && prefix != "public", do: prefix, else: "public"
 
-    # Check at the Elixir level first — if the column already exists, skip the
-    # ALTER TABLE entirely. This avoids acquiring ACCESS EXCLUSIVE lock when the
-    # column is already present (common on retry after a previous lock timeout).
-    %{rows: rows} =
-      repo().query!(
-        "SELECT 1 FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'phoenix_kit_buckets' AND column_name = 'access_type'",
-        [schema]
-      )
+    # Use a PL/pgSQL block so the column existence check and the ALTER TABLE
+    # share the migration's single connection (no extra pool checkout needed).
+    # If the column already exists, the ALTER is skipped and no lock is acquired.
+    # Lock timeout of 30s applies only when the ALTER actually runs.
+    # On PostgreSQL 11+, ADD COLUMN with a constant DEFAULT is metadata-only
+    # so the lock is held for milliseconds once acquired.
+    execute "SET LOCAL lock_timeout = '30s'"
 
-    if rows == [] do
-      # On PostgreSQL 11+, ADD COLUMN with a constant DEFAULT is a metadata-only
-      # operation — the lock is held for milliseconds once acquired. Set a 30s
-      # timeout so we wait long enough for a brief window in production traffic.
-      execute "SET LOCAL lock_timeout = '30s'"
+    execute """
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name   = 'phoenix_kit_buckets'
+          AND column_name  = 'access_type'
+      ) THEN
+        ALTER TABLE #{prefix_str}phoenix_kit_buckets
+          ADD COLUMN access_type VARCHAR(20) DEFAULT 'public';
+      END IF;
+    END $$;
+    """
 
-      execute """
-      ALTER TABLE #{prefix_str}phoenix_kit_buckets
-      ADD COLUMN IF NOT EXISTS access_type VARCHAR(20) DEFAULT 'public'
-      """
-
-      # Reset lock_timeout so subsequent migration steps are not affected
-      execute "SET LOCAL lock_timeout = '0'"
-    end
+    # Reset lock_timeout so subsequent migration steps are not affected
+    execute "SET LOCAL lock_timeout = '0'"
 
     # Record migration version
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '50'"

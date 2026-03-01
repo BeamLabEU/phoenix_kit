@@ -215,6 +215,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               Mix.Task.run("app.config")
               cap_repo_pool_size_for_update(2)
 
+              # Tell PhoenixKit.Supervisor to skip Dashboard.Registry,
+              # OAuthConfigLoader, and module workers so they don't compete
+              # for the 2 available DB connections during startup.
+              Application.put_env(:phoenix_kit, :update_mode, true)
+
               Mix.Task.run("app.start")
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))
