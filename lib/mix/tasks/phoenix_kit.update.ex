@@ -201,6 +201,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               # Second pass (automatic or manual): Configuration exists, safe to start app
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
+
+              # Use a minimal DB pool so we don't saturate PgBouncer when the production
+              # app is already running (production pool + update pool would exceed server
+              # capacity and cause 15s timeouts on all startup queries).
+              System.put_env("POOL_SIZE", "2")
+
               Mix.Task.run("app.start")
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))
