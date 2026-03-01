@@ -62,8 +62,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionForm do
   end
 
   @impl true
-  def handle_event("select_user", %{"id" => user_id}, socket) do
-    case Auth.get_user(user_id) do
+  def handle_event("select_user", %{"id" => user_uuid}, socket) do
+    case Auth.get_user(user_uuid) do
       nil ->
         {:noreply, put_flash(socket, :error, "User not found")}
 
