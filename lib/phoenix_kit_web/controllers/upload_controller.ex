@@ -195,7 +195,7 @@ defmodule PhoenixKitWeb.UploadController do
     case Storage.store_file_in_buckets(upload.path, file_type, user_uuid, file_checksum, ext) do
       {:ok, file} ->
         # Queue background job for variant generation
-        %{file_id: file.uuid, user_uuid: user_uuid, filename: upload.filename}
+        %{file_uuid: file.uuid, user_uuid: user_uuid, filename: upload.filename}
         |> ProcessFileJob.new()
         |> Oban.insert()
 

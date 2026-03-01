@@ -274,7 +274,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         urls = generate_urls_from_instances(instances, file.uuid)
 
         %{
-          uuid: file.uuid,
+          file_uuid: file.uuid,
           filename: file.original_file_name || file.file_name || "Unknown",
           original_filename: file.original_file_name,
           file_type: file.file_type,
@@ -329,7 +329,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         urls = generate_urls_from_instances(instances, file.uuid)
 
         %{
-          uuid: file.uuid,
+          file_uuid: file.uuid,
           filename: file.original_file_name || file.file_name || "Unknown",
           original_filename: file.original_file_name,
           file_type: file.file_type,

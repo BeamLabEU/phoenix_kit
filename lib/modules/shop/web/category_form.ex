@@ -902,7 +902,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
         id="media-selector-modal"
         show={@show_media_selector}
         mode={:single}
-        selected_ids={if @image_uuid, do: [@image_uuid], else: []}
+        selected_uuids={if @image_uuid, do: [@image_uuid], else: []}
         phoenix_kit_current_user={@phoenix_kit_current_user}
       />
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

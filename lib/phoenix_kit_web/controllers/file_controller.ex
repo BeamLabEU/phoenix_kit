@@ -17,11 +17,11 @@ defmodule PhoenixKitWeb.FileController do
 
   ## Request
 
-      GET /file/:file_id/:variant/:token
+      GET /file/:file_uuid/:variant/:token
 
   ## Parameters
 
-  - `file_id`: UUID of the file
+  - `file_uuid`: UUID of the file
   - `variant`: Variant name (e.g., "original", "thumbnail", "medium")
   - `token`: Signed token for authentication
 
@@ -40,10 +40,10 @@ defmodule PhoenixKitWeb.FileController do
   Error (404):
       "File or variant not found"
   """
-  def show(conn, %{"file_id" => file_id, "variant" => variant, "token" => token}) do
-    with {:ok, file} <- get_file(file_id),
-         :ok <- verify_token(file_id, variant, token),
-         {:ok, instance} <- get_file_instance(file_id, variant),
+  def show(conn, %{"file_uuid" => file_uuid, "variant" => variant, "token" => token}) do
+    with {:ok, file} <- get_file(file_uuid),
+         :ok <- verify_token(file_uuid, variant, token),
+         {:ok, instance} <- get_file_instance(file_uuid, variant),
          result <- get_file_access(instance) do
       case result do
         {:local, file_path} ->
@@ -83,7 +83,7 @@ defmodule PhoenixKitWeb.FileController do
 
   ## Request
 
-      GET /api/files/:file_id/info
+      GET /api/files/:file_uuid/info
 
   ## Response
 
@@ -107,15 +107,15 @@ defmodule PhoenixKitWeb.FileController do
         ]
       }
   """
-  def info(conn, %{"file_id" => file_id}) do
-    case get_file(file_id) do
+  def info(conn, %{"file_uuid" => file_uuid}) do
+    case get_file(file_uuid) do
       {:ok, file} ->
-        instances = Storage.list_file_instances(file_id)
+        instances = Storage.list_file_instances(file_uuid)
 
         variant_urls =
           Enum.map(instances, fn instance ->
-            token = URLSigner.generate_token(file_id, instance.variant_name)
-            file_path = "/file/#{file_id}/#{instance.variant_name}/#{token}"
+            token = URLSigner.generate_token(file_uuid, instance.variant_name)
+            file_path = "/file/#{file_uuid}/#{instance.variant_name}/#{token}"
             url = Routes.path(file_path)
 
             %{
@@ -145,24 +145,24 @@ defmodule PhoenixKitWeb.FileController do
     end
   end
 
-  defp get_file(file_id) do
-    case Storage.get_file(file_id) do
+  defp get_file(file_uuid) do
+    case Storage.get_file(file_uuid) do
       nil -> {:error, :not_found}
       file -> {:ok, file}
     end
   end
 
-  defp get_file_instance(file_id, variant) do
-    case Storage.get_file_instance_by_name(file_id, variant) do
+  defp get_file_instance(file_uuid, variant) do
+    case Storage.get_file_instance_by_name(file_uuid, variant) do
       nil ->
         # Variant doesn't exist, try to get the original to queue generation
-        case Storage.get_file_instance_by_name(file_id, "original") do
+        case Storage.get_file_instance_by_name(file_uuid, "original") do
           nil ->
             {:error, :not_found}
 
           original_instance ->
             # Queue the variant for generation if not already requested
-            queue_missing_variant(file_id, variant, original_instance)
+            queue_missing_variant(file_uuid, variant, original_instance)
             # Return the original for now
             {:ok, original_instance}
         end
@@ -172,23 +172,27 @@ defmodule PhoenixKitWeb.FileController do
     end
   end
 
-  defp queue_missing_variant(file_id, _variant, original_instance) do
+  defp queue_missing_variant(file_uuid, _variant, original_instance) do
     # Queue background job to generate the missing variant
     Task.start(fn ->
-      case Storage.get_file(file_id) do
+      case Storage.get_file(file_uuid) do
         nil ->
           :error
 
         file ->
-          %{file_id: file_id, user_uuid: file.user_uuid, filename: original_instance.file_name}
+          %{
+            file_uuid: file_uuid,
+            user_uuid: file.user_uuid,
+            filename: original_instance.file_name
+          }
           |> ProcessFileJob.new()
           |> Oban.insert()
       end
     end)
   end
 
-  defp verify_token(file_id, variant, token) do
-    if URLSigner.verify_token(file_id, variant, token) do
+  defp verify_token(file_uuid, variant, token) do
+    if URLSigner.verify_token(file_uuid, variant, token) do
       :ok
     else
       {:error, :invalid_token}

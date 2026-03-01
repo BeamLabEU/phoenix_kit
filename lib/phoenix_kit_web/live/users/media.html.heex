@@ -114,7 +114,7 @@
           <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
             <%= for file <- @uploaded_files do %>
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{file.uuid}")}
+                navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{file.file_uuid}")}
                 class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <.thumbnail_url :let={url} file={file} size={:medium}>
