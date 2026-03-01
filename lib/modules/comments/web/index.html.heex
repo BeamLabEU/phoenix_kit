@@ -88,9 +88,9 @@
     </div>
 
     <%!-- Bulk Actions --%>
-    <%= if length(@selected_ids) > 0 do %>
+    <%= if length(@selected_uuids) > 0 do %>
       <div class="flex gap-2 mb-4 items-center">
-        <span class="text-sm text-base-content/70">{length(@selected_ids)} selected</span>
+        <span class="text-sm text-base-content/70">{length(@selected_uuids)} selected</span>
         <button phx-click="bulk_action" phx-value-action="approve" class="btn btn-success btn-xs">
           Approve
         </button>
@@ -133,8 +133,8 @@
                         type="checkbox"
                         class="checkbox checkbox-xs"
                         phx-click="toggle_select"
-                        phx-value-id={comment.uuid}
-                        checked={comment.uuid in @selected_ids}
+                        phx-value-uuid={comment.uuid}
+                        checked={comment.uuid in @selected_uuids}
                       />
                     </td>
                     <td class="max-w-xs">
@@ -182,7 +182,7 @@
                         <%= if comment.status != "published" do %>
                           <button
                             phx-click="approve"
-                            phx-value-id={comment.uuid}
+                            phx-value-uuid={comment.uuid}
                             class="btn btn-ghost btn-xs text-success"
                             title="Approve"
                           >
@@ -192,7 +192,7 @@
                         <%= if comment.status != "hidden" do %>
                           <button
                             phx-click="hide"
-                            phx-value-id={comment.uuid}
+                            phx-value-uuid={comment.uuid}
                             class="btn btn-ghost btn-xs text-warning"
                             title="Hide"
                           >
@@ -201,7 +201,7 @@
                         <% end %>
                         <button
                           phx-click="delete"
-                          phx-value-id={comment.uuid}
+                          phx-value-uuid={comment.uuid}
                           class="btn btn-ghost btn-xs text-error"
                           title="Delete"
                           data-confirm="Delete this comment?"

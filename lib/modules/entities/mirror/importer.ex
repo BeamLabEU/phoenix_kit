@@ -217,27 +217,28 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
     end
   end
 
-  defp generate_slug_if_missing(_entity_id, slug, _title) when is_binary(slug) and slug != "",
+  defp generate_slug_if_missing(_entity_uuid, slug, _title) when is_binary(slug) and slug != "",
     do: slug
 
-  defp generate_slug_if_missing(entity_id, _slug, title) when is_binary(title) and title != "" do
+  defp generate_slug_if_missing(entity_uuid, _slug, title)
+       when is_binary(title) and title != "" do
     base_slug = Slug.slugify(title)
 
     if base_slug == "" do
       # Title couldn't be slugified, generate a random one
       "record-#{:rand.uniform(9999)}"
     else
-      Slug.ensure_unique(base_slug, &slug_exists?(entity_id, &1))
+      Slug.ensure_unique(base_slug, &slug_exists?(entity_uuid, &1))
     end
   end
 
-  defp generate_slug_if_missing(_entity_id, _slug, _title) do
+  defp generate_slug_if_missing(_entity_uuid, _slug, _title) do
     # No slug and no title, generate a random slug
     "record-#{:rand.uniform(9999)}"
   end
 
-  defp slug_exists?(entity_id, slug) do
-    EntityData.get_by_slug(entity_id, slug) != nil
+  defp slug_exists?(entity_uuid, slug) do
+    EntityData.get_by_slug(entity_uuid, slug) != nil
   end
 
   # Preview what slug would be generated (without uniqueness check)
@@ -249,34 +250,34 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   defp preview_generated_slug(_), do: "(auto-generated)"
 
   # Find the next available slug for preview, considering DB and batch
-  defp find_next_available_slug_preview(base_slug, _entity_id, _batch_counts)
+  defp find_next_available_slug_preview(base_slug, _entity_uuid, _batch_counts)
        when base_slug in ["(auto-generated)", ""] do
     # Can't predict for auto-generated slugs
     "(auto-generated)"
   end
 
-  defp find_next_available_slug_preview(base_slug, entity_id, batch_counts) do
+  defp find_next_available_slug_preview(base_slug, entity_uuid, batch_counts) do
     batch_count = Map.get(batch_counts, base_slug, 0)
 
     # Start checking from base_slug, then -2, -3, etc.
     # But account for how many we've already "claimed" in this batch
-    find_available_slug_candidate(base_slug, entity_id, batch_count, 1)
+    find_available_slug_candidate(base_slug, entity_uuid, batch_count, 1)
   end
 
-  defp find_available_slug_candidate(base_slug, entity_id, batch_offset, counter) do
+  defp find_available_slug_candidate(base_slug, entity_uuid, batch_offset, counter) do
     candidate = if counter == 1, do: base_slug, else: "#{base_slug}-#{counter}"
 
     # Check if this candidate exists in DB
-    db_exists = entity_id && slug_exists?(entity_id, candidate)
+    db_exists = entity_uuid && slug_exists?(entity_uuid, candidate)
 
     cond do
       db_exists ->
         # Slug exists in DB, try next number
-        find_available_slug_candidate(base_slug, entity_id, batch_offset, counter + 1)
+        find_available_slug_candidate(base_slug, entity_uuid, batch_offset, counter + 1)
 
       batch_offset > 0 ->
         # This slot is taken by a previous record in this batch
-        find_available_slug_candidate(base_slug, entity_id, batch_offset - 1, counter + 1)
+        find_available_slug_candidate(base_slug, entity_uuid, batch_offset - 1, counter + 1)
 
       true ->
         # Found an available slot
@@ -520,8 +521,10 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   defp preview_entity_file(entity_name, definition, data) do
     existing_entity = Entities.get_entity_by_name(definition["name"])
     definition_preview = preview_definition(entity_name, existing_entity, definition)
-    entity_id_for_slugs = if existing_entity, do: existing_entity.uuid, else: nil
-    data_previews = preview_data_records(entity_name, existing_entity, entity_id_for_slugs, data)
+    entity_uuid_for_slugs = if existing_entity, do: existing_entity.uuid, else: nil
+
+    data_previews =
+      preview_data_records(entity_name, existing_entity, entity_uuid_for_slugs, data)
 
     %{definition: definition_preview, data: data_previews}
   end
@@ -538,7 +541,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
     end
   end
 
-  defp preview_data_records(entity_name, existing_entity, entity_id_for_slugs, data) do
+  defp preview_data_records(entity_name, existing_entity, entity_uuid_for_slugs, data) do
     {data_previews, _slug_counts} =
       data
       |> Enum.with_index()
@@ -547,7 +550,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
           preview_single_record(
             entity_name,
             existing_entity,
-            entity_id_for_slugs,
+            entity_uuid_for_slugs,
             record,
             index,
             slug_counts
@@ -569,7 +572,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   defp preview_single_record(
          entity_name,
          _existing_entity,
-         entity_id_for_slugs,
+         entity_uuid_for_slugs,
          record,
          index,
          slug_counts
@@ -578,15 +581,28 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
     title = record["title"]
 
     if is_nil(slug) or slug == "" do
-      preview_new_record_without_slug(entity_name, entity_id_for_slugs, title, index, slug_counts)
+      preview_new_record_without_slug(
+        entity_name,
+        entity_uuid_for_slugs,
+        title,
+        index,
+        slug_counts
+      )
     else
-      preview_record_with_slug(entity_name, entity_id_for_slugs, record, slug, title, slug_counts)
+      preview_record_with_slug(
+        entity_name,
+        entity_uuid_for_slugs,
+        record,
+        slug,
+        title,
+        slug_counts
+      )
     end
   end
 
   defp preview_new_record_without_slug(
          entity_name,
-         entity_id_for_slugs,
+         entity_uuid_for_slugs,
          title,
          index,
          slug_counts
@@ -595,7 +611,7 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
     import_key = "new-#{index}"
 
     display_generated =
-      find_next_available_slug_preview(base_slug, entity_id_for_slugs, slug_counts)
+      find_next_available_slug_preview(base_slug, entity_uuid_for_slugs, slug_counts)
 
     %{
       entity_name: entity_name,
@@ -614,13 +630,13 @@ defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
     %{entity_name: entity_name, slug: slug, title: title, action: :create}
   end
 
-  defp preview_record_with_slug(entity_name, entity_id, record, slug, title, slug_counts) do
-    case EntityData.get_by_slug(entity_id, slug) do
+  defp preview_record_with_slug(entity_name, entity_uuid, record, slug, title, slug_counts) do
+    case EntityData.get_by_slug(entity_uuid, slug) do
       nil ->
         %{entity_name: entity_name, slug: slug, title: title, action: :create}
 
       existing ->
-        new_slug_if_imported = find_next_available_slug_preview(slug, entity_id, slug_counts)
+        new_slug_if_imported = find_next_available_slug_preview(slug, entity_uuid, slug_counts)
         action = if data_records_match?(existing, record), do: :identical, else: :conflict
 
         %{

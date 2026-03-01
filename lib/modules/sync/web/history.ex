@@ -148,7 +148,11 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
     end
   end
 
-  def handle_event("deny_transfer", %{"transfer_id" => transfer_uuid, "reason" => reason}, socket) do
+  def handle_event(
+        "deny_transfer",
+        %{"transfer_uuid" => transfer_uuid, "reason" => reason},
+        socket
+      ) do
     transfer = Transfers.get_transfer!(transfer_uuid)
     current_user = socket.assigns.phoenix_kit_current_scope.user
     reason = if reason == "", do: nil, else: reason
@@ -620,7 +624,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
         <div class="modal-action">
           <%= if @transfer.status == "pending_approval" do %>
             <form phx-submit="deny_transfer" class="flex gap-2 items-end">
-              <input type="hidden" name="transfer_id" value={@transfer.uuid} />
+              <input type="hidden" name="transfer_uuid" value={@transfer.uuid} />
               <div class="form-control">
                 <input
                   type="text"

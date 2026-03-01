@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Comments.Web.Index do
         |> assign(:total_pages, 1)
         |> assign(:resource_context, %{})
         |> assign(:stats, Comments.comment_stats())
-        |> assign(:selected_ids, [])
+        |> assign(:selected_uuids, [])
         |> assign_filter_defaults()
 
       {:ok, socket}
@@ -120,51 +120,51 @@ defmodule PhoenixKit.Modules.Comments.Web.Index do
   end
 
   @impl true
-  def handle_event("toggle_select", %{"id" => id}, socket) do
-    selected = socket.assigns.selected_ids
+  def handle_event("toggle_select", %{"uuid" => uuid}, socket) do
+    selected = socket.assigns.selected_uuids
 
     selected =
-      if id in selected,
-        do: List.delete(selected, id),
-        else: [id | selected]
+      if uuid in selected,
+        do: List.delete(selected, uuid),
+        else: [uuid | selected]
 
-    {:noreply, assign(socket, :selected_ids, selected)}
+    {:noreply, assign(socket, :selected_uuids, selected)}
   end
 
   @impl true
   def handle_event("bulk_action", %{"action" => action}, socket) do
-    ids = socket.assigns.selected_ids
+    uuids = socket.assigns.selected_uuids
 
-    if ids == [] do
+    if uuids == [] do
       {:noreply, put_flash(socket, :error, "No comments selected")}
     else
       case action do
         "approve" ->
-          Comments.bulk_update_status(ids, "published")
+          Comments.bulk_update_status(uuids, "published")
 
           {:noreply,
            socket
-           |> assign(:selected_ids, [])
+           |> assign(:selected_uuids, [])
            |> load_comments()
            |> reload_stats()
            |> put_flash(:info, "Comments approved")}
 
         "hide" ->
-          Comments.bulk_update_status(ids, "hidden")
+          Comments.bulk_update_status(uuids, "hidden")
 
           {:noreply,
            socket
-           |> assign(:selected_ids, [])
+           |> assign(:selected_uuids, [])
            |> load_comments()
            |> reload_stats()
            |> put_flash(:info, "Comments hidden")}
 
         "delete" ->
-          Comments.bulk_update_status(ids, "deleted")
+          Comments.bulk_update_status(uuids, "deleted")
 
           {:noreply,
            socket
-           |> assign(:selected_ids, [])
+           |> assign(:selected_uuids, [])
            |> load_comments()
            |> reload_stats()
            |> put_flash(:info, "Comments deleted")}
