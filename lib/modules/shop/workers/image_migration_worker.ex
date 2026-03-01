@@ -46,8 +46,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     end
   end
 
-  # Backward-compat: jobs queued before the user_uuid → user_uuid rename
-  def perform(%Oban.Job{args: %{"product_id" => product_id, "user_uuid" => user_uuid}}) do
+  # Backward-compat: jobs queued before the user_id → user_uuid rename
+  def perform(%Oban.Job{args: %{"product_id" => product_id, "user_id" => user_uuid}}) do
     perform(%Oban.Job{args: %{"product_id" => product_id, "user_uuid" => user_uuid}})
   end
 
