@@ -32,8 +32,8 @@ defmodule PhoenixKit.Modules.Entities.Presence do
 
   ## Topics
 
-  - Entity editing: "entity_edit:<entity_id>"
-  - Data editing: "data_edit:<data_id>"
+  - Entity editing: "entity_edit:<entity_uuid>"
+  - Data editing: "data_edit:<data_uuid>"
   """
 
   use Phoenix.Presence,

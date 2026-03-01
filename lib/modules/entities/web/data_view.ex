@@ -25,11 +25,11 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
     mount_data_view(socket, entity, data_record, locale)
   end
 
-  def mount(%{"entity_id" => entity_id, "id" => id} = params, _session, socket) do
+  def mount(%{"entity_id" => entity_uuid, "id" => id} = params, _session, socket) do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    entity = Entities.get_entity!(entity_id)
+    entity = Entities.get_entity!(entity_uuid)
     data_record = EntityData.get!(id)
 
     mount_data_view(socket, entity, data_record, locale)

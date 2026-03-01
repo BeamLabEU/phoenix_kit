@@ -21,7 +21,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     entities = Entities.list_entities()
 
     # Get entity from route params using slug (entity_slug or entity_id for backwards compat)
-    {entity, entity_id} =
+    {entity, entity_uuid} =
       case params["entity_slug"] || params["entity_id"] do
         nil ->
           {nil, nil}
@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       end
 
     # Get stats filtered by entity if one is selected
-    stats = EntityData.get_data_stats(entity_id)
+    stats = EntityData.get_data_stats(entity_uuid)
 
     # Set page title based on entity
     page_title =
@@ -55,15 +55,15 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
       |> assign(:draft_records, stats.draft_records)
       |> assign(:archived_records, stats.archived_records)
       |> assign(:selected_entity, entity)
-      |> assign(:selected_entity_id, entity_id)
+      |> assign(:selected_entity_uuid, entity_uuid)
       |> assign(:selected_status, "all")
       |> assign(:selected_ids, MapSet.new())
       |> assign(:search_term, "")
       |> assign(:view_mode, "table")
       |> apply_filters()
 
-    if connected?(socket) && entity_id do
-      Events.subscribe_to_entity_data(entity_id)
+    if connected?(socket) && entity_uuid do
+      Events.subscribe_to_entity_data(entity_uuid)
     end
 
     {:ok, socket}
@@ -71,10 +71,10 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   def handle_params(params, _url, socket) do
     # Get entity from slug in params (entity_slug or entity_id for backwards compat)
-    {entity, entity_id} = resolve_entity_from_params(params, socket)
+    {entity, entity_uuid} = resolve_entity_from_params(params, socket)
 
     # Recalculate stats and subscribe if entity changed
-    socket = maybe_update_entity_stats(socket, entity_id)
+    socket = maybe_update_entity_stats(socket, entity_uuid)
 
     # Extract filter params with defaults
     status = params["status"] || "all"
@@ -84,7 +84,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     socket =
       socket
       |> assign(:selected_entity, entity)
-      |> assign(:selected_entity_id, entity_id)
+      |> assign(:selected_entity_uuid, entity_uuid)
       |> assign(:selected_status, status)
       |> assign(:search_term, search_term)
       |> assign(:view_mode, view_mode)
@@ -93,11 +93,11 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     {:noreply, socket}
   end
 
-  # Resolve entity and entity_id from URL params
+  # Resolve entity and entity_uuid from URL params
   defp resolve_entity_from_params(params, socket) do
     case params["entity_slug"] || params["entity_id"] do
       nil ->
-        {socket.assigns.selected_entity, socket.assigns.selected_entity_id}
+        {socket.assigns.selected_entity, socket.assigns.selected_entity_uuid}
 
       "" ->
         {nil, nil}
@@ -116,25 +116,25 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   # Update entity stats and subscribe to events if entity changed
-  defp maybe_update_entity_stats(socket, new_entity_id) do
-    if new_entity_id != socket.assigns.selected_entity_id do
-      maybe_subscribe_to_entity(socket, new_entity_id)
-      update_entity_stats(socket, new_entity_id)
+  defp maybe_update_entity_stats(socket, new_entity_uuid) do
+    if new_entity_uuid != socket.assigns.selected_entity_uuid do
+      maybe_subscribe_to_entity(socket, new_entity_uuid)
+      update_entity_stats(socket, new_entity_uuid)
     else
       socket
     end
   end
 
   # Subscribe to entity data events if connected
-  defp maybe_subscribe_to_entity(socket, entity_id) do
-    if connected?(socket) && entity_id do
-      Events.subscribe_to_entity_data(entity_id)
+  defp maybe_subscribe_to_entity(socket, entity_uuid) do
+    if connected?(socket) && entity_uuid do
+      Events.subscribe_to_entity_data(entity_uuid)
     end
   end
 
   # Update socket with fresh entity statistics
-  defp update_entity_stats(socket, entity_id) do
-    stats = EntityData.get_data_stats(entity_id)
+  defp update_entity_stats(socket, entity_uuid) do
+    stats = EntityData.get_data_stats(entity_uuid)
 
     socket
     |> assign(:total_records, stats.total_records)
@@ -146,13 +146,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   def handle_event("toggle_view_mode", %{"mode" => mode}, socket) do
     params =
       build_url_params(
-        socket.assigns.selected_entity_id,
+        socket.assigns.selected_entity_uuid,
         socket.assigns.selected_status,
         socket.assigns.search_term,
         mode
       )
 
-    path = build_base_path(socket.assigns.selected_entity_id)
+    path = build_base_path(socket.assigns.selected_entity_uuid)
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -174,16 +174,16 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     {:noreply, socket}
   end
 
-  def handle_event("filter_by_entity", %{"entity_id" => entity_id}, socket) do
+  def handle_event("filter_by_entity", %{"entity_id" => entity_uuid}, socket) do
     params =
       build_url_params(
-        entity_id,
+        entity_uuid,
         socket.assigns.selected_status,
         socket.assigns.search_term,
         socket.assigns.view_mode
       )
 
-    path = build_base_path(entity_id)
+    path = build_base_path(entity_uuid)
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -197,13 +197,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   def handle_event("filter_by_status", %{"status" => status}, socket) do
     params =
       build_url_params(
-        socket.assigns.selected_entity_id,
+        socket.assigns.selected_entity_uuid,
         status,
         socket.assigns.search_term,
         socket.assigns.view_mode
       )
 
-    path = build_base_path(socket.assigns.selected_entity_id)
+    path = build_base_path(socket.assigns.selected_entity_uuid)
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -217,13 +217,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   def handle_event("search", %{"search" => %{"term" => term}}, socket) do
     params =
       build_url_params(
-        socket.assigns.selected_entity_id,
+        socket.assigns.selected_entity_uuid,
         socket.assigns.selected_status,
         term,
         socket.assigns.view_mode
       )
 
-    path = build_base_path(socket.assigns.selected_entity_id)
+    path = build_base_path(socket.assigns.selected_entity_uuid)
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -237,13 +237,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   def handle_event("clear_filters", _params, socket) do
     params =
       build_url_params(
-        socket.assigns.selected_entity_id,
+        socket.assigns.selected_entity_uuid,
         "all",
         "",
         socket.assigns.view_mode
       )
 
-    path = build_base_path(socket.assigns.selected_entity_id)
+    path = build_base_path(socket.assigns.selected_entity_uuid)
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -443,7 +443,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   def handle_info({:entity_updated, entity_id}, socket) do
     # If the currently viewed entity was updated, check if it was archived
-    if socket.assigns.selected_entity_id && entity_id == socket.assigns.selected_entity_id do
+    if socket.assigns.selected_entity_uuid && entity_id == socket.assigns.selected_entity_uuid do
       entity = Entities.get_entity!(entity_id)
 
       # If entity was archived or unpublished, redirect to entities list
@@ -477,7 +477,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   def handle_info({:entity_deleted, entity_id}, socket) do
     # If the currently viewed entity was deleted, redirect to entities list
-    if socket.assigns.selected_entity_id && entity_id == socket.assigns.selected_entity_id do
+    if socket.assigns.selected_entity_uuid && entity_id == socket.assigns.selected_entity_uuid do
       {:noreply,
        socket
        |> put_flash(:error, gettext("Entity was deleted in another session."))
@@ -578,7 +578,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   defp refresh_data_stats(socket) do
-    stats = EntityData.get_data_stats(socket.assigns.selected_entity_id)
+    stats = EntityData.get_data_stats(socket.assigns.selected_entity_uuid)
 
     socket
     |> assign(:total_records, stats.total_records)
@@ -621,15 +621,15 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  def get_entity_name(entities, entity_id) do
-    case Enum.find(entities, &(&1.uuid == entity_id)) do
+  def get_entity_name(entities, entity_uuid) do
+    case Enum.find(entities, &(&1.uuid == entity_uuid)) do
       nil -> gettext("Unknown")
       entity -> entity.display_name
     end
   end
 
-  def get_entity_slug(entities, entity_id) do
-    case Enum.find(entities, &(&1.uuid == entity_id)) do
+  def get_entity_slug(entities, entity_uuid) do
+    case Enum.find(entities, &(&1.uuid == entity_uuid)) do
       nil -> ""
       entity -> entity.name
     end
