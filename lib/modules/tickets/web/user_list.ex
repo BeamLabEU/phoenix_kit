@@ -130,7 +130,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
     opts = [
       page: socket.assigns.page,
       per_page: socket.assigns.per_page,
-      user_id: user_uuid,
+      user_uuid: user_uuid,
       preload: [:assigned_to]
     ]
 

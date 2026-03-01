@@ -389,7 +389,7 @@ defmodule PhoenixKit.Modules.Tickets do
   ## Parameters
 
   - `opts` - Options
-    - `:user_id` - Filter by customer (ticket creator)
+    - `:user_uuid` - Filter by customer (ticket creator)
     - `:assigned_to_uuid` - Filter by assigned handler
     - `:status` - Filter by status (open/in_progress/resolved/closed)
     - `:search` - Search in title and description
@@ -406,7 +406,7 @@ defmodule PhoenixKit.Modules.Tickets do
       [%Ticket{}, ...]
   """
   def list_tickets(opts \\ []) do
-    user_uuid = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid)
     assigned_to_uuid = Keyword.get(opts, :assigned_to_uuid)
     status = Keyword.get(opts, :status)
     search = Keyword.get(opts, :search)
@@ -444,7 +444,7 @@ defmodule PhoenixKit.Modules.Tickets do
   Lists tickets created by a specific user.
   """
   def list_user_tickets(user_uuid, opts \\ []) when is_binary(user_uuid) do
-    list_tickets(Keyword.put(opts, :user_id, user_uuid))
+    list_tickets(Keyword.put(opts, :user_uuid, user_uuid))
   end
 
   # ============================================================================
