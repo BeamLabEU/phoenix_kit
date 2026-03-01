@@ -316,7 +316,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
     if has_legacy and not has_storage do
       ImageMigrationWorker.new(%{
-        product_id: product.uuid,
+        product_uuid: product.uuid,
         user_uuid: user_uuid
       })
       |> Oban.insert()

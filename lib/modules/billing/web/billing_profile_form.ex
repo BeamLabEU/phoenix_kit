@@ -76,7 +76,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfileForm do
   end
 
   @impl true
-  def handle_event("select_user", %{"user_id" => user_uuid}, socket) do
+  def handle_event("select_user", %{"user_uuid" => user_uuid}, socket) do
     user_uuid = if user_uuid == "", do: nil, else: user_uuid
     {:noreply, assign(socket, :selected_user_uuid, user_uuid)}
   end

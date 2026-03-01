@@ -309,7 +309,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
        data: %{
          charge_id: payment["id"],
          order_id: order_id,
-         invoice_id: notes["invoice_id"],
+         invoice_uuid: notes["invoice_uuid"] || notes["invoice_id"],
          amount: payment["amount"],
          currency: payment["currency"]
        },
@@ -350,7 +350,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
        data: %{
          payment_id: payment["id"],
          order_id: payment["order_id"],
-         invoice_id: notes["invoice_id"],
+         invoice_uuid: notes["invoice_uuid"] || notes["invoice_id"],
          error_code: error,
          error_message: error_desc
        },
@@ -372,7 +372,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
          mode: "payment",
          session_id: order["id"],
          payment_intent_id: payment["id"],
-         invoice_id: notes["invoice_id"],
+         invoice_uuid: notes["invoice_uuid"] || notes["invoice_id"],
          amount_total: order["amount_paid"],
          currency: order["currency"]
        },
@@ -499,7 +499,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Razorpay do
       currency: invoice[:currency] || invoice["currency"] || "INR",
       description: "Invoice #{invoice[:invoice_number] || invoice["invoice_number"]}",
       metadata: %{
-        invoice_id: invoice[:uuid] || invoice["uuid"] || invoice[:id] || invoice["id"],
+        invoice_uuid: invoice[:uuid] || invoice["uuid"] || invoice[:id] || invoice["id"],
         invoice_number: invoice[:invoice_number] || invoice["invoice_number"]
       }
     ]

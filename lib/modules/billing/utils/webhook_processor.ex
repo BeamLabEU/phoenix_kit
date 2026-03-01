@@ -75,11 +75,11 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
     Logger.info("Processing checkout.completed: #{inspect(data)}")
 
     case data do
-      %{mode: "payment", invoice_id: invoice_id} when not is_nil(invoice_id) ->
+      %{mode: "payment", invoice_uuid: invoice_uuid} when not is_nil(invoice_uuid) ->
         # One-time payment for invoice
-        process_invoice_payment(invoice_id, data)
+        process_invoice_payment(invoice_uuid, data)
 
-      %{mode: "setup", user_id: user_id} when not is_nil(user_id) ->
+      %{mode: "setup", user_uuid: user_uuid} when not is_nil(user_uuid) ->
         # Setup session - card saved
         process_setup_completed(data)
 
@@ -99,12 +99,12 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
     Logger.info("Processing payment.succeeded: #{inspect(data)}")
 
     case data do
-      %{invoice_id: invoice_id} when not is_nil(invoice_id) ->
+      %{invoice_uuid: invoice_uuid} when not is_nil(invoice_uuid) ->
         # Payment for invoice (e.g., subscription renewal)
-        process_invoice_payment(invoice_id, data)
+        process_invoice_payment(invoice_uuid, data)
 
       _ ->
-        Logger.warning("Payment succeeded without invoice_id: #{inspect(data)}")
+        Logger.warning("Payment succeeded without invoice_uuid: #{inspect(data)}")
         {:ok, :ignored}
     end
   end
@@ -113,9 +113,9 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
     Logger.warning("Payment failed: #{inspect(data)}")
 
     case data do
-      %{invoice_id: invoice_id} when not is_nil(invoice_id) ->
+      %{invoice_uuid: invoice_uuid} when not is_nil(invoice_uuid) ->
         # Update invoice/subscription status
-        process_payment_failure(invoice_id, data)
+        process_payment_failure(invoice_uuid, data)
 
       _ ->
         {:ok, :ignored}
@@ -143,10 +143,10 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
   # Business Logic
   # ===========================================
 
-  defp process_invoice_payment(invoice_id, data) do
-    invoice_id = parse_id(invoice_id)
+  defp process_invoice_payment(invoice_uuid, data) do
+    invoice_uuid = parse_id(invoice_uuid)
 
-    with {:ok, invoice} <- get_invoice(invoice_id),
+    with {:ok, invoice} <- get_invoice(invoice_uuid),
          :ok <- validate_invoice_status(invoice) do
       # Determine amount from event data
       amount = calculate_payment_amount(invoice, data)
@@ -174,16 +174,16 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
           {:ok, updated_invoice}
 
         {:error, reason} ->
-          Logger.error("Failed to record payment for invoice #{invoice_id}: #{inspect(reason)}")
+          Logger.error("Failed to record payment for invoice #{invoice_uuid}: #{inspect(reason)}")
           {:error, reason}
       end
     else
       {:error, :invoice_not_found} ->
-        Logger.warning("Invoice not found for webhook: #{invoice_id}")
+        Logger.warning("Invoice not found for webhook: #{invoice_uuid}")
         {:error, :invoice_not_found}
 
       {:error, :already_paid} ->
-        Logger.debug("Invoice #{invoice_id} already paid")
+        Logger.debug("Invoice #{invoice_uuid} already paid")
         {:ok, :already_paid}
 
       {:error, reason} ->
@@ -191,12 +191,12 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
     end
   end
 
-  defp process_payment_failure(invoice_id, data) do
-    invoice_id = parse_id(invoice_id)
+  defp process_payment_failure(invoice_uuid, data) do
+    invoice_uuid = parse_id(invoice_uuid)
 
     # Log the failure for dunning/retry logic
     Logger.warning(
-      "Payment failed for invoice #{invoice_id}: #{data[:error_code]} - #{data[:error_message]}"
+      "Payment failed for invoice #{invoice_uuid}: #{data[:error_code]} - #{data[:error_message]}"
     )
 
     # If this invoice is tied to a subscription, update subscription status
@@ -222,9 +222,9 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
   defp process_setup_completed(data) do
     # Save the payment method for the user
     case data do
-      %{payment_method_id: pm_id, customer_id: _customer_id, user_id: user_id}
+      %{payment_method_uuid: pm_id, customer_id: _customer_id, user_uuid: user_uuid}
       when not is_nil(pm_id) ->
-        Logger.info("Payment method saved for user #{user_id}: #{pm_id}")
+        Logger.info("Payment method saved for user #{user_uuid}: #{pm_id}")
 
         # Get payment method details from provider and save
         # This should create a PaymentMethod record

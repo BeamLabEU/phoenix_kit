@@ -145,7 +145,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.Provider do
   - `opts` - Options:
     - `:currency` - Currency code (default: from payment method)
     - `:description` - Description for the charge
-    - `:invoice_id` - Associated invoice ID
+    - `:invoice_uuid` - Associated invoice UUID
     - `:metadata` - Additional metadata
 
   ## Returns

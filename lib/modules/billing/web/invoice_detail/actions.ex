@@ -66,7 +66,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
       cancel_url: cancel_url,
       currency: invoice.currency,
       metadata: %{
-        invoice_id: invoice.uuid,
+        invoice_uuid: invoice.uuid,
         invoice_number: invoice.invoice_number
       }
     ]

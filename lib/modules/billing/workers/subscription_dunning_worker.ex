@@ -141,7 +141,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
       currency: plan.currency,
       description: "Subscription renewal (dunning retry)",
       metadata: %{
-        subscription_id: subscription.uuid,
+        subscription_uuid: subscription.uuid,
         retry_attempt: subscription.renewal_attempts + 1
       }
     )

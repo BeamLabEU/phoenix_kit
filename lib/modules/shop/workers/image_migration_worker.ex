@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
 
   ## Job Arguments
 
-    * `"product_id"` - The product UUID to migrate
+    * `"product_uuid"` - The product UUID to migrate
     * `"user_uuid"` - The user UUID for ownership of stored files
 
   ## Queue
@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
   ## Usage
 
       # Queue a single product for migration
-      %{product_id: product_id, user_uuid: user_uuid}
+      %{product_uuid: product_uuid, user_uuid: user_uuid}
       |> ImageMigrationWorker.new()
       |> Oban.insert()
 
@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
   alias PhoenixKit.Modules.Shop.Services.ImageDownloader
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"product_id" => product_uuid, "user_uuid" => user_uuid}}) do
+  def perform(%Oban.Job{args: %{"product_uuid" => product_uuid, "user_uuid" => user_uuid}}) do
     Logger.info("Starting image migration for product #{product_uuid}")
 
     case Shop.get_product(product_uuid) do
@@ -46,9 +46,14 @@ defmodule PhoenixKit.Modules.Shop.Workers.ImageMigrationWorker do
     end
   end
 
-  # Backward-compat: jobs queued before the user_uuid → user_uuid rename
+  # Backward-compat: jobs queued before the product_id → product_uuid rename
   def perform(%Oban.Job{args: %{"product_id" => product_uuid, "user_uuid" => user_uuid}}) do
-    perform(%Oban.Job{args: %{"product_id" => product_uuid, "user_uuid" => user_uuid}})
+    perform(%Oban.Job{args: %{"product_uuid" => product_uuid, "user_uuid" => user_uuid}})
+  end
+
+  # Backward-compat: jobs queued with both old keys (product_id + user_id)
+  def perform(%Oban.Job{args: %{"product_id" => product_uuid, "user_id" => user_uuid}}) do
+    perform(%Oban.Job{args: %{"product_uuid" => product_uuid, "user_uuid" => user_uuid}})
   end
 
   defp migrate_product_images(product, user_uuid) do

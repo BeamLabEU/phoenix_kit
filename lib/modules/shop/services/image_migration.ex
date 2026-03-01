@@ -195,7 +195,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
 
   ## Examples
 
-      iex> queue_all_migrations(user_id)
+      iex> queue_all_migrations(user_uuid)
       {:ok, 75}
 
       iex> queue_all_migrations(user_uuid, limit: 10)
@@ -216,7 +216,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     jobs =
       Enum.map(products, fn product ->
         ImageMigrationWorker.new(
-          %{product_id: product.uuid, user_id: user_uuid},
+          %{product_uuid: product.uuid, user_uuid: user_uuid},
           priority: priority
         )
       end)
