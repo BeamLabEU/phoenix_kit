@@ -167,7 +167,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
     if post_uuid do
       # Existing post - remove from database
-      Posts.detach_media_by_id(media_uuid)
+      Posts.detach_media_by_uuid(media_uuid)
       post_images = Posts.list_post_media(post_uuid, preload: [:file])
       {:noreply, assign(socket, :post_images, post_images)}
     else

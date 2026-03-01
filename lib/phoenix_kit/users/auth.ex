@@ -891,7 +891,7 @@ defmodule PhoenixKit.Users.Auth do
 
     # Broadcast session creation event
     token_info = %{
-      token_id: inserted_token.uuid,
+      token_uuid: inserted_token.uuid,
       created_at: inserted_token.inserted_at,
       context: inserted_token.context
     }

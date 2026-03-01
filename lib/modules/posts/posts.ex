@@ -1635,10 +1635,10 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Examples
 
-      iex> detach_media_by_id("018e3c4a-...")
+      iex> detach_media_by_uuid("018e3c4a-...")
       {:ok, %PostMedia{}}
   """
-  def detach_media_by_id(media_uuid) do
+  def detach_media_by_uuid(media_uuid) do
     case repo().get(PostMedia, media_uuid) do
       nil -> {:error, :not_found}
       media -> repo().delete(media)

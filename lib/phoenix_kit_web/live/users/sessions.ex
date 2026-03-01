@@ -87,8 +87,8 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
     {:noreply, socket}
   end
 
-  def handle_event("show_revoke_session", %{"token_id" => token_id}, socket) do
-    session_info = Sessions.get_session_info(token_id)
+  def handle_event("show_revoke_session", %{"token_uuid" => token_uuid}, socket) do
+    session_info = Sessions.get_session_info(token_uuid)
 
     socket =
       socket
@@ -150,7 +150,7 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
   defp handle_single_session_revoke(socket) do
     session = socket.assigns.selected_session
 
-    case Sessions.revoke_session(session.token_id) do
+    case Sessions.revoke_session(session.token_uuid) do
       :ok ->
         socket =
           socket
@@ -266,7 +266,7 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
     {:noreply, socket}
   end
 
-  def handle_info({:session_revoked, _token_id}, socket) do
+  def handle_info({:session_revoked, _token_uuid}, socket) do
     socket =
       socket
       |> load_sessions()
