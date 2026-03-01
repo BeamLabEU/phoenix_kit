@@ -46,7 +46,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
 
     with {:ok, _metadata} <-
            Mailer.deliver_email(email,
-             user_id: nil,
+             user_uuid: nil,
              template_name: "user_notification",
              campaign_id: "authentication"
            ) do

@@ -2381,7 +2381,6 @@ defmodule PhoenixKit.Users.Auth do
       from(o in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
-          user_id: nil,
           user_uuid: nil,
           anonymized_at: UtilsDate.utc_now()
         ]
@@ -2404,7 +2403,6 @@ defmodule PhoenixKit.Users.Auth do
       from(p in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
-          user_id: nil,
           user_uuid: nil,
           author_deleted: true,
           anonymized_at: UtilsDate.utc_now()
@@ -2438,7 +2436,6 @@ defmodule PhoenixKit.Users.Auth do
       from(c in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
-          user_id: nil,
           user_uuid: nil,
           author_deleted: true,
           anonymized_at: UtilsDate.utc_now()
@@ -2459,7 +2456,7 @@ defmodule PhoenixKit.Users.Auth do
       dynamic_query = dynamic([c], c.user_uuid == ^user_uuid)
 
       from(c in module, where: ^dynamic_query)
-      |> Repo.repo().update_all(set: [user_id: nil, user_uuid: nil])
+      |> Repo.repo().update_all(set: [user_uuid: nil])
       |> elem(0)
     else
       0
@@ -2478,7 +2475,6 @@ defmodule PhoenixKit.Users.Auth do
       from(t in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
-          user_id: nil,
           user_uuid: nil,
           anonymized_at: UtilsDate.utc_now(),
           original_user_email: nil
@@ -2503,7 +2499,6 @@ defmodule PhoenixKit.Users.Auth do
       from(el in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
-          user_id: nil,
           user_uuid: nil,
           anonymized_at: UtilsDate.utc_now()
         ]
@@ -2526,7 +2521,6 @@ defmodule PhoenixKit.Users.Auth do
       from(f in module, where: ^dynamic_query)
       |> Repo.repo().update_all(
         set: [
-          user_id: nil,
           user_uuid: nil,
           anonymized_at: UtilsDate.utc_now()
         ]

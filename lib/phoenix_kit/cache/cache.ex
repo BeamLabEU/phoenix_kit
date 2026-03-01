@@ -381,14 +381,40 @@ defmodule PhoenixKit.Cache do
       "Started cache #{name} with table #{table}#{if sync_init, do: " (sync_init enabled)", else: ""}"
     )
 
-    # Use handle_continue to warm cache after init returns
-    # This prevents blocking supervisor initialization
-    if sync_init and critical_warmer do
-      {:ok, state, {:continue, {:warm_critical, critical_warmer, warmer}}}
-    else
-      # Standard async warming
-      if warmer, do: send(self(), :warm_cache)
-      {:ok, state}
+    cond do
+      sync_init and critical_warmer ->
+        # Warm via handle_continue (legacy path kept for compatibility)
+        {:ok, state, {:continue, {:warm_critical, critical_warmer, warmer}}}
+
+      sync_init and warmer ->
+        # Warm synchronously inside init/1 so the supervisor blocks until the cache is
+        # populated. This guarantees that downstream GenServers started after us (e.g.
+        # Dashboard.Registry) see a warm cache instead of cold-miss fallbacks.
+        case warm_with_retry(warmer, name, 3, 100) do
+          {:ok, data} when is_map(data) and map_size(data) > 0 ->
+            warm_critical_data(state, data)
+
+            Logger.info(
+              "Synchronously warmed cache #{name} with #{map_size(data)} entries (sync_init)"
+            )
+
+          {:ok, _empty} ->
+            Logger.warning("Cache #{name} sync_init: warmer returned no data, starting empty")
+
+          {:error, error} ->
+            Logger.error(
+              "Cache #{name} sync_init: warming failed: #{inspect(error)}, starting empty"
+            )
+        end
+
+        {:ok, state}
+
+      warmer ->
+        send(self(), :warm_cache)
+        {:ok, state}
+
+      true ->
+        {:ok, state}
     end
   end
 
@@ -599,12 +625,20 @@ defmodule PhoenixKit.Cache do
 
   defp warm_critical_data(%{name: name, table: table, ttl: ttl}, data) do
     Enum.each(data, fn {key, value} ->
-      expires_at = if ttl, do: System.monotonic_time(:millisecond) + ttl, else: nil
-      :ets.insert(table, {key, value, expires_at})
+      # Use 2-tuple when no TTL (matches handle_call pattern [{^key, value}])
+      # Use 3-tuple only when TTL is set (matches [{^key, value, expires_at}] when is_integer)
+      entry =
+        if ttl do
+          {key, value, System.monotonic_time(:millisecond) + ttl}
+        else
+          {key, value}
+        end
+
+      :ets.insert(table, entry)
 
       # Also write to legacy cache_settings table if this is settings cache
       if name == :settings do
-        :ets.insert(:cache_settings, {key, value, expires_at})
+        :ets.insert(:cache_settings, entry)
       end
     end)
   end

@@ -19,12 +19,9 @@ defmodule PhoenixKit.Supervisor do
         {PhoenixKit.Cache.Registry, []},
         # Module registry — must start before Dashboard.Registry so module tabs are available
         PhoenixKit.ModuleRegistry,
-        # Dashboard tab registry for user dashboard navigation
-        PhoenixKit.Dashboard.Registry,
-        # Settings cache with synchronous initialization
-        # Loads all settings in handle_continue (after init returns)
-        # This ensures OAuth configuration is available before OAuthConfigLoader starts
-        # while not blocking supervisor initialization
+        # Settings cache starts BEFORE Dashboard.Registry so enabled?/0 calls hit the cache
+        # instead of making individual DB queries per module at startup.
+        # Loads all settings asynchronously via :warm_cache message (non-blocking for supervisor).
         Supervisor.child_spec(
           {PhoenixKit.Cache,
            name: :settings, sync_init: true, warmer: &PhoenixKit.Settings.warm_cache_data/0},
@@ -35,6 +32,9 @@ defmodule PhoenixKit.Supervisor do
           {PhoenixKit.Cache, name: :publishing_posts, ttl: :timer.hours(6)},
           id: :publishing_posts_cache
         ),
+        # Dashboard tab registry for user dashboard navigation.
+        # Starts after settings_cache so module enabled? checks hit cache rather than DB.
+        PhoenixKit.Dashboard.Registry,
         # Rate limiter backend MUST be started before any authentication requests
         PhoenixKit.Users.RateLimiter.Backend,
         # OAuth config loader - now guaranteed to have critical settings in cache

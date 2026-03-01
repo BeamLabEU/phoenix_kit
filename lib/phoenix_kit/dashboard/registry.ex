@@ -475,18 +475,27 @@ defmodule PhoenixKit.Dashboard.Registry do
     # Create ETS table for tab storage
     :ets.new(@ets_table, [:named_table, :set, :public, read_concurrency: true])
 
-    # Load user dashboard defaults and config
-    load_defaults_internal()
-    load_from_config_internal()
-
-    # Load admin dashboard defaults and config
-    load_admin_defaults_internal()
-    load_admin_from_config_internal()
-
     # Subscribe to entity lifecycle events for cache invalidation
     subscribe_to_entity_events()
 
-    {:ok, %{namespaces: MapSet.new([:phoenix_kit, :phoenix_kit_admin])}}
+    # Defer DB-dependent tab loading to handle_continue so the supervisor is not blocked.
+    # Tabs from config (Application.get_env) are ready immediately; module-enabled checks
+    # and permission auto-grants that query the DB happen after init returns.
+    {:ok, %{namespaces: MapSet.new([:phoenix_kit, :phoenix_kit_admin])},
+     {:continue, :initialize_tabs}}
+  end
+
+  @impl true
+  def handle_continue(:initialize_tabs, state) do
+    # Load user dashboard defaults (includes enabled_user_dashboard_tabs → DB queries)
+    load_defaults_internal()
+    load_from_config_internal()
+
+    # Load admin dashboard defaults (includes auto_register_custom_permission → DB)
+    load_admin_defaults_internal()
+    load_admin_from_config_internal()
+
+    {:noreply, state}
   end
 
   @impl true
