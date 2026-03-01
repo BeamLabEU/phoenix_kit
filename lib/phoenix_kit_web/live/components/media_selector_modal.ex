@@ -29,9 +29,9 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       end
 
       # To receive selected media
-      def handle_info({:media_selected, file_ids}, socket) do
-        # Handle the selected file IDs
-        {:noreply, socket |> assign(:gallery_ids, file_ids)}
+      def handle_info({:media_selected, file_uuids}, socket) do
+        # Handle the selected file UUIDs
+        {:noreply, socket |> assign(:gallery_ids, file_uuids)}
       end
   """
   use PhoenixKitWeb, :live_component
@@ -129,38 +129,40 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_selection", %{"file-id" => file_id}, socket) do
+  def handle_event("toggle_selection", %{"file-id" => file_uuid}, socket) do
     selected_ids = socket.assigns.selected_ids
     mode = socket.assigns.mode
 
-    Logger.debug("MediaSelectorModal toggle_selection: mode=#{inspect(mode)}, file_id=#{file_id}")
+    Logger.debug(
+      "MediaSelectorModal toggle_selection: mode=#{inspect(mode)}, file_uuid=#{file_uuid}"
+    )
 
     new_selected_ids =
       case mode do
         :single ->
-          MapSet.new([file_id])
+          MapSet.new([file_uuid])
 
         :multiple ->
-          if MapSet.member?(selected_ids, file_id) do
-            MapSet.delete(selected_ids, file_id)
+          if MapSet.member?(selected_ids, file_uuid) do
+            MapSet.delete(selected_ids, file_uuid)
           else
-            MapSet.put(selected_ids, file_id)
+            MapSet.put(selected_ids, file_uuid)
           end
 
         # Handle string versions in case they come through as strings
         "single" ->
-          MapSet.new([file_id])
+          MapSet.new([file_uuid])
 
         "multiple" ->
-          if MapSet.member?(selected_ids, file_id) do
-            MapSet.delete(selected_ids, file_id)
+          if MapSet.member?(selected_ids, file_uuid) do
+            MapSet.delete(selected_ids, file_uuid)
           else
-            MapSet.put(selected_ids, file_id)
+            MapSet.put(selected_ids, file_uuid)
           end
 
         # Default to single select for any unexpected value
         _ ->
-          MapSet.new([file_id])
+          MapSet.new([file_uuid])
       end
 
     {:noreply, assign(socket, :selected_ids, new_selected_ids)}
@@ -267,15 +269,15 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
         # Check if upload failed and handle error
         case uploaded_results do
-          file_id when is_binary(file_id) ->
+          file_uuid when is_binary(file_uuid) ->
             # Success - reload files and auto-select
             {files, total_count} = load_files(socket, socket.assigns.current_page)
             total_pages = ceil(total_count / socket.assigns.per_page)
 
             selected_ids =
               case socket.assigns.mode do
-                :single -> MapSet.new([file_id])
-                :multiple -> MapSet.put(socket.assigns.selected_ids, file_id)
+                :single -> MapSet.new([file_uuid])
+                :multiple -> MapSet.put(socket.assigns.selected_ids, file_uuid)
               end
 
             socket

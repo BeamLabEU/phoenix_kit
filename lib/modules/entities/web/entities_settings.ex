@@ -424,8 +424,8 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
 
   ## Per-entity mirror helpers
 
-  defp fetch_entity(entity_id) do
-    case Entities.get_entity(entity_id) do
+  defp fetch_entity(entity_uuid) do
+    case Entities.get_entity(entity_uuid) do
       nil -> {:error, :not_found}
       entity -> {:ok, entity}
     end
@@ -458,7 +458,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
 
   ## Live updates
 
-  def handle_info({event, _entity_id}, socket)
+  def handle_info({event, _entity_uuid}, socket)
       when event in [:entity_created, :entity_updated, :entity_deleted] do
     socket =
       socket
@@ -469,7 +469,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
     {:noreply, socket}
   end
 
-  def handle_info({event, _entity_id, _data_id}, socket)
+  def handle_info({event, _entity_uuid, _data_uuid}, socket)
       when event in [:data_created, :data_updated, :data_deleted] do
     socket =
       socket

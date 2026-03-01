@@ -1026,34 +1026,34 @@ defmodule PhoenixKit.Modules.Posts do
   Callback invoked by the Comments module when a comment is created on a post.
   Increments the post's denormalized comment_count.
   """
-  def on_comment_created("post", resource_id, _comment) do
-    increment_comment_count(%Post{uuid: resource_id})
+  def on_comment_created("post", resource_uuid, _comment) do
+    increment_comment_count(%Post{uuid: resource_uuid})
     :ok
   end
 
-  def on_comment_created(_resource_type, _resource_id, _comment), do: :ok
+  def on_comment_created(_resource_type, _resource_uuid, _comment), do: :ok
 
   @doc """
   Callback invoked by the Comments module when a comment is deleted from a post.
   Decrements the post's denormalized comment_count.
   """
-  def on_comment_deleted("post", resource_id, _comment) do
-    decrement_comment_count(%Post{uuid: resource_id})
+  def on_comment_deleted("post", resource_uuid, _comment) do
+    decrement_comment_count(%Post{uuid: resource_uuid})
     :ok
   end
 
-  def on_comment_deleted(_resource_type, _resource_id, _comment), do: :ok
+  def on_comment_deleted(_resource_type, _resource_uuid, _comment), do: :ok
 
   @doc """
   Resolves post titles and admin paths for a list of resource IDs.
 
   Called by the Comments module to display resource context in the admin UI.
-  Returns a map of `resource_id => %{title: ..., path: ...}`.
+  Returns a map of `resource_uuid => %{title: ..., path: ...}`.
   """
-  def resolve_comment_resources(resource_ids) when is_list(resource_ids) do
-    from(p in Post, where: p.uuid in ^resource_ids, select: {p.uuid, p.title})
+  def resolve_comment_resources(resource_uuids) when is_list(resource_uuids) do
+    from(p in Post, where: p.uuid in ^resource_uuids, select: {p.uuid, p.title})
     |> repo().all()
-    |> Map.new(fn {id, title} -> {id, %{title: title, path: "/admin/posts/#{id}"}} end)
+    |> Map.new(fn {uuid, title} -> {uuid, %{title: title, path: "/admin/posts/#{uuid}"}} end)
   rescue
     _ -> %{}
   end
@@ -1635,10 +1635,10 @@ defmodule PhoenixKit.Modules.Posts do
 
   ## Examples
 
-      iex> detach_media_by_id("018e3c4a-...")
+      iex> detach_media_by_uuid("018e3c4a-...")
       {:ok, %PostMedia{}}
   """
-  def detach_media_by_id(media_uuid) do
+  def detach_media_by_uuid(media_uuid) do
     case repo().get(PostMedia, media_uuid) do
       nil -> {:error, :not_found}
       media -> repo().delete(media)

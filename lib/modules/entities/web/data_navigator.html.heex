@@ -407,7 +407,7 @@
                 </div>
               <% end %>
             <% else %>
-              <%= if @selected_entity_id || @selected_status != "all" || @search_term != "" do %>
+              <%= if @selected_entity_uuid || @selected_status != "all" || @search_term != "" do %>
                 <%!-- Data exists but filters exclude everything --%>
                 <h3 class="text-2xl font-semibold text-base-content/60 mb-4">
                   {gettext("No Data Records Found")}
@@ -475,7 +475,7 @@
                   <.link
                     navigate={
                       PhoenixKit.Utils.Routes.path(
-                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}"
+                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_uuid)}/data/#{data_record.uuid}"
                       )
                     }
                     class="block hover:text-primary transition-colors cursor-pointer"
@@ -492,7 +492,7 @@
                 <%= if !@selected_entity do %>
                   <.table_default_cell>
                     <span class="badge badge-outline badge-sm h-auto">
-                      {get_entity_name(@entities, data_record.entity_id)}
+                      {get_entity_name(@entities, data_record.entity_uuid)}
                     </span>
                   </.table_default_cell>
                 <% end %>
@@ -517,7 +517,7 @@
                     <.link
                       navigate={
                         PhoenixKit.Utils.Routes.path(
-                          "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}"
+                          "/admin/entities/#{get_entity_slug(@entities, data_record.entity_uuid)}/data/#{data_record.uuid}"
                         )
                       }
                       class="btn btn-ghost btn-xs"
@@ -528,7 +528,7 @@
                     <.link
                       navigate={
                         PhoenixKit.Utils.Routes.path(
-                          "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}/edit"
+                          "/admin/entities/#{get_entity_slug(@entities, data_record.entity_uuid)}/data/#{data_record.uuid}/edit"
                         )
                       }
                       class="btn btn-ghost btn-xs"
@@ -580,7 +580,7 @@
                       <.link
                         navigate={
                           PhoenixKit.Utils.Routes.path(
-                            "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}"
+                            "/admin/entities/#{get_entity_slug(@entities, data_record.entity_uuid)}/data/#{data_record.uuid}"
                           )
                         }
                         class="flex-1 hover:text-primary transition-colors cursor-pointer"
@@ -590,7 +590,7 @@
                           <h3 class="card-title text-lg mr-3">{data_record.title}</h3>
                           <%= if !@selected_entity do %>
                             <span class="badge badge-outline">
-                              {get_entity_name(@entities, data_record.entity_id)}
+                              {get_entity_name(@entities, data_record.entity_uuid)}
                             </span>
                           <% end %>
                         </div>
@@ -661,7 +661,7 @@
                   <.link
                     navigate={
                       PhoenixKit.Utils.Routes.path(
-                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}"
+                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_uuid)}/data/#{data_record.uuid}"
                       )
                     }
                     class="btn btn-outline btn-sm"
@@ -671,7 +671,7 @@
                   <.link
                     navigate={
                       PhoenixKit.Utils.Routes.path(
-                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.uuid}/edit"
+                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_uuid)}/data/#{data_record.uuid}/edit"
                       )
                     }
                     class="btn btn-primary btn-sm"

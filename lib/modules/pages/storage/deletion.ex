@@ -119,11 +119,11 @@ defmodule PhoenixKit.Modules.Pages.Storage.Deletion do
     end
   end
 
-  defp do_delete_language(post_dir, :legacy, language_code, _version, _group_slug, _post_id) do
+  defp do_delete_language(post_dir, :legacy, language_code, _version, _group_slug, _post_uuid) do
     delete_language_from_directory(post_dir, language_code)
   end
 
-  defp do_delete_language(_post_dir, :empty, _language_code, _version, _group_slug, _post_id) do
+  defp do_delete_language(_post_dir, :empty, _language_code, _version, _group_slug, _post_uuid) do
     {:error, :post_not_found}
   end
 

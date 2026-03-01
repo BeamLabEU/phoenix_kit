@@ -87,7 +87,7 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
 
   ## Live updates
 
-  def handle_info({event, _entity_id}, socket)
+  def handle_info({event, _entity_uuid}, socket)
       when event in [:entity_created, :entity_updated, :entity_deleted] do
     {:noreply, assign(socket, :entities, Entities.list_entities())}
   end

@@ -3,8 +3,8 @@ defmodule PhoenixKit.Admin.Presence do
   Phoenix.Presence implementation for tracking anonymous and authenticated sessions.
 
   This module provides real-time tracking of:
-  - Anonymous visitors (WebSocket connections without user_id)
-  - Authenticated users (with user_id)
+  - Anonymous visitors (WebSocket connections without user_uuid)
+  - Authenticated users (with user_uuid)
   - Session details like IP, User-Agent, current page, connection time
 
   ## Usage
@@ -32,8 +32,8 @@ defmodule PhoenixKit.Admin.Presence do
 
   - `{:anonymous_session_connected, session_id, session_info}`
   - `{:anonymous_session_disconnected, session_id}`
-  - `{:user_session_connected, user_id, session_info}`
-  - `{:user_session_disconnected, user_id, session_id}`
+  - `{:user_session_connected, user_uuid, session_info}`
+  - `{:user_session_disconnected, user_uuid, session_id}`
   - `{:presence_stats_updated, stats}`
   """
 

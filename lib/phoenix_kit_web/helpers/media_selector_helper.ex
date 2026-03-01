@@ -16,15 +16,15 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
       # In handle_params to receive selection
       def handle_params(params, _uri, socket) do
         case MediaSelectorHelper.parse_selected_media(params) do
-          {:ok, [file_id]} ->
+          {:ok, [file_uuid]} ->
             socket
-            |> assign(:featured_image_uuid, file_id)
+            |> assign(:featured_image_uuid, file_uuid)
             |> put_flash(:info, "Image selected!")
 
-          {:ok, file_ids} ->
+          {:ok, file_uuids} ->
             socket
-            |> assign(:gallery_ids, file_ids)
-            |> put_flash(:info, "\#{length(file_ids)} images selected!")
+            |> assign(:gallery_ids, file_uuids)
+            |> put_flash(:info, "\#{length(file_uuids)} images selected!")
 
           :none ->
             socket
@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
     - `opts` - Keyword list of options:
       - `:mode` - Selection mode: `:single` or `:multiple` (default: `:single`)
       - `:filter` - File type filter: `:image`, `:video`, or `:all` (default: `:all`)
-      - `:selected` - List of pre-selected file IDs (optional)
+      - `:selected` - List of pre-selected file UUIDs (optional)
 
   ## Examples
 
@@ -70,7 +70,7 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
   @doc """
   Parses the selected media from LiveView params.
 
-  Returns `{:ok, [file_ids]}` if media was selected, or `:none` if no selection.
+  Returns `{:ok, [file_uuids]}` if media was selected, or `:none` if no selection.
 
   ## Examples
 
@@ -86,24 +86,24 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
   """
   def parse_selected_media(%{"selected_media" => selected_media})
       when is_binary(selected_media) do
-    file_ids =
+    file_uuids =
       selected_media
       |> String.split(",")
       |> Enum.map(&String.trim/1)
       |> Enum.reject(&(&1 == ""))
 
-    case file_ids do
+    case file_uuids do
       [] -> :none
-      ids -> {:ok, ids}
+      uuids -> {:ok, uuids}
     end
   end
 
   def parse_selected_media(_params), do: :none
 
   @doc """
-  Extracts the first file ID from selected media.
+  Extracts the first file UUID from selected media.
 
-  Useful for single-selection scenarios where you only need one file ID.
+  Useful for single-selection scenarios where you only need one file UUID.
 
   ## Examples
 
@@ -119,7 +119,7 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
   """
   def get_first_selected(params) do
     case parse_selected_media(params) do
-      {:ok, [first_id | _]} -> {:ok, first_id}
+      {:ok, [first_uuid | _]} -> {:ok, first_uuid}
       :none -> :none
     end
   end

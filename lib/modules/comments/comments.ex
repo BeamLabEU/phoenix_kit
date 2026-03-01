@@ -349,10 +349,10 @@ defmodule PhoenixKit.Modules.Comments do
     update_comment(comment, %{status: "hidden"})
   end
 
-  @doc "Bulk-updates status for multiple comment IDs."
-  def bulk_update_status(comment_ids, status)
-      when is_list(comment_ids) and status in ["published", "hidden", "deleted", "pending"] do
-    from(c in Comment, where: c.uuid in ^comment_ids)
+  @doc "Bulk-updates status for multiple comment UUIDs."
+  def bulk_update_status(comment_uuids, status)
+      when is_list(comment_uuids) and status in ["published", "hidden", "deleted", "pending"] do
+    from(c in Comment, where: c.uuid in ^comment_uuids)
     |> repo().update_all(set: [status: status, updated_at: UtilsDate.utc_now()])
   end
 

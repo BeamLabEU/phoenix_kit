@@ -691,18 +691,18 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
-  def handle_info({:media_selected, file_ids}, socket) do
-    # Get the first selected file ID (single selection mode)
-    avatar_file_id = List.first(file_ids)
+  def handle_info({:media_selected, file_uuids}, socket) do
+    # Get the first selected file UUID (single selection mode)
+    avatar_file_uuid = List.first(file_uuids)
 
     # Store avatar selection without saving to database yet
     # Avatar will be saved when "Update User" button is clicked
     socket =
-      if avatar_file_id do
-        Logger.info("Avatar selected (pending save): #{avatar_file_id}")
+      if avatar_file_uuid do
+        Logger.info("Avatar selected (pending save): #{avatar_file_uuid}")
 
         socket
-        |> assign(:pending_avatar_file_id, avatar_file_id)
+        |> assign(:pending_avatar_file_id, avatar_file_uuid)
         |> assign(:avatar_changed, true)
         |> assign(:show_media_selector, false)
         |> put_flash(:info, "Avatar selected. Click 'Update User' to save.")

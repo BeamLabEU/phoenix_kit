@@ -591,7 +591,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   @doc """
   Updates form with selected media file.
   """
-  def update_form_with_media(form, file_id) do
-    Map.put(form, "featured_image_uuid", file_id)
+  def update_form_with_media(form, file_uuid) do
+    Map.put(form, "featured_image_uuid", file_uuid)
   end
 end

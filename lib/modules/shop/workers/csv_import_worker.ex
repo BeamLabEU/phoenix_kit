@@ -49,18 +49,18 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: args}) do
-    import_log_id = Map.fetch!(args, "import_log_id")
+    import_log_uuid = Map.fetch!(args, "import_log_id")
     path = Map.fetch!(args, "path")
-    config_id = Map.get(args, "config_id")
+    config_uuid = Map.get(args, "config_id")
     language = Map.get(args, "language") || default_import_language()
     option_mappings = Map.get(args, "option_mappings", [])
     download_images = Map.get(args, "download_images", false)
     skip_empty_categories = Map.get(args, "skip_empty_categories", false)
 
-    Logger.info("CSVImportWorker: Starting import #{import_log_id} from #{path}")
+    Logger.info("CSVImportWorker: Starting import #{import_log_uuid} from #{path}")
 
-    with {:ok, import_log} <- get_import_log(import_log_id),
-         {:ok, config} <- load_config(config_id, import_log),
+    with {:ok, import_log} <- get_import_log(import_log_uuid),
+         {:ok, config} <- load_config(config_uuid, import_log),
          {:ok, format_mod} <- detect_format(path),
          :ok <- validate_file(path, format_mod, config),
          {:ok, total_rows} <- count_products(path, format_mod, config),
@@ -78,13 +78,13 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
          {:ok, _import_log} <- complete_import(import_log, stats) do
       if skip_empty_categories, do: cleanup_empty_categories(stats)
       cleanup_file(path)
-      broadcast_complete(import_log_id, stats)
-      Logger.info("CSVImportWorker: Completed import #{import_log_id} - #{inspect(stats)}")
+      broadcast_complete(import_log_uuid, stats)
+      Logger.info("CSVImportWorker: Completed import #{import_log_uuid} - #{inspect(stats)}")
       :ok
     else
       {:error, reason} = error ->
-        Logger.error("CSVImportWorker: Failed import #{import_log_id} - #{inspect(reason)}")
-        handle_failure(import_log_id, reason)
+        Logger.error("CSVImportWorker: Failed import #{import_log_uuid} - #{inspect(reason)}")
+        handle_failure(import_log_uuid, reason)
         error
     end
   end
@@ -101,10 +101,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp load_config(nil, import_log) do
-    config_id = get_in(import_log.options, ["config_id"])
+    config_uuid = get_in(import_log.options, ["config_id"])
 
-    if config_id do
-      load_config_by_id(config_id)
+    if config_uuid do
+      load_config_by_id(config_uuid)
     else
       case Shop.get_default_import_config() do
         nil -> {:ok, nil}
@@ -113,12 +113,12 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp load_config(config_id, _import_log) when is_binary(config_id) do
-    load_config_by_id(config_id)
+  defp load_config(config_uuid, _import_log) when is_binary(config_uuid) do
+    load_config_by_id(config_uuid)
   end
 
-  defp load_config_by_id(config_id) do
-    case Shop.get_import_config(config_id) do
+  defp load_config_by_id(config_uuid) do
+    case Shop.get_import_config(config_uuid) do
       nil -> {:ok, nil}
       config -> {:ok, config}
     end
@@ -338,14 +338,14 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     Shop.complete_import(import_log, corrected_stats)
   end
 
-  defp handle_failure(import_log_id, reason) do
-    case Shop.get_import_log(import_log_id) do
+  defp handle_failure(import_log_uuid, reason) do
+    case Shop.get_import_log(import_log_uuid) do
       nil ->
         :ok
 
       import_log ->
         Shop.fail_import(import_log, reason)
-        broadcast_failed(import_log_id, reason)
+        broadcast_failed(import_log_uuid, reason)
     end
   end
 
@@ -395,15 +395,15 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   # PUBSUB BROADCASTS
   # ============================================
 
-  defp broadcast_started(import_log_id, total) do
-    broadcast(import_log_id, {:import_started, %{total: total}})
+  defp broadcast_started(import_log_uuid, total) do
+    broadcast(import_log_uuid, {:import_started, %{total: total}})
   end
 
-  defp broadcast_progress(import_log_id, current, total, stats) do
+  defp broadcast_progress(import_log_uuid, current, total, stats) do
     percent = if total > 0, do: trunc(current / total * 100), else: 0
 
     broadcast(
-      import_log_id,
+      import_log_uuid,
       {:import_progress,
        %{
          current: current,
@@ -414,18 +414,21 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     )
   end
 
-  defp broadcast_complete(import_log_id, stats) do
-    broadcast(import_log_id, {:import_complete, stats})
-    broadcast_general({:import_complete, %{import_log_id: import_log_id, stats: stats}})
+  defp broadcast_complete(import_log_uuid, stats) do
+    broadcast(import_log_uuid, {:import_complete, stats})
+    broadcast_general({:import_complete, %{import_log_uuid: import_log_uuid, stats: stats}})
   end
 
-  defp broadcast_failed(import_log_id, reason) do
-    broadcast(import_log_id, {:import_failed, %{reason: inspect(reason)}})
-    broadcast_general({:import_failed, %{import_log_id: import_log_id, reason: inspect(reason)}})
+  defp broadcast_failed(import_log_uuid, reason) do
+    broadcast(import_log_uuid, {:import_failed, %{reason: inspect(reason)}})
+
+    broadcast_general(
+      {:import_failed, %{import_log_uuid: import_log_uuid, reason: inspect(reason)}}
+    )
   end
 
-  defp broadcast(import_log_id, message) do
-    topic = "shop:import:#{import_log_id}"
+  defp broadcast(import_log_uuid, message) do
+    topic = "shop:import:#{import_log_uuid}"
     Manager.broadcast(topic, message)
   rescue
     _ -> :ok

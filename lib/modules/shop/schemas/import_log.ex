@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   - `error_details` - List of error objects
   - `started_at` - Processing start time
   - `completed_at` - Processing end time
-  - `user_id` - User who initiated import
+  - `user_uuid` - User who initiated import
   """
 
   use Ecto.Schema

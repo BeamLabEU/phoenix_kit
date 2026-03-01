@@ -1567,13 +1567,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp handle_media_selected(socket, file_ids) do
-    file_id = List.first(file_ids)
+    file_uuid = List.first(file_ids)
     inserting_image_component = Map.get(socket.assigns, :inserting_image_component, false)
 
     {socket, autosave?} =
       cond do
-        file_id && inserting_image_component ->
-          file_url = Helpers.get_file_url(file_id)
+        file_uuid && inserting_image_component ->
+          file_url = Helpers.get_file_url(file_uuid)
 
           js_code =
             "window.publishingEditorInsertMedia && window.publishingEditorInsertMedia('#{file_url}', 'image')"
@@ -1587,10 +1587,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             false
           }
 
-        file_id ->
+        file_uuid ->
           {
             socket
-            |> assign(:form, Forms.update_form_with_media(socket.assigns.form, file_id))
+            |> assign(:form, Forms.update_form_with_media(socket.assigns.form, file_uuid))
             |> assign(:has_pending_changes, true)
             |> assign(:show_media_selector, false)
             |> put_flash(:info, gettext("Featured image selected"))

@@ -7,7 +7,7 @@ defmodule PhoenixKit.Users.RolePermission do
 
   ## Fields
 
-  - `role_id` - FK to phoenix_kit_user_roles
+  - `role_uuid` - FK to phoenix_kit_user_roles
   - `module_key` - Identifies the admin section or feature module (e.g., "billing", "users")
   - `granted_by` - FK to phoenix_kit_users (audit: who granted this permission)
   - `inserted_at` - When the permission was granted

@@ -1023,7 +1023,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       # If it's a URL (starts with http), use directly
       "http" <> _ = url -> url
       # Otherwise it's a Storage ID
-      image_id -> get_storage_image_url(image_id, "large") || current_image
+      image_uuid -> get_storage_image_url(image_uuid, "large") || current_image
     end
   end
 
@@ -1079,9 +1079,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   defp get_storage_image_url(nil, _variant), do: placeholder_image_url()
 
-  defp get_storage_image_url(file_id, variant) do
+  defp get_storage_image_url(file_uuid, variant) do
     # Storage.get_file/1 returns %File{} struct or nil (not {:ok, file} tuple)
-    case Storage.get_file(file_id) do
+    case Storage.get_file(file_uuid) do
       %{uuid: uuid} = _file ->
         # Check if requested variant exists, fall back to original if not
         case Storage.get_file_instance_by_name(uuid, variant) do
@@ -1089,11 +1089,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
             # Variant doesn't exist - try original
             case Storage.get_file_instance_by_name(uuid, "original") do
               nil -> placeholder_image_url()
-              _instance -> URLSigner.signed_url(file_id, "original")
+              _instance -> URLSigner.signed_url(file_uuid, "original")
             end
 
           _instance ->
-            URLSigner.signed_url(file_id, variant)
+            URLSigner.signed_url(file_uuid, variant)
         end
 
       nil ->
@@ -1300,10 +1300,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   @impl true
-  def handle_info({:inventory_updated, product_id, _change}, socket) do
-    if product_id == socket.assigns.product.uuid do
+  def handle_info({:inventory_updated, product_uuid, _change}, socket) do
+    if product_uuid == socket.assigns.product.uuid do
       # Reload product to get updated stock
-      product = Shop.get_product!(product_id)
+      product = Shop.get_product!(product_uuid)
       {:noreply, assign(socket, :product, product)}
     else
       {:noreply, socket}

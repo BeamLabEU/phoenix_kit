@@ -32,15 +32,15 @@ defmodule PhoenixKit.Admin.Events do
 
   ### Session Events
   - `{:session_created, user, token_info}` - New session created
-  - `{:session_revoked, token_id}` - Session revoked
+  - `{:session_revoked, token_uuid}` - Session revoked
   - `{:user_sessions_revoked, user_uuid, count}` - All user sessions revoked
   - `{:sessions_stats_updated, stats}` - Session statistics updated
 
   ### Presence Events
   - `{:anonymous_session_connected, session_id, session_info}` - Anonymous visitor connected
   - `{:anonymous_session_disconnected, session_id}` - Anonymous visitor disconnected
-  - `{:user_session_connected, user_id, session_info}` - Authenticated user connected
-  - `{:user_session_disconnected, user_id, session_id}` - Authenticated user disconnected
+  - `{:user_session_connected, user_uuid, session_info}` - Authenticated user connected
+  - `{:user_session_disconnected, user_uuid, session_id}` - Authenticated user disconnected
   - `{:presence_stats_updated, stats}` - Real-time presence statistics updated
 
   ### Statistics Events
@@ -175,8 +175,8 @@ defmodule PhoenixKit.Admin.Events do
   @doc """
   Broadcasts session revocation event to admin panels.
   """
-  def broadcast_session_revoked(token_id) do
-    broadcast(@topic_sessions, {:session_revoked, token_id})
+  def broadcast_session_revoked(token_uuid) do
+    broadcast(@topic_sessions, {:session_revoked, token_uuid})
     broadcast_sessions_stats_updated()
   end
 
@@ -215,15 +215,15 @@ defmodule PhoenixKit.Admin.Events do
   @doc """
   Broadcasts authenticated user session connection event to admin panels.
   """
-  def broadcast_user_session_connected(user_id, session_info) do
-    broadcast(@topic_presence, {:user_session_connected, user_id, session_info})
+  def broadcast_user_session_connected(user_uuid, session_info) do
+    broadcast(@topic_presence, {:user_session_connected, user_uuid, session_info})
   end
 
   @doc """
   Broadcasts authenticated user session disconnection event to admin panels.
   """
-  def broadcast_user_session_disconnected(user_id, session_id) do
-    broadcast(@topic_presence, {:user_session_disconnected, user_id, session_id})
+  def broadcast_user_session_disconnected(user_uuid, session_id) do
+    broadcast(@topic_presence, {:user_session_disconnected, user_uuid, session_id})
   end
 
   @doc """
@@ -248,22 +248,22 @@ defmodule PhoenixKit.Admin.Events do
   @doc """
   Broadcasts permission granted event to admin panels.
   """
-  def broadcast_permission_granted(role_id, module_key) do
-    broadcast(@topic_permissions, {:permission_granted, role_id, module_key})
+  def broadcast_permission_granted(role_uuid, module_key) do
+    broadcast(@topic_permissions, {:permission_granted, role_uuid, module_key})
   end
 
   @doc """
   Broadcasts permission revoked event to admin panels.
   """
-  def broadcast_permission_revoked(role_id, module_key) do
-    broadcast(@topic_permissions, {:permission_revoked, role_id, module_key})
+  def broadcast_permission_revoked(role_uuid, module_key) do
+    broadcast(@topic_permissions, {:permission_revoked, role_uuid, module_key})
   end
 
   @doc """
   Broadcasts permissions synced event to admin panels.
   """
-  def broadcast_permissions_synced(role_id, module_keys) do
-    broadcast(@topic_permissions, {:permissions_synced, role_id, module_keys})
+  def broadcast_permissions_synced(role_uuid, module_keys) do
+    broadcast(@topic_permissions, {:permissions_synced, role_uuid, module_keys})
   end
 
   ## Module Events

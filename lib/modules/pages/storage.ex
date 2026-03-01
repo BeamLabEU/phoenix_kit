@@ -149,8 +149,8 @@ defmodule PhoenixKit.Modules.Pages.Storage do
 
   defdelegate trash_post(group_slug, post_identifier), to: Deletion
   defdelegate trash_language(group_slug, relative_path), to: Deletion
-  defdelegate delete_language(group_slug, post_id, language, version \\ nil), to: Deletion
-  defdelegate delete_version(group_slug, post_id, version), to: Deletion
+  defdelegate delete_language(group_slug, post_uuid, language, version \\ nil), to: Deletion
+  defdelegate delete_version(group_slug, post_uuid, version), to: Deletion
 
   # ============================================================================
   # Timestamp Mode Operations

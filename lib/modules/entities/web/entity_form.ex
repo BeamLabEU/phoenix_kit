@@ -135,29 +135,29 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     {:ok, socket}
   end
 
-  defp assign_editing_role(socket, entity_id) do
+  defp assign_editing_role(socket, entity_uuid) do
     current_user = socket.assigns[:current_user]
 
-    case PresenceHelpers.get_editing_role(:entity, entity_id, socket.id, current_user.uuid) do
+    case PresenceHelpers.get_editing_role(:entity, entity_uuid, socket.id, current_user.uuid) do
       {:owner, _presences} ->
         # I'm the owner - I can edit (or same user in different tab)
         socket
         |> assign(:lock_owner?, true)
         |> assign(:readonly?, false)
-        |> populate_presence_info(:entity, entity_id)
+        |> populate_presence_info(:entity, entity_uuid)
 
       {:spectator, _owner_meta, _presences} ->
         # Different user is the owner - I'm read-only
         socket
         |> assign(:lock_owner?, false)
         |> assign(:readonly?, true)
-        |> populate_presence_info(:entity, entity_id)
+        |> populate_presence_info(:entity, entity_uuid)
     end
   end
 
-  defp load_spectator_state(socket, entity_id) do
+  defp load_spectator_state(socket, entity_uuid) do
     # Owner might have unsaved changes - sync from their Presence metadata
-    case PresenceHelpers.get_lock_owner(:entity, entity_id) do
+    case PresenceHelpers.get_lock_owner(:entity, entity_uuid) do
       %{form_state: form_state} when not is_nil(form_state) ->
         # Apply owner's form state
         changeset_params =

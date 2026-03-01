@@ -168,7 +168,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   def active?(_), do: false
 
   @doc """
-  Returns true if cart is a guest cart (no user_id).
+  Returns true if cart is a guest cart (no user_uuid).
   """
   def guest?(%__MODULE__{user_uuid: nil}), do: true
   def guest?(_), do: false

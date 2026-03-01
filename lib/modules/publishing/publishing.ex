@@ -953,7 +953,7 @@ defmodule PhoenixKit.Modules.Publishing do
     now = UtilsDate.utc_now()
 
     # Resolve user UUID for audit
-    created_by_uuid = resolve_scope_user_ids(scope)
+    created_by_uuid = resolve_scope_user_uuids(scope)
 
     # Generate slug for slug-mode groups
     slug_result =
@@ -1037,9 +1037,9 @@ defmodule PhoenixKit.Modules.Publishing do
     {:error, reason} -> {:error, reason}
   end
 
-  defp resolve_scope_user_ids(nil), do: nil
+  defp resolve_scope_user_uuids(nil), do: nil
 
-  defp resolve_scope_user_ids(scope) do
+  defp resolve_scope_user_uuids(scope) do
     Scope.user_uuid(scope)
   end
 
@@ -1706,7 +1706,7 @@ defmodule PhoenixKit.Modules.Publishing do
     unless db_post, do: throw({:error, :post_not_found})
 
     scope = fetch_option(opts, :scope)
-    created_by_uuid = resolve_scope_user_ids(scope)
+    created_by_uuid = resolve_scope_user_uuids(scope)
 
     user_opts = %{created_by_uuid: created_by_uuid}
 

@@ -33,13 +33,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     mount_data_form(socket, entity, data_record, changeset, gettext("Edit Data"), locale)
   end
 
-  def mount(%{"entity_id" => entity_id, "id" => id} = params, _session, socket) do
+  def mount(%{"entity_id" => entity_uuid, "id" => id} = params, _session, socket) do
     # Set locale for LiveView process
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
     # Edit mode with ID (backwards compat)
-    entity = Entities.get_entity!(entity_id)
+    entity = Entities.get_entity!(entity_uuid)
     data_record = EntityData.get!(id)
     changeset = EntityData.change(data_record)
 
@@ -59,13 +59,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     mount_data_form(socket, entity, data_record, changeset, gettext("New Data"), locale)
   end
 
-  def mount(%{"entity_id" => entity_id} = params, _session, socket) do
+  def mount(%{"entity_id" => entity_uuid} = params, _session, socket) do
     # Set locale for LiveView process
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
     # Create mode with ID (backwards compat)
-    entity = Entities.get_entity!(entity_id)
+    entity = Entities.get_entity!(entity_uuid)
     data_record = %EntityData{entity_uuid: entity.uuid}
     changeset = EntityData.change(data_record)
 
@@ -1008,7 +1008,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     changeset =
       socket.assigns.data_record
       |> Ecto.Changeset.cast(params, [
-        :entity_id,
+        :entity_uuid,
         :title,
         :slug,
         :status,
@@ -1075,7 +1075,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
     changeset
     |> Ecto.Changeset.apply_changes()
     |> Map.from_struct()
-    |> Map.take([:entity_id, :title, :slug, :status, :data, :metadata, :created_by])
+    |> Map.take([:entity_uuid, :title, :slug, :status, :data, :metadata, :created_by])
     |> Enum.into(%{}, fn {key, value} -> {to_string(key), value} end)
   end
 

@@ -41,7 +41,7 @@ defmodule PhoenixKit.Users.Sessions do
       iex> list_active_sessions()
       [
         %{
-          token_id: "019b5704-3680-7b95-...",
+          token_uuid: "019b5704-3680-7b95-...",
           token_preview: "abc12345",
           user: %User{uuid: "019b5704-...", email: "user@example.com"},
           created_at: ~N[2024-01-01 12:00:00],
@@ -58,7 +58,7 @@ defmodule PhoenixKit.Users.Sessions do
       join: user in User,
       on: token.user_uuid == user.uuid,
       select: %{
-        token_id: token.uuid,
+        token_uuid: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
         user_uuid: user.uuid,
         user_email: user.email,
@@ -79,7 +79,7 @@ defmodule PhoenixKit.Users.Sessions do
   ## Examples
 
       iex> list_user_sessions(%User{uuid: "019b5704-..."})
-      [%{token_id: "019b5704-...", user: %User{}, created_at: ~N[...], ...}]
+      [%{token_uuid: "019b5704-...", user: %User{}, created_at: ~N[...], ...}]
 
   """
   def list_user_sessions(%User{uuid: user_uuid}) do
@@ -90,7 +90,7 @@ defmodule PhoenixKit.Users.Sessions do
       join: user in User,
       on: token.user_uuid == user.uuid,
       select: %{
-        token_id: token.uuid,
+        token_uuid: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
         user_uuid: user.uuid,
         user_email: user.email,
@@ -111,7 +111,7 @@ defmodule PhoenixKit.Users.Sessions do
   ## Examples
 
       iex> get_session_info("019b5704-3680-7b95-...")
-      %{token_id: "019b5704-...", user: %User{}, created_at: ~N[...], ...}
+      %{token_uuid: "019b5704-...", user: %User{}, created_at: ~N[...], ...}
 
       iex> get_session_info("019b5704-0000-0000-...")
       nil
@@ -125,7 +125,7 @@ defmodule PhoenixKit.Users.Sessions do
       join: user in User,
       on: token.user_uuid == user.uuid,
       select: %{
-        token_id: token.uuid,
+        token_uuid: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
         user_uuid: user.uuid,
         user_email: user.email,
@@ -274,7 +274,7 @@ defmodule PhoenixKit.Users.Sessions do
   # Private helper to format session information
   defp format_session_info(session_data) do
     %{
-      token_id: session_data.token_id,
+      token_uuid: session_data.token_uuid,
       token_preview: session_data.token_preview,
       user_uuid: session_data.user_uuid,
       user_email: session_data.user_email,

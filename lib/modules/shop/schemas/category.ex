@@ -2,15 +2,15 @@ defmodule PhoenixKit.Modules.Shop.Category do
   @moduledoc """
   Category schema for product organization.
 
-  Supports hierarchical nesting via parent_id.
+  Supports hierarchical nesting via parent_uuid.
 
   ## Fields
 
   - `name` - Category name (required)
   - `slug` - URL-friendly identifier (unique)
   - `description` - Category description
-  - `featured_product_id` - Featured product for fallback image
-  - `parent_id` - Parent category for nesting
+  - `featured_product_uuid` - Featured product for fallback image
+  - `parent_uuid` - Parent category for nesting
   - `position` - Sort order
   - `status` - Category status: "active", "hidden", "archived"
   - `metadata` - JSONB for custom fields
@@ -105,7 +105,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
   Returns the image URL for a category.
 
   Priority:
-  1. Storage media (image_id) if available
+  1. Storage media (image_uuid) if available
   2. Featured product's featured_image_uuid (requires :featured_product preloaded)
   3. Featured product's legacy featured_image URL (requires :featured_product preloaded)
   4. nil if no image

@@ -262,10 +262,10 @@ defmodule PhoenixKit.Modules.Shop.Options do
     []
   end
 
-  def get_category_options(category_id) when is_binary(category_id) do
+  def get_category_options(category_uuid) when is_binary(category_uuid) do
     result =
-      if uuid_string?(category_id) do
-        repo().get_by(Category, uuid: category_id)
+      if uuid_string?(category_uuid) do
+        repo().get_by(Category, uuid: category_uuid)
       else
         nil
       end

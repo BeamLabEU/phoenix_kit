@@ -185,8 +185,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Gets the URL for a file from storage.
   """
-  def get_file_url(file_id) do
-    URLSigner.signed_url(file_id, "original")
+  def get_file_url(file_uuid) do
+    URLSigner.signed_url(file_uuid, "original")
   end
 
   # ============================================================================
@@ -278,8 +278,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
       nil ->
         nil
 
-      file_id ->
-        PublishingHTML.featured_image_url(%{metadata: %{featured_image_uuid: file_id}}, "medium")
+      file_uuid ->
+        PublishingHTML.featured_image_url(
+          %{metadata: %{featured_image_uuid: file_uuid}},
+          "medium"
+        )
     end
   end
 

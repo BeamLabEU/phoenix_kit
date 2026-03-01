@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
   Can be triggered manually for a specific subscription:
 
   ```elixir
-  %{subscription_id: 123}
+  %{subscription_id: "019145a1-0000-7000-8000-000000000001"}
   |> SubscriptionRenewalWorker.new()
   |> Oban.insert()
   ```
@@ -60,11 +60,11 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
   require Logger
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"subscription_id" => subscription_id}}) do
+  def perform(%Oban.Job{args: %{"subscription_id" => subscription_uuid}}) do
     # Process single subscription
-    case get_subscription(subscription_id) do
+    case get_subscription(subscription_uuid) do
       nil ->
-        Logger.warning("Subscription #{subscription_id} not found for renewal")
+        Logger.warning("Subscription #{subscription_uuid} not found for renewal")
         :ok
 
       subscription ->
@@ -219,9 +219,9 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionRenewalWorker do
     result
   end
 
-  defp schedule_dunning(subscription_id) do
+  defp schedule_dunning(subscription_uuid) do
     # Schedule dunning worker to retry in 24 hours
-    %{subscription_id: subscription_id}
+    %{subscription_id: subscription_uuid}
     |> SubscriptionDunningWorker.new(schedule_in: 86_400)
     |> Oban.insert()
   end
