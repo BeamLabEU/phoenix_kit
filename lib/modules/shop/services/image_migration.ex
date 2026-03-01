@@ -12,11 +12,11 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
       # => %{total: 100, migrated: 25, pending: 75, failed: 0}
 
       # Queue all pending products for migration
-      {:ok, count} = ImageMigration.queue_all_migrations(user_id)
+      {:ok, count} = ImageMigration.queue_all_migrations(user_uuid)
       # => {:ok, 75}
 
       # Migrate a single product synchronously
-      {:ok, product} = ImageMigration.migrate_product(product_id, user_id)
+      {:ok, product} = ImageMigration.migrate_product(product_uuid, user_uuid)
 
   """
 
@@ -198,13 +198,13 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
       iex> queue_all_migrations(user_id)
       {:ok, 75}
 
-      iex> queue_all_migrations(user_id, limit: 10)
+      iex> queue_all_migrations(user_uuid, limit: 10)
       {:ok, 10}
 
   """
   @spec queue_all_migrations(String.t() | integer(), keyword()) ::
           {:ok, non_neg_integer()} | {:error, term()}
-  def queue_all_migrations(user_id, opts \\ []) do
+  def queue_all_migrations(user_uuid, opts \\ []) do
     limit = Keyword.get(opts, :limit)
     priority = Keyword.get(opts, :priority, 3)
 
@@ -216,7 +216,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     jobs =
       Enum.map(products, fn product ->
         ImageMigrationWorker.new(
-          %{product_id: product.uuid, user_id: user_id},
+          %{product_id: product.uuid, user_id: user_uuid},
           priority: priority
         )
       end)
@@ -265,23 +265,23 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
 
   ## Examples
 
-      iex> migrate_product(product_id, user_id)
+      iex> migrate_product(product_uuid, user_uuid)
       {:ok, %Product{featured_image_uuid: "uuid-1", image_ids: ["uuid-1", "uuid-2"]}}
 
   """
   @spec migrate_product(String.t(), String.t() | integer()) ::
           {:ok, Product.t()} | {:error, term()}
-  def migrate_product(product_id, user_id) do
-    case Shop.get_product(product_id) do
+  def migrate_product(product_uuid, user_uuid) do
+    case Shop.get_product(product_uuid) do
       nil ->
         {:error, :product_not_found}
 
       product ->
-        do_migrate_product(product, user_id)
+        do_migrate_product(product, user_uuid)
     end
   end
 
-  defp do_migrate_product(product, user_id) do
+  defp do_migrate_product(product, user_uuid) do
     # Check if already migrated
     if has_storage_images?(product) do
       {:error, :already_migrated}
@@ -294,7 +294,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
         if Enum.empty?(image_urls) do
           {:error, :no_images}
         else
-          migrate_images_for_product(product, image_urls, user_id)
+          migrate_images_for_product(product, image_urls, user_uuid)
         end
       end
     end
@@ -344,7 +344,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     (urls ++ legacy_image_urls) |> Enum.uniq()
   end
 
-  defp migrate_images_for_product(product, image_urls, user_id) do
+  defp migrate_images_for_product(product, image_urls, user_uuid) do
     # Validate URLs first to skip unavailable images
     {valid_urls, invalid_urls} = ImageDownloader.validate_urls(image_urls)
 
@@ -362,7 +362,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
 
       # Download all images
       results =
-        ImageDownloader.download_batch(valid_urls, user_id, concurrency: 3, timeout: 60_000)
+        ImageDownloader.download_batch(valid_urls, user_uuid, concurrency: 3, timeout: 60_000)
 
       # Build URL -> file_id mapping
       url_to_file_id =

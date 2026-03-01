@@ -232,22 +232,22 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
   end
 
   @impl true
-  def handle_info({:category_deleted, _category_id}, socket) do
+  def handle_info({:category_deleted, _category_uuid}, socket) do
     {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
-  def handle_info({:categories_bulk_status_changed, _ids, _status}, socket) do
+  def handle_info({:categories_bulk_status_changed, _uuids, _status}, socket) do
     {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
-  def handle_info({:categories_bulk_parent_changed, _ids, _parent_uuid}, socket) do
+  def handle_info({:categories_bulk_parent_changed, _uuids, _parent_uuid}, socket) do
     {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
   @impl true
-  def handle_info({:categories_bulk_deleted, _ids}, socket) do
+  def handle_info({:categories_bulk_deleted, _uuids}, socket) do
     {:noreply, socket |> load_static_category_data() |> load_filtered_categories()}
   end
 
