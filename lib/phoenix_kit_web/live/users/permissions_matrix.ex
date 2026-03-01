@@ -47,15 +47,15 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     {:noreply, load_matrix(socket)}
   end
 
-  def handle_info({:permission_granted, _role_id, _key}, socket) do
+  def handle_info({:permission_granted, _role_uuid, _key}, socket) do
     {:noreply, refresh_matrix(socket)}
   end
 
-  def handle_info({:permission_revoked, _role_id, _key}, socket) do
+  def handle_info({:permission_revoked, _role_uuid, _key}, socket) do
     {:noreply, refresh_matrix(socket)}
   end
 
-  def handle_info({:permissions_synced, _role_id, _keys}, socket) do
+  def handle_info({:permissions_synced, _role_uuid, _keys}, socket) do
     {:noreply, refresh_matrix(socket)}
   end
 
@@ -71,11 +71,11 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
 
   # --- Events ---
 
-  def handle_event("toggle_permission", %{"role_id" => role_id_str, "key" => key}, socket) do
+  def handle_event("toggle_permission", %{"role_uuid" => role_uuid, "key" => key}, socket) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
     with role when not is_nil(role) <-
-           Enum.find(socket.assigns.roles, &(to_string(&1.uuid) == role_id_str)),
+           Enum.find(socket.assigns.roles, &(to_string(&1.uuid) == role_uuid)),
          :ok <- Permissions.can_edit_role_permissions?(scope, role),
          true <- scope != nil && Scope.has_module_access?(scope, "users") do
       grantable =

@@ -145,7 +145,7 @@
                       <button
                         class="btn btn-xs btn-outline btn-primary"
                         phx-click="show_edit_role"
-                        phx-value-role_id={role.uuid}
+                        phx-value-role_uuid={role.uuid}
                       >
                         <.icon name="hero-pencil" class="h-3 w-3 mr-1" /> {gettext("Edit")}
                       </button>
@@ -154,7 +154,7 @@
                       <button
                         class="btn btn-xs btn-outline btn-error"
                         phx-click="request_delete_role"
-                        phx-value-role_id={role.uuid}
+                        phx-value-role_uuid={role.uuid}
                         phx-value-role_name={role.name}
                       >
                         <.icon name="hero-trash" class="h-3 w-3 mr-1" /> {gettext("Delete")}
@@ -170,7 +170,7 @@
                       <button
                         class="btn btn-xs btn-outline btn-secondary"
                         phx-click="show_permissions_editor"
-                        phx-value-role_id={role.uuid}
+                        phx-value-role_uuid={role.uuid}
                       >
                         <.icon name="hero-key" class="h-3 w-3 mr-1" /> {gettext("Permissions")}
                       </button>
