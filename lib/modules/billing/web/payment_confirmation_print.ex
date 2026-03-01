@@ -15,10 +15,10 @@ defmodule PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint do
   alias PhoenixKit.Utils.Routes
 
   @impl true
-  def mount(%{"id" => invoice_uuid, "transaction_id" => transaction_id}, _session, socket) do
+  def mount(%{"id" => invoice_uuid, "transaction_uuid" => transaction_uuid}, _session, socket) do
     with true <- Billing.enabled?(),
          %{} = invoice <- Billing.get_invoice(invoice_uuid, preload: [:user, :order]),
-         %Transaction{} = transaction <- Billing.get_transaction(transaction_id),
+         %Transaction{} = transaction <- Billing.get_transaction(transaction_uuid),
          true <- Transaction.payment?(transaction) do
       mount_payment_confirmation(socket, invoice, transaction)
     else

@@ -23,7 +23,7 @@ defmodule PhoenixKitWeb.Helpers.MediaSelectorHelper do
 
           {:ok, file_uuids} ->
             socket
-            |> assign(:gallery_ids, file_uuids)
+            |> assign(:gallery_uuids, file_uuids)
             |> put_flash(:info, "\#{length(file_uuids)} images selected!")
 
           :none ->

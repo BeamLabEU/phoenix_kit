@@ -179,11 +179,11 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
   def send_credit_note(socket) do
     invoice = socket.assigns.invoice
     email = socket.assigns.send_credit_note_email
-    transaction_id_str = socket.assigns.send_credit_note_transaction_id
-    transaction = Enum.find(socket.assigns.transactions, &(&1.uuid == transaction_id_str))
+    transaction_uuid = socket.assigns.send_credit_note_transaction_uuid
+    transaction = Enum.find(socket.assigns.transactions, &(&1.uuid == transaction_uuid))
 
     credit_note_url =
-      Routes.url("/admin/billing/invoices/#{invoice.uuid}/credit-note/#{transaction_id_str}")
+      Routes.url("/admin/billing/invoices/#{invoice.uuid}/credit-note/#{transaction_uuid}")
 
     with %{} <- transaction,
          {:ok, updated_transaction} <-
@@ -198,7 +198,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
        socket
        |> Phoenix.Component.assign(:transactions, updated_transactions)
        |> Phoenix.Component.assign(:show_send_credit_note_modal, false)
-       |> Phoenix.Component.assign(:send_credit_note_transaction_id, nil)
+       |> Phoenix.Component.assign(:send_credit_note_transaction_uuid, nil)
        |> put_flash(:info, "Credit note sent to #{email}")}
     else
       nil ->
@@ -218,11 +218,11 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
   def send_payment_confirmation(socket) do
     invoice = socket.assigns.invoice
     email = socket.assigns.send_payment_confirmation_email
-    transaction_id_str = socket.assigns.send_payment_confirmation_transaction_id
-    transaction = Enum.find(socket.assigns.transactions, &(&1.uuid == transaction_id_str))
+    transaction_uuid = socket.assigns.send_payment_confirmation_transaction_uuid
+    transaction = Enum.find(socket.assigns.transactions, &(&1.uuid == transaction_uuid))
 
     payment_url =
-      Routes.url("/admin/billing/invoices/#{invoice.uuid}/payment/#{transaction_id_str}")
+      Routes.url("/admin/billing/invoices/#{invoice.uuid}/payment/#{transaction_uuid}")
 
     with %{} <- transaction,
          {:ok, updated_transaction} <-
@@ -237,7 +237,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail.Actions do
        socket
        |> Phoenix.Component.assign(:transactions, updated_transactions)
        |> Phoenix.Component.assign(:show_send_payment_confirmation_modal, false)
-       |> Phoenix.Component.assign(:send_payment_confirmation_transaction_id, nil)
+       |> Phoenix.Component.assign(:send_payment_confirmation_transaction_uuid, nil)
        |> put_flash(:info, "Payment confirmation sent to #{email}")}
     else
       nil ->
