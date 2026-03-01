@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
         |> assign(:current_user, current_user)
         |> assign(:ticket, ticket)
         |> assign(:form, to_form(changeset))
-        |> assign(:pending_file_ids, [])
+        |> assign(:pending_file_uuids, [])
         |> assign(:pending_files, [])
         |> assign(:attachments_enabled, attachments_enabled)
         |> assign(:upload_errors, [])
@@ -86,7 +86,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
 
     # First, process any pending uploads
     socket = process_pending_uploads(socket)
-    pending_file_ids = socket.assigns.pending_file_ids
+    pending_file_uuids = socket.assigns.pending_file_uuids
 
     # Determine the user_id for the ticket
     # If admin is creating for a specific user, use that user_id
@@ -105,8 +105,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
       case Tickets.create_ticket(user_id, params) do
         {:ok, ticket} ->
           # Attach pending files to the newly created ticket
-          Enum.each(pending_file_ids, fn file_id ->
-            Tickets.add_attachment_to_ticket(ticket.uuid, file_id)
+          Enum.each(pending_file_uuids, fn file_uuid ->
+            Tickets.add_attachment_to_ticket(ticket.uuid, file_uuid)
           end)
 
           {:noreply,
@@ -130,13 +130,13 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
   end
 
   @impl true
-  def handle_event("remove_pending_file", %{"id" => file_id}, socket) do
-    pending_file_ids = Enum.reject(socket.assigns.pending_file_ids, &(&1 == file_id))
-    pending_files = Enum.reject(socket.assigns.pending_files, &(&1.uuid == file_id))
+  def handle_event("remove_pending_file", %{"uuid" => file_uuid}, socket) do
+    pending_file_uuids = Enum.reject(socket.assigns.pending_file_uuids, &(&1 == file_uuid))
+    pending_files = Enum.reject(socket.assigns.pending_files, &(&1.uuid == file_uuid))
 
     {:noreply,
      socket
-     |> assign(:pending_file_ids, pending_file_ids)
+     |> assign(:pending_file_uuids, pending_file_uuids)
      |> assign(:pending_files, pending_files)}
   end
 
@@ -156,7 +156,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     uploaded_files =
       consume_uploaded_entries(socket, :attachments, fn %{path: path}, entry ->
         ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-        user_id = current_user.uuid
+        user_uuid = current_user.uuid
 
         {:ok, _stat} = File.stat(path)
         file_hash = Auth.calculate_file_hash(path)
@@ -164,7 +164,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
         case Storage.store_file_in_buckets(
                path,
                "document",
-               user_id,
+               user_uuid,
                file_hash,
                ext,
                entry.client_name
@@ -189,10 +189,10 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
       |> Enum.filter(&match?({:ok, _}, &1))
       |> Enum.map(fn {:ok, file} -> file end)
 
-    new_file_ids = Enum.map(new_files, & &1.uuid)
+    new_file_uuids = Enum.map(new_files, & &1.uuid)
 
     socket
-    |> assign(:pending_file_ids, socket.assigns.pending_file_ids ++ new_file_ids)
+    |> assign(:pending_file_uuids, socket.assigns.pending_file_uuids ++ new_file_uuids)
     |> assign(:pending_files, socket.assigns.pending_files ++ new_files)
   end
 end

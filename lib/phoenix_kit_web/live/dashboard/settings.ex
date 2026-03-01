@@ -90,7 +90,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
       |> assign(:oauth_available, oauth_available)
       |> assign(:available_providers, available_providers)
       |> assign(:custom_field_definitions, custom_field_definitions)
-      |> assign(:last_uploaded_avatar_id, nil)
+      |> assign(:last_uploaded_avatar_uuid, nil)
 
     {:ok, socket}
   end
@@ -577,7 +577,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
             {:ok,
              %{
-               file_id: file.uuid,
+               file_uuid: file.uuid,
                filename: entry.client_name,
                size: file_size,
                duplicate: true
@@ -588,7 +588,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
             {:ok,
              %{
-               file_id: file.uuid,
+               file_uuid: file.uuid,
                filename: entry.client_name,
                size: file_size
              }}
@@ -599,33 +599,33 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
         end
       end)
 
-    # Extract file IDs for use
+    # Extract file UUIDs for use
     Logger.info("Uploaded avatars: #{inspect(uploaded_avatars)}")
-    avatar_file_ids = Enum.map(uploaded_avatars, &get_avatar_file_id/1)
-    Logger.info("Avatar file IDs: #{inspect(avatar_file_ids)}")
-    avatar_file_id = List.first(avatar_file_ids)
-    Logger.info("First avatar file ID: #{inspect(avatar_file_id)}")
+    avatar_file_uuids = Enum.map(uploaded_avatars, &get_avatar_file_uuid/1)
+    Logger.info("Avatar file UUIDs: #{inspect(avatar_file_uuids)}")
+    avatar_file_uuid = List.first(avatar_file_uuids)
+    Logger.info("First avatar file UUID: #{inspect(avatar_file_uuid)}")
 
-    # Save the avatar file ID to the user's custom fields
+    # Save the avatar file UUID to the user's custom fields
     socket =
-      if avatar_file_id && avatar_file_id != nil do
+      if avatar_file_uuid && avatar_file_uuid != nil do
         user = socket.assigns.phoenix_kit_current_user
 
-        case Auth.update_user_fields(user, %{"avatar_file_id" => avatar_file_id}) do
+        case Auth.update_user_fields(user, %{"avatar_file_id" => avatar_file_uuid}) do
           {:ok, updated_user} ->
-            Logger.info("Avatar file ID saved: #{avatar_file_id}")
+            Logger.info("Avatar file UUID saved: #{avatar_file_uuid}")
 
             socket
             |> assign(:phoenix_kit_current_user, updated_user)
-            |> assign(:last_uploaded_avatar_id, avatar_file_id)
+            |> assign(:last_uploaded_avatar_uuid, avatar_file_uuid)
             |> assign(:avatar_success_message, gettext("Avatar uploaded successfully!"))
             |> assign(:avatar_error_message, nil)
 
           {:error, changeset} ->
-            Logger.error("Failed to save avatar file ID: #{inspect(changeset)}")
+            Logger.error("Failed to save avatar file UUID: #{inspect(changeset)}")
 
             socket
-            |> assign(:last_uploaded_avatar_id, avatar_file_id)
+            |> assign(:last_uploaded_avatar_uuid, avatar_file_uuid)
             |> assign(
               :avatar_error_message,
               gettext("Avatar uploaded but failed to save to profile")
@@ -641,9 +641,9 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
     {:noreply, socket}
   end
 
-  defp get_avatar_file_id(%{file_id: file_id}), do: file_id
-  defp get_avatar_file_id({:ok, %{file_id: file_id}}), do: file_id
-  defp get_avatar_file_id(_), do: nil
+  defp get_avatar_file_uuid(%{file_uuid: file_uuid}), do: file_uuid
+  defp get_avatar_file_uuid({:ok, %{file_uuid: file_uuid}}), do: file_uuid
+  defp get_avatar_file_uuid(_), do: nil
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -718,7 +718,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                       </p>
                       
     <!-- Success Message -->
-                      <%= if @last_uploaded_avatar_id do %>
+                      <%= if @last_uploaded_avatar_uuid do %>
                         <div class="alert alert-success text-sm">
                           <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
                           <span>Avatar uploaded successfully!</span>
