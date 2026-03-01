@@ -334,8 +334,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   @impl true
-  def handle_event("select_storage_image", %{"id" => id}, socket) do
-    url = get_storage_image_url(id, "large")
+  def handle_event("select_storage_image", %{"uuid" => uuid}, socket) do
+    url = get_storage_image_url(uuid, "large")
     {:noreply, assign(socket, :selected_image, url)}
   end
 
@@ -617,12 +617,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
             <% display_images = get_display_images(@product) %>
             <%= if display_images != [] do %>
               <div class="flex gap-2 overflow-x-auto py-2">
-                <%= for image_id <- display_images do %>
-                  <% thumb_url = get_storage_image_url(image_id, "thumbnail") %>
-                  <% large_url = get_storage_image_url(image_id, "large") %>
+                <%= for image_uuid <- display_images do %>
+                  <% thumb_url = get_storage_image_url(image_uuid, "thumbnail") %>
+                  <% large_url = get_storage_image_url(image_uuid, "large") %>
                   <button
                     phx-click="select_storage_image"
-                    phx-value-id={image_id}
+                    phx-value-uuid={image_uuid}
                     class={[
                       "w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-colors",
                       if(@selected_image == large_url,

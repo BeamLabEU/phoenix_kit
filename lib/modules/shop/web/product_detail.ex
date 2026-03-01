@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
     # Get all images for the gallery
     all_images = get_all_product_images(product)
-    first_image_id = get_first_image_id(product)
+    first_image_uuid = get_first_image_id(product)
 
     # Auto-select first value of each option for immediate add-to-cart
     # Uses selectable_specs to include both metadata and schema-defined options
@@ -73,7 +73,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       |> assign(:min_price, min_price)
       |> assign(:max_price, max_price)
       |> assign(:all_images, all_images)
-      |> assign(:selected_image_uuid, first_image_id)
+      |> assign(:selected_image_uuid, first_image_uuid)
       |> assign(:selectable_specs, selectable_specs)
       |> assign(:selected_specs, selected_specs)
       |> assign(:show_delete_modal, false)
@@ -122,8 +122,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   end
 
   @impl true
-  def handle_event("select_image", %{"id" => image_id}, socket) do
-    {:noreply, assign(socket, :selected_image_uuid, image_id)}
+  def handle_event("select_image", %{"uuid" => image_uuid}, socket) do
+    {:noreply, assign(socket, :selected_image_uuid, image_uuid)}
   end
 
   @impl true
@@ -251,15 +251,15 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 </div>
                 <%= if has_multiple_images?(@product) do %>
                   <div class="flex gap-2 mt-4 overflow-x-auto">
-                    <%= for {image_id, url} <- @all_images do %>
+                    <%= for {image_uuid, url} <- @all_images do %>
                       <%= if url do %>
                         <button
                           type="button"
                           phx-click="select_image"
-                          phx-value-id={image_id}
+                          phx-value-uuid={image_uuid}
                           class={[
                             "w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-base-200 transition-all",
-                            image_id == @selected_image_uuid && "ring-2 ring-primary ring-offset-2"
+                            image_uuid == @selected_image_uuid && "ring-2 ring-primary ring-offset-2"
                           ]}
                         >
                           <img src={url} alt="Thumbnail" class="w-full h-full object-cover" />

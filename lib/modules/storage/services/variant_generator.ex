@@ -172,10 +172,10 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
           [generate_variants: false, path_prefix: storage_path]
 
         file_uuid ->
-          # Get the original instance's bucket IDs
+          # Get the original instance's bucket UUIDs
           case Storage.get_file_instance_by_name(file_uuid, "original") do
-            %Storage.FileInstance{uuid: original_instance_id} ->
-              bucket_uuids = Storage.get_file_instance_bucket_uuids(original_instance_id)
+            %Storage.FileInstance{uuid: original_instance_uuid} ->
+              bucket_uuids = Storage.get_file_instance_bucket_uuids(original_instance_uuid)
 
               if Enum.empty?(bucket_uuids) do
                 [generate_variants: false, path_prefix: storage_path]

@@ -294,10 +294,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_event("bulk_change_category", %{"category_id" => category_id}, socket) do
+  def handle_event("bulk_change_category", %{"category_uuid" => category_uuid}, socket) do
     uuids = MapSet.to_list(socket.assigns.selected_uuids)
-    category_id = if category_id == "", do: nil, else: category_id
-    count = Shop.bulk_update_product_category(uuids, category_id)
+    category_uuid = if category_uuid == "", do: nil, else: category_uuid
+    count = Shop.bulk_update_product_category(uuids, category_uuid)
 
     socket = load_products(socket)
 

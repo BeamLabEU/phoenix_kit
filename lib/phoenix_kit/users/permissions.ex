@@ -897,9 +897,13 @@ defmodule PhoenixKit.Users.Permissions do
     end
   rescue
     error ->
-      Logger.warning(
-        "[Permissions] Failed to auto-grant #{inspect(key)} to Admin role: #{Exception.message(error)}"
-      )
+      msg = Exception.message(error)
+
+      # Silently skip if the table doesn't exist yet (expected on fresh installs
+      # where the app starts before migrations have created the table)
+      unless String.contains?(msg, "undefined_table") do
+        Logger.warning("[Permissions] Failed to auto-grant #{inspect(key)} to Admin role: #{msg}")
+      end
 
       :ok
   end
