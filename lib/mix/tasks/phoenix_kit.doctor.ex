@@ -36,6 +36,8 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
 
   use Mix.Task
 
+  alias PhoenixKit.Migrations.Postgres
+
   @shortdoc "Diagnoses PhoenixKit installation, migration, and runtime issues"
 
   @switches [prefix: :string]
@@ -181,13 +183,13 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     runtime_version =
       try do
         opts = %{prefix: prefix, escaped_prefix: escaped_prefix}
-        PhoenixKit.Migrations.Postgres.migrated_version_runtime(opts)
+        Postgres.migrated_version_runtime(opts)
       rescue
         _ -> :error
       end
 
     # Source 3: Code's latest version
-    latest_version = PhoenixKit.Migrations.Postgres.current_version()
+    latest_version = Postgres.current_version()
 
     lines = [
       "COMMENT ON TABLE: V#{comment_version}",
@@ -264,7 +266,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     detail_parts = []
 
     detail_parts =
-      if length(pending) > 0 do
+      if pending != [] do
         pk_names = Enum.map_join(phoenix_kit_pending, "\n       ", fn {_v, n} -> n end)
 
         detail_parts ++
@@ -288,7 +290,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
       duplicates != "" ->
         {:warn, detail}
 
-      length(pending) == 0 ->
+      pending == [] ->
         {:pass, detail}
 
       true ->
