@@ -48,6 +48,9 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
   def mount(%{"id" => id}, _session, socket) do
     # Check if email is enabled
     if Emails.enabled?() do
+      # Invalid UUID strings result in Ecto.NoResultsError caught in load_email_data/1,
+      # showing "Email Not Found" page rather than redirecting.
+
       # Get project title from settings
       project_title = Settings.get_project_title()
 

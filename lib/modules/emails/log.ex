@@ -328,6 +328,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
   - `:from_date` - Emails sent after this date
   - `:to_date` - Emails sent before this date
   - `:recipient` - Filter by recipient email (supports partial match)
+  - `:user_uuid` - Filter by associated user UUID
   - `:limit` - Limit number of results (default: 50)
   - `:offset` - Offset for pagination
 

@@ -23,13 +23,8 @@
           <%!-- Hidden email field for session controller --%>
           <input type="hidden" name="user[email]" value={@email} />
 
-          <fieldset class="fieldset">
+          <fieldset class="fieldset w-full min-w-0">
             <legend class="fieldset-legend sr-only">Account Information</legend>
-
-            <div :if={@check_errors} class="alert alert-error text-sm mb-4">
-              <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-6 w-6" />
-              <span>Oops, something went wrong! Please check the errors below.</span>
-            </div>
 
             <%!-- Username Field --%>
             <div phx-feedback-for="user[username]">
@@ -123,7 +118,6 @@
 
             <button
               type="submit"
-              phx-disable-with="Creating account..."
               class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <PhoenixKitWeb.Components.Core.Icons.icon_user_add class="w-5 h-5 mr-2" />
