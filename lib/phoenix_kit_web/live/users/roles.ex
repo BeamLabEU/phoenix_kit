@@ -64,7 +64,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   end
 
   def handle_event("show_edit_role", %{"role_uuid" => role_uuid}, socket) do
-    role = find_role_by_id(socket.assigns.roles, role_uuid)
+    role = find_role_by_uuid(socket.assigns.roles, role_uuid)
 
     if role && !role.is_system_role do
       form = to_form(Role.changeset(role, %{}))
@@ -191,7 +191,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
   def handle_event("show_permissions_editor", %{"role_uuid" => role_uuid}, socket) do
     if can_manage_permissions?(socket) do
-      role = find_role_by_id(socket.assigns.roles, role_uuid)
+      role = find_role_by_uuid(socket.assigns.roles, role_uuid)
       scope = socket.assigns[:phoenix_kit_current_scope]
 
       with true <- role != nil,
@@ -328,7 +328,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
 
   # Keep the old handler for backward compatibility and make it private
   defp handle_delete_role(role_uuid, socket) when is_binary(role_uuid) do
-    role = find_role_by_id(socket.assigns.roles, role_uuid)
+    role = find_role_by_uuid(socket.assigns.roles, role_uuid)
 
     if role && !role.is_system_role do
       case Roles.delete_role(role) do
@@ -460,8 +460,8 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     end
   end
 
-  defp find_role_by_id(roles, id_str) when is_binary(id_str) do
-    Enum.find(roles, &(to_string(&1.uuid) == id_str))
+  defp find_role_by_uuid(roles, uuid_str) when is_binary(uuid_str) do
+    Enum.find(roles, &(to_string(&1.uuid) == uuid_str))
   end
 
   defp close_modals_for_deleted_role(socket, deleted_role) do

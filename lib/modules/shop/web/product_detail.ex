@@ -746,10 +746,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   # Get image URL by ID (for selected image display)
   # Storage-based images: featured_image_uuid is a UUID string
-  defp get_image_url_by_id(%{featured_image_uuid: id} = product, image_id)
-       when is_binary(id) and is_binary(image_id) do
+  defp get_image_url_by_id(%{featured_image_uuid: featured_uuid} = product, image_id)
+       when is_binary(featured_uuid) and is_binary(image_id) do
     cond do
-      id == image_id -> get_storage_image_url(image_id, "small")
+      featured_uuid == image_id -> get_storage_image_url(image_id, "small")
       image_id in (product.image_ids || []) -> get_storage_image_url(image_id, "small")
       true -> get_storage_image_url(image_id, "small")
     end
