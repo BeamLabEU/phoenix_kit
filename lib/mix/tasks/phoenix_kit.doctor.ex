@@ -168,27 +168,51 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     repo = get_repo!()
     escaped_prefix = String.replace(prefix, "'", "\\'")
 
+    # Source 1: COMMENT ON TABLE (set by each V*.up migration)
     comment_version = get_comment_version(repo, escaped_prefix)
+
+    # Source 2: migrated_version_runtime (what phoenix_kit.status uses)
+    runtime_version =
+      try do
+        opts = %{prefix: prefix, escaped_prefix: escaped_prefix}
+        PhoenixKit.Migrations.Postgres.migrated_version_runtime(opts)
+      rescue
+        _ -> :error
+      end
+
+    # Source 3: Code's latest version
     latest_version = PhoenixKit.Migrations.Postgres.current_version()
 
-    info =
-      Enum.join(
-        ["DB version (COMMENT): V#{comment_version}", "Code version: V#{latest_version}"],
-        ", "
-      )
+    lines = [
+      "COMMENT ON TABLE: V#{comment_version}",
+      "migrated_version_runtime: #{if runtime_version == :error, do: "ERROR", else: "V#{runtime_version}"}",
+      "Code latest: V#{latest_version}"
+    ]
+
+    info = Enum.join(lines, "\n       ")
+
+    # Detect discrepancies
+    discrepancy =
+      runtime_version != :error and runtime_version != comment_version
 
     cond do
+      discrepancy ->
+        {:warn,
+         "DISCREPANCY between version sources!\n       #{info}\n       " <>
+           "The COMMENT was updated by a migration that didn't commit to schema_migrations " <>
+           "(killed process or missing @disable_ddl_transaction true)."}
+
       comment_version == 0 ->
-        {:warn, "PhoenixKit not installed (no version comment). #{info}"}
+        {:warn, "PhoenixKit not installed.\n       #{info}"}
 
       comment_version < latest_version ->
-        {:warn, "Needs migration: #{info}. Run: mix phoenix_kit.update"}
+        {:warn, "Needs migration.\n       #{info}"}
 
       comment_version == latest_version ->
         {:pass, info}
 
-      comment_version > latest_version ->
-        {:warn, "DB version > code version (#{info}). Code may need updating."}
+      true ->
+        {:warn, "DB version > code version.\n       #{info}"}
     end
   end
 
@@ -225,19 +249,67 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     phoenix_kit_pending =
       Enum.filter(pending, fn {_v, name} -> String.contains?(name, "phoenix_kit") end)
 
-    cond do
-      length(pending) == 0 ->
-        {:pass, "All #{length(migration_files)} migration files recorded in schema_migrations"}
+    # Also check for duplicate PhoenixKit migration files (same version range)
+    pk_files =
+      Enum.filter(migration_files, fn {_v, name} -> String.contains?(name, "phoenix_kit") end)
 
-      length(phoenix_kit_pending) > 0 ->
+    duplicates = find_duplicate_migration_ranges(pk_files)
+
+    detail_parts = []
+
+    detail_parts =
+      if length(pending) > 0 do
         pk_names = Enum.map_join(phoenix_kit_pending, "\n       ", fn {_v, n} -> n end)
 
-        {:warn,
-         "#{length(pending)} pending migrations total, #{length(phoenix_kit_pending)} PhoenixKit:\n       #{pk_names}"}
+        detail_parts ++
+          [
+            "#{length(pending)} pending (#{length(phoenix_kit_pending)} PhoenixKit):\n       #{pk_names}"
+          ]
+      else
+        detail_parts ++ ["All #{length(migration_files)} files recorded in schema_migrations"]
+      end
+
+    detail_parts =
+      if duplicates != "" do
+        detail_parts ++ ["DUPLICATE ranges detected:\n       #{duplicates}"]
+      else
+        detail_parts
+      end
+
+    detail = Enum.join(detail_parts, "\n       ")
+
+    cond do
+      duplicates != "" ->
+        {:warn, detail}
+
+      length(pending) == 0 ->
+        {:pass, detail}
 
       true ->
-        {:warn, "#{length(pending)} pending migrations (non-PhoenixKit)"}
+        {:warn, detail}
     end
+  end
+
+  defp find_duplicate_migration_ranges(pk_files) do
+    # Extract version ranges from filenames like "phoenix_kit_update_v49_to_v71.exs"
+    ranges =
+      Enum.map(pk_files, fn {_v, name} ->
+        case Regex.run(~r/phoenix_kit_\w+_v(\d+)_to_v(\d+)/, name) do
+          [_, from, to] -> {String.to_integer(from), String.to_integer(to), name}
+          _ -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    # Find overlapping ranges
+    overlaps =
+      for {from1, to1, name1} <- ranges,
+          {from2, to2, name2} <- ranges,
+          name1 < name2,
+          max(from1, from2) < min(to1, to2),
+          do: "#{name1} overlaps #{name2}"
+
+    Enum.join(overlaps, "\n       ")
   end
 
   defp check_lock_conflicts do
