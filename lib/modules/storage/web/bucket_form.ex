@@ -12,8 +12,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do
-    bucket_id = params["id"]
-    mode = if bucket_id, do: :edit, else: :new
+    bucket_uuid = params["id"]
+    mode = if bucket_uuid, do: :edit, else: :new
 
     # Get current path for navigation
     current_path = get_current_path(socket, session)
@@ -21,7 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     # Get project title from settings
     project_title = Settings.get_project_title()
 
-    bucket = load_bucket_data(mode, bucket_id)
+    bucket = load_bucket_data(mode, bucket_uuid)
 
     changeset =
       case mode do
@@ -47,7 +47,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     socket =
       socket
       |> assign(:mode, mode)
-      |> assign(:bucket_id, bucket_id)
+      |> assign(:bucket_uuid, bucket_uuid)
       |> assign(:page_title, page_title(mode))
       |> assign(:project_title, project_title)
       |> assign(:form_action, page_title(mode))
@@ -68,7 +68,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
           Storage.change_bucket(%Storage.Bucket{}, bucket_params)
 
         :edit ->
-          bucket = Storage.get_bucket(socket.assigns.bucket_id)
+          bucket = Storage.get_bucket(socket.assigns.bucket_uuid)
           Storage.change_bucket(bucket, bucket_params)
       end
 
@@ -213,7 +213,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   end
 
   defp update_bucket(socket, bucket_params) do
-    bucket = Storage.get_bucket(socket.assigns.bucket_id)
+    bucket = Storage.get_bucket(socket.assigns.bucket_uuid)
 
     case Storage.update_bucket(bucket, bucket_params) do
       {:ok, _bucket} ->
@@ -234,10 +234,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     end
   end
 
-  defp load_bucket_data(:new, _bucket_id), do: nil
+  defp load_bucket_data(:new, _bucket_uuid), do: nil
 
-  defp load_bucket_data(:edit, bucket_id) do
-    Storage.get_bucket(bucket_id)
+  defp load_bucket_data(:edit, bucket_uuid) do
+    Storage.get_bucket(bucket_uuid)
   end
 
   defp page_title(:new), do: "Add Storage Bucket"
