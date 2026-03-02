@@ -24,11 +24,14 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     4. **PgBouncer Detection** — Is PgBouncer between app and PostgreSQL?
     5. **Migration State** — PhoenixKit version (COMMENT), schema_migrations alignment
     6. **Pending Migrations** — Migration files not yet recorded in schema_migrations
-    7. **Lock Conflicts** — Any blocked or long-running queries?
-    8. **Orphaned Connections** — Idle-in-transaction or stuck connections
-    9. **Oban Configuration** — Queues and plugins that consume pool connections
-   10. **Supervisor Children** — What's running (update_mode vs full)?
-   11. **Update Mode** — Is update_mode active?
+    7. **UUID Column Types** — Detects varchar uuid columns that crash Ecto on startup
+    8. **NULL UUIDs in FK Sources** — Detects NULL uuids that cause infinite backfill loops
+    9. **Orphaned FK References** — Detects orphaned rows that block FK constraint creation
+   10. **Lock Conflicts** — Any blocked or long-running queries?
+   11. **Orphaned Connections** — Idle-in-transaction or stuck connections
+   12. **Oban Configuration** — Queues and plugins that consume pool connections
+   13. **Supervisor Children** — What's running (update_mode vs full)?
+   14. **Update Mode** — Is update_mode active?
   """
 
   use Mix.Task
@@ -59,6 +62,9 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
       run_check("PgBouncer Detection", fn -> check_pgbouncer() end),
       run_check("Migration State", fn -> check_migration_state(prefix) end),
       run_check("Pending Migrations", fn -> check_pending_migrations() end),
+      run_check("UUID Column Types", fn -> check_uuid_column_types(prefix) end),
+      run_check("NULL UUIDs in FK Sources", fn -> check_null_uuids(prefix) end),
+      run_check("Orphaned FK References", fn -> check_orphaned_fk_refs(prefix) end),
       run_check("Lock Conflicts", fn -> check_lock_conflicts() end),
       run_check("Orphaned Connections", fn -> check_orphaned_connections() end),
       run_check("Oban Configuration", fn -> check_oban_config() end),
@@ -312,6 +318,181 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     Enum.join(overlaps, "\n       ")
   end
 
+  # Pre-migration: check for varchar/text uuid columns that should be native uuid type.
+  # A varchar uuid column on phoenix_kit_settings crashes the Ecto schema loader on startup,
+  # blocking migrations from even running.
+  defp check_uuid_column_types(prefix) do
+    repo = get_repo!()
+    escaped_prefix = String.replace(prefix, "'", "\\'")
+
+    query = """
+    SELECT table_name, data_type
+    FROM information_schema.columns
+    WHERE table_name LIKE 'phoenix_kit_%'
+      AND column_name = 'uuid'
+      AND table_schema = '#{escaped_prefix}'
+      AND data_type IN ('character varying', 'text', 'character')
+    ORDER BY table_name
+    """
+
+    case repo.query(query, [], log: false) do
+      {:ok, %{rows: []}} ->
+        {:pass, "All uuid columns are native uuid type"}
+
+      {:ok, %{rows: rows}} ->
+        tables =
+          Enum.map_join(rows, "\n       ", fn [table, dtype] ->
+            "#{table} (#{dtype})"
+          end)
+
+        {:fail,
+         "#{length(rows)} table(s) have varchar uuid columns (will crash Ecto on load):\n       #{tables}\n       " <>
+           "Fix: ALTER TABLE <table> ALTER COLUMN uuid TYPE uuid USING uuid::uuid"}
+
+      _ ->
+        {:warn, "Could not check (phoenix_kit tables may not exist yet)"}
+    end
+  end
+
+  # Pre-migration: check for NULL uuid values in tables that are FK sources.
+  # NULL source UUIDs cause the V56 batched backfill loop to run forever.
+  defp check_null_uuids(prefix) do
+    repo = get_repo!()
+    escaped_prefix = String.replace(prefix, "'", "\\'")
+
+    # Key FK source tables whose uuid column must not be NULL
+    source_tables = [
+      "phoenix_kit_users",
+      "phoenix_kit_user_roles",
+      "phoenix_kit_entities",
+      "phoenix_kit_email_logs",
+      "phoenix_kit_shop_carts",
+      "phoenix_kit_shop_products",
+      "phoenix_kit_shop_categories",
+      "phoenix_kit_shop_shipping_methods",
+      "phoenix_kit_payment_options",
+      "phoenix_kit_billing_profiles",
+      "phoenix_kit_orders",
+      "phoenix_kit_invoices",
+      "phoenix_kit_payment_methods",
+      "phoenix_kit_subscriptions",
+      "phoenix_kit_subscription_types",
+      "phoenix_kit_subscription_plans",
+      "phoenix_kit_referral_codes",
+      "phoenix_kit_ai_endpoints",
+      "phoenix_kit_ai_prompts",
+      "phoenix_kit_sync_connections"
+    ]
+
+    problems =
+      Enum.reduce(source_tables, [], fn table, acc ->
+        exists_query = """
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_name = '#{table}'
+            AND column_name = 'uuid'
+            AND table_schema = '#{escaped_prefix}'
+        )
+        """
+
+        case repo.query(exists_query, [], log: false) do
+          {:ok, %{rows: [[true]]}} ->
+            table_name = prefix_table_name(table, prefix)
+
+            count_query = "SELECT count(*)::integer FROM #{table_name} WHERE uuid IS NULL"
+
+            case repo.query(count_query, [], log: false) do
+              {:ok, %{rows: [[count]]}} when count > 0 ->
+                [{table, count} | acc]
+
+              _ ->
+                acc
+            end
+
+          _ ->
+            acc
+        end
+      end)
+
+    if problems == [] do
+      {:pass, "No NULL uuids in FK source tables"}
+    else
+      detail =
+        Enum.map_join(Enum.reverse(problems), "\n       ", fn {table, count} ->
+          "#{table}: #{count} rows with NULL uuid"
+        end)
+
+      {:fail,
+       "NULL uuids found (will cause infinite loop in V56 backfill):\n       #{detail}\n       " <>
+         "Fix: UPDATE <table> SET uuid = gen_random_uuid() WHERE uuid IS NULL"}
+    end
+  end
+
+  # Pre-migration: check for orphaned FK references (rows pointing to deleted parents).
+  # Orphaned refs cause V56's add_constraints to fail when adding FK constraints.
+  defp check_orphaned_fk_refs(prefix) do
+    repo = get_repo!()
+    escaped_prefix = String.replace(prefix, "'", "\\'")
+
+    # Check the most common orphaned FK pattern: user_uuid → users.uuid
+    fk_checks = [
+      {"phoenix_kit_users_tokens", "user_uuid", "phoenix_kit_users", "uuid"},
+      {"phoenix_kit_user_role_assignments", "user_uuid", "phoenix_kit_users", "uuid"},
+      {"phoenix_kit_admin_notes", "user_uuid", "phoenix_kit_users", "uuid"},
+      {"phoenix_kit_email_events", "email_log_uuid", "phoenix_kit_email_logs", "uuid"}
+    ]
+
+    problems =
+      Enum.reduce(fk_checks, [], fn {table, fk_col, ref_table, ref_col}, acc ->
+        # Check both tables and columns exist
+        table_name = prefix_table_name(table, prefix)
+        ref_name = prefix_table_name(ref_table, prefix)
+
+        check_query = """
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_name = '#{table}' AND column_name = '#{fk_col}' AND table_schema = '#{escaped_prefix}'
+        ) AND EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_name = '#{ref_table}' AND column_name = '#{ref_col}' AND table_schema = '#{escaped_prefix}'
+        )
+        """
+
+        case repo.query(check_query, [], log: false) do
+          {:ok, %{rows: [[true]]}} ->
+            orphan_query = """
+            SELECT count(*)::integer FROM #{table_name} t
+            WHERE t.#{fk_col} IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM #{ref_name} r WHERE r.#{ref_col} = t.#{fk_col})
+            """
+
+            case repo.query(orphan_query, [], log: false) do
+              {:ok, %{rows: [[count]]}} when count > 0 ->
+                [{table, fk_col, ref_table, count} | acc]
+
+              _ ->
+                acc
+            end
+
+          _ ->
+            acc
+        end
+      end)
+
+    if problems == [] do
+      {:pass, "No orphaned FK references found"}
+    else
+      detail =
+        Enum.map_join(Enum.reverse(problems), "\n       ", fn {table, fk_col, ref, count} ->
+          "#{table}.#{fk_col} → #{ref}: #{count} orphaned rows"
+        end)
+
+      {:fail,
+       "Orphaned FK refs found (will block FK constraint creation):\n       #{detail}\n       " <>
+         "Fix: DELETE FROM <table> t WHERE NOT EXISTS (SELECT 1 FROM <ref> r WHERE r.uuid = t.<fk_col>)"}
+    end
+  end
+
   defp check_lock_conflicts do
     repo = get_repo!()
 
@@ -491,6 +672,9 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         0
     end
   end
+
+  defp prefix_table_name(table_name, "public"), do: "public.#{table_name}"
+  defp prefix_table_name(table_name, prefix), do: "#{prefix}.#{table_name}"
 
   defp extract_port_from_url(nil), do: nil
 
