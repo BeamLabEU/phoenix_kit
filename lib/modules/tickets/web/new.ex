@@ -88,21 +88,21 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     socket = process_pending_uploads(socket)
     pending_file_uuids = socket.assigns.pending_file_uuids
 
-    # Determine the user_id for the ticket
-    # If admin is creating for a specific user, use that user_id
-    # Otherwise use admin's own id
-    user_id =
-      case params["user_id"] do
+    # Determine the user for the ticket
+    # If admin is creating for a specific user, use that user_uuid
+    # Otherwise use admin's own uuid
+    user_uuid =
+      case params["user_uuid"] do
         nil -> current_user.uuid
         "" -> current_user.uuid
-        id -> id
+        uuid -> uuid
       end
 
-    # Merge the determined user_id into params
-    params = Map.put(params, "user_id", user_id)
+    # Merge the determined user_uuid into params
+    params = Map.put(params, "user_uuid", user_uuid)
 
     try do
-      case Tickets.create_ticket(user_id, params) do
+      case Tickets.create_ticket(user_uuid, params) do
         {:ok, ticket} ->
           # Attach pending files to the newly created ticket
           Enum.each(pending_file_uuids, fn file_uuid ->

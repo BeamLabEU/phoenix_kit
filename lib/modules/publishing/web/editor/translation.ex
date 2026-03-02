@@ -151,7 +151,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
            post_identifier,
            endpoint_id: socket.assigns.ai_selected_endpoint_id,
            version: socket.assigns.current_version,
-           user_id: user_uuid,
+           user_uuid: user_uuid,
            target_languages: target_languages,
            source_language: source_language
          ) do

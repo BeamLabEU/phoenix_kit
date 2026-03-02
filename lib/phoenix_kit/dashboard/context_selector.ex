@@ -58,7 +58,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
 
   - `:loader` - Required. A `{Module, :function}` tuple that takes a user ID
     and returns a list of context items. Example: `{MyApp.Farms, :list_for_user}`
-    For dependent selectors, the function receives `(user_id, parent_context)`.
+    For dependent selectors, the function receives `(user_uuid, parent_context)`.
 
   - `:display_name` - Required. A function that takes a context item and returns
     the display string. Example: `fn farm -> farm.name end`
@@ -85,7 +85,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
     Lower values come first. Defaults to 500.
 
   - `:depends_on` - Optional. Key of parent selector (for dependent selectors).
-    When set, the loader receives `(user_id, parent_context)` instead of just `user_id`.
+    When set, the loader receives `(user_uuid, parent_context)` instead of just `user_uuid`.
 
   - `:on_parent_change` - Optional. What to do when parent selector changes.
     Options: `:reset` (default, select first), `:keep`, `{:redirect, "/path"}`.
@@ -243,16 +243,16 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
 
   ## Examples
 
-      iex> PhoenixKit.Dashboard.ContextSelector.load_contexts(user_id)
+      iex> PhoenixKit.Dashboard.ContextSelector.load_contexts(user_uuid)
       [%Farm{id: 1, name: "My Farm"}, %Farm{id: 2, name: "Other Farm"}]
 
   """
   @spec load_contexts(any()) :: list()
-  def load_contexts(user_id) do
+  def load_contexts(user_uuid) do
     config = get_config()
 
     if config.enabled do
-      call_loader(config.loader, user_id)
+      call_loader(config.loader, user_uuid)
     else
       []
     end
@@ -434,8 +434,8 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
 
   defp valid_loader?(_), do: false
 
-  defp call_loader({module, function}, user_id) do
-    apply(module, function, [user_id])
+  defp call_loader({module, function}, user_uuid) do
+    apply(module, function, [user_uuid])
   rescue
     _ -> []
   end
@@ -618,35 +618,35 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   @doc """
   Loads contexts for a specific selector config.
 
-  For independent selectors, calls `loader(user_id)`.
-  For dependent selectors, calls `loader(user_id, parent_context)`.
+  For independent selectors, calls `loader(user_uuid)`.
+  For dependent selectors, calls `loader(user_uuid, parent_context)`.
 
   ## Parameters
 
   - `config` - The selector configuration
-  - `user_id` - The user ID to load contexts for
+  - `user_uuid` - The user UUID to load contexts for
   - `parent_context` - The parent context (required for dependent selectors)
 
   """
   @spec load_contexts_for_config(t(), any(), any()) :: list()
-  def load_contexts_for_config(config, user_id, parent_context \\ nil)
+  def load_contexts_for_config(config, user_uuid, parent_context \\ nil)
 
-  def load_contexts_for_config(%__MODULE__{enabled: false}, _user_id, _parent_context), do: []
+  def load_contexts_for_config(%__MODULE__{enabled: false}, _user_uuid, _parent_context), do: []
 
-  def load_contexts_for_config(%__MODULE__{depends_on: nil} = config, user_id, _parent_context) do
-    # Independent selector - call with just user_id
-    call_loader(config.loader, user_id)
+  def load_contexts_for_config(%__MODULE__{depends_on: nil} = config, user_uuid, _parent_context) do
+    # Independent selector - call with just user_uuid
+    call_loader(config.loader, user_uuid)
   end
 
-  def load_contexts_for_config(%__MODULE__{depends_on: _} = config, user_id, nil) do
+  def load_contexts_for_config(%__MODULE__{depends_on: _} = config, user_uuid, nil) do
     # Dependent selector but no parent context - return empty
     # This can happen if parent selector has no items
-    call_loader_with_parent(config.loader, user_id, nil)
+    call_loader_with_parent(config.loader, user_uuid, nil)
   end
 
-  def load_contexts_for_config(%__MODULE__{depends_on: _} = config, user_id, parent_context) do
-    # Dependent selector - call with user_id and parent context
-    call_loader_with_parent(config.loader, user_id, parent_context)
+  def load_contexts_for_config(%__MODULE__{depends_on: _} = config, user_uuid, parent_context) do
+    # Dependent selector - call with user_uuid and parent context
+    call_loader_with_parent(config.loader, user_uuid, parent_context)
   end
 
   @doc """
@@ -798,8 +798,8 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
     end
   end
 
-  defp call_loader_with_parent({module, function}, user_id, parent_context) do
-    apply(module, function, [user_id, parent_context])
+  defp call_loader_with_parent({module, function}, user_uuid, parent_context) do
+    apply(module, function, [user_uuid, parent_context])
   rescue
     _ -> []
   end

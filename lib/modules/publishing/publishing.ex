@@ -2390,7 +2390,7 @@ defmodule PhoenixKit.Modules.Publishing do
   - `:source_language` - Source language to translate from (defaults to primary language)
   - `:target_languages` - List of target language codes (defaults to all enabled except source)
   - `:version` - Version number to translate (defaults to latest/published)
-  - `:user_id` - User UUID for audit trail
+  - `:user_uuid` - User UUID for audit trail
 
   ## Configuration
 

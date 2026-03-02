@@ -33,9 +33,11 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigrateLegacyStructureWorker do
   Creates a new migration job.
   """
   def create_job(group_slug, opts \\ []) do
+    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
+
     args =
       %{"group_slug" => group_slug}
-      |> maybe_put("user_id", Keyword.get(opts, :user_id))
+      |> maybe_put("user_id", user_uuid)
 
     new(args)
   end
