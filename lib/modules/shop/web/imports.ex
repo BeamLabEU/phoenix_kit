@@ -213,9 +213,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_event("retry_import", %{"id" => id}, socket) do
-    case parse_id(id) do
-      {:ok, import_id} ->
-        do_retry_import(import_id, socket)
+    case parse_uuid(id) do
+      {:ok, import_uuid} ->
+        do_retry_import(import_uuid, socket)
 
       :error ->
         {:noreply, put_flash(socket, :error, "Invalid import ID")}
@@ -224,9 +224,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   @impl true
   def handle_event("delete_import", %{"id" => id}, socket) do
-    case parse_id(id) do
-      {:ok, import_id} ->
-        do_delete_import(import_id, socket)
+    case parse_uuid(id) do
+      {:ok, import_uuid} ->
+        do_delete_import(import_uuid, socket)
 
       :error ->
         {:noreply, put_flash(socket, :error, "Invalid import ID")}
@@ -437,14 +437,14 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   end
 
   # Parse UUID from phx-value (comes as string from the template)
-  defp parse_id(id) when is_binary(id) do
+  defp parse_uuid(id) when is_binary(id) do
     if match?({:ok, _}, Ecto.UUID.cast(id)), do: {:ok, id}, else: :error
   end
 
-  defp parse_id(_), do: :error
+  defp parse_uuid(_), do: :error
 
-  defp do_retry_import(import_id, socket) do
-    case Shop.get_import_log(import_id) do
+  defp do_retry_import(import_uuid, socket) do
+    case Shop.get_import_log(import_uuid) do
       nil ->
         {:noreply, put_flash(socket, :error, "Import not found")}
 
@@ -494,8 +494,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
     end
   end
 
-  defp do_delete_import(import_id, socket) do
-    case Shop.get_import_log(import_id) do
+  defp do_delete_import(import_uuid, socket) do
+    case Shop.get_import_log(import_uuid) do
       nil ->
         {:noreply, put_flash(socket, :error, "Import not found")}
 
