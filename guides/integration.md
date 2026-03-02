@@ -11,33 +11,32 @@ This guide is designed to help both developers and AI assistants (Claude, Cursor
 1. [Quick Start](#quick-start)
 2. [Installation](#installation)
 3. [Configuration Reference](#configuration-reference)
-4. [Using the Entities System](#using-the-entities-system)
-5. [Public Forms](#public-forms)
-6. [Authentication Integration](#authentication-integration)
-7. [Common Tasks](#common-tasks)
-8. [API Reference](#api-reference)
-9. [Troubleshooting](#troubleshooting)
+4. [Authentication Integration](#authentication-integration)
+5. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Quick Start
 
 ```elixir
-# 1. Add to mix.exs
-{:phoenix_kit, "~> 1.6"}
+# 1. Verify database is prepared
+mix ecto.migrations
 
-# 2. Run installation
+# 2. Add to mix.exs
+{:phoenix_kit, "~> 1.7"}
+
+# 3. Run installation
 mix deps.get
 mix phoenix_kit.install
+mix compile --force
 
-# 3. Run migrations
+# 4. Create database if needed
+mix ecto.create
+
+# 5. Run migrations
 mix ecto.migrate
 
-# 4. Add routes to your router.ex
-import PhoenixKitWeb.Integration
-phoenix_kit_routes()
-
-# 5. Start your server
+# 6. Start your server
 mix phx.server
 # Visit /phoenix_kit/admin
 ```
@@ -52,7 +51,7 @@ mix phx.server
 # mix.exs
 defp deps do
   [
-    {:phoenix_kit, "~> 1.6"}
+    {:phoenix_kit, "~> 1.7"}
   ]
 end
 ```
@@ -61,7 +60,7 @@ end
 
 ```bash
 mix deps.get
-mix phoenix_kit.install --repo MyApp.Repo
+mix phoenix_kit.install
 ```
 
 The installer will:
@@ -77,17 +76,18 @@ The installer adds this to your config. Customize as needed:
 ```elixir
 # config/config.exs
 config :phoenix_kit,
+  parent_app_name: :my_app,
+  parent_module: MyApp,
+  url_prefix: "/phoenix_kit",
   repo: MyApp.Repo,
-  mailer: MyApp.Mailer,  # Uses your app's mailer
-  url_prefix: "/phoenix_kit"  # URL prefix for all routes
-
-# Optional: Use your app's layouts
-config :phoenix_kit,
-  layout: {MyAppWeb.Layouts, :app},
-  root_layout: {MyAppWeb.Layouts, :root}
+  mailer: MyApp.Mailer,
+  layouts_module: MyApp.Layouts,
+  phoenix_version_strategy: :modern
 ```
 
 ### Step 4: Add Routes
+
+The installer adds something like this to your router.ex. Customize as needed:
 
 ```elixir
 # lib/my_app_web/router.ex
@@ -134,255 +134,21 @@ config :phoenix_kit, :password_requirements,
 ### Rate Limiting
 
 ```elixir
-config :hammer,
-  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
+# Hammer 7.x uses ETS backend via PhoenixKit.Users.RateLimiter.Backend
+# No additional :hammer config needed
 
 config :phoenix_kit, PhoenixKit.Users.RateLimiter,
-  login_limit: 5,
-  login_window_ms: 60_000,
-  magic_link_limit: 3,
-  magic_link_window_ms: 300_000
+  login_limit: 5,                      # Max login attempts per window
+  login_window_ms: 60_000,             # 1 minute window
+  magic_link_limit: 3,                 # Max magic link requests per window
+  magic_link_window_ms: 300_000,       # 5 minute window
+  password_reset_limit: 3,             # Max password reset requests per window
+  password_reset_window_ms: 300_000,   # 5 minute window
+  registration_limit: 3,               # Max registration attempts per window
+  registration_window_ms: 3_600_000,   # 1 hour window
+  registration_ip_limit: 10,           # Max registrations per IP per window
+  registration_ip_window_ms: 3_600_000 # 1 hour window
 ```
-
----
-
-## Using the Entities System
-
-The Entities system lets you create custom content types without database migrations.
-
-### Enable the System
-
-```elixir
-# Via code
-PhoenixKit.Entities.enable_system()
-
-# Or via admin UI at /phoenix_kit/admin/modules
-```
-
-### Create an Entity Programmatically
-
-```elixir
-{:ok, entity} = PhoenixKit.Entities.create_entity(%{
-  name: "contact_form",
-  display_name: "Contact Form",
-  description: "Contact form submissions",
-  icon: "hero-envelope",
-  status: "published",
-  created_by: admin_user.uuid,
-  fields_definition: [
-    %{
-      "type" => "text",
-      "key" => "name",
-      "label" => "Full Name",
-      "required" => true
-    },
-    %{
-      "type" => "email",
-      "key" => "email",
-      "label" => "Email Address",
-      "required" => true
-    },
-    %{
-      "type" => "textarea",
-      "key" => "message",
-      "label" => "Message",
-      "required" => true
-    }
-  ]
-})
-```
-
-### Create Data Records
-
-```elixir
-{:ok, record} = PhoenixKit.Entities.EntityData.create(%{
-  entity_id: entity.uuid,
-  title: "New Contact",
-  status: "published",
-  created_by: user.uuid,
-  data: %{
-    "name" => "John Doe",
-    "email" => "john@example.com",
-    "message" => "Hello!"
-  }
-})
-```
-
-### Query Records
-
-```elixir
-# All records for an entity
-records = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
-
-# Search by title (search_term first, entity_uuid optional second)
-results = PhoenixKit.Entities.EntityData.search_by_title("John", entity.id)
-
-# Get entity by name
-entity = PhoenixKit.Entities.get_entity_by_name("contact_form")
-```
-
-### Available Field Types
-
-| Type | Description | Requires Options | Status |
-|------|-------------|------------------|--------|
-| `text` | Single-line text | No | ✅ |
-| `textarea` | Multi-line text | No | ✅ |
-| `email` | Email with validation | No | ✅ |
-| `url` | URL with validation | No | ✅ |
-| `number` | Numeric input | No | ✅ |
-| `boolean` | True/false toggle | No | ✅ |
-| `date` | Date picker | No | ✅ |
-| `rich_text` | WYSIWYG editor | No | ✅ |
-| `select` | Dropdown | Yes | ✅ |
-| `radio` | Radio buttons | Yes | ✅ |
-| `checkbox` | Multiple checkboxes | Yes | ✅ |
-| `image` | Image upload | No | 🚧 Coming soon |
-| `file` | File upload | No | 🚧 Coming soon |
-| `relation` | Link to other entity | Yes | 🚧 Coming soon |
-
-> **Note**: Media and relation fields are defined in the schema but render "Coming Soon" placeholders in forms. No actual upload or relation functionality is implemented yet.
-
-### Field Builder Helpers
-
-Use these helpers to create field definitions more easily:
-
-```elixir
-alias PhoenixKit.Entities.FieldTypes
-
-# Text fields
-FieldTypes.text_field("name", "Full Name", required: true)
-FieldTypes.textarea_field("bio", "Biography")
-FieldTypes.email_field("email", "Email Address", required: true)
-FieldTypes.rich_text_field("content", "Content")
-
-# Numeric and boolean
-FieldTypes.number_field("age", "Age")
-FieldTypes.boolean_field("active", "Is Active", default: true)
-
-# Choice fields with options
-FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
-FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"], required: true)
-FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
-
-# Generic with options
-FieldTypes.new_field("select", "status", "Status", options: ["Active", "Inactive"], required: true)
-```
-
-### Creating Entity with Choice Fields
-
-```elixir
-alias PhoenixKit.Entities
-alias PhoenixKit.Entities.FieldTypes
-
-# Note: created_by is optional - it auto-fills with first admin user if not provided
-{:ok, entity} = Entities.create_entity(%{
-  name: "contact_form",
-  display_name: "Contact Form",
-  status: "published",
-  # created_by: admin.uuid,  # Optional! Auto-filled if omitted
-  fields_definition: [
-    FieldTypes.text_field("name", "Name", required: true),
-    FieldTypes.email_field("email", "Email", required: true),
-    FieldTypes.select_field("subject", "Subject", [
-      "General Inquiry",
-      "Support",
-      "Sales",
-      "Partnership"
-    ], required: true),
-    FieldTypes.textarea_field("message", "Message", required: true),
-    FieldTypes.checkbox_field("interests", "Interests", [
-      "Product Updates",
-      "Newsletter",
-      "Events"
-    ])
-  ]
-})
-```
-
-### Getting Admin User for created_by
-
-If you need to explicitly set `created_by`, use these helpers:
-
-```elixir
-# Get first admin (Owner or Admin role) - recommended
-admin_uuid = PhoenixKit.Users.Auth.get_first_admin_uuid()
-
-# Get first user (any role)
-user_uuid = PhoenixKit.Users.Auth.get_first_user_uuid()
-
-# Get full user struct if needed
-admin = PhoenixKit.Users.Auth.get_first_admin()
-```
-
-**Note:** `created_by` is now auto-filled for both `Entities.create_entity/1` and `EntityData.create/1` if not provided. It uses the first admin, or falls back to the first user.
-
----
-
-## Public Forms
-
-Embed entity-based forms on public pages for contact forms, surveys, lead capture, etc.
-
-### Enable Public Form for an Entity
-
-```elixir
-# Via admin UI: /phoenix_kit/admin/entities/:id/edit
-# Or programmatically:
-PhoenixKit.Entities.update_entity(entity, %{
-  settings: %{
-    "public_form_enabled" => true,
-    "public_form_fields" => ["name", "email", "message"],
-    "public_form_title" => "Contact Us",
-    "public_form_description" => "We'll get back to you within 24 hours.",
-    "public_form_submit_text" => "Send Message",
-    "public_form_success_message" => "Thank you! We received your message."
-  }
-})
-```
-
-### Embed in Your Templates
-
-The EntityForm is a function component (not a LiveComponent), so use it directly:
-
-```heex
-<%# In .phk publishing pages (recommended) %>
-<EntityForm entity_slug="contact_form" />
-
-<%# Or call the render function directly in regular .heex templates %>
-<PhoenixKit.Modules.Shared.Components.EntityForm.render
-  attributes={%{"entity_slug" => "contact_form"}}
-/>
-```
-
-> **Note**: Do not use `live_component` - EntityForm uses `Phoenix.Component`, not `Phoenix.LiveComponent`.
-
-### Security Options
-
-Configure in entity settings or admin UI:
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `public_form_honeypot` | false | Hidden field to catch bots |
-| `public_form_time_check` | false | Reject submissions < 3 seconds |
-| `public_form_rate_limit` | false | 5 submissions/minute per IP |
-| `public_form_debug_mode` | false | Show detailed error messages |
-| `public_form_collect_metadata` | true | Capture IP, browser, device |
-
-### Security Actions
-
-Each security check can be configured with an action:
-
-| Action | Behavior |
-|--------|----------|
-| `reject_silent` | Show fake success, don't save |
-| `reject_error` | Show error message, don't save |
-| `save_suspicious` | Save with "draft" status, flag in metadata |
-| `save_log` | Save normally, log warning |
-
-### Form Submission Route
-
-Forms POST to: `POST /phoenix_kit/entities/:entity_slug/submit`
-
-This is handled by `PhoenixKitWeb.EntityFormController`.
 
 ---
 
@@ -471,381 +237,6 @@ Scope.accessible_modules(scope)  # MapSet of granted permission keys
 
 ---
 
-## Custom Admin Pages
-
-Add custom pages to the PhoenixKit admin sidebar with seamless LiveView navigation.
-
-### Step 1: Create the LiveView
-
-```elixir
-# lib/my_app_web/phoenix_kit_live/admin_analytics_live.ex
-defmodule MyAppWeb.PhoenixKitLive.AdminAnalyticsLive do
-  use MyAppWeb, :live_view
-
-  def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Analytics")}
-  end
-
-  def render(assigns) do
-    ~H"""
-    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-      flash={@flash}
-      page_title={@page_title}
-      current_path={@url_path}
-      phoenix_kit_current_scope={@phoenix_kit_current_scope}
-      current_locale={assigns[:current_locale]}
-    >
-      <div class="container flex-col mx-auto px-4 py-6">
-        <h1 class="text-2xl font-bold mb-6">Analytics</h1>
-      </div>
-    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
-    """
-  end
-end
-```
-
-### Step 2: Register the Tab
-
-```elixir
-# config/config.exs
-config :phoenix_kit, :admin_dashboard_tabs, [
-  %{
-    id: :admin_analytics,
-    label: "Analytics",
-    icon: "hero-chart-bar",
-    path: "/admin/analytics",
-    permission: "dashboard",
-    priority: 150,
-    group: :admin_main,
-    live_view: {MyAppWeb.PhoenixKitLive.AdminAnalyticsLive, :index}
-  }
-]
-```
-
-The `live_view` field tells PhoenixKit to auto-generate a route inside the shared admin `live_session`, so navigation from other admin pages is seamless (no full page reload).
-
-**Key rules:**
-- Use `@url_path` for `current_path` (set by PhoenixKit's on_mount hooks)
-- Use `LayoutWrapper.app_layout` for the admin layout (NOT `Layouts.dashboard`)
-- Don't pass `project_title` — the layout has a built-in default
-- Use `assigns[:current_locale]` (bracket access for optional assigns)
-
-See the [Admin Navigation docs](ADMIN_README.md) for the full reference.
-
----
-
-## Common Tasks
-
-### Task: Add PhoenixKit Navigation to Your Layout
-
-```heex
-<%# In your app's layout %>
-<nav>
-  <%= if @current_user do %>
-    <.link navigate="/phoenix_kit/admin">Admin</.link>
-    <.link href="/phoenix_kit/users/log_out" method="delete">Log out</.link>
-  <% else %>
-    <.link navigate="/phoenix_kit/users/log_in">Log in</.link>
-  <% end %>
-</nav>
-```
-
-### Task: Create a Contact Form Entity
-
-```elixir
-# In a migration or seeds.exs
-admin = PhoenixKit.Users.Auth.get_user_by_email("admin@example.com")
-
-{:ok, _entity} = PhoenixKit.Entities.create_entity(%{
-  name: "contact",
-  display_name: "Contact Submission",
-  status: "published",
-  created_by: admin.uuid,
-  fields_definition: [
-    %{"type" => "text", "key" => "name", "label" => "Name", "required" => true},
-    %{"type" => "email", "key" => "email", "label" => "Email", "required" => true},
-    %{"type" => "select", "key" => "subject", "label" => "Subject", "required" => true,
-      "options" => ["General Inquiry", "Support", "Sales", "Partnership"]},
-    %{"type" => "textarea", "key" => "message", "label" => "Message", "required" => true}
-  ],
-  settings: %{
-    "public_form_enabled" => true,
-    "public_form_fields" => ["name", "email", "subject", "message"],
-    "public_form_title" => "Contact Us",
-    "public_form_honeypot" => true,
-    "public_form_time_check" => true,
-    "public_form_rate_limit" => true
-  }
-})
-```
-
-### Task: List All Contact Submissions
-
-```elixir
-entity = PhoenixKit.Entities.get_entity_by_name("contact")
-submissions = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
-
-for submission <- submissions do
-  IO.puts("#{submission.data["name"]} - #{submission.data["email"]}")
-end
-```
-
-### Task: Export Entity Data
-
-```elixir
-entity = PhoenixKit.Entities.get_entity_by_name("contact")
-records = PhoenixKit.Entities.EntityData.list_by_entity(entity.uuid)
-
-# Convert to list of maps
-data = Enum.map(records, fn r ->
-  Map.merge(r.data, %{
-    "uuid" => r.uuid,
-    "created_at" => r.date_created,
-    "status" => r.status
-  })
-end)
-
-# Export as JSON
-Jason.encode!(data)
-```
-
----
-
-## API Reference
-
-### PhoenixKit.Entities
-
-```elixir
-# Check if system is enabled
-PhoenixKit.Entities.enabled?() :: boolean()
-
-# Enable/disable
-PhoenixKit.Entities.enable_system() :: {:ok, Setting.t()}
-PhoenixKit.Entities.disable_system() :: {:ok, Setting.t()}
-
-# Get by ID
-PhoenixKit.Entities.get_entity(id) :: Entity.t() | nil        # Returns nil if not found
-PhoenixKit.Entities.get_entity!(id) :: Entity.t()             # Raises if not found
-PhoenixKit.Entities.get_entity_by_name(name) :: Entity.t() | nil
-
-# List
-PhoenixKit.Entities.list_entities() :: [Entity.t()]
-PhoenixKit.Entities.list_active_entities() :: [Entity.t()]    # Only status: "published"
-
-# Create/Update/Delete
-PhoenixKit.Entities.create_entity(attrs) :: {:ok, Entity.t()} | {:error, Changeset.t()}
-PhoenixKit.Entities.update_entity(entity, attrs) :: {:ok, Entity.t()} | {:error, Changeset.t()}
-PhoenixKit.Entities.delete_entity(entity) :: {:ok, Entity.t()} | {:error, Changeset.t()}
-
-# Changeset (for forms)
-PhoenixKit.Entities.change_entity(entity, attrs \\ %{}) :: Changeset.t()
-
-# Stats
-PhoenixKit.Entities.get_system_stats() :: %{
-  total_entities: integer(),
-  active_entities: integer(),
-  total_data_records: integer()
-}
-```
-
-### PhoenixKit.Entities.EntityData
-
-```elixir
-# Get by ID
-EntityData.get(id) :: EntityData.t() | nil           # Returns nil if not found
-EntityData.get!(id) :: EntityData.t()                # Raises if not found
-EntityData.get_by_slug(entity_uuid, slug) :: EntityData.t() | nil
-
-# List/Query
-EntityData.list_all() :: [EntityData.t()]
-EntityData.list_by_entity(entity_uuid) :: [EntityData.t()]
-EntityData.list_by_entity_and_status(entity_uuid, status) :: [EntityData.t()]
-EntityData.search_by_title(search_term, entity_uuid \\ nil) :: [EntityData.t()]
-
-# Create/Update/Delete
-EntityData.create(attrs) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
-EntityData.update(record, attrs) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
-EntityData.delete(record) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
-
-# Changeset (for forms)
-EntityData.change(record, attrs \\ %{}) :: Changeset.t()
-```
-
-### PhoenixKit.Entities.FieldTypes
-
-```elixir
-# Field builder helpers (recommended for programmatic entity creation)
-FieldTypes.text_field(key, label, opts \\ []) :: map()
-FieldTypes.textarea_field(key, label, opts \\ []) :: map()
-FieldTypes.email_field(key, label, opts \\ []) :: map()
-FieldTypes.number_field(key, label, opts \\ []) :: map()
-FieldTypes.boolean_field(key, label, opts \\ []) :: map()
-FieldTypes.rich_text_field(key, label, opts \\ []) :: map()
-
-# Choice field helpers (options required)
-FieldTypes.select_field(key, label, options, opts \\ []) :: map()
-FieldTypes.radio_field(key, label, options, opts \\ []) :: map()
-FieldTypes.checkbox_field(key, label, options, opts \\ []) :: map()
-
-# Generic field builder
-FieldTypes.new_field(type, key, label, opts \\ []) :: map()
-# opts: [required: bool, default: any, options: list]
-
-# Field type info
-FieldTypes.all() :: map()
-FieldTypes.requires_options?(type) :: boolean()
-FieldTypes.validate_field(field_map) :: {:ok, map()} | {:error, String.t()}
-```
-
-### PhoenixKit.Users.Auth
-
-```elixir
-# User management
-Auth.get_user(id) :: User.t() | nil
-Auth.get_user!(id) :: User.t()
-Auth.get_user_by_email(email) :: User.t() | nil
-Auth.register_user(attrs) :: {:ok, User.t()} | {:error, Changeset.t()}
-
-# Admin user helpers (useful for created_by)
-Auth.get_first_admin() :: User.t() | nil       # First Owner or Admin
-Auth.get_first_admin_uuid() :: String.t() | nil   # Just the UUID
-Auth.get_first_user() :: User.t() | nil        # First user by UUID
-Auth.get_first_user_uuid() :: String.t() | nil    # Just the UUID
-
-# Authentication
-Auth.authenticate_user(email, password) :: {:ok, User.t()} | {:error, :invalid_credentials}
-
-# Session
-Auth.generate_user_session_token(user) :: binary()
-Auth.get_user_by_session_token(token) :: User.t() | nil
-Auth.delete_user_session_token(token) :: :ok
-```
-
-### PhoenixKit.Users.Roles
-
-```elixir
-# Query
-Roles.user_has_role?(user, role_name) :: boolean()
-Roles.user_has_role_owner?(user) :: boolean()
-Roles.user_has_role_admin?(user) :: boolean()
-Roles.get_user_roles(user) :: [String.t()]
-Roles.users_with_role(role_name) :: [User.t()]
-Roles.list_roles() :: [Role.t()]
-Roles.get_role_by_name(name) :: Role.t() | nil
-Roles.get_role_by_uuid(uuid) :: Role.t() | nil
-Roles.get_custom_roles() :: [Role.t()]
-Roles.count_users_with_role(role_name) :: non_neg_integer()
-Roles.get_role_stats() :: map()
-Roles.get_extended_stats() :: map()
-Roles.count_active_owners() :: non_neg_integer()
-Roles.can_deactivate_user?(user) :: :ok | {:error, atom()}
-
-# Mutations
-Roles.assign_role(user, role_name, assigned_by \\ nil) :: {:ok, RoleAssignment.t()} | {:error, term()}
-Roles.remove_role(user, role_name) :: {:ok, RoleAssignment.t()} | {:error, term()}
-Roles.create_role(attrs) :: {:ok, Role.t()} | {:error, Changeset.t()}
-Roles.update_role(role, attrs) :: {:ok, Role.t()} | {:error, Changeset.t()}
-Roles.delete_role(role) :: {:ok, Role.t()} | {:error, atom() | Changeset.t()}
-Roles.promote_to_admin(user) :: {:ok, RoleAssignment.t()} | {:error, term()}
-Roles.demote_to_user(user) :: {:ok, RoleAssignment.t()} | {:error, atom() | Changeset.t()}
-Roles.sync_user_roles(user, [role_name]) :: {:ok, [RoleAssignment.t()]} | {:error, term()}
-Roles.safely_remove_role(user, role_name) :: {:ok, RoleAssignment.t()} | {:error, atom() | Changeset.t()}
-Roles.ensure_first_user_is_owner(user) :: {:ok, atom()} | {:error, term()}
-Roles.assign_roles_to_existing_users(opts \\ []) :: {:ok, map()} | {:error, term()}
-```
-
-### PhoenixKit.Users.Permissions
-
-```elixir
-# Constants & Metadata
-Permissions.all_module_keys() :: [String.t()]          # All 25 keys (5 core + 20 feature)
-Permissions.core_section_keys() :: [String.t()]        # 5 core keys
-Permissions.feature_module_keys() :: [String.t()]      # 20 feature keys
-Permissions.enabled_module_keys() :: MapSet.t()        # Core + enabled features + custom
-Permissions.valid_module_key?(key) :: boolean()
-Permissions.feature_enabled?(key) :: boolean()
-Permissions.module_label(key) :: String.t()
-Permissions.module_icon(key) :: String.t()
-Permissions.module_description(key) :: String.t()
-
-# Custom Permission Keys (for parent app extensions)
-Permissions.register_custom_key(key, opts \\ []) :: :ok  # opts: label, icon, description
-Permissions.unregister_custom_key(key) :: :ok
-Permissions.custom_keys() :: [String.t()]                # List of registered custom keys
-Permissions.custom_keys_map() :: map()                   # Full metadata map for custom keys
-Permissions.clear_custom_keys() :: :ok
-
-# Custom Admin View Permission Cache
-Permissions.cache_custom_view_permission(view_module, permission_key) :: :ok
-Permissions.custom_view_permissions() :: %{module() => String.t()}
-
-# Access Control
-Permissions.can_edit_role_permissions?(scope, role) :: :ok | {:error, String.t()}
-
-# Query
-Permissions.get_permissions_for_user(user) :: [String.t()]
-Permissions.get_permissions_for_role(role_uuid) :: [String.t()]
-Permissions.role_has_permission?(role_uuid, key) :: boolean()
-Permissions.get_permissions_matrix() :: %{String.t() => MapSet.t()}
-Permissions.roles_with_permission(key) :: [String.t()]   # Role UUIDs with key
-Permissions.users_with_permission(key) :: [String.t()]   # User UUIDs with key
-Permissions.count_permissions_for_role(role_uuid) :: non_neg_integer()
-Permissions.diff_permissions(role_a_uuid, role_b_uuid) :: map()
-
-# Mutations
-Permissions.grant_permission(role_uuid, key, granted_by_uuid) :: {:ok, RolePermission.t()} | {:error, term()}
-Permissions.revoke_permission(role_uuid, key) :: :ok | {:error, :not_found}
-Permissions.set_permissions(role_uuid, keys, granted_by_uuid) :: :ok | {:error, term()}
-Permissions.grant_all_permissions(role_uuid, granted_by_uuid) :: :ok | {:error, term()}
-Permissions.revoke_all_permissions(role_uuid) :: :ok
-Permissions.copy_permissions(source_role_uuid, target_role_uuid, granted_by_uuid) :: :ok | {:error, term()}
-```
-
-### PhoenixKit.Users.Auth.Scope
-
-```elixir
-# Construction
-Scope.for_user(user_or_nil) :: Scope.t()
-
-# Identity
-Scope.authenticated?(scope) :: boolean()
-Scope.user(scope) :: User.t() | nil
-Scope.user_uuid(scope) :: String.t() | nil
-Scope.user_email(scope) :: String.t() | nil
-Scope.user_full_name(scope) :: String.t() | nil
-Scope.anonymous?(scope) :: boolean()
-Scope.user_active?(scope) :: boolean()
-
-# Roles
-Scope.has_role?(scope, role_name) :: boolean()
-Scope.owner?(scope) :: boolean()
-Scope.admin?(scope) :: boolean()             # Owner, Admin, or custom role with permissions
-Scope.system_role?(scope) :: boolean()       # Strictly Owner or Admin (not custom roles)
-Scope.user_roles(scope) :: [String.t()]
-
-# Module-Level Permissions
-Scope.has_module_access?(scope, key) :: boolean()
-Scope.has_any_module_access?(scope, [String.t()]) :: boolean()
-Scope.has_all_module_access?(scope, [String.t()]) :: boolean()
-Scope.accessible_modules(scope) :: MapSet.t()
-Scope.permission_count(scope) :: non_neg_integer()
-
-# Debug
-Scope.to_map(scope) :: map()
-```
-
-### PhoenixKit.Settings
-
-```elixir
-Settings.get(key) :: String.t() | nil
-Settings.get(key, default) :: String.t()
-Settings.set(key, value) :: {:ok, Setting.t()}
-Settings.get_boolean(key) :: boolean()
-Settings.get_integer(key) :: integer()
-```
-
----
-
 ## Troubleshooting
 
 ### "Repo not configured"
@@ -863,21 +254,6 @@ import PhoenixKitWeb.Integration
 phoenix_kit_routes()
 ```
 
-### "Entities menu not showing"
-
-The Entities module must be enabled:
-```elixir
-PhoenixKit.Entities.enable_system()
-# Or visit /phoenix_kit/admin/modules and enable it
-```
-
-### "Public form shows 'unavailable'"
-
-Check that:
-1. Entity status is "published"
-2. `public_form_enabled` is true
-3. `public_form_fields` has at least one field
-
 ### "Mailer not sending emails"
 
 ```elixir
@@ -892,32 +268,22 @@ config :phoenix_kit, mailer: MyApp.Mailer
 
 ### "Rate limiting not working"
 
-Ensure Hammer is configured:
+PhoenixKit uses Hammer 7.x with ETS backend via `PhoenixKit.Users.RateLimiter.Backend`. No additional Hammer configuration is required. If you need to adjust rate limits:
+
 ```elixir
-config :hammer,
-  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
+config :phoenix_kit, PhoenixKit.Users.RateLimiter,
+  login_limit: 5,
+  login_window_ms: 60_000
 ```
 
 ---
 
-## File Locations
+## Further Reading
 
-When working with PhoenixKit source (for debugging or understanding):
-
-| Purpose | Location |
-|---------|----------|
-| Entities core logic | `deps/phoenix_kit/lib/phoenix_kit/entities/` |
-| Entity data schema | `deps/phoenix_kit/lib/phoenix_kit/entities/entity_data.ex` |
-| Field types | `deps/phoenix_kit/lib/phoenix_kit/entities/field_types.ex` |
-| Public form controller | `deps/phoenix_kit/lib/phoenix_kit_web/controllers/entity_form_controller.ex` |
-| Public form component | `deps/phoenix_kit/lib/modules/publishing/components/entity_form.ex` |
-| Authentication | `deps/phoenix_kit/lib/phoenix_kit/users/auth.ex` |
-| User schema | `deps/phoenix_kit/lib/phoenix_kit/users/auth/user.ex` |
-| Roles | `deps/phoenix_kit/lib/phoenix_kit/users/roles.ex` |
-| Permissions | `deps/phoenix_kit/lib/phoenix_kit/users/permissions.ex` |
-| Scope (auth + permissions) | `deps/phoenix_kit/lib/phoenix_kit/users/auth/scope.ex` |
-| Settings | `deps/phoenix_kit/lib/phoenix_kit/settings.ex` |
-| Router integration | `deps/phoenix_kit/lib/phoenix_kit_web/integration.ex` |
+- **[Entities Guide](entities-guide.md)** - Dynamic content types without migrations
+- **[Custom Admin Pages](custom-admin-pages.md)** - Add pages to the admin sidebar
+- **[Admin Dashboard Reference](dashboard/ADMIN_README.md)** - Admin navigation and tabs system
+- **[Dashboard Components](dashboard/README.md)** - Tabs, subtabs, badges, and more
 
 ---
 
@@ -927,36 +293,15 @@ When helping a developer with PhoenixKit:
 
 1. **PhoenixKit is a Hex dependency** - Code lives in `deps/phoenix_kit/`
 2. **Don't modify PhoenixKit files** - Create code in the user's app that calls PhoenixKit APIs
-3. **Check if Entities is enabled** - `PhoenixKit.Entities.enabled?()`
-4. **Entity names are snake_case** - e.g., `"contact_form"`, not `"Contact Form"`
-5. **Field keys are snake_case** - e.g., `"full_name"`, not `"Full Name"`
-6. **Public forms need fields selected** - Both `public_form_enabled` and `public_form_fields` must be set
-7. **First user is Owner** - First registered user gets the Owner role automatically
-8. **Routes are prefixed** - Default is `/phoenix_kit/`, configurable via `url_prefix`
-9. **Permissions are cached in Scope** - Use `Scope.has_module_access?/2` not raw DB queries
-10. **Owner bypasses all permission checks** - No DB rows needed for Owner access
-
-### Common Patterns
-
-```elixir
-# Get current user in LiveView
-@current_user = socket.assigns[:current_user]
-
-# Check admin access
-if PhoenixKit.Users.Roles.user_has_role?(user, "Admin"), do: ...
-
-# Create entity with public form
-PhoenixKit.Entities.create_entity(%{
-  name: "...",
-  fields_definition: [...],
-  settings: %{"public_form_enabled" => true, "public_form_fields" => [...]}
-})
-
-# Query submissions
-entity = PhoenixKit.Entities.get_entity_by_name("contact")
-records = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
-```
+3. **Entity names are snake_case** - e.g., `"contact_form"`, not `"Contact Form"`
+4. **Field keys are snake_case** - e.g., `"full_name"`, not `"Full Name"`
+5. **First user is Owner** - First registered user gets the Owner role automatically
+6. **Routes are prefixed** - Default is `/phoenix_kit/`, configurable via `url_prefix`
+7. **Permissions are cached in Scope** - Use `Scope.has_module_access?/2` not raw DB queries
+8. **Owner bypasses all permission checks** - No DB rows needed for Owner access
+9. **Entities use `created_by_uuid`** - The field is `created_by_uuid`, not `created_by`
+10. **Always use `entity.uuid`** - Never use `entity.id` for entity operations
 
 ---
 
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-03-02
