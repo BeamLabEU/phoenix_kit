@@ -70,7 +70,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   - `attrs` - Transfer attributes:
     - `:direction` (required) - "send" or "receive"
     - `:table_name` (required) - Name of the table being transferred
-    - `:connection_id` - ID of the permanent connection (if used)
+    - `:connection_uuid` - UUID of the permanent connection (if used)
     - `:session_code` - Ephemeral session code (if used)
     - `:remote_site_url` - URL of the other site
     - `:records_requested` - Number of records requested
@@ -162,7 +162,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   - `:direction` - Filter by direction ("send" or "receive")
   - `:status` - Filter by status or list of statuses
-  - `:connection_id` - Filter by connection ID
+  - `:connection_uuid` - Filter by connection UUID
   - `:table_name` - Filter by table name
   - `:requires_approval` - Filter by approval requirement
   - `:from` - Filter by inserted_at >= date
@@ -178,7 +178,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
       transfers = Transfers.list_transfers(status: "pending_approval", requires_approval: true)
 
       # List recent transfers for a connection
-      transfers = Transfers.list_transfers(connection_id: 123, limit: 10)
+      transfers = Transfers.list_transfers(connection_uuid: "019...", limit: 10)
 
       # List transfers within date range
       transfers = Transfers.list_transfers(from: ~U[2025-01-01 00:00:00Z], to: ~U[2025-12-31 23:59:59Z])
@@ -187,11 +187,12 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   def list_transfers(opts \\ []) do
     repo = RepoHelper.repo()
     order = Keyword.get(opts, :order, :desc)
+    connection_uuid = opts[:connection_uuid] || opts[:connection_id]
 
     Transfer
     |> filter_by_direction(opts[:direction])
     |> filter_by_status(opts[:status])
-    |> filter_by_connection(opts[:connection_id])
+    |> filter_by_connection(connection_uuid)
     |> filter_by_table(opts[:table_name])
     |> filter_by_approval_requirement(opts[:requires_approval])
     |> filter_by_date_range(opts[:from], opts[:to])
@@ -210,11 +211,12 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   @spec count_transfers(keyword()) :: non_neg_integer()
   def count_transfers(opts \\ []) do
     repo = RepoHelper.repo()
+    connection_uuid = opts[:connection_uuid] || opts[:connection_id]
 
     Transfer
     |> filter_by_direction(opts[:direction])
     |> filter_by_status(opts[:status])
-    |> filter_by_connection(opts[:connection_id])
+    |> filter_by_connection(connection_uuid)
     |> filter_by_table(opts[:table_name])
     |> filter_by_approval_requirement(opts[:requires_approval])
     |> filter_by_date_range(opts[:from], opts[:to])
@@ -460,14 +462,14 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   ## Options
 
-  - `:connection_id` - Filter by connection ID
+  - `:connection_uuid` - Filter by connection UUID
   - `:table_name` - Filter by table name
   - `:limit` - Maximum results
   - `:preload` - Associations to preload
 
   ## Examples
 
-      pending = Transfers.list_pending_approvals(connection_id: 123)
+      pending = Transfers.list_pending_approvals(connection_uuid: "019...")
   """
   @spec list_pending_approvals(keyword()) :: [Transfer.t()]
   def list_pending_approvals(opts \\ []) do
@@ -492,7 +494,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
 
   ## Examples
 
-      stats = Transfers.connection_stats(123)
+      stats = Transfers.connection_stats("019...")
       # => %{total_transfers: 50, completed: 48, failed: 2, ...}
   """
   @spec connection_stats(String.t()) :: map()
@@ -540,7 +542,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   ## Options
 
   - `:direction` - Filter by direction
-  - `:connection_id` - Filter by connection
+  - `:connection_uuid` - Filter by connection UUID
   - `:from` - Start date
   - `:to` - End date
 
@@ -552,10 +554,11 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   @spec table_stats(keyword()) :: [map()]
   def table_stats(opts \\ []) do
     repo = RepoHelper.repo()
+    connection_uuid = opts[:connection_uuid] || opts[:connection_id]
 
     Transfer
     |> filter_by_direction(opts[:direction])
-    |> filter_by_connection(opts[:connection_id])
+    |> filter_by_connection(connection_uuid)
     |> filter_by_date_range(opts[:from], opts[:to])
     |> where([t], t.status == "completed")
     |> group_by([t], t.table_name)

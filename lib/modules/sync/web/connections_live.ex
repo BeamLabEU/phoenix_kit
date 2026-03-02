@@ -893,15 +893,15 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     {:noreply, socket}
   end
 
-  def handle_info({:sender_status_fetched, connection_id, status}, socket) do
+  def handle_info({:sender_status_fetched, connection_uuid, status}, socket) do
     # Store the sender's status in the sender_statuses map
-    sender_statuses = Map.put(socket.assigns.sender_statuses, connection_id, status)
+    sender_statuses = Map.put(socket.assigns.sender_statuses, connection_uuid, status)
     {:noreply, assign(socket, :sender_statuses, sender_statuses)}
   end
 
-  def handle_info({:receiver_connection_severed, connection_id}, socket) do
+  def handle_info({:receiver_connection_severed, connection_uuid}, socket) do
     # Receiver severed their connection - delete our sender connection
-    case Connections.get_connection(connection_id) do
+    case Connections.get_connection(connection_uuid) do
       nil ->
         # Already deleted
         {:noreply, socket}
@@ -925,11 +925,11 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   # PubSub handlers for real-time updates
   # Use skip_async: true to prevent feedback loops - just reload from DB without
   # triggering HTTP calls that could cause more broadcasts
-  def handle_info({:connection_created, _connection_id}, socket) do
+  def handle_info({:connection_created, _connection_uuid}, socket) do
     {:noreply, load_connections(socket, skip_async: true)}
   end
 
-  def handle_info({:connection_status_changed, _connection_id, _status}, socket) do
+  def handle_info({:connection_status_changed, _connection_uuid, _status}, socket) do
     {:noreply, load_connections(socket, skip_async: true)}
   end
 
