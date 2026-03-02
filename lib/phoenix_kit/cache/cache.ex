@@ -593,9 +593,6 @@ defmodule PhoenixKit.Cache do
         )
 
         Process.send_after(self(), :warm_cache, 10_000)
-
-      _ ->
-        Logger.warning("Warmer for cache #{state.name} returned invalid data (expected map)")
     end
 
     {:noreply, state}
