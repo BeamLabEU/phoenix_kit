@@ -11,7 +11,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_arrow_left(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -30,7 +30,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_dashboard(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -54,7 +54,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_users(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -72,7 +72,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_roles(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -90,7 +90,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_modules(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -108,7 +108,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_settings(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -132,7 +132,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_sessions(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -150,7 +150,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_live_sessions(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -168,7 +168,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_referral_codes(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -186,7 +186,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_email(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -280,7 +280,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_logout(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -298,7 +298,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_menu(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -339,7 +339,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_default(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -357,7 +357,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_user_add(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -375,7 +375,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_eye(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -399,7 +399,14 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_warning(assigns) do
     ~H"""
-    <svg class={@class} fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      width="24"
+      height="24"
+      class={@class}
+      fill="none"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -417,7 +424,14 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_error_circle(assigns) do
     ~H"""
-    <svg class={@class} fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      width="24"
+      height="24"
+      class={@class}
+      fill="none"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -435,7 +449,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_warning_filled(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 20 20">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 20 20">
       <path
         fill-rule="evenodd"
         d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
@@ -452,7 +466,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_info(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 20 20">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 20 20">
       <path
         fill-rule="evenodd"
         d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
@@ -470,7 +484,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_check(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 20 20">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 20 20">
       <path
         fill-rule="evenodd"
         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -487,7 +501,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_x(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -580,7 +594,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_link(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -598,7 +612,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_refresh(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -616,7 +630,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_x_thin(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -634,7 +648,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_crown(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M5 16L3 6l5.5 4L12 4l3.5 6L21 6l-2 10H5z" />
     </svg>
     """
@@ -647,7 +661,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_star(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
     </svg>
     """
@@ -660,7 +674,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_user_simple(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     </svg>
     """
@@ -673,7 +687,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_clock(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
       <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
     </svg>
@@ -687,7 +701,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_clock_expired(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-6V7h2v4h4v2z" />
     </svg>
     """
@@ -700,7 +714,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_check_circle_filled(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 20 20">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 20 20">
       <path
         fill-rule="evenodd"
         d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -716,7 +730,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_x_circle_filled(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 20 20">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 20 20">
       <path
         fill-rule="evenodd"
         d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
@@ -732,7 +746,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_info_filled(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-8h2v6h-2V9z" />
     </svg>
     """
@@ -745,7 +759,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_user_anonymous(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path
         d="M12 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 14c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
         opacity="0.6"
@@ -763,7 +777,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_check_circle_outline(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" />
     </svg>
     """
@@ -776,7 +790,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_users_multiple(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1C2.48 14 0 14.9 0 16.5V18h4.5v-1.5c0-.54.34-1.07.63-1.4zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-1.52 0-4 .9-4 2.5V18H24v-1.5c0-.54-.34-1.07-.87-1.4zM12 12c1.93 0 3.5-1.57 3.5-3.5S13.93 5 12 5 8.5 6.57 8.5 8.5 10.07 12 12 12zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-1.5c0-2.33-4.67-3.5-7-3.5z" />
     </svg>
     """
@@ -789,7 +803,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_activity(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.88 9.88l-4.24 4.24c-.78.78-2.05.78-2.83 0-.78-.78-.78-2.05 0-2.83L12.05 10l-3.24-3.29c-.78-.78-.78-2.05 0-2.83.78-.78 2.05-.78 2.83 0l4.24 4.24c.39.39.39 1.02 0 1.41z" />
     </svg>
     """
@@ -802,7 +816,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_user_profile(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
     </svg>
     """
@@ -815,7 +829,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_auto_refresh_on(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -833,7 +847,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_auto_refresh_off(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -851,7 +865,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_sort_asc(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -869,7 +883,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_sort_desc(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -887,7 +901,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_empty_inbox(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -905,7 +919,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_plus(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -923,7 +937,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_edit(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -941,7 +955,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_trash(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -959,7 +973,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_ban(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -977,7 +991,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_info_circle_filled(assigns) do
     ~H"""
-    <svg class={@class} fill="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-8h2v6h-2V9z" />
     </svg>
     """
@@ -990,7 +1004,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_search(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1008,7 +1022,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_download(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1026,7 +1040,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_lock(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1068,7 +1082,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_language(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1086,7 +1100,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_document(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1110,7 +1124,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_entities(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1128,7 +1142,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_folder(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1146,7 +1160,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_duplicate(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1164,7 +1178,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_copy(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -1182,7 +1196,7 @@ defmodule PhoenixKitWeb.Components.Core.Icons do
 
   def icon_move(assigns) do
     ~H"""
-    <svg class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg width="24" height="24" class={@class} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
