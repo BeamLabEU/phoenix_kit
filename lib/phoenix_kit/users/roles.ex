@@ -891,7 +891,7 @@ defmodule PhoenixKit.Users.Roles do
     end
   end
 
-  defp count_remaining_owners(repo, excluding_user_id) do
+  defp count_remaining_owners(repo, excluding_user_uuid) do
     roles = Role.system_roles()
 
     repo.one(
@@ -900,7 +900,7 @@ defmodule PhoenixKit.Users.Roles do
         join: role in assoc(assignment, :role),
         where: role.name == ^roles.owner,
         where: u.is_active == true,
-        where: u.uuid != ^excluding_user_id,
+        where: u.uuid != ^excluding_user_uuid,
         select: count(u.uuid)
     ) || 0
   end

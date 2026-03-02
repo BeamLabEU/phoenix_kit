@@ -256,7 +256,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
   ## Attributes
   - `role` - Role struct with id
-  - `stats` - Map with role statistics (role_id => count)
+  - `stats` - Map with role statistics (role_uuid => count)
 
   ## Examples
 
