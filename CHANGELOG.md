@@ -1,4 +1,19 @@
-## 1.7.53 - 2026-03-01
+## 1.7.53 - 2026-03-02
+- Add `mix phoenix_kit.doctor` diagnostic command — detects migration version vs `schema_migrations` discrepancies, stale COMMENT tags, and common DB issues
+- Add `update_mode` to `mix phoenix_kit.update` — skips heavy DB components (Oban, cache warmers, settings queries) and caps Ecto pool at 2 during migrations to prevent DB saturation
+- Run `ecto.migrate` in-process instead of `System.cmd` for better error reporting and reliability
+- Fix three migration hang root causes: NULL UUIDs causing infinite backfill loop, orphaned FK references blocking constraint creation, varchar uuid columns crashing Ecto schema loader
+- Fix migration hang: disable DDL transaction in generated migration wrapper — prevents entire multi-version migration from running in a single transaction holding AccessExclusiveLock
+- Fix V50 migration hang: add `lock_timeout` for `phoenix_kit_buckets` ALTER TABLE and check column existence before ALTER
+- Fix settings cache race: warm synchronously in `init/1` when `sync_init: true`; fix `warm_critical_data` inserting `{key, value, nil}` 3-tuples when TTL is nil
+- Fix cache `sync_init` blocking supervisor for 60s when DB is overloaded
+- Fix startup DB timeout: defer `Dashboard.Registry` init and reorder supervisor children
+- Silence cache warmer spam and auto-grant warning when `role_permissions` table doesn't exist yet
+- Fix `gen.migration` task: generate UUID primary keys and `user_uuid` FK instead of integer-based
+- Fix broken GDPR anonymization: remove leftover `user_id: nil` from `update_all` calls
+- Rename `_id` → `_uuid` across all remaining application code: billing, shop, storage, entities, sync, emails, tickets, permissions, roles, connections, publishing, and user_notifier
+- Rename function names: `find_role_by_id` → `find_role_by_uuid`, `parse_id` → `parse_uuid`, `import_id` → `import_uuid`
+- Fix Dialyzer warning: remove unreachable pattern match in cache warming
 - Fix V56/V63 migration crash: `email_log_uuid` backfill fails with `datatype_mismatch` when `phoenix_kit_email_logs.uuid` is `character varying` instead of native `uuid` type
 - Fix UUIDFKColumns: replace broken Elixir `rescue` with PostgreSQL `EXCEPTION` handler inside DO blocks — prevents outer transaction abort on backfill failure
 - Add `::uuid` explicit cast in all UUIDFKColumns backfill SQL to handle varchar source columns gracefully
