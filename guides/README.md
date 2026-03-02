@@ -9,11 +9,9 @@ This folder contains comprehensive guides to help developers work with PhoenixKi
 **The essential guide for developers using PhoenixKit as a Hex dependency.** Covers:
 - Quick start installation
 - Configuration reference
-- Using the Entities system
-- Public forms for contact/lead capture
 - Authentication integration
-- API reference with examples
 - Troubleshooting common issues
+- Links to feature-specific guides
 
 **This guide is optimized for AI assistants** (Claude, Cursor, Copilot, Tidewave MCP) to help you integrate PhoenixKit into your Phoenix application.
 
@@ -21,7 +19,39 @@ This folder contains comprehensive guides to help developers work with PhoenixKi
 
 ## Available Guides
 
-### [Making Pages Live: Real-time Updates & Collaborative Editing](making-pages-live.md)
+### Core Guides
+
+#### [Entities Guide](entities-guide.md)
+
+**Dynamic content types without database migrations.** Learn how to:
+- Create custom entities (contact forms, products, etc.) programmatically
+- Use 12+ field types (text, email, select, file upload, etc.)
+- Manage entity data with CRUD operations
+- Embed public forms on your website
+- Configure security options (honeypot, rate limiting, etc.)
+
+**Use this guide when:**
+- Building contact forms, surveys, or lead capture
+- Creating dynamic content types without migrations
+- Implementing public-facing forms with security
+
+#### [Custom Admin Pages](custom-admin-pages.md)
+
+**Add custom pages to the PhoenixKit admin sidebar.** Learn how to:
+- Create LiveViews that integrate with PhoenixKit's admin layout
+- Register tabs in the admin navigation
+- Configure permission gates
+- Use seamless LiveView navigation
+- Implement common patterns (pagination, events, etc.)
+
+**Use this guide when:**
+- Adding custom admin pages to your application
+- Extending the PhoenixKit admin interface
+- Building admin functionality for your features
+
+### Feature Guides
+
+#### [Making Pages Live: Real-time Updates & Collaborative Editing](making-pages-live.md)
 
 Learn how to add real-time functionality to LiveView pages, including:
 - PubSub event broadcasting
@@ -35,6 +65,26 @@ Learn how to add real-time functionality to LiveView pages, including:
 - Implementing collaborative form editing
 - Building live dashboards or detail pages
 - Setting up presence tracking for any resource
+
+#### [OAuth & Magic Link Setup](oauth-and-magic-link-setup.md)
+
+Configure OAuth providers and magic link authentication for PhoenixKit.
+
+#### [AWS Email Setup](aws-email-setup.md)
+
+Set up AWS SES for email infrastructure automation.
+
+#### [Auth Header Integration](auth-header-integration.md)
+
+Authentication header patterns for PhoenixKit.
+
+#### [PHK Publishing Format](phk-publishing-format.md)
+
+Understanding the .phk publishing file format.
+
+#### [Draggable List Component](draggable-list-component.md)
+
+Using the draggable list component for sortable UIs.
 
 ---
 
@@ -123,14 +173,13 @@ Future guides to add:
 
 ## Completed Guides
 
-- ✅ **Integration Guide** - External user guide with API reference
+- ✅ **Integration Guide** - Core installation and configuration
+- ✅ **Entities Guide** - Dynamic content types system
+- ✅ **Custom Admin Pages** - Admin sidebar integration
 - ✅ **Making Pages Live** - Real-time updates and collaborative editing
 - ✅ **OAuth & Magic Link Setup** - Authentication providers
 - ✅ **AWS Email Setup** - Email infrastructure automation
 - ✅ **Auth Header Integration** - Authentication header patterns
-- ✅ **Module System** - Building internal and external PhoenixKit modules
-- ✅ **UUID Migration Guide** - UUIDv7 migration patterns and conventions
-- ✅ **Plugin System Architecture** - Architecture reference for the plugin module system
 
 ## Feedback
 

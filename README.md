@@ -363,7 +363,7 @@ Built-in setup instructions included. For reverse proxy deployments, ensure `X-F
 proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
-See [OAuth Setup Guide](guides/oauth_and_magic_link_setup.md) for details.
+See [OAuth Setup Guide](guides/oauth-and-magic-link-setup.md) for details.
 
 ### Advanced Options
 
