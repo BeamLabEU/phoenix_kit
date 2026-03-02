@@ -1037,13 +1037,13 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   def handle_info({:entity_created, _}, socket), do: {:noreply, socket}
 
-  def handle_info({:entity_updated, entity_id}, socket) do
-    if socket.assigns.entity.uuid == entity_id do
+  def handle_info({:entity_updated, entity_uuid}, socket) do
+    if socket.assigns.entity.uuid == entity_uuid do
       # Ignore our own saves — the save handler already refreshes state
       if socket.assigns[:lock_owner?] do
         {:noreply, socket}
       else
-        entity = Entities.get_entity!(entity_id)
+        entity = Entities.get_entity!(entity_uuid)
         locale = socket.assigns[:current_locale] || "en"
 
         # If entity was archived or unpublished, redirect to entities list
@@ -1072,8 +1072,8 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     end
   end
 
-  def handle_info({:entity_deleted, entity_id}, socket) do
-    if socket.assigns.entity.uuid == entity_id do
+  def handle_info({:entity_deleted, entity_uuid}, socket) do
+    if socket.assigns.entity.uuid == entity_uuid do
       locale = socket.assigns[:current_locale] || "en"
 
       socket =
@@ -1090,15 +1090,15 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
     # Someone joined or left - check if our role changed
     if socket.assigns.entity && socket.assigns.entity.uuid do
-      entity_id = socket.assigns.entity.uuid
+      entity_uuid = socket.assigns.entity.uuid
       was_owner = socket.assigns[:lock_owner?]
 
       # Re-evaluate our role
-      socket = assign_editing_role(socket, entity_id)
+      socket = assign_editing_role(socket, entity_uuid)
 
       # If we were promoted from spectator to owner, reload fresh data
       if !was_owner && socket.assigns[:lock_owner?] do
-        entity = Entities.get_entity!(entity_id)
+        entity = Entities.get_entity!(entity_uuid)
 
         socket
         |> assign(:entity, entity)
@@ -1125,8 +1125,8 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     socket =
       if connected?(socket) && socket.assigns[:form_key] && socket.assigns.entity.uuid &&
            socket.assigns[:lock_owner?] do
-        entity_id = socket.assigns.entity.uuid
-        topic = PresenceHelpers.editing_topic(:entity, entity_id)
+        entity_uuid = socket.assigns.entity.uuid
+        topic = PresenceHelpers.editing_topic(:entity, entity_uuid)
 
         payload =
           %{

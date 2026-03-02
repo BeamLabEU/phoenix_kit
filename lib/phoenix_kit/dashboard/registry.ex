@@ -637,7 +637,7 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   # Entity lifecycle events — invalidate the sidebar entity cache
   @impl true
-  def handle_info({event, _entity_id}, state)
+  def handle_info({event, _entity_uuid}, state)
       when event in [:entity_created, :entity_updated, :entity_deleted] do
     if Code.ensure_loaded?(Entities) and
          function_exported?(Entities, :invalidate_entities_cache, 0) do
