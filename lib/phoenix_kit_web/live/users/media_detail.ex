@@ -235,9 +235,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   end
 
   # Load file locations with bucket information
-  defp load_file_locations(file_instance_id, repo) do
+  defp load_file_locations(file_instance_uuid, repo) do
     FileLocation
-    |> where([fl], fl.file_instance_uuid == ^file_instance_id and fl.status == "active")
+    |> where([fl], fl.file_instance_uuid == ^file_instance_uuid and fl.status == "active")
     |> preload(:bucket)
     |> repo.all()
     |> Enum.map(fn location ->

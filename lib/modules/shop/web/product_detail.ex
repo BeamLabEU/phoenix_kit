@@ -776,10 +776,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   defp get_image_url_by_id(_, _), do: nil
 
   # Get all product images as list of {id, url} tuples (featured first, then gallery)
-  defp get_all_product_images(%{featured_image_uuid: featured_id, image_ids: gallery_ids})
-       when is_binary(featured_id) do
+  defp get_all_product_images(%{featured_image_uuid: featured_uuid, image_ids: gallery_ids})
+       when is_binary(featured_uuid) do
     # Combine featured + gallery, avoiding duplicates
-    all_ids = [featured_id | Enum.reject(gallery_ids || [], &(&1 == featured_id))]
+    all_ids = [featured_uuid | Enum.reject(gallery_ids || [], &(&1 == featured_uuid))]
 
     Enum.map(all_ids, fn id ->
       url = get_storage_image_url(id, "thumbnail")
