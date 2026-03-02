@@ -12,10 +12,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    dimension_id = params["id"]
+    dimension_uuid = params["id"]
     _action = socket.assigns[:live_action]
 
-    mode = if dimension_id, do: :edit, else: :new
+    mode = if dimension_uuid, do: :edit, else: :new
 
     # Get project title from settings
     project_title = Settings.get_project_title()
@@ -23,11 +23,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     socket =
       socket
       |> assign(:mode, mode)
-      |> assign(:dimension_id, dimension_id)
+      |> assign(:dimension_uuid, dimension_uuid)
       |> assign(:current_locale, "en")
       |> assign(:current_path, Routes.path("/admin/settings/media/dimensions"))
       |> assign(:project_title, project_title)
-      |> assign(:dimension, load_dimension_data(mode, dimension_id))
+      |> assign(:dimension, load_dimension_data(mode, dimension_uuid))
       # Will be set in assign_form
       |> assign(:dimension_type, nil)
       |> assign_form()
@@ -50,7 +50,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
           Storage.change_dimension(%Storage.Dimension{}, dimension_params)
 
         :edit ->
-          dimension = Storage.get_dimension(socket.assigns.dimension_id)
+          dimension = Storage.get_dimension(socket.assigns.dimension_uuid)
           Storage.change_dimension(dimension, dimension_params)
       end
 
@@ -97,7 +97,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   end
 
   defp update_dimension(socket, dimension_params) do
-    dimension = Storage.get_dimension(socket.assigns.dimension_id)
+    dimension = Storage.get_dimension(socket.assigns.dimension_uuid)
 
     case Storage.update_dimension(dimension, dimension_params) do
       {:ok, _dimension} ->
@@ -118,10 +118,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     end
   end
 
-  defp load_dimension_data(:new, _dimension_id), do: nil
+  defp load_dimension_data(:new, _dimension_uuid), do: nil
 
-  defp load_dimension_data(:edit, dimension_id) do
-    Storage.get_dimension(dimension_id)
+  defp load_dimension_data(:edit, dimension_uuid) do
+    Storage.get_dimension(dimension_uuid)
   end
 
   defp assign_form(%{assigns: %{mode: :new, dimension_type: dimension_type}} = socket) do

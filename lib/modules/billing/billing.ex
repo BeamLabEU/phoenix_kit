@@ -671,8 +671,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Creates a billing profile.
   """
-  def create_billing_profile(user_or_id, attrs) do
-    user_uuid = extract_user_uuid(user_or_id)
+  def create_billing_profile(user_or_uuid, attrs) do
+    user_uuid = extract_user_uuid(user_or_uuid)
 
     result =
       %BillingProfile{}
@@ -895,8 +895,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Creates an order for a user.
   """
-  def create_order(user_or_id, attrs) do
-    user_uuid = extract_user_uuid(user_or_id)
+  def create_order(user_or_uuid, attrs) do
+    user_uuid = extract_user_uuid(user_or_uuid)
     config = get_config()
 
     # Use string key to match other attrs (avoid mixed keys error)
@@ -1344,8 +1344,8 @@ defmodule PhoenixKit.Modules.Billing do
   @doc """
   Creates a standalone invoice (without order).
   """
-  def create_invoice(user_or_id, attrs) do
-    user_uuid = extract_user_uuid(user_or_id)
+  def create_invoice(user_or_uuid, attrs) do
+    user_uuid = extract_user_uuid(user_or_uuid)
     config = get_config()
 
     attrs =

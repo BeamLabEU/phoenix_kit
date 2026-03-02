@@ -122,7 +122,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
         get_in(import_log.options, ["config_id"])
 
     if config_uuid do
-      load_config_by_id(config_uuid)
+      load_config_by_uuid(config_uuid)
     else
       case Shop.get_default_import_config() do
         nil -> {:ok, nil}
@@ -132,10 +132,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   end
 
   defp load_config(config_uuid, _import_log) when is_binary(config_uuid) do
-    load_config_by_id(config_uuid)
+    load_config_by_uuid(config_uuid)
   end
 
-  defp load_config_by_id(config_uuid) do
+  defp load_config_by_uuid(config_uuid) do
     case Shop.get_import_config(config_uuid) do
       nil -> {:ok, nil}
       config -> {:ok, config}
