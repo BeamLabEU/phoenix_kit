@@ -222,7 +222,7 @@ defmodule PhoenixKit.Modules.Billing.WebhookProcessor do
   defp process_setup_completed(data) do
     # Save the payment method for the user
     case data do
-      %{payment_method_uuid: pm_id, customer_id: _customer_id, user_uuid: user_uuid}
+      %{provider_payment_method_id: pm_id, customer_id: _customer_id, user_uuid: user_uuid}
       when not is_nil(pm_id) ->
         Logger.info("Payment method saved for user #{user_uuid}: #{pm_id}")
 
