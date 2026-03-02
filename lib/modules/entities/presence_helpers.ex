@@ -86,10 +86,10 @@ defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
 
   ## Examples
 
-      get_sorted_presences(:entity, 5)
+      get_sorted_presences(:entity, "019...")
       # => [
-      #   {"phx-abc123", %{user_id: 5, joined_at: 123456, ...}},
-      #   {"phx-def456", %{user_id: 7, joined_at: 123458, ...}}
+      #   {"phx-abc123", %{user_uuid: "019...", joined_at: 123456, ...}},
+      #   {"phx-def456", %{user_uuid: "019...", joined_at: 123458, ...}}
       # ]
   """
   def get_sorted_presences(type, id) do
@@ -141,10 +141,10 @@ defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
 
   ## Examples
 
-      get_spectators(:entity, 5)
+      get_spectators(:entity, "019...")
       # => [
-      #   %{user_id: 7, user_email: "user@example.com", joined_at: 123458, ...},
-      #   %{user_id: 9, user_email: "other@example.com", joined_at: 123460, ...}
+      #   %{user_uuid: "019...", user_email: "user@example.com", joined_at: 123458, ...},
+      #   %{user_uuid: "019...", user_email: "other@example.com", joined_at: 123460, ...}
       # ]
   """
   def get_spectators(type, id) do

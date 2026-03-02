@@ -12,13 +12,13 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
       MigratePrimaryLanguageWorker.enqueue("docs", "en")
 
       # Or with options
-      MigratePrimaryLanguageWorker.enqueue("docs", "en", user_id: "019145a1-0000-7000-8000-000000000001")
+      MigratePrimaryLanguageWorker.enqueue("docs", "en", user_uuid: "019145a1-0000-7000-8000-000000000001")
 
   ## Job Arguments
 
   - `group_slug` - The publishing group slug
   - `primary_language` - The new primary language to set
-  - `user_id` - User ID for audit trail (optional)
+  - `user_id` - User UUID for audit trail (optional, stored as "user_id" in job args)
 
   ## PubSub Events
 
@@ -165,21 +165,23 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
 
   ## Options
 
-  - `:user_id` - User ID for audit trail
+  - `:user_uuid` - User UUID for audit trail
 
   ## Examples
 
       MigratePrimaryLanguageWorker.create_job("docs", "en")
-      MigratePrimaryLanguageWorker.create_job("docs", "en", user_id: "019145a1-0000-7000-8000-000000000001")
+      MigratePrimaryLanguageWorker.create_job("docs", "en", user_uuid: "019145a1-0000-7000-8000-000000000001")
 
   """
   def create_job(group_slug, primary_language, opts \\ []) do
+    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
+
     args =
       %{
         "group_slug" => group_slug,
         "primary_language" => primary_language
       }
-      |> maybe_put("user_id", Keyword.get(opts, :user_id))
+      |> maybe_put("user_id", user_uuid)
 
     new(args)
   end

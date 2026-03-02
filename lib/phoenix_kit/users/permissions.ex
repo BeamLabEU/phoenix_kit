@@ -27,12 +27,12 @@ defmodule PhoenixKit.Users.Permissions do
 
   ## Query API
 
-      Permissions.get_permissions_for_user(user)        # User's keys via roles
-      Permissions.get_permissions_for_role(role_id)      # Keys for a role
-      Permissions.role_has_permission?(role_id, "billing") # Single check
-      Permissions.get_permissions_matrix()               # All roles → MapSet
-      Permissions.roles_with_permission("billing")       # Role IDs with key
-      Permissions.users_with_permission("billing")       # User IDs with key
+      Permissions.get_permissions_for_user(user)          # User's keys via roles
+      Permissions.get_permissions_for_role(role_uuid)      # Keys for a role
+      Permissions.role_has_permission?(role_uuid, "billing") # Single check
+      Permissions.get_permissions_matrix()                 # All roles → MapSet
+      Permissions.roles_with_permission("billing")         # Role UUIDs with key
+      Permissions.users_with_permission("billing")         # User UUIDs with key
       Permissions.count_permissions_for_role(role_uuid)    # Efficient count
       Permissions.diff_permissions(role_a, role_b)        # Compare two roles
 
@@ -427,10 +427,10 @@ defmodule PhoenixKit.Users.Permissions do
   @doc """
   Checks if a specific role has a specific permission.
   """
-  @spec role_has_permission?(integer() | String.t(), String.t()) :: boolean()
-  def role_has_permission?(role_id, module_key) do
+  @spec role_has_permission?(String.t(), String.t()) :: boolean()
+  def role_has_permission?(role_uuid, module_key) do
     repo = RepoHelper.repo()
-    role_uuid = resolve_role_uuid(role_id)
+    role_uuid = resolve_role_uuid(role_uuid)
 
     from(rp in RolePermission,
       where: rp.role_uuid == ^role_uuid and rp.module_key == ^module_key,
@@ -446,7 +446,7 @@ defmodule PhoenixKit.Users.Permissions do
   @doc """
   Returns the list of module_keys granted to a specific role.
   """
-  @spec get_permissions_for_role(integer() | String.t()) :: [String.t()]
+  @spec get_permissions_for_role(String.t()) :: [String.t()]
   def get_permissions_for_role(role_uuid) do
     repo = RepoHelper.repo()
     role_uuid = resolve_role_uuid(role_uuid)
@@ -464,7 +464,7 @@ defmodule PhoenixKit.Users.Permissions do
   end
 
   @doc """
-  Returns a matrix of role_id → MapSet of granted keys for all roles.
+  Returns a matrix of role_uuid → MapSet of granted keys for all roles.
   """
   @spec get_permissions_matrix() :: %{String.t() => MapSet.t()}
   def get_permissions_matrix do
@@ -830,16 +830,16 @@ defmodule PhoenixKit.Users.Permissions do
   # Resolves an integer role_id to its UUID for changeset/insert_all use
   defp resolve_role_uuid(nil), do: nil
 
-  defp resolve_role_uuid(role_id) when is_binary(role_id), do: role_id
+  defp resolve_role_uuid(role_uuid) when is_binary(role_uuid), do: role_uuid
 
   defp resolve_user_uuid(nil), do: nil
   defp resolve_user_uuid(user_uuid) when is_binary(user_uuid), do: user_uuid
 
   # Notify all users with the affected role to refresh their scope
-  defp notify_affected_users(role_id) do
+  defp notify_affected_users(role_uuid) do
     repo = RepoHelper.repo()
 
-    role_uuid = resolve_role_uuid(role_id)
+    role_uuid = resolve_role_uuid(role_uuid)
 
     user_uuids =
       from(ra in RoleAssignment,

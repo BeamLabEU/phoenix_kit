@@ -504,7 +504,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     role = socket.assigns[:permissions_role]
 
     if socket.assigns.show_permissions_editor && role &&
-         (role.id == role_uuid or to_string(role.uuid) == to_string(role_uuid)) do
+         to_string(role.uuid) == to_string(role_uuid) do
       reload_permission_editor_data(socket)
     else
       socket

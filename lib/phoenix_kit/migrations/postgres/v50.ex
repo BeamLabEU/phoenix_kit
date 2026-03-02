@@ -17,17 +17,29 @@ defmodule PhoenixKit.Migrations.Postgres.V50 do
   def up(%{prefix: prefix} = _opts) do
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
 
-    # Set a lock timeout to avoid indefinitely blocking when the application is running
-    # during migration (phoenix_kit_buckets is frequently queried by the running app).
-    # On PostgreSQL 11+, ADD COLUMN with a constant DEFAULT is a fast metadata-only
-    # operation — the lock is held for milliseconds once acquired.
-    # If lock cannot be acquired within 10s, the migration fails with a clear error.
-    # To resolve: stop the running application, then re-run migrations.
-    execute "SET LOCAL lock_timeout = '10s'"
+    schema = if prefix && prefix != "public", do: prefix, else: "public"
+
+    # Use a PL/pgSQL block so the column existence check and the ALTER TABLE
+    # share the migration's single connection (no extra pool checkout needed).
+    # If the column already exists, the ALTER is skipped and no lock is acquired.
+    # Lock timeout of 30s applies only when the ALTER actually runs.
+    # On PostgreSQL 11+, ADD COLUMN with a constant DEFAULT is metadata-only
+    # so the lock is held for milliseconds once acquired.
+    execute "SET LOCAL lock_timeout = '30s'"
 
     execute """
-    ALTER TABLE #{prefix_str}phoenix_kit_buckets
-    ADD COLUMN IF NOT EXISTS access_type VARCHAR(20) DEFAULT 'public'
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name   = 'phoenix_kit_buckets'
+          AND column_name  = 'access_type'
+      ) THEN
+        ALTER TABLE #{prefix_str}phoenix_kit_buckets
+          ADD COLUMN access_type VARCHAR(20) DEFAULT 'public';
+      END IF;
+    END $$;
     """
 
     # Reset lock_timeout so subsequent migration steps are not affected

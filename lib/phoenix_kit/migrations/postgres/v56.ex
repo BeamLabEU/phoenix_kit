@@ -90,42 +90,6 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
 
   alias PhoenixKit.Migrations.UUIDFKColumns
 
-  # All tables that act as UUID FK *sources* in UUIDFKColumns (Groups A–D).
-  # Their `uuid` column must be native PostgreSQL `uuid` type before the
-  # UUIDFKColumns backfill runs — otherwise the SET col = s.uuid assignment
-  # raises a datatype_mismatch error.
-  #
-  # Some installs may have these columns as `character varying` if a manual
-  # migration pre-empted V40's ADD COLUMN (V40 skips with `column_exists?`).
-  # We convert them here with USING uuid::uuid, which is safe as long as the
-  # stored values are valid UUID strings.
-  @uuid_fk_source_tables [
-    # Group A source
-    "phoenix_kit_users",
-    # Group B source
-    "phoenix_kit_user_roles",
-    # Group C source
-    "phoenix_kit_entities",
-    # Group D sources
-    "phoenix_kit_email_logs",
-    "phoenix_kit_shop_carts",
-    "phoenix_kit_shop_products",
-    "phoenix_kit_shop_categories",
-    "phoenix_kit_shop_shipping_methods",
-    "phoenix_kit_payment_options",
-    "phoenix_kit_billing_profiles",
-    "phoenix_kit_orders",
-    "phoenix_kit_invoices",
-    "phoenix_kit_payment_methods",
-    "phoenix_kit_subscriptions",
-    "phoenix_kit_subscription_types",
-    "phoenix_kit_subscription_plans",
-    "phoenix_kit_referral_codes",
-    "phoenix_kit_ai_endpoints",
-    "phoenix_kit_ai_prompts",
-    "phoenix_kit_sync_connections"
-  ]
-
   # Tables missing the uuid column entirely (schema expects it, migration never created it)
   # consent_logs: V43 created without uuid column
   # payment_methods, ai_endpoints, ai_prompts, sync_connections: created in billing/AI/sync
@@ -277,12 +241,13 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
       fix_uuid_pk_default(table, prefix, escaped_prefix)
     end
 
-    # Fix 4b: Ensure source-table uuid columns are native `uuid` type.
+    # Fix 4b: Ensure ALL tables' uuid columns are native `uuid` type.
     # Must run before UUIDFKColumns.up/1 because the backfill copies
     # source_table.uuid into UUID-typed FK columns (type mismatch otherwise).
-    for table <- @uuid_fk_source_tables do
-      ensure_uuid_column_native_type(table, prefix, escaped_prefix)
-    end
+    # Also critical for tables like phoenix_kit_settings whose Ecto schema
+    # expects binary UUID — a varchar column crashes the settings loader on
+    # app startup, blocking the migration from even running.
+    ensure_all_uuid_columns_native_type(prefix, escaped_prefix)
 
     # Fix 5: Add UUID FK columns alongside integer FKs
     UUIDFKColumns.up(opts)
@@ -541,31 +506,34 @@ defmodule PhoenixKit.Migrations.Postgres.V56 do
     end
   end
 
-  # Fix 4b helper: Convert a source table's `uuid` column from varchar to native
-  # PostgreSQL `uuid` type if needed.  The USING clause lets PostgreSQL cast the
-  # stored string values on the fly — safe because PhoenixKit always writes
-  # well-formed UUID strings.
+  # Fix 4b helper: Find ALL phoenix_kit_* tables with varchar/text uuid columns
+  # and convert them to native PostgreSQL `uuid` type.  The USING clause lets
+  # PostgreSQL cast the stored string values on the fly — safe because
+  # PhoenixKit always writes well-formed UUID strings.
   #
-  # Called with string table names (from @uuid_fk_source_tables), so we inline
-  # the existence/type checks rather than calling the atom-based helpers above.
-  defp ensure_uuid_column_native_type(table_str, prefix, escaped_prefix) do
-    uuid_type_query = """
-    SELECT data_type
+  # This covers all tables, not just FK source tables, because tables like
+  # phoenix_kit_settings are loaded by Ecto at app startup and a varchar uuid
+  # column causes a type cast crash that prevents the app from even starting.
+  defp ensure_all_uuid_columns_native_type(prefix, escaped_prefix) do
+    query = """
+    SELECT table_name
     FROM information_schema.columns
-    WHERE table_name = '#{table_str}'
+    WHERE table_name LIKE 'phoenix_kit_%'
       AND column_name = 'uuid'
       AND table_schema = '#{escaped_prefix}'
+      AND data_type IN ('character varying', 'text', 'character')
     """
 
-    case repo().query(uuid_type_query, [], log: false) do
-      {:ok, %{rows: [[data_type]]}}
-      when data_type in ["character varying", "text", "character"] ->
-        table_name = prefix_table_name(table_str, prefix)
+    case repo().query(query, [], log: false) do
+      {:ok, %{rows: rows}} when rows != [] ->
+        for [table_str] <- rows do
+          table_name = prefix_table_name(table_str, prefix)
 
-        execute("""
-        ALTER TABLE #{table_name}
-        ALTER COLUMN uuid TYPE uuid USING uuid::uuid
-        """)
+          execute("""
+          ALTER TABLE #{table_name}
+          ALTER COLUMN uuid TYPE uuid USING uuid::uuid
+          """)
+        end
 
       _ ->
         :ok

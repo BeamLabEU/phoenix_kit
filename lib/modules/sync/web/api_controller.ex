@@ -637,14 +637,14 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
     {connection, connection.status}
   end
 
-  defp broadcast_connection_status_change(connection_id, status) do
+  defp broadcast_connection_status_change(connection_uuid, status) do
     pubsub = PhoenixKit.Config.pubsub_server()
 
     if pubsub do
       Phoenix.PubSub.broadcast(
         pubsub,
         "sync:connections",
-        {:connection_status_changed, connection_id, status}
+        {:connection_status_changed, connection_uuid, status}
       )
     end
   end

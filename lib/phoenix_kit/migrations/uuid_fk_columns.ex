@@ -590,7 +590,8 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
       FROM #{source_name} s
       WHERE s.id = t.#{int_fk}
         AND t.#{uuid_fk} IS NULL
-        AND t.#{int_fk} IS NOT NULL;
+        AND t.#{int_fk} IS NOT NULL
+        AND s.uuid IS NOT NULL;
     EXCEPTION
       WHEN OTHERS THEN
         RAISE WARNING 'PhoenixKit: skipping % backfill from % — %',
@@ -604,18 +605,29 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
     DO $$
     DECLARE
       batch_count INTEGER;
+      iteration_count INTEGER := 0;
     BEGIN
       LOOP
+        iteration_count := iteration_count + 1;
+        IF iteration_count > 10000 THEN
+          RAISE WARNING 'PhoenixKit: % backfill from % exceeded 10000 iterations, aborting loop',
+            '#{uuid_fk}', '#{source_name}';
+          EXIT;
+        END IF;
+
         UPDATE #{table_name} t
         SET #{uuid_fk} = s.uuid::uuid
         FROM #{source_name} s
         WHERE s.id = t.#{int_fk}
           AND t.#{uuid_fk} IS NULL
           AND t.#{int_fk} IS NOT NULL
+          AND s.uuid IS NOT NULL
           AND t.ctid IN (
             SELECT t2.ctid FROM #{table_name} t2
+            JOIN #{source_name} s2 ON s2.id = t2.#{int_fk}
             WHERE t2.#{uuid_fk} IS NULL
               AND t2.#{int_fk} IS NOT NULL
+              AND s2.uuid IS NOT NULL
             LIMIT #{@batch_size}
           );
 
@@ -732,6 +744,10 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
       ref_name = prefix_table_name(ref_table, prefix)
       constraint = fk_constraint_name(table_str, uuid_fk)
 
+      # Clean up orphaned FK references before adding the constraint.
+      # These occur when referenced rows were deleted without CASCADE.
+      cleanup_orphaned_fk_refs(table_name, uuid_fk, ref_name, ref_col, on_delete)
+
       # Use DO block with pg_constraint check for idempotency (matches V51 pattern)
       execute("""
       DO $$
@@ -750,6 +766,47 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
       END $$;
       """)
     end
+  end
+
+  # Cleans up rows with uuid_fk values that don't exist in the referenced table.
+  # For CASCADE FKs: delete the orphaned rows (they would be deleted anyway).
+  # For SET NULL/RESTRICT FKs: set the uuid_fk to NULL.
+  defp cleanup_orphaned_fk_refs(table_name, uuid_fk, ref_name, ref_col, on_delete) do
+    {action, action_sql} =
+      if on_delete == "CASCADE" do
+        {"DELETE",
+         """
+         DELETE FROM #{table_name} t
+         WHERE t.#{uuid_fk} IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM #{ref_name} r WHERE r.#{ref_col} = t.#{uuid_fk}
+         )
+         """}
+      else
+        {"SET NULL",
+         """
+         UPDATE #{table_name} t
+         SET #{uuid_fk} = NULL
+         WHERE t.#{uuid_fk} IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM #{ref_name} r WHERE r.#{ref_col} = t.#{uuid_fk}
+         )
+         """}
+      end
+
+    execute("""
+    DO $$
+    DECLARE
+      affected INTEGER;
+    BEGIN
+      #{action_sql};
+      GET DIAGNOSTICS affected = ROW_COUNT;
+      IF affected > 0 THEN
+        RAISE NOTICE 'PhoenixKit: cleaned up % orphaned rows in %.% (action: %)',
+          affected, '#{table_name}', '#{uuid_fk}', '#{action}';
+      END IF;
+    END $$;
+    """)
   end
 
   defp drop_fk_constraint(table, uuid_fk, prefix, escaped_prefix) do

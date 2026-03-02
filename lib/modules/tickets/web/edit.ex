@@ -136,7 +136,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
 
     # Use the selected user or default to current user
     user_uuid =
-      case Map.get(params, "user_id") do
+      case Map.get(params, "user_uuid") do
         nil -> current_user.uuid
         "" -> current_user.uuid
         uuid -> uuid

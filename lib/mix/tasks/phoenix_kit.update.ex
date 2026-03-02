@@ -201,6 +201,25 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               # Second pass (automatic or manual): Configuration exists, safe to start app
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
+
+              # Cap the Ecto pool to 2 connections so we don't saturate PgBouncer
+              # when the production app is already running.
+              #
+              # The sequencing is critical:
+              # 1. Run app.config first — this evaluates config/runtime.exs (which
+              #    reads POOL_SIZE env and sets pool_size: N in Application env).
+              # 2. THEN override pool_size to 2 via Application.put_env, after
+              #    runtime.exs has already run and can no longer overwrite us.
+              # 3. THEN start app — app.config won't run again (Mix tracks ran tasks),
+              #    so Ecto initialises the pool with our capped pool_size: 2.
+              Mix.Task.run("app.config")
+              cap_repo_pool_size_for_update(2)
+
+              # Tell PhoenixKit.Supervisor to skip Dashboard.Registry,
+              # OAuthConfigLoader, and module workers so they don't compete
+              # for the 2 available DB connections during startup.
+              Application.put_env(:phoenix_kit, :update_mode, true)
+
               Mix.Task.run("app.start")
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))
@@ -411,10 +430,20 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         "PhoenixKit#{String.capitalize(action)}V#{current_version_padded}ToV#{target_version_padded}"
 
       # Create migration content
+      # @disable_ddl_transaction is critical: without it, Ecto wraps the entire
+      # migration in a single transaction.  ALTER TABLE requires AccessExclusiveLock,
+      # which blocks (and is blocked by) every other connection on the table.
+      # A long-running transaction holding such locks on dozens of tables will deadlock
+      # with the production app's normal queries — even on an empty database.
+      # With DDL transaction disabled each statement auto-commits, so locks are held
+      # only for milliseconds per ALTER TABLE.  PhoenixKit migrations are already
+      # fully idempotent (IF NOT EXISTS / IF EXISTS guards), so partial runs are safe.
       migration_content = """
       defmodule Ecto.Migrations.#{module_name} do
         @moduledoc false
         use Ecto.Migration
+
+        @disable_ddl_transaction true
 
         def up do
           # PhoenixKit Update Migration: V#{current_version_padded} -> V#{target_version_padded}
@@ -904,33 +933,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Mix.shell().info("\n⏳ Running database migration...")
 
       try do
-        case System.cmd("mix", ["ecto.migrate"], stderr_to_stdout: true) do
-          {output, 0} ->
-            # Check if migrations were actually applied or already up-to-date
-            cond do
-              String.contains?(output, "Migrations already up") ->
-                Mix.shell().info("\n✅ Already up to date - no migrations needed.")
-                Mix.shell().info(output)
+        # Run ecto.migrate in-process so it shares the current Repo pool
+        # (capped to 2 connections with Oban disabled and update_mode set).
+        # Using System.cmd("mix", ["ecto.migrate"]) would spawn a separate
+        # BEAM that starts its own full app with pool_size=20, bypassing
+        # all update_mode optimisations and saturating PgBouncer.
+        #
+        # Re-enable the task first since Mix tracks which tasks have run
+        # and ecto.migrate may have been invoked earlier in the session.
+        Mix.Task.reenable("ecto.migrate")
+        Mix.Task.run("ecto.migrate")
 
-              String.contains?(output, "Migrated") ->
-                Mix.shell().info("\n✅ Migration completed successfully!")
-                Mix.shell().info(output)
-                show_update_success_notice()
-
-              true ->
-                # Fallback for unexpected output format
-                Mix.shell().info("\n✅ Migration command completed.")
-                Mix.shell().info(output)
-            end
-
-          {output, _} ->
-            Mix.shell().info("\n❌ Migration failed:")
-            Mix.shell().info(output)
-            show_manual_migration_instructions()
-        end
+        Mix.shell().info("\n✅ Migration completed successfully!")
+        show_update_success_notice()
       rescue
         error ->
-          Mix.shell().info("\n⚠️  Migration execution failed: #{inspect(error)}")
+          Mix.shell().info("\n⚠️  Migration failed: #{Exception.message(error)}")
           show_manual_migration_instructions()
       end
     end
@@ -1427,6 +1445,47 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       """
 
       Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Reduce Ecto repo pool sizes and disable Oban queue workers before app.start
+    # so the update task uses minimal DB connections and doesn't starve the
+    # production app via PgBouncer. Must be called AFTER app.config so that
+    # runtime.exs has already applied its settings — then we override here.
+    defp cap_repo_pool_size_for_update(pool_size) do
+      app_name = Mix.Project.config()[:app]
+
+      repos =
+        Application.get_env(app_name, :ecto_repos, []) ++
+          Application.get_env(:phoenix_kit, :ecto_repos, [])
+
+      Enum.each(repos, fn repo ->
+        current = Application.get_env(app_name, repo, [])
+        updated = Keyword.put(current, :pool_size, pool_size)
+        Application.put_env(app_name, repo, updated)
+        Mix.shell().info("PhoenixKit: capped #{inspect(repo)} pool_size to #{pool_size}")
+      end)
+
+      # Disable Oban queue workers so they don't consume all pool connections
+      # before the settings cache warms and Dashboard.Registry initialises.
+      # With pool_size=2, 7+ Oban producers would otherwise starve everything else.
+      disable_oban_queues_for_update(app_name)
+    rescue
+      e ->
+        Mix.shell().info("PhoenixKit: could not cap repo pool_size: #{inspect(e)}")
+    end
+
+    defp disable_oban_queues_for_update(app_name) do
+      case Application.get_env(app_name, Oban) do
+        nil ->
+          :ok
+
+        oban_config ->
+          updated = oban_config |> Keyword.put(:queues, []) |> Keyword.put(:plugins, [])
+          Application.put_env(app_name, Oban, updated)
+          Mix.shell().info("PhoenixKit: disabled Oban queues/plugins for update task")
+      end
+    rescue
+      _ -> :ok
     end
   end
 

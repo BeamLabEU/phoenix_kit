@@ -32,7 +32,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   - `source_language` - Source language to translate from (optional, defaults to primary language)
   - `target_languages` - List of target languages (optional, defaults to all enabled except source)
   - `version` - Version number to translate (optional, defaults to latest/published)
-  - `user_id` - User ID for audit trail (optional)
+  - `user_id` - User UUID for audit trail (optional, stored as "user_id" in job args)
 
   ## Configuration
 
@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         Storage.get_post_primary_language(group_slug, post_slug, version)
 
     target_languages = Map.get(args, "target_languages") || get_target_languages(source_language)
-    user_id = Map.get(args, "user_id")
+    user_uuid = Map.get(args, "user_id")
 
     Logger.info(
       "[TranslatePostWorker] Starting translation of #{group_slug}/#{post_slug} " <>
@@ -107,7 +107,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         source_language,
         target_languages,
         version,
-        user_id
+        user_uuid
       )
     else
       Logger.error("[TranslatePostWorker] AI module is not enabled")
@@ -122,7 +122,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
          source_language,
          target_languages,
          version,
-         user_id
+         user_uuid
        ) do
     case AI.get_endpoint(endpoint_id) do
       nil ->
@@ -142,7 +142,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
               target_languages,
               endpoint,
               source_language,
-              user_id
+              user_uuid
             )
 
           {:error, reason} ->
@@ -162,7 +162,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   def timeout(_job), do: :timer.minutes(10)
 
   # Translate to all target languages sequentially
-  defp translate_to_languages(source_post, target_languages, endpoint, source_language, user_id) do
+  defp translate_to_languages(source_post, target_languages, endpoint, source_language, user_uuid) do
     group_slug = source_post.group
     total = length(target_languages)
 
@@ -180,7 +180,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
                  target_language,
                  endpoint,
                  source_language,
-                 user_id
+                 user_uuid
                ) do
             :ok ->
               Logger.info("[TranslatePostWorker] Successfully translated to #{target_language}")
@@ -241,7 +241,13 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   # Translate a single language
-  defp translate_single_language(source_post, target_language, endpoint, source_language, user_id) do
+  defp translate_single_language(
+         source_post,
+         target_language,
+         endpoint,
+         source_language,
+         user_uuid
+       ) do
     group_slug = source_post.group
     # For timestamp mode, use the date/time path; for slug mode, use the slug
     post_identifier = get_post_identifier(source_post)
@@ -304,7 +310,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
               url_slug: translated_slug,
               content: translated_content,
               version: version,
-              user_id: user_id,
+              user_uuid: user_uuid,
               source_status: source_status
             }
 
@@ -445,7 +451,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   # Save the translation (create or update)
   # Accepts a map with: group_slug, post_identifier, language, title, url_slug, content,
-  # version, user_id, source_status
+  # version, user_uuid, source_status
   defp save_translation(opts) do
     %{
       group_slug: group_slug,
@@ -455,7 +461,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       url_slug: url_slug,
       content: content,
       version: version,
-      user_id: user_id
+      user_uuid: user_uuid
     } = opts
 
     Logger.info("[TranslatePostWorker] Saving translation for #{language}...")
@@ -469,7 +475,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         if existing_post.language == language do
           Logger.info("[TranslatePostWorker] Updating existing #{language} translation")
           # Don't override status - translations inherit status from primary via propagation
-          update_translation(group_slug, existing_post, title, url_slug, content, user_id)
+          update_translation(group_slug, existing_post, title, url_slug, content, user_uuid)
         else
           # Fallback returned wrong language, create new translation instead
           Logger.info(
@@ -508,7 +514,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     end
   end
 
-  defp update_translation(group_slug, existing_post, title, url_slug, content, user_id) do
+  defp update_translation(group_slug, existing_post, title, url_slug, content, user_uuid) do
     params = %{
       "title" => title,
       "content" => content
@@ -518,7 +524,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     params = if url_slug, do: Map.put(params, "url_slug", url_slug), else: params
 
     # Mark as non-primary language for consistency (translations shouldn't trigger propagation)
-    opts = %{scope: build_scope(user_id), is_primary_language: false}
+    opts = %{scope: build_scope(user_uuid), is_primary_language: false}
 
     case Publishing.update_post(group_slug, existing_post, params, opts) do
       {:ok, _} -> :ok
@@ -575,12 +581,12 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       title: title,
       url_slug: url_slug,
       content: content,
-      user_id: user_id,
+      user_uuid: user_uuid,
       source_status: source_status
     } = opts
 
     params = build_translation_params(title, content, url_slug, source_status)
-    update_opts = %{scope: build_scope(user_id), is_primary_language: false}
+    update_opts = %{scope: build_scope(user_uuid), is_primary_language: false}
 
     Logger.debug("[TranslatePostWorker] Calling update_post for #{language}...")
 
@@ -639,8 +645,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   # Build scope for audit trail
   defp build_scope(nil), do: nil
 
-  defp build_scope(user_id) do
-    case Auth.get_user(user_id) do
+  defp build_scope(user_uuid) do
+    case Auth.get_user(user_uuid) do
       nil -> nil
       user -> Scope.for_user(user)
     end
@@ -696,7 +702,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   - `:source_language` - Source language (defaults to primary language)
   - `:target_languages` - List of target languages (defaults to all enabled except source)
   - `:version` - Version to translate (defaults to latest)
-  - `:user_id` - User ID for audit trail
+  - `:user_uuid` - User UUID for audit trail
 
   ## Examples
 
@@ -708,6 +714,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   """
   def create_job(group_slug, post_slug, opts \\ []) do
+    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
+
     args =
       %{
         "group_slug" => group_slug,
@@ -717,7 +725,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       |> maybe_put("source_language", Keyword.get(opts, :source_language))
       |> maybe_put("target_languages", Keyword.get(opts, :target_languages))
       |> maybe_put("version", Keyword.get(opts, :version))
-      |> maybe_put("user_id", Keyword.get(opts, :user_id))
+      |> maybe_put("user_id", user_uuid)
 
     new(args)
   end
@@ -842,7 +850,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     - `:endpoint_id` - AI endpoint ID to use (required)
     - `:source_language` - Source language code (defaults to post's primary language)
     - `:version` - Version to translate (defaults to latest)
-    - `:user_id` - User ID for audit trail
+    - `:user_uuid` - User UUID for audit trail
 
   ## Returns
 
@@ -857,7 +865,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   def translate_now(group_slug, post_slug, target_language, opts \\ []) do
     endpoint_id = Keyword.get(opts, :endpoint_id) || get_default_endpoint_id()
     version = Keyword.get(opts, :version)
-    user_id = Keyword.get(opts, :user_id)
+    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
 
     source_language =
       Keyword.get(opts, :source_language) ||
@@ -879,7 +887,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
                 target_language,
                 endpoint,
                 source_language,
-                user_id
+                user_uuid
               )
 
             {:error, reason} ->

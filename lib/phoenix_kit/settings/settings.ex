@@ -177,11 +177,17 @@ defmodule PhoenixKit.Settings do
       nil
   """
   def get_setting(key) when is_binary(key) do
-    setting_record = repo().get_by(Setting, key: key)
+    # In update_mode (mix phoenix_kit.update), skip DB queries entirely.
+    # The update task only needs the Repo for migrations, not live settings.
+    if Application.get_env(:phoenix_kit, :update_mode, false) do
+      nil
+    else
+      setting_record = repo().get_by(Setting, key: key)
 
-    case setting_record do
-      %Setting{value: value} -> value
-      nil -> nil
+      case setting_record do
+        %Setting{value: value} -> value
+        nil -> nil
+      end
     end
   end
 
@@ -713,14 +719,19 @@ defmodule PhoenixKit.Settings do
       %{"oauth_google_client_id" => "client-id", "oauth_google_client_secret" => "secret"}
   """
   def get_settings_direct(keys) when is_list(keys) do
-    if repo_available?() do
-      Setting
-      |> where([s], s.key in ^keys)
-      |> select([s], {s.key, s.value})
-      |> repo().all()
-      |> Map.new()
-    else
+    # In update_mode, skip DB — the update task doesn't need live settings.
+    if Application.get_env(:phoenix_kit, :update_mode, false) do
       %{}
+    else
+      if repo_available?() do
+        Setting
+        |> where([s], s.key in ^keys)
+        |> select([s], {s.key, s.value})
+        |> repo().all()
+        |> Map.new()
+      else
+        %{}
+      end
     end
   rescue
     error ->
@@ -1467,28 +1478,33 @@ defmodule PhoenixKit.Settings do
   Prioritizes JSON values over string values for cache storage.
   """
   def warm_cache_data do
-    # Check if repository is available before attempting to warm cache
-    # This prevents errors during Mix tasks when repo might not be started yet
-    if repo_available?() do
-      settings = repo().all(Setting)
-
-      settings
-      |> Enum.map(fn setting ->
-        # Prioritize JSON value over string value for cache storage
-        value =
-          if setting.value_json do
-            setting.value_json
-          else
-            setting.value
-          end
-
-        {setting.key, value}
-      end)
-      |> Map.new()
-    else
-      # Repo not available (likely during Mix task execution)
-      # Return empty map - cache will be warmed later when repo becomes available
+    # In update_mode, skip DB warming — the update task only needs the Repo for migrations.
+    if Application.get_env(:phoenix_kit, :update_mode, false) do
       %{}
+    else
+      # Check if repository is available before attempting to warm cache
+      # This prevents errors during Mix tasks when repo might not be started yet
+      if repo_available?() do
+        settings = repo().all(Setting)
+
+        settings
+        |> Enum.map(fn setting ->
+          # Prioritize JSON value over string value for cache storage
+          value =
+            if setting.value_json do
+              setting.value_json
+            else
+              setting.value
+            end
+
+          {setting.key, value}
+        end)
+        |> Map.new()
+      else
+        # Repo not available (likely during Mix task execution)
+        # Return empty map - cache will be warmed later when repo becomes available
+        %{}
+      end
     end
   rescue
     error ->
@@ -1589,22 +1605,27 @@ defmodule PhoenixKit.Settings do
 
   # Queries database for a single setting and caches the result
   defp query_and_cache_setting(key) do
-    # Check if repository is available before attempting query
-    if repo_available?() do
-      case repo().get_by(Setting, key: key) do
-        %Setting{value: value} ->
-          PhoenixKit.Cache.put(@cache_name, key, value)
-          value
-
-        nil ->
-          # Cache a sentinel value to indicate this setting doesn't exist
-          # This prevents repeated database queries for non-existent settings
-          PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
-          nil
-      end
-    else
-      # Repository not started yet - return nil silently
+    # In update_mode, skip DB — return nil immediately.
+    if Application.get_env(:phoenix_kit, :update_mode, false) do
       nil
+    else
+      # Check if repository is available before attempting query
+      if repo_available?() do
+        case repo().get_by(Setting, key: key) do
+          %Setting{value: value} ->
+            PhoenixKit.Cache.put(@cache_name, key, value)
+            value
+
+          nil ->
+            # Cache a sentinel value to indicate this setting doesn't exist
+            # This prevents repeated database queries for non-existent settings
+            PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
+            nil
+        end
+      else
+        # Repository not started yet - return nil silently
+        nil
+      end
     end
   rescue
     error ->

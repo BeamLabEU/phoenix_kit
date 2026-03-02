@@ -437,14 +437,14 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   ## Live updates
 
-  def handle_info({:entity_created, _entity_id}, socket) do
+  def handle_info({:entity_created, _entity_uuid}, socket) do
     {:noreply, refresh_entities_and_data(socket)}
   end
 
-  def handle_info({:entity_updated, entity_id}, socket) do
+  def handle_info({:entity_updated, entity_uuid}, socket) do
     # If the currently viewed entity was updated, check if it was archived
-    if socket.assigns.selected_entity_uuid && entity_id == socket.assigns.selected_entity_uuid do
-      entity = Entities.get_entity!(entity_id)
+    if socket.assigns.selected_entity_uuid && entity_uuid == socket.assigns.selected_entity_uuid do
+      entity = Entities.get_entity!(entity_uuid)
 
       # If entity was archived or unpublished, redirect to entities list
       if entity.status != "published" do
@@ -475,9 +475,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  def handle_info({:entity_deleted, entity_id}, socket) do
+  def handle_info({:entity_deleted, entity_uuid}, socket) do
     # If the currently viewed entity was deleted, redirect to entities list
-    if socket.assigns.selected_entity_uuid && entity_id == socket.assigns.selected_entity_uuid do
+    if socket.assigns.selected_entity_uuid && entity_uuid == socket.assigns.selected_entity_uuid do
       {:noreply,
        socket
        |> put_flash(:error, gettext("Entity was deleted in another session."))
@@ -487,7 +487,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  def handle_info({event, _entity_id, _data_id}, socket)
+  def handle_info({event, _entity_uuid, _data_uuid}, socket)
       when event in [:data_created, :data_updated, :data_deleted] do
     socket =
       socket
@@ -501,18 +501,18 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   defp build_base_path(nil), do: "/admin/entities"
 
-  defp build_base_path(entity_id) when is_binary(entity_id) do
+  defp build_base_path(entity_uuid) when is_binary(entity_uuid) do
     # Get entity by UUID to get its slug
-    case Entities.get_entity!(entity_id) do
+    case Entities.get_entity!(entity_uuid) do
       nil -> "/admin/entities"
       entity -> "/admin/entities/#{entity.name}/data"
     end
   end
 
-  defp build_url_params(_entity_id, status, search_term, view_mode) do
+  defp build_url_params(_entity_uuid, status, search_term, view_mode) do
     params = []
 
-    # Don't include entity_id in query params since it's in the path
+    # Don't include entity_uuid in query params since it's in the path
 
     params =
       if status && status != "all" do
@@ -539,13 +539,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   defp apply_filters(socket) do
-    entity_id = socket.assigns[:selected_entity_id]
+    entity_uuid = socket.assigns[:selected_entity_uuid]
     status = socket.assigns[:selected_status] || "all"
     search_term = socket.assigns[:search_term] || ""
 
     entity_data_records =
       EntityData.list_all_data()
-      |> filter_by_entity(entity_id)
+      |> filter_by_entity(entity_uuid)
       |> filter_by_status(status)
       |> filter_by_search(search_term)
 
@@ -554,8 +554,8 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
   defp filter_by_entity(records, nil), do: records
 
-  defp filter_by_entity(records, entity_id) do
-    Enum.filter(records, fn record -> record.entity_uuid == entity_id end)
+  defp filter_by_entity(records, entity_uuid) do
+    Enum.filter(records, fn record -> record.entity_uuid == entity_uuid end)
   end
 
   defp filter_by_status(records, "all"), do: records
