@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Connections.Connection do
 
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   @statuses ["pending", "accepted", "rejected"]
 

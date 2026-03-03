@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Connections.ConnectionHistory do
 
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
   schema "phoenix_kit_user_connections_history" do

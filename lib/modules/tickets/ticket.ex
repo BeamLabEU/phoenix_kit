@@ -72,7 +72,7 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
   @statuses ["open", "in_progress", "resolved", "closed"]

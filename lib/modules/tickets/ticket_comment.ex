@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketComment do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,
