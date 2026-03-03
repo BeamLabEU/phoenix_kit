@@ -27,7 +27,7 @@ defmodule PhoenixKit.ScheduledJobs.ScheduledJob do
 
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true}
+  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
   @foreign_key_type UUIDv7
 
   @statuses ~w(pending executed failed cancelled)

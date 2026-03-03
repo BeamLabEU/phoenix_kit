@@ -209,24 +209,32 @@
                               "/admin/settings/media/buckets/#{bucket.uuid}/edit"
                             )
                           }
-                          class="btn btn-xs btn-ghost"
-                          title="Edit bucket"
+                          class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                          data-tip={gettext("Edit bucket")}
                         >
-                          <.icon name="hero-pencil" class="w-4 h-4" />
+                          <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">
+                            {gettext("Edit bucket")}
+                          </span>
                         </.link>
 
                         <%!-- Toggle Enable/Disable --%>
                         <button
                           phx-click="toggle_bucket"
                           phx-value-id={bucket.uuid}
-                          class="btn btn-xs btn-ghost"
-                          title={if bucket.enabled, do: "Disable bucket", else: "Enable bucket"}
+                          class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                          data-tip={
+                            if bucket.enabled, do: gettext("Disable"), else: gettext("Enable")
+                          }
                         >
                           <%= if bucket.enabled do %>
-                            <.icon name="hero-eye-slash" class="w-4 h-4" />
+                            <.icon name="hero-eye-slash" class="w-4 h-4 hidden sm:inline" />
                           <% else %>
-                            <.icon name="hero-eye" class="w-4 h-4" />
+                            <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
                           <% end %>
+                          <span class="sm:hidden whitespace-nowrap">
+                            {if bucket.enabled, do: gettext("Disable"), else: gettext("Enable")}
+                          </span>
                         </button>
 
                         <%!-- Delete Button --%>
@@ -234,10 +242,13 @@
                           phx-click="delete_bucket"
                           phx-value-id={bucket.uuid}
                           data-confirm="Are you sure you want to delete this bucket? This will remove all location records."
-                          class="btn btn-xs btn-ghost text-error"
-                          title="Delete bucket"
+                          class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                          data-tip={gettext("Delete bucket")}
                         >
-                          <.icon name="hero-trash" class="w-4 h-4" />
+                          <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">
+                            {gettext("Delete bucket")}
+                          </span>
                         </button>
                       </div>
                     </td>

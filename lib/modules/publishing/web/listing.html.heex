@@ -129,19 +129,25 @@
                           <button
                             type="button"
                             phx-click="invalidate_file_cache"
-                            class="btn btn-ghost btn-xs text-error"
-                            title={gettext("Clear file cache")}
+                            class="btn btn-ghost btn-xs text-error tooltip tooltip-bottom"
+                            data-tip={gettext("Clear file cache")}
                           >
-                            <.icon name="hero-trash" class="w-3 h-3" />
+                            <.icon name="hero-trash" class="w-3 h-3 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">
+                              {gettext("Clear file cache")}
+                            </span>
                           </button>
                         <% end %>
                         <button
                           type="button"
                           phx-click="regenerate_file_cache"
-                          class="btn btn-ghost btn-xs"
-                          title={gettext("Regenerate file cache")}
+                          class="btn btn-ghost btn-xs tooltip tooltip-bottom"
+                          data-tip={gettext("Regenerate file cache")}
                         >
-                          <.icon name="hero-arrow-path" class="w-3 h-3" />
+                          <.icon name="hero-arrow-path" class="w-3 h-3 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">
+                            {gettext("Regenerate file cache")}
+                          </span>
                         </button>
                       <% end %>
                       <input
@@ -220,19 +226,25 @@
                         <button
                           type="button"
                           phx-click="invalidate_memory_cache"
-                          class="btn btn-ghost btn-xs text-error"
-                          title={gettext("Clear memory cache")}
+                          class="btn btn-ghost btn-xs text-error tooltip tooltip-bottom"
+                          data-tip={gettext("Clear memory cache")}
                         >
-                          <.icon name="hero-trash" class="w-3 h-3" />
+                          <.icon name="hero-trash" class="w-3 h-3 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">
+                            {gettext("Clear memory cache")}
+                          </span>
                         </button>
                       <% end %>
                       <button
                         type="button"
                         phx-click="load_memory_cache"
-                        class="btn btn-ghost btn-xs"
-                        title={gettext("Load into memory")}
+                        class="btn btn-ghost btn-xs tooltip tooltip-bottom"
+                        data-tip={gettext("Load into memory")}
                       >
-                        <.icon name="hero-arrow-path" class="w-3 h-3" />
+                        <.icon name="hero-arrow-path" class="w-3 h-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">
+                          {gettext("Load into memory")}
+                        </span>
                       </button>
                     <% end %>
                     <input
@@ -288,10 +300,13 @@
                       <button
                         type="button"
                         phx-click="clear_render_cache"
-                        class="btn btn-ghost btn-xs text-error"
-                        title={gettext("Clear cached post HTML for this group")}
+                        class="btn btn-ghost btn-xs text-error tooltip tooltip-bottom"
+                        data-tip={gettext("Clear render cache")}
                       >
-                        <.icon name="hero-trash" class="w-3 h-3" />
+                        <.icon name="hero-trash" class="w-3 h-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">
+                          {gettext("Clear render cache")}
+                        </span>
                       </button>
                     <% end %>
                     <input

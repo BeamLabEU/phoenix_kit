@@ -225,21 +225,25 @@
                           </span>
                           <%= if entity.mirror_definitions do %>
                             <button
-                              class="btn btn-outline btn-success btn-xs"
+                              class="btn btn-outline btn-success btn-xs tooltip tooltip-bottom"
                               phx-click="toggle_entity_definitions"
                               phx-value-uuid={entity.uuid}
-                              title={gettext("Definition sync enabled - click to disable")}
+                              data-tip={gettext("Disable Definition sync")}
                             >
-                              <.icon name="hero-check" class="w-3 h-3" />
+                              <.icon name="hero-check" class="w-3 h-3 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">
+                                {gettext("Disable")}
+                              </span>
                             </button>
                           <% else %>
                             <button
-                              class="btn btn-outline btn-xs"
+                              class="btn btn-outline btn-xs tooltip tooltip-bottom"
                               phx-click="toggle_entity_definitions"
                               phx-value-uuid={entity.uuid}
-                              title={gettext("Definition sync disabled - click to enable")}
+                              data-tip={gettext("Enable Definition sync")}
                             >
-                              <.icon name="hero-x-mark" class="w-3 h-3" />
+                              <.icon name="hero-x-mark" class="w-3 h-3 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">{gettext("Enable")}</span>
                             </button>
                           <% end %>
                         </div>
@@ -252,21 +256,27 @@
                           <%= if entity.mirror_definitions do %>
                             <%= if entity.mirror_data do %>
                               <button
-                                class="btn btn-outline btn-success btn-xs"
+                                class="btn btn-outline btn-success btn-xs tooltip tooltip-bottom"
                                 phx-click="toggle_entity_data"
                                 phx-value-uuid={entity.uuid}
-                                title={gettext("Records sync enabled - click to disable")}
+                                data-tip={gettext("Disable Records sync")}
                               >
-                                <.icon name="hero-check" class="w-3 h-3" />
+                                <.icon name="hero-check" class="w-3 h-3 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Disable")}
+                                </span>
                               </button>
                             <% else %>
                               <button
-                                class="btn btn-outline btn-xs"
+                                class="btn btn-outline btn-xs tooltip tooltip-bottom"
                                 phx-click="toggle_entity_data"
                                 phx-value-uuid={entity.uuid}
-                                title={gettext("Records sync disabled - click to enable")}
+                                data-tip={gettext("Enable Records sync")}
                               >
-                                <.icon name="hero-x-mark" class="w-3 h-3" />
+                                <.icon name="hero-x-mark" class="w-3 h-3 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Enable")}
+                                </span>
                               </button>
                             <% end %>
                           <% else %>
@@ -283,12 +293,13 @@
                     </td>
                     <td class="text-center">
                       <button
-                        class="btn btn-ghost btn-xs"
+                        class="btn btn-ghost btn-xs tooltip tooltip-bottom"
                         phx-click="export_entity_now"
                         phx-value-uuid={entity.uuid}
-                        title={gettext("Export now")}
+                        data-tip={gettext("Export now")}
                       >
-                        <.icon name="hero-arrow-up-tray" class="w-4 h-4" />
+                        <.icon name="hero-arrow-up-tray" class="w-4 h-4 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Export now")}</span>
                       </button>
                     </td>
                   </tr>

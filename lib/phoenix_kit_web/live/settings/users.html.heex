@@ -445,35 +445,47 @@
                           <div class="flex gap-1">
                             <button
                               type="button"
-                              class="btn btn-xs btn-ghost"
+                              class="btn btn-xs btn-ghost tooltip tooltip-bottom"
+                              data-tip={
+                                if field["enabled"],
+                                  do: gettext("Disable"),
+                                  else: gettext("Enable")
+                              }
                               phx-click="toggle_field_enabled"
                               phx-value-key={field["key"]}
-                              title={if field["enabled"], do: "Disable", else: "Enable"}
                             >
                               <%= if field["enabled"] do %>
-                                <.icon name="hero-eye" class="w-3 h-3" />
+                                <.icon name="hero-eye" class="w-3 h-3 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Disable")}
+                                </span>
                               <% else %>
-                                <.icon name="hero-eye-slash" class="w-3 h-3" />
+                                <.icon name="hero-eye-slash" class="w-3 h-3 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Enable")}
+                                </span>
                               <% end %>
                             </button>
                             <button
                               type="button"
-                              class="btn btn-xs btn-ghost"
+                              class="btn btn-xs btn-ghost tooltip tooltip-bottom"
+                              data-tip={gettext("Edit")}
                               phx-click="show_edit_field_form"
                               phx-value-key={field["key"]}
-                              title="Edit"
                             >
-                              <.icon name="hero-pencil" class="w-3 h-3" />
+                              <.icon name="hero-pencil" class="w-3 h-3 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                             </button>
                             <button
                               type="button"
-                              class="btn btn-xs btn-ghost text-error"
+                              class="btn btn-xs btn-ghost text-error tooltip tooltip-bottom"
+                              data-tip={gettext("Delete")}
                               phx-click="delete_field"
                               phx-value-key={field["key"]}
                               onclick="return confirm('Are you sure you want to delete this field?')"
-                              title="Delete"
                             >
-                              <.icon name="hero-trash" class="w-3 h-3" />
+                              <.icon name="hero-trash" class="w-3 h-3 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                             </button>
                           </div>
                         </.table_default_cell>

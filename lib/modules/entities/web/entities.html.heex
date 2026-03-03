@@ -157,37 +157,41 @@
                             "/admin/entities/#{entity.name}/data"
                           )
                         }
-                        class="btn btn-ghost btn-xs"
-                        title={gettext("Go to Data")}
+                        class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                        data-tip={gettext("Go to Data")}
                       >
-                        <.icon name="hero-arrow-right" class="w-4 h-4" />
+                        <.icon name="hero-arrow-right" class="w-4 h-4 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Go to Data")}</span>
                       </.link>
                       <.link
                         navigate={
                           PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.uuid}/edit")
                         }
-                        class="btn btn-ghost btn-xs"
-                        title={gettext("Edit")}
+                        class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                        data-tip={gettext("Edit")}
                       >
-                        <.icon name="hero-pencil" class="w-4 h-4" />
+                        <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                       </.link>
                       <%= if entity.status == "archived" do %>
                         <button
-                          class="btn btn-ghost btn-xs text-success"
+                          class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom text-success"
                           phx-click="restore_entity"
                           phx-value-uuid={entity.uuid}
-                          title={gettext("Restore")}
+                          data-tip={gettext("Restore")}
                         >
-                          <.icon name="hero-arrow-path" class="w-4 h-4" />
+                          <.icon name="hero-arrow-path" class="w-4 h-4 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">{gettext("Restore")}</span>
                         </button>
                       <% else %>
                         <button
-                          class="btn btn-ghost btn-xs text-error"
+                          class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom text-error"
                           phx-click="archive_entity"
                           phx-value-uuid={entity.uuid}
-                          title={gettext("Archive")}
+                          data-tip={gettext("Archive")}
                         >
-                          <.icon name="hero-trash" class="w-4 h-4" />
+                          <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">{gettext("Archive")}</span>
                         </button>
                       <% end %>
                     </div>

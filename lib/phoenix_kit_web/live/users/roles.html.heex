@@ -143,21 +143,25 @@
                     <%= if !role.is_system_role do %>
                       <%!-- Edit Button --%>
                       <button
-                        class="btn btn-xs btn-outline btn-primary"
+                        class="btn btn-xs btn-outline btn-primary tooltip tooltip-bottom"
+                        data-tip={gettext("Edit")}
                         phx-click="show_edit_role"
                         phx-value-role_uuid={role.uuid}
                       >
-                        <.icon name="hero-pencil" class="h-3 w-3 mr-1" /> {gettext("Edit")}
+                        <.icon name="hero-pencil" class="h-3 w-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                       </button>
 
                       <%!-- Delete Button --%>
                       <button
-                        class="btn btn-xs btn-outline btn-error"
+                        class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                        data-tip={gettext("Delete")}
                         phx-click="request_delete_role"
                         phx-value-role_uuid={role.uuid}
                         phx-value-role_name={role.name}
                       >
-                        <.icon name="hero-trash" class="h-3 w-3 mr-1" /> {gettext("Delete")}
+                        <.icon name="hero-trash" class="h-3 w-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                       </button>
                     <% else %>
                       <span class="badge badge-ghost badge-sm h-auto">
@@ -168,11 +172,13 @@
                     <%!-- Permissions Button (users permission required, editable roles only) --%>
                     <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.has_module_access?(assigns[:phoenix_kit_current_scope], "users") && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
                       <button
-                        class="btn btn-xs btn-outline btn-secondary"
+                        class="btn btn-xs btn-outline btn-secondary tooltip tooltip-bottom"
+                        data-tip={gettext("Permissions")}
                         phx-click="show_permissions_editor"
                         phx-value-role_uuid={role.uuid}
                       >
-                        <.icon name="hero-key" class="h-3 w-3 mr-1" /> {gettext("Permissions")}
+                        <.icon name="hero-key" class="h-3 w-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Permissions")}</span>
                       </button>
                     <% end %>
                   </div>

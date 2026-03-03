@@ -195,11 +195,15 @@
                                   <%!-- Set Default Button (only for enabled, non-default languages) --%>
                                   <%= if language.code in @enabled_codes and language.code != @default_code do %>
                                     <button
-                                      class="btn btn-ghost btn-xs"
+                                      class="btn btn-ghost btn-xs tooltip tooltip-bottom"
                                       phx-click="set_default"
                                       phx-value-code={language.code}
+                                      data-tip={gettext("Set Default")}
                                     >
-                                      Set Default
+                                      <.icon name="hero-star" class="w-4 h-4 hidden sm:inline" />
+                                      <span class="sm:hidden whitespace-nowrap">
+                                        {gettext("Set Default")}
+                                      </span>
                                     </button>
                                   <% end %>
                                   <%!-- Enable/Disable Toggle --%>

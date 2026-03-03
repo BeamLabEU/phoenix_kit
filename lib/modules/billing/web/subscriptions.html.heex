@@ -214,18 +214,22 @@
                               "/admin/billing/subscriptions/#{subscription.uuid}"
                             )
                           }
-                          class="btn btn-ghost btn-xs"
+                          class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                          data-tip={gettext("View")}
                         >
-                          <.icon name="hero-eye" class="w-4 h-4" />
+                          <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">{gettext("View")}</span>
                         </.link>
                         <%= if subscription.status in ["active", "trialing"] && !subscription.cancel_at_period_end do %>
                           <button
                             phx-click="cancel_subscription"
                             phx-value-uuid={subscription.uuid}
-                            class="btn btn-ghost btn-xs text-error"
+                            class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
                             data-confirm="Cancel this subscription at period end?"
+                            data-tip={gettext("Cancel")}
                           >
-                            <.icon name="hero-x-mark" class="w-4 h-4" />
+                            <.icon name="hero-x-mark" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Cancel")}</span>
                           </button>
                         <% end %>
                       </div>

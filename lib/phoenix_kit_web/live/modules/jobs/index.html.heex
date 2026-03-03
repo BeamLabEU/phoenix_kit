@@ -137,7 +137,7 @@
 
             <div class="self-end flex items-center gap-4">
               <%= if @hidden_workers != [] do %>
-                <div class="dropdown dropdown-end">
+                <div class="dropdown">
                   <div tabindex="0" role="button" class="btn btn-xs btn-ghost text-warning">
                     <.icon name="hero-eye-slash" class="w-4 h-4" />
                     {length(@hidden_workers)} hidden
@@ -213,12 +213,13 @@
                         <span title={job.worker}>{short_worker_name(job.worker)}</span>
                         <button
                           type="button"
-                          class="btn btn-ghost btn-xs opacity-30 hover:opacity-100"
+                          class="btn btn-ghost btn-xs opacity-30 hover:opacity-100 tooltip tooltip-bottom"
+                          data-tip={gettext("Hide")}
                           phx-click="toggle_hide_worker"
                           phx-value-worker={job.worker}
-                          title="Hide this worker"
                         >
-                          <.icon name="hero-eye-slash" class="w-3 h-3" />
+                          <.icon name="hero-eye-slash" class="w-3 h-3 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">{gettext("Hide")}</span>
                         </button>
                       </div>
                     </.table_default_cell>

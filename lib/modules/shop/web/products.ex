@@ -621,23 +621,28 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                         <div class="flex flex-wrap gap-1 justify-end">
                           <.link
                             navigate={Routes.path("/admin/shop/products/#{product.uuid}")}
-                            class="btn btn-xs btn-outline btn-info"
+                            class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                            data-tip={gettext("View")}
                           >
-                            <.icon name="hero-eye" class="h-4 w-4" />
+                            <.icon name="hero-eye" class="h-4 w-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("View")}</span>
                           </.link>
                           <.link
                             navigate={Routes.path("/admin/shop/products/#{product.uuid}/edit")}
-                            class="btn btn-xs btn-outline btn-secondary"
+                            class="btn btn-xs btn-outline btn-secondary tooltip tooltip-bottom"
+                            data-tip={gettext("Edit")}
                           >
-                            <.icon name="hero-pencil" class="h-4 w-4" />
+                            <.icon name="hero-pencil" class="h-4 w-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                           </.link>
                           <button
                             phx-click="confirm_delete"
                             phx-value-uuid={product.uuid}
-                            class="btn btn-xs btn-outline btn-error"
-                            title="Delete product"
+                            class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                            data-tip={gettext("Delete")}
                           >
-                            <.icon name="hero-trash" class="h-4 w-4" />
+                            <.icon name="hero-trash" class="h-4 w-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                           </button>
                         </div>
                       </td>

@@ -191,17 +191,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ImportShow do
                           <div class="flex gap-1">
                             <.link
                               navigate={Routes.path("/admin/shop/products/#{product.uuid}")}
-                              class="btn btn-xs btn-ghost"
-                              title="View"
+                              class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                              data-tip={gettext("View")}
                             >
-                              <.icon name="hero-eye" class="w-4 h-4" />
+                              <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">{gettext("View")}</span>
                             </.link>
                             <.link
                               navigate={Routes.path("/admin/shop/products/#{product.uuid}/edit")}
-                              class="btn btn-xs btn-ghost"
-                              title="Edit"
+                              class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                              data-tip={gettext("Edit")}
                             >
-                              <.icon name="hero-pencil" class="w-4 h-4" />
+                              <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                             </.link>
                           </div>
                         </td>

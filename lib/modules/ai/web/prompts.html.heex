@@ -157,30 +157,35 @@
                 <div class="flex gap-1">
                   <.link
                     navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.uuid}/edit"}
-                    class="btn btn-xs btn-ghost"
-                    title="Edit prompt"
+                    class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                    data-tip={gettext("Edit")}
                   >
-                    <.icon name="hero-pencil" class="w-4 h-4" />
+                    <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                    <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                   </.link>
                   <button
                     phx-click="toggle_prompt"
                     phx-value-uuid={prompt.uuid}
-                    class="btn btn-xs btn-ghost"
-                    title={if prompt.enabled, do: "Disable prompt", else: "Enable prompt"}
+                    class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                    data-tip={if prompt.enabled, do: gettext("Disable"), else: gettext("Enable")}
                   >
                     <.icon
                       name={if prompt.enabled, do: "hero-pause", else: "hero-play"}
-                      class="w-4 h-4"
+                      class="w-4 h-4 hidden sm:inline"
                     />
+                    <span class="sm:hidden whitespace-nowrap">
+                      {if prompt.enabled, do: gettext("Disable"), else: gettext("Enable")}
+                    </span>
                   </button>
                   <button
                     phx-click="delete_prompt"
                     phx-value-uuid={prompt.uuid}
                     data-confirm="Are you sure you want to delete this prompt?"
-                    class="btn btn-xs btn-ghost text-error"
-                    title="Delete prompt"
+                    class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                    data-tip={gettext("Delete")}
                   >
-                    <.icon name="hero-trash" class="w-4 h-4" />
+                    <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                    <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                   </button>
                 </div>
               </div>

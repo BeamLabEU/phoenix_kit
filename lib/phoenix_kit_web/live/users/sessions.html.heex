@@ -167,7 +167,7 @@
     </div>
 
     <%!-- Sessions Table --%>
-    <div class="bg-base-100 mb-6">
+    <div class="hidden md:block bg-base-100 mb-6">
       <.table_default variant="zebra" class="w-full">
         <.table_default_header>
           <.table_default_row>
@@ -250,20 +250,22 @@
                     <button
                       phx-click="show_revoke_session"
                       phx-value-token_uuid={session.token_uuid}
-                      class="btn btn-error btn-xs"
-                      title="Revoke this session"
+                      class="btn btn-error btn-xs tooltip tooltip-bottom"
+                      data-tip={gettext("Revoke")}
                     >
-                      <.icon name="hero-x-mark" class="w-3 h-3" />
+                      <.icon name="hero-x-mark" class="w-3 h-3 hidden sm:inline" />
+                      <span class="sm:hidden whitespace-nowrap">{gettext("Revoke")}</span>
                     </button>
 
                     <%!-- Revoke All User Sessions --%>
                     <button
                       phx-click="show_revoke_user_sessions"
                       phx-value-user_uuid={session.user_uuid}
-                      class="btn btn-warning btn-xs"
-                      title="Revoke all sessions for this user"
+                      class="btn btn-warning btn-xs tooltip tooltip-bottom"
+                      data-tip={gettext("Revoke all")}
                     >
-                      <.icon name="hero-exclamation-triangle" class="w-3 h-3" />
+                      <.icon name="hero-exclamation-triangle" class="w-3 h-3 hidden sm:inline" />
+                      <span class="sm:hidden whitespace-nowrap">{gettext("Revoke all")}</span>
                     </button>
                   </div>
                 </.table_default_cell>
@@ -272,6 +274,94 @@
           <% end %>
         </.table_default_body>
       </.table_default>
+    </div>
+
+    <%!-- Sessions Cards (small screens only) --%>
+    <div class="md:hidden mb-6">
+      <%= if Enum.empty?(@sessions) do %>
+        <div class="text-center py-8 text-base-content/70">
+          <%= if @total_count == 0 do %>
+            No active sessions found.
+          <% else %>
+            No sessions match your current filters.
+          <% end %>
+        </div>
+      <% else %>
+        <div class="space-y-3">
+          <%= for session <- @sessions do %>
+            <div class={[
+              "card card-border card-sm bg-base-100",
+              session.is_expired && "opacity-60"
+            ]}>
+              <div class="card-body gap-3">
+                <%!-- Header: email + status --%>
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex flex-col min-w-0">
+                    <span class="font-medium text-sm truncate">{session.user_email}</span>
+                    <span class="text-xs text-base-content/50 truncate">{session.user_uuid}</span>
+                  </div>
+                  <.user_status_badge
+                    is_active={session.user_is_active}
+                    confirmed_at={session.user_confirmed_at}
+                    size={:sm}
+                  />
+                </div>
+
+                <%!-- Body: 2-column key/value grid --%>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div class="text-base-content/60">Token</div>
+                  <div>
+                    <code class="bg-base-200 px-1.5 py-0.5 rounded text-xs">
+                      {session.token_preview}...
+                    </code>
+                  </div>
+
+                  <div class="text-base-content/60">Created</div>
+                  <div>
+                    {UtilsDate.format_date_with_user_format(session.created_at)}
+                    <span class="text-xs text-base-content/70">
+                      {UtilsDate.format_time_with_user_format(session.created_at)}
+                    </span>
+                  </div>
+
+                  <div class="text-base-content/60">Age</div>
+                  <div>
+                    <.age_badge days={session.age_in_days} class="badge-sm h-auto" />
+                  </div>
+
+                  <div class="text-base-content/60">Expires</div>
+                  <div>
+                    {UtilsDate.format_date_with_user_format(session.expires_at)}
+                    <span class="text-xs text-base-content/70">
+                      {UtilsDate.format_time_with_user_format(session.expires_at)}
+                    </span>
+                  </div>
+                </div>
+
+                <%!-- Footer: actions --%>
+                <div class="card-actions justify-end pt-1 border-t border-base-200">
+                  <button
+                    phx-click="show_revoke_session"
+                    phx-value-token_uuid={session.token_uuid}
+                    class="btn btn-error btn-xs"
+                  >
+                    <.icon name="hero-x-mark" class="w-3 h-3" /> {gettext("Revoke")}
+                  </button>
+                  <button
+                    phx-click="show_revoke_user_sessions"
+                    phx-value-user_uuid={session.user_uuid}
+                    class="btn btn-warning btn-xs"
+                  >
+                    <.icon name="hero-exclamation-triangle" class="w-3 h-3" /> {gettext(
+                      "Revoke all"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </div>
 
     <%!-- Pagination --%>

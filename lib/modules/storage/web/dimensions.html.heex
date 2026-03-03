@@ -147,37 +147,44 @@
                                 "/admin/settings/media/dimensions/#{dimension.uuid}/edit"
                               )
                             }
-                            class="btn btn-xs btn-ghost"
-                            title="Edit dimension"
+                            class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                            data-tip={gettext("Edit")}
                           >
-                            <.icon name="hero-pencil" class="w-4 h-4" />
+                            <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                           </.link>
                           <button
                             phx-click="toggle_dimension"
                             phx-debounce="1000"
                             phx-value-id={dimension.uuid}
-                            class="btn btn-xs btn-ghost"
-                            title={
+                            class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                            data-tip={
                               if dimension.enabled,
-                                do: "Disable dimension",
-                                else: "Enable dimension"
+                                do: gettext("Disable"),
+                                else: gettext("Enable")
                             }
                           >
                             <%= if dimension.enabled do %>
-                              <.icon name="hero-eye-slash" class="w-4 h-4" />
+                              <.icon name="hero-eye-slash" class="w-4 h-4 hidden sm:inline" />
                             <% else %>
-                              <.icon name="hero-eye" class="w-4 h-4" />
+                              <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
                             <% end %>
+                            <span class="sm:hidden whitespace-nowrap">
+                              {if dimension.enabled,
+                                do: gettext("Disable"),
+                                else: gettext("Enable")}
+                            </span>
                           </button>
                           <button
                             phx-click="delete_dimension"
                             phx-debounce="1000"
                             phx-value-id={dimension.uuid}
                             data-confirm="Are you sure you want to delete this dimension?"
-                            class="btn btn-xs btn-ghost text-error"
-                            title="Delete dimension"
+                            class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                            data-tip={gettext("Delete")}
                           >
-                            <.icon name="hero-trash" class="w-4 h-4" />
+                            <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                           </button>
                         </div>
                       </td>
@@ -269,37 +276,44 @@
                                 "/admin/settings/media/dimensions/#{dimension.uuid}/edit"
                               )
                             }
-                            class="btn btn-xs btn-ghost"
-                            title="Edit dimension"
+                            class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                            data-tip={gettext("Edit")}
                           >
-                            <.icon name="hero-pencil" class="w-4 h-4" />
+                            <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                           </.link>
                           <button
                             phx-click="toggle_dimension"
                             phx-debounce="1000"
                             phx-value-id={dimension.uuid}
-                            class="btn btn-xs btn-ghost"
-                            title={
+                            class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                            data-tip={
                               if dimension.enabled,
-                                do: "Disable dimension",
-                                else: "Enable dimension"
+                                do: gettext("Disable"),
+                                else: gettext("Enable")
                             }
                           >
                             <%= if dimension.enabled do %>
-                              <.icon name="hero-eye-slash" class="w-4 h-4" />
+                              <.icon name="hero-eye-slash" class="w-4 h-4 hidden sm:inline" />
                             <% else %>
-                              <.icon name="hero-eye" class="w-4 h-4" />
+                              <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
                             <% end %>
+                            <span class="sm:hidden whitespace-nowrap">
+                              {if dimension.enabled,
+                                do: gettext("Disable"),
+                                else: gettext("Enable")}
+                            </span>
                           </button>
                           <button
                             phx-click="delete_dimension"
                             phx-debounce="1000"
                             phx-value-id={dimension.uuid}
                             data-confirm="Are you sure you want to delete this dimension?"
-                            class="btn btn-xs btn-ghost text-error"
-                            title="Delete dimension"
+                            class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                            data-tip={gettext("Delete")}
                           >
-                            <.icon name="hero-trash" class="w-4 h-4" />
+                            <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                           </button>
                         </div>
                       </td>
