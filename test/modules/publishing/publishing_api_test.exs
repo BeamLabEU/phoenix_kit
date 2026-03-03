@@ -192,7 +192,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
     test "returns a list of preset types" do
       types = Publishing.preset_types()
       assert is_list(types)
-      assert types != []
+      refute Enum.empty?(types)
 
       # Each type should have label and value
       Enum.each(types, fn type ->
