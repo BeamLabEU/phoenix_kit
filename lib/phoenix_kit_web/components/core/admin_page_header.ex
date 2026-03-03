@@ -83,15 +83,15 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
             <.icon name="hero-arrow-left" class="w-4 h-4" />
           </button>
           <div>
-            <%= if @inner_block != [] do %>
-              {render_slot(@inner_block)}
-            <% else %>
+            <%= if @title do %>
               <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
                 {@title}
               </h1>
               <p :if={@subtitle} class="text-sm sm:text-base text-base-content/60 mt-0.5">
                 {@subtitle}
               </p>
+            <% else %>
+              {render_slot(@inner_block)}
             <% end %>
           </div>
         </div>
