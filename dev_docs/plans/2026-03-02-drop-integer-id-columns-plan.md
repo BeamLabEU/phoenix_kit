@@ -1,10 +1,10 @@
 # Plan: Drop integer `id` and `_id` columns from PhoenixKit database
 
-> **Status**: Planning (Category A done, V73 prerequisites done, Category B next)
+> **Status**: DONE — Verified on production
 > **Date**: 2026-03-02
 > **Updated**: 2026-03-03
-> **Migration version**: V74 (V73 pre-drop prerequisites shipped in v1.7.55)
-> **Verified against**: dev-nalazurke-fr after v1.7.55 (V73) on 2026-03-03
+> **Implemented**: v1.7.57 (V74), released 2026-03-03
+> **Verified on**: dev-nalazurke-fr after V74 migration on 2026-03-03
 
 ## Context
 
@@ -36,6 +36,7 @@ PhoenixKit migrated from integer IDs to UUIDs over several versions (V40–V56+)
 **Category B** — 45 tables where PK `id` is bigint and a separate `uuid` column exists.
 Schemas use `@primary_key {:uuid, UUIDv7, autogenerate: true}`.
 Action: drop `id`, make `uuid` the PK.
+**DONE** — Completed in V74 (v1.7.57, 2026-03-03). All 45 tables promoted, `webhook_event.ex` schema updated.
 
 **Category C** — 4 publishing tables already at target state (PK column is `uuid`, no `id` column):
 `phoenix_kit_publishing_contents`, `phoenix_kit_publishing_groups`, `phoenix_kit_publishing_posts`, `phoenix_kit_publishing_versions`.
@@ -120,15 +121,16 @@ ALTER TABLE {table} DROP COLUMN IF EXISTS {int_fk_column};
 > `LIKE '%_id'` where `_` is a SQL wildcard — would have matched columns like `uuid`, `author_uuid` etc.
 > Correct pattern would be `column_name ~ '_id$'` (regex).
 
-### Step 4: Drop bigint `id` and make `uuid` PK (45 Category B tables)
+### Step 4: Drop bigint `id` and make `uuid` PK (45 Category B tables) — DONE
+
+Uses `DROP COLUMN id CASCADE` which automatically drops the PK constraint, sequences, and any dependent FK constraints. Checks `column_exists?(table, "id")` to skip tables that never had bigint `id` (publishing tables created by V59) or were already processed by a partial run.
 
 ```sql
-ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {table}_pkey;
-ALTER TABLE {table} DROP COLUMN id;
+ALTER TABLE {table} DROP COLUMN id CASCADE;
 ALTER TABLE {table} ADD PRIMARY KEY (uuid);
 ```
 
-The old serial/bigserial sequence is automatically dropped with the column.
+**Note:** Initial v1.7.56 release failed on `publishing_posts` because it tried to drop the PK on tables that never had a bigint `id`. Fixed in v1.7.57 with the `column_exists?` guard.
 
 ### ~~Step 5: Rename UUID-type `id` → `uuid` on 30 Category A tables~~ — DONE
 
@@ -143,7 +145,7 @@ After V74, ALL PhoenixKit tables have `uuid` as the PK column name.
 
 > **Completed in V72** (v1.7.54, 2026-03-03). Removed `source: :id` from 29 Category A
 > schemas (webhook_event.ex is Category B, scheduled_jobs already correct).
-> Only `webhook_event.ex` still has `source: :id` — will be updated when Category B drops `id` column.
+> `webhook_event.ex` `source: :id` removed in v1.7.56 (V74 release). All schemas now clean.
 
 ---
 
@@ -168,17 +170,17 @@ for the actual PK column name, falls back to `"id"`.
 
 Index renames (V73 migration) + schema constraint name updates shipped in v1.7.55.
 
-### Doctor task — TODO
+### Doctor task — TODO (non-critical)
 
 - `lib/mix/tasks/phoenix_kit.doctor.ex` — update diagnostics to expect `uuid` PK instead of `id`
 
 ---
 
-## Part 4: Infrastructure
+## Part 4: Infrastructure — DONE
 
-- `lib/phoenix_kit/migrations/postgres.ex` — bump `@current_version` from 73 to 74
-- `mix.exs` — bump version to 1.7.56
-- `CHANGELOG.md` — add 1.7.56 entry
+- `lib/phoenix_kit/migrations/postgres.ex` — bumped `@current_version` from 73 to 74
+- `mix.exs` — bumped version to 1.7.57 (1.7.56 had publishing table bug)
+- `CHANGELOG.md` — added 1.7.56 and 1.7.57 entries
 
 ---
 
@@ -234,3 +236,18 @@ AND kcu.column_name != 'uuid';
 1. ~~**UUID-type `_id` FK columns without `_uuid` counterpart**~~ — **RESOLVED**: Verified 0 such columns exist on production. No action needed.
 2. **Sync module range queries** — `receiver.ex` uses `start_id`/`end_id` integer ranges. After dropping integer `id`, these need UUID-based pagination instead.
 3. **`uuid_fk_columns.ex` cleanup** — After migration, the backfill/constraint logic in this module is dead code. Clean up or keep for rollback?
+
+---
+
+## Post-release verification results (2026-03-03)
+
+All verified on dev-nalazurke-fr after V74 migration (v1.7.57):
+
+- **Migration version**: 74
+- **Check 1**: 0 bigint/integer PK columns remaining
+- **Check 2**: 0 integer FK columns (`*_id` with integer/bigint type) remaining
+- **Check 3**: 0 non-uuid PK columns — all PKs are on `uuid`
+- **Check 4**: Only 2 tables without PK: `post_tag_assignments`, `post_group_assignments` (expected — join tables with composite unique indexes)
+- **Check 5**: All 79 phoenix_kit tables have `uuid` as PK
+
+**Result**: UUID migration is 100% complete. Every PhoenixKit table uses `uuid` as its primary key.

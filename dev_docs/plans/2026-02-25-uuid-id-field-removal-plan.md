@@ -244,20 +244,19 @@ The following are **not bugs** but documentation/parameter naming conventions:
 
 ### 🎯 Next Steps
 
-**Database Column Drop (Future Migration):**
-- Legacy integer `_id` columns can now be safely dropped from database
-- This will be a separate migration after confirming all parent apps have updated
-- No code changes needed - columns are already unused
+**Database Column Drop:** ✅ **DONE** (V74, v1.7.57, 2026-03-03)
+- All integer `id` PK columns dropped and `uuid` promoted to PK (V74)
+- All integer `_id` FK columns dropped (V74)
+- All FK constraints referencing `id` dropped (V74)
+- Verified on dev-nalazurke-fr: 79 tables, all with `uuid` PK, zero integer columns remaining
 
-**Monitoring:**
-- Monitor production usage for any edge cases
-- Watch for any remaining references in parent app integrations
-
-**Documentation Updates:**
+**Remaining:**
+- Update `phoenix_kit.doctor` task to expect `uuid` PK instead of `id`
 - Update user-facing docs to reference UUID fields
-- Update integration guides to show UUID-only examples
+- Clean up `uuid_fk_columns.ex` dead code (backfill/constraint logic no longer needed)
+- Sync module `receiver.ex` range queries still use integer-based pagination
 
-**Status:** READY FOR PRODUCTION ✅
+**Status:** UUID MIGRATION COMPLETE ✅
 
 ### Round 2 (Mistral — uncommitted):
 - Found 17 additional schemas still with legacy `_id` fields across 7 modules
