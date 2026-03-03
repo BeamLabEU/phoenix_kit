@@ -257,14 +257,14 @@ defmodule PhoenixKit.Migrations.Postgres.V74 do
   defp promote_uuid_to_pk(prefix, escaped_prefix) do
     for table <- @category_b_tables do
       if table_exists?(table, escaped_prefix) and
-           column_exists?(table, "uuid", escaped_prefix) do
+           column_exists?(table, "uuid", escaped_prefix) and
+           column_exists?(table, "id", escaped_prefix) do
         table_name = prefix_table(table, prefix)
 
-        # Drop existing PK constraint (named {table}_pkey by convention)
-        execute("ALTER TABLE #{table_name} DROP CONSTRAINT IF EXISTS #{table}_pkey")
-
-        # Drop the bigint id column (cascade drops associated sequence)
-        execute("ALTER TABLE #{table_name} DROP COLUMN IF EXISTS id")
+        # Drop the bigint id column. CASCADE ensures the PK constraint and
+        # its associated sequence are dropped along with the column, plus
+        # any FK constraints from other tables that depend on the PK index.
+        execute("ALTER TABLE #{table_name} DROP COLUMN id CASCADE")
 
         # Promote uuid to PK (only if not already a PK)
         execute("""
