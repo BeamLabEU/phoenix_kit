@@ -120,16 +120,16 @@ alias PhoenixKit.Modules.Sync.Connections
 token = connection.auth_token
 
 # Approve a pending connection
-{:ok, connection} = Connections.approve_connection(connection, admin_user_id)
+{:ok, connection} = Connections.approve_connection(connection, admin_user_uuid)
 
 # Suspend a connection
-{:ok, connection} = Connections.suspend_connection(connection, admin_user_id, "Security audit")
+{:ok, connection} = Connections.suspend_connection(connection, admin_user_uuid, "Security audit")
 
 # Reactivate a suspended connection
-{:ok, connection} = Connections.reactivate_connection(connection, admin_user_id)
+{:ok, connection} = Connections.reactivate_connection(connection, admin_user_uuid)
 
 # Revoke permanently
-{:ok, connection} = Connections.revoke_connection(connection, admin_user_id, "No longer needed")
+{:ok, connection} = Connections.revoke_connection(connection, admin_user_uuid, "No longer needed")
 
 # Validate a token (used by receiver when connecting)
 case Connections.validate_connection(token, client_ip) do
@@ -150,7 +150,7 @@ alias PhoenixKit.Modules.Sync.Transfers
 # Record a transfer
 {:ok, transfer} = Transfers.create_transfer(%{
   direction: "send",
-  connection_id: connection.id,
+  connection_uuid: connection.uuid,
   table_name: "users",
   records_transferred: 150,
   bytes_transferred: 45000,
@@ -159,13 +159,13 @@ alias PhoenixKit.Modules.Sync.Transfers
 
 # Get transfer history
 transfers = Transfers.list_transfers(
-  connection_id: connection.id,
+  connection_uuid: connection.uuid,
   direction: "send",
   status: "completed"
 )
 
 # Get statistics for a connection
-stats = Transfers.connection_stats(connection.id)
+stats = Transfers.connection_stats(connection.uuid)
 # => %{total_transfers: 25, total_records: 5000, total_bytes: 1500000}
 ```
 

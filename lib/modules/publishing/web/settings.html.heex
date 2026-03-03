@@ -72,7 +72,7 @@
                 )}
               </p>
             </div>
-            <%= if @fs_group_count == 0 do %>
+            <%= if @publishing == [] do %>
               <.link
                 href={Routes.path("/admin/settings/publishing/new")}
                 class="btn btn-primary btn-sm whitespace-nowrap"
@@ -85,47 +85,15 @@
           </div>
 
           <%= if @publishing == [] do %>
-            <%= if @fs_group_count > 0 do %>
-              <div class="alert alert-info">
-                <.icon name="hero-circle-stack" class="w-5 h-5" />
-                <div>
-                  <h3 class="font-bold">
-                    {gettext("Migrate to Database Storage")}
-                  </h3>
-                  <p class="text-sm">
-                    {ngettext(
-                      "%{count} publishing group found. Migrate your existing content to the new database system for better performance and editing features.",
-                      "%{count} publishing groups found. Migrate your existing content to the new database system for better performance and editing features.",
-                      @fs_group_count,
-                      count: @fs_group_count
-                    )}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  phx-click="import_all_to_db"
-                  class="btn btn-primary btn-sm"
-                  data-confirm={
-                    gettext(
-                      "Migrate all publishing groups and posts to the database? This is safe to run multiple times."
-                    )
-                  }
-                >
-                  <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
-                  {gettext("Migrate to Database")}
-                </button>
+            <div class="alert alert-info">
+              <.icon name="hero-information-circle" class="w-5 h-5" />
+              <div>
+                <h3 class="font-bold">{gettext("No publishing groups yet")}</h3>
+                <p class="text-sm">
+                  {gettext("Create your first publishing group to start publishing content.")}
+                </p>
               </div>
-            <% else %>
-              <div class="alert alert-info">
-                <.icon name="hero-information-circle" class="w-5 h-5" />
-                <div>
-                  <h3 class="font-bold">{gettext("No publishing groups yet")}</h3>
-                  <p class="text-sm">
-                    {gettext("Create your first publishing group to start publishing content.")}
-                  </p>
-                </div>
-              </div>
-            <% end %>
+            </div>
           <% else %>
             <div class="space-y-4">
               <%= for group <- @publishing do %>
@@ -178,24 +146,6 @@
                         <span class="badge badge-sm ml-1">
                           {status.needs_backfill + status.needs_migration}
                         </span>
-                      </button>
-                    <% end %>
-                    <%= if group["needs_import"] do %>
-                      <button
-                        type="button"
-                        aria-label={gettext("Migrate to Database")}
-                        phx-click="import_to_db"
-                        phx-value-slug={group["slug"]}
-                        class="btn btn-info btn-sm"
-                        title={gettext("Migrate posts to the database")}
-                        data-confirm={
-                          gettext(
-                            "Migrate all posts from this group to the database? This is safe to run multiple times."
-                          )
-                        }
-                      >
-                        <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
-                        {gettext("Migrate")}
                       </button>
                     <% end %>
                     <.link

@@ -7,7 +7,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBImporter
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Storage
@@ -63,7 +62,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:dashboard_insights, insights)
       |> assign(:dashboard_summary, summary)
       |> assign(:empty_state?, groups == [])
-      |> assign(:fs_group_count, length(Publishing.list_groups()))
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:endpoint_url, nil)
       |> assign(:date_time_settings, date_time_settings)
@@ -119,23 +117,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     do: {:noreply, refresh_dashboard(socket)}
 
   def handle_info({:group_updated, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
-
-  # DB import/migration handlers (broadcast on groups_topic)
-  def handle_info({:db_import_started, _group_slug, _source}, socket), do: {:noreply, socket}
-
-  def handle_info({:db_import_completed, _group_slug, _stats, _source}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
-
-  def handle_info({:db_migration_started, _total_groups}, socket), do: {:noreply, socket}
-
-  def handle_info({:db_migration_group_progress, _group_slug, _migrated, _total}, socket),
-    do: {:noreply, socket}
-
-  def handle_info({:db_migration_completed, _stats}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
-
-  def handle_info({:migration_validation_completed, _results}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
 
   # Primary language migration progress handlers
   def handle_info({:primary_language_migration_started, _group_slug, _total_count}, socket) do
@@ -260,51 +241,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   @impl true
-  def handle_event("import_all_to_db", _params, socket) do
-    case DBImporter.import_all_groups() do
-      {:ok, stats} ->
-        {:noreply,
-         socket
-         |> refresh_dashboard()
-         |> put_flash(
-           :info,
-           gettext(
-             "Migrated %{groups} groups, %{posts} posts, %{versions} versions, %{contents} contents to database",
-             groups: stats.groups,
-             posts: stats.posts,
-             versions: stats.versions,
-             contents: stats.contents
-           )
-         )}
-    end
-  end
-
-  def handle_event("import_to_db", %{"slug" => slug}, socket) do
-    case DBImporter.import_group(slug) do
-      {:ok, stats} ->
-        {:noreply,
-         socket
-         |> refresh_dashboard()
-         |> put_flash(
-           :info,
-           gettext(
-             "Migrated %{posts} posts, %{versions} versions, %{contents} contents to database",
-             posts: stats.posts,
-             versions: stats.versions,
-             contents: stats.contents
-           )
-         )}
-
-      {:error, reason} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           gettext("Migration failed: %{reason}", reason: inspect(reason))
-         )}
-    end
-  end
-
   def handle_event(
         "show_migration_modal",
         %{"slug" => group_slug, "name" => group_name, "count" => count},
@@ -531,7 +467,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> Enum.sort()
 
     latest_published_at = find_latest_published_at(posts)
-    fs_post_count = length(Publishing.list_posts(db_group.slug))
 
     # Check DB records for primary language issues
     global_primary = Storage.get_primary_language()
@@ -545,7 +480,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       slug: db_group.slug,
       mode: db_group.mode,
       posts_count: length(posts),
-      needs_import: fs_post_count > 0 and posts == [],
       published_count: Map.get(status_counts, "published", 0),
       draft_count: Map.get(status_counts, "draft", 0),
       archived_count: Map.get(status_counts, "archived", 0),

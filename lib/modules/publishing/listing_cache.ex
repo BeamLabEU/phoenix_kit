@@ -286,6 +286,9 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
         _ -> Storage.list_posts(group_slug, nil)
       end
 
+    # Enrich FS posts with DB UUIDs when available (for migrated posts)
+    posts = enrich_with_db_uuids(posts, group_slug)
+
     # Convert to cacheable format (strip content, keep metadata)
     serialized_posts = Enum.map(posts, &safe_serialize_post/1)
     normalized_posts = Enum.map(serialized_posts, &normalize_post/1)
@@ -1169,11 +1172,36 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end
   end
 
+  # Enrich filesystem posts with their DB UUIDs (if migrated to DB).
+  # This enables UUID-based links in the admin listing even in filesystem mode.
+  defp enrich_with_db_uuids(posts, group_slug) do
+    # Batch-fetch all DB posts for this group to avoid N+1 queries
+    db_posts =
+      try do
+        DBStorage.list_posts(group_slug)
+        |> Map.new(fn p -> {p.slug, p.uuid} end)
+      rescue
+        _ -> %{}
+      end
+
+    if map_size(db_posts) == 0 do
+      posts
+    else
+      Enum.map(posts, fn post ->
+        case Map.get(db_posts, post[:slug]) do
+          nil -> post
+          uuid -> Map.put(post, :uuid, uuid)
+        end
+      end)
+    end
+  end
+
   defp serialize_post(post) do
     # Build both current and previous slugs for all languages
     {language_slugs, language_previous_slugs} = build_all_language_slugs(post)
 
     %{
+      "uuid" => post[:uuid],
       "group" => post[:group],
       "slug" => post[:slug],
       "url_slug" => post[:url_slug] || post[:slug],
@@ -1357,6 +1385,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     slug = post["slug"]
 
     %{
+      uuid: post["uuid"],
       # Support both "group" (new) and "blog" (old cache) keys
       group: post["group"] || post["blog"],
       slug: slug,

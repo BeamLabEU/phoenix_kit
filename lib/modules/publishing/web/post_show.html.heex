@@ -1,4 +1,10 @@
-<PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={PhoenixKit.Utils.Routes.path("/admin/publishing/#{@group_slug}/#{@post_uuid}")}
+  current_locale={assigns[:current_locale]}
+>
   <%= if @post do %>
     <div class="max-w-4xl mx-auto p-4 md:p-6">
       <%!-- Breadcrumb --%>
@@ -144,4 +150,4 @@
       </div>
     </div>
   <% end %>
-</PhoenixKitWeb.Layouts.dashboard>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

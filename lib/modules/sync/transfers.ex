@@ -187,7 +187,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   def list_transfers(opts \\ []) do
     repo = RepoHelper.repo()
     order = Keyword.get(opts, :order, :desc)
-    connection_uuid = opts[:connection_uuid] || opts[:connection_id]
+    connection_uuid = opts[:connection_uuid]
 
     Transfer
     |> filter_by_direction(opts[:direction])
@@ -211,7 +211,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   @spec count_transfers(keyword()) :: non_neg_integer()
   def count_transfers(opts \\ []) do
     repo = RepoHelper.repo()
-    connection_uuid = opts[:connection_uuid] || opts[:connection_id]
+    connection_uuid = opts[:connection_uuid]
 
     Transfer
     |> filter_by_direction(opts[:direction])
@@ -554,7 +554,7 @@ defmodule PhoenixKit.Modules.Sync.Transfers do
   @spec table_stats(keyword()) :: [map()]
   def table_stats(opts \\ []) do
     repo = RepoHelper.repo()
-    connection_uuid = opts[:connection_uuid] || opts[:connection_id]
+    connection_uuid = opts[:connection_uuid]
 
     Transfer
     |> filter_by_direction(opts[:direction])

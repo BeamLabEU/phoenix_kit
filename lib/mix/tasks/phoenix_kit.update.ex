@@ -89,7 +89,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Common,
       CssIntegration,
       IgniterHelpers,
-      JsIntegration,
       ObanConfig,
       RateLimiterConfig
     }
@@ -577,9 +576,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Update CSS integration (enables daisyUI themes if disabled)
       update_css_integration()
 
-      # Update JS integration (adds PhoenixKit hooks if missing)
-      update_js_integration()
-
       # Always rebuild assets unless explicitly skipped
       unless Keyword.get(opts, :skip_assets, false) do
         AssetRebuild.check_and_rebuild(verbose: true)
@@ -852,44 +848,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       error ->
         # Non-critical error - log and continue
         Mix.shell().info("ℹ️  Could not update CSS integration: #{inspect(error)}")
-    end
-
-    # Update JS integration during PhoenixKit updates
-    defp update_js_integration do
-      js_paths = [
-        "assets/js/app.js",
-        "priv/static/assets/app.js"
-      ]
-
-      case Enum.find(js_paths, &File.exists?/1) do
-        nil ->
-          # No app.js found - skip JS integration
-          :ok
-
-        js_path ->
-          # Update JS file - fix old paths and add hooks if missing
-          content = File.read!(js_path)
-
-          # Use Rewrite.Source pattern for consistency
-          source = Rewrite.Source.from_string(content, path: js_path)
-          updated_source = JsIntegration.add_smart_js_integration(source)
-          updated_content = Rewrite.Source.get(updated_source, :content)
-
-          # Only write if content changed
-          if updated_content != content do
-            File.write!(js_path, updated_content)
-
-            Mix.shell().info("""
-
-            ✅ Updated JavaScript configuration with PhoenixKit hooks!
-            File: #{js_path}
-            """)
-          end
-      end
-    rescue
-      error ->
-        # Non-critical error - log and continue
-        Mix.shell().info("ℹ️  Could not update JS integration: #{inspect(error)}")
     end
 
     # Check if migration can be run interactively

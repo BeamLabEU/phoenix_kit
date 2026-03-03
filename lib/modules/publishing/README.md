@@ -210,7 +210,6 @@ Renderer.clear_all_cache()
 
 **Workers:**
 
-- **MigrateToDatabaseWorker** – Backfills filesystem posts into the database (Oban job)
 - **MigratePrimaryLanguageWorker** – Ensures primary language metadata consistency
 - **MigrateLegacyStructureWorker** – Upgrades legacy non-versioned posts to versioned structure
 
@@ -1053,25 +1052,9 @@ New installs start with DB storage mode immediately. No filesystem content exist
 
 ### Existing Installs (Filesystem → Database)
 
-Existing `.phk` file content must be imported into the database:
-
-1. Navigate to `{prefix}/admin/publishing` (the listing page)
-2. Click "Import to DB" for each publishing group
-3. The `MigrateToDatabaseWorker` (Oban job) reads `.phk` files and creates DB records
-4. When migration completes, the `publishing_storage` setting is auto-flipped to `"db"`
-5. The editor becomes available
-
-**Programmatic import:**
-
-```elixir
-# Import a specific group
-PhoenixKit.Modules.Publishing.Workers.MigrateToDatabaseWorker.enqueue("docs")
-
-# Or import via the context layer
-PhoenixKit.Modules.Publishing.import_group_to_db("docs")
-```
-
-During migration, public rendering continues to read from the filesystem. After the setting flips to `"db"`, all reads switch to the database.
+Publishing groups and posts are stored in the database. The `publishing_storage` setting
+controls which storage backend is used for reads (`"filesystem"` or `"db"`). When set to `"db"`,
+the admin editor becomes available and all reads use the database tables.
 
 ### Existing Groups (Pre-Dual-Mode)
 
@@ -1164,7 +1147,7 @@ config :phoenix_kit, publishing_settings_module: MyApp.CustomSettings
 | `phoenix_kit_publishing_versions` | Versions (post FK, version_number, status) |
 | `phoenix_kit_publishing_contents` | Content/translations (version FK, language, title, content, url_slug) |
 
-**Legacy (FS, read-only):** Pre-migration `.phk` files in `priv/publishing/` (with `priv/blogging/` fallback) are read-only. The `MigrateToDatabaseWorker` imports these into the database. After migration completes, the `publishing_storage` setting is auto-flipped to `"db"` and the editor becomes available.
+**Legacy (FS, read-only):** Pre-migration `.phk` files in `priv/publishing/` (with `priv/blogging/` fallback) are read-only. When `publishing_storage` is set to `"db"`, all reads and writes use the database and the editor becomes available.
 
 **Feature flag:** The `publishing_storage` setting controls the read path:
 - `"filesystem"` (default) — Public rendering reads from FS; editor is gated/blocked

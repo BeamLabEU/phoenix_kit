@@ -8,7 +8,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   require Logger
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBImporter
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -35,7 +34,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     if connected?(socket), do: subscribe_to_pubsub(group_slug)
 
     date_time_settings = load_date_time_settings()
-    {groups, current_group, fs_post_count} = load_groups_and_current(group_slug)
+    {groups, current_group} = load_groups_and_current(group_slug)
 
     initial_posts =
       case group_slug do
@@ -61,7 +60,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:primary_language, Storage.get_primary_language())
       |> assign(:primary_language_name, get_language_name(Storage.get_primary_language()))
       |> assign(:posts, initial_posts)
-      |> assign(:fs_post_count, fs_post_count)
       |> assign(:loading, false)
       |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
@@ -79,7 +77,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:version_migration_in_progress, false)
       |> assign(:version_migration_progress, nil)
       |> assign(:db_storage, Publishing.db_storage?())
-      |> assign(:db_import_in_progress, false)
 
     {:ok, redirect_if_missing(socket)}
   end
@@ -91,7 +88,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     socket = handle_subscription_change(socket, old_group_slug, new_group_slug)
 
-    {_groups, current_group, fs_post_count} = load_groups_and_current(new_group_slug)
+    {_groups, current_group} = load_groups_and_current(new_group_slug)
 
     posts =
       case new_group_slug do
@@ -103,7 +100,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       socket
       |> assign(:current_group, current_group)
       |> assign(:posts, posts)
-      |> assign(:fs_post_count, fs_post_count)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
       |> assign(:group_files_root, get_group_files_root(new_group_slug))
       |> assign(:cache_info, get_cache_info(new_group_slug))
@@ -115,31 +111,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   @impl true
-  def handle_event("import_to_db", _params, socket) do
-    group_slug = socket.assigns.group_slug
-
-    # DBImporter broadcasts :db_import_started / :db_import_completed via PubSub.
-    # The handle_info handlers refresh posts and groups for all connected clients.
-    case DBImporter.import_group(group_slug) do
-      {:ok, _stats} ->
-        # Refresh immediately for the triggering user (PubSub handle_info runs after return)
-        {:noreply,
-         socket
-         |> assign(:db_import_in_progress, false)
-         |> refresh_posts()
-         |> refresh_groups()}
-
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> assign(:db_import_in_progress, false)
-         |> put_flash(
-           :error,
-           gettext("Import failed: %{reason}", reason: inspect(reason))
-         )}
-    end
-  end
-
   def handle_event("create_post", _params, %{assigns: %{group_slug: group_slug}} = socket) do
     # Use redirect for full page refresh to ensure editor JS initializes properly
     {:noreply,
@@ -902,71 +873,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
-  # DB import handlers - live updates during sync import and async migration
-  def handle_info({:db_import_started, group_slug, _source}, socket) do
-    if group_slug == socket.assigns.group_slug do
-      {:noreply,
-       socket
-       |> assign(:db_import_in_progress, true)
-       |> put_flash(:info, gettext("Importing posts to database..."))}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info({:db_import_completed, group_slug, stats, _source}, socket) do
-    if group_slug == socket.assigns.group_slug do
-      {:noreply,
-       socket
-       |> assign(:db_import_in_progress, false)
-       |> refresh_posts()
-       |> refresh_groups()
-       |> put_flash(
-         :info,
-         gettext(
-           "Imported %{posts} posts, %{versions} versions, %{contents} contents to database",
-           posts: stats.posts,
-           versions: stats.versions,
-           contents: stats.contents
-         )
-       )}
-    else
-      # Different group imported — still refresh groups sidebar
-      {:noreply, refresh_groups(socket)}
-    end
-  end
-
-  def handle_info({:db_migration_started, _total_groups}, socket) do
-    {:noreply,
-     socket
-     |> assign(:db_import_in_progress, true)
-     |> put_flash(:info, gettext("Database migration started..."))}
-  end
-
-  def handle_info({:db_migration_group_progress, group_slug, _posts_migrated, _total}, socket) do
-    if group_slug == socket.assigns.group_slug do
-      {:noreply, refresh_posts(socket)}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info({:db_migration_completed, stats}, socket) do
-    {:noreply,
-     socket
-     |> assign(:db_import_in_progress, false)
-     |> refresh_posts()
-     |> refresh_groups()
-     |> put_flash(
-       :info,
-       gettext(
-         "Migration complete: %{groups} groups, %{posts} posts imported",
-         groups: stats.groups,
-         posts: stats.posts
-       )
-     )}
-  end
-
   # Group change handlers - keep sidebar in sync
   def handle_info({:group_created, _group}, socket) do
     {:noreply, assign(socket, :groups, Publishing.list_groups())}
@@ -982,10 +888,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:current_group, current_group || group)
 
     {:noreply, socket}
-  end
-
-  def handle_info({:migration_validation_completed, _results}, socket) do
-    {:noreply, refresh_groups(socket)}
   end
 
   def handle_info({:group_deleted, deleted_slug}, socket) do
@@ -1017,21 +919,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         posts = Publishing.list_posts(group_slug, socket.assigns.current_locale_base)
         assign(socket, :posts, posts)
     end
-  end
-
-  defp refresh_groups(socket) do
-    db_groups = DBStorage.list_groups()
-
-    groups =
-      Enum.map(db_groups, fn g ->
-        %{"name" => g.name, "slug" => g.slug, "mode" => g.mode, "position" => g.position}
-      end)
-
-    current_group = Enum.find(groups, fn group -> group["slug"] == socket.assigns.group_slug end)
-
-    socket
-    |> assign(:groups, groups)
-    |> assign(:current_group, current_group || socket.assigns[:current_group])
   end
 
   # Debounce interval for post updates (500ms)
@@ -1200,8 +1087,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp load_groups_and_current(group_slug) do
     groups = load_db_groups()
     current_group = Enum.find(groups, fn group -> group["slug"] == group_slug end)
-    {current_group, fs_post_count} = resolve_group_with_fs_fallback(current_group, group_slug)
-    {groups, current_group, fs_post_count}
+    current_group = resolve_group_with_fs_fallback(current_group, group_slug)
+    {groups, current_group}
   end
 
   defp load_db_groups do
@@ -1214,34 +1101,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp resolve_group_with_fs_fallback(nil, slug) when is_binary(slug) do
     case Publishing.get_group(slug) do
       {:ok, fs_group} ->
-        {
-          %{
-            "name" => fs_group["name"],
-            "slug" => fs_group["slug"],
-            "mode" => fs_group["mode"] || "timestamp",
-            "position" => fs_group["position"] || 0
-          },
-          length(Publishing.list_posts(slug))
+        %{
+          "name" => fs_group["name"],
+          "slug" => fs_group["slug"],
+          "mode" => fs_group["mode"] || "timestamp",
+          "position" => fs_group["position"] || 0
         }
 
       _ ->
-        {nil, 0}
+        nil
     end
   end
 
-  defp resolve_group_with_fs_fallback(group, group_slug) do
-    fs_count =
-      if Publishing.db_storage?() do
-        0
-      else
-        case group_slug do
-          nil -> 0
-          slug -> length(Publishing.list_posts(slug))
-        end
-      end
-
-    {group, fs_count}
-  end
+  defp resolve_group_with_fs_fallback(group, _group_slug), do: group
 
   defp redirect_if_missing(%{assigns: %{current_group: nil}} = socket) do
     case socket.assigns.groups do
