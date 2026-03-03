@@ -587,6 +587,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Handle interactive migration execution
       run_interactive_migration_update(opts)
+
+      # Show migration status summary
+      show_migration_status(prefix)
     end
 
     # Run UUID column repair for upgrades from pre-1.7.0 installations
@@ -950,6 +953,48 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         mix phx.server
       """)
     end
+
+    # Show migration status summary (current vs target version)
+    defp show_migration_status(prefix) do
+      opts = %{prefix: prefix, escaped_prefix: String.replace(prefix, "'", "\\'")}
+      target = PhoenixKit.Migrations.Postgres.current_version()
+
+      db_version =
+        try do
+          PhoenixKit.Migrations.Postgres.migrated_version_runtime(opts)
+        rescue
+          _ -> 0
+        end
+
+      phoenix_kit_version =
+        case :application.get_key(:phoenix_kit, :vsn) do
+          {:ok, vsn} when is_list(vsn) -> List.to_string(vsn)
+          {:ok, vsn} -> to_string(vsn)
+          :undefined -> "unknown"
+        end
+
+      a = IO.ANSI
+
+      Mix.shell().info("""
+
+      #{a.bright()}PhoenixKit v#{phoenix_kit_version}#{a.reset()}
+      #{a.bright()}├── Migration#{a.reset()}: #{format_version(db_version, target)}
+      #{a.bright()}└── Target#{a.reset()}:    V#{pad_version(target)}
+      """)
+    end
+
+    defp format_version(db, target) when db >= target,
+      do: "#{IO.ANSI.green()}V#{pad_version(db)} ✅#{IO.ANSI.reset()}"
+
+    defp format_version(0, _target),
+      do: "#{IO.ANSI.red()}Not installed#{IO.ANSI.reset()}"
+
+    defp format_version(db, target),
+      do:
+        "#{IO.ANSI.yellow()}V#{pad_version(db)} → V#{pad_version(target)} (needs migration)#{IO.ANSI.reset()}"
+
+    defp pad_version(v) when v < 10, do: "0#{v}"
+    defp pad_version(v), do: to_string(v)
 
     # Validate and fix Ueberauth configuration
     defp validate_and_fix_ueberauth_config(igniter) do
