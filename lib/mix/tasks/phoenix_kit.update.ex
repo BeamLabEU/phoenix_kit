@@ -93,6 +93,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       RateLimiterConfig
     }
 
+    alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
     alias PhoenixKit.Migrations.UUIDRepair
     alias PhoenixKit.Utils.Routes
 
@@ -915,11 +916,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Show migration status summary (current vs target version)
     defp show_migration_status(prefix) do
       opts = %{prefix: prefix, escaped_prefix: String.replace(prefix, "'", "\\'")}
-      target = PhoenixKit.Migrations.Postgres.current_version()
+      target = MigrationsPostgres.current_version()
 
       db_version =
         try do
-          PhoenixKit.Migrations.Postgres.migrated_version_runtime(opts)
+          MigrationsPostgres.migrated_version_runtime(opts)
         rescue
           _ -> 0
         end
