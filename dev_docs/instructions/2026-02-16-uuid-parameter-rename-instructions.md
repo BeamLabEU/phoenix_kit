@@ -1,7 +1,13 @@
 # UUID Parameter Rename & Integer Rejection — Agent Instructions
 
 **Date:** 2026-02-16
+**Status:** COMPLETE — All parameter renames done, integer columns dropped (V74, v1.7.57)
 **Context:** PR #340 completed the Pattern 2 schema migration. The migration guide (`dev_docs/guides/2026-02-17-uuid-migration-instructions-v3.md` V3.3) now mandates UUID-first parameter naming and hard errors on integer inputs. This document tells you what code to change.
+
+> **Note (2026-03-03):** All work described in this document has been completed. Integer `id`
+> columns have been dropped from the database (V74). The dual-write changeset keys
+> (`user_id:`, `assigned_to_id:`, etc.) no longer exist. Integer rejection guards are no longer
+> needed since there are no integer columns to look up against.
 
 ## The Rule
 

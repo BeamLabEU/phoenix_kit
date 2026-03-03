@@ -1,9 +1,9 @@
 # UUID Migration Completion Summary
 
 **Date:** 2026-02-26
-**Status:** ✅ FULLY COMPLETED AND VERIFIED
-**Migrations:** V62-V65
-**Current Version:** 1.7.48
+**Updated:** 2026-03-03
+**Status:** ✅ FULLY COMPLETED — Code cleanup (V62-V65) + DB column drop (V72-V74)
+**Current Version:** 1.7.57
 
 ## Overview
 
@@ -115,26 +115,32 @@ grep -rn "\.subscription_type_id\|\.payment_method_id" lib/ --include="*.ex" | g
 - **V64**: Context function cleanup (remove dual-write code)
 - **V65**: Final cleanup and verification
 
-## Next Steps
+## Database Column Drop (V72-V74, completed 2026-03-03)
 
-### Future Database Migration (Optional)
-- Legacy integer `_id` columns can be dropped from database
-- This would be a separate migration after confirming all parent apps have updated
-- No code changes needed - columns are already unused
+The database-level cleanup was completed in three migrations:
 
-### Monitoring
-- Monitor production usage for any edge cases
-- Watch for any remaining references in parent app integrations
+| Migration | Version | What |
+|-----------|---------|------|
+| V72 (v1.7.54) | Category A | Renamed `id` → `uuid` on 30 tables (metadata-only), added 4 missing FK constraints |
+| V73 (v1.7.55) | Prerequisites | SET NOT NULL on 7 uuid columns, 3 unique indexes, 4 index renames, dynamic PK detection in code |
+| V74 (v1.7.57) | Category B | Dropped all integer FK constraints, dropped all `_id` FK columns, dropped `id` PK + promoted `uuid` to PK on 45 tables |
 
-### Documentation
-- Update user-facing guides to reference UUID fields
-- Update integration examples to show UUID-only patterns
-- Add UUID migration guide for parent app developers
+**Verified on dev-nalazurke-fr (2026-03-03):**
+- 0 `id` columns remaining on any phoenix_kit table
+- 0 integer `_id` FK columns remaining
+- All 79 tables have `uuid` as PK (type `uuid`)
+- Only `_id`-suffixed columns remaining are `character varying` external identifiers (`session_id`, `aws_message_id`, etc.)
+
+## Remaining Non-Critical Items
+
+- Update `phoenix_kit.doctor` task to expect `uuid` PK instead of `id`
+- Clean up `uuid_fk_columns.ex` dead code (backfill/constraint logic no longer needed)
+- Sync module `receiver.ex` range queries still use integer-based pagination
 
 ## Conclusion
 
-✅ **PhoenixKit is now fully UUID-based and ready for production use.**
+✅ **UUID migration is 100% complete — both code and database.**
 
-All legacy integer field dependencies have been removed. The system uses UUIDv7 for all primary keys and foreign keys. Documentation has been updated to reflect the current state. No further code changes are required for the UUID migration.
+All legacy integer columns have been dropped. Every PhoenixKit table uses `uuid` as its primary key. All FK columns use `_uuid` suffix. No dual-write code remains.
 
-**Status: PRODUCTION READY** 🚀
+**Status: COMPLETE**

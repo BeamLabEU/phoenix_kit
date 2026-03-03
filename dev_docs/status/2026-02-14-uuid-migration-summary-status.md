@@ -1,10 +1,17 @@
 # UUIDv7 Migration Summary - Critical Issues Found
 
-**Last updated:** 2026-02-15 (Pattern 2 fully resolved)
+**Last updated:** 2026-03-03
+**Status:** ALL PHASES COMPLETE — including Phase 4 (integer column removal, V72-V74)
+
+> **Note:** This document is historical. The UUID migration is fully complete as of v1.7.57.
+> All integer `id` columns, integer `_id` FK columns, `source: :id` mappings, dual-write code,
+> `field :id, :integer, read_after_writes: true`, and `resolve_user_id`/`resolve_user_uuid`
+> helpers have been removed. Every table uses `uuid` as PK. See
+> `plans/2026-02-26-uuid-migration-completion-summary.md` for the final state.
 
 ## 🔍 Analysis Results
 
-Found **50+ instances** of legacy `:id` field usage that need to be migrated to UUIDv7 across the PhoenixKit codebase. **All application-layer issues are now resolved**, including Pattern 2. Only Phase 4 integer column removal remains.
+Found **50+ instances** of legacy `:id` field usage that need to be migrated to UUIDv7 across the PhoenixKit codebase. **All issues are now resolved**, including Pattern 2 and Phase 4 (integer column removal).
 
 ## ✅ Resolved by PR #337
 
@@ -73,30 +80,15 @@ Chose **Option B** (schema-only fix with `source: :id`) from `uuid_naming_conven
 - **Sync module `references: :uuid`** — Already present on all 4 `belongs_to` User relationships in `connection.ex` and `transfer.ex`.
 - **`sync_email_status.ex`** — File no longer exists.
 
-## 📋 Remaining Work (Phase 4 Only)
+## ✅ Phase 4: Integer Column Removal — COMPLETE (2026-03-03)
 
-### 1. **Dual-Write Cleanup (Future Phase 4)**
-Many context modules still write integer IDs for backward compatibility (`created_by: current_user.id`, `user_id: user.id`). These are intentional dual-writes, not bugs. They can be removed when integer columns are dropped.
-
-### 2. **Schemas with Dual `id`/`uuid` Columns (20+ files)**
-Core and some feature module schemas still have `field :id, :integer` alongside UUIDv7. These are NOT broken — the dual columns exist for backward compatibility. Will be cleaned up in Phase 4.
-
-**Core System:**
-- `lib/phoenix_kit/users/auth/user.ex`, `user_token.ex`
-- `lib/phoenix_kit/users/role.ex`, `role_assignment.ex`, `oauth_provider.ex`, `admin_note.ex`, `role_permission.ex`
-- `lib/phoenix_kit/settings/setting.ex`
-- `lib/phoenix_kit/audit_log/entry.ex`
-
-**Feature Modules:**
-- `lib/modules/ai/endpoint.ex`, `prompt.ex`, `request.ex`
-- `lib/modules/entities/entities.ex`, `entity_data.ex`
-- `lib/modules/shop/schemas/product.ex`, `cart.ex`, `cart_item.ex`, `shipping_method.ex`
-- `lib/modules/legal/schemas/consent_log.ex`
-
-### 3. **Presence Helpers (Low Priority)**
-- `lib/modules/entities/presence_helpers.ex:30` — `user_id: user.id` in metadata
-- `lib/modules/publishing/presence_helpers.ex:29` — Same pattern
-These store metadata for display purposes and are not broken.
+All items completed across V72-V74 (v1.7.54-v1.7.57):
+- All `field :id, :integer, read_after_writes: true` removed from schemas
+- All dual-write code removed from context modules
+- All `resolve_user_id`/`resolve_user_uuid` helpers removed
+- All integer `id` and `_id` columns dropped from database
+- All `uuid` columns promoted to PK
+- Presence helpers fixed to use `user_uuid` keys
 
 ## 📋 Migration Checklist
 
@@ -118,21 +110,16 @@ These store metadata for display purposes and are not broken.
 - [x] 3 history schemas: `@foreign_key_type :id` → `UUIDv7` bug fix
 - [x] 2 composite-PK schemas: added `references: :uuid`
 - [x] `upload_controller.ex`: `.id` → `.uuid` fix
-- [ ] Eventually drop integer columns and remove dual-write code (Phase 4)
+- [x] Drop integer columns and remove dual-write code (Phase 4) — V72-V74, v1.7.57
 
 ## ⚠️ Key Decisions Pending
 
 ### ~~Pattern 2 Primary Key Naming~~ ✅ RESOLVED
 Chose **Option B** — schema-only fix with `source: :id`. All 29 Pattern 2 schemas migrated. See "Pattern 2 Resolved" section above.
 
-### Integer Column Removal (Phase 4)
-When ready to drop integer FKs, the only changes needed:
-1. **Schemas:** Delete `field :xxx_id, :integer` lines
-2. **Changesets:** Remove `*_id` from `cast()` lists
-3. **Context modules:** Delete `resolve_user_id/1`, stop passing `*_id` to changesets/history
-4. **Migration:** `ALTER TABLE DROP COLUMN xxx_id` etc.
+### ~~Integer Column Removal (Phase 4)~~ — DONE (V72-V74, v1.7.57)
 
-No query changes, no logic changes, no association changes — UUID path is already complete.
+All integer columns dropped, all schemas cleaned, all dual-write removed. See `plans/2026-03-02-drop-integer-id-columns-plan.md`.
 
 ## 🔧 Quick Fix Pattern
 
