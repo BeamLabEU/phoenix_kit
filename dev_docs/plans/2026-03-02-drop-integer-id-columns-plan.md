@@ -1,9 +1,10 @@
 # Plan: Drop integer `id` and `_id` columns from PhoenixKit database
 
-> **Status**: Planning
+> **Status**: Planning (Category A done, Category B next)
 > **Date**: 2026-03-02
-> **Migration version**: V73 (requires V72 from pre-drop plan to be shipped first)
-> **Verified against**: dev-nalazurke-fr after v1.7.53 (V71) on 2026-03-02
+> **Updated**: 2026-03-03
+> **Migration version**: V74 (requires V73 pre-drop prerequisites to be shipped first)
+> **Verified against**: dev-nalazurke-fr after v1.7.54 (V72) on 2026-03-03
 
 ## Context
 
@@ -27,9 +28,10 @@ PhoenixKit migrated from integer IDs to UUIDs over several versions (V40–V56+)
 
 ### Three table categories
 
-**Category A** — 30 tables where PK `id` is already UUID type (no separate `uuid` column).
-Schemas use `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`.
-Action: rename `id` → `uuid` (metadata-only, instant).
+**Category A** — 30 tables where PK `id` was already UUID type (no separate `uuid` column).
+~~Schemas use `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`.~~
+~~Action: rename `id` → `uuid` (metadata-only, instant).~~
+**DONE** — Completed in V72 (v1.7.54, 2026-03-03). All 30 tables renamed, 29 schemas updated, 4 missing FK constraints added.
 
 **Category B** — 45 tables where PK `id` is bigint and a separate `uuid` column exists.
 Schemas use `@primary_key {:uuid, UUIDv7, autogenerate: true}`.
@@ -59,14 +61,14 @@ Action: none needed (use composite unique indexes).
 
 ---
 
-## Part 1: Migration V73
+## Part 1: Migration V74
 
-File: `lib/phoenix_kit/migrations/postgres/v73.ex`
+File: `lib/phoenix_kit/migrations/postgres/v74.ex`
 
-### Step 1: Prerequisites (handled by V72 pre-drop plan)
+### Step 1: Prerequisites (handled by V73 pre-drop plan)
 
 > NOT NULL on 7 uuid columns, unique indexes on 3 tables, and index renames are all
-> handled by V72 (pre-drop plan). V73 assumes V72 has already run.
+> handled by V73 (pre-drop plan). V74 assumes V73 has already run.
 
 ### Step 2: Drop all FK constraints referencing `id`
 
@@ -127,60 +129,20 @@ ALTER TABLE {table} ADD PRIMARY KEY (uuid);
 
 The old serial/bigserial sequence is automatically dropped with the column.
 
-### Step 5: Rename UUID-type `id` → `uuid` on 30 Category A tables
+### ~~Step 5: Rename UUID-type `id` → `uuid` on 30 Category A tables~~ — DONE
 
-```sql
-ALTER TABLE {table} RENAME COLUMN id TO uuid;
-```
+> **Completed in V72** (v1.7.54, 2026-03-03). All 30 Category A tables already have
+> `uuid` as PK column. This step is a no-op for V74.
 
-Metadata-only, instant. PK constraint auto-follows the rename.
-
-**Category A tables:**
-
-```
-phoenix_kit_buckets              phoenix_kit_comment_dislikes
-phoenix_kit_comment_likes        phoenix_kit_comments
-phoenix_kit_comments_dislikes    phoenix_kit_comments_likes
-phoenix_kit_file_instances       phoenix_kit_file_locations
-phoenix_kit_files                phoenix_kit_post_comments
-phoenix_kit_post_dislikes        phoenix_kit_post_groups
-phoenix_kit_post_likes           phoenix_kit_post_media
-phoenix_kit_post_mentions        phoenix_kit_post_tags
-phoenix_kit_post_views           phoenix_kit_posts
-phoenix_kit_scheduled_jobs       phoenix_kit_storage_dimensions
-phoenix_kit_ticket_attachments   phoenix_kit_ticket_comments
-phoenix_kit_ticket_status_history phoenix_kit_tickets
-phoenix_kit_user_blocks          phoenix_kit_user_blocks_history
-phoenix_kit_user_connections     phoenix_kit_user_connections_history
-phoenix_kit_user_follows         phoenix_kit_user_follows_history
-```
-
-After this step, ALL PhoenixKit tables have `uuid` as the PK column name.
+After V74, ALL PhoenixKit tables have `uuid` as the PK column name.
 
 ---
 
-## Part 2: Schema Updates (30 files)
+## ~~Part 2: Schema Updates (30 files)~~ — DONE
 
-Remove `source: :id` from all 30 schemas since the DB column is now `uuid`:
-
-```elixir
-# Before
-@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
-
-# After
-@primary_key {:uuid, UUIDv7, autogenerate: true}
-```
-
-**Files:**
-
-| Module | Schemas |
-|--------|---------|
-| Posts | `post.ex`, `post_comment.ex`, `post_like.ex`, `post_dislike.ex`, `post_view.ex`, `post_mention.ex`, `post_media.ex`, `post_group.ex`, `post_tag.ex`, `comment_like.ex`, `comment_dislike.ex` |
-| Storage | `file.ex`, `file_instance.ex`, `file_location.ex`, `bucket.ex`, `dimension.ex` |
-| Tickets | `ticket.ex`, `ticket_comment.ex`, `ticket_attachment.ex`, `ticket_status_history.ex` |
-| Comments | `comment.ex`, `comment_like.ex`, `comment_dislike.ex` |
-| Connections | `block.ex`, `block_history.ex`, `connection.ex`, `connection_history.ex`, `follow.ex`, `follow_history.ex` |
-| Billing | `webhook_event.ex` |
+> **Completed in V72** (v1.7.54, 2026-03-03). Removed `source: :id` from 29 Category A
+> schemas (webhook_event.ex is Category B, scheduled_jobs already correct).
+> Only `webhook_event.ex` still has `source: :id` — will be updated when Category B drops `id` column.
 
 ---
 
@@ -216,8 +178,8 @@ end
 
 ### Constraint names in schemas
 
-> Handled by V72 pre-drop plan (index renames + schema constraint name updates).
-> By the time V73 ships, these will already be correct.
+> Handled by V73 pre-drop plan (index renames + schema constraint name updates).
+> By the time V74 ships, these will already be correct.
 
 ### Doctor task
 
@@ -227,7 +189,7 @@ end
 
 ## Part 4: Infrastructure
 
-- `lib/phoenix_kit/migrations/postgres.ex` — bump `@current_version` from 72 to 73
+- `lib/phoenix_kit/migrations/postgres.ex` — bump `@current_version` from 73 to 74
 
 ---
 
@@ -269,10 +231,10 @@ AND kcu.column_name != 'uuid';
 
 | Category | Count |
 |----------|-------|
-| New migration file (`v73.ex`) | ~400–600 lines |
+| New migration file (`v74.ex`) | ~400–600 lines |
 | Infrastructure (`postgres.ex`) | 1 line change |
-| Schema files (remove `source: :id`) | 30 files |
-| Schema files (update constraint names) | 0 (handled by V72) |
+| Schema files (remove `source: :id`) | ~~30~~ 1 file (webhook_event.ex only — 29 done in V72) |
+| Schema files (update constraint names) | 0 (handled by V73) |
 | Code files (raw SQL, oauth, doctor) | ~5 files |
 
 ---

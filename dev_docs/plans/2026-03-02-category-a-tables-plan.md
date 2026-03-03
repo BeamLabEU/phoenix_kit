@@ -1,8 +1,9 @@
 # Plan: Category A Tables — Rename `id` → `uuid` and verify integrity
 
-> **Status**: Implemented (V72)
+> **Status**: DONE — Verified on production
 > **Date**: 2026-03-02
-> **Verified against**: dev-nalazurke-fr after v1.7.53 (V71) on 2026-03-02
+> **Implemented**: v1.7.54 (V72), released 2026-03-03
+> **Verified on**: dev-nalazurke-fr after V72 migration on 2026-03-03
 
 ## What are Category A tables?
 
@@ -23,36 +24,36 @@ PK auto-updates on rename. 29 existing FK constraints pointing to these tables a
 
 | # | Table | FKs In | Missing FKs | Status |
 |---|-------|--------|-------------|--------|
-| 1 | `phoenix_kit_buckets` | 1 | — | ☐ |
-| 2 | `phoenix_kit_comment_dislikes` | 0 | — | ☐ |
-| 3 | `phoenix_kit_comment_likes` | 0 | — | ☐ |
-| 4 | `phoenix_kit_comments` | 3 | `user_uuid` → `users.uuid` | ☐ |
-| 5 | `phoenix_kit_comments_dislikes` | 0 | `user_uuid` → `users.uuid` | ☐ |
-| 6 | `phoenix_kit_comments_likes` | 0 | `user_uuid` → `users.uuid` | ☐ |
-| 7 | `phoenix_kit_file_instances` | 1 | — | ☐ |
-| 8 | `phoenix_kit_file_locations` | 0 | — | ☐ |
-| 9 | `phoenix_kit_files` | 6 | — | ☐ |
-| 10 | `phoenix_kit_post_comments` | 3 | — | ☐ |
-| 11 | `phoenix_kit_post_dislikes` | 0 | — | ☐ |
-| 12 | `phoenix_kit_post_groups` | 1 | — | ☐ |
-| 13 | `phoenix_kit_post_likes` | 0 | — | ☐ |
-| 14 | `phoenix_kit_post_media` | 0 | — | ☐ |
-| 15 | `phoenix_kit_post_mentions` | 0 | — | ☐ |
-| 16 | `phoenix_kit_post_tags` | 1 | — | ☐ |
-| 17 | `phoenix_kit_post_views` | 0 | — | ☐ |
-| 18 | `phoenix_kit_posts` | 8 | — | ☐ |
-| 19 | `phoenix_kit_scheduled_jobs` | 0 | `created_by_uuid` → `users.uuid` | ☐ |
-| 20 | `phoenix_kit_storage_dimensions` | 0 | — | ☐ |
-| 21 | `phoenix_kit_ticket_attachments` | 0 | — | ☐ |
-| 22 | `phoenix_kit_ticket_comments` | 2 | — | ☐ |
-| 23 | `phoenix_kit_ticket_status_history` | 0 | — | ☐ |
-| 24 | `phoenix_kit_tickets` | 3 | — | ☐ |
-| 25 | `phoenix_kit_user_blocks` | 0 | — | ☐ |
-| 26 | `phoenix_kit_user_blocks_history` | 0 | — | ☐ |
-| 27 | `phoenix_kit_user_connections` | 0 | — | ☐ |
-| 28 | `phoenix_kit_user_connections_history` | 0 | — | ☐ |
-| 29 | `phoenix_kit_user_follows` | 0 | — | ☐ |
-| 30 | `phoenix_kit_user_follows_history` | 0 | — | ☐ |
+| 1 | `phoenix_kit_buckets` | 1 | — | ✅ |
+| 2 | `phoenix_kit_comment_dislikes` | 0 | — | ✅ |
+| 3 | `phoenix_kit_comment_likes` | 0 | — | ✅ |
+| 4 | `phoenix_kit_comments` | 3 | `user_uuid` → `users.uuid` | ✅ |
+| 5 | `phoenix_kit_comments_dislikes` | 0 | `user_uuid` → `users.uuid` | ✅ |
+| 6 | `phoenix_kit_comments_likes` | 0 | `user_uuid` → `users.uuid` | ✅ |
+| 7 | `phoenix_kit_file_instances` | 1 | — | ✅ |
+| 8 | `phoenix_kit_file_locations` | 0 | — | ✅ |
+| 9 | `phoenix_kit_files` | 6 | — | ✅ |
+| 10 | `phoenix_kit_post_comments` | 3 | — | ✅ |
+| 11 | `phoenix_kit_post_dislikes` | 0 | — | ✅ |
+| 12 | `phoenix_kit_post_groups` | 1 | — | ✅ |
+| 13 | `phoenix_kit_post_likes` | 0 | — | ✅ |
+| 14 | `phoenix_kit_post_media` | 0 | — | ✅ |
+| 15 | `phoenix_kit_post_mentions` | 0 | — | ✅ |
+| 16 | `phoenix_kit_post_tags` | 1 | — | ✅ |
+| 17 | `phoenix_kit_post_views` | 0 | — | ✅ |
+| 18 | `phoenix_kit_posts` | 8 | — | ✅ |
+| 19 | `phoenix_kit_scheduled_jobs` | 0 | `created_by_uuid` → `users.uuid` | ✅ |
+| 20 | `phoenix_kit_storage_dimensions` | 0 | — | ✅ |
+| 21 | `phoenix_kit_ticket_attachments` | 0 | — | ✅ |
+| 22 | `phoenix_kit_ticket_comments` | 2 | — | ✅ |
+| 23 | `phoenix_kit_ticket_status_history` | 0 | — | ✅ |
+| 24 | `phoenix_kit_tickets` | 3 | — | ✅ |
+| 25 | `phoenix_kit_user_blocks` | 0 | — | ✅ |
+| 26 | `phoenix_kit_user_blocks_history` | 0 | — | ✅ |
+| 27 | `phoenix_kit_user_connections` | 0 | — | ✅ |
+| 28 | `phoenix_kit_user_connections_history` | 0 | — | ✅ |
+| 29 | `phoenix_kit_user_follows` | 0 | — | ✅ |
+| 30 | `phoenix_kit_user_follows_history` | 0 | — | ✅ |
 
 **Skipped FK**: `comments.resource_uuid` and `scheduled_jobs.resource_uuid` are polymorphic — intentionally no FK constraint.
 
@@ -100,7 +101,11 @@ PK auto-updates on rename. 29 existing FK constraints pointing to these tables a
 
 ---
 
-## Post-release verification
+## Post-release verification results (2026-03-03)
+
+- **Query 1** (no UUID `id` columns): 0 rows — all 30 tables renamed
+- **Query 2** (FK constraints missing): 0 rows — all 4 constraints created
+- **Migration version**: 72
 
 ```sql
 -- 1. No Category A tables should have 'id' column anymore
