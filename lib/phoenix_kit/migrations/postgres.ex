@@ -529,7 +529,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V70 - Re-backfill UUID FK columns silently skipped in V56/V63 ⚡ LATEST
+  ### V70 - Re-backfill UUID FK columns silently skipped in V56/V63
   - Fixes installs where `phoenix_kit_email_logs.uuid` was `character varying` instead
     of native `uuid` type, causing V56's backfill to fail or be silently skipped
   - Converts `phoenix_kit_email_logs.uuid` to native `uuid` type if needed
@@ -537,6 +537,21 @@ defmodule PhoenixKit.Migrations.Postgres do
     UUIDs written by the V56 NULL-fill fallback, then re-runs the proper JOIN backfill)
   - Re-backfills `matched_email_log_uuid` in `phoenix_kit_email_orphaned_events`
   - All operations idempotent — safe on every install
+
+  ### V72 - Rename `id` → `uuid` on 30 Category A tables
+  - Metadata-only column rename (instant, zero downtime)
+  - Add 4 missing FK constraints (comments, scheduled_jobs)
+
+  ### V73 - Pre-drop prerequisites for Category B tables
+  - SET NOT NULL on 7 uuid columns
+  - CREATE UNIQUE INDEX on 3 tables
+  - ALTER INDEX RENAME on 4 indexes
+
+  ### V74 - Drop integer columns, promote `uuid` to PK ⚡ LATEST
+  - Drop all FK constraints referencing integer `id` columns
+  - Drop ~95 integer FK columns across all tables
+  - Drop bigint `id` PK + promote `uuid` to PK on 47 Category B tables
+  - After V74, every PhoenixKit table uses `uuid` as its primary key
 
   ## Migration Paths
 
@@ -596,7 +611,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 73
+  @current_version 74
   @default_prefix "public"
 
   @doc false

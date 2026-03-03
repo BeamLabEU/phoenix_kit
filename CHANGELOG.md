@@ -1,3 +1,11 @@
+## 1.7.56 - 2026-03-03
+- Add V74 migration: drop integer `id`/`_id` columns, promote `uuid` to PK on all tables
+  - Drop all FK constraints referencing integer `id` columns (dynamic discovery)
+  - Drop ~95 integer FK columns across all tables (sourced from uuid_fk_columns.ex + extras)
+  - Drop bigint `id` PK + promote `uuid` to PK on 47 Category B tables
+  - After V74, every PhoenixKit table uses `uuid` as its primary key — no integer PKs remain
+- Remove `source: :id` from `webhook_event.ex` schema (DB column now matches field name)
+
 ## 1.7.55 - 2026-03-03
 - Fix scheduled_job.ex `source: :id` regression — PR #383 reintroduced mapping to dropped DB column
 - Add V73 migration: pre-drop prerequisites for Category B UUID migration
