@@ -131,6 +131,29 @@ defmodule PhoenixKit.RepoHelper do
   end
 
   @doc """
+  Returns the primary key column name for a given table.
+
+  Queries `pg_index` to find the actual PK column. Falls back to `"id"` if
+  the PK cannot be determined (e.g. table doesn't exist or has a composite PK).
+  """
+  def get_pk_column(table_name) when is_binary(table_name) do
+    sql = """
+    SELECT a.attname
+    FROM pg_index i
+    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+    WHERE i.indrelid = $1::regclass
+    AND i.indisprimary
+    """
+
+    case query(sql, [table_name]) do
+      {:ok, %{rows: [[col]]}} -> col
+      _ -> "id"
+    end
+  rescue
+    _ -> "id"
+  end
+
+  @doc """
   Delegates to the configured repo's transaction function.
   """
   def transaction(fun_or_multi, opts \\ []) do

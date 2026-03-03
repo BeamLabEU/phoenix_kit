@@ -1095,10 +1095,12 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   end
 
   defp insert_record(repo, table_name, record, conflict_strategy) when is_map(record) do
+    pk_col = PhoenixKit.RepoHelper.get_pk_column(table_name)
+
     # For append strategy, strip primary key to let DB auto-generate new ID
     record =
       if conflict_strategy == "append" do
-        Map.drop(record, ["id", :id])
+        Map.drop(record, [pk_col, String.to_atom(pk_col)])
       else
         record
       end
@@ -1115,11 +1117,20 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
 
     on_conflict =
       case conflict_strategy do
-        "skip" -> "ON CONFLICT DO NOTHING"
-        "overwrite" -> "ON CONFLICT (id) DO UPDATE SET #{build_update_clause(columns)}"
-        "merge" -> "ON CONFLICT DO NOTHING"
-        "append" -> ""
-        _ -> "ON CONFLICT DO NOTHING"
+        "skip" ->
+          "ON CONFLICT DO NOTHING"
+
+        "overwrite" ->
+          "ON CONFLICT (#{pk_col}) DO UPDATE SET #{build_update_clause(columns, pk_col)}"
+
+        "merge" ->
+          "ON CONFLICT DO NOTHING"
+
+        "append" ->
+          ""
+
+        _ ->
+          "ON CONFLICT DO NOTHING"
       end
 
     sql = "INSERT INTO #{table_name} (#{columns_str}) VALUES (#{placeholders}) #{on_conflict}"
@@ -1137,9 +1148,9 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
 
   defp insert_record(_repo, _table_name, _record, _strategy), do: :error
 
-  defp build_update_clause(columns) do
+  defp build_update_clause(columns, pk_col) do
     columns
-    |> Enum.reject(&(&1 == "id"))
+    |> Enum.reject(&(to_string(&1) == pk_col))
     |> Enum.map_join(", ", fn col -> "#{col} = EXCLUDED.#{col}" end)
   end
 

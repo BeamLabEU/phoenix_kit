@@ -1,3 +1,16 @@
+## 1.7.55 - 2026-03-03
+- Fix scheduled_job.ex `source: :id` regression — PR #383 reintroduced mapping to dropped DB column
+- Add V73 migration: pre-drop prerequisites for Category B UUID migration
+  - SET NOT NULL on 7 uuid columns (`ai_endpoints`, `ai_prompts`, `consent_logs`, `payment_methods`, `role_permissions`, `subscription_types`, `sync_connections`)
+  - CREATE UNIQUE INDEX on 3 tables (`consent_logs`, `payment_methods`, `subscription_types`)
+  - ALTER INDEX RENAME on 4 indexes to match renamed columns (`post_tag_assignments`, `post_group_assignments`, `post_media`, `file_instances`)
+- Add `RepoHelper.get_pk_column/1` — queries `pg_index` for PK column name, falls back to `"id"`
+- Fix DB explorer to use dynamic PK column in `fetch_row`, `table_preview`, and notify trigger
+- Fix Sync API controller to use dynamic PK column in `fetch_filtered_records` and `build_where_clause`
+- Fix Sync connection notifier to use dynamic PK column in `insert_record` and `build_update_clause`
+- Update 4 schema constraint names to match V72 column renames (`post_id` → `post_uuid`, `file_id` → `file_uuid`)
+- Remove dead `:user_id` from OAuth `replace_all_except` list
+
 ## 1.7.54 - 2026-03-03
 - Add V72 migration: rename PK column `id` → `uuid` on 30 Category A tables (metadata-only, instant)
 - Add 4 missing FK constraints: `comments.user_uuid`, `comments_dislikes.user_uuid`, `comments_likes.user_uuid`, `scheduled_jobs.created_by_uuid`

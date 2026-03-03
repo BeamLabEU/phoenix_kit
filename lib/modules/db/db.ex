@@ -220,7 +220,8 @@ defmodule PhoenixKit.Modules.DB do
     if is_nil(parsed_id) do
       {:error, :invalid_id}
     else
-      sql = "SELECT * FROM #{qualified} WHERE id = $1 LIMIT 1"
+      pk_col = RepoHelper.get_pk_column(qualified)
+      sql = "SELECT * FROM #{qualified} WHERE #{quote_ident(pk_col)} = $1 LIMIT 1"
 
       case RepoHelper.query(sql, [parsed_id]) do
         {:ok, %{columns: columns, rows: [row]}} ->
@@ -274,7 +275,14 @@ defmodule PhoenixKit.Modules.DB do
           _ -> 0
         end
 
-      order_column = if Enum.any?(columns, &(&1.name == "id")), do: "id", else: "ctid"
+      col_names = Enum.map(columns, & &1.name)
+
+      order_column =
+        cond do
+          "uuid" in col_names -> "uuid"
+          "id" in col_names -> "id"
+          true -> "ctid"
+        end
 
       select_sql = """
       SELECT * FROM #{qualified}
@@ -562,18 +570,26 @@ defmodule PhoenixKit.Modules.DB do
     DECLARE
       row_id TEXT;
     BEGIN
-      -- Try to get the row ID (works for tables with 'id' column)
+      -- Try uuid first (Category A tables), then id (Category B), then empty
       IF TG_OP = 'DELETE' THEN
         BEGIN
-          row_id := OLD.id::TEXT;
+          row_id := OLD.uuid::TEXT;
         EXCEPTION WHEN undefined_column THEN
-          row_id := '';
+          BEGIN
+            row_id := OLD.id::TEXT;
+          EXCEPTION WHEN undefined_column THEN
+            row_id := '';
+          END;
         END;
       ELSE
         BEGIN
-          row_id := NEW.id::TEXT;
+          row_id := NEW.uuid::TEXT;
         EXCEPTION WHEN undefined_column THEN
-          row_id := '';
+          BEGIN
+            row_id := NEW.id::TEXT;
+          EXCEPTION WHEN undefined_column THEN
+            row_id := '';
+          END;
         END;
       END IF;
 
