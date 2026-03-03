@@ -1,3 +1,8 @@
+## 1.7.54 - 2026-03-03
+- Add V72 migration: rename PK column `id` → `uuid` on 30 Category A tables (metadata-only, instant)
+- Add 4 missing FK constraints: `comments.user_uuid`, `comments_dislikes.user_uuid`, `comments_likes.user_uuid`, `scheduled_jobs.created_by_uuid`
+- Remove `source: :id` mapping from 29 Category A Ecto schemas — DB column now matches field name directly
+
 ## 1.7.53 - 2026-03-02
 - Add `mix phoenix_kit.doctor` diagnostic command — detects migration version vs `schema_migrations` discrepancies, stale COMMENT tags, and common DB issues
 - Add `update_mode` to `mix phoenix_kit.update` — skips heavy DB components (Oban, cache warmers, settings queries) and caps Ecto pool at 2 during migrations to prevent DB saturation

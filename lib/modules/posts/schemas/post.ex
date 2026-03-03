@@ -77,7 +77,7 @@ defmodule PhoenixKit.Modules.Posts.Post do
   import Ecto.Changeset
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{

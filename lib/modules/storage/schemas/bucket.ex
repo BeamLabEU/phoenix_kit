@@ -73,7 +73,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}
+  @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
   @type t :: %__MODULE__{
