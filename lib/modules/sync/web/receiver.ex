@@ -2014,9 +2014,10 @@ defmodule PhoenixKit.Modules.Sync.Web.Receiver do
 
   defp parse_int(_, default), do: default
 
-  # Get the ID from a record (assumes "id" key exists)
+  # Get the primary key from a record (prefers "uuid", falls back to "id")
   defp get_record_id(record) when is_map(record) do
-    Map.get(record, "id") || Map.get(record, :id)
+    Map.get(record, "uuid") || Map.get(record, :uuid) ||
+      Map.get(record, "id") || Map.get(record, :id)
   end
 
   defp get_record_id(_), do: nil

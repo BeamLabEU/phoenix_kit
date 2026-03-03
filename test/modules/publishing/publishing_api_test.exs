@@ -20,10 +20,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
       assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.DualWrite)
     end
 
-    test "DBImporter module is defined" do
-      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.DBImporter)
-    end
-
     test "ListingCache module is defined" do
       assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.ListingCache)
     end
@@ -52,8 +48,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
     end
 
     test "Worker modules are defined" do
-      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.Workers.MigrateToDatabaseWorker)
-
       assert Code.ensure_loaded?(
                PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
              )

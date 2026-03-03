@@ -93,9 +93,13 @@ defmodule PhoenixKit.Modules.Sync.Workers.ImportWorker do
   end
 
   defp extract_record_pk(record) do
-    case Map.get(record, "id") || Map.get(record, :id) do
+    pk =
+      Map.get(record, "uuid") || Map.get(record, :uuid) ||
+        Map.get(record, "id") || Map.get(record, :id)
+
+    case pk do
       nil -> ""
-      id -> " (id: #{id})"
+      value -> " (uuid: #{value})"
     end
   end
 

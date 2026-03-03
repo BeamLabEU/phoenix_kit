@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           success: boolean(),
           status: :registered | :pending | :failed | :skipped,
           message: String.t(),
-          remote_connection_id: integer() | nil,
+          remote_connection_uuid: String.t() | nil,
           http_status: integer() | nil,
           error: String.t() | nil
         }
@@ -75,7 +75,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
          success: true,
          status: :skipped,
          message: "Notification skipped for receiver connections",
-         remote_connection_id: nil,
+         remote_connection_uuid: nil,
          http_status: nil,
          error: nil
        }}
@@ -115,7 +115,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           success: false,
           status: :failed,
           message: "Failed to contact remote site",
-          remote_connection_id: nil,
+          remote_connection_uuid: nil,
           http_status: nil,
           error: format_error(reason)
         }
@@ -923,7 +923,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           success: true,
           status: status,
           message: data["message"] || "Connection registered",
-          remote_connection_id: data["connection_id"],
+          remote_connection_uuid: data["connection_uuid"] || data["connection_id"],
           http_status: 200,
           error: nil
         }
@@ -933,7 +933,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           success: false,
           status: :failed,
           message: data["error"] || "Remote site rejected connection",
-          remote_connection_id: nil,
+          remote_connection_uuid: nil,
           http_status: 200,
           error: data["error"]
         }
@@ -943,7 +943,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           success: false,
           status: :failed,
           message: "Invalid response from remote site",
-          remote_connection_id: nil,
+          remote_connection_uuid: nil,
           http_status: 200,
           error: "Invalid JSON response"
         }
@@ -957,7 +957,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       success: false,
       status: :failed,
       message: error_msg,
-      remote_connection_id: nil,
+      remote_connection_uuid: nil,
       http_status: 401,
       error: error_msg
     }
@@ -970,7 +970,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       success: false,
       status: :failed,
       message: error_msg,
-      remote_connection_id: nil,
+      remote_connection_uuid: nil,
       http_status: 403,
       error: error_msg
     }
@@ -983,7 +983,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       success: false,
       status: :failed,
       message: error_msg,
-      remote_connection_id: nil,
+      remote_connection_uuid: nil,
       http_status: 409,
       error: error_msg
     }
@@ -996,7 +996,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       success: false,
       status: :failed,
       message: error_msg,
-      remote_connection_id: nil,
+      remote_connection_uuid: nil,
       http_status: 503,
       error: error_msg
     }
@@ -1009,7 +1009,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       success: false,
       status: :failed,
       message: error_msg,
-      remote_connection_id: nil,
+      remote_connection_uuid: nil,
       http_status: status,
       error: error_msg
     }
@@ -1035,7 +1035,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   end
 
   defp update_connection_metadata(connection, result) do
-    # Only update metadata for actual database structs (have :id field)
+    # Only update metadata for actual database structs (have :uuid field)
     # Skip for temp maps passed before connection is saved
     case Map.get(connection, :uuid) do
       nil ->
@@ -1050,7 +1050,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           "notification_success" => result.success,
           "notification_status" => Atom.to_string(result.status),
           "notification_message" => result.message,
-          "remote_connection_id" => result.remote_connection_id,
+          "remote_connection_uuid" => result.remote_connection_uuid,
           "http_status" => result.http_status
         }
 

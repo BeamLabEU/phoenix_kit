@@ -51,32 +51,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSubTest do
   end
 
   # ============================================================================
-  # DB Import Broadcast Functions
-  # ============================================================================
-
-  describe "DB import broadcast functions" do
-    test "broadcast_db_import_started/2 is defined" do
-      assert function_exported?(PublishingPubSub, :broadcast_db_import_started, 2)
-    end
-
-    test "broadcast_db_import_completed/3 is defined" do
-      assert function_exported?(PublishingPubSub, :broadcast_db_import_completed, 3)
-    end
-
-    test "broadcast_db_migration_started/1 is defined" do
-      assert function_exported?(PublishingPubSub, :broadcast_db_migration_started, 1)
-    end
-
-    test "broadcast_db_migration_group_progress/3 is defined" do
-      assert function_exported?(PublishingPubSub, :broadcast_db_migration_group_progress, 3)
-    end
-
-    test "broadcast_db_migration_completed/1 is defined" do
-      assert function_exported?(PublishingPubSub, :broadcast_db_migration_completed, 1)
-    end
-  end
-
-  # ============================================================================
   # Form Key Generation
   # ============================================================================
 

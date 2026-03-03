@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
         success: true,
         message: result.message,
         connection_status: result.status,
-        connection_id: result.connection_id
+        connection_uuid: result.connection_uuid
       })
     else
       {:error, :module_disabled} ->
@@ -827,7 +827,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
          %{
            status: initial_status,
            message: "Connection registered and activated",
-           connection_id: connection.uuid
+           connection_uuid: connection.uuid
          }}
 
       {:error, changeset} ->

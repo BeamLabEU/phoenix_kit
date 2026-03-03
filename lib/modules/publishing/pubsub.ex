@@ -606,56 +606,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   end
 
   # ============================================================================
-  # DB Import Progress (synchronous DBImporter + async MigrateToDatabaseWorker)
-  # ============================================================================
-
-  @doc """
-  Broadcasts that a DB import has started for a specific group.
-  """
-  def broadcast_db_import_started(group_slug, source \\ :sync) do
-    Manager.broadcast(groups_topic(), {:db_import_started, group_slug, source})
-    Manager.broadcast(posts_topic(group_slug), {:db_import_started, group_slug, source})
-  end
-
-  @doc """
-  Broadcasts that a DB import has completed for a specific group.
-  Includes stats so listeners can show counts.
-  """
-  def broadcast_db_import_completed(group_slug, stats, source \\ :sync) do
-    Manager.broadcast(groups_topic(), {:db_import_completed, group_slug, stats, source})
-    Manager.broadcast(posts_topic(group_slug), {:db_import_completed, group_slug, stats, source})
-  end
-
-  @doc """
-  Broadcasts DB migration progress (from the async MigrateToDatabaseWorker).
-  """
-  def broadcast_db_migration_started(total_groups) do
-    Manager.broadcast(groups_topic(), {:db_migration_started, total_groups})
-  end
-
-  @doc """
-  Broadcasts per-group progress during async DB migration.
-  """
-  def broadcast_db_migration_group_progress(group_slug, posts_migrated, total_posts) do
-    Manager.broadcast(
-      groups_topic(),
-      {:db_migration_group_progress, group_slug, posts_migrated, total_posts}
-    )
-
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:db_migration_group_progress, group_slug, posts_migrated, total_posts}
-    )
-  end
-
-  @doc """
-  Broadcasts that async DB migration has completed for all groups.
-  """
-  def broadcast_db_migration_completed(stats) do
-    Manager.broadcast(groups_topic(), {:db_migration_completed, stats})
-  end
-
-  # ============================================================================
   # Primary Language Migration Progress
   # ============================================================================
 
