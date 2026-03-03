@@ -1,10 +1,10 @@
 # Plan: Drop integer `id` and `_id` columns from PhoenixKit database
 
-> **Status**: Planning (Category A done, Category B next)
+> **Status**: Planning (Category A done, V73 prerequisites done, Category B next)
 > **Date**: 2026-03-02
 > **Updated**: 2026-03-03
-> **Migration version**: V74 (requires V73 pre-drop prerequisites to be shipped first)
-> **Verified against**: dev-nalazurke-fr after v1.7.54 (V72) on 2026-03-03
+> **Migration version**: V74 (V73 pre-drop prerequisites shipped in v1.7.55)
+> **Verified against**: dev-nalazurke-fr after v1.7.55 (V73) on 2026-03-03
 
 ## Context
 
@@ -22,8 +22,8 @@ PhoenixKit migrated from integer IDs to UUIDs over several versions (V40–V56+)
 | Tables with UUID-type `id` PK, no `uuid` column (Category A) | 30 |
 | Tables already at target state — PK is `uuid`, no `id` col (Category C) | 4 |
 | Tables without PK (join tables) | 2 |
-| Nullable `uuid` columns (0 actual NULLs) | 7 |
-| Tables missing unique index on `uuid` | 3 |
+| Nullable `uuid` columns (0 actual NULLs) | ~~7~~ 0 (fixed by V73) |
+| Tables missing unique index on `uuid` | ~~3~~ 0 (fixed by V73) |
 | UUID-type `_id` FK columns with `_uuid` counterpart | 0 |
 
 ### Three table categories
@@ -65,10 +65,11 @@ Action: none needed (use composite unique indexes).
 
 File: `lib/phoenix_kit/migrations/postgres/v74.ex`
 
-### Step 1: Prerequisites (handled by V73 pre-drop plan)
+### Step 1: Prerequisites — DONE (V73, v1.7.55)
 
 > NOT NULL on 7 uuid columns, unique indexes on 3 tables, and index renames are all
-> handled by V73 (pre-drop plan). V74 assumes V73 has already run.
+> handled by V73 (v1.7.55, released 2026-03-03). Verified on dev-nalazurke-fr.
+> V74 assumes V73 has already run.
 
 ### Step 2: Drop all FK constraints referencing `id`
 
@@ -146,42 +147,28 @@ After V74, ALL PhoenixKit tables have `uuid` as the PK column name.
 
 ---
 
-## Part 3: Code Updates
+## Part 3: Code Updates — MOSTLY DONE (V73, v1.7.55)
 
-### Raw SQL in sync/db modules
+### Raw SQL in sync/db modules — DONE
 
-The sync module and DB explorer use `ORDER BY id` and `WHERE id = ...` for generic table access (any table, not just PhoenixKit). Fix by detecting PK column dynamically.
+Dynamic PK detection shipped in v1.7.55. `RepoHelper.get_pk_column/1` queries `pg_index`
+for the actual PK column name, falls back to `"id"`.
 
-**Files:**
-- `lib/modules/db/db.ex:223` — `WHERE id = $1`
-- `lib/modules/sync/web/api_controller.ex:1143,1166-1181` — `ORDER BY id`, `WHERE id`
+**Files updated:**
+- `lib/phoenix_kit/repo_helper.ex` — new `get_pk_column/1` helper
+- `lib/modules/db/db.ex` — `fetch_row`, `table_preview`, `ensure_notify_function`
+- `lib/modules/sync/web/api_controller.ex` — `fetch_filtered_records`, `build_where_clause`
+- `lib/modules/sync/connection_notifier.ex` — `insert_record`, `build_update_clause`
 
-**Helper function:**
+### Conflict targets in upserts — DONE
 
-```elixir
-defp get_pk_column(repo, table_name) do
-  sql = """
-  SELECT a.attname FROM pg_index i
-  JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-  WHERE i.indrelid = $1::regclass AND i.indisprimary
-  """
-  case repo.query(sql, [table_name]) do
-    {:ok, %{rows: [[col]]}} -> col
-    _ -> "id"  # fallback for non-PhoenixKit tables
-  end
-end
-```
+- `lib/phoenix_kit/users/oauth.ex:107` — removed dead `:user_id` from `replace_all_except`
 
-### Conflict targets in upserts
+### Constraint names in schemas — DONE
 
-- `lib/phoenix_kit/users/oauth.ex:107` — `{:replace_all_except, [:uuid, :user_id, ...]}` → remove `:user_id`
+Index renames (V73 migration) + schema constraint name updates shipped in v1.7.55.
 
-### Constraint names in schemas
-
-> Handled by V73 pre-drop plan (index renames + schema constraint name updates).
-> By the time V74 ships, these will already be correct.
-
-### Doctor task
+### Doctor task — TODO
 
 - `lib/mix/tasks/phoenix_kit.doctor.ex` — update diagnostics to expect `uuid` PK instead of `id`
 
@@ -190,6 +177,8 @@ end
 ## Part 4: Infrastructure
 
 - `lib/phoenix_kit/migrations/postgres.ex` — bump `@current_version` from 73 to 74
+- `mix.exs` — bump version to 1.7.56
+- `CHANGELOG.md` — add 1.7.56 entry
 
 ---
 
@@ -233,9 +222,10 @@ AND kcu.column_name != 'uuid';
 |----------|-------|
 | New migration file (`v74.ex`) | ~400–600 lines |
 | Infrastructure (`postgres.ex`) | 1 line change |
-| Schema files (remove `source: :id`) | ~~30~~ 1 file (webhook_event.ex only — 29 done in V72) |
-| Schema files (update constraint names) | 0 (handled by V73) |
-| Code files (raw SQL, oauth, doctor) | ~5 files |
+| Schema files (remove `source: :id`) | 1 file (webhook_event.ex only — 29 done in V72) |
+| Schema files (update constraint names) | 0 (done in V73) |
+| Code files (raw SQL, oauth) | 0 (done in V73) |
+| Code files (doctor task) | 1 file |
 
 ---
 

@@ -97,6 +97,7 @@ PK auto-updates on rename. 29 existing FK constraints pointing to these tables a
 **Notes:**
 - `webhook_event.ex` is Category B (BIGINT PK, not UUID) — excluded from this plan
 - `scheduled_jobs` schema already has `@primary_key {:uuid, UUIDv7, autogenerate: true}` (no `source: :id`) — only needs DB column rename
+  - **Update**: PR #383 reintroduced `source: :id` on this schema. Fixed in v1.7.55 (V73).
 - Total schema changes: 29 (not 30)
 
 ---

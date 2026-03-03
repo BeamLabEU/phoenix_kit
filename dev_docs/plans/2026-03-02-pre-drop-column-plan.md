@@ -1,10 +1,10 @@
-# Plan: V72 Preparation Release — Fix hardcoded `id` references and DB prerequisites
+# Plan: V73 Preparation Release — Fix hardcoded `id` references and DB prerequisites
 
-> **Status**: Planning (next up after Category A)
+> **Status**: DONE — Verified on production
 > **Date**: 2026-03-02
 > **Updated**: 2026-03-03
-> **Migration version**: V73 (V72 used by Category A rename)
-> **Verified against**: dev-nalazurke-fr after v1.7.54 (V72) on 2026-03-03
+> **Implemented**: v1.7.55 (V73), released 2026-03-03
+> **Verified on**: dev-nalazurke-fr after V73 migration on 2026-03-03
 
 ## Context
 
@@ -152,12 +152,13 @@ Update hardcoded index names to match the renamed indexes from Part 1 Step 3:
 
 ---
 
-## Files to modify
+## Files modified
 
 | File | Changes |
 |------|---------|
 | `lib/phoenix_kit/migrations/postgres/v73.ex` | **New** — SET NOT NULL, unique indexes, index renames |
 | `lib/phoenix_kit/migrations/postgres.ex` | Bump `@current_version` 72 → 73 |
+| `lib/phoenix_kit/repo_helper.ex` | **New function** `get_pk_column/1` — queries `pg_index`, falls back to `"id"` |
 | `lib/modules/db/db.ex` | Dynamic PK in `fetch_row`, `table_preview`, `ensure_notify_function` |
 | `lib/modules/sync/web/api_controller.ex` | Dynamic PK in `fetch_filtered_records`, `build_where_clause` |
 | `lib/modules/sync/connection_notifier.ex` | Dynamic PK in `insert_record`, `build_update_clause` |
@@ -166,3 +167,19 @@ Update hardcoded index names to match the renamed indexes from Part 1 Step 3:
 | `lib/modules/posts/schemas/post_media.ex` | Update constraint name |
 | `lib/modules/storage/schemas/file_instance.ex` | Update constraint name |
 | `lib/phoenix_kit/users/oauth.ex` | Remove `:user_id` from replace_all_except |
+| `lib/phoenix_kit/scheduled_jobs/scheduled_job.ex` | Bug fix: remove `source: :id` regression from PR #383 |
+| `mix.exs` | Bump version 1.7.54 → 1.7.55 |
+| `CHANGELOG.md` | Add 1.7.55 entry |
+
+---
+
+## Post-release verification results (2026-03-03)
+
+All verified on dev-nalazurke-fr after V73 migration:
+
+- **Migration version**: 73
+- **7 NOT NULL constraints**: All 7 tables show `is_nullable = 'NO'` for `uuid` column
+- **3 unique indexes**: All 3 created (`consent_logs`, `payment_methods`, `subscription_types`)
+- **4 index renames**: All 4 renamed, old `_id_` names no longer exist
+- **scheduled_jobs PK**: `uuid` (not `id`) — `source: :id` bug fix confirmed working
+- **Compilation**: Clean with `--warnings-as-errors`
