@@ -1,3 +1,7 @@
+## 1.7.57 - 2026-03-03
+- Fix V74 migration: skip tables without bigint `id` (e.g. publishing tables created with UUID PKs)
+- Fix V74: use `DROP COLUMN id CASCADE` to handle dependent FK constraints in one statement
+
 ## 1.7.56 - 2026-03-03
 - Add V74 migration: drop integer `id`/`_id` columns, promote `uuid` to PK on all tables
   - Drop all FK constraints referencing integer `id` columns (dynamic discovery)
