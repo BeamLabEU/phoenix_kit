@@ -1,3 +1,15 @@
+## 1.7.60 - 2026-03-03
+- Remove legacy FS→DB migration modules: `DBImporter`, `MigrateToDatabaseWorker`, `ValidateMigrationWorker`
+- Remove `JsIntegration` install/update module (JS setup is now manual)
+- Remove all "Import to DB" / "Migrate to Database" UI buttons from publishing pages
+- Remove DB import/migration PubSub broadcast functions and LiveView handlers
+- Simplify publishing listing: drop `fs_post_count`, `needs_import`, `db_import_in_progress` assigns
+- Move post title field into the editor content column with larger styling
+- Simplify editor save button logic (always clickable unless readonly/autosaving)
+- Add `enrich_with_db_uuids/2` to ListingCache for UUID-based admin links in filesystem mode
+- Refine Sync module: migrate `connection_id` references to `connection_uuid`
+- Update publishing README to reflect DB-only storage model
+
 ## 1.7.59 - 2026-03-03
 - Fix V75: use CASCADE when dropping `phoenix_kit_id_seq` (meta table `phoenix_kit.id` DEFAULT depends on it)
 
