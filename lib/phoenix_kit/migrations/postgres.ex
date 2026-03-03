@@ -547,11 +547,16 @@ defmodule PhoenixKit.Migrations.Postgres do
   - CREATE UNIQUE INDEX on 3 tables
   - ALTER INDEX RENAME on 4 indexes
 
-  ### V74 - Drop integer columns, promote `uuid` to PK ⚡ LATEST
+  ### V74 - Drop integer columns, promote `uuid` to PK
   - Drop all FK constraints referencing integer `id` columns
   - Drop ~95 integer FK columns across all tables
   - Drop bigint `id` PK + promote `uuid` to PK on 47 Category B tables
   - After V74, every PhoenixKit table uses `uuid` as its primary key
+
+  ### V75 - Fix uuid column defaults, cleanup ⚡ LATEST
+  - Set DEFAULT uuid_generate_v7() on 27 tables missing it (Category A)
+  - Fix 4 tables using gen_random_uuid() → uuid_generate_v7()
+  - Drop orphaned phoenix_kit_id_seq sequence
 
   ## Migration Paths
 
@@ -611,7 +616,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 74
+  @current_version 75
   @default_prefix "public"
 
   @doc false

@@ -1,3 +1,9 @@
+## 1.7.58 - 2026-03-03
+- Add V75 migration: fix uuid column defaults and cleanup
+  - Set `DEFAULT uuid_generate_v7()` on 27 tables missing it (Category A tables — V72 rename dropped old sequence DEFAULT)
+  - Fix 4 tables using `gen_random_uuid()` (UUIDv4) → `uuid_generate_v7()` (UUIDv7)
+  - Drop orphaned `phoenix_kit_id_seq` sequence
+
 ## 1.7.57 - 2026-03-03
 - Fix V74 migration: skip tables without bigint `id` (e.g. publishing tables created with UUID PKs)
 - Fix V74: use `DROP COLUMN id CASCADE` to handle dependent FK constraints in one statement
