@@ -231,20 +231,22 @@
                       <button
                         phx-click="edit_template"
                         phx-value-uuid={template.uuid}
-                        class="btn btn-xs btn-outline btn-primary"
-                        title="Edit Template"
+                        class="btn btn-xs btn-outline btn-primary tooltip tooltip-bottom"
+                        data-tip={gettext("Edit Template")}
                       >
-                        <.icon name="hero-pencil" class="w-3 h-3" />
+                        <.icon name="hero-pencil" class="w-3 h-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                       </button>
 
                       <%!-- Clone Button --%>
                       <button
                         phx-click="show_clone_modal"
                         phx-value-uuid={template.uuid}
-                        class="btn btn-xs btn-outline"
-                        title="Clone Template"
+                        class="btn btn-xs btn-outline tooltip tooltip-bottom"
+                        data-tip={gettext("Clone Template")}
                       >
-                        <.icon name="hero-document-duplicate" class="w-3 h-3" />
+                        <.icon name="hero-document-duplicate" class="w-3 h-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Clone")}</span>
                       </button>
 
                       <%!-- Archive/Activate Button (not for system templates) --%>
@@ -253,19 +255,21 @@
                           <button
                             phx-click="archive_template"
                             phx-value-uuid={template.uuid}
-                            class="btn btn-xs btn-outline"
-                            title="Archive Template"
+                            class="btn btn-xs btn-outline tooltip tooltip-bottom"
+                            data-tip={gettext("Archive Template")}
                           >
-                            <.icon name="hero-archive-box" class="w-3 h-3" />
+                            <.icon name="hero-archive-box" class="w-3 h-3 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Archive")}</span>
                           </button>
                         <% else %>
                           <button
                             phx-click="activate_template"
                             phx-value-uuid={template.uuid}
-                            class="btn btn-xs btn-outline btn-success"
-                            title="Activate Template"
+                            class="btn btn-xs btn-outline btn-success tooltip tooltip-bottom"
+                            data-tip={gettext("Activate Template")}
                           >
-                            <.icon name="hero-check-circle" class="w-3 h-3" />
+                            <.icon name="hero-check-circle" class="w-3 h-3 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Activate")}</span>
                           </button>
                         <% end %>
 
@@ -274,10 +278,11 @@
                           phx-click="request_delete"
                           phx-value-uuid={template.uuid}
                           phx-value-name={template.name}
-                          class="btn btn-xs btn-outline text-error hover:btn-error"
-                          title="Delete Template"
+                          class="btn btn-xs btn-outline text-error hover:btn-error tooltip tooltip-bottom"
+                          data-tip={gettext("Delete Template")}
                         >
-                          <.icon name="hero-trash" class="w-3 h-3" />
+                          <.icon name="hero-trash" class="w-3 h-3 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                         </button>
                       <% end %>
                     </div>

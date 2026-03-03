@@ -1198,20 +1198,22 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           type="button"
           phx-click="start_sync"
           phx-value-uuid={@connection.uuid}
-          class="btn btn-primary btn-xs"
-          title="Sync data"
+          class="btn btn-primary btn-xs tooltip tooltip-bottom"
+          data-tip={gettext("Sync data")}
         >
-          <.icon name="hero-arrow-path" class="w-4 h-4" />
+          <.icon name="hero-arrow-path" class="w-4 h-4 hidden sm:inline" />
+          <span class="sm:hidden whitespace-nowrap">{gettext("Sync data")}</span>
         </button>
       <% end %>
       <button
         type="button"
         phx-click="show_connection"
         phx-value-uuid={@connection.uuid}
-        class="btn btn-ghost btn-xs"
-        title="View details"
+        class="btn btn-ghost btn-xs tooltip tooltip-bottom"
+        data-tip={gettext("View details")}
       >
-        <.icon name="hero-eye" class="w-4 h-4" />
+        <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
+        <span class="sm:hidden whitespace-nowrap">{gettext("View details")}</span>
       </button>
       <%!-- Edit button only for senders (receivers get info from sender) --%>
       <%= if @connection.direction == "sender" do %>
@@ -1219,10 +1221,11 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           type="button"
           phx-click="edit_connection"
           phx-value-uuid={@connection.uuid}
-          class="btn btn-ghost btn-xs"
-          title="Edit"
+          class="btn btn-ghost btn-xs tooltip tooltip-bottom"
+          data-tip={gettext("Edit")}
         >
-          <.icon name="hero-pencil" class="w-4 h-4" />
+          <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+          <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
         </button>
       <% end %>
       <%!-- Delete/Sever connection button --%>
@@ -1230,13 +1233,22 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         type="button"
         phx-click="delete_connection"
         phx-value-uuid={@connection.uuid}
-        class="btn btn-error btn-xs"
-        title={
-          if @connection.direction == "receiver", do: "Sever connection", else: "Delete connection"
+        class="btn btn-error btn-xs tooltip tooltip-bottom"
+        data-tip={
+          if @connection.direction == "receiver",
+            do: gettext("Sever connection"),
+            else: gettext("Delete connection")
         }
         data-confirm="Are you sure you want to delete this connection? You will need to set it up again."
       >
-        <.icon name="hero-trash" class="w-4 h-4" />
+        <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+        <span class="sm:hidden whitespace-nowrap">
+          <%= if @connection.direction == "receiver" do %>
+            {gettext("Sever connection")}
+          <% else %>
+            {gettext("Delete connection")}
+          <% end %>
+        </span>
       </button>
       <%!-- Status controls only for sender connections (receivers sync from sender) --%>
       <%= if @connection.direction == "sender" do %>
@@ -1245,10 +1257,11 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             type="button"
             phx-click="suspend_connection"
             phx-value-uuid={@connection.uuid}
-            class="btn btn-warning btn-xs"
-            title="Suspend"
+            class="btn btn-warning btn-xs tooltip tooltip-bottom"
+            data-tip={gettext("Suspend")}
           >
-            <.icon name="hero-pause" class="w-4 h-4" />
+            <.icon name="hero-pause" class="w-4 h-4 hidden sm:inline" />
+            <span class="sm:hidden whitespace-nowrap">{gettext("Suspend")}</span>
           </button>
         <% end %>
         <%= if @connection.status == "suspended" do %>
@@ -1256,10 +1269,11 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             type="button"
             phx-click="reactivate_connection"
             phx-value-uuid={@connection.uuid}
-            class="btn btn-info btn-xs"
-            title="Reactivate"
+            class="btn btn-info btn-xs tooltip tooltip-bottom"
+            data-tip={gettext("Reactivate")}
           >
-            <.icon name="hero-play" class="w-4 h-4" />
+            <.icon name="hero-play" class="w-4 h-4 hidden sm:inline" />
+            <span class="sm:hidden whitespace-nowrap">{gettext("Reactivate")}</span>
           </button>
         <% end %>
       <% end %>

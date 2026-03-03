@@ -95,7 +95,7 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
             <% end %>
           </div>
         </div>
-        <div :if={@actions != []} class="flex items-center gap-2 sm:flex-shrink-0">
+        <div :if={@actions != []} class="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           {render_slot(@actions)}
         </div>
       </div>

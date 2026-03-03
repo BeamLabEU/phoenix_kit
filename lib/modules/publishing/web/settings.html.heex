@@ -402,20 +402,26 @@
                                 type="button"
                                 phx-click="invalidate_cache"
                                 phx-value-slug={group["slug"]}
-                                class="btn btn-ghost btn-xs text-error"
-                                title={gettext("Clear cache")}
+                                class="btn btn-outline btn-xs text-error tooltip tooltip-bottom"
+                                data-tip={gettext("Clear cache")}
                               >
-                                <.icon name="hero-trash" class="w-4 h-4" />
+                                <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Clear cache")}
+                                </span>
                               </button>
                             <% end %>
                             <button
                               type="button"
                               phx-click="regenerate_cache"
                               phx-value-slug={group["slug"]}
-                              class="btn btn-ghost btn-xs"
-                              title={gettext("Regenerate cache")}
+                              class="btn btn-outline btn-xs tooltip tooltip-bottom"
+                              data-tip={gettext("Regenerate cache")}
                             >
-                              <.icon name="hero-arrow-path" class="w-4 h-4" />
+                              <.icon name="hero-arrow-path" class="w-4 h-4 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">
+                                {gettext("Regenerate cache")}
+                              </span>
                             </button>
                           </div>
                         </td>
@@ -561,10 +567,13 @@
                               type="button"
                               phx-click="clear_group_render_cache"
                               phx-value-slug={slug}
-                              class="btn btn-ghost btn-xs text-error"
-                              title={gettext("Clear cache for this group")}
+                              class="btn btn-outline btn-xs text-error tooltip tooltip-bottom"
+                              data-tip={gettext("Clear cache for this group")}
                             >
-                              <.icon name="hero-trash" class="w-4 h-4" />
+                              <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">
+                                {gettext("Clear cache for this group")}
+                              </span>
                             </button>
                           <% end %>
                         </td>

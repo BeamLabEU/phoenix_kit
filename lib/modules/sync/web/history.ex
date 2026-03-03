@@ -363,18 +363,25 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
                             type="button"
                             phx-click="show_approval_modal"
                             phx-value-uuid={transfer.uuid}
-                            class="btn btn-primary btn-xs"
+                            class="btn btn-primary btn-xs tooltip tooltip-bottom"
+                            data-tip={gettext("Review")}
                           >
-                            Review
+                            <.icon
+                              name="hero-clipboard-document-check"
+                              class="h-4 w-4 hidden sm:inline"
+                            />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Review")}</span>
                           </button>
                         <% else %>
                           <button
                             type="button"
                             phx-click="show_approval_modal"
                             phx-value-uuid={transfer.uuid}
-                            class="btn btn-ghost btn-xs"
+                            class="btn btn-ghost btn-xs tooltip tooltip-bottom"
+                            data-tip={gettext("Details")}
                           >
-                            Details
+                            <.icon name="hero-eye" class="h-4 w-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Details")}</span>
                           </button>
                         <% end %>
                       </td>

@@ -1055,30 +1055,35 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                           <div class="flex gap-1">
                             <.link
                               navigate={Routes.path("/admin/shop/imports/#{import.uuid}")}
-                              class="btn btn-xs btn-ghost"
-                              title="View Details"
+                              class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                              data-tip={gettext("View Details")}
                             >
-                              <.icon name="hero-eye" class="w-4 h-4" />
+                              <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">
+                                {gettext("View Details")}
+                              </span>
                             </.link>
                             <%= if import.status == "failed" do %>
                               <button
                                 phx-click="retry_import"
                                 phx-value-id={import.uuid}
-                                class="btn btn-xs btn-ghost text-warning"
-                                title="Retry"
+                                class="btn btn-xs btn-outline btn-warning tooltip tooltip-bottom"
+                                data-tip={gettext("Retry")}
                               >
-                                <.icon name="hero-arrow-path" class="w-4 h-4" />
+                                <.icon name="hero-arrow-path" class="w-4 h-4 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">{gettext("Retry")}</span>
                               </button>
                             <% end %>
                             <%= if import.status in ["completed", "failed"] do %>
                               <button
                                 phx-click="delete_import"
                                 phx-value-id={import.uuid}
-                                class="btn btn-xs btn-ghost text-error"
-                                title="Delete"
+                                class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                                data-tip={gettext("Delete")}
                                 data-confirm="Are you sure you want to delete this import log?"
                               >
-                                <.icon name="hero-trash" class="w-4 h-4" />
+                                <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                               </button>
                             <% end %>
                           </div>

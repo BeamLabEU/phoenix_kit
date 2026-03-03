@@ -183,30 +183,33 @@
                           <button
                             phx-click="approve"
                             phx-value-uuid={comment.uuid}
-                            class="btn btn-ghost btn-xs text-success"
-                            title="Approve"
+                            class="btn btn-xs btn-outline btn-success tooltip tooltip-bottom"
+                            data-tip={gettext("Approve")}
                           >
-                            <.icon name="hero-check" class="w-4 h-4" />
+                            <.icon name="hero-check" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Approve")}</span>
                           </button>
                         <% end %>
                         <%= if comment.status != "hidden" do %>
                           <button
                             phx-click="hide"
                             phx-value-uuid={comment.uuid}
-                            class="btn btn-ghost btn-xs text-warning"
-                            title="Hide"
+                            class="btn btn-xs btn-outline btn-warning tooltip tooltip-bottom"
+                            data-tip={gettext("Hide")}
                           >
-                            <.icon name="hero-eye-slash" class="w-4 h-4" />
+                            <.icon name="hero-eye-slash" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Hide")}</span>
                           </button>
                         <% end %>
                         <button
                           phx-click="delete"
                           phx-value-uuid={comment.uuid}
-                          class="btn btn-ghost btn-xs text-error"
-                          title="Delete"
+                          class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                          data-tip={gettext("Delete")}
                           data-confirm="Delete this comment?"
                         >
-                          <.icon name="hero-trash" class="w-4 h-4" />
+                          <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                         </button>
                       </div>
                     </td>

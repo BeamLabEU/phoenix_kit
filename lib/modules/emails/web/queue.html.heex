@@ -240,9 +240,11 @@
                       <button
                         phx-click="retry_email"
                         phx-value-email_uuid={email.uuid}
-                        class="btn btn-xs btn-outline btn-success"
+                        class="btn btn-xs btn-outline btn-success tooltip tooltip-bottom"
+                        data-tip={gettext("Retry")}
                       >
-                        <.icon name="hero-arrow-path" class="w-3 h-3" /> Retry
+                        <.icon name="hero-arrow-path" class="w-3 h-3 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Retry")}</span>
                       </button>
                     </.table_default_cell>
                   </.table_default_row>

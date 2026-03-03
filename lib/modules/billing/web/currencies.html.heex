@@ -134,9 +134,13 @@
                           <button
                             phx-click="set_default"
                             phx-value-uuid={currency.uuid}
-                            class="btn btn-ghost btn-xs"
+                            class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                            data-tip={gettext("Set Default")}
                           >
-                            Set Default
+                            <.icon name="hero-star" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">
+                              {gettext("Set Default")}
+                            </span>
                           </button>
                         <% end %>
                       </td>
@@ -145,20 +149,22 @@
                           <button
                             phx-click="show_edit_form"
                             phx-value-uuid={currency.uuid}
-                            class="btn btn-xs btn-ghost"
-                            title="Edit currency"
+                            class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                            data-tip={gettext("Edit")}
                           >
-                            <.icon name="hero-pencil" class="w-4 h-4" />
+                            <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                            <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
                           </button>
                           <%= unless currency.is_default do %>
                             <button
                               phx-click="delete_currency"
                               phx-value-uuid={currency.uuid}
                               data-confirm={"Delete #{currency.code}? This cannot be undone."}
-                              class="btn btn-xs btn-ghost text-error"
-                              title="Delete currency"
+                              class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
+                              data-tip={gettext("Delete")}
                             >
-                              <.icon name="hero-trash" class="w-4 h-4" />
+                              <.icon name="hero-trash" class="w-4 h-4 hidden sm:inline" />
+                              <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
                             </button>
                           <% end %>
                         </div>

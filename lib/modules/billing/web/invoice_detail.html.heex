@@ -334,19 +334,28 @@
                                     "/admin/billing/invoices/#{@invoice.uuid}/credit-note/#{transaction.uuid}"
                                   )
                                 }
-                                class="btn btn-warning btn-xs"
+                                class="btn btn-warning btn-xs tooltip tooltip-bottom"
                                 target="_blank"
-                                title="Print Credit Note"
+                                data-tip={gettext("Print Credit Note")}
                               >
-                                <.icon name="hero-printer" class="w-3 h-3" />
+                                <.icon name="hero-printer" class="w-3 h-3 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Print Credit Note")}
+                                </span>
                               </.link>
                               <button
                                 phx-click="open_send_credit_note_modal"
                                 phx-value-transaction-uuid={transaction.uuid}
-                                class="btn btn-warning btn-outline btn-xs"
-                                title="Send Credit Note"
+                                class="btn btn-warning btn-outline btn-xs tooltip tooltip-bottom"
+                                data-tip={gettext("Send Credit Note")}
                               >
-                                <.icon name="hero-paper-airplane" class="w-3 h-3" />
+                                <.icon
+                                  name="hero-paper-airplane"
+                                  class="w-3 h-3 hidden sm:inline"
+                                />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Send Credit Note")}
+                                </span>
                               </button>
                             <% else %>
                               <%!-- Payment: Payment Confirmation buttons --%>
@@ -356,19 +365,28 @@
                                     "/admin/billing/invoices/#{@invoice.uuid}/payment/#{transaction.uuid}"
                                   )
                                 }
-                                class="btn btn-success btn-xs"
+                                class="btn btn-success btn-xs tooltip tooltip-bottom"
                                 target="_blank"
-                                title="Print Payment Confirmation"
+                                data-tip={gettext("Print Payment Confirmation")}
                               >
-                                <.icon name="hero-printer" class="w-3 h-3" />
+                                <.icon name="hero-printer" class="w-3 h-3 hidden sm:inline" />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Print Payment Confirmation")}
+                                </span>
                               </.link>
                               <button
                                 phx-click="open_send_payment_confirmation_modal"
                                 phx-value-transaction-uuid={transaction.uuid}
-                                class="btn btn-success btn-outline btn-xs"
-                                title="Send Payment Confirmation"
+                                class="btn btn-success btn-outline btn-xs tooltip tooltip-bottom"
+                                data-tip={gettext("Send Payment Confirmation")}
                               >
-                                <.icon name="hero-paper-airplane" class="w-3 h-3" />
+                                <.icon
+                                  name="hero-paper-airplane"
+                                  class="w-3 h-3 hidden sm:inline"
+                                />
+                                <span class="sm:hidden whitespace-nowrap">
+                                  {gettext("Send Payment Confirmation")}
+                                </span>
                               </button>
                             <% end %>
                           </div>

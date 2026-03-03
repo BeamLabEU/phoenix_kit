@@ -169,9 +169,13 @@
                               "/admin/billing/invoices/#{transaction.invoice_uuid}"
                             )
                           }
-                          class="btn btn-ghost btn-xs"
+                          class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                          data-tip={gettext("View Invoice")}
                         >
-                          <.icon name="hero-eye" class="w-4 h-4" />
+                          <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
+                          <span class="sm:hidden whitespace-nowrap">
+                            {gettext("View Invoice")}
+                          </span>
                         </.link>
                       </td>
                     </tr>

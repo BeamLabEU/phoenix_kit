@@ -170,19 +170,21 @@
                     <div class="flex items-center gap-1">
                       <.link
                         navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.uuid}")}
-                        class="btn btn-ghost btn-xs"
-                        title="View details"
+                        class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                        data-tip={gettext("View details")}
                       >
-                        <.icon name="hero-eye" class="w-4 h-4" />
+                        <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("View details")}</span>
                       </.link>
                       <.link
                         navigate={
                           PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.uuid}/edit")
                         }
-                        class="btn btn-ghost btn-xs"
-                        title="Edit ticket"
+                        class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                        data-tip={gettext("Edit ticket")}
                       >
-                        <.icon name="hero-pencil" class="w-4 h-4" />
+                        <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+                        <span class="sm:hidden whitespace-nowrap">{gettext("Edit ticket")}</span>
                       </.link>
                     </div>
                   </.table_default_cell>
