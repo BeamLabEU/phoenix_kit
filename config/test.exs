@@ -42,3 +42,7 @@ config :phoenix_kit,
 
 # Configure logger for tests
 config :logger, level: :warning
+
+# Suppress esbuild/tailwind warnings in tests (library doesn't include these apps)
+config :esbuild, :version, nil
+config :tailwind, :version, nil

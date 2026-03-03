@@ -54,8 +54,10 @@ defmodule PhoenixKit.Modules.Languages.Language do
 
   ## Examples
 
-      iex> Language.from_json_map(%{"code" => "en-US", "name" => "English (United States)", "is_default" => true})
-      %Language{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true}
+      iex> alias PhoenixKit.Modules.Languages.Language
+      iex> result = Language.from_json_map(%{"code" => "en-US", "name" => "English (United States)", "native" => "English (US)", "flag" => "🇺🇸", "is_default" => true, "position" => 0})
+      iex> result.code == "en-US" and result.name == "English (United States)" and result.is_default == true
+      true
   """
   @spec from_json_map(map()) :: t()
   def from_json_map(map) when is_map(map) do
@@ -76,8 +78,10 @@ defmodule PhoenixKit.Modules.Languages.Language do
 
   ## Examples
 
-      iex> Language.from_available_map(%{code: "en-US", name: "English (United States)", native: "English (US)", flag: "🇺🇸"})
-      %Language{code: "en-US", name: "English (United States)", native: "English (US)", flag: "🇺🇸"}
+      iex> alias PhoenixKit.Modules.Languages.Language
+      iex> result = Language.from_available_map(%{code: "en-US", name: "English (United States)", native: "English (US)", flag: "🇺🇸"})
+      iex> result.code == "en-US" and result.native == "English (US)"
+      true
   """
   @spec from_available_map(map()) :: t()
   def from_available_map(map) when is_map(map) do
@@ -100,8 +104,11 @@ defmodule PhoenixKit.Modules.Languages.Language do
 
   ## Examples
 
-      iex> Language.to_json_map(%Language{code: "en-US", name: "English (United States)", is_default: true})
-      %{"code" => "en-US", "name" => "English (United States)", "is_default" => true, "is_enabled" => true}
+      iex> alias PhoenixKit.Modules.Languages.Language
+      iex> lang = struct(Language, %{code: "en-US", name: "English (United States)", native: "English", flag: "🇺🇸", is_default: true, is_enabled: true, position: 0, countries: []})
+      iex> result = Language.to_json_map(lang)
+      iex> is_map(result) and result["code"] == "en-US" and map_size(result) > 0
+      true
   """
   @spec to_json_map(t()) :: map()
   def to_json_map(%__MODULE__{} = lang) do

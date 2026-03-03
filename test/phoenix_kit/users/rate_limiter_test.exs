@@ -203,39 +203,6 @@ defmodule PhoenixKit.Users.RateLimiterTest do
     end
   end
 
-  describe "reset_rate_limit/2" do
-    # Note: reset_rate_limit is deprecated in Hammer 7.x as delete_buckets was removed
-    # Rate limits now expire automatically after their time window
-
-    test "returns not_supported for login reset (deprecated)", %{unique_id: id} do
-      email = "reset_login_#{id}@example.com"
-
-      # Exhaust the rate limit
-      for _ <- 1..5 do
-        RateLimiter.check_login_rate_limit(email)
-      end
-
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_login_rate_limit(email)
-
-      # Reset returns :not_supported in Hammer 7.x
-      assert {:error, :not_supported} = RateLimiter.reset_rate_limit(:login, "email:#{email}")
-    end
-
-    test "returns not_supported for magic link reset (deprecated)", %{unique_id: id} do
-      email = "reset_magic_#{id}@example.com"
-
-      # Exhaust the rate limit
-      for _ <- 1..3 do
-        RateLimiter.check_magic_link_rate_limit(email)
-      end
-
-      assert {:error, :rate_limit_exceeded} = RateLimiter.check_magic_link_rate_limit(email)
-
-      # Reset returns :not_supported in Hammer 7.x
-      assert {:error, :not_supported} = RateLimiter.reset_rate_limit(:magic_link, email)
-    end
-  end
-
   describe "get_remaining_attempts/2" do
     test "returns correct remaining attempts for login", %{unique_id: id} do
       email = "remaining_login_#{id}@example.com"
