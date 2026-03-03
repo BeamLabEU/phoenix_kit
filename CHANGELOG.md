@@ -1,3 +1,6 @@
+## 1.7.59 - 2026-03-03
+- Fix V75: use CASCADE when dropping `phoenix_kit_id_seq` (meta table `phoenix_kit.id` DEFAULT depends on it)
+
 ## 1.7.58 - 2026-03-03
 - Add V75 migration: fix uuid column defaults and cleanup
   - Set `DEFAULT uuid_generate_v7()` on 27 tables missing it (Category A tables — V72 rename dropped old sequence DEFAULT)

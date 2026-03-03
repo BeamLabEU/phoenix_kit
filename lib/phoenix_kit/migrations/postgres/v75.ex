@@ -17,7 +17,8 @@ defmodule PhoenixKit.Migrations.Postgres.V75 do
 
   1. **Set DEFAULT uuid_generate_v7()** on 27 tables missing it (Category A)
   2. **Fix DEFAULT** on 4 tables using gen_random_uuid() → uuid_generate_v7()
-  3. **Drop orphaned sequence** `phoenix_kit_id_seq` (leftover from dropped id columns)
+  3. **Drop orphaned sequence** `phoenix_kit_id_seq` (CASCADE — also drops the DEFAULT
+     on `phoenix_kit.id` meta table column that references it)
   """
 
   use Ecto.Migration
@@ -84,8 +85,10 @@ defmodule PhoenixKit.Migrations.Postgres.V75 do
       end
     end
 
-    # Step 3: Drop orphaned sequence
-    execute("DROP SEQUENCE IF EXISTS #{prefix_table("phoenix_kit_id_seq", prefix)}")
+    # Step 3: Drop orphaned sequence (CASCADE needed — phoenix_kit meta table's
+    # id column DEFAULT still references it; dropping the default is safe since
+    # the meta table is empty and version is tracked via table COMMENT)
+    execute("DROP SEQUENCE IF EXISTS #{prefix_table("phoenix_kit_id_seq", prefix)} CASCADE")
 
     execute("COMMENT ON TABLE #{prefix_table("phoenix_kit", prefix)} IS '75'")
   end
