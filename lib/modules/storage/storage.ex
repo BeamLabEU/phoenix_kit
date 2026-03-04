@@ -682,7 +682,7 @@ defmodule PhoenixKit.Modules.Storage do
       from(f in PhoenixKit.Modules.Storage.File,
         where:
           fragment(
-            "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_id' = ?::text)",
+            "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_uuid' = ?::text)",
             f.uuid
           )
       )
@@ -717,7 +717,7 @@ defmodule PhoenixKit.Modules.Storage do
        dynamic(
          [f],
          fragment(
-           "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.featured_image_uuid = ?) AND NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE ? = ANY(sp.image_ids)) AND NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.file_uuid = ?)",
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.featured_image_uuid = ?) AND NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE ? = ANY(sp.image_uuids)) AND NOT EXISTS (SELECT 1 FROM phoenix_kit_shop_products sp WHERE sp.file_uuid = ?)",
            f.uuid,
            f.uuid,
            f.uuid

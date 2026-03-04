@@ -33,7 +33,7 @@ defmodule PhoenixKitWeb.UploadController do
 
   Success (200):
       {
-        "file_id": "uuidv7-string",
+        "file_uuid": "uuidv7-string",
         "original_filename": "photo.jpg",
         "file_type": "image",
         "mime_type": "image/jpeg",
@@ -59,9 +59,9 @@ defmodule PhoenixKitWeb.UploadController do
          :ok <- validate_file_type(upload),
          :ok <- validate_file_size(upload),
          {:ok, user_uuid} <- get_current_user_uuid(conn, params),
-         {:ok, file_id} <- process_upload(upload, user_uuid) do
+         {:ok, file_uuid} <- process_upload(upload, user_uuid) do
       json(conn, %{
-        file_id: file_id,
+        file_uuid: file_uuid,
         status: "processing",
         message: "Upload successful, variants will be generated shortly"
       })

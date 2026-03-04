@@ -177,10 +177,10 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
           to_string(img.file_uuid) == media_uuid || to_string(img[:uuid]) == media_uuid
         end)
 
-      pending_ids = Enum.reject(socket.assigns[:pending_image_ids] || [], &(&1 == media_uuid))
+      pending_ids = Enum.reject(socket.assigns[:pending_image_uuids] || [], &(&1 == media_uuid))
 
       {:noreply,
-       socket |> assign(:post_images, post_images) |> assign(:pending_image_ids, pending_ids)}
+       socket |> assign(:post_images, post_images) |> assign(:pending_image_uuids, pending_ids)}
     end
   end
 
@@ -283,8 +283,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
             socket
             |> assign(:post_images, current_images ++ new_images)
             |> assign(
-              :pending_image_ids,
-              (socket.assigns[:pending_image_ids] || []) ++ file_uuids
+              :pending_image_uuids,
+              (socket.assigns[:pending_image_uuids] || []) ++ file_uuids
             )
             |> assign(:show_media_selector, false)
             |> assign(:selecting_featured_image, false)
@@ -383,7 +383,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
           end
 
           # Handle pending images (set during new post creation)
-          pending_ids = socket.assigns[:pending_image_ids] || []
+          pending_ids = socket.assigns[:pending_image_uuids] || []
 
           pending_ids
           |> Enum.with_index(1)

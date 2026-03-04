@@ -239,7 +239,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     end
   end
 
-  def handle_event("update_default_bucket", %{"bucket_id" => bucket_uuid}, socket) do
+  def handle_event("update_default_bucket", %{"bucket_uuid" => bucket_uuid}, socket) do
     new_value = if bucket_uuid == "", do: nil, else: bucket_uuid
 
     case Settings.update_setting("storage_default_bucket_uuid", new_value) do

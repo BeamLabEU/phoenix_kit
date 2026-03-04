@@ -348,8 +348,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
   # Media Picker Info Handlers
 
   @impl true
-  def handle_info({:media_selected, file_ids}, socket) do
-    image_uuid = List.first(file_ids)
+  def handle_info({:media_selected, file_uuids}, socket) do
+    image_uuid = List.first(file_uuids)
 
     {:noreply,
      socket
@@ -1009,8 +1009,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
   # Get Storage image URL
   defp get_storage_image_url(nil, _variant), do: nil
 
-  defp get_storage_image_url(file_id, variant) do
-    URLSigner.signed_url(file_id, variant)
+  defp get_storage_image_url(file_uuid, variant) do
+    URLSigner.signed_url(file_uuid, variant)
   rescue
     _ -> nil
   end

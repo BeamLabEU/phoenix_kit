@@ -348,7 +348,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp has_storage_images?(product) do
     not is_nil(product.featured_image_uuid) or
-      (is_list(product.image_ids) and product.image_ids != [])
+      (is_list(product.image_uuids) and product.image_uuids != [])
   end
 
   defp complete_import(import_log, stats) do

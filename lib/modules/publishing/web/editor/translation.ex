@@ -42,11 +42,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   end
 
   @doc """
-  Gets the default AI endpoint ID from settings.
+  Gets the default AI endpoint UUID from settings.
   """
-  def get_default_ai_endpoint_id do
-    # endpoint_id can be UUID or integer - AI module handles both
-    case Settings.get_setting("publishing_translation_endpoint_id") do
+  def get_default_ai_endpoint_uuid do
+    case Settings.get_setting("publishing_translation_endpoint_uuid") do
       nil -> nil
       "" -> nil
       id -> id
@@ -100,7 +99,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
            gettext("Please save the post first before translating")
          )}
 
-      is_nil(socket.assigns.ai_selected_endpoint_id) ->
+      is_nil(socket.assigns.ai_selected_endpoint_uuid) ->
         {:noreply,
          Phoenix.LiveView.put_flash(socket, :error, gettext("Please select an AI endpoint"))}
 
@@ -149,7 +148,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     case TranslatePostWorker.enqueue(
            socket.assigns.group_slug,
            post_identifier,
-           endpoint_id: socket.assigns.ai_selected_endpoint_id,
+           endpoint_uuid: socket.assigns.ai_selected_endpoint_uuid,
            version: socket.assigns.current_version,
            user_uuid: user_uuid,
            target_languages: target_languages,
@@ -306,7 +305,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
            gettext("Please save the post first before translating")
          )}
 
-      is_nil(socket.assigns.ai_selected_endpoint_id) ->
+      is_nil(socket.assigns.ai_selected_endpoint_uuid) ->
         {:noreply,
          Phoenix.LiveView.put_flash(socket, :error, gettext("Please select an AI endpoint"))}
 

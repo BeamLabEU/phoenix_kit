@@ -77,7 +77,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
 
     # Media (Storage integration)
     field :featured_image_uuid, Ecto.UUID
-    field :image_ids, {:array, Ecto.UUID}, default: []
+    field :image_uuids, {:array, Ecto.UUID}, default: []
 
     # SEO (localized JSONB maps)
     field :seo_title, :map, default: %{}
@@ -132,7 +132,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
       :images,
       :featured_image,
       :featured_image_uuid,
-      :image_ids,
+      :image_uuids,
       :seo_title,
       :seo_description,
       :file_uuid,

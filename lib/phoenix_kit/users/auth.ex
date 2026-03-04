@@ -375,10 +375,10 @@ defmodule PhoenixKit.Users.Auth do
 
   ## Examples
 
-      iex> get_first_user_id()
+      iex> get_first_user_uuid()
       "01924..."
   """
-  def get_first_user_id do
+  def get_first_user_uuid do
     case get_first_user() do
       nil -> nil
       user -> user.uuid
@@ -1581,7 +1581,7 @@ defmodule PhoenixKit.Users.Auth do
          ) do
       {:ok, file} ->
         # Save the file UUID to user's custom fields
-        update_user_fields(user, %{"avatar_file_id" => file.uuid})
+        update_user_fields(user, %{"avatar_file_uuid" => file.uuid})
 
       {:error, reason} ->
         {:error, reason}

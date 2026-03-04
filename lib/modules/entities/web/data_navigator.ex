@@ -164,7 +164,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     {:noreply, socket}
   end
 
-  def handle_event("filter_by_entity", %{"entity_id" => ""}, socket) do
+  def handle_event("filter_by_entity", %{"entity_uuid" => ""}, socket) do
     # No entity selected - redirect to entities list since global data view no longer exists
     socket =
       socket
@@ -174,7 +174,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     {:noreply, socket}
   end
 
-  def handle_event("filter_by_entity", %{"entity_id" => entity_uuid}, socket) do
+  def handle_event("filter_by_entity", %{"entity_uuid" => entity_uuid}, socket) do
     params =
       build_url_params(
         entity_uuid,

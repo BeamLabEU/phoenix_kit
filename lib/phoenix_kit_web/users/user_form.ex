@@ -52,7 +52,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:default_role, default_role)
       |> assign(:timezone_options, timezone_options)
       |> assign(:show_media_selector, false)
-      |> assign(:pending_avatar_file_id, nil)
+      |> assign(:pending_avatar_file_uuid, nil)
       |> assign(:avatar_changed, false)
       |> assign(:registration_ip, registration_ip)
       |> load_user_data(mode, user_uuid)
@@ -339,8 +339,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
     # Include pending avatar if it was changed via media selector
     custom_fields_params =
-      if socket.assigns[:avatar_changed] && socket.assigns[:pending_avatar_file_id] do
-        Map.put(custom_fields_params, "avatar_file_id", socket.assigns.pending_avatar_file_id)
+      if socket.assigns[:avatar_changed] && socket.assigns[:pending_avatar_file_uuid] do
+        Map.put(custom_fields_params, "avatar_file_uuid", socket.assigns.pending_avatar_file_uuid)
       else
         custom_fields_params
       end
@@ -355,7 +355,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       socket =
         socket
         |> assign(:avatar_changed, false)
-        |> assign(:pending_avatar_file_id, nil)
+        |> assign(:pending_avatar_file_uuid, nil)
 
       handle_update_result(socket, result)
     else
@@ -429,7 +429,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp update_custom_fields(user, custom_fields_params) do
-    # Use update_user_fields instead of update_user_custom_fields to preserve existing fields (like avatar_file_id)
+    # Use update_user_fields instead of update_user_custom_fields to preserve existing fields (like avatar_file_uuid)
     case Auth.update_user_fields(user, custom_fields_params) do
       {:ok, updated_user} -> {:ok, updated_user}
       {:error, _changeset} -> {:error, :custom_fields_save}
@@ -702,7 +702,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         Logger.info("Avatar selected (pending save): #{avatar_file_uuid}")
 
         socket
-        |> assign(:pending_avatar_file_id, avatar_file_uuid)
+        |> assign(:pending_avatar_file_uuid, avatar_file_uuid)
         |> assign(:avatar_changed, true)
         |> assign(:show_media_selector, false)
         |> put_flash(:info, "Avatar selected. Click 'Update User' to save.")

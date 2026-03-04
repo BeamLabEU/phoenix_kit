@@ -38,14 +38,14 @@
             <div class="flex gap-6">
               <%!-- Avatar Preview (Left) --%>
               <div class="flex-shrink-0">
-                <% avatar_file_id =
-                  @pending_avatar_file_id ||
-                    (@user.custom_fields && @user.custom_fields["avatar_file_id"]) %>
+                <% avatar_file_uuid =
+                  @pending_avatar_file_uuid ||
+                    (@user.custom_fields && @user.custom_fields["avatar_file_uuid"]) %>
                 <% variant = "medium" %>
                 <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center relative">
-                  <%= if avatar_file_id do %>
+                  <%= if avatar_file_uuid do %>
                     <% avatar_url =
-                      PhoenixKit.Modules.Storage.URLSigner.signed_url(avatar_file_id, variant) %>
+                      PhoenixKit.Modules.Storage.URLSigner.signed_url(avatar_file_uuid, variant) %>
                     <img
                       src={avatar_url}
                       alt="Avatar"
@@ -62,7 +62,7 @@
                       </div>
                     </div>
                     <%!-- Pending Badge --%>
-                    <%= if @pending_avatar_file_id do %>
+                    <%= if @pending_avatar_file_uuid do %>
                       <div class="absolute top-2 right-2 badge badge-warning badge-sm h-auto">
                         Pending
                       </div>
@@ -98,12 +98,12 @@
                     class="btn btn-outline btn-primary"
                   >
                     <.icon name="hero-photo" class="w-5 h-5 mr-2" />
-                    {if avatar_file_id, do: "Change Avatar", else: "Select Avatar"}
+                    {if avatar_file_uuid, do: "Change Avatar", else: "Select Avatar"}
                   </button>
 
                   <%!-- Current Avatar Info --%>
-                  <%= if avatar_file_id do %>
-                    <%= if @pending_avatar_file_id do %>
+                  <%= if avatar_file_uuid do %>
+                    <%= if @pending_avatar_file_uuid do %>
                       <div class="text-sm text-warning font-semibold">
                         <.icon name="hero-clock" class="w-4 h-4 inline" />
                         New avatar pending - click "Update User" to save
@@ -705,14 +705,14 @@
 
   <%!-- Media Selector Modal --%>
   <%= if @mode == :edit do %>
-    <% current_avatar_id = @user.custom_fields && @user.custom_fields["avatar_file_id"] %>
-    <%= if current_avatar_id do %>
+    <% current_avatar_uuid = @user.custom_fields && @user.custom_fields["avatar_file_uuid"] %>
+    <%= if current_avatar_uuid do %>
       <.live_component
         module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
         id="media-selector-modal"
         show={@show_media_selector}
         mode={:single}
-        selected_uuids={[current_avatar_id]}
+        selected_uuids={[current_avatar_uuid]}
         phoenix_kit_current_user={@phoenix_kit_current_user}
       />
     <% else %>

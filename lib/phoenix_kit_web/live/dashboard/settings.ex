@@ -241,16 +241,16 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
     %{"user" => user_params} = params
     user = socket.assigns.phoenix_kit_current_user
 
-    # Merge custom fields if present, preserving avatar_file_id
+    # Merge custom fields if present, preserving avatar_file_uuid
     merged_params =
       case params["custom_fields"] do
         custom_fields when is_map(custom_fields) ->
-          # Preserve avatar_file_id from existing custom_fields
-          existing_avatar = get_in(user.custom_fields, ["avatar_file_id"])
+          # Preserve avatar_file_uuid from existing custom_fields
+          existing_avatar = get_in(user.custom_fields, ["avatar_file_uuid"])
 
           updated_custom_fields =
             if existing_avatar do
-              Map.put(custom_fields, "avatar_file_id", existing_avatar)
+              Map.put(custom_fields, "avatar_file_uuid", existing_avatar)
             else
               custom_fields
             end
@@ -259,10 +259,10 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
         _ ->
           # No custom fields in form, but preserve avatar if it exists
-          existing_avatar = get_in(user.custom_fields, ["avatar_file_id"])
+          existing_avatar = get_in(user.custom_fields, ["avatar_file_uuid"])
 
           if existing_avatar do
-            Map.put(user_params, "custom_fields", %{"avatar_file_id" => existing_avatar})
+            Map.put(user_params, "custom_fields", %{"avatar_file_uuid" => existing_avatar})
           else
             user_params
           end
@@ -611,7 +611,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
       if avatar_file_uuid && avatar_file_uuid != nil do
         user = socket.assigns.phoenix_kit_current_user
 
-        case Auth.update_user_fields(user, %{"avatar_file_id" => avatar_file_uuid}) do
+        case Auth.update_user_fields(user, %{"avatar_file_uuid" => avatar_file_uuid}) do
           {:ok, updated_user} ->
             Logger.info("Avatar file UUID saved: #{avatar_file_uuid}")
 
@@ -685,10 +685,10 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                   <div class="flex items-start gap-6">
                     <!-- Avatar Preview -->
                     <div class="flex-shrink-0">
-                      <%= if get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_id"]) do %>
+                      <%= if get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_uuid"]) do %>
                         <% avatar_url =
                           PhoenixKit.Modules.Storage.URLSigner.signed_url(
-                            get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_id"]),
+                            get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_uuid"]),
                             "thumbnail"
                           ) %>
                         <img

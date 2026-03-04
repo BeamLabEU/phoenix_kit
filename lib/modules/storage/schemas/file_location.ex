@@ -14,7 +14,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         path: "/uploads/018e3c4a-9f6b-7890-thumbnail.jpg",
         status: "active",
         priority: 0,
-        file_instance_id: "...",
+        file_instance_uuid: "...",
         bucket_uuid: "018e3c4a-1111-7890-abcd-ef1234567890"
       }
 
@@ -23,7 +23,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         path: "/uploads/018e3c4a-9f6b-7890-thumbnail.jpg",
         status: "active",
         priority: 0,
-        file_instance_id: "...",
+        file_instance_uuid: "...",
         bucket_uuid: "018e3c4a-2222-7890-abcd-ef1234567890"
       }
 
@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
   - `status` - Current state of this location
   - `priority` - Retrieval priority (0 = lowest, higher = preferred)
   - `last_verified_at` - Last health check timestamp
-  - `file_instance_id` - Which instance this location stores
+  - `file_instance_uuid` - Which instance this location stores
   - `bucket_uuid` - Which bucket this file is stored in
 
   ## Examples
@@ -51,7 +51,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         status: "active",
         priority: 0,
         last_verified_at: ~N[2025-10-28 10:00:00],
-        file_instance_id: "...",
+        file_instance_uuid: "...",
         bucket_uuid: "018e3c4a-3333-7890-abcd-ef1234567890"
       }
 
@@ -60,7 +60,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
         path: "/uploads/018e3c4a-9f6b-7890-large.jpg",
         status: "syncing",
         priority: 0,
-        file_instance_id: "...",
+        file_instance_uuid: "...",
         bucket_uuid: "018e3c4a-4444-7890-abcd-ef1234567890"
       }
   """
@@ -108,7 +108,7 @@ defmodule PhoenixKit.Modules.Storage.FileLocation do
   ## Required Fields
 
   - `path`
-  - `file_instance_id`
+  - `file_instance_uuid`
   - `bucket_uuid`
 
   ## Validation Rules

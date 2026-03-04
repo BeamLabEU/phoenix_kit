@@ -112,7 +112,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Helpers do
   @doc """
   Get the first image URL for a product.
 
-  Handles Storage-based images (new format with featured_image_uuid or image_ids)
+  Handles Storage-based images (new format with featured_image_uuid or image_uuids)
   and legacy URL-based images (Shopify imports).
   Returns nil if no image is available.
   """
@@ -120,7 +120,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Helpers do
     get_storage_image_url(id, "small")
   end
 
-  def first_image(%{image_ids: [id | _]}) when is_binary(id) do
+  def first_image(%{image_uuids: [id | _]}) when is_binary(id) do
     get_storage_image_url(id, "small")
   end
 
@@ -136,18 +136,18 @@ defmodule PhoenixKit.Modules.Shop.Web.Helpers do
   which returns a placeholder). Falls back to original variant if
   requested variant is not available.
   """
-  def get_storage_image_url(file_id, variant) do
-    case Storage.get_file(file_id) do
+  def get_storage_image_url(file_uuid, variant) do
+    case Storage.get_file(file_uuid) do
       %{uuid: uuid} ->
         case Storage.get_file_instance_by_name(uuid, variant) do
           nil ->
             case Storage.get_file_instance_by_name(uuid, "original") do
               nil -> nil
-              _instance -> URLSigner.signed_url(file_id, "original")
+              _instance -> URLSigner.signed_url(file_uuid, "original")
             end
 
           _instance ->
-            URLSigner.signed_url(file_id, variant)
+            URLSigner.signed_url(file_uuid, variant)
         end
 
       nil ->

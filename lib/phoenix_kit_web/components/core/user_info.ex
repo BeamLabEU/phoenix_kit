@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   Displays user avatar with cascading fallback sources.
 
   Avatar sources are checked in priority order:
-  1. Uploaded avatar (custom_fields["avatar_file_id"]) - PhoenixKit Storage
+  1. Uploaded avatar (custom_fields["avatar_file_uuid"]) - PhoenixKit Storage
   2. OAuth avatar (custom_fields["oauth_avatar_url"]) - Google/GitHub/etc
   3. Gravatar - by email hash (with d=404 for fallback detection)
   4. Gradient initials - colored background based on email hash
@@ -125,8 +125,8 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   defp get_avatar_source(user, size) do
     cond do
       # 1. Custom uploaded avatar (highest priority)
-      avatar_file_id = get_avatar_file_id(user) ->
-        {:storage, avatar_file_id, storage_size(size)}
+      avatar_file_uuid = get_avatar_file_uuid(user) ->
+        {:storage, avatar_file_uuid, storage_size(size)}
 
       # 2. OAuth avatar (Google/GitHub/etc)
       oauth_url = get_oauth_avatar_url(user) ->
@@ -142,13 +142,13 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
     end
   end
 
-  defp get_avatar_file_id(nil), do: nil
+  defp get_avatar_file_uuid(nil), do: nil
 
-  defp get_avatar_file_id(%{custom_fields: %{"avatar_file_id" => file_id}})
+  defp get_avatar_file_uuid(%{custom_fields: %{"avatar_file_uuid" => file_id}})
        when is_binary(file_id) and file_id != "",
        do: file_id
 
-  defp get_avatar_file_id(_user), do: nil
+  defp get_avatar_file_uuid(_user), do: nil
 
   defp get_oauth_avatar_url(nil), do: nil
 

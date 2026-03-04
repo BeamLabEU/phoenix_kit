@@ -732,7 +732,7 @@ defmodule PhoenixKit.Modules.Shop do
   Collects all storage file UUIDs associated with a single product.
   """
   def collect_product_file_uuids(%Product{} = product) do
-    [product.featured_image_uuid, product.file_uuid | product.image_ids || []]
+    [product.featured_image_uuid, product.file_uuid | product.image_uuids || []]
     |> Enum.reject(&is_nil/1)
     |> Enum.uniq()
   end
@@ -746,12 +746,12 @@ defmodule PhoenixKit.Modules.Shop do
       select: %{
         featured_image_uuid: p.featured_image_uuid,
         file_uuid: p.file_uuid,
-        image_ids: p.image_ids
+        image_uuids: p.image_uuids
       }
     )
     |> repo().all()
     |> Enum.flat_map(fn p ->
-      [p.featured_image_uuid, p.file_uuid | p.image_ids || []]
+      [p.featured_image_uuid, p.file_uuid | p.image_uuids || []]
     end)
     |> Enum.reject(&is_nil/1)
     |> Enum.uniq()

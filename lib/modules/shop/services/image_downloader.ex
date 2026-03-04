@@ -8,14 +8,14 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   ## Usage
 
       # Download and store a single image
-      {:ok, file_id} = ImageDownloader.download_and_store(url, user_uuid)
+      {:ok, file_uuid} = ImageDownloader.download_and_store(url, user_uuid)
 
       # Download with options
-      {:ok, file_id} = ImageDownloader.download_and_store(url, user_uuid, timeout: 30_000)
+      {:ok, file_uuid} = ImageDownloader.download_and_store(url, user_uuid, timeout: 30_000)
 
       # Batch download multiple images
       results = ImageDownloader.download_batch(urls, user_uuid)
-      # => [{url, {:ok, file_id}}, {url, {:error, reason}}, ...]
+      # => [{url, {:ok, file_uuid}}, {url, {:error, reason}}, ...]
 
   """
 
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   @doc """
   Downloads an image from a URL and stores it in the Storage module.
 
-  Returns `{:ok, file_id}` where file_id is a UUID that can be used to reference
+  Returns `{:ok, file_uuid}` where file_uuid is a UUID that can be used to reference
   the stored file.
 
   ## Options
@@ -172,7 +172,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   Downloads and stores multiple images in batch.
 
   Returns a list of tuples `{url, result}` where result is either
-  `{:ok, file_id}` or `{:error, reason}`.
+  `{:ok, file_uuid}` or `{:error, reason}`.
 
   ## Options
 

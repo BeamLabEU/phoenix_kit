@@ -73,9 +73,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     price_affecting_options = get_price_affecting_options(option_schema)
 
     # Build unified image list: featured first, then gallery (for unified drag-and-drop UI)
-    gallery_ids = product.image_ids || []
+    gallery_uuids = product.image_uuids || []
     featured_uuid = product.featured_image_uuid
-    all_image_uuids = build_all_image_uuids(featured_uuid, gallery_ids)
+    all_image_uuids = build_all_image_uuids(featured_uuid, gallery_uuids)
     valid_image_uuids = all_image_uuids
 
     # Clean stale image mappings (images that no longer exist)
@@ -253,12 +253,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     # Extract featured and gallery from unified image list
     all_images = socket.assigns.all_image_uuids
     featured_uuid = List.first(all_images)
-    gallery_ids = Enum.drop(all_images, 1)
+    gallery_uuids = Enum.drop(all_images, 1)
 
     product_params =
       product_params
       |> Map.put("featured_image_uuid", featured_uuid)
-      |> Map.put("image_ids", gallery_ids)
+      |> Map.put("image_uuids", gallery_uuids)
 
     # Build localized field attrs from main form values and translations
     product_params =
@@ -496,8 +496,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   @impl true
-  def handle_info({:media_selected, file_ids}, socket) do
-    socket = apply_media_selection(socket, socket.assigns.media_selection_target, file_ids)
+  def handle_info({:media_selected, file_uuids}, socket) do
+    socket = apply_media_selection(socket, socket.assigns.media_selection_target, file_uuids)
 
     {:noreply, assign(socket, :show_media_selector, false)}
   end
@@ -507,9 +507,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     {:noreply, assign(socket, :show_media_selector, false)}
   end
 
-  defp apply_media_selection(socket, :gallery, file_ids) do
+  defp apply_media_selection(socket, :gallery, file_uuids) do
     current = socket.assigns.all_image_uuids
-    new_ids = Enum.reject(file_ids, &(&1 in current))
+    new_ids = Enum.reject(file_uuids, &(&1 in current))
     assign(socket, :all_image_uuids, current ++ new_ids)
   end
 
@@ -1609,10 +1609,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                           >
                             <option value="">No image</option>
                             <%!-- Storage images (unified list - first is featured) --%>
-                            <%= for {image_id, idx} <- Enum.with_index(@all_image_uuids) do %>
+                            <%= for {image_uuid, idx} <- Enum.with_index(@all_image_uuids) do %>
                               <option
-                                value={image_id}
-                                selected={get_image_mapping(@metadata, option_key, value) == image_id}
+                                value={image_uuid}
+                                selected={
+                                  get_image_mapping(@metadata, option_key, value) == image_uuid
+                                }
                               >
                                 Image {idx + 1}{if idx == 0, do: " (Featured)"}
                               </option>
@@ -1753,18 +1755,18 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   # Build unified image list from featured + gallery (featured always first)
-  defp build_all_image_uuids(nil, gallery_ids), do: Enum.uniq(gallery_ids)
+  defp build_all_image_uuids(nil, gallery_uuids), do: Enum.uniq(gallery_uuids)
 
-  defp build_all_image_uuids(featured_uuid, gallery_ids) do
-    [featured_uuid | Enum.reject(gallery_ids, &(&1 == featured_uuid))]
+  defp build_all_image_uuids(featured_uuid, gallery_uuids) do
+    [featured_uuid | Enum.reject(gallery_uuids, &(&1 == featured_uuid))]
     |> Enum.uniq()
   end
 
   # Get image URL from Storage
   defp get_image_url(nil, _variant), do: nil
 
-  defp get_image_url(file_id, variant) do
-    URLSigner.signed_url(file_id, variant)
+  defp get_image_url(file_uuid, variant) do
+    URLSigner.signed_url(file_uuid, variant)
   rescue
     _ -> nil
   end
@@ -1774,8 +1776,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   defp get_image_url_or_direct(nil, _variant), do: nil
   defp get_image_url_or_direct("http" <> _ = url, _variant), do: url
 
-  defp get_image_url_or_direct(file_id, variant) do
-    URLSigner.signed_url(file_id, variant)
+  defp get_image_url_or_direct(file_uuid, variant) do
+    URLSigner.signed_url(file_uuid, variant)
   rescue
     _ -> nil
   end
@@ -2293,9 +2295,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   # Check if mapping is invalid (should be rejected)
   # Keep URLs (legacy images) and valid Storage IDs
-  defp invalid_image_mapping?({_v, image_id}, _valid_ids) when image_id in ["", nil], do: true
+  defp invalid_image_mapping?({_v, image_uuid}, _valid_ids) when image_uuid in ["", nil], do: true
   defp invalid_image_mapping?({_v, "http" <> _}, _valid_ids), do: false
-  defp invalid_image_mapping?({_v, image_id}, valid_ids), do: image_id not in valid_ids
+  defp invalid_image_mapping?({_v, image_uuid}, valid_ids), do: image_uuid not in valid_ids
 
   # Clean stale image mappings on product load, returns {cleaned_metadata, had_stale?}
   # Preserves URL values (starting with "http") for legacy Shopify images
