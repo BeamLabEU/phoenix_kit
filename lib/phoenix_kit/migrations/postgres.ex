@@ -529,7 +529,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V76 - Rename Tickets module to Customer Service ⚡ LATEST
+  ### V77 - Rename Tickets module to Customer Service ⚡ LATEST
   - Renames settings keys from `tickets_*` → `customer_service_*`
   - Renames `auto_granted_perm:tickets` → `auto_granted_perm:customer_service`
   - Updates `phoenix_kit_role_permissions.module_key` from `tickets` → `customer_service`
@@ -621,7 +621,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 76
+  @current_version 77
   @default_prefix "public"
 
   @doc false

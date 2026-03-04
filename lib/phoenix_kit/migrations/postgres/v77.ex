@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V76 do
+defmodule PhoenixKit.Migrations.Postgres.V77 do
   @moduledoc """
-  V76: Rename Tickets module settings keys and permission module_key to customer_service.
+  V77: Rename Tickets module settings keys and permission module_key to customer_service.
 
   The `tickets` module has been renamed to `customer_service`. This migration
   renames all associated settings keys and role permission module_key values
@@ -37,7 +37,7 @@ defmodule PhoenixKit.Migrations.Postgres.V76 do
 
     rename_role_permission(perms_table, "tickets", "customer_service")
 
-    execute("COMMENT ON TABLE #{prefix_str(prefix)}phoenix_kit IS '76'")
+    execute("COMMENT ON TABLE #{prefix_str(prefix)}phoenix_kit IS '77'")
   end
 
   # Renames a settings key. If the target already exists, deletes the source to avoid
@@ -96,7 +96,7 @@ defmodule PhoenixKit.Migrations.Postgres.V76 do
     rename_setting(table, "customer_service_per_page", "tickets_per_page")
     rename_setting(table, "customer_service_enabled", "tickets_enabled")
 
-    execute("COMMENT ON TABLE #{prefix_str(prefix)}phoenix_kit IS '75'")
+    execute("COMMENT ON TABLE #{prefix_str(prefix)}phoenix_kit IS '76'")
   end
 
   defp prefix_str(nil), do: ""
