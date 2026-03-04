@@ -1,7 +1,13 @@
 # PhoenixKit Modules - UUID Status
 
-**Last Updated**: 2026-02-05 (All schemas migrated)
+**Last Updated**: 2026-03-03
 **Reference PRs**: #311, #312, #313, #314, #315, #316, #317, #320
+
+> **Note:** This document is historical. As of v1.7.57 (V74), the UUID migration is fully
+> complete. All tables use `@primary_key {:uuid, UUIDv7, autogenerate: true}` with DB column
+> `uuid` as PK. The "New Standard" and "Native UUID PK" distinction no longer exists — all
+> schemas are now unified on a single pattern. Legacy integer `id` columns, `field :id, :integer,
+> read_after_writes: true`, `source: :id`, and dual-write code have all been removed.
 
 This document tracks UUID implementation status across all PhoenixKit modules with database schemas.
 
@@ -236,16 +242,21 @@ Uses `@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}` - the `uuid
 
 ---
 
-## Migration Status: **COMPLETE** ✅
+## Migration Status: **FULLY COMPLETE** ✅
 
-All 69 schemas across the codebase now use the standardized UUID pattern:
-- **41 schemas** using the New Standard (`read_after_writes: true`, DB-generated UUIDs)
-- **28 schemas** using Native UUID PK Pattern 2 (`@primary_key {:uuid, UUIDv7, autogenerate: true, source: :id}`)
-- **0 schemas** remaining with old `maybe_generate_uuid` pattern
+As of v1.7.57 (V74, 2026-03-03), all schemas use a unified pattern:
 
-Zero instances of `maybe_generate_uuid` remain in the codebase.
+```elixir
+@primary_key {:uuid, UUIDv7, autogenerate: true}
+```
 
-**Pattern 2 Migration Complete**: All 28 Pattern 2 schemas now use the new format with `source: :id` for consistent `.uuid` field access.
+- All 79 tables have `uuid` as PK (type `uuid`) in the database
+- No `field :id, :integer` or `source: :id` remains in any schema
+- No dual-write code remains
+- No `resolve_user_id`/`resolve_user_uuid` helpers remain
+- No `maybe_generate_uuid` remains
+
+The "New Standard" vs "Native UUID PK" distinction documented below is historical — both patterns have been unified.
 
 ---
 

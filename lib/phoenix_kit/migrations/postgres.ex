@@ -543,6 +543,26 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Re-backfills `matched_email_log_uuid` in `phoenix_kit_email_orphaned_events`
   - All operations idempotent — safe on every install
 
+  ### V72 - Rename `id` → `uuid` on 30 Category A tables
+  - Metadata-only column rename (instant, zero downtime)
+  - Add 4 missing FK constraints (comments, scheduled_jobs)
+
+  ### V73 - Pre-drop prerequisites for Category B tables
+  - SET NOT NULL on 7 uuid columns
+  - CREATE UNIQUE INDEX on 3 tables
+  - ALTER INDEX RENAME on 4 indexes
+
+  ### V74 - Drop integer columns, promote `uuid` to PK
+  - Drop all FK constraints referencing integer `id` columns
+  - Drop ~95 integer FK columns across all tables
+  - Drop bigint `id` PK + promote `uuid` to PK on 47 Category B tables
+  - After V74, every PhoenixKit table uses `uuid` as its primary key
+
+  ### V75 - Fix uuid column defaults, cleanup
+  - Set DEFAULT uuid_generate_v7() on 27 tables missing it (Category A)
+  - Fix 4 tables using gen_random_uuid() → uuid_generate_v7()
+  - Drop orphaned phoenix_kit_id_seq sequence
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)

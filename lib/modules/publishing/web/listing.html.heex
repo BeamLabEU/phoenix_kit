@@ -467,26 +467,6 @@
             {gettext("Showing %{count} posts", count: length(@posts))}
           </span>
           <div class="flex gap-2">
-            <%= if @fs_post_count > 0 do %>
-              <button
-                type="button"
-                class={[
-                  "btn btn-sm",
-                  if(not @db_storage, do: "btn-warning", else: "btn-info")
-                ]}
-                phx-click="import_to_db"
-                title={gettext("Import posts from filesystem into the database")}
-                data-confirm={
-                  gettext(
-                    "Import all posts from this group into the database? Existing DB records will be updated."
-                  )
-                }
-              >
-                <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
-                {gettext("Import to DB")}
-                <span class="badge badge-xs">{@fs_post_count}</span>
-              </button>
-            <% end %>
             <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
               <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
             </button>
@@ -504,46 +484,12 @@
           <%= if @posts == [] do %>
             <div class="card bg-base-100 shadow-sm border border-base-200">
               <div class="card-body">
-                <%= if @fs_post_count > 0 do %>
-                  <div class="flex items-center gap-3">
-                    <div class="rounded-full bg-info/10 p-2">
-                      <.icon name="hero-circle-stack" class="w-6 h-6 text-info" />
-                    </div>
-                    <div class="flex-1">
-                      <h3 class="text-lg font-semibold text-base-content">
-                        {ngettext(
-                          "%{count} post found in filesystem",
-                          "%{count} posts found in filesystem",
-                          @fs_post_count,
-                          count: @fs_post_count
-                        )}
-                      </h3>
-                      <p class="text-sm text-base-content/70">
-                        {gettext("Import these posts into the database to manage them here.")}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      class="btn btn-info btn-sm"
-                      phx-click="import_to_db"
-                      data-confirm={
-                        gettext(
-                          "Import all posts from this group into the database? Existing DB records will be updated."
-                        )
-                      }
-                    >
-                      <.icon name="hero-circle-stack" class="w-4 h-4 mr-1" />
-                      {gettext("Import to DB")}
-                    </button>
-                  </div>
-                <% else %>
-                  <h3 class="text-lg font-semibold text-base-content">
-                    {gettext("No posts yet")}
-                  </h3>
-                  <p class="text-sm text-base-content/70">
-                    {gettext("Create your first post to start sharing content.")}
-                  </p>
-                <% end %>
+                <h3 class="text-lg font-semibold text-base-content">
+                  {gettext("No posts yet")}
+                </h3>
+                <p class="text-sm text-base-content/70">
+                  {gettext("Create your first post to start sharing content.")}
+                </p>
               </div>
             </div>
           <% else %>

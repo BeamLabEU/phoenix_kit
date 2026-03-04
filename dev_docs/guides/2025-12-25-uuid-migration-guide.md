@@ -1,5 +1,14 @@
 # UUID Migration Guide
 
+> **OUTDATED (2025-12-25):** This guide was written during Phase 1 of the UUID migration.
+> As of v1.7.57 (V74, 2026-03-03), the migration is **fully complete**:
+> - All integer `id` columns have been dropped
+> - All integer `_id` FK columns have been dropped
+> - All tables use `uuid` as their primary key
+> - No dual-column approach exists anymore — `PhoenixKit.UUID` helper module was deleted
+> - The `maybe_generate_uuid` pattern no longer exists
+> - See `plans/2026-02-26-uuid-migration-completion-summary.md` for current state.
+
 This guide explains PhoenixKit's graceful UUID migration strategy for transitioning from bigserial (incremental) to UUID primary keys.
 
 ## Overview

@@ -35,7 +35,7 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key (time-sortable) |
-| `user_id` | bigint | FK → users (post owner) |
+| `user_uuid` | UUIDv7 | FK → users (post owner) |
 | `title` | string | Post title (max length via settings) |
 | `sub_title` | string | Tagline/subtitle (max length via settings) |
 | `content` | text | Post content (max length via settings) |
@@ -52,10 +52,10 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `user_id`, `status`, `type`, `slug`, `scheduled_at`, `published_at`
+**Indexes**: `user_uuid`, `status`, `type`, `slug`, `scheduled_at`, `published_at`
 
 **Constraints**:
-- FK: `user_id` → `phoenix_kit_users.id` (cascade delete)
+- FK: `user_uuid` → `phoenix_kit_users.uuid` (cascade delete)
 - Unique: `slug` (per user or global - TBD)
 - Check: `status IN ('draft', 'public', 'unlisted', 'scheduled')`
 - Check: `type IN ('post', 'snippet', 'repost')`
@@ -69,19 +69,19 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key |
-| `post_id` | uuid | FK → posts |
-| `file_id` | uuid | FK → files (PhoenixKit.Modules.Storage) |
+| `post_uuid` | UUIDv7 | FK → posts |
+| `file_uuid` | UUIDv7 | FK → files (PhoenixKit.Modules.Storage) |
 | `position` | integer | Display order (1, 2, 3...) |
 | `caption` | text | Image caption/alt text (nullable) |
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `post_id`, `file_id`, `position`
+**Indexes**: `post_uuid`, `file_uuid`, `position`
 
 **Constraints**:
-- FK: `post_id` → `phoenix_kit_posts.id` (cascade delete)
-- FK: `file_id` → `phoenix_kit_files.id` (cascade delete)
-- Unique: `(post_id, position)` - prevent duplicate ordering
+- FK: `post_uuid` → `phoenix_kit_posts.uuid` (cascade delete)
+- FK: `file_uuid` → `phoenix_kit_files.uuid` (cascade delete)
+- Unique: `(post_uuid, position)` - prevent duplicate ordering
 
 ---
 
@@ -92,17 +92,17 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key |
-| `post_id` | uuid | FK → posts |
-| `user_id` | bigint | FK → users |
+| `post_uuid` | UUIDv7 | FK → posts |
+| `user_uuid` | UUIDv7 | FK → users |
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `post_id`, `user_id`
+**Indexes**: `post_uuid`, `user_uuid`
 
 **Constraints**:
-- FK: `post_id` → `phoenix_kit_posts.id` (cascade delete)
-- FK: `user_id` → `phoenix_kit_users.id` (cascade delete)
-- Unique: `(post_id, user_id)` - one like per user per post
+- FK: `post_uuid` → `phoenix_kit_posts.uuid` (cascade delete)
+- FK: `user_uuid` → `phoenix_kit_users.uuid` (cascade delete)
+- Unique: `(post_uuid, user_uuid)` - one like per user per post
 
 ---
 
@@ -113,9 +113,9 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key |
-| `post_id` | uuid | FK → posts |
-| `user_id` | bigint | FK → users (commenter) |
-| `parent_id` | uuid | FK → comments (nullable, for threading) |
+| `post_uuid` | UUIDv7 | FK → posts |
+| `user_uuid` | UUIDv7 | FK → users (commenter) |
+| `parent_uuid` | UUIDv7 | FK → comments (nullable, for threading) |
 | `content` | text | Comment text (required) |
 | `status` | string | published/hidden/deleted/pending |
 | `depth` | integer | Nesting level (0=top, 1=reply, 2=reply-to-reply...) |
@@ -123,12 +123,12 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `post_id`, `user_id`, `parent_id`, `status`, `depth`
+**Indexes**: `post_uuid`, `user_uuid`, `parent_uuid`, `status`, `depth`
 
 **Constraints**:
-- FK: `post_id` → `phoenix_kit_posts.id` (cascade delete)
-- FK: `user_id` → `phoenix_kit_users.id` (cascade delete)
-- FK: `parent_id` → `phoenix_kit_post_comments.id` (cascade delete)
+- FK: `post_uuid` → `phoenix_kit_posts.uuid` (cascade delete)
+- FK: `user_uuid` → `phoenix_kit_users.uuid` (cascade delete)
+- FK: `parent_uuid` → `phoenix_kit_post_comments.uuid` (cascade delete)
 - Check: `status IN ('published', 'hidden', 'deleted', 'pending')`
 
 ---
@@ -140,18 +140,18 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key |
-| `post_id` | uuid | FK → posts |
-| `user_id` | bigint | FK → users (mentioned user) |
+| `post_uuid` | UUIDv7 | FK → posts |
+| `user_uuid` | UUIDv7 | FK → users (mentioned user) |
 | `mention_type` | string | contributor/mention |
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `post_id`, `user_id`, `mention_type`
+**Indexes**: `post_uuid`, `user_uuid`, `mention_type`
 
 **Constraints**:
-- FK: `post_id` → `phoenix_kit_posts.id` (cascade delete)
-- FK: `user_id` → `phoenix_kit_users.id` (cascade delete)
-- Unique: `(post_id, user_id)` - one mention per user per post
+- FK: `post_uuid` → `phoenix_kit_posts.uuid` (cascade delete)
+- FK: `user_uuid` → `phoenix_kit_users.uuid` (cascade delete)
+- Unique: `(post_uuid, user_uuid)` - one mention per user per post
 - Check: `mention_type IN ('contributor', 'mention')`
 
 ---
@@ -182,17 +182,17 @@ Complete social posts system with media attachments, comments, likes, tags, user
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `post_id` | uuid | FK → posts |
-| `tag_id` | uuid | FK → tags |
+| `post_uuid` | UUIDv7 | FK → posts |
+| `tag_uuid` | UUIDv7 | FK → tags |
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `post_id`, `tag_id`
+**Indexes**: `post_uuid`, `tag_uuid`
 
 **Constraints**:
-- FK: `post_id` → `phoenix_kit_posts.id` (cascade delete)
-- FK: `tag_id` → `phoenix_kit_post_tags.id` (cascade delete)
-- Unique: `(post_id, tag_id)` - no duplicate tags on same post
+- FK: `post_uuid` → `phoenix_kit_posts.uuid` (cascade delete)
+- FK: `tag_uuid` → `phoenix_kit_post_tags.uuid` (cascade delete)
+- Unique: `(post_uuid, tag_uuid)` - no duplicate tags on same post
 
 ---
 
@@ -203,23 +203,23 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key |
-| `user_id` | bigint | FK → users (group owner) |
+| `user_uuid` | UUIDv7 | FK → users (group owner) |
 | `name` | string | Group name (e.g., "Travel Photos") |
 | `slug` | string | URL-safe slug |
 | `description` | text | Group description (nullable) |
-| `cover_image_id` | uuid | FK → files (nullable, group thumbnail) |
+| `cover_image_uuid` | UUIDv7 | FK → files (nullable, group thumbnail) |
 | `post_count` | integer | Denormalized counter (default: 0) |
 | `is_public` | boolean | Public groups visible to others (default: false) |
 | `position` | integer | Manual ordering of user's groups |
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `user_id`, `slug`, `is_public`, `position`
+**Indexes**: `user_uuid`, `slug`, `is_public`, `position`
 
 **Constraints**:
-- FK: `user_id` → `phoenix_kit_users.id` (cascade delete)
-- FK: `cover_image_id` → `phoenix_kit_files.id` (set null on delete)
-- Unique: `(user_id, slug)` - unique slug per user
+- FK: `user_uuid` → `phoenix_kit_users.uuid` (cascade delete)
+- FK: `cover_image_uuid` → `phoenix_kit_files.uuid` (set null on delete)
+- Unique: `(user_uuid, slug)` - unique slug per user
 
 ---
 
@@ -229,18 +229,18 @@ Complete social posts system with media attachments, comments, likes, tags, user
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `post_id` | uuid | FK → posts |
-| `group_id` | uuid | FK → groups |
+| `post_uuid` | UUIDv7 | FK → posts |
+| `group_uuid` | UUIDv7 | FK → groups |
 | `position` | integer | Manual ordering within group |
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `post_id`, `group_id`, `position`
+**Indexes**: `post_uuid`, `group_uuid`, `position`
 
 **Constraints**:
-- FK: `post_id` → `phoenix_kit_posts.id` (cascade delete)
-- FK: `group_id` → `phoenix_kit_post_groups.id` (cascade delete)
-- Unique: `(post_id, group_id)` - post can't be in same group twice
+- FK: `post_uuid` → `phoenix_kit_posts.uuid` (cascade delete)
+- FK: `group_uuid` → `phoenix_kit_post_groups.uuid` (cascade delete)
+- Unique: `(post_uuid, group_uuid)` - post can't be in same group twice
 
 ---
 
@@ -251,8 +251,8 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key |
-| `post_id` | uuid | FK → posts |
-| `user_id` | bigint | FK → users (nullable, logged-in only) |
+| `post_uuid` | UUIDv7 | FK → posts |
+| `user_uuid` | UUIDv7 | FK → users (nullable, logged-in only) |
 | `ip_address` | string | Hashed IP for privacy (nullable) |
 | `user_agent_hash` | string | Browser fingerprint (nullable) |
 | `session_id` | string | Group views by session |
@@ -260,11 +260,11 @@ Complete social posts system with media attachments, comments, likes, tags, user
 | `date_added` | naive_datetime | Created timestamp |
 | `date_modified` | naive_datetime | Updated timestamp |
 
-**Indexes**: `post_id`, `user_id`, `viewed_at`, `session_id`
+**Indexes**: `post_uuid`, `user_uuid`, `viewed_at`, `session_id`
 
 **Constraints**:
-- FK: `post_id` → `phoenix_kit_posts.id` (cascade delete)
-- FK: `user_id` → `phoenix_kit_users.id` (cascade delete)
+- FK: `post_uuid` → `phoenix_kit_posts.uuid` (cascade delete)
+- FK: `user_uuid` → `phoenix_kit_users.uuid` (cascade delete)
 
 ---
 

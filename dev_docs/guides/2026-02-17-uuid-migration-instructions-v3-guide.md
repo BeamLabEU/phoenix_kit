@@ -1,5 +1,18 @@
 # UUID Migration Guide for PhoenixKit
 
+> **OUTDATED (2026-02-17):** This guide was written during the migration. As of v1.7.57 (V74, 2026-03-03),
+> the UUID migration is **fully complete**. Key changes since this was written:
+> - All integer `id` columns dropped, `uuid` promoted to PK on all 79 tables (V72-V74)
+> - No more `source: :id` — all schemas use `@primary_key {:uuid, UUIDv7, autogenerate: true}`
+> - No more `field :id, :integer, read_after_writes: true` — removed from all schemas
+> - No more dual-write (`user_id` + `user_uuid`) — all integer FK columns dropped
+> - No more `resolve_user_id`/`resolve_user_uuid` helpers — deleted
+> - `PhoenixKit.UUID` module deleted (was a dual-lookup helper)
+> - Pattern 1 vs Pattern 2 distinction no longer exists — unified to single pattern
+> - The deprecation notice, dual-write sections, and integer fallback patterns below are all obsolete
+>
+> See `plans/2026-02-26-uuid-migration-completion-summary.md` for the current state.
+
 This document gives a new AI full context on the UUIDv7 migration: what we're doing, why, what's done, what remains, and the code patterns to follow.
 
 > **V3 changes from V2:**
@@ -533,27 +546,19 @@ def like_post(post_uuid, user_uuid) when is_binary(user_uuid) do ...
 - `subscription_dunning_worker.ex` — handles both integer and UUID job args
 - `subscription_renewal_worker.ex` — handles both
 
-## What Remains
+## What Remains — NOTHING (All Complete)
 
 ### Phase 2 audit — COMPLETED
-Cross-referenced every schema against `uuid_fk_columns.ex`. Found and fixed 15 issues:
-- Added 9 missing UUID FK columns (ai_requests.prompt_uuid, subscriptions.user_uuid, payment_methods.user_uuid, subscriptions.payment_method_uuid, email_blocklist.user_uuid, email_templates.created_by_user_uuid, email_templates.updated_by_user_uuid, entities.created_by_uuid, referral_codes.beneficiary_uuid)
-- Fixed 3 wrong column mappings (transactions.order_uuid→invoice_uuid, referral_code_usage column names, removed bogus referral_codes.user_id entry)
-- Added shop_carts.merged_into_cart_uuid + updated shop.ex merge flow
-- Fixed role_permission.ex unique constraint name to match V56 index
-- All quality checks pass: format, compile (0 warnings), credo --strict (0 issues), dialyzer (0 new errors)
+Cross-referenced every schema against `uuid_fk_columns.ex`. Found and fixed 15 issues.
 
-### V62: Column naming cleanup — COMPLETE ✓
-35 UUID-typed FK columns renamed from `_id` suffix to `_uuid` suffix (e.g. `post_comments.post_id`, `file_instances.file_id`, `ticket_attachments.comment_id`). These store UUID values but violate the naming convention (`_id` = integer, `_uuid` = UUID).
+### V62: Column naming cleanup — COMPLETE
+35 UUID-typed FK columns renamed from `_id` suffix to `_uuid` suffix.
 
-This is a **naming convention enforcement pass** — data is correct, queries work. The renames are DB-only + schema/context code updates, no data migration needed.
-
-Full plan: `dev_docs/plans/2026-02-23-v62-uuid-column-rename-plan.md` (25 tables, 35 column renames across Posts, Comments, Tickets, Storage, Publishing, Shop, and Scheduled Jobs modules).
-
-### Future: Drop integer columns
-- Add NOT NULL constraints and FK constraints on UUID FK columns
-- Deprecation warnings for parent apps using integer `.id` field
-- Eventually drop integer FK columns and integer `id` columns in a 2.0 release
+### ~~Future: Drop integer columns~~ — DONE (V72-V74, v1.7.57, 2026-03-03)
+- V72: Renamed `id` → `uuid` on 30 Category A tables
+- V73: Added NOT NULL constraints, unique indexes, dynamic PK detection
+- V74: Dropped all integer FK constraints, `_id` FK columns, and `id` PK columns; promoted `uuid` to PK
+- Verified: All 79 tables have `uuid` as PK, zero integer columns remaining
 
 ---
 

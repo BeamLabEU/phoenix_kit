@@ -89,11 +89,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Common,
       CssIntegration,
       IgniterHelpers,
-      JsIntegration,
       ObanConfig,
       RateLimiterConfig
     }
 
+    alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
     alias PhoenixKit.Migrations.UUIDRepair
     alias PhoenixKit.Utils.Routes
 
@@ -577,9 +577,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Update CSS integration (enables daisyUI themes if disabled)
       update_css_integration()
 
-      # Update JS integration (adds PhoenixKit hooks if missing)
-      update_js_integration()
-
       # Always rebuild assets unless explicitly skipped
       unless Keyword.get(opts, :skip_assets, false) do
         AssetRebuild.check_and_rebuild(verbose: true)
@@ -588,25 +585,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Handle interactive migration execution
       run_interactive_migration_update(opts)
 
-      # Show deprecation notice for integer id columns
-      show_id_deprecation_notice()
-    end
-
-    defp show_id_deprecation_notice do
-      Mix.shell().info("""
-
-      ⚠️  DEPRECATION NOTICE: Integer `id` columns
-      ─────────────────────────────────────────────
-      PhoenixKit schemas now use UUIDv7 as the primary key.
-      The integer `id` column is deprecated and will be removed
-      in a future major version.
-
-      If your code references `.id` on PhoenixKit schemas, plan to
-      migrate to `.uuid` for all lookups, URLs, and associations.
-
-      See CLAUDE.md "Adding UUID Fields to Existing Schemas" for
-      migration guidance.
-      """)
+      # Show migration status summary
+      show_migration_status(prefix)
     end
 
     # Run UUID column repair for upgrades from pre-1.7.0 installations
@@ -871,44 +851,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         Mix.shell().info("ℹ️  Could not update CSS integration: #{inspect(error)}")
     end
 
-    # Update JS integration during PhoenixKit updates
-    defp update_js_integration do
-      js_paths = [
-        "assets/js/app.js",
-        "priv/static/assets/app.js"
-      ]
-
-      case Enum.find(js_paths, &File.exists?/1) do
-        nil ->
-          # No app.js found - skip JS integration
-          :ok
-
-        js_path ->
-          # Update JS file - fix old paths and add hooks if missing
-          content = File.read!(js_path)
-
-          # Use Rewrite.Source pattern for consistency
-          source = Rewrite.Source.from_string(content, path: js_path)
-          updated_source = JsIntegration.add_smart_js_integration(source)
-          updated_content = Rewrite.Source.get(updated_source, :content)
-
-          # Only write if content changed
-          if updated_content != content do
-            File.write!(js_path, updated_content)
-
-            Mix.shell().info("""
-
-            ✅ Updated JavaScript configuration with PhoenixKit hooks!
-            File: #{js_path}
-            """)
-          end
-      end
-    rescue
-      error ->
-        # Non-critical error - log and continue
-        Mix.shell().info("ℹ️  Could not update JS integration: #{inspect(error)}")
-    end
-
     # Check if migration can be run interactively
     defp check_migration_conditions do
       # Check if we have an app name
@@ -970,6 +912,48 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         mix phx.server
       """)
     end
+
+    # Show migration status summary (current vs target version)
+    defp show_migration_status(prefix) do
+      opts = %{prefix: prefix, escaped_prefix: String.replace(prefix, "'", "\\'")}
+      target = MigrationsPostgres.current_version()
+
+      db_version =
+        try do
+          MigrationsPostgres.migrated_version_runtime(opts)
+        rescue
+          _ -> 0
+        end
+
+      phoenix_kit_version =
+        case :application.get_key(:phoenix_kit, :vsn) do
+          {:ok, vsn} when is_list(vsn) -> List.to_string(vsn)
+          {:ok, vsn} -> to_string(vsn)
+          :undefined -> "unknown"
+        end
+
+      a = IO.ANSI
+
+      Mix.shell().info("""
+
+      #{a.bright()}PhoenixKit v#{phoenix_kit_version}#{a.reset()}
+      #{a.bright()}├── Migration#{a.reset()}: #{format_version(db_version, target)}
+      #{a.bright()}└── Target#{a.reset()}:    V#{pad_version(target)}
+      """)
+    end
+
+    defp format_version(db, target) when db >= target,
+      do: "#{IO.ANSI.green()}V#{pad_version(db)} ✅#{IO.ANSI.reset()}"
+
+    defp format_version(0, _target),
+      do: "#{IO.ANSI.red()}Not installed#{IO.ANSI.reset()}"
+
+    defp format_version(db, target),
+      do:
+        "#{IO.ANSI.yellow()}V#{pad_version(db)} → V#{pad_version(target)} (needs migration)#{IO.ANSI.reset()}"
+
+    defp pad_version(v) when v < 10, do: "0#{v}"
+    defp pad_version(v), do: to_string(v)
 
     # Validate and fix Ueberauth configuration
     defp validate_and_fix_ueberauth_config(igniter) do

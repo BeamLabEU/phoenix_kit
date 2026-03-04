@@ -1,3 +1,49 @@
+## 1.7.60 - 2026-03-03
+- Remove legacy FS→DB migration modules: `DBImporter`, `MigrateToDatabaseWorker`, `ValidateMigrationWorker`
+- Remove `JsIntegration` install/update module (JS setup is now manual)
+- Remove all "Import to DB" / "Migrate to Database" UI buttons from publishing pages
+- Remove DB import/migration PubSub broadcast functions and LiveView handlers
+- Simplify publishing listing: drop `fs_post_count`, `needs_import`, `db_import_in_progress` assigns
+- Move post title field into the editor content column with larger styling
+- Simplify editor save button logic (always clickable unless readonly/autosaving)
+- Add `enrich_with_db_uuids/2` to ListingCache for UUID-based admin links in filesystem mode
+- Refine Sync module: migrate `connection_id` references to `connection_uuid`
+- Update publishing README to reflect DB-only storage model
+
+## 1.7.59 - 2026-03-03
+- Fix V75: use CASCADE when dropping `phoenix_kit_id_seq` (meta table `phoenix_kit.id` DEFAULT depends on it)
+
+## 1.7.58 - 2026-03-03
+- Add V75 migration: fix uuid column defaults and cleanup
+  - Set `DEFAULT uuid_generate_v7()` on 27 tables missing it (Category A tables — V72 rename dropped old sequence DEFAULT)
+  - Fix 4 tables using `gen_random_uuid()` (UUIDv4) → `uuid_generate_v7()` (UUIDv7)
+  - Drop orphaned `phoenix_kit_id_seq` sequence
+
+## 1.7.57 - 2026-03-03
+- Fix V74 migration: skip tables without bigint `id` (e.g. publishing tables created with UUID PKs)
+- Fix V74: use `DROP COLUMN id CASCADE` to handle dependent FK constraints in one statement
+
+## 1.7.56 - 2026-03-03
+- Add V74 migration: drop integer `id`/`_id` columns, promote `uuid` to PK on all tables
+  - Drop all FK constraints referencing integer `id` columns (dynamic discovery)
+  - Drop ~95 integer FK columns across all tables (sourced from uuid_fk_columns.ex + extras)
+  - Drop bigint `id` PK + promote `uuid` to PK on 47 Category B tables
+  - After V74, every PhoenixKit table uses `uuid` as its primary key — no integer PKs remain
+- Remove `source: :id` from `webhook_event.ex` schema (DB column now matches field name)
+
+## 1.7.55 - 2026-03-03
+- Fix scheduled_job.ex `source: :id` regression — PR #383 reintroduced mapping to dropped DB column
+- Add V73 migration: pre-drop prerequisites for Category B UUID migration
+  - SET NOT NULL on 7 uuid columns (`ai_endpoints`, `ai_prompts`, `consent_logs`, `payment_methods`, `role_permissions`, `subscription_types`, `sync_connections`)
+  - CREATE UNIQUE INDEX on 3 tables (`consent_logs`, `payment_methods`, `subscription_types`)
+  - ALTER INDEX RENAME on 4 indexes to match renamed columns (`post_tag_assignments`, `post_group_assignments`, `post_media`, `file_instances`)
+- Add `RepoHelper.get_pk_column/1` — queries `pg_index` for PK column name, falls back to `"id"`
+- Fix DB explorer to use dynamic PK column in `fetch_row`, `table_preview`, and notify trigger
+- Fix Sync API controller to use dynamic PK column in `fetch_filtered_records` and `build_where_clause`
+- Fix Sync connection notifier to use dynamic PK column in `insert_record` and `build_update_clause`
+- Update 4 schema constraint names to match V72 column renames (`post_id` → `post_uuid`, `file_id` → `file_uuid`)
+- Remove dead `:user_id` from OAuth `replace_all_except` list
+
 ## 1.7.54 - 2026-03-03
 - Add V72 migration: rename PK column `id` → `uuid` on 30 Category A tables (metadata-only, instant)
 - Add 4 missing FK constraints: `comments.user_uuid`, `comments_dislikes.user_uuid`, `comments_likes.user_uuid`, `scheduled_jobs.created_by_uuid`

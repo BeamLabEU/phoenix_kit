@@ -7,7 +7,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBImporter
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -50,7 +49,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       |> assign(:module_enabled, Publishing.enabled?())
       |> assign(:publishing, groups)
       |> assign(:cache_groups, cache_groups)
-      |> assign(:fs_group_count, length(fs_groups))
       |> assign(:languages_enabled, languages_enabled)
       |> assign(:global_primary_language, Storage.get_primary_language())
       |> assign(:file_cache_enabled, get_cache_setting(@file_cache_key, @legacy_file_cache_key))
@@ -136,51 +134,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
          lang: primary_lang
        )
      )}
-  end
-
-  def handle_event("import_all_to_db", _params, socket) do
-    case DBImporter.import_all_groups() do
-      {:ok, stats} ->
-        {:noreply,
-         socket
-         |> refresh_groups()
-         |> put_flash(
-           :info,
-           gettext(
-             "Migrated %{groups} groups, %{posts} posts, %{versions} versions, %{contents} contents to database",
-             groups: stats.groups,
-             posts: stats.posts,
-             versions: stats.versions,
-             contents: stats.contents
-           )
-         )}
-    end
-  end
-
-  def handle_event("import_to_db", %{"slug" => slug}, socket) do
-    case DBImporter.import_group(slug) do
-      {:ok, stats} ->
-        {:noreply,
-         socket
-         |> refresh_groups()
-         |> put_flash(
-           :info,
-           gettext(
-             "Migrated %{posts} posts, %{versions} versions, %{contents} contents to database",
-             posts: stats.posts,
-             versions: stats.versions,
-             contents: stats.contents
-           )
-         )}
-
-      {:error, reason} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           gettext("Migration failed: %{reason}", reason: inspect(reason))
-         )}
-    end
   end
 
   def handle_event("regenerate_all_caches", _params, socket) do
@@ -293,46 +246,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     {:noreply, refresh_groups(socket)}
   end
 
-  # DB import events — refresh groups when import completes (from any client)
-  def handle_info({:db_import_started, _group_slug, _source}, socket) do
-    {:noreply, socket}
-  end
-
-  def handle_info({:db_import_completed, _group_slug, _stats, _source}, socket) do
-    {:noreply, refresh_groups(socket)}
-  end
-
-  def handle_info({:db_migration_started, _total_groups}, socket) do
-    {:noreply, socket}
-  end
-
-  def handle_info({:db_migration_completed, _stats}, socket) do
-    {:noreply, refresh_groups(socket)}
-  end
-
-  def handle_info({:migration_validation_completed, results}, socket) do
-    total_discrepancies = Enum.sum(Enum.map(results, & &1.discrepancies))
-
-    socket =
-      if total_discrepancies > 0 do
-        put_flash(
-          socket,
-          :warning,
-          gettext("Validation found %{count} discrepancies between filesystem and database",
-            count: total_discrepancies
-          )
-        )
-      else
-        put_flash(
-          socket,
-          :info,
-          gettext("Validation passed — filesystem and database are in sync")
-        )
-      end
-
-    {:noreply, refresh_groups(socket)}
-  end
-
   defp refresh_groups(socket) do
     groups = db_groups_to_maps()
     fs_groups = fs_groups_to_maps()
@@ -351,9 +264,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
     DBStorage.list_groups()
     |> Enum.map(fn g ->
-      fs_posts = length(Publishing.list_posts(g.slug))
-      db_posts = length(DBStorage.list_posts(g.slug))
-
       # Check DB records for primary language issues (not filesystem)
       primary_lang_status = DBStorage.count_primary_language_status(g.slug, global_primary)
 
@@ -365,7 +275,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
         "slug" => g.slug,
         "mode" => g.mode,
         "position" => g.position,
-        "needs_import" => fs_posts > 0 and db_posts == 0,
         "needs_primary_lang_migration" => needs_lang_migration,
         "primary_language_status" => primary_lang_status
       }

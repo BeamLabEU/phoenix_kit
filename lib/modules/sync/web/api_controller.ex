@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
         success: true,
         message: result.message,
         connection_status: result.status,
-        connection_id: result.connection_id
+        connection_uuid: result.connection_uuid
       })
     else
       {:error, :module_disabled} ->
@@ -827,7 +827,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
          %{
            status: initial_status,
            message: "Connection registered and activated",
-           connection_id: connection.uuid
+           connection_uuid: connection.uuid
          }}
 
       {:error, changeset} ->
@@ -1137,10 +1137,11 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   end
 
   defp fetch_filtered_records(repo, table_name, limit, offset, filter_opts) do
-    {where_clause, params, next_param} = build_where_clause(filter_opts)
+    pk_col = PhoenixKit.RepoHelper.get_pk_column(table_name)
+    {where_clause, params, next_param} = build_where_clause(filter_opts, pk_col)
 
     data_query =
-      "SELECT * FROM #{table_name}#{where_clause} ORDER BY id LIMIT $#{next_param} OFFSET $#{next_param + 1}"
+      "SELECT * FROM #{table_name}#{where_clause} ORDER BY #{pk_col} LIMIT $#{next_param} OFFSET $#{next_param + 1}"
 
     all_params = params ++ [limit, offset]
 
@@ -1162,23 +1163,23 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
     end)
   end
 
-  defp build_where_clause(opts) do
+  defp build_where_clause(opts, pk_col) do
     ids = Keyword.get(opts, :ids)
     id_start = Keyword.get(opts, :id_start)
     id_end = Keyword.get(opts, :id_end)
 
     cond do
       is_list(ids) and ids != [] ->
-        {" WHERE id = ANY($1)", [ids], 2}
+        {" WHERE #{pk_col} = ANY($1)", [ids], 2}
 
       not is_nil(id_start) and not is_nil(id_end) ->
-        {" WHERE id >= $1 AND id <= $2", [id_start, id_end], 3}
+        {" WHERE #{pk_col} >= $1 AND #{pk_col} <= $2", [id_start, id_end], 3}
 
       not is_nil(id_start) ->
-        {" WHERE id >= $1", [id_start], 2}
+        {" WHERE #{pk_col} >= $1", [id_start], 2}
 
       not is_nil(id_end) ->
-        {" WHERE id <= $1", [id_end], 2}
+        {" WHERE #{pk_col} <= $1", [id_end], 2}
 
       true ->
         {"", [], 1}

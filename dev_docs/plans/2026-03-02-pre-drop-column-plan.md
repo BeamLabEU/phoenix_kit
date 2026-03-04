@@ -1,13 +1,17 @@
-# Plan: V72 Preparation Release — Fix hardcoded `id` references and DB prerequisites
+# Plan: V73 Preparation Release — Fix hardcoded `id` references and DB prerequisites
 
-> **Status**: Planning
+> **Status**: DONE — Verified on production
 > **Date**: 2026-03-02
-> **Migration version**: V72
-> **Verified against**: dev-nalazurke-fr after v1.7.53 (V71) on 2026-03-02
+> **Updated**: 2026-03-03
+> **Implemented**: v1.7.55 (V73), released 2026-03-03
+> **Verified on**: dev-nalazurke-fr after V73 migration on 2026-03-03
 
 ## Context
 
-Before the big migration that drops integer `id`/`_id` columns (documented in `dev_docs/plans/2026-03-02-drop-integer-id-columns-plan.md`), several code and DB preparation steps can be shipped safely now. These are backwards-compatible with the current dual-column state.
+Before the big migration that drops integer `id`/`_id` columns (documented in `dev_docs/plans/2026-03-02-drop-integer-id-columns-plan.md`, now V74), several code and DB preparation steps can be shipped safely now. These are backwards-compatible with the current dual-column state.
+
+> **Note**: V72 was used for Category A table renames (see `2026-03-02-category-a-tables-plan.md`).
+> This plan now targets V73.
 
 **Problems found during investigation (all verified still present after V71):**
 1. Raw SQL in db.ex, api_controller.ex, and connection_notifier.ex hardcodes `id` as the PK column — breaks on tables where PK is `uuid` (30 Category A tables + 4 publishing tables already have UUID PK)
@@ -19,9 +23,9 @@ Before the big migration that drops integer `id`/`_id` columns (documented in `d
 
 ---
 
-## Part 1: Migration V72 — DB prerequisites
+## Part 1: Migration V73 — DB prerequisites
 
-File: `lib/phoenix_kit/migrations/postgres/v72.ex`
+File: `lib/phoenix_kit/migrations/postgres/v73.ex`
 
 ### Step 1: SET NOT NULL on 7 nullable uuid columns
 Safe — 0 actual NULLs exist on production:
@@ -51,7 +55,7 @@ ALTER INDEX phoenix_kit_file_instances_file_id_variant_name_index
 ```
 
 ### Infrastructure
-- `lib/phoenix_kit/migrations/postgres.ex` — bump `@current_version` from 71 to 72
+- `lib/phoenix_kit/migrations/postgres.ex` — bump `@current_version` from 72 to 73
 
 ---
 
@@ -141,19 +145,20 @@ Update hardcoded index names to match the renamed indexes from Part 1 Step 3:
 ## Verification
 
 1. `mix compile --warnings-as-errors`
-2. Deploy to staging/production — V72 migration runs (NOT NULL, unique indexes, index renames)
+2. Deploy to staging/production — V73 migration runs (NOT NULL, unique indexes, index renames)
 3. DB explorer works on both `id`-PK and `uuid`-PK tables
 4. Sync operations work correctly
 5. `mix phoenix_kit.doctor` passes
 
 ---
 
-## Files to modify
+## Files modified
 
 | File | Changes |
 |------|---------|
-| `lib/phoenix_kit/migrations/postgres/v72.ex` | **New** — SET NOT NULL, unique indexes, index renames |
-| `lib/phoenix_kit/migrations/postgres.ex` | Bump `@current_version` 71 → 72 |
+| `lib/phoenix_kit/migrations/postgres/v73.ex` | **New** — SET NOT NULL, unique indexes, index renames |
+| `lib/phoenix_kit/migrations/postgres.ex` | Bump `@current_version` 72 → 73 |
+| `lib/phoenix_kit/repo_helper.ex` | **New function** `get_pk_column/1` — queries `pg_index`, falls back to `"id"` |
 | `lib/modules/db/db.ex` | Dynamic PK in `fetch_row`, `table_preview`, `ensure_notify_function` |
 | `lib/modules/sync/web/api_controller.ex` | Dynamic PK in `fetch_filtered_records`, `build_where_clause` |
 | `lib/modules/sync/connection_notifier.ex` | Dynamic PK in `insert_record`, `build_update_clause` |
@@ -162,3 +167,19 @@ Update hardcoded index names to match the renamed indexes from Part 1 Step 3:
 | `lib/modules/posts/schemas/post_media.ex` | Update constraint name |
 | `lib/modules/storage/schemas/file_instance.ex` | Update constraint name |
 | `lib/phoenix_kit/users/oauth.ex` | Remove `:user_id` from replace_all_except |
+| `lib/phoenix_kit/scheduled_jobs/scheduled_job.ex` | Bug fix: remove `source: :id` regression from PR #383 |
+| `mix.exs` | Bump version 1.7.54 → 1.7.55 |
+| `CHANGELOG.md` | Add 1.7.55 entry |
+
+---
+
+## Post-release verification results (2026-03-03)
+
+All verified on dev-nalazurke-fr after V73 migration:
+
+- **Migration version**: 73
+- **7 NOT NULL constraints**: All 7 tables show `is_nullable = 'NO'` for `uuid` column
+- **3 unique indexes**: All 3 created (`consent_logs`, `payment_methods`, `subscription_types`)
+- **4 index renames**: All 4 renamed, old `_id_` names no longer exist
+- **scheduled_jobs PK**: `uuid` (not `id`) — `source: :id` bug fix confirmed working
+- **Compilation**: Clean with `--warnings-as-errors`

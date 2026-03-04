@@ -103,8 +103,7 @@ if Code.ensure_loaded?(Ueberauth) do
       %OAuthProvider{}
       |> OAuthProvider.changeset(attrs)
       |> Repo.insert(
-        on_conflict:
-          {:replace_all_except, [:uuid, :user_id, :user_uuid, :provider, :inserted_at]},
+        on_conflict: {:replace_all_except, [:uuid, :user_uuid, :provider, :inserted_at]},
         conflict_target: [:user_uuid, :provider]
       )
     end

@@ -59,7 +59,7 @@ lib/phoenix_kit/migrations/postgres/
 ## Database schema (migration V17)
 
 ### `phoenix_kit_entities`
-- `id` – primary key
+- `uuid` – primary key (UUIDv7)
 - `name` – unique slug (snake_case)
 - `display_name` – singular UI label
 - `display_name_plural` – plural label (for menus/navigation)
@@ -68,23 +68,23 @@ lib/phoenix_kit/migrations/postgres/
 - `status` – `draft | published | archived`
 - `fields_definition` – JSONB array describing fields
 - `settings` – optional JSONB for entity-specific config
-- `created_by` – admin user id
+- `created_by_uuid` – admin user UUID
 - `date_created`, `date_updated` – UTC timestamps
 
-Indexes cover `name`, `status`, `created_by`. A comment block documents JSON columns.
+Indexes cover `name`, `status`, `created_by_uuid`. A comment block documents JSON columns.
 
 ### `phoenix_kit_entity_data`
-- `id` – primary key
-- `entity_id` – foreign key → `phoenix_kit_entities`
+- `uuid` – primary key (UUIDv7)
+- `entity_uuid` – foreign key → `phoenix_kit_entities`
 - `title` – record label
 - `slug` – optional unique slug per entity
 - `status` – `draft | published | archived`
 - `data` – JSONB map keyed by field definition (or multilang structure, see below)
 - `metadata` – optional JSONB extras (tags, categories, etc.)
-- `created_by` – admin user id
+- `created_by_uuid` – admin user UUID
 - `date_created`, `date_updated`
 
-Indexes cover `entity_id`, `slug`, `status`, `created_by`, `title`. FK cascades on delete.
+Indexes cover `entity_uuid`, `slug`, `status`, `created_by_uuid`, `title`. FK cascades on delete.
 
 ### Seeded settings
 - `entities_enabled` – boolean toggle (default `false`)
@@ -104,7 +104,7 @@ Responsible for entity blueprints:
 - Settings helpers (`enabled?/0`, `enable_system/0`, `disable_system/0`, `get_config/0`).
 - Limit enforcement (`validate_user_entity_limit/1`).
 
-Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
+Note: `create_entity/1` auto-fills `created_by_uuid` with the first admin user if not provided.
 
 Field validation pipeline ensures every entry in `fields_definition` has `type/key/label` and uses a supported type. Note: the changeset validates but does not enrich field definitions—use `FieldTypes.new_field/4` to apply default properties.
 
@@ -114,7 +114,7 @@ Manages actual records:
 - CRUD and query helpers (`list_all/0`, `list_by_entity/1`, `get!/1`, `get/1`, `search_by_title/2`, `create/1`, `update/2`, `delete/1`, `change/2`).
 - Field-level validation ensures required fields are present, numbers are numeric, booleans are booleans, options exist, etc.
 
-Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
+Note: `create/1` auto-fills `created_by_uuid` with the first admin user if not provided.
 
 ### `PhoenixKit.Modules.Entities.FieldTypes`
 Registry of supported field types with metadata:
@@ -229,14 +229,14 @@ PhoenixKit.Modules.Entities.enabled?()
 
 ### Creating an entity blueprint
 ```elixir
-# Note: created_by is optional - auto-fills with first admin user if omitted
+# Note: created_by_uuid is optional - auto-fills with first admin user if omitted
 {:ok, blog_entity} =
   PhoenixKit.Modules.Entities.create_entity(%{
     name: "blog_post",
     display_name: "Blog Post",
     display_name_plural: "Blog Posts",
     icon: "hero-document-text",
-    # created_by: admin.id,  # Optional!
+    # created_by_uuid: admin.uuid,  # Optional!
     fields_definition: [
       %{"type" => "text", "key" => "title", "label" => "Title", "required" => true},
       %{"type" => "rich_text", "key" => "content", "label" => "Content"}
@@ -266,13 +266,13 @@ fields = [
 
 ### Creating a record
 ```elixir
-# Note: created_by is optional - auto-fills with first admin user if omitted
+# Note: created_by_uuid is optional - auto-fills with first admin user if omitted
 {:ok, _record} =
   PhoenixKit.Modules.Entities.EntityData.create(%{
-    entity_id: blog_entity.id,
+    entity_uuid: blog_entity.uuid,
     title: "My First Post",
     status: "published",
-    # created_by: admin.id,  # Optional!
+    # created_by_uuid: admin.uuid,  # Optional!
     data: %{"title" => "My First Post", "content" => "<p>Hello</p>"}
   })
 ```
@@ -285,7 +285,7 @@ PhoenixKit.Modules.Entities.get_system_stats()
 
 ### Enforcing limits
 ```elixir
-PhoenixKit.Modules.Entities.validate_user_entity_limit(admin.id)
+PhoenixKit.Modules.Entities.validate_user_entity_limit(admin.uuid)
 # {:ok, :valid} or {:error, "You have reached the maximum limit of 100 entities"}
 ```
 
