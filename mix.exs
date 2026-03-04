@@ -94,7 +94,7 @@ defmodule PhoenixKit.MixProject do
       {:oauth2, "~> 2.0"},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_google, "~> 0.12"},
-      {:ueberauth_apple, "~> 0.1"},
+      {:ueberauth_apple, "~> 0.6"},
       {:ueberauth_github, "~> 0.8"},
       {:ueberauth_facebook, "~> 0.10"},
 
