@@ -639,6 +639,27 @@
     <div class="card bg-base-100 shadow-xl border border-base-200">
       <div class="card-body space-y-6">
         <.form for={@form} id="publishing-meta" phx-change="update_meta" phx-submit="noop">
+          <%!-- Title field — full width above the editor columns --%>
+          <div class="mb-4">
+            <input
+              type="text"
+              name="title"
+              id="title-input"
+              value={@form["title"] || ""}
+              maxlength="500"
+              class={"input input-bordered w-full text-2xl font-semibold #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+              placeholder={gettext("Post title")}
+              readonly={@readonly? or @viewing_older_version}
+            />
+            <p class="text-xs text-base-content/60 mt-1">
+              <%= if @is_primary_language do %>
+                {gettext("Auto-populated from the first heading. Edit to override.")}
+              <% else %>
+                {gettext("Leave empty to use the primary language title.")}
+              <% end %>
+            </p>
+          </div>
+
           <div class="flex flex-col lg:flex-row gap-6">
             <div class="lg:w-80 space-y-4">
               <div class="space-y-4">
@@ -950,27 +971,6 @@
             </div>
 
             <div class="flex-1 space-y-4">
-              <%!-- Title field --%>
-              <div>
-                <input
-                  type="text"
-                  name="title"
-                  id="title-input"
-                  value={@form["title"] || ""}
-                  maxlength="500"
-                  class={"input input-bordered w-full text-2xl font-semibold #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                  placeholder={gettext("Post title")}
-                  readonly={@readonly? or @viewing_older_version}
-                />
-                <p class="text-xs text-base-content/60 mt-1">
-                  <%= if @is_primary_language do %>
-                    {gettext("Auto-populated from the first heading. Edit to override.")}
-                  <% else %>
-                    {gettext("Leave empty to use the primary language title.")}
-                  <% end %>
-                </p>
-              </div>
-
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold text-base-content">{gettext("Content")}</h2>
                 <div class="flex items-center gap-1.5">

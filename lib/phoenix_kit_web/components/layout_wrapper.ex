@@ -215,7 +215,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     if admin_page?(assigns) do
       # Mark that admin chrome is being rendered by this (LiveView) call.
       # The layout's call (from_layout=true) will detect this and short-circuit.
-      Process.put(:phoenix_kit_admin_chrome_rendered, true)
+      # Only set the flag for non-layout calls (core views that call app_layout directly).
+      # Plugin views never call app_layout, so the layout's own call should NOT set
+      # the flag — otherwise it persists in the process dictionary and causes the
+      # layout to incorrectly short-circuit on subsequent LiveView re-renders.
+      unless assigns[:from_layout], do: Process.put(:phoenix_kit_admin_chrome_rendered, true)
       # Create new inner_block slot that wraps original content with admin navigation
       original_inner_block = assigns[:inner_block]
 
