@@ -441,7 +441,7 @@ defmodule PhoenixKit.Modules.Storage do
   Resets:
   - `storage_redundancy_copies` to "1"
   - `storage_auto_generate_variants` to "true"
-  - `storage_default_bucket_id` to nil
+  - `storage_default_bucket_uuid` to nil
 
   ## Returns
 
@@ -451,7 +451,7 @@ defmodule PhoenixKit.Modules.Storage do
   def reset_settings_to_defaults do
     Settings.update_setting("storage_redundancy_copies", "1")
     Settings.update_setting("storage_auto_generate_variants", "true")
-    Settings.update_setting("storage_default_bucket_id", nil)
+    Settings.update_setting("storage_default_bucket_uuid", nil)
     :ok
   end
 
@@ -1666,7 +1666,7 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp get_default_bucket_uuid do
-    Settings.get_setting_cached("storage_default_bucket_id", nil)
+    Settings.get_setting_cached("storage_default_bucket_uuid", nil)
   end
 
   defp calculate_local_free_space(bucket) do

@@ -92,14 +92,14 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
       filename = extract_filename_from_url(url, content_type)
 
       case find_existing_file(file_checksum, filename) do
-        %{id: existing_id} = _existing_file ->
+        %{uuid: existing_uuid} = _existing_file ->
           # File with same content and name already exists - reuse it
           Logger.info(
-            "[ImageDownloader] Reusing existing file #{existing_id} for URL #{url} (checksum: #{file_checksum}, filename: #{filename})"
+            "[ImageDownloader] Reusing existing file #{existing_uuid} for URL #{url} (checksum: #{file_checksum}, filename: #{filename})"
           )
 
           cleanup_temp_file(temp_path)
-          {:ok, existing_id}
+          {:ok, existing_uuid}
 
         nil ->
           # No existing file matches - store new file
