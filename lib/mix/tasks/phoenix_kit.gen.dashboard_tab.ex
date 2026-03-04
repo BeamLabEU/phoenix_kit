@@ -230,7 +230,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.DashboardTab do
             ~H\"\"\"
             <div>
               <h1>#{tab_title}</h1>
-              <!-- Your content here -->
+              <%!-- Your content here --%>
             </div>
             \"\"\"
           end

@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
 
       <.time_ago datetime={session.connected_at} />
       <.time_ago datetime={user.last_seen} class="text-sm text-gray-500" />
-      <.time_ago datetime={nil} />  <!-- Shows "—" -->
+      <.time_ago datetime={nil} />  # Shows "—"
       <.time_ago datetime={request.inserted_at} id="request-time-123" />
   """
   attr :datetime, :any, required: true
@@ -68,7 +68,7 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   ## Examples
 
       <.expiration_date date={code.expiration_date} />
-      <.expiration_date date={nil} />  <!-- Shows "No expiration" -->
+      <.expiration_date date={nil} />  # Shows "No expiration"
   """
   attr :date, :any, default: nil
   attr :class, :string, default: "text-sm"
@@ -97,8 +97,8 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   ## Examples
 
       <.age_badge days={session.age_in_days} />
-      <.age_badge days={0} />  <!-- Shows "Today" in green -->
-      <.age_badge days={45} class="ml-2" />  <!-- Shows "45d" in red -->
+      <.age_badge days={0} />  # Shows "Today" in green
+      <.age_badge days={45} class="ml-2" />  # Shows "45d" in red
   """
   attr :days, :integer, required: true
   attr :class, :string, default: ""

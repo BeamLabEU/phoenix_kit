@@ -36,11 +36,11 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
       </.table_default>
 
       <.table_default variant="zebra">
-        <!-- Table content with striped rows -->
+        <%!-- Table content with striped rows --%>
       </.table_default>
 
       <.table_default size="sm" class="table-compact">
-        <!-- Compact small table -->
+        <%!-- Compact small table --%>
       </.table_default>
   """
 
