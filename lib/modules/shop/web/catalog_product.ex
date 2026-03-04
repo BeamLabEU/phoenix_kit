@@ -1031,7 +1031,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     get_storage_image_url(id, "large")
   end
 
-  defp first_image(%{image_ids: [id | _]}) when is_binary(id) do
+  defp first_image(%{image_uuids: [id | _]}) when is_binary(id) do
     get_storage_image_url(id, "large")
   end
 
@@ -1045,7 +1045,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   defp image_url(_), do: nil
 
   defp has_storage_images?(%{featured_image_uuid: id}) when is_binary(id), do: true
-  defp has_storage_images?(%{image_ids: [_ | _]}), do: true
+  defp has_storage_images?(%{image_uuids: [_ | _]}), do: true
   defp has_storage_images?(_), do: false
 
   defp has_multiple_images?(%{images: [_, _ | _]}), do: true
@@ -1054,16 +1054,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   # Get display images for gallery
   defp get_display_images(product) do
     if has_storage_images?(product) do
-      product_image_ids(product)
+      product_image_uuids(product)
     else
       []
     end
   end
 
   # Get all product Storage image IDs (featured + gallery, no duplicates)
-  defp product_image_ids(%{featured_image_uuid: nil, image_ids: ids}), do: ids || []
+  defp product_image_uuids(%{featured_image_uuid: nil, image_uuids: ids}), do: ids || []
 
-  defp product_image_ids(%{featured_image_uuid: featured, image_ids: ids}) do
+  defp product_image_uuids(%{featured_image_uuid: featured, image_uuids: ids}) do
     # Ensure featured is first, but don't duplicate if already in ids
     all_ids = ids || []
 
@@ -1075,7 +1075,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     end
   end
 
-  defp product_image_ids(_), do: []
+  defp product_image_uuids(_), do: []
 
   defp get_storage_image_url(nil, _variant), do: placeholder_image_url()
 

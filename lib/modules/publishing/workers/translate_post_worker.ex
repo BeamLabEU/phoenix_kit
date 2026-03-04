@@ -12,14 +12,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       PhoenixKit.Modules.Publishing.translate_post_to_all_languages(
         "docs",
         "getting-started",
-        endpoint_id: 1
+        endpoint_uuid: 1
       )
 
       # Or enqueue directly
       %{
         "group_slug" => "docs",
         "post_slug" => "getting-started",
-        "endpoint_id" => 1
+        "endpoint_uuid" => 1
       }
       |> TranslatePostWorker.new()
       |> Oban.insert()
@@ -28,17 +28,17 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   - `group_slug` - The publishing group slug
   - `post_slug` - The post slug (for slug mode) or date/time path (for timestamp mode)
-  - `endpoint_id` - AI endpoint ID to use for translation
+  - `endpoint_uuid` - AI endpoint ID to use for translation
   - `source_language` - Source language to translate from (optional, defaults to primary language)
   - `target_languages` - List of target languages (optional, defaults to all enabled except source)
   - `version` - Version number to translate (optional, defaults to latest/published)
-  - `user_id` - User UUID for audit trail (optional, stored as "user_id" in job args)
+  - `user_uuid` - User UUID for audit trail (optional)
 
   ## Configuration
 
   Set the default AI endpoint for translations in Settings:
 
-      PhoenixKit.Settings.update_setting("publishing_translation_endpoint_id", "1")
+      PhoenixKit.Settings.update_setting("publishing_translation_endpoint_uuid", "1")
 
   """
 
@@ -82,19 +82,23 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     group_slug = Map.fetch!(args, "group_slug")
     post_slug = Map.fetch!(args, "post_slug")
     version = Map.get(args, "version")
-    endpoint_id = Map.get(args, "endpoint_id") || get_default_endpoint_id()
+
+    endpoint_uuid =
+      Map.get(args, "endpoint_uuid") || Map.get(args, "endpoint_id") ||
+        get_default_endpoint_uuid()
+
     # Use post's stored primary language as default source, not global
     source_language =
       Map.get(args, "source_language") ||
         Storage.get_post_primary_language(group_slug, post_slug, version)
 
     target_languages = Map.get(args, "target_languages") || get_target_languages(source_language)
-    user_uuid = Map.get(args, "user_id")
+    user_uuid = Map.get(args, "user_uuid") || Map.get(args, "user_id")
 
     Logger.info(
       "[TranslatePostWorker] Starting translation of #{group_slug}/#{post_slug} " <>
         "from #{source_language} to #{length(target_languages)} languages " <>
-        "(version: #{inspect(version)}, endpoint: #{inspect(endpoint_id)})"
+        "(version: #{inspect(version)}, endpoint: #{inspect(endpoint_uuid)})"
     )
 
     # Validate AI module is enabled
@@ -103,7 +107,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       do_translate(
         group_slug,
         post_slug,
-        endpoint_id,
+        endpoint_uuid,
         source_language,
         target_languages,
         version,
@@ -118,19 +122,19 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   defp do_translate(
          group_slug,
          post_slug,
-         endpoint_id,
+         endpoint_uuid,
          source_language,
          target_languages,
          version,
          user_uuid
        ) do
-    case AI.get_endpoint(endpoint_id) do
+    case AI.get_endpoint(endpoint_uuid) do
       nil ->
-        Logger.error("[TranslatePostWorker] AI endpoint #{endpoint_id} not found")
+        Logger.error("[TranslatePostWorker] AI endpoint #{endpoint_uuid} not found")
         {:error, "AI endpoint not found"}
 
       %{enabled: false} ->
-        Logger.error("[TranslatePostWorker] AI endpoint #{endpoint_id} is disabled")
+        Logger.error("[TranslatePostWorker] AI endpoint #{endpoint_uuid} is disabled")
         {:error, "AI endpoint is disabled"}
 
       endpoint ->
@@ -684,9 +688,9 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   # Get default endpoint ID from settings
-  # endpoint_id is now a UUID string, no need to convert to integer
-  defp get_default_endpoint_id do
-    case Settings.get_setting("publishing_translation_endpoint_id") do
+  # endpoint_uuid is now a UUID string, no need to convert to integer
+  defp get_default_endpoint_uuid do
+    case Settings.get_setting("publishing_translation_endpoint_uuid") do
       nil -> nil
       "" -> nil
       id -> id
@@ -698,7 +702,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   ## Options
 
-  - `:endpoint_id` - AI endpoint ID (required if not set in settings)
+  - `:endpoint_uuid` - AI endpoint ID (required if not set in settings)
   - `:source_language` - Source language (defaults to primary language)
   - `:target_languages` - List of target languages (defaults to all enabled except source)
   - `:version` - Version to translate (defaults to latest)
@@ -706,9 +710,9 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   ## Examples
 
-      TranslatePostWorker.create_job("docs", "getting-started", endpoint_id: 1)
+      TranslatePostWorker.create_job("docs", "getting-started", endpoint_uuid: 1)
       TranslatePostWorker.create_job("docs", "getting-started",
-        endpoint_id: 1,
+        endpoint_uuid: 1,
         target_languages: ["es", "fr"]
       )
 
@@ -721,11 +725,11 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         "group_slug" => group_slug,
         "post_slug" => post_slug
       }
-      |> maybe_put("endpoint_id", Keyword.get(opts, :endpoint_id))
+      |> maybe_put("endpoint_uuid", Keyword.get(opts, :endpoint_uuid))
       |> maybe_put("source_language", Keyword.get(opts, :source_language))
       |> maybe_put("target_languages", Keyword.get(opts, :target_languages))
       |> maybe_put("version", Keyword.get(opts, :version))
-      |> maybe_put("user_id", user_uuid)
+      |> maybe_put("user_uuid", user_uuid)
 
     new(args)
   end
@@ -740,7 +744,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   ## Examples
 
-      {:ok, job} = TranslatePostWorker.enqueue("docs", "getting-started", endpoint_id: 1)
+      {:ok, job} = TranslatePostWorker.enqueue("docs", "getting-started", endpoint_uuid: 1)
 
   """
   def enqueue(group_slug, post_slug, opts \\ []) do
@@ -761,7 +765,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   - `post_slug` - The post slug
   - `target_language` - The target language code (e.g., "es")
   - `opts` - Options:
-    - `:endpoint_id` - AI endpoint ID to use (required)
+    - `:endpoint_uuid` - AI endpoint ID to use (required)
     - `:source_language` - Source language code (defaults to post's primary language)
     - `:version` - Version to translate (defaults to latest)
 
@@ -772,12 +776,12 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   ## Example
 
-      {:ok, result} = TranslatePostWorker.translate_content("docs", "getting-started", "es", endpoint_id: 1)
+      {:ok, result} = TranslatePostWorker.translate_content("docs", "getting-started", "es", endpoint_uuid: 1)
       # => {:ok, %{title: "Primeros Pasos", url_slug: "primeros-pasos", content: "..."}}
 
   """
   def translate_content(group_slug, post_slug, target_language, opts \\ []) do
-    endpoint_id = Keyword.get(opts, :endpoint_id) || get_default_endpoint_id()
+    endpoint_uuid = Keyword.get(opts, :endpoint_uuid) || get_default_endpoint_uuid()
     version = Keyword.get(opts, :version)
 
     source_language =
@@ -785,9 +789,9 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         Storage.get_post_primary_language(group_slug, post_slug, version)
 
     if AI.enabled?() do
-      case AI.get_endpoint(endpoint_id) do
+      case AI.get_endpoint(endpoint_uuid) do
         nil ->
-          {:error, "AI endpoint not found: #{endpoint_id}"}
+          {:error, "AI endpoint not found: #{endpoint_uuid}"}
 
         %{enabled: false} ->
           {:error, "AI endpoint is disabled"}
@@ -847,7 +851,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   - `post_slug` - The post slug
   - `target_language` - The target language code (e.g., "es")
   - `opts` - Options:
-    - `:endpoint_id` - AI endpoint ID to use (required)
+    - `:endpoint_uuid` - AI endpoint ID to use (required)
     - `:source_language` - Source language code (defaults to post's primary language)
     - `:version` - Version to translate (defaults to latest)
     - `:user_uuid` - User UUID for audit trail
@@ -859,11 +863,11 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   ## Example
 
-      :ok = TranslatePostWorker.translate_now("docs", "getting-started", "es", endpoint_id: 1)
+      :ok = TranslatePostWorker.translate_now("docs", "getting-started", "es", endpoint_uuid: 1)
 
   """
   def translate_now(group_slug, post_slug, target_language, opts \\ []) do
-    endpoint_id = Keyword.get(opts, :endpoint_id) || get_default_endpoint_id()
+    endpoint_uuid = Keyword.get(opts, :endpoint_uuid) || get_default_endpoint_uuid()
     version = Keyword.get(opts, :version)
     user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
 
@@ -872,9 +876,9 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
         Storage.get_post_primary_language(group_slug, post_slug, version)
 
     if AI.enabled?() do
-      case AI.get_endpoint(endpoint_id) do
+      case AI.get_endpoint(endpoint_uuid) do
         nil ->
-          {:error, "AI endpoint not found: #{endpoint_id}"}
+          {:error, "AI endpoint not found: #{endpoint_uuid}"}
 
         %{enabled: false} ->
           {:error, "AI endpoint is disabled"}

@@ -8,14 +8,14 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   ## Usage
 
       # Download and store a single image
-      {:ok, file_id} = ImageDownloader.download_and_store(url, user_uuid)
+      {:ok, file_uuid} = ImageDownloader.download_and_store(url, user_uuid)
 
       # Download with options
-      {:ok, file_id} = ImageDownloader.download_and_store(url, user_uuid, timeout: 30_000)
+      {:ok, file_uuid} = ImageDownloader.download_and_store(url, user_uuid, timeout: 30_000)
 
       # Batch download multiple images
       results = ImageDownloader.download_batch(urls, user_uuid)
-      # => [{url, {:ok, file_id}}, {url, {:error, reason}}, ...]
+      # => [{url, {:ok, file_uuid}}, {url, {:error, reason}}, ...]
 
   """
 
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   @doc """
   Downloads an image from a URL and stores it in the Storage module.
 
-  Returns `{:ok, file_id}` where file_id is a UUID that can be used to reference
+  Returns `{:ok, file_uuid}` where file_uuid is a UUID that can be used to reference
   the stored file.
 
   ## Options
@@ -92,14 +92,14 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
       filename = extract_filename_from_url(url, content_type)
 
       case find_existing_file(file_checksum, filename) do
-        %{id: existing_id} = _existing_file ->
+        %{uuid: existing_uuid} = _existing_file ->
           # File with same content and name already exists - reuse it
           Logger.info(
-            "[ImageDownloader] Reusing existing file #{existing_id} for URL #{url} (checksum: #{file_checksum}, filename: #{filename})"
+            "[ImageDownloader] Reusing existing file #{existing_uuid} for URL #{url} (checksum: #{file_checksum}, filename: #{filename})"
           )
 
           cleanup_temp_file(temp_path)
-          {:ok, existing_id}
+          {:ok, existing_uuid}
 
         nil ->
           # No existing file matches - store new file
@@ -172,7 +172,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageDownloader do
   Downloads and stores multiple images in batch.
 
   Returns a list of tuples `{url, result}` where result is either
-  `{:ok, file_id}` or `{:error, reason}`.
+  `{:ok, file_uuid}` or `{:error, reason}`.
 
   ## Options
 

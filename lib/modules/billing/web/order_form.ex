@@ -159,7 +159,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderForm do
   end
 
   @impl true
-  def handle_event("select_billing_profile", %{"profile_id" => profile_uuid}, socket) do
+  def handle_event("select_billing_profile", %{"profile_uuid" => profile_uuid}, socket) do
     handle_billing_profile_selection(profile_uuid, socket)
   end
 

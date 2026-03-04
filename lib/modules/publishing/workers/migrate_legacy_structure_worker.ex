@@ -37,7 +37,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigrateLegacyStructureWorker do
 
     args =
       %{"group_slug" => group_slug}
-      |> maybe_put("user_id", user_uuid)
+      |> maybe_put("user_uuid", user_uuid)
 
     new(args)
   end

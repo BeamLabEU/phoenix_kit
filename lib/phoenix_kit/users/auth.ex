@@ -375,10 +375,10 @@ defmodule PhoenixKit.Users.Auth do
 
   ## Examples
 
-      iex> get_first_user_id()
+      iex> get_first_user_uuid()
       "01924..."
   """
-  def get_first_user_id do
+  def get_first_user_uuid do
     case get_first_user() do
       nil -> nil
       user -> user.uuid
@@ -401,23 +401,6 @@ defmodule PhoenixKit.Users.Auth do
   """
   def get_first_admin_uuid do
     case get_first_admin() do
-      nil -> nil
-      user -> user.uuid
-    end
-  end
-
-  @doc """
-  Gets the UUID of the first user in the system.
-
-  Convenience function for getting a user UUID for `created_by_uuid` fields.
-
-  ## Examples
-
-      iex> get_first_user_uuid()
-      "019b5704-3680-7b95-9d82-ef16127f1fd2"
-  """
-  def get_first_user_uuid do
-    case get_first_user() do
       nil -> nil
       user -> user.uuid
     end
@@ -1581,7 +1564,7 @@ defmodule PhoenixKit.Users.Auth do
          ) do
       {:ok, file} ->
         # Save the file UUID to user's custom fields
-        update_user_fields(user, %{"avatar_file_id" => file.uuid})
+        update_user_fields(user, %{"avatar_file_uuid" => file.uuid})
 
       {:error, reason} ->
         {:error, reason}

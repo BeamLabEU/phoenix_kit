@@ -877,7 +877,7 @@ defmodule PhoenixKit.Modules.CustomerService do
   ## Parameters
 
   - `ticket_uuid` - ID of the ticket
-  - `file_id` - ID of the uploaded file
+  - `file_uuid` - UUID of the uploaded file
   - `opts` - Options
     - `:position` - Display order (default: auto-calculated)
     - `:caption` - Optional caption

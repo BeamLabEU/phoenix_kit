@@ -61,7 +61,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
             is_nil(p.featured_image_uuid) and
-            fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
+            fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_uuids),
         order_by: [asc: p.inserted_at]
       )
 
@@ -88,7 +88,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
           (fragment("jsonb_array_length(?) > 0", p.images) or
              (not is_nil(p.featured_image) and p.featured_image != "")) and
             is_nil(p.featured_image_uuid) and
-            fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_ids),
+            fragment("COALESCE(array_length(?, 1), 0) = 0", p.image_uuids),
         select: count(p.uuid)
       )
 
@@ -110,7 +110,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
       from(p in Product,
         where:
           not is_nil(p.featured_image_uuid) or
-            fragment("array_length(?, 1) > 0", p.image_ids),
+            fragment("array_length(?, 1) > 0", p.image_uuids),
         select: count(p.uuid)
       )
 
@@ -266,7 +266,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
   ## Examples
 
       iex> migrate_product(product_uuid, user_uuid)
-      {:ok, %Product{featured_image_uuid: "uuid-1", image_ids: ["uuid-1", "uuid-2"]}}
+      {:ok, %Product{featured_image_uuid: "uuid-1", image_uuids: ["uuid-1", "uuid-2"]}}
 
   """
   @spec migrate_product(String.t(), String.t() | integer()) ::
@@ -317,7 +317,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
 
   defp has_storage_images?(product) do
     not is_nil(product.featured_image_uuid) or
-      (is_list(product.image_ids) and product.image_ids != [])
+      (is_list(product.image_uuids) and product.image_uuids != [])
   end
 
   defp collect_image_urls(product) do
@@ -364,57 +364,57 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
       results =
         ImageDownloader.download_batch(valid_urls, user_uuid, concurrency: 3, timeout: 60_000)
 
-      # Build URL -> file_id mapping
-      url_to_file_id =
+      # Build URL -> file_uuid mapping
+      url_to_file_uuid =
         Enum.reduce(results, %{}, fn
-          {url, {:ok, file_id}}, acc ->
-            Map.put(acc, url, file_id)
+          {url, {:ok, file_uuid}}, acc ->
+            Map.put(acc, url, file_uuid)
 
           {url, {:error, reason}}, acc ->
             Logger.warning("Failed to download #{url}: #{inspect(reason)}")
             acc
         end)
 
-      if map_size(url_to_file_id) == 0 do
+      if map_size(url_to_file_uuid) == 0 do
         {:error, :all_downloads_failed}
       else
-        update_product_images(product, url_to_file_id)
+        update_product_images(product, url_to_file_uuid)
       end
     end
   end
 
-  defp update_product_images(product, url_to_file_id) do
+  defp update_product_images(product, url_to_file_uuid) do
     # Map featured_image to featured_image_uuid
-    featured_image_uuid = Map.get(url_to_file_id, product.featured_image)
+    featured_image_uuid = Map.get(url_to_file_uuid, product.featured_image)
 
-    # Map legacy images to image_ids, preserving order from original images array
-    image_ids =
+    # Map legacy images to image_uuids, preserving order from original images array
+    image_uuids =
       (product.images || [])
       |> Enum.flat_map(fn
         %{"src" => src} -> [src]
         src when is_binary(src) -> [src]
         _ -> []
       end)
-      |> Enum.map(&Map.get(url_to_file_id, &1))
+      |> Enum.map(&Map.get(url_to_file_uuid, &1))
       |> Enum.reject(&is_nil/1)
 
     # Use first image_id as featured if not set
-    featured_image_uuid = featured_image_uuid || List.first(image_ids)
+    featured_image_uuid = featured_image_uuid || List.first(image_uuids)
 
-    # Ensure featured image is first in image_ids (no duplicates)
-    image_ids =
-      if featured_image_uuid && featured_image_uuid in image_ids do
-        [featured_image_uuid | Enum.reject(image_ids, &(&1 == featured_image_uuid))]
+    # Ensure featured image is first in image_uuids (no duplicates)
+    image_uuids =
+      if featured_image_uuid && featured_image_uuid in image_uuids do
+        [featured_image_uuid | Enum.reject(image_uuids, &(&1 == featured_image_uuid))]
       else
-        image_ids
+        image_uuids
       end
 
     # Update image mappings in metadata
-    metadata = update_image_mappings(product.metadata, url_to_file_id)
+    metadata = update_image_mappings(product.metadata, url_to_file_uuid)
 
     attrs = %{
       featured_image_uuid: featured_image_uuid,
-      image_ids: image_ids,
+      image_uuids: image_uuids,
       metadata: metadata,
       # Clear legacy fields after successful migration
       images: [],
@@ -424,9 +424,9 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     Shop.update_product(product, attrs)
   end
 
-  defp update_image_mappings(nil, _url_to_file_id), do: nil
+  defp update_image_mappings(nil, _url_to_file_uuid), do: nil
 
-  defp update_image_mappings(metadata, url_to_file_id) when is_map(metadata) do
+  defp update_image_mappings(metadata, url_to_file_uuid) when is_map(metadata) do
     case Map.get(metadata, "_image_mappings") do
       nil ->
         metadata
@@ -436,7 +436,7 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
           Enum.reduce(mappings, %{}, fn {option_key, value_map}, acc ->
             updated_value_map =
               Enum.reduce(value_map, %{}, fn {value, image_ref}, inner_acc ->
-                new_ref = convert_url_to_file_id(image_ref, url_to_file_id)
+                new_ref = convert_url_to_file_uuid(image_ref, url_to_file_uuid)
                 Map.put(inner_acc, value, new_ref)
               end)
 
@@ -447,18 +447,18 @@ defmodule PhoenixKit.Modules.Shop.Services.ImageMigration do
     end
   end
 
-  defp update_image_mappings(metadata, _url_to_file_id), do: metadata
+  defp update_image_mappings(metadata, _url_to_file_uuid), do: metadata
 
-  defp convert_url_to_file_id(image_ref, url_to_file_id)
+  defp convert_url_to_file_uuid(image_ref, url_to_file_uuid)
        when is_binary(image_ref) do
     if String.starts_with?(image_ref, "http") do
-      Map.get(url_to_file_id, image_ref, image_ref)
+      Map.get(url_to_file_uuid, image_ref, image_ref)
     else
       image_ref
     end
   end
 
-  defp convert_url_to_file_id(image_ref, _url_to_file_id), do: image_ref
+  defp convert_url_to_file_uuid(image_ref, _url_to_file_uuid), do: image_ref
 
   # PubSub broadcasts
 

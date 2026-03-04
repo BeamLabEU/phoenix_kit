@@ -215,17 +215,17 @@ defmodule PhoenixKit.Modules.CustomerService.Web.Details do
   end
 
   @impl true
-  def handle_info({:media_selected, file_ids}, socket) do
+  def handle_info({:media_selected, file_uuids}, socket) do
     ticket = socket.assigns.ticket
 
-    Enum.each(file_ids, fn file_id ->
-      CustomerService.add_attachment_to_ticket(ticket.uuid, file_id)
+    Enum.each(file_uuids, fn file_uuid ->
+      CustomerService.add_attachment_to_ticket(ticket.uuid, file_uuid)
     end)
 
     {:noreply,
      socket
      |> assign(:show_media_selector, false)
-     |> put_flash(:info, "#{length(file_ids)} file(s) attached")
+     |> put_flash(:info, "#{length(file_uuids)} file(s) attached")
      |> load_attachments()}
   end
 

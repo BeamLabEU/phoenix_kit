@@ -32,7 +32,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   ## Manual Trigger
 
   ```elixir
-  %{subscription_id: "019145a1-0000-7000-8000-000000000001"}
+  %{subscription_uuid: "019145a1-0000-7000-8000-000000000001"}
   |> SubscriptionDunningWorker.new()
   |> Oban.insert()
   ```
@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   use Oban.Worker,
     queue: :billing,
     max_attempts: 5,
-    unique: [period: 3600, keys: [:subscription_id]]
+    unique: [period: 3600, keys: [:subscription_uuid]]
 
   alias PhoenixKit.Modules.Billing.{PaymentMethod, Providers, Subscription, SubscriptionType}
   alias PhoenixKit.RepoHelper
@@ -51,7 +51,9 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
   require Logger
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"subscription_id" => subscription_uuid}}) do
+  def perform(%Oban.Job{args: args}) do
+    subscription_uuid = Map.get(args, "subscription_uuid") || Map.get(args, "subscription_id")
+
     case get_subscription_with_preloads(subscription_uuid) do
       nil ->
         Logger.warning("Subscription #{subscription_uuid} not found for dunning")
@@ -179,7 +181,7 @@ defmodule PhoenixKit.Modules.Billing.Workers.SubscriptionDunningWorker do
 
     if subscription.renewal_attempts < max_attempts do
       # Schedule next retry in 24 hours
-      %{subscription_id: subscription.uuid}
+      %{subscription_uuid: subscription.uuid}
       |> __MODULE__.new(schedule_in: 86_400)
       |> Oban.insert()
     end

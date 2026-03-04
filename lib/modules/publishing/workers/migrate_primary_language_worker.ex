@@ -18,7 +18,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
 
   - `group_slug` - The publishing group slug
   - `primary_language` - The new primary language to set
-  - `user_id` - User UUID for audit trail (optional, stored as "user_id" in job args)
+  - `user_uuid` - User UUID for audit trail (optional)
 
   ## PubSub Events
 
@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
   def perform(%Oban.Job{args: args}) do
     group_slug = Map.fetch!(args, "group_slug")
     primary_language = Map.fetch!(args, "primary_language")
-    _user_uuid = Map.get(args, "user_id")
+    _user_uuid = Map.get(args, "user_uuid") || Map.get(args, "user_id")
 
     Logger.info(
       "[MigratePrimaryLanguageWorker] Starting migration for #{group_slug} to #{primary_language}"
@@ -181,7 +181,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
         "group_slug" => group_slug,
         "primary_language" => primary_language
       }
-      |> maybe_put("user_id", user_uuid)
+      |> maybe_put("user_uuid", user_uuid)
 
     new(args)
   end

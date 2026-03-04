@@ -89,7 +89,7 @@ defmodule PhoenixKitWeb.FileController do
 
   Success (200):
       {
-        "file_id": "uuid",
+        "file_uuid": "uuid",
         "original_filename": "photo.jpg",
         "mime_type": "image/jpeg",
         "file_type": "image",
@@ -129,7 +129,7 @@ defmodule PhoenixKitWeb.FileController do
           end)
 
         json(conn, %{
-          file_id: file.uuid,
+          file_uuid: file.uuid,
           original_filename: file.original_file_name,
           mime_type: file.mime_type,
           file_type: file.file_type,

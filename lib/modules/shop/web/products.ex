@@ -364,7 +364,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_info({:product_deleted, _product_id}, socket) do
+  def handle_info({:product_deleted, _product_uuid}, socket) do
     {:noreply, load_products(socket)}
   end
 
@@ -374,7 +374,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
-  def handle_info({:inventory_updated, _product_id, _change}, socket) do
+  def handle_info({:inventory_updated, _product_uuid, _change}, socket) do
     {:noreply, load_products(socket)}
   end
 
@@ -841,7 +841,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
     get_storage_image_url(id, "small")
   end
 
-  defp get_product_thumbnail(%{image_ids: [id | _]}) when is_binary(id) do
+  defp get_product_thumbnail(%{image_uuids: [id | _]}) when is_binary(id) do
     get_storage_image_url(id, "small")
   end
 
@@ -853,18 +853,18 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   defp get_product_thumbnail(%{images: [first | _]}) when is_binary(first), do: first
   defp get_product_thumbnail(_), do: nil
 
-  defp get_storage_image_url(file_id, variant) do
-    case Storage.get_file(file_id) do
+  defp get_storage_image_url(file_uuid, variant) do
+    case Storage.get_file(file_uuid) do
       %{uuid: uuid} ->
         case Storage.get_file_instance_by_name(uuid, variant) do
           nil ->
             case Storage.get_file_instance_by_name(uuid, "original") do
               nil -> nil
-              _instance -> URLSigner.signed_url(file_id, "original")
+              _instance -> URLSigner.signed_url(file_uuid, "original")
             end
 
           _instance ->
-            URLSigner.signed_url(file_id, variant)
+            URLSigner.signed_url(file_uuid, variant)
         end
 
       nil ->

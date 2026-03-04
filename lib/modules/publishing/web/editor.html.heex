@@ -413,11 +413,11 @@
                 <span class="text-sm font-medium">{gettext("Translate with")}</span>
                 <select
                   class="select select-bordered select-sm"
-                  name="endpoint_id"
+                  name="endpoint_uuid"
                 >
                   <option value="">{gettext("Select an endpoint...")}</option>
                   <%= for {id, name} <- @ai_endpoints do %>
-                    <option value={id} selected={@ai_selected_endpoint_id == id}>
+                    <option value={id} selected={@ai_selected_endpoint_uuid == id}>
                       {name}
                     </option>
                   <% end %>
@@ -474,10 +474,10 @@
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"
-                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
+                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_uuid == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
                 phx-click="translate_to_this_language"
                 disabled={
-                  @ai_selected_endpoint_id == nil or
+                  @ai_selected_endpoint_uuid == nil or
                     @ai_translation_status in [:enqueued, :in_progress]
                 }
               >
@@ -530,11 +530,11 @@
                 <span class="text-sm font-medium">{gettext("Translate with")}</span>
                 <select
                   class="select select-bordered select-sm"
-                  name="endpoint_id"
+                  name="endpoint_uuid"
                 >
                   <option value="">{gettext("Select an endpoint...")}</option>
                   <%= for {id, name} <- @ai_endpoints do %>
-                    <option value={id} selected={@ai_selected_endpoint_id == id}>
+                    <option value={id} selected={@ai_selected_endpoint_uuid == id}>
                       {name}
                     </option>
                   <% end %>
@@ -591,10 +591,10 @@
             <div class="flex flex-wrap gap-3">
               <button
                 type="button"
-                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
+                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_uuid == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
                 phx-click="translate_to_all_languages"
                 disabled={
-                  @ai_selected_endpoint_id == nil or
+                  @ai_selected_endpoint_uuid == nil or
                     @ai_translation_status in [:enqueued, :in_progress]
                 }
               >
@@ -604,10 +604,10 @@
 
               <button
                 type="button"
-                class={"btn btn-outline btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
+                class={"btn btn-outline btn-sm #{if @ai_selected_endpoint_uuid == nil or @ai_translation_status in [:enqueued, :in_progress], do: "btn-disabled"}"}
                 phx-click="translate_missing_languages"
                 disabled={
-                  @ai_selected_endpoint_id == nil or
+                  @ai_selected_endpoint_uuid == nil or
                     @ai_translation_status in [:enqueued, :in_progress]
                 }
               >

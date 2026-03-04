@@ -122,7 +122,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:show_ai_translation, false)
       |> assign(:ai_enabled, Translation.ai_translation_available?())
       |> assign(:ai_endpoints, Translation.list_ai_endpoints())
-      |> assign(:ai_selected_endpoint_id, Translation.get_default_ai_endpoint_id())
+      |> assign(:ai_selected_endpoint_uuid, Translation.get_default_ai_endpoint_uuid())
       |> assign(:ai_translation_status, nil)
       |> assign(:ai_translation_progress, nil)
       |> assign(:ai_translation_total, nil)
@@ -770,11 +770,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     {:noreply, assign(socket, :show_ai_translation, !socket.assigns.show_ai_translation)}
   end
 
-  def handle_event("select_ai_endpoint", %{"endpoint_id" => endpoint_id}, socket) do
-    # endpoint_id can be UUID or integer - AI module handles both
-    endpoint_id = if endpoint_id == "", do: nil, else: endpoint_id
+  def handle_event("select_ai_endpoint", %{"endpoint_uuid" => endpoint_uuid}, socket) do
+    endpoint_uuid = if endpoint_uuid == "", do: nil, else: endpoint_uuid
 
-    {:noreply, assign(socket, :ai_selected_endpoint_id, endpoint_id)}
+    {:noreply, assign(socket, :ai_selected_endpoint_uuid, endpoint_uuid)}
   end
 
   def handle_event("translate_to_all_languages", _params, socket) do

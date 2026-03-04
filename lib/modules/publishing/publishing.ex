@@ -2386,7 +2386,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   ## Options
 
-  - `:endpoint_id` - AI endpoint ID to use for translation (required if not set in settings)
+  - `:endpoint_uuid` - AI endpoint UUID to use for translation (required if not set in settings)
   - `:source_language` - Source language to translate from (defaults to primary language)
   - `:target_languages` - List of target language codes (defaults to all enabled except source)
   - `:version` - Version number to translate (defaults to latest/published)
@@ -2396,7 +2396,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   Set the default AI endpoint for translations:
 
-      PhoenixKit.Settings.update_setting("publishing_translation_endpoint_id", "1")
+      PhoenixKit.Settings.update_setting("publishing_translation_endpoint_uuid", "endpoint-uuid")
 
   ## Examples
 
@@ -2405,12 +2405,12 @@ defmodule PhoenixKit.Modules.Publishing do
 
       # Translate with specific endpoint
       {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
-        endpoint_id: 1
+        endpoint_uuid: "endpoint-uuid"
       )
 
       # Translate to specific languages only
       {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
-        endpoint_id: 1,
+        endpoint_uuid: "endpoint-uuid",
         target_languages: ["es", "fr", "de"]
       )
 

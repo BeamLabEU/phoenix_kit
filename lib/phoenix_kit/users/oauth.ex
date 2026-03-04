@@ -73,7 +73,7 @@ if Code.ensure_loaded?(Ueberauth) do
     defp maybe_save_oauth_avatar(user, %{image: image}) when is_binary(image) and image != "" do
       # Only update if user doesn't already have a custom avatar
       case user.custom_fields do
-        %{"avatar_file_id" => file_id} when is_binary(file_id) and file_id != "" ->
+        %{"avatar_file_uuid" => file_uuid} when is_binary(file_uuid) and file_uuid != "" ->
           # User has a custom avatar, don't override
           {:ok, user}
 
