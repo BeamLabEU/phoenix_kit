@@ -5,7 +5,7 @@
   current_path={@url_path}
   project_title={@project_title}
 >
-  <div class="container mx-auto px-4 py-6">
+  <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin")}
       title="Support Tickets"
@@ -48,7 +48,6 @@
     <%!-- Filters --%>
     <div class="bg-base-200 rounded-lg p-4 mb-6">
       <form phx-change="filter" phx-submit="filter" class="flex flex-col md:flex-row gap-4">
-        <%!-- Search --%>
         <div class="flex-1">
           <input
             type="text"
@@ -59,8 +58,6 @@
             phx-debounce="300"
           />
         </div>
-
-        <%!-- Status Filter --%>
         <div class="w-full md:w-48">
           <select name="filters[status]" class="select select-bordered w-full">
             <option value="">All Statuses</option>
@@ -72,8 +69,6 @@
             <option value="closed" selected={@status_filter == "closed"}>Closed</option>
           </select>
         </div>
-
-        <%!-- Assignment Filter --%>
         <div class="w-full md:w-48">
           <select name="filters[assigned_to]" class="select select-bordered w-full">
             <option value="">All Assigned</option>
@@ -82,35 +77,35 @@
             </option>
           </select>
         </div>
-
-        <%!-- Clear Filters --%>
         <button type="button" phx-click="clear_filters" class="btn btn-ghost">
           Clear
         </button>
       </form>
     </div>
 
-    <%!-- Tickets Table --%>
-    <div class="bg-base-100 rounded-lg shadow overflow-x-auto">
-      <%= if @loading do %>
-        <div class="flex justify-center items-center py-12">
-          <span class="loading loading-spinner loading-lg"></span>
+    <%!-- Loading --%>
+    <%= if @loading do %>
+      <div class="flex justify-center items-center py-12">
+        <span class="loading loading-spinner loading-lg"></span>
+      </div>
+    <% else %>
+      <%!-- Empty State --%>
+      <%= if Enum.empty?(@tickets) do %>
+        <div class="text-center py-12">
+          <.icon name="hero-ticket" class="h-16 w-16 mx-auto text-base-content/30 mb-4" />
+          <h3 class="text-lg font-medium mb-2">No tickets found</h3>
+          <p class="text-base-content/70">
+            <%= if @status_filter || @search_query do %>
+              Try adjusting your filters or search query.
+            <% else %>
+              Create your first ticket to get started.
+            <% end %>
+          </p>
         </div>
       <% else %>
-        <%= if Enum.empty?(@tickets) do %>
-          <div class="text-center py-12">
-            <.icon name="hero-ticket" class="h-16 w-16 mx-auto text-base-content/30 mb-4" />
-            <h3 class="text-lg font-medium mb-2">No tickets found</h3>
-            <p class="text-base-content/70">
-              <%= if @status_filter || @search_query do %>
-                Try adjusting your filters or search query.
-              <% else %>
-                Create your first ticket to get started.
-              <% end %>
-            </p>
-          </div>
-        <% else %>
-          <.table_default variant="zebra" class="w-full">
+        <%!-- Desktop Table --%>
+        <div class="hidden md:block bg-base-100 mb-6">
+          <.table_default variant="zebra" class="w-full table-fixed">
             <.table_default_header>
               <.table_default_row>
                 <.table_default_header_cell>Ticket</.table_default_header_cell>
@@ -118,29 +113,25 @@
                 <.table_default_header_cell class="hidden lg:table-cell">
                   Assigned To
                 </.table_default_header_cell>
-                <.table_default_header_cell>Status</.table_default_header_cell>
-                <.table_default_header_cell>Created</.table_default_header_cell>
-                <.table_default_header_cell>Actions</.table_default_header_cell>
+                <.table_default_header_cell class="w-28">Status</.table_default_header_cell>
+                <.table_default_header_cell class="w-28">Created</.table_default_header_cell>
+                <.table_default_header_cell class="w-20">Actions</.table_default_header_cell>
               </.table_default_row>
             </.table_default_header>
             <.table_default_body>
               <%= for ticket <- @tickets do %>
                 <.table_default_row>
                   <.table_default_cell>
-                    <div class="font-medium">{ticket.title}</div>
-                    <div class="text-sm text-base-content/70 truncate max-w-xs">
-                      {String.slice(ticket.description, 0, 80)}{if String.length(
-                                                                     ticket.description
-                                                                   ) >
-                                                                     80,
-                                                                   do: "..."}
+                    <div class="font-medium truncate">{ticket.title}</div>
+                    <div class="text-xs text-base-content/60 line-clamp-2">
+                      {ticket.description}
                     </div>
                   </.table_default_cell>
                   <.table_default_cell>
                     <%= if ticket.user do %>
                       <div class="flex items-center gap-2 min-w-0">
                         <.user_avatar user={ticket.user} size="sm" />
-                        <span class="text-sm truncate max-w-[140px]">{ticket.user.email}</span>
+                        <span class="text-sm truncate min-w-0 flex-1">{ticket.user.email}</span>
                       </div>
                     <% else %>
                       <span class="text-base-content/50">Unknown</span>
@@ -148,11 +139,9 @@
                   </.table_default_cell>
                   <.table_default_cell class="hidden lg:table-cell">
                     <%= if ticket.assigned_to do %>
-                      <span class="badge badge-outline whitespace-nowrap">
-                        {ticket.assigned_to.email}
-                      </span>
+                      <span class="text-sm truncate block">{ticket.assigned_to.email}</span>
                     <% else %>
-                      <span class="badge badge-ghost whitespace-nowrap">Unassigned</span>
+                      <span class="badge badge-ghost">Unassigned</span>
                     <% end %>
                   </.table_default_cell>
                   <.table_default_cell>
@@ -181,8 +170,7 @@
                         class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
                         data-tip={gettext("View details")}
                       >
-                        <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
-                        <span class="sm:hidden whitespace-nowrap">{gettext("View details")}</span>
+                        <.icon name="hero-eye" class="w-4 h-4" />
                       </.link>
                       <.link
                         navigate={
@@ -190,11 +178,10 @@
                             "/admin/customer-service/tickets/#{ticket.uuid}/edit"
                           )
                         }
-                        class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
+                        class="btn btn-xs btn-outline tooltip tooltip-bottom"
                         data-tip={gettext("Edit ticket")}
                       >
-                        <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
-                        <span class="sm:hidden whitespace-nowrap">{gettext("Edit ticket")}</span>
+                        <.icon name="hero-pencil" class="w-4 h-4" />
                       </.link>
                     </div>
                   </.table_default_cell>
@@ -202,33 +189,124 @@
               <% end %>
             </.table_default_body>
           </.table_default>
+        </div>
 
-          <%!-- Pagination --%>
-          <%= if @total_pages > 1 do %>
-            <div class="flex justify-center items-center gap-2 py-4 border-t">
-              <button
-                phx-click="change_page"
-                phx-value-page={max(1, @page - 1)}
-                class={"btn btn-sm #{if @page == 1, do: "btn-disabled"}"}
-                disabled={@page == 1}
-              >
-                Previous
-              </button>
-              <span class="text-sm">
-                Page {@page} of {@total_pages}
-              </span>
-              <button
-                phx-click="change_page"
-                phx-value-page={min(@total_pages, @page + 1)}
-                class={"btn btn-sm #{if @page == @total_pages, do: "btn-disabled"}"}
-                disabled={@page == @total_pages}
-              >
-                Next
-              </button>
+        <%!-- Mobile Cards --%>
+        <div class="md:hidden mb-6">
+          <div class="space-y-3">
+            <%= for ticket <- @tickets do %>
+              <div class="card card-border card-sm bg-base-100">
+                <div class="card-body gap-3">
+                  <%!-- Header: title + status --%>
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="font-medium text-sm leading-snug">{ticket.title}</div>
+                    <%= case ticket.status do %>
+                      <% "open" -> %>
+                        <span class="badge badge-info whitespace-nowrap shrink-0">Open</span>
+                      <% "in_progress" -> %>
+                        <span class="badge badge-warning whitespace-nowrap shrink-0">
+                          In Progress
+                        </span>
+                      <% "resolved" -> %>
+                        <span class="badge badge-success whitespace-nowrap shrink-0">
+                          Resolved
+                        </span>
+                      <% "closed" -> %>
+                        <span class="badge whitespace-nowrap shrink-0">Closed</span>
+                    <% end %>
+                  </div>
+
+                  <%!-- Body: key/value grid --%>
+                  <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div class="text-base-content/60">Customer</div>
+                    <div class="truncate">
+                      <%= if ticket.user do %>
+                        {ticket.user.email}
+                      <% else %>
+                        <span class="text-base-content/40">Unknown</span>
+                      <% end %>
+                    </div>
+
+                    <div class="text-base-content/60">Assigned</div>
+                    <div>
+                      <%= if ticket.assigned_to do %>
+                        <span class="truncate">{ticket.assigned_to.email}</span>
+                      <% else %>
+                        <span class="text-base-content/40">Unassigned</span>
+                      <% end %>
+                    </div>
+
+                    <div class="text-base-content/60">Created</div>
+                    <div>{Calendar.strftime(ticket.inserted_at, "%b %d, %Y")}</div>
+                  </div>
+
+                  <%!-- Footer: actions --%>
+                  <div class="card-actions justify-end pt-1 border-t border-base-200">
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path(
+                          "/admin/customer-service/tickets/#{ticket.uuid}"
+                        )
+                      }
+                      class="btn btn-xs btn-outline btn-info"
+                    >
+                      <.icon name="hero-eye" class="w-3 h-3" /> {gettext("View")}
+                    </.link>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path(
+                          "/admin/customer-service/tickets/#{ticket.uuid}/edit"
+                        )
+                      }
+                      class="btn btn-xs btn-outline"
+                    >
+                      <.icon name="hero-pencil" class="w-3 h-3" /> {gettext("Edit")}
+                    </.link>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Pagination --%>
+        <%= if @total_pages > 1 do %>
+          <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="text-sm text-base-content/70">
+              Page {@page} of {@total_pages}
             </div>
-          <% end %>
+            <div class="join">
+              <%= if @page > 1 do %>
+                <button
+                  phx-click="change_page"
+                  phx-value-page={@page - 1}
+                  class="join-item btn btn-outline"
+                >
+                  « Previous
+                </button>
+              <% end %>
+              <%= for page_num <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
+                <button
+                  phx-click="change_page"
+                  phx-value-page={page_num}
+                  class={"join-item btn #{if page_num == @page, do: "btn-primary", else: "btn-outline"}"}
+                >
+                  {page_num}
+                </button>
+              <% end %>
+              <%= if @page < @total_pages do %>
+                <button
+                  phx-click="change_page"
+                  phx-value-page={@page + 1}
+                  class="join-item btn btn-outline"
+                >
+                  Next »
+                </button>
+              <% end %>
+            </div>
+          </div>
         <% end %>
       <% end %>
-    </div>
+    <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
