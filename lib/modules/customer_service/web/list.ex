@@ -65,13 +65,19 @@ defmodule PhoenixKit.Modules.CustomerService.Web.List do
 
   @impl true
   def handle_params(params, uri, socket) do
-    socket =
-      socket
-      |> assign(:url_path, URI.parse(uri).path)
-      |> apply_params(params)
-      |> load_tickets()
+    path = URI.parse(uri).path
 
-    {:noreply, assign(socket, :loading, false)}
+    if Regex.match?(~r{/customer-service$}, path) do
+      {:noreply, push_navigate(socket, to: Routes.path("/admin/customer-service/tickets"))}
+    else
+      socket =
+        socket
+        |> assign(:url_path, path)
+        |> apply_params(params)
+        |> load_tickets()
+
+      {:noreply, assign(socket, :loading, false)}
+    end
   end
 
   @impl true

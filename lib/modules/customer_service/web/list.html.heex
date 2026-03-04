@@ -91,7 +91,7 @@
     </div>
 
     <%!-- Tickets Table --%>
-    <div class="bg-base-100 rounded-lg shadow">
+    <div class="bg-base-100 rounded-lg shadow overflow-x-auto">
       <%= if @loading do %>
         <div class="flex justify-center items-center py-12">
           <span class="loading loading-spinner loading-lg"></span>
@@ -115,7 +115,9 @@
               <.table_default_row>
                 <.table_default_header_cell>Ticket</.table_default_header_cell>
                 <.table_default_header_cell>Customer</.table_default_header_cell>
-                <.table_default_header_cell>Assigned To</.table_default_header_cell>
+                <.table_default_header_cell class="hidden lg:table-cell">
+                  Assigned To
+                </.table_default_header_cell>
                 <.table_default_header_cell>Status</.table_default_header_cell>
                 <.table_default_header_cell>Created</.table_default_header_cell>
                 <.table_default_header_cell>Actions</.table_default_header_cell>
@@ -136,31 +138,33 @@
                   </.table_default_cell>
                   <.table_default_cell>
                     <%= if ticket.user do %>
-                      <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-2 min-w-0">
                         <.user_avatar user={ticket.user} size="sm" />
-                        <span class="text-sm">{ticket.user.email}</span>
+                        <span class="text-sm truncate max-w-[140px]">{ticket.user.email}</span>
                       </div>
                     <% else %>
                       <span class="text-base-content/50">Unknown</span>
                     <% end %>
                   </.table_default_cell>
-                  <.table_default_cell>
+                  <.table_default_cell class="hidden lg:table-cell">
                     <%= if ticket.assigned_to do %>
-                      <span class="badge badge-outline">{ticket.assigned_to.email}</span>
+                      <span class="badge badge-outline whitespace-nowrap">
+                        {ticket.assigned_to.email}
+                      </span>
                     <% else %>
-                      <span class="badge badge-ghost">Unassigned</span>
+                      <span class="badge badge-ghost whitespace-nowrap">Unassigned</span>
                     <% end %>
                   </.table_default_cell>
                   <.table_default_cell>
                     <%= case ticket.status do %>
                       <% "open" -> %>
-                        <span class="badge badge-info">Open</span>
+                        <span class="badge badge-info whitespace-nowrap">Open</span>
                       <% "in_progress" -> %>
-                        <span class="badge badge-warning">In Progress</span>
+                        <span class="badge badge-warning whitespace-nowrap">In Progress</span>
                       <% "resolved" -> %>
-                        <span class="badge badge-success">Resolved</span>
+                        <span class="badge badge-success whitespace-nowrap">Resolved</span>
                       <% "closed" -> %>
-                        <span class="badge">Closed</span>
+                        <span class="badge whitespace-nowrap">Closed</span>
                     <% end %>
                   </.table_default_cell>
                   <.table_default_cell class="text-sm text-base-content/70">
