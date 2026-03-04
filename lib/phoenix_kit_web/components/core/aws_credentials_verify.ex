@@ -50,8 +50,8 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
             AWS Credentials Verification
           </span>
         </label>
-        
-    <!-- Verify button -->
+
+        <%!-- Verify button --%>
         <button
           type="button"
           phx-click={@phx_click}
@@ -76,8 +76,8 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
           <% end %>
         </button>
       </div>
-      
-    <!-- Verification status and message -->
+
+      <%!-- Verification status and message --%>
       <div class="mt-3">
         <%= case @verified do %>
           <% :success -> %>

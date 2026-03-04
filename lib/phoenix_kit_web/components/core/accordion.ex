@@ -47,7 +47,7 @@ defmodule PhoenixKitWeb.Components.Core.Accordion do
       >
         {render_slot(@title)}
         <div class="flex items-center gap-2">
-          <!-- Chevron icon -->
+          <%!-- Chevron icon --%>
           <svg
             class="w-4 h-4 transition-transform duration-200 accordion-icon"
             fill="none"

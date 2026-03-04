@@ -668,7 +668,7 @@
                   </span>
                 </div>
                 <div class="max-h-[400px] overflow-y-auto border border-base-200 rounded-lg bg-base-100">
-                  <!-- Standard Fields Section -->
+                  <%!-- Standard Fields Section --%>
                   <%= if map_size(@available_columns.standard) > 0 do %>
                     <div class="p-3">
                       <h5 class="text-xs font-semibold text-base-content/60 mb-2 uppercase tracking-wide">
@@ -712,13 +712,13 @@
                       </div>
                     </div>
                   <% end %>
-                  
-<!-- Separator Line -->
+
+                  <%!-- Separator Line --%>
                   <%= if map_size(@available_columns.standard) > 0 and map_size(@available_columns.custom) > 0 do %>
                     <div class="border-t border-base-200"></div>
                   <% end %>
-                  
-<!-- Custom Fields Section -->
+
+                  <%!-- Custom Fields Section --%>
                   <%= if map_size(@available_columns.custom) > 0 do %>
                     <div class="p-3">
                       <h5 class="text-xs font-semibold text-base-content/60 mb-2 uppercase tracking-wide">
@@ -762,8 +762,8 @@
                       </div>
                     </div>
                   <% end %>
-                  
-<!-- No Available Fields Message -->
+
+                  <%!-- No Available Fields Message --%>
                   <%= if get_available_fields_count(@available_columns, @temp_selected_columns || @selected_columns) == 0 do %>
                     <div class="text-center py-8 text-base-content/40">
                       <p class="text-sm">All fields are already selected</p>

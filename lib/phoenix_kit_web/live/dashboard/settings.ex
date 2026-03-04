@@ -659,31 +659,31 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Left Column - Profile -->
+          <%!-- Left Column - Profile --%>
           <div class="lg:col-span-2 space-y-6">
-            <!-- Profile Information Card -->
+            <%!-- Profile Information Card --%>
             <div class="card bg-base-100 shadow-sm border border-base-300">
               <div class="card-body">
                 <h2 class="card-title flex items-center gap-2">
                   <.icon name="hero-user" class="w-5 h-5" /> Profile Information
                 </h2>
-                
-    <!-- Success Message -->
+
+                <%!-- Success Message --%>
                 <%= if @profile_success_message do %>
                   <div class="alert alert-success text-sm mb-4">
                     <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
                     <span>{@profile_success_message}</span>
                   </div>
                 <% end %>
-                
-    <!-- Avatar Upload Section -->
+
+                <%!-- Avatar Upload Section --%>
                 <div>
                   <label class="label">
                     <span class="label-text font-semibold">Profile Picture</span>
                   </label>
 
                   <div class="flex items-start gap-6">
-                    <!-- Avatar Preview -->
+                    <%!-- Avatar Preview --%>
                     <div class="flex-shrink-0">
                       <%= if get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_uuid"]) do %>
                         <% avatar_url =
@@ -704,8 +704,8 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                         </div>
                       <% end %>
                     </div>
-                    
-    <!-- Upload Controls -->
+
+                    <%!-- Upload Controls --%>
                     <div class="flex-1">
                       <.file_upload
                         upload={@uploads.avatar}
@@ -716,16 +716,16 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                       <p class="text-sm text-base-content/60 mt-2 mb-2">
                         Upload a profile picture (max 10MB). Accepts JPG, PNG, GIF.
                       </p>
-                      
-    <!-- Success Message -->
+
+                      <%!-- Success Message --%>
                       <%= if @last_uploaded_avatar_uuid do %>
                         <div class="alert alert-success text-sm">
                           <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
                           <span>Avatar uploaded successfully!</span>
                         </div>
                       <% end %>
-                      
-    <!-- Avatar Error Message -->
+
+                      <%!-- Avatar Error Message --%>
                       <%= if @avatar_error_message do %>
                         <div class="alert alert-error text-sm">
                           <.icon
@@ -737,8 +737,8 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                       <% end %>
                     </div>
                   </div>
-                  
-    <!-- Divider after avatar section -->
+
+                  <%!-- Divider after avatar section --%>
                   <div class="divider"></div>
                 </div>
 
@@ -760,8 +760,8 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                       label="Last Name"
                     />
                   </div>
-                  
-    <!-- Custom Fields Section -->
+
+                  <%!-- Custom Fields Section --%>
                   <%= if length(@custom_field_definitions) > 0 do %>
                     <div class="divider text-sm text-base-content/60">Additional Information</div>
 
@@ -844,7 +844,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                             required={field_def["required"]}
                           />
                         <% _ -> %>
-                          <!-- Fallback for unknown field types -->
+                          <%!-- Fallback for unknown field types --%>
                           <.input
                             name={"custom_fields[#{field_def["key"]}]"}
                             type="text"
@@ -865,8 +865,8 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                       label="Personal Timezone"
                       options={@timezone_options}
                     />
-                    
-    <!-- Timezone Mismatch Warning -->
+
+                    <%!-- Timezone Mismatch Warning --%>
                     <%= if assigns[:timezone_mismatch_warning] do %>
                       <div class="alert alert-warning text-sm mt-2">
                         <.icon
@@ -881,15 +881,15 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                         </div>
                       </div>
                     <% end %>
-                    
-    <!-- Browser Timezone Info -->
+
+                    <%!-- Browser Timezone Info --%>
                     <%= if assigns[:browser_timezone_name] do %>
                       <div class="text-xs text-base-content/60 mt-1">
                         Browser detected: {@browser_timezone_name} ({@browser_timezone_offset})
                       </div>
                     <% end %>
-                    
-    <!-- Debug button for timezone detection -->
+
+                    <%!-- Debug button for timezone detection --%>
                     <div class="mt-2">
                       <button
                         type="button"
@@ -914,24 +914,24 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                 </.simple_form>
               </div>
             </div>
-            
-    <!-- Email Settings Card -->
+
+            <%!-- Email Settings Card --%>
             <div class="card bg-base-100 shadow-sm border border-base-300">
               <div class="card-body">
                 <h2 class="card-title flex items-center gap-2">
                   <.icon name="hero-envelope" class="w-5 h-5" /> Email Address
                 </h2>
                 <p class="text-sm text-base-content/60 mb-4">Change your account email address</p>
-                
-    <!-- Email Success Message -->
+
+                <%!-- Email Success Message --%>
                 <%= if @email_success_message do %>
                   <div class="alert alert-success text-sm mb-4">
                     <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
                     <span>{@email_success_message}</span>
                   </div>
                 <% end %>
-                
-    <!-- Email Error Message -->
+
+                <%!-- Email Error Message --%>
                 <%= if @email_error_message do %>
                   <div class="alert alert-error text-sm mb-4">
                     <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
@@ -971,24 +971,24 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                 </.simple_form>
               </div>
             </div>
-            
-    <!-- Password Settings Card -->
+
+            <%!-- Password Settings Card --%>
             <div class="card bg-base-100 shadow-sm border border-base-300">
               <div class="card-body">
                 <h2 class="card-title flex items-center gap-2">
                   <.icon name="hero-lock-closed" class="w-5 h-5" /> Password
                 </h2>
                 <p class="text-sm text-base-content/60 mb-4">Update your account password</p>
-                
-    <!-- Password Success Message -->
+
+                <%!-- Password Success Message --%>
                 <%= if @password_success_message do %>
                   <div class="alert alert-success text-sm mb-4">
                     <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
                     <span>{@password_success_message}</span>
                   </div>
                 <% end %>
-                
-    <!-- Password Error Message -->
+
+                <%!-- Password Error Message --%>
                 <%= if @password_error_message do %>
                   <div class="alert alert-error text-sm mb-4">
                     <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
@@ -1043,10 +1043,10 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
               </div>
             </div>
           </div>
-          
-    <!-- Right Column -->
+
+          <%!-- Right Column --%>
           <div class="space-y-6">
-            <!-- Connected Accounts Card -->
+            <%!-- Connected Accounts Card --%>
             <%= if @oauth_available do %>
               <div class="card bg-base-100 shadow-sm border border-base-300">
                 <div class="card-body">
@@ -1056,24 +1056,24 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                   <p class="text-sm text-base-content/60 mb-4">
                     Manage OAuth providers for quick sign-in
                   </p>
-                  
-    <!-- OAuth Success Message -->
+
+                  <%!-- OAuth Success Message --%>
                   <%= if @oauth_success_message do %>
                     <div class="alert alert-success text-sm mb-4">
                       <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
                       <span>{@oauth_success_message}</span>
                     </div>
                   <% end %>
-                  
-    <!-- OAuth Error Message -->
+
+                  <%!-- OAuth Error Message --%>
                   <%= if @oauth_error_message do %>
                     <div class="alert alert-error text-sm mb-4">
                       <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
                       <span>{@oauth_error_message}</span>
                     </div>
                   <% end %>
-                  
-    <!-- Connected Providers List -->
+
+                  <%!-- Connected Providers List --%>
                   <%= if length(@oauth_providers) > 0 do %>
                     <div class="space-y-3 mb-4">
                       <h3 class="font-semibold text-sm text-base-content/70">Connected Providers</h3>
@@ -1119,8 +1119,8 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                       </span>
                     </div>
                   <% end %>
-                  
-    <!-- Available Providers to Connect -->
+
+                  <%!-- Available Providers to Connect --%>
                   <%= if length(@available_providers) > 0 do %>
                     <div class="space-y-3">
                       <h3 class="font-semibold text-sm text-base-content/70">
@@ -1153,8 +1153,8 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
                       </div>
                     </div>
                   <% end %>
-                  
-    <!-- Password Warning for OAuth-only Users -->
+
+                  <%!-- Password Warning for OAuth-only Users --%>
                   <%= if length(@oauth_providers) > 0 and @phoenix_kit_current_user.hashed_password == nil do %>
                     <div class="alert alert-warning text-sm mt-4">
                       <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
