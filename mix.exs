@@ -80,7 +80,7 @@ defmodule PhoenixKit.MixProject do
 
       # Web functionality
       {:gettext, "~> 1.0"},
-      {:plug_cowboy, "~> 2.5"},
+      {:bandit, "~> 1.0"},
       {:esbuild, "~> 0.8", only: :dev},
       {:tailwind, "~> 0.4.1", only: :dev},
       {:phoenix_live_reload, "~> 1.6.1", only: :dev},
