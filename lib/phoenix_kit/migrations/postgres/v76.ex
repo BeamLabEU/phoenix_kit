@@ -21,72 +21,80 @@ defmodule PhoenixKit.Migrations.Postgres.V76 do
     table = "#{prefix_str(prefix)}phoenix_kit_settings"
     perms_table = "#{prefix_str(prefix)}phoenix_kit_role_permissions"
 
-    execute("UPDATE #{table} SET key = 'customer_service_enabled' WHERE key = 'tickets_enabled'")
+    rename_setting(table, "tickets_enabled", "customer_service_enabled")
+    rename_setting(table, "tickets_per_page", "customer_service_per_page")
+    rename_setting(table, "tickets_comments_enabled", "customer_service_comments_enabled")
 
-    execute(
-      "UPDATE #{table} SET key = 'customer_service_per_page' WHERE key = 'tickets_per_page'"
+    rename_setting(
+      table,
+      "tickets_internal_notes_enabled",
+      "customer_service_internal_notes_enabled"
     )
 
-    execute(
-      "UPDATE #{table} SET key = 'customer_service_comments_enabled' WHERE key = 'tickets_comments_enabled'"
-    )
+    rename_setting(table, "tickets_attachments_enabled", "customer_service_attachments_enabled")
+    rename_setting(table, "tickets_allow_reopen", "customer_service_allow_reopen")
+    rename_setting(table, "auto_granted_perm:tickets", "auto_granted_perm:customer_service")
 
-    execute(
-      "UPDATE #{table} SET key = 'customer_service_internal_notes_enabled' WHERE key = 'tickets_internal_notes_enabled'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'customer_service_attachments_enabled' WHERE key = 'tickets_attachments_enabled'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'customer_service_allow_reopen' WHERE key = 'tickets_allow_reopen'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'auto_granted_perm:customer_service' WHERE key = 'auto_granted_perm:tickets'"
-    )
-
-    execute(
-      "UPDATE #{perms_table} SET module_key = 'customer_service' WHERE module_key = 'tickets'"
-    )
+    rename_role_permission(perms_table, "tickets", "customer_service")
 
     execute("COMMENT ON TABLE #{prefix_str(prefix)}phoenix_kit IS '76'")
+  end
+
+  # Renames a settings key. If the target already exists, deletes the source to avoid
+  # unique constraint violations (handles the case where new keys were pre-seeded).
+  defp rename_setting(table, from_key, to_key) do
+    execute("""
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM #{table} WHERE key = '#{to_key}') THEN
+        DELETE FROM #{table} WHERE key = '#{from_key}';
+      ELSE
+        UPDATE #{table} SET key = '#{to_key}' WHERE key = '#{from_key}';
+      END IF;
+    END $$;
+    """)
+  end
+
+  # Renames role permission module_key. If target already exists for the same role,
+  # deletes the source row to avoid unique constraint violations.
+  defp rename_role_permission(table, from_key, to_key) do
+    execute("""
+    DO $$
+    DECLARE
+      r RECORD;
+    BEGIN
+      FOR r IN SELECT uuid, role_uuid FROM #{table} WHERE module_key = '#{from_key}' LOOP
+        IF EXISTS (
+          SELECT 1 FROM #{table}
+          WHERE module_key = '#{to_key}' AND role_uuid = r.role_uuid
+        ) THEN
+          DELETE FROM #{table} WHERE uuid = r.uuid;
+        ELSE
+          UPDATE #{table} SET module_key = '#{to_key}' WHERE uuid = r.uuid;
+        END IF;
+      END LOOP;
+    END $$;
+    """)
   end
 
   def down(%{prefix: prefix} = _opts) do
     table = "#{prefix_str(prefix)}phoenix_kit_settings"
     perms_table = "#{prefix_str(prefix)}phoenix_kit_role_permissions"
 
-    execute(
-      "UPDATE #{perms_table} SET module_key = 'tickets' WHERE module_key = 'customer_service'"
+    rename_role_permission(perms_table, "customer_service", "tickets")
+    rename_setting(table, "auto_granted_perm:customer_service", "auto_granted_perm:tickets")
+    rename_setting(table, "customer_service_allow_reopen", "tickets_allow_reopen")
+    rename_setting(table, "customer_service_attachments_enabled", "tickets_attachments_enabled")
+
+    rename_setting(
+      table,
+      "customer_service_internal_notes_enabled",
+      "tickets_internal_notes_enabled"
     )
 
-    execute(
-      "UPDATE #{table} SET key = 'auto_granted_perm:tickets' WHERE key = 'auto_granted_perm:customer_service'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'tickets_allow_reopen' WHERE key = 'customer_service_allow_reopen'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'tickets_attachments_enabled' WHERE key = 'customer_service_attachments_enabled'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'tickets_internal_notes_enabled' WHERE key = 'customer_service_internal_notes_enabled'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'tickets_comments_enabled' WHERE key = 'customer_service_comments_enabled'"
-    )
-
-    execute(
-      "UPDATE #{table} SET key = 'tickets_per_page' WHERE key = 'customer_service_per_page'"
-    )
-
-    execute("UPDATE #{table} SET key = 'tickets_enabled' WHERE key = 'customer_service_enabled'")
+    rename_setting(table, "customer_service_comments_enabled", "tickets_comments_enabled")
+    rename_setting(table, "customer_service_per_page", "tickets_per_page")
+    rename_setting(table, "customer_service_enabled", "tickets_enabled")
 
     execute("COMMENT ON TABLE #{prefix_str(prefix)}phoenix_kit IS '75'")
   end
