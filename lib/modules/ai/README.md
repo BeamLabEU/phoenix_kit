@@ -45,20 +45,20 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ## ID System
 
-The AI module uses both **integer IDs** and **UUIDs**:
+The AI module uses **UUIDs** as primary keys:
 
 | Context | ID Type | Field | Example |
 |---------|---------|-------|---------|
-| Primary key (internal) | Integer | `.id` | `endpoint.id` → `1`, `2`, etc. |
+| Primary key | UUID | `.uuid` | `endpoint.uuid` → `"018f1234-..."` |
 | External references (URLs, APIs) | UUID | `.uuid` | `/endpoints/{uuid}/edit` |
-| Foreign keys (requests → endpoints) | Integer | `.id` | `endpoint.id` |
-| Usage stats keys | Integer | `.id` | `stats[endpoint.id]` |
-| Lookups | Both | - | `get_endpoint(1)` or `get_endpoint("uuid-string")` |
+| Foreign keys (requests → endpoints) | UUID | `.uuid` | `endpoint.uuid` |
+| Usage stats keys | UUID | `.uuid` | `stats[endpoint.uuid]` |
+| Lookups | UUID | - | `get_endpoint("uuid-string")` |
 
 **Rule of thumb:**
-- Use `endpoint.id` (integer) for database operations, FKs, and stats
+- Use `endpoint.uuid` for database operations, FKs, and stats
 - Use `endpoint.uuid` for URLs and external API references
-- The `get_endpoint/1` function accepts both formats
+- The `get_endpoint/1` function accepts UUID strings
 
 ## API Usage
 
@@ -66,7 +66,7 @@ The AI module uses both **integer IDs** and **UUIDs**:
 
 ```elixir
 # Using endpoint ID (UUID or legacy integer)
-{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "What is 2+2?")
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "What is 2+2?")
 {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
 # => "4"
 ```
@@ -74,7 +74,7 @@ The AI module uses both **integer IDs** and **UUIDs**:
 ### With System Message
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello",
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "Hello",
   system: "You are a pirate. Always respond like a pirate."
 )
 ```
@@ -82,7 +82,7 @@ The AI module uses both **integer IDs** and **UUIDs**:
 ### Multi-Turn Conversation
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.complete(endpoint.id, [
+{:ok, response} = PhoenixKit.Modules.AI.complete(endpoint.uuid, [
   %{role: "system", content: "You are a helpful assistant."},
   %{role: "user", content: "What's the weather like?"},
   %{role: "assistant", content: "I don't have real-time weather data..."},
@@ -94,7 +94,7 @@ The AI module uses both **integer IDs** and **UUIDs**:
 
 ```elixir
 # Override temperature and max_tokens for this request only
-{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Write a creative poem",
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "Write a creative poem",
   temperature: 1.5,
   max_tokens: 500
 )
@@ -104,19 +104,19 @@ The AI module uses both **integer IDs** and **UUIDs**:
 
 ```elixir
 # Single text
-{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.id, "Hello, world!")
+{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.uuid, "Hello, world!")
 
 # Multiple texts (batch)
-{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.id, ["Text 1", "Text 2", "Text 3"])
+{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.uuid, ["Text 1", "Text 2", "Text 3"])
 
 # With dimension override
-{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.id, "Hello", dimensions: 512)
+{:ok, response} = PhoenixKit.Modules.AI.embed(endpoint.uuid, "Hello", dimensions: 512)
 ```
 
 ### Extracting Response Data
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "Hello!")
 
 # Get just the text content
 {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
@@ -147,7 +147,7 @@ Every request automatically stores:
 
 ```elixir
 # Automatic detection - no code changes needed
-{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "Hello!")
 # Source automatically detected from caller: "MyApp.ContentGenerator.summarize"
 ```
 
@@ -156,7 +156,7 @@ Every request automatically stores:
 Override the auto-detected source when needed:
 
 ```elixir
-{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!",
+{:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.uuid, "Hello!",
   source: "CustomLabel"
 )
 # Manual source used, but stacktrace and caller context still captured
@@ -411,15 +411,15 @@ stats = PhoenixKit.Modules.AI.get_dashboard_stats()
 ### Endpoint Usage Statistics
 
 ```elixir
-# Get usage stats per endpoint (keyed by integer ID)
+# Get usage stats per endpoint (keyed by UUID)
 stats = PhoenixKit.Modules.AI.get_endpoint_usage_stats()
 # => %{
-#   1 => %{request_count: 100, total_tokens: 50000, total_cost: 150000, last_used_at: ~U[...]},
-#   2 => %{...}
+#   "018f1234-..." => %{request_count: 100, total_tokens: 50000, total_cost: 150000, last_used_at: ~U[...]},
+#   "018f5678-..." => %{...}
 # }
 
 # Access stats for an endpoint
-endpoint_stats = Map.get(stats, endpoint.id, %{request_count: 0})
+endpoint_stats = Map.get(stats, endpoint.uuid, %{request_count: 0})
 ```
 
 ### Request History
@@ -430,7 +430,7 @@ endpoint_stats = Map.get(stats, endpoint.id, %{request_count: 0})
 
 # With filters
 {requests, total} = PhoenixKit.Modules.AI.list_requests(
-  endpoint_id: endpoint.id,
+  endpoint_uuid: endpoint.uuid,
   model: "anthropic/claude-3-haiku",
   status: "success",
   source: "MyApp.ContentGenerator"
@@ -442,9 +442,9 @@ endpoint_stats = Map.get(stats, endpoint.id, %{request_count: 0})
   sort_dir: :desc
 )
 
-# Get filter options (for UI dropdowns, endpoint IDs are legacy integers)
+# Get filter options (for UI dropdowns)
 options = PhoenixKit.Modules.AI.get_request_filter_options()
-# => %{endpoints: [{1, "Claude Fast"}, {2, "GPT-4"}], models: [...], statuses: [...], sources: [...]}
+# => %{endpoints: [{"018f1234-...", "Claude Fast"}, {"018f5678-...", "GPT-4"}], models: [...], statuses: [...], sources: [...]}
 ```
 
 ## Response Structure
@@ -497,7 +497,7 @@ options = PhoenixKit.Modules.AI.get_request_filter_options()
 All functions return `{:ok, result}` or `{:error, reason}`:
 
 ```elixir
-case PhoenixKit.Modules.AI.ask(endpoint.id, "Hello") do
+case PhoenixKit.Modules.AI.ask(endpoint.uuid, "Hello") do
   {:ok, response} ->
     {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
     IO.puts(text)

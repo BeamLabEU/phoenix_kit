@@ -58,7 +58,7 @@ email =
 
 # Emails are automatically logged when sent
 PhoenixKit.Mailer.deliver_email(email,
-  user_id: user.id,
+  user_uuid: user.uuid,
   template_name: "welcome",
   campaign_id: "onboarding"
 )

@@ -113,7 +113,7 @@ alias PhoenixKit.Modules.Sync.Connections
   approval_mode: "auto_approve",
   allowed_tables: ["users", "posts"],
   max_downloads: 100,
-  created_by: current_user.id
+  created_by_uuid: current_user.uuid
 })
 
 # The token is returned in connection.auth_token (only on create)

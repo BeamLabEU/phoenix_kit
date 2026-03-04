@@ -102,7 +102,7 @@ Stores content type blueprints with field definitions.
 
 | Column              | Type              | Description                                      |
 |---------------------|-------------------|--------------------------------------------------|
-| `id`                | integer           | Primary key                                      |
+| `uuid`              | UUIDv7            | Primary key                                      |
 | `name`              | string            | Unique technical identifier (snake_case)         |
 | `display_name`      | string            | Human-readable name for UI                       |
 | `description`       | text              | Description of what this entity represents       |
@@ -110,20 +110,20 @@ Stores content type blueprints with field definitions.
 | `status`            | string            | draft / published / archived                     |
 | `fields_definition` | jsonb             | Array of field definitions                       |
 | `settings`          | jsonb             | Entity-specific settings                         |
-| `created_by`        | integer           | User ID of creator                               |
+| `created_by_uuid`   | UUIDv7            | UUID of creator                                  |
 | `date_created`      | utc_datetime | Creation timestamp                               |
 | `date_updated`      | utc_datetime | Last update timestamp                            |
 
 **Indexes:**
 - Unique index on `name`
-- Index on `created_by`
+- Index on `created_by_uuid`
 - Index on `status`
 
 **Example Entity Record:**
 
 ```elixir
 %PhoenixKit.Modules.Entities{
-  id: 1,
+  uuid: "018f1234-5678-7890-abcd-ef1234567890",
   name: "blog_post",
   display_name: "Blog Post",
   description: "Blog post content type with rich text support",
@@ -150,7 +150,7 @@ Stores content type blueprints with field definitions.
       "options" => ["Tech", "Business", "Lifestyle"]
     }
   ],
-  created_by: 1,
+  created_by_uuid: "018f0000-0000-7000-8000-000000000001",
   date_created: ~U[2025-01-15 10:30:00.000000Z],
   date_updated: ~U[2025-01-15 10:30:00.000000Z]
 }
@@ -160,35 +160,35 @@ Stores content type blueprints with field definitions.
 
 Stores actual content records based on entity blueprints.
 
-| Column         | Type              | Description                                      |
-|----------------|-------------------|--------------------------------------------------|
-| `id`           | integer           | Primary key                                      |
-| `entity_id`    | integer           | Foreign key to phoenix_kit_entities              |
-| `title`        | string            | Record title (duplicated for indexing)           |
-| `slug`         | string            | URL-friendly identifier                          |
-| `status`       | string            | draft / published / archived                     |
-| `data`         | jsonb             | All field values as key-value pairs              |
-| `metadata`     | jsonb             | Additional metadata (tags, categories, etc.)     |
-| `created_by`   | integer           | User ID of creator                               |
-| `date_created` | utc_datetime | Creation timestamp                               |
-| `date_updated` | utc_datetime | Last update timestamp                            |
+| Column           | Type              | Description                                      |
+|------------------|-------------------|--------------------------------------------------|
+| `uuid`           | UUIDv7            | Primary key                                      |
+| `entity_uuid`    | UUIDv7            | Foreign key to phoenix_kit_entities              |
+| `title`          | string            | Record title (duplicated for indexing)           |
+| `slug`           | string            | URL-friendly identifier                          |
+| `status`         | string            | draft / published / archived                     |
+| `data`           | jsonb             | All field values as key-value pairs              |
+| `metadata`       | jsonb             | Additional metadata (tags, categories, etc.)     |
+| `created_by_uuid`| UUIDv7            | UUID of creator                                  |
+| `date_created`   | utc_datetime | Creation timestamp                               |
+| `date_updated`   | utc_datetime | Last update timestamp                            |
 
 **Indexes:**
-- Index on `entity_id`
+- Index on `entity_uuid`
 - Index on `slug`
 - Index on `status`
-- Index on `created_by`
+- Index on `created_by_uuid`
 - Index on `title`
 
 **Foreign Key:**
-- `entity_id` references `phoenix_kit_entities(id)` with `on_delete: :delete_all`
+- `entity_uuid` references `phoenix_kit_entities(uuid)` with `on_delete: :delete_all`
 
 **Example Data Record:**
 
 ```elixir
 %PhoenixKit.Modules.Entities.EntityData{
-  id: 1,
-  entity_id: 1,
+  uuid: "018f2345-6789-7890-abcd-ef2345678901",
+  entity_uuid: "018f1234-5678-7890-abcd-ef1234567890",
   title: "Getting Started with PhoenixKit",
   slug: "getting-started-with-phoenixkit",
   status: "published",
@@ -201,7 +201,7 @@ Stores actual content records based on entity blueprints.
     "tags" => ["tutorial", "beginner"],
     "featured" => true
   },
-  created_by: 1,
+  created_by_uuid: "018f0000-0000-7000-8000-000000000001",
   date_created: ~U[2025-01-15 11:00:00.000000Z],
   date_updated: ~U[2025-01-15 11:00:00.000000Z]
 }
@@ -352,12 +352,12 @@ PhoenixKit.Modules.Entities.list_entities()
 PhoenixKit.Modules.Entities.list_active_entities()
 # => [%PhoenixKit.Modules.Entities{status: "published"}, ...]
 
-# Get entity by ID (raises if not found)
-PhoenixKit.Modules.Entities.get_entity!(1)
+# Get entity by UUID (raises if not found)
+PhoenixKit.Modules.Entities.get_entity!("018f1234-5678-7890-abcd-ef1234567890")
 # => %PhoenixKit.Modules.Entities{}
 
-# Get entity by ID (returns nil if not found)
-PhoenixKit.Modules.Entities.get_entity(1)
+# Get entity by UUID (returns nil if not found)
+PhoenixKit.Modules.Entities.get_entity("018f1234-5678-7890-abcd-ef1234567890")
 # => %PhoenixKit.Modules.Entities{} | nil
 
 # Get entity by unique name
@@ -365,14 +365,14 @@ PhoenixKit.Modules.Entities.get_entity_by_name("blog_post")
 # => %PhoenixKit.Modules.Entities{}
 
 # Create entity
-# Note: created_by is optional - it auto-fills with first admin user if not provided
+# Note: created_by_uuid is optional - it auto-fills with first admin user if not provided
 PhoenixKit.Modules.Entities.create_entity(%{
   name: "blog_post",
   display_name: "Blog Post",
   description: "Blog post content type",
   icon: "hero-document-text",
   status: "draft",
-  # created_by: user_id,  # Optional! Auto-filled if omitted
+  # created_by_uuid: user_uuid,  # Optional! Auto-filled if omitted
   fields_definition: [...]
 })
 # => {:ok, %PhoenixKit.Modules.Entities{}}
@@ -421,30 +421,30 @@ Module for entity data records with dynamic validation.
 
 ```elixir
 # List all data for an entity
-PhoenixKit.Modules.Entities.EntityData.list_by_entity(entity_id)
+PhoenixKit.Modules.Entities.EntityData.list_by_entity(entity_uuid)
 # => [%PhoenixKit.Modules.Entities.EntityData{}, ...]
 
 # List all data across all entities
 PhoenixKit.Modules.Entities.EntityData.list_all()
 # => [%PhoenixKit.Modules.Entities.EntityData{}, ...]
 
-# Get data record by ID (raises if not found)
-PhoenixKit.Modules.Entities.EntityData.get!(id)
+# Get data record by UUID (raises if not found)
+PhoenixKit.Modules.Entities.EntityData.get!(uuid)
 # => %PhoenixKit.Modules.Entities.EntityData{}
 
-# Get data record by ID (returns nil if not found)
-PhoenixKit.Modules.Entities.EntityData.get(id)
+# Get data record by UUID (returns nil if not found)
+PhoenixKit.Modules.Entities.EntityData.get(uuid)
 # => %PhoenixKit.Modules.Entities.EntityData{} | nil
 
 # Create data record
-# Note: created_by is optional - it auto-fills with first admin user if not provided
+# Note: created_by_uuid is optional - it auto-fills with first admin user if not provided
 PhoenixKit.Modules.Entities.EntityData.create(%{
-  entity_id: 1,
+  entity_uuid: "018f1234-5678-7890-abcd-ef1234567890",
   title: "My First Post",
   slug: "my-first-post",
   status: "draft",
   data: %{"title" => "My First Post", "content" => "..."}
-  # created_by: user_id  # Optional! Auto-filled if omitted
+  # created_by_uuid: user_uuid  # Optional! Auto-filled if omitted
 })
 # => {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
@@ -961,15 +961,15 @@ The entity form editor supports real-time collaboration with FIFO (First In, Fir
 
 ```elixir
 # Track user presence when mounting (in LiveView mount)
-PresenceHelpers.track_editing_session(:entity, entity.id, socket, current_user)
+PresenceHelpers.track_editing_session(:entity, entity.uuid, socket, current_user)
 # => {:ok, ref}
 
 # Get sorted presences (FIFO order)
-presences = PresenceHelpers.get_sorted_presences(:entity, entity.id)
+presences = PresenceHelpers.get_sorted_presences(:entity, entity.uuid)
 # => [{socket_id, %{user: %User{}, joined_at: timestamp}}, ...]
 
 # Determine if current socket is owner or spectator
-case PresenceHelpers.get_editing_role(:entity, entity.id, socket.id, current_user.id) do
+case PresenceHelpers.get_editing_role(:entity, entity.uuid, socket.id, current_user.uuid) do
   {:owner, all_presences} ->
     # This socket can edit
 
@@ -997,24 +997,24 @@ Changes are broadcast via Phoenix PubSub:
 Events.subscribe_to_entities()
 
 # Subscribe to data lifecycle events for a specific entity
-Events.subscribe_to_entity_data(entity.id)
+Events.subscribe_to_entity_data(entity.uuid)
 
 # Subscribe to collaborative form events
 Events.subscribe_to_entity_form(form_key)
-Events.subscribe_to_data_form(entity_id, record_key)
+Events.subscribe_to_data_form(entity_uuid, record_key)
 
 # Broadcast entity lifecycle events
-Events.broadcast_entity_created(entity.id)
-Events.broadcast_entity_updated(entity.id)
-Events.broadcast_entity_deleted(entity.id)
+Events.broadcast_entity_created(entity.uuid)
+Events.broadcast_entity_updated(entity.uuid)
+Events.broadcast_entity_deleted(entity.uuid)
 
 # Broadcast data lifecycle events
-Events.broadcast_data_created(entity_id, data_id)
-Events.broadcast_data_updated(entity_id, data_id)
+Events.broadcast_data_created(entity_uuid, data_uuid)
+Events.broadcast_data_updated(entity_uuid, data_uuid)
 
 # Handle incoming updates in LiveView
-def handle_info({:entity_updated, entity_id}, socket)
-def handle_info({:data_updated, entity_id, data_id}, socket)
+def handle_info({:entity_updated, entity_uuid}, socket)
+def handle_info({:data_updated, entity_uuid, data_uuid}, socket)
 ```
 
 ---
@@ -1149,7 +1149,7 @@ EntityData.get_all_title_translations(record)
   description: "Blog post content type with rich text and categories",
   icon: "hero-document-text",
   status: "published",
-  created_by: admin_user.id,
+  created_by_uuid: admin_user.uuid,
   fields_definition: [
     %{
       "type" => "text",
@@ -1200,11 +1200,11 @@ EntityData.get_all_title_translations(record)
 
 # 2. Create blog post data records
 {:ok, post} = PhoenixKit.Modules.Entities.EntityData.create(%{
-  entity_id: blog_entity.id,
+  entity_uuid: blog_entity.uuid,
   title: "Getting Started with PhoenixKit Entities",
   slug: "getting-started-phoenixkit-entities",
   status: "published",
-  created_by: author_user.id,
+  created_by_uuid: author_user.uuid,
   data: %{
     "title" => "Getting Started with PhoenixKit Entities",
     "excerpt" => "Learn how to create dynamic content types...",
@@ -1223,7 +1223,7 @@ EntityData.get_all_title_translations(record)
 
 # 3. Query published blog posts
 published_posts =
-  PhoenixKit.Modules.Entities.EntityData.list_by_entity(blog_entity.id)
+  PhoenixKit.Modules.Entities.EntityData.list_by_entity(blog_entity.uuid)
   |> Enum.filter(&(&1.status == "published"))
   |> Enum.sort_by(&(&1.data["publish_date"]), :desc)
 ```
@@ -1237,7 +1237,7 @@ published_posts =
   description: "Product catalog with pricing and inventory",
   icon: "hero-shopping-bag",
   status: "published",
-  created_by: admin_user.id,
+  created_by_uuid: admin_user.uuid,
   fields_definition: [
     %{"type" => "text", "key" => "name", "label" => "Product Name", "required" => true},
     %{"type" => "textarea", "key" => "description", "label" => "Description", "required" => true},
@@ -1261,7 +1261,7 @@ published_posts =
   description: "Team member profiles with bio and social links",
   icon: "hero-user-group",
   status: "published",
-  created_by: admin_user.id,
+  created_by_uuid: admin_user.uuid,
   fields_definition: [
     %{"type" => "text", "key" => "name", "label" => "Full Name", "required" => true},
     %{"type" => "text", "key" => "role", "label" => "Job Title", "required" => true},
@@ -1413,7 +1413,7 @@ end
 ```heex
 <button
   phx-click="delete_entity"
-  phx-value-id={entity.id}
+  phx-value-id={entity.uuid}
   data-confirm="Are you sure you want to delete '#{entity.display_name}'? This will also delete all associated data records."
 >
   Delete
@@ -1573,7 +1573,7 @@ The entities system is integrated as a module in PhoenixKit's modules page at `/
 **Query Performance**: Complex JSONB queries can be slower
 
 **Mitigation Strategies**:
-1. Index frequently queried columns (title, slug, status, created_by)
+1. Index frequently queried columns (title, slug, status, created_by_uuid)
 2. Duplicate critical fields outside JSONB for indexing (e.g., title)
 3. Use JSONB operators and functions for efficient queries
 4. Add GIN indexes on JSONB columns for contains operations
@@ -1583,14 +1583,14 @@ The entities system is integrated as a module in PhoenixKit's modules page at `/
 ```sql
 -- Already included in V13 migration
 CREATE INDEX phoenix_kit_entities_status_idx ON phoenix_kit_entities(status);
-CREATE INDEX phoenix_kit_entities_created_by_idx ON phoenix_kit_entities(created_by);
+CREATE INDEX phoenix_kit_entities_created_by_uuid_idx ON phoenix_kit_entities(created_by_uuid);
 CREATE UNIQUE INDEX phoenix_kit_entities_name_uidx ON phoenix_kit_entities(name);
 
-CREATE INDEX phoenix_kit_entity_data_entity_id_idx ON phoenix_kit_entity_data(entity_id);
+CREATE INDEX phoenix_kit_entity_data_entity_uuid_idx ON phoenix_kit_entity_data(entity_uuid);
 CREATE INDEX phoenix_kit_entity_data_status_idx ON phoenix_kit_entity_data(status);
 CREATE INDEX phoenix_kit_entity_data_title_idx ON phoenix_kit_entity_data(title);
 CREATE INDEX phoenix_kit_entity_data_slug_idx ON phoenix_kit_entity_data(slug);
-CREATE INDEX phoenix_kit_entity_data_created_by_idx ON phoenix_kit_entity_data(created_by);
+CREATE INDEX phoenix_kit_entity_data_created_by_uuid_idx ON phoenix_kit_entity_data(created_by_uuid);
 
 -- Future: Add GIN indexes for JSONB queries
 CREATE INDEX phoenix_kit_entity_data_data_gin_idx ON phoenix_kit_entity_data USING GIN (data);
@@ -1599,9 +1599,9 @@ CREATE INDEX phoenix_kit_entity_data_data_gin_idx ON phoenix_kit_entity_data USI
 ### Query Examples
 
 ```sql
--- Efficient: Uses entity_id index
+-- Efficient: Uses entity_uuid index
 SELECT * FROM phoenix_kit_entity_data
-WHERE entity_id = 1 AND status = 'published'
+WHERE entity_uuid = '018f1234-5678-7890-abcd-ef1234567890' AND status = 'published'
 ORDER BY date_created DESC;
 
 -- Efficient: Uses slug index
@@ -1625,7 +1625,7 @@ ORDER BY date_created DESC;
 ### Authentication & Authorization
 
 - All entity admin routes require admin authentication via `on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}]`
-- Entity creation tracks `created_by` user ID
+- Entity creation tracks `created_by_uuid` user UUID
 - Future: Add granular permissions per entity
 
 ### Input Validation
@@ -1737,7 +1737,7 @@ test "unique constraint on entity name"
 
 ```elixir
 @type t :: %PhoenixKit.Modules.Entities{
-  id: integer(),
+  uuid: String.t(),
   name: String.t(),
   display_name: String.t(),
   description: String.t() | nil,
@@ -1745,15 +1745,15 @@ test "unique constraint on entity name"
   status: String.t(),
   fields_definition: [map()],
   settings: map() | nil,
-  created_by: integer(),
+  created_by_uuid: String.t(),
   date_created: DateTime.t(),
   date_updated: DateTime.t()
 }
 
 @spec list_entities() :: [t()]
 @spec list_active_entities() :: [t()]
-@spec get_entity!(integer()) :: t()
-@spec get_entity(integer()) :: t() | nil
+@spec get_entity!(String.t()) :: t()
+@spec get_entity(String.t()) :: t() | nil
 @spec get_entity_by_name(String.t()) :: t() | nil
 @spec create_entity(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec update_entity(t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
@@ -1772,28 +1772,28 @@ test "unique constraint on entity name"
 @spec remove_entity_translation(t(), String.t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 ```
 
-Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
+Note: `create_entity/1` auto-fills `created_by_uuid` with the first admin user if not provided.
 
 ### PhoenixKit.Modules.Entities.EntityData
 
 ```elixir
 @type t :: %PhoenixKit.Modules.Entities.EntityData{
-  id: integer(),
-  entity_id: integer(),
+  uuid: String.t(),
+  entity_uuid: String.t(),
   title: String.t(),
   slug: String.t() | nil,
   status: String.t(),
   data: map(),
   metadata: map() | nil,
-  created_by: integer(),
+  created_by_uuid: String.t(),
   date_created: DateTime.t(),
   date_updated: DateTime.t()
 }
 
-@spec list_by_entity(integer()) :: [t()]
+@spec list_by_entity(String.t()) :: [t()]
 @spec list_all() :: [t()]
-@spec get!(integer()) :: t()
-@spec get(integer()) :: t() | nil
+@spec get!(String.t()) :: t()
+@spec get(String.t()) :: t() | nil
 @spec create(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec update(t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec delete(t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
@@ -1810,7 +1810,7 @@ Note: `create_entity/1` auto-fills `created_by` with the first admin user if not
 @spec get_all_title_translations(t()) :: map()
 ```
 
-Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
+Note: `create/1` auto-fills `created_by_uuid` with the first admin user if not provided.
 
 ### PhoenixKit.Modules.Entities.Multilang
 

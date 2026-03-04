@@ -58,19 +58,19 @@ Original file uploads with metadata
 - duration (integer, nullable) - Video duration in seconds
 - status (string, required) - "processing", "active", "failed"
 - metadata (jsonb, nullable) - EXIF, codec info, etc.
-- user_id (uuid, FK -> phoenix_kit_users.id)
+- user_uuid (uuid_v7, FK -> phoenix_kit_users.uuid)
 - inserted_at (timestamp)
 - updated_at (timestamp)
 ```
 
 **Indexes:**
-- `idx_files_user_id` on `user_id`
+- `idx_files_user_uuid` on `user_uuid`
 - `idx_files_file_type` on `file_type`
 - `idx_files_status` on `status`
 - `idx_files_inserted_at` on `inserted_at`
 
 **Foreign Keys:**
-- `user_id` references `phoenix_kit_users(id)` ON DELETE CASCADE
+- `user_uuid` references `phoenix_kit_users(uuid)` ON DELETE CASCADE
 
 ---
 
@@ -88,21 +88,21 @@ File variants (thumbnails, resizes, video qualities)
 - width (integer, nullable)
 - height (integer, nullable)
 - processing_status (string, required) - "pending", "processing", "completed", "failed"
-- file_id (uuid_v7, FK -> phoenix_kit_files.id)
+- file_uuid (uuid_v7, FK -> phoenix_kit_files.uuid)
 - inserted_at (timestamp)
 - updated_at (timestamp)
 ```
 
 **Indexes:**
-- `idx_file_instances_file_id` on `file_id`
+- `idx_file_instances_file_uuid` on `file_uuid`
 - `idx_file_instances_variant_name` on `variant_name`
 - `idx_file_instances_processing_status` on `processing_status`
 
 **Foreign Keys:**
-- `file_id` references `phoenix_kit_files(id)` ON DELETE CASCADE
+- `file_uuid` references `phoenix_kit_files(uuid)` ON DELETE CASCADE
 
 **Unique Constraint:**
-- `unique_file_variant` on `(file_id, variant_name)`
+- `unique_file_variant` on `(file_uuid, variant_name)`
 
 ---
 
@@ -115,20 +115,20 @@ Physical storage locations (redundancy tracking)
 - status (string, required) - "active", "syncing", "failed", "deleted"
 - priority (integer, default: 0) - Location priority for retrieval
 - last_verified_at (timestamp, nullable) - Last health check
-- file_instance_id (uuid_v7, FK -> phoenix_kit_file_instances.id)
-- bucket_id (uuid_v7, FK -> phoenix_kit_buckets.id)
+- file_instance_uuid (uuid_v7, FK -> phoenix_kit_file_instances.uuid)
+- bucket_uuid (uuid_v7, FK -> phoenix_kit_buckets.uuid)
 - inserted_at (timestamp)
 - updated_at (timestamp)
 ```
 
 **Indexes:**
-- `idx_file_locations_instance_id` on `file_instance_id`
-- `idx_file_locations_bucket_id` on `bucket_id`
+- `idx_file_locations_file_instance_uuid` on `file_instance_uuid`
+- `idx_file_locations_bucket_uuid` on `bucket_uuid`
 - `idx_file_locations_status` on `status`
 
 **Foreign Keys:**
-- `file_instance_id` references `phoenix_kit_file_instances(id)` ON DELETE CASCADE
-- `bucket_id` references `phoenix_kit_buckets(id)` ON DELETE CASCADE
+- `file_instance_uuid` references `phoenix_kit_file_instances(uuid)` ON DELETE CASCADE
+- `bucket_uuid` references `phoenix_kit_buckets(uuid)` ON DELETE CASCADE
 
 ---
 

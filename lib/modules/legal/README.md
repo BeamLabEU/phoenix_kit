@@ -57,9 +57,8 @@ priv/static/assets/
 Stores consent records for audit trail (if enabled).
 
 ```sql
-- id (bigserial, PK)
-- uuid (uuid, unique)
-- user_id (bigint, FK, nullable)
+- uuid (uuid_v7, PK)
+- user_uuid (uuid_v7, FK, nullable)
 - session_id (varchar)
 - consent_given (boolean)
 - consent_categories (jsonb)
