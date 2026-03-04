@@ -296,16 +296,16 @@ prompts = PhoenixKit.Modules.AI.list_prompts()
 # List enabled prompts only
 prompts = PhoenixKit.Modules.AI.list_enabled_prompts()
 
-# Get by ID or slug
+# Get by UUID or slug
 prompt = PhoenixKit.Modules.AI.get_prompt!("660e8400-e29b-41d4-a716-446655440001")
 prompt = PhoenixKit.Modules.AI.get_prompt_by_slug("email-writer")
 
 # Enable/disable
-{:ok, prompt} = PhoenixKit.Modules.AI.enable_prompt(prompt_id)
-{:ok, prompt} = PhoenixKit.Modules.AI.disable_prompt(prompt_id)
+{:ok, prompt} = PhoenixKit.Modules.AI.enable_prompt(prompt_uuid)
+{:ok, prompt} = PhoenixKit.Modules.AI.disable_prompt(prompt_uuid)
 
 # Duplicate a prompt
-{:ok, new_prompt} = PhoenixKit.Modules.AI.duplicate_prompt(prompt_id, "Email Writer v2")
+{:ok, new_prompt} = PhoenixKit.Modules.AI.duplicate_prompt(prompt_uuid, "Email Writer v2")
 
 # Delete
 {:ok, _} = PhoenixKit.Modules.AI.delete_prompt(prompt)
@@ -316,10 +316,10 @@ prompt = PhoenixKit.Modules.AI.get_prompt_by_slug("email-writer")
 ```elixir
 # Get usage stats for all prompts
 stats = PhoenixKit.Modules.AI.get_prompt_usage_stats()
-# => [%{prompt: %{id: 1, uuid: "660e8400-...", name: "Email Writer", ...}, usage_count: 150, ...}, ...]
+# => [%{prompt: %{uuid: "660e8400-...", name: "Email Writer", ...}, usage_count: 150, ...}, ...]
 
 # Reset usage counter
-{:ok, prompt} = PhoenixKit.Modules.AI.reset_prompt_usage(prompt_id)
+{:ok, prompt} = PhoenixKit.Modules.AI.reset_prompt_usage(prompt_uuid)
 ```
 
 ### Prompt Schema
