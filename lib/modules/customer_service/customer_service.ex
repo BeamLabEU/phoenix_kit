@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets do
+defmodule PhoenixKit.Modules.CustomerService do
   @moduledoc """
   Context for managing support tickets, comments, and attachments.
 
@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Tickets do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  alias PhoenixKit.Modules.Tickets.{
+  alias PhoenixKit.Modules.CustomerService.{
     Events,
     Ticket,
     TicketAttachment,
@@ -81,7 +81,7 @@ defmodule PhoenixKit.Modules.Tickets do
       false
   """
   def enabled? do
-    Settings.get_boolean_setting("tickets_enabled", false)
+    Settings.get_boolean_setting("customer_service_enabled", false)
   end
 
   @impl PhoenixKit.Module
@@ -94,7 +94,13 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, %Setting{}}
   """
   def enable_system do
-    result = Settings.update_boolean_setting_with_module("tickets_enabled", true, "tickets")
+    result =
+      Settings.update_boolean_setting_with_module(
+        "customer_service_enabled",
+        true,
+        "customer_service"
+      )
+
     refresh_dashboard_tabs()
     result
   end
@@ -109,7 +115,13 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, %Setting{}}
   """
   def disable_system do
-    result = Settings.update_boolean_setting_with_module("tickets_enabled", false, "tickets")
+    result =
+      Settings.update_boolean_setting_with_module(
+        "customer_service_enabled",
+        false,
+        "customer_service"
+      )
+
     refresh_dashboard_tabs()
     result
   end
@@ -138,11 +150,12 @@ defmodule PhoenixKit.Modules.Tickets do
       in_progress_tickets: count_tickets_by_status("in_progress"),
       resolved_tickets: count_tickets_by_status("resolved"),
       closed_tickets: count_tickets_by_status("closed"),
-      comments_enabled: Settings.get_boolean_setting("tickets_comments_enabled", true),
+      comments_enabled: Settings.get_boolean_setting("customer_service_comments_enabled", true),
       internal_notes_enabled:
-        Settings.get_boolean_setting("tickets_internal_notes_enabled", true),
-      attachments_enabled: Settings.get_boolean_setting("tickets_attachments_enabled", true),
-      allow_reopen: Settings.get_boolean_setting("tickets_allow_reopen", true)
+        Settings.get_boolean_setting("customer_service_internal_notes_enabled", true),
+      attachments_enabled:
+        Settings.get_boolean_setting("customer_service_attachments_enabled", true),
+      allow_reopen: Settings.get_boolean_setting("customer_service_allow_reopen", true)
     }
   end
 
@@ -164,17 +177,17 @@ defmodule PhoenixKit.Modules.Tickets do
   # ============================================================================
 
   @impl PhoenixKit.Module
-  def module_key, do: "tickets"
+  def module_key, do: "customer_service"
 
   @impl PhoenixKit.Module
-  def module_name, do: "Tickets"
+  def module_name, do: "Customer Service"
 
   @impl PhoenixKit.Module
   def permission_metadata do
     %{
-      key: "tickets",
-      label: "Tickets",
-      icon: "hero-ticket",
+      key: "customer_service",
+      label: "Customer Service",
+      icon: "hero-lifebuoy",
       description: "Support ticket management and customer communication"
     }
   end
@@ -183,15 +196,28 @@ defmodule PhoenixKit.Modules.Tickets do
   def admin_tabs do
     [
       Tab.new!(
-        id: :admin_tickets,
-        label: "Tickets",
-        icon: "hero-ticket",
-        path: "tickets",
+        id: :admin_customer_service,
+        label: "Customer Service",
+        icon: "hero-lifebuoy",
+        path: "customer-service",
         priority: 620,
         level: :admin,
-        permission: "tickets",
+        permission: "customer_service",
         match: :prefix,
-        group: :admin_modules
+        group: :admin_modules,
+        subtab_display: :when_active,
+        highlight_with_subtabs: false
+      ),
+      Tab.new!(
+        id: :admin_customer_service_tickets,
+        label: "Tickets",
+        icon: "hero-ticket",
+        path: "customer-service/tickets",
+        priority: 621,
+        level: :admin,
+        permission: "customer_service",
+        parent: :admin_customer_service,
+        match: :prefix
       )
     ]
   end
@@ -200,14 +226,14 @@ defmodule PhoenixKit.Modules.Tickets do
   def settings_tabs do
     [
       Tab.new!(
-        id: :admin_settings_tickets,
-        label: "Tickets",
-        icon: "hero-ticket",
-        path: "tickets",
+        id: :admin_settings_customer_service,
+        label: "Customer Service",
+        icon: "hero-lifebuoy",
+        path: "customer-service",
         priority: 923,
         level: :admin,
         parent: :admin_settings,
-        permission: "tickets"
+        permission: "customer_service"
       )
     ]
   end
@@ -216,10 +242,10 @@ defmodule PhoenixKit.Modules.Tickets do
   def user_dashboard_tabs do
     [
       Tab.new!(
-        id: :dashboard_tickets,
+        id: :dashboard_customer_service_tickets,
         label: "My Tickets",
         icon: "hero-ticket",
-        path: "tickets",
+        path: "customer-service/tickets",
         priority: 800,
         match: :prefix,
         group: :account
@@ -228,7 +254,7 @@ defmodule PhoenixKit.Modules.Tickets do
   end
 
   @impl PhoenixKit.Module
-  def route_module, do: PhoenixKitWeb.Routes.TicketsRoutes
+  def route_module, do: PhoenixKitWeb.Routes.CustomerServiceRoutes
 
   # ============================================================================
   # Ticket CRUD Operations
@@ -574,7 +600,7 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, %Ticket{status: "open"}}
   """
   def reopen_ticket(%Ticket{} = ticket, changed_by, reason \\ nil) do
-    if Settings.get_boolean_setting("tickets_allow_reopen", true) do
+    if Settings.get_boolean_setting("customer_service_allow_reopen", true) do
       transition_status(ticket, "open", changed_by, reason)
     else
       {:error, :reopen_not_allowed}

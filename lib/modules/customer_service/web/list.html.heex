@@ -13,7 +13,7 @@
     >
       <:actions>
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/new")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/customer-service/tickets/new")}
           class="btn btn-primary"
         >
           <.icon name="hero-plus" class="h-5 w-5" /> New Ticket
@@ -169,7 +169,11 @@
                   <.table_default_cell>
                     <div class="flex items-center gap-1">
                       <.link
-                        navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.uuid}")}
+                        navigate={
+                          PhoenixKit.Utils.Routes.path(
+                            "/admin/customer-service/tickets/#{ticket.uuid}"
+                          )
+                        }
                         class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
                         data-tip={gettext("View details")}
                       >
@@ -178,7 +182,9 @@
                       </.link>
                       <.link
                         navigate={
-                          PhoenixKit.Utils.Routes.path("/admin/tickets/#{ticket.uuid}/edit")
+                          PhoenixKit.Utils.Routes.path(
+                            "/admin/customer-service/tickets/#{ticket.uuid}/edit"
+                          )
                         }
                         class="btn btn-xs btn-outline btn-info tooltip tooltip-bottom"
                         data-tip={gettext("Edit ticket")}

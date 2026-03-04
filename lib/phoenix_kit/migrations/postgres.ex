@@ -529,7 +529,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V70 - Re-backfill UUID FK columns silently skipped in V56/V63 ⚡ LATEST
+  ### V76 - Rename Tickets module to Customer Service ⚡ LATEST
+  - Renames settings keys from `tickets_*` → `customer_service_*`
+  - Renames `auto_granted_perm:tickets` → `auto_granted_perm:customer_service`
+  - Updates `phoenix_kit_role_permissions.module_key` from `tickets` → `customer_service`
+
+  ### V70 - Re-backfill UUID FK columns silently skipped in V56/V63
   - Fixes installs where `phoenix_kit_email_logs.uuid` was `character varying` instead
     of native `uuid` type, causing V56's backfill to fail or be silently skipped
   - Converts `phoenix_kit_email_logs.uuid` to native `uuid` type if needed
@@ -596,7 +601,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 72
+  @current_version 76
   @default_prefix "public"
 
   @doc false

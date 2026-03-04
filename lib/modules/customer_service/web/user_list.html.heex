@@ -8,7 +8,7 @@
       </div>
       <div class="mt-4 md:mt-0">
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets/new")}
+          navigate={PhoenixKit.Utils.Routes.path("/dashboard/customer-service/tickets/new")}
           class="btn btn-primary"
         >
           <.icon name="hero-plus" class="h-5 w-5" /> {gettext("New Ticket")}
@@ -66,7 +66,7 @@
               <% end %>
             </p>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets/new")}
+              navigate={PhoenixKit.Utils.Routes.path("/dashboard/customer-service/tickets/new")}
               class="btn btn-primary"
             >
               <.icon name="hero-plus" class="h-5 w-5" /> {gettext("New Ticket")}
@@ -75,7 +75,9 @@
         <% else %>
           <%= for ticket <- @tickets do %>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets/#{ticket.uuid}")}
+              navigate={
+                PhoenixKit.Utils.Routes.path("/dashboard/customer-service/tickets/#{ticket.uuid}")
+              }
               class="block bg-base-100 rounded-lg shadow hover:shadow-md transition p-4"
             >
               <div class="flex items-start justify-between">

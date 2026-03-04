@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
+defmodule PhoenixKit.Modules.CustomerService.TicketAttachment do
   @moduledoc """
   Junction schema for ticket and comment attachments.
 
@@ -49,9 +49,12 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
           file_uuid: UUIDv7.t(),
           position: integer(),
           caption: String.t() | nil,
-          ticket: PhoenixKit.Modules.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t() | nil,
+          ticket:
+            PhoenixKit.Modules.CustomerService.Ticket.t() | Ecto.Association.NotLoaded.t() | nil,
           comment:
-            PhoenixKit.Modules.Tickets.TicketComment.t() | Ecto.Association.NotLoaded.t() | nil,
+            PhoenixKit.Modules.CustomerService.TicketComment.t()
+            | Ecto.Association.NotLoaded.t()
+            | nil,
           file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
@@ -61,11 +64,11 @@ defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
     field :position, :integer
     field :caption, :string
 
-    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket,
+    belongs_to :ticket, PhoenixKit.Modules.CustomerService.Ticket,
       foreign_key: :ticket_uuid,
       references: :uuid
 
-    belongs_to :comment, PhoenixKit.Modules.Tickets.TicketComment,
+    belongs_to :comment, PhoenixKit.Modules.CustomerService.TicketComment,
       foreign_key: :comment_uuid,
       references: :uuid
 

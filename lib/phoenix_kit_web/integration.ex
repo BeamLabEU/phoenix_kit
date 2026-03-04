@@ -99,11 +99,11 @@ defmodule PhoenixKitWeb.Integration do
 
   alias PhoenixKitWeb
   alias PhoenixKitWeb.Routes.BlogRoutes
+  alias PhoenixKitWeb.Routes.CustomerServiceRoutes
   alias PhoenixKitWeb.Routes.EmailsRoutes
   alias PhoenixKitWeb.Routes.PublishingRoutes
   alias PhoenixKitWeb.Routes.ReferralsRoutes
   alias PhoenixKitWeb.Routes.ShopRoutes
-  alias PhoenixKitWeb.Routes.TicketsRoutes
 
   @doc """
   Creates locale-aware routing scopes based on enabled languages.
@@ -431,13 +431,13 @@ defmodule PhoenixKitWeb.Integration do
     {tickets_admin, publishing_admin, referrals_admin} =
       if suffix == :_locale do
         {
-          safe_route_call(TicketsRoutes, :admin_locale_routes, []),
+          safe_route_call(CustomerServiceRoutes, :admin_locale_routes, []),
           safe_route_call(PublishingRoutes, :admin_locale_routes, []),
           safe_route_call(ReferralsRoutes, :admin_locale_routes, [])
         }
       else
         {
-          safe_route_call(TicketsRoutes, :admin_routes, []),
+          safe_route_call(CustomerServiceRoutes, :admin_routes, []),
           safe_route_call(PublishingRoutes, :admin_routes, []),
           safe_route_call(ReferralsRoutes, :admin_routes, [])
         }
@@ -832,14 +832,20 @@ defmodule PhoenixKitWeb.Integration do
            as: :user_billing_profile_edit
 
       # Tickets user pages
-      live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
-        as: :tickets_user_list
+      live "/dashboard/customer-service/tickets",
+           PhoenixKit.Modules.CustomerService.Web.UserList,
+           :index,
+           as: :tickets_user_list
 
-      live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
-        as: :tickets_user_new
+      live "/dashboard/customer-service/tickets/new",
+           PhoenixKit.Modules.CustomerService.Web.UserNew,
+           :new,
+           as: :tickets_user_new
 
-      live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
-        as: :tickets_user_details
+      live "/dashboard/customer-service/tickets/:id",
+           PhoenixKit.Modules.CustomerService.Web.UserDetails,
+           :show,
+           as: :tickets_user_details
     end
   end
 
@@ -868,14 +874,20 @@ defmodule PhoenixKitWeb.Integration do
            as: :user_billing_profile_edit_locale
 
       # Tickets user pages (locale variants)
-      live "/dashboard/tickets", PhoenixKit.Modules.Tickets.Web.UserList, :index,
-        as: :tickets_user_list_locale
+      live "/dashboard/customer-service/tickets",
+           PhoenixKit.Modules.CustomerService.Web.UserList,
+           :index,
+           as: :tickets_user_list_locale
 
-      live "/dashboard/tickets/new", PhoenixKit.Modules.Tickets.Web.UserNew, :new,
-        as: :tickets_user_new_locale
+      live "/dashboard/customer-service/tickets/new",
+           PhoenixKit.Modules.CustomerService.Web.UserNew,
+           :new,
+           as: :tickets_user_new_locale
 
-      live "/dashboard/tickets/:id", PhoenixKit.Modules.Tickets.Web.UserDetails, :show,
-        as: :tickets_user_details_locale
+      live "/dashboard/customer-service/tickets/:id",
+           PhoenixKit.Modules.CustomerService.Web.UserDetails,
+           :show,
+           as: :tickets_user_details_locale
     end
   end
 
@@ -1201,7 +1213,7 @@ defmodule PhoenixKitWeb.Integration do
     # Uses safe_route_call/3 so modules can be safely extracted to separate packages
     emails_routes = safe_route_call(EmailsRoutes, :generate, [url_prefix])
     publishing_routes = safe_route_call(PublishingRoutes, :generate, [url_prefix])
-    tickets_routes = safe_route_call(TicketsRoutes, :generate, [url_prefix])
+    customer_service_routes = safe_route_call(CustomerServiceRoutes, :generate, [url_prefix])
     blog_routes = safe_route_call(BlogRoutes, :generate, [url_prefix])
 
     # External route modules with public/non-admin routes
@@ -1217,7 +1229,7 @@ defmodule PhoenixKitWeb.Integration do
       # Generate module routes from separate files (improves compilation time)
       unquote(emails_routes)
       unquote(publishing_routes)
-      unquote(tickets_routes)
+      unquote(customer_service_routes)
 
       # Generate localized routes
       unquote(generate_localized_routes(url_prefix, pattern))

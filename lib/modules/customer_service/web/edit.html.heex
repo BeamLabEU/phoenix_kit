@@ -6,7 +6,7 @@
   project_title={@project_title}
 >
   <div class="container mx-auto px-4 py-6 max-w-3xl">
-    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/tickets")} />
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/customer-service/tickets")} />
 
     <div class="card bg-base-100 shadow">
       <div class="card-body">
@@ -173,7 +173,10 @@
 
           <%!-- Actions --%>
           <div class="flex justify-end gap-3 pt-4">
-            <.link navigate={PhoenixKit.Utils.Routes.path("/admin/tickets")} class="btn btn-ghost">
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/customer-service/tickets")}
+              class="btn btn-ghost"
+            >
               Cancel
             </.link>
             <button type="submit" class="btn btn-primary">

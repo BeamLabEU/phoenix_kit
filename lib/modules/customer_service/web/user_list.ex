@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets.Web.UserList do
+defmodule PhoenixKit.Modules.CustomerService.Web.UserList do
   @moduledoc """
   LiveView for displaying user's support tickets.
 
@@ -7,14 +7,14 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Tickets
-  alias PhoenixKit.Modules.Tickets.Events
+  alias PhoenixKit.Modules.CustomerService
+  alias PhoenixKit.Modules.CustomerService.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
-    if Tickets.enabled?() do
+    if CustomerService.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
       # Subscribe to user's ticket events for real-time updates
@@ -64,12 +64,14 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
       end
 
     {:noreply,
-     push_patch(socket, to: Routes.path("/dashboard/tickets", map_to_keyword(filter_params)))}
+     push_patch(socket,
+       to: Routes.path("/dashboard/customer-service/tickets", map_to_keyword(filter_params))
+     )}
   end
 
   @impl true
   def handle_event("clear_filters", _params, socket) do
-    {:noreply, push_patch(socket, to: Routes.path("/dashboard/tickets"))}
+    {:noreply, push_patch(socket, to: Routes.path("/dashboard/customer-service/tickets"))}
   end
 
   @impl true
@@ -78,7 +80,10 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
     current_params = build_current_params(socket)
     params = Map.put(current_params, "page", page)
 
-    {:noreply, push_patch(socket, to: Routes.path("/dashboard/tickets", map_to_keyword(params)))}
+    {:noreply,
+     push_patch(socket,
+       to: Routes.path("/dashboard/customer-service/tickets", map_to_keyword(params))
+     )}
   end
 
   # Private functions
@@ -88,7 +93,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   end
 
   defp assign_pagination_defaults(socket) do
-    per_page = Settings.get_setting("tickets_per_page", "20") |> String.to_integer()
+    per_page = Settings.get_setting("customer_service_per_page", "20") |> String.to_integer()
 
     socket
     |> assign(:page, 1)
@@ -111,7 +116,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserList do
 
     # Get all tickets for counting, then paginate
     all_opts = Keyword.drop(opts, [:page, :per_page])
-    all_tickets = Tickets.list_tickets(all_opts)
+    all_tickets = CustomerService.list_tickets(all_opts)
     total_count = length(all_tickets)
 
     # Apply pagination manually

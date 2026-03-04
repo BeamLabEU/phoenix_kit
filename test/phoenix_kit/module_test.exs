@@ -23,7 +23,7 @@ defmodule PhoenixKit.ModuleTest do
     PhoenixKit.Modules.Sitemap,
     PhoenixKit.Modules.Storage,
     PhoenixKit.Modules.Sync,
-    PhoenixKit.Modules.Tickets,
+    PhoenixKit.Modules.CustomerService,
     PhoenixKit.Jobs
   ]
 

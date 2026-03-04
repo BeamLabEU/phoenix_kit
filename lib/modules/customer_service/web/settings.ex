@@ -1,11 +1,11 @@
-defmodule PhoenixKit.Modules.Tickets.Web.Settings do
+defmodule PhoenixKit.Modules.CustomerService.Web.Settings do
   @moduledoc """
   LiveView for configuring the Tickets module settings.
   """
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Tickets
+  alias PhoenixKit.Modules.CustomerService
   alias PhoenixKit.Settings
 
   @impl true
@@ -34,9 +34,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.Settings do
 
     result =
       if new_value do
-        Tickets.enable_system()
+        CustomerService.enable_system()
       else
-        Tickets.disable_system()
+        CustomerService.disable_system()
       end
 
     case result do
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Settings do
   def handle_event("toggle_internal_notes", _params, socket) do
     toggle_boolean_setting(
       socket,
-      "tickets_internal_notes_enabled",
+      "customer_service_internal_notes_enabled",
       :internal_notes_enabled,
       "Internal notes"
     )
@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Settings do
   def handle_event("toggle_attachments", _params, socket) do
     toggle_boolean_setting(
       socket,
-      "tickets_attachments_enabled",
+      "customer_service_attachments_enabled",
       :attachments_enabled,
       "Attachments"
     )
@@ -73,12 +73,12 @@ defmodule PhoenixKit.Modules.Tickets.Web.Settings do
 
   @impl true
   def handle_event("toggle_allow_reopen", _params, socket) do
-    toggle_boolean_setting(socket, "tickets_allow_reopen", :allow_reopen, "Allow reopen")
+    toggle_boolean_setting(socket, "customer_service_allow_reopen", :allow_reopen, "Allow reopen")
   end
 
   @impl true
   def handle_event("update_per_page", %{"per_page" => value}, socket) do
-    case Settings.update_setting("tickets_per_page", value) do
+    case Settings.update_setting("customer_service_per_page", value) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -108,17 +108,20 @@ defmodule PhoenixKit.Modules.Tickets.Web.Settings do
 
   defp load_settings(socket) do
     socket
-    |> assign(:enabled, Tickets.enabled?())
-    |> assign(:per_page, Settings.get_setting("tickets_per_page", "20") |> String.to_integer())
+    |> assign(:enabled, CustomerService.enabled?())
+    |> assign(
+      :per_page,
+      Settings.get_setting("customer_service_per_page", "20") |> String.to_integer()
+    )
     |> assign(
       :internal_notes_enabled,
-      Settings.get_boolean_setting("tickets_internal_notes_enabled", true)
+      Settings.get_boolean_setting("customer_service_internal_notes_enabled", true)
     )
     |> assign(
       :attachments_enabled,
-      Settings.get_boolean_setting("tickets_attachments_enabled", true)
+      Settings.get_boolean_setting("customer_service_attachments_enabled", true)
     )
-    |> assign(:allow_reopen, Settings.get_boolean_setting("tickets_allow_reopen", true))
-    |> assign(:stats, Tickets.get_stats())
+    |> assign(:allow_reopen, Settings.get_boolean_setting("customer_service_allow_reopen", true))
+    |> assign(:stats, CustomerService.get_stats())
   end
 end
