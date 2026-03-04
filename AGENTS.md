@@ -83,7 +83,15 @@ Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`. **NEVER ment
 
 ### Version Management
 
-**Current Version**: 1.2.34 (mix.exs) | **Migration Version**: V90
+**Current versions** (check dynamically):
+
+```bash
+# Package version
+mix run --eval "IO.puts Mix.Project.config[:version]"
+
+# Migration version (highest vN file)
+ls lib/phoenix_kit/migrations/postgres/v*.ex | sed 's/.*\/v\([0-9]*\)\.ex/\1/' | sort -rn | head -1
+```
 
 Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
