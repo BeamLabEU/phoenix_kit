@@ -22,6 +22,11 @@ defmodule PhoenixKitWeb.Routes.CustomerServiceRoutes do
   """
   def admin_locale_routes do
     quote do
+      live "/admin/customer-service",
+           PhoenixKit.Modules.CustomerService.Web.List,
+           :index,
+           as: :customer_service_index_localized
+
       live "/admin/customer-service/tickets", PhoenixKit.Modules.CustomerService.Web.List, :index,
         as: :customer_service_list_localized
 
@@ -52,6 +57,11 @@ defmodule PhoenixKitWeb.Routes.CustomerServiceRoutes do
   """
   def admin_routes do
     quote do
+      live "/admin/customer-service",
+           PhoenixKit.Modules.CustomerService.Web.List,
+           :index,
+           as: :customer_service_index
+
       live "/admin/customer-service/tickets", PhoenixKit.Modules.CustomerService.Web.List, :index,
         as: :customer_service_list
 

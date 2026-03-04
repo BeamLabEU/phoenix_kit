@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.CustomerService.Web.Settings do
 
     socket =
       socket
-      |> assign(:page_title, "Tickets Settings")
+      |> assign(:page_title, "Customer Service Settings")
       |> assign(:project_title, project_title)
       |> assign(:current_user, current_user)
       |> load_settings()
