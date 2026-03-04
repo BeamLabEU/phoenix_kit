@@ -84,13 +84,13 @@ defmodule PhoenixKit.Modules.Emails.Web.ExportController do
   def export_metrics(conn, params) do
     if Emails.enabled?() do
       # Get metrics based on parameters
-      period = params["period"] || "last_30_days"
+      period = validate_period(params["period"])
       group_by = params["group_by"] || "day"
 
       filename = "email_metrics_#{period}_#{Date.utc_today()}.csv"
 
       # Get metrics data
-      metrics = Emails.get_engagement_metrics(String.to_atom(period))
+      metrics = Emails.get_engagement_metrics(period)
 
       # Generate CSV content
       csv_content = generate_metrics_csv(metrics, group_by)
@@ -438,4 +438,12 @@ defmodule PhoenixKit.Modules.Emails.Web.ExportController do
   end
 
   defp get_message_tag(_), do: nil
+
+  defp validate_period(nil), do: :last_30_days
+
+  defp validate_period(str)
+       when str in ~w(last_24_hours last_7_days last_30_days last_90_days all_time),
+       do: String.to_existing_atom(str)
+
+  defp validate_period(_), do: :last_30_days
 end

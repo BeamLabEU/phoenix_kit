@@ -146,10 +146,17 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end
   end
 
-  def handle_event("toggle_switcher_setting", %{"setting" => setting}, socket) do
-    setting_atom = String.to_atom(setting)
+  @toggleable_settings ~w(public_form_collect_metadata public_form_debug_mode public_form_honeypot public_form_honeypot_action public_form_time_check public_form_time_check_action public_form_rate_limit public_form_rate_limit_action)
+
+  def handle_event("toggle_switcher_setting", %{"setting" => setting}, socket)
+      when setting in @toggleable_settings do
+    setting_atom = String.to_existing_atom(setting)
     current_value = socket.assigns[setting_atom]
     {:noreply, assign(socket, setting_atom, !current_value)}
+  end
+
+  def handle_event("toggle_switcher_setting", _params, socket) do
+    {:noreply, socket}
   end
 
   def handle_event("search_countries", %{"value" => query}, socket) do
