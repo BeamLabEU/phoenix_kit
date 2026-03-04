@@ -96,10 +96,13 @@ defmodule PhoenixKit.AuditLog do
       [%Entry{}, ...]
 
   """
-  def list_logs_for_user(user_uuid) when is_binary(user_uuid) do
+  def list_logs_for_user(user_uuid, opts \\ []) when is_binary(user_uuid) do
+    limit = Keyword.get(opts, :limit, 100)
+
     from(e in Entry,
       where: e.target_user_uuid == ^user_uuid or e.admin_user_uuid == ^user_uuid,
-      order_by: [desc: e.inserted_at]
+      order_by: [desc: e.inserted_at],
+      limit: ^limit
     )
     |> Repo.all()
   end
@@ -113,12 +116,14 @@ defmodule PhoenixKit.AuditLog do
       [%Entry{}, ...]
 
   """
-  def list_logs_by_action(action) do
+  def list_logs_by_action(action, opts \\ []) do
     action_string = to_string(action)
+    limit = Keyword.get(opts, :limit, 100)
 
     from(e in Entry,
       where: e.action == ^action_string,
-      order_by: [desc: e.inserted_at]
+      order_by: [desc: e.inserted_at],
+      limit: ^limit
     )
     |> Repo.all()
   end

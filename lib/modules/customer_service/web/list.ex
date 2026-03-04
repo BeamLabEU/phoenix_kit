@@ -283,8 +283,14 @@ defmodule PhoenixKit.Modules.CustomerService.Web.List do
   defp count_filtered_tickets(socket) do
     # For simplicity, count based on status filter only
     case socket.assigns.status_filter do
-      nil -> CustomerService.get_stats().total
-      status -> Map.get(CustomerService.get_stats(), String.to_atom(status), 0)
+      nil ->
+        CustomerService.get_stats().total
+
+      status when status in ~w(open in_progress resolved closed unassigned) ->
+        Map.get(CustomerService.get_stats(), String.to_existing_atom(status), 0)
+
+      _invalid ->
+        0
     end
   end
 
