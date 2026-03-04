@@ -601,7 +601,7 @@ defmodule PhoenixKit.Modules.Billing.Providers.PayPal do
       currency: invoice[:currency] || invoice["currency"] || "EUR",
       description: "Invoice #{invoice[:invoice_number] || invoice["invoice_number"]}",
       metadata: %{
-        invoice_id: invoice[:uuid] || invoice["uuid"] || invoice[:id] || invoice["id"],
+        invoice_uuid: invoice[:uuid] || invoice["uuid"] || invoice[:id] || invoice["id"],
         invoice_number: invoice[:invoice_number] || invoice["invoice_number"]
       }
     ]
