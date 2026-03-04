@@ -1,3 +1,13 @@
+## 1.7.61 - 2026-03-04
+- Replace `plug_cowboy` with `bandit ~> 1.0` as HTTP adapter (Phoenix 1.8 default)
+- Remove stale deps from lock: `cowboy`, `cowlib`, `cowboy_telemetry`, `plug_cowboy`, `combine`, `dns_cluster`, `phoenix_live_dashboard`, `poolboy`, `timex`, `tzdata`
+- Remove deprecated `fetch_live_flash` plug
+- Add audit_log query limits
+- Fix atom table exhaustion risk and remove duplicate function
+- Update excluded_apps list in route resolver to match current deps
+- Update HTML comments to EEx format in templates and components
+- Clean up stale dep spec and dead commented-out code
+
 ## 1.7.60 - 2026-03-03
 - Remove legacy FS→DB migration modules: `DBImporter`, `MigrateToDatabaseWorker`, `ValidateMigrationWorker`
 - Remove `JsIntegration` install/update module (JS setup is now manual)
