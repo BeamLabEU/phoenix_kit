@@ -80,11 +80,11 @@ defmodule PhoenixKit.Modules.Sitemap.RouteResolver do
       argon2_elixir telemetry logger gettext phoenix_pubsub castore
       mint finch req nimble_options phoenix_ecto floki html_entities
       ex_doc makeup makeup_elixir makeup_erlang earmark_parser mdex
-      timex tzdata combine file_system esbuild tailwind heroicons
+      file_system esbuild tailwind heroicons
       phoenix_kit ueberauth ueberauth_google ueberauth_github
       ueberauth_apple ueberauth_facebook assent jose igniter
       owl sourceror spitfire rewrite glob_ex infer inflex
-      phoenix_live_dashboard observer_cli
+      observer_cli bandit thousand_island
     )a
 
     :application.loaded_applications()
