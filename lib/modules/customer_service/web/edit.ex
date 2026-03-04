@@ -1,13 +1,13 @@
-defmodule PhoenixKit.Modules.Tickets.Web.Edit do
+defmodule PhoenixKit.Modules.CustomerService.Web.Edit do
   @moduledoc """
   LiveView for creating and editing support tickets.
   """
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.CustomerService
+  alias PhoenixKit.Modules.CustomerService.Ticket
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Tickets
-  alias PhoenixKit.Modules.Tickets.Ticket
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Roles
@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
 
   @impl true
   def mount(params, _session, socket) do
-    if Tickets.enabled?() do
+    if CustomerService.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
       socket = load_ticket_or_new(socket, params, current_user)
       {:ok, socket}
@@ -28,11 +28,11 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
   end
 
   defp load_ticket_or_new(socket, %{"id" => id}, current_user) do
-    case Tickets.get_ticket(id, preload: [:user, :assigned_to]) do
+    case CustomerService.get_ticket(id, preload: [:user, :assigned_to]) do
       nil ->
         socket
         |> put_flash(:error, "Ticket not found")
-        |> push_navigate(to: Routes.path("/admin/tickets"))
+        |> push_navigate(to: Routes.path("/admin/customer-service/tickets"))
 
       ticket ->
         changeset = Ticket.changeset(ticket, %{})
@@ -69,7 +69,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
     |> assign(:pending_files, [])
     |> assign(
       :attachments_enabled,
-      Settings.get_boolean_setting("tickets_attachments_enabled", true)
+      Settings.get_boolean_setting("customer_service_attachments_enabled", true)
     )
   end
 
@@ -143,17 +143,17 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
       end
 
     try do
-      case Tickets.create_ticket(user_uuid, params) do
+      case CustomerService.create_ticket(user_uuid, params) do
         {:ok, ticket} ->
           # Add pending attachments to the newly created ticket
           Enum.each(pending_file_uuids, fn file_uuid ->
-            Tickets.add_attachment_to_ticket(ticket.uuid, file_uuid)
+            CustomerService.add_attachment_to_ticket(ticket.uuid, file_uuid)
           end)
 
           {:noreply,
            socket
            |> put_flash(:info, "Ticket created successfully")
-           |> push_navigate(to: Routes.path("/admin/tickets/#{ticket.uuid}"))}
+           |> push_navigate(to: Routes.path("/admin/customer-service/tickets/#{ticket.uuid}"))}
 
         {:error, %Ecto.Changeset{} = changeset} ->
           {:noreply, assign(socket, :form, to_form(changeset))}
@@ -167,12 +167,12 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
   end
 
   defp save_ticket(socket, :edit, params) do
-    case Tickets.update_ticket(socket.assigns.ticket, params) do
+    case CustomerService.update_ticket(socket.assigns.ticket, params) do
       {:ok, ticket} ->
         {:noreply,
          socket
          |> put_flash(:info, "Ticket updated successfully")
-         |> push_navigate(to: Routes.path("/admin/tickets/#{ticket.uuid}"))}
+         |> push_navigate(to: Routes.path("/admin/customer-service/tickets/#{ticket.uuid}"))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}

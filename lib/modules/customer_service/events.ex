@@ -1,15 +1,15 @@
-defmodule PhoenixKit.Modules.Tickets.Events do
+defmodule PhoenixKit.Modules.CustomerService.Events do
   @moduledoc """
-  PubSub events for PhoenixKit Tickets system.
+  PubSub events for PhoenixKit Customer Service system.
 
   Broadcasts ticket-related events for real-time updates in LiveViews.
   Uses `PhoenixKit.PubSub.Manager` for self-contained PubSub operations.
 
   ## Topics
 
-  - `"tickets:all"` - All tickets (for admins)
-  - `"tickets:user:{user_uuid}"` - Tickets for specific user
-  - `"tickets:{uuid}"` - Specific ticket (for detail view)
+  - `"customer_service:all"` - All tickets (for admins)
+  - `"customer_service:user:{user_uuid}"` - Tickets for specific user
+  - `"customer_service:{uuid}"` - Specific ticket (for detail view)
 
   ## Events
 
@@ -28,13 +28,13 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   ## Usage Examples
 
       # Subscribe to all ticket events (admin view)
-      PhoenixKit.Modules.Tickets.Events.subscribe_to_all()
+      PhoenixKit.Modules.CustomerService.Events.subscribe_to_all()
 
       # Subscribe to user's tickets
-      PhoenixKit.Modules.Tickets.Events.subscribe_to_user_tickets(user_uuid)
+      PhoenixKit.Modules.CustomerService.Events.subscribe_to_user_tickets(user_uuid)
 
       # Subscribe to specific ticket (detail view)
-      PhoenixKit.Modules.Tickets.Events.subscribe_to_ticket(ticket_uuid)
+      PhoenixKit.Modules.CustomerService.Events.subscribe_to_ticket(ticket_uuid)
 
       # Handle in LiveView
       def handle_info({:ticket_created, ticket}, socket) do
@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Tickets.Events do
 
   alias PhoenixKit.PubSub.Manager
 
-  @all_topic "tickets:all"
+  @all_topic "customer_service:all"
 
   # ============================================================================
   # TOPIC BUILDERS
@@ -55,14 +55,14 @@ defmodule PhoenixKit.Modules.Tickets.Events do
   Returns the PubSub topic for a specific user's tickets.
   """
   def user_topic(user_uuid) when is_binary(user_uuid) do
-    "tickets:user:#{user_uuid}"
+    "customer_service:user:#{user_uuid}"
   end
 
   @doc """
   Returns the PubSub topic for a specific ticket.
   """
   def ticket_topic(ticket_uuid) when is_binary(ticket_uuid) do
-    "tickets:#{ticket_uuid}"
+    "customer_service:#{ticket_uuid}"
   end
 
   # ============================================================================

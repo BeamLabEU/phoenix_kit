@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets.Ticket do
+defmodule PhoenixKit.Modules.CustomerService.Ticket do
   @moduledoc """
   Schema for support tickets.
 
@@ -92,11 +92,14 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           assigned_to: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t() | nil,
           comments:
-            [PhoenixKit.Modules.Tickets.TicketComment.t()] | Ecto.Association.NotLoaded.t(),
+            [PhoenixKit.Modules.CustomerService.TicketComment.t()]
+            | Ecto.Association.NotLoaded.t(),
           attachments:
-            [PhoenixKit.Modules.Tickets.TicketAttachment.t()] | Ecto.Association.NotLoaded.t(),
+            [PhoenixKit.Modules.CustomerService.TicketAttachment.t()]
+            | Ecto.Association.NotLoaded.t(),
           status_history:
-            [PhoenixKit.Modules.Tickets.TicketStatusHistory.t()] | Ecto.Association.NotLoaded.t(),
+            [PhoenixKit.Modules.CustomerService.TicketStatusHistory.t()]
+            | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
         }
@@ -121,10 +124,13 @@ defmodule PhoenixKit.Modules.Tickets.Ticket do
       references: :uuid,
       type: UUIDv7
 
-    has_many :comments, PhoenixKit.Modules.Tickets.TicketComment, foreign_key: :ticket_uuid
-    has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment, foreign_key: :ticket_uuid
+    has_many :comments, PhoenixKit.Modules.CustomerService.TicketComment,
+      foreign_key: :ticket_uuid
 
-    has_many :status_history, PhoenixKit.Modules.Tickets.TicketStatusHistory,
+    has_many :attachments, PhoenixKit.Modules.CustomerService.TicketAttachment,
+      foreign_key: :ticket_uuid
+
+    has_many :status_history, PhoenixKit.Modules.CustomerService.TicketStatusHistory,
       foreign_key: :ticket_uuid
 
     timestamps(type: :utc_datetime)

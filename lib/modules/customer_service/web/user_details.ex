@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
+defmodule PhoenixKit.Modules.CustomerService.Web.UserDetails do
   @moduledoc """
   LiveView for displaying ticket details to the ticket owner.
 
@@ -14,23 +14,23 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
 
   require Logger
 
+  alias PhoenixKit.Modules.CustomerService
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    if Tickets.enabled?() do
+    if CustomerService.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
-      case Tickets.get_ticket(id, preload: [:user, :assigned_to]) do
+      case CustomerService.get_ticket(id, preload: [:user, :assigned_to]) do
         nil ->
           {:ok,
            socket
            |> put_flash(:error, gettext("Ticket not found"))
-           |> push_navigate(to: Routes.path("/dashboard/tickets"))}
+           |> push_navigate(to: Routes.path("/dashboard/customer-service/tickets"))}
 
         ticket ->
           # Security: Verify user owns this ticket
@@ -38,10 +38,10 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
             {:ok,
              socket
              |> put_flash(:error, gettext("Access denied"))
-             |> push_navigate(to: Routes.path("/dashboard/tickets"))}
+             |> push_navigate(to: Routes.path("/dashboard/customer-service/tickets"))}
           else
             attachments_enabled =
-              Settings.get_boolean_setting("tickets_attachments_enabled", true)
+              Settings.get_boolean_setting("customer_service_attachments_enabled", true)
 
             socket =
               socket
@@ -97,11 +97,11 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
       pending_file_uuids = socket.assigns.pending_comment_file_uuids
 
       # Users can only add public comments (is_internal is always false)
-      case Tickets.create_comment(ticket.uuid, current_user.uuid, %{content: content}) do
+      case CustomerService.create_comment(ticket.uuid, current_user.uuid, %{content: content}) do
         {:ok, comment} ->
           # Attach any pending files to the comment
           Enum.each(pending_file_uuids, fn file_uuid ->
-            Tickets.add_attachment_to_comment(comment.uuid, file_uuid)
+            CustomerService.add_attachment_to_comment(comment.uuid, file_uuid)
           end)
 
           {:noreply,
@@ -148,18 +148,20 @@ defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
   defp load_public_comments(socket) do
     ticket = socket.assigns.ticket
     # Only load public comments - exclude internal notes
-    comments = Tickets.list_public_comments(ticket.uuid, preload: [:user])
+    comments = CustomerService.list_public_comments(ticket.uuid, preload: [:user])
     assign(socket, :comments, comments)
   end
 
   defp load_attachments(socket) do
     ticket = socket.assigns.ticket
-    attachments = Tickets.list_ticket_attachments(ticket.uuid, preload: [:file])
+    attachments = CustomerService.list_ticket_attachments(ticket.uuid, preload: [:file])
     assign(socket, :attachments, attachments)
   end
 
   defp reload_ticket(socket) do
-    ticket = Tickets.get_ticket!(socket.assigns.ticket.uuid, preload: [:user, :assigned_to])
+    ticket =
+      CustomerService.get_ticket!(socket.assigns.ticket.uuid, preload: [:user, :assigned_to])
+
     assign(socket, :ticket, ticket)
   end
 

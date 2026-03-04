@@ -135,7 +135,7 @@ defmodule PhoenixKit.ModuleRegistry do
   @doc """
   Build a feature_enabled_checks map from registered modules.
 
-  Returns `%{"tickets" => {PhoenixKit.Modules.Tickets, :enabled?}, ...}`
+  Returns `%{"customer_service" => {PhoenixKit.Modules.CustomerService, :enabled?}, ...}`
   """
   @spec feature_enabled_checks() :: %{String.t() => {module(), atom()}}
   def feature_enabled_checks do
@@ -358,7 +358,7 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Sitemap,
       PhoenixKit.Modules.Storage,
       PhoenixKit.Modules.Sync,
-      PhoenixKit.Modules.Tickets,
+      PhoenixKit.Modules.CustomerService,
       PhoenixKit.Jobs
     ]
   end

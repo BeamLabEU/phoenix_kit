@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets.Web.List do
+defmodule PhoenixKit.Modules.CustomerService.Web.List do
   @moduledoc """
   LiveView for displaying and managing support tickets in PhoenixKit admin panel.
 
@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
 
   ## Route
 
-  This LiveView is mounted at `{prefix}/admin/tickets` and requires
+  This LiveView is mounted at `{prefix}/admin/customer-service/tickets` and requires
   appropriate admin or SupportAgent permissions.
 
   ## Permissions
@@ -27,8 +27,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Tickets
-  alias PhoenixKit.Modules.Tickets.Events
+  alias PhoenixKit.Modules.CustomerService
+  alias PhoenixKit.Modules.CustomerService.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -49,7 +49,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
         |> assign(:current_user, current_user)
         |> assign(:tickets, [])
         |> assign(:total_count, 0)
-        |> assign(:stats, Tickets.get_stats())
+        |> assign(:stats, CustomerService.get_stats())
         |> assign(:loading, true)
         |> assign_filter_defaults()
         |> assign_pagination_defaults()
@@ -65,13 +65,19 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
 
   @impl true
   def handle_params(params, uri, socket) do
-    socket =
-      socket
-      |> assign(:url_path, URI.parse(uri).path)
-      |> apply_params(params)
-      |> load_tickets()
+    path = URI.parse(uri).path
 
-    {:noreply, assign(socket, :loading, false)}
+    if Regex.match?(~r{/customer-service$}, path) do
+      {:noreply, push_navigate(socket, to: Routes.path("/admin/customer-service/tickets"))}
+    else
+      socket =
+        socket
+        |> assign(:url_path, path)
+        |> apply_params(params)
+        |> load_tickets()
+
+      {:noreply, assign(socket, :loading, false)}
+    end
   end
 
   @impl true
@@ -103,12 +109,14 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
       end
 
     {:noreply,
-     push_patch(socket, to: Routes.path("/admin/tickets", map_to_keyword(filter_params)))}
+     push_patch(socket,
+       to: Routes.path("/admin/customer-service/tickets", map_to_keyword(filter_params))
+     )}
   end
 
   @impl true
   def handle_event("clear_filters", _params, socket) do
-    {:noreply, push_patch(socket, to: Routes.path("/admin/tickets"))}
+    {:noreply, push_patch(socket, to: Routes.path("/admin/customer-service/tickets"))}
   end
 
   @impl true
@@ -117,7 +125,10 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
     current_params = build_current_params(socket)
     params = Map.put(current_params, "page", page)
 
-    {:noreply, push_patch(socket, to: Routes.path("/admin/tickets", map_to_keyword(params)))}
+    {:noreply,
+     push_patch(socket,
+       to: Routes.path("/admin/customer-service/tickets", map_to_keyword(params))
+     )}
   end
 
   @impl true
@@ -131,10 +142,10 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
         socket
         |> assign(:tickets, tickets)
         |> assign(:total_count, total_count)
-        |> assign(:stats, Tickets.get_stats())
+        |> assign(:stats, CustomerService.get_stats())
       else
         # Just update stats if ticket doesn't match current filters
-        assign(socket, :stats, Tickets.get_stats())
+        assign(socket, :stats, CustomerService.get_stats())
       end
 
     {:noreply, socket}
@@ -162,7 +173,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
     socket =
       socket
       |> assign(:tickets, tickets)
-      |> assign(:stats, Tickets.get_stats())
+      |> assign(:stats, CustomerService.get_stats())
 
     {:noreply, socket}
   end
@@ -184,7 +195,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
     socket =
       socket
       |> load_tickets()
-      |> assign(:stats, Tickets.get_stats())
+      |> assign(:stats, CustomerService.get_stats())
 
     {:noreply, socket}
   end
@@ -192,7 +203,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
   # Private functions
 
   defp tickets_enabled? do
-    Tickets.enabled?()
+    CustomerService.enabled?()
   end
 
   defp assign_filter_defaults(socket) do
@@ -203,7 +214,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
   end
 
   defp assign_pagination_defaults(socket) do
-    per_page = Settings.get_setting("tickets_per_page", "20") |> String.to_integer()
+    per_page = Settings.get_setting("customer_service_per_page", "20") |> String.to_integer()
 
     socket
     |> assign(:page, 1)
@@ -226,7 +237,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
 
   defp load_tickets(socket) do
     opts = build_query_opts(socket)
-    tickets = Tickets.list_tickets(opts)
+    tickets = CustomerService.list_tickets(opts)
 
     total_count = count_filtered_tickets(socket)
     total_pages = max(1, ceil(total_count / socket.assigns.per_page))
@@ -272,8 +283,8 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
   defp count_filtered_tickets(socket) do
     # For simplicity, count based on status filter only
     case socket.assigns.status_filter do
-      nil -> Tickets.get_stats().total
-      status -> Map.get(Tickets.get_stats(), String.to_atom(status), 0)
+      nil -> CustomerService.get_stats().total
+      status -> Map.get(CustomerService.get_stats(), String.to_atom(status), 0)
     end
   end
 

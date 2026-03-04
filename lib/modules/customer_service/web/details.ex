@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets.Web.Details do
+defmodule PhoenixKit.Modules.CustomerService.Web.Details do
   @moduledoc """
   LiveView for displaying ticket details with comments and status management.
 
@@ -15,22 +15,22 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   require Logger
 
-  alias PhoenixKit.Modules.Tickets
-  alias PhoenixKit.Modules.Tickets.Events
+  alias PhoenixKit.Modules.CustomerService
+  alias PhoenixKit.Modules.CustomerService.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(%{"id" => ticket_uuid}, _session, socket) do
-    if Tickets.enabled?() do
+    if CustomerService.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
-      case Tickets.get_ticket(ticket_uuid, preload: [:user, :assigned_to]) do
+      case CustomerService.get_ticket(ticket_uuid, preload: [:user, :assigned_to]) do
         nil ->
           {:ok,
            socket
            |> put_flash(:error, "Ticket not found")
-           |> push_navigate(to: Routes.path("/admin/tickets"))}
+           |> push_navigate(to: Routes.path("/admin/customer-service/tickets"))}
 
         ticket ->
           # Subscribe to events for this specific ticket
@@ -47,14 +47,14 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
             |> assign(:can_view_internal, true)
             |> assign(
               :internal_notes_enabled,
-              Settings.get_boolean_setting("tickets_internal_notes_enabled", true)
+              Settings.get_boolean_setting("customer_service_internal_notes_enabled", true)
             )
             |> assign(:comment_form, %{"content" => "", "is_internal" => false})
             |> assign(:show_internal_form, false)
             |> assign(:show_media_selector, false)
             |> assign(
               :attachments_enabled,
-              Settings.get_boolean_setting("tickets_attachments_enabled", true)
+              Settings.get_boolean_setting("customer_service_attachments_enabled", true)
             )
             |> load_comments()
             |> load_attachments()
@@ -87,9 +87,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     else
       result =
         if is_internal do
-          Tickets.create_internal_note(ticket.uuid, current_user.uuid, %{content: content})
+          CustomerService.create_internal_note(ticket.uuid, current_user.uuid, %{content: content})
         else
-          Tickets.create_comment(ticket.uuid, current_user.uuid, %{content: content})
+          CustomerService.create_comment(ticket.uuid, current_user.uuid, %{content: content})
         end
 
       case result do
@@ -119,10 +119,10 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
     result =
       case new_status do
-        "in_progress" -> Tickets.start_progress(ticket, current_user)
-        "resolved" -> Tickets.resolve_ticket(ticket, current_user)
-        "closed" -> Tickets.close_ticket(ticket, current_user)
-        "open" -> Tickets.reopen_ticket(ticket, current_user)
+        "in_progress" -> CustomerService.start_progress(ticket, current_user)
+        "resolved" -> CustomerService.resolve_ticket(ticket, current_user)
+        "closed" -> CustomerService.close_ticket(ticket, current_user)
+        "open" -> CustomerService.reopen_ticket(ticket, current_user)
         _ -> {:error, :invalid_status}
       end
 
@@ -133,7 +133,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
          |> put_flash(:info, "Status updated to #{new_status}")
          |> assign(
            :ticket,
-           Tickets.get_ticket!(updated_ticket.uuid, preload: [:user, :assigned_to])
+           CustomerService.get_ticket!(updated_ticket.uuid, preload: [:user, :assigned_to])
          )
          |> load_status_history()}
 
@@ -153,14 +153,14 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     ticket = socket.assigns.ticket
     current_user = socket.assigns.current_user
 
-    case Tickets.assign_ticket(ticket, current_user.uuid, current_user) do
+    case CustomerService.assign_ticket(ticket, current_user.uuid, current_user) do
       {:ok, updated_ticket} ->
         {:noreply,
          socket
          |> put_flash(:info, "Ticket assigned to you")
          |> assign(
            :ticket,
-           Tickets.get_ticket!(updated_ticket.uuid, preload: [:user, :assigned_to])
+           CustomerService.get_ticket!(updated_ticket.uuid, preload: [:user, :assigned_to])
          )
          |> load_status_history()}
 
@@ -171,12 +171,12 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   @impl true
   def handle_event("delete_comment", %{"uuid" => comment_uuid}, socket) do
-    case Tickets.get_comment!(comment_uuid) do
+    case CustomerService.get_comment!(comment_uuid) do
       nil ->
         {:noreply, put_flash(socket, :error, "Comment not found")}
 
       comment ->
-        case Tickets.delete_comment(comment) do
+        case CustomerService.delete_comment(comment) do
           {:ok, _} ->
             {:noreply,
              socket
@@ -202,7 +202,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   @impl true
   def handle_event("remove_attachment", %{"uuid" => attachment_uuid}, socket) do
-    case Tickets.remove_attachment(attachment_uuid) do
+    case CustomerService.remove_attachment(attachment_uuid) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -219,7 +219,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
     ticket = socket.assigns.ticket
 
     Enum.each(file_uuids, fn file_uuid ->
-      Tickets.add_attachment_to_ticket(ticket.uuid, file_uuid)
+      CustomerService.add_attachment_to_ticket(ticket.uuid, file_uuid)
     end)
 
     {:noreply,
@@ -293,9 +293,9 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
     comments =
       if socket.assigns.can_view_internal do
-        Tickets.list_all_comments(ticket.uuid, preload: [:user])
+        CustomerService.list_all_comments(ticket.uuid, preload: [:user])
       else
-        Tickets.list_public_comments(ticket.uuid, preload: [:user])
+        CustomerService.list_public_comments(ticket.uuid, preload: [:user])
       end
 
     public_comments = Enum.filter(comments, &(!&1.is_internal))
@@ -308,18 +308,20 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
 
   defp load_attachments(socket) do
     ticket = socket.assigns.ticket
-    attachments = Tickets.list_ticket_attachments(ticket.uuid, preload: [:file])
+    attachments = CustomerService.list_ticket_attachments(ticket.uuid, preload: [:file])
     assign(socket, :attachments, attachments)
   end
 
   defp load_status_history(socket) do
     ticket = socket.assigns.ticket
-    history = Tickets.get_status_history(ticket.uuid, preload: [:changed_by])
+    history = CustomerService.get_status_history(ticket.uuid, preload: [:changed_by])
     assign(socket, :status_history, history)
   end
 
   defp reload_ticket(socket) do
-    ticket = Tickets.get_ticket!(socket.assigns.ticket.uuid, preload: [:user, :assigned_to])
+    ticket =
+      CustomerService.get_ticket!(socket.assigns.ticket.uuid, preload: [:user, :assigned_to])
+
     assign(socket, :ticket, ticket)
   end
 end

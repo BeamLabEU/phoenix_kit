@@ -26,7 +26,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "contains known internal modules" do
       modules = ModuleRegistry.all_modules()
       assert PhoenixKit.Modules.AI in modules
-      assert PhoenixKit.Modules.Tickets in modules
+      assert PhoenixKit.Modules.CustomerService in modules
       assert PhoenixKit.Modules.Billing in modules
       assert PhoenixKit.Modules.Entities in modules
       assert PhoenixKit.Jobs in modules
@@ -97,7 +97,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
   describe "get_by_key/1" do
     test "finds module by key string" do
       assert ModuleRegistry.get_by_key("ai") == PhoenixKit.Modules.AI
-      assert ModuleRegistry.get_by_key("tickets") == PhoenixKit.Modules.Tickets
+      assert ModuleRegistry.get_by_key("customer_service") == PhoenixKit.Modules.CustomerService
       assert ModuleRegistry.get_by_key("billing") == PhoenixKit.Modules.Billing
     end
 
@@ -123,7 +123,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
       tabs = ModuleRegistry.all_admin_tabs()
       tab_ids = Enum.map(tabs, & &1.id)
 
-      assert :admin_tickets in tab_ids
+      assert :admin_customer_service in tab_ids
       assert :admin_billing in tab_ids
       assert :admin_entities in tab_ids
     end
@@ -157,7 +157,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
 
     test "contains known permission keys" do
       keys = Enum.map(ModuleRegistry.all_permission_metadata(), & &1.key)
-      assert "tickets" in keys
+      assert "customer_service" in keys
       assert "billing" in keys
       assert "ai" in keys
       assert "entities" in keys
@@ -178,7 +178,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
       assert "ai" in keys
       assert "billing" in keys
       assert "shop" in keys
-      assert "tickets" in keys
+      assert "customer_service" in keys
       assert "jobs" in keys
     end
 
@@ -207,7 +207,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
 
     test "maps known keys to correct modules" do
       checks = ModuleRegistry.feature_enabled_checks()
-      assert checks["tickets"] == {PhoenixKit.Modules.Tickets, :enabled?}
+      assert checks["customer_service"] == {PhoenixKit.Modules.CustomerService, :enabled?}
       assert checks["ai"] == {PhoenixKit.Modules.AI, :enabled?}
       assert checks["billing"] == {PhoenixKit.Modules.Billing, :enabled?}
     end
@@ -217,7 +217,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a map of key => label" do
       labels = ModuleRegistry.permission_labels()
       assert is_map(labels)
-      assert labels["tickets"] == "Tickets"
+      assert labels["customer_service"] == "Customer Service"
       assert labels["ai"] == "AI"
       assert labels["shop"] == "E-Commerce"
     end
@@ -227,8 +227,8 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a map of key => icon" do
       icons = ModuleRegistry.permission_icons()
       assert is_map(icons)
-      assert is_binary(icons["tickets"])
-      assert String.starts_with?(icons["tickets"], "hero-")
+      assert is_binary(icons["customer_service"])
+      assert String.starts_with?(icons["customer_service"], "hero-")
     end
   end
 
@@ -236,8 +236,8 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a map of key => description" do
       descriptions = ModuleRegistry.permission_descriptions()
       assert is_map(descriptions)
-      assert is_binary(descriptions["tickets"])
-      assert String.length(descriptions["tickets"]) > 0
+      assert is_binary(descriptions["customer_service"])
+      assert String.length(descriptions["customer_service"]) > 0
     end
   end
 

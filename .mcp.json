@@ -7,6 +7,10 @@
     "decor-shop-tidewave": {
       "type": "http",
       "url": "http://localhost:4001/tidewave/mcp"
+    },
+    "openmemory": {
+      "type": "sse",
+      "url": "http://localhost:8765/mcp/claude/sse/phoenixkit"
     }
   }
 }

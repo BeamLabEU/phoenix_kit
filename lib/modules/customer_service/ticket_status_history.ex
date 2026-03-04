@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
+defmodule PhoenixKit.Modules.CustomerService.TicketStatusHistory do
   @moduledoc """
   Schema for ticket status change audit trail.
 
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
           from_status: String.t() | nil,
           to_status: String.t(),
           reason: String.t() | nil,
-          ticket: PhoenixKit.Modules.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t(),
+          ticket: PhoenixKit.Modules.CustomerService.Ticket.t() | Ecto.Association.NotLoaded.t(),
           changed_by: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: DateTime.t() | nil
         }
@@ -74,7 +74,7 @@ defmodule PhoenixKit.Modules.Tickets.TicketStatusHistory do
     field :to_status, :string
     field :reason, :string
 
-    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket,
+    belongs_to :ticket, PhoenixKit.Modules.CustomerService.Ticket,
       foreign_key: :ticket_uuid,
       references: :uuid,
       type: UUIDv7

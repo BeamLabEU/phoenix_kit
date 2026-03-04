@@ -1,31 +1,30 @@
-defmodule PhoenixKit.Modules.Tickets.Web.New do
+defmodule PhoenixKit.Modules.CustomerService.Web.UserNew do
   @moduledoc """
-  LiveView for creating new support tickets from admin panel.
+  LiveView for creating new support tickets with file attachments.
 
-  Admins can create tickets on behalf of users with title, description,
-  priority, and optional file attachments.
+  Users can create tickets with title, description and drag-and-drop file uploads.
+  Files are stored via Storage module and attached to the ticket after creation.
   """
   use PhoenixKitWeb, :live_view
 
   require Logger
 
+  alias PhoenixKit.Modules.CustomerService
+  alias PhoenixKit.Modules.CustomerService.Ticket
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Tickets
-  alias PhoenixKit.Modules.Tickets.Ticket
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
-    if Tickets.enabled?() do
+    if CustomerService.enabled?() do
       current_user = socket.assigns[:phoenix_kit_current_user]
-
-      ticket = %Ticket{}
+      ticket = %Ticket{user_uuid: current_user.uuid}
       changeset = Ticket.changeset(ticket, %{})
 
       attachments_enabled =
-        Settings.get_boolean_setting("tickets_attachments_enabled", true)
+        Settings.get_boolean_setting("customer_service_attachments_enabled", true)
 
       socket =
         socket
@@ -44,7 +43,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
       {:ok,
        socket
        |> put_flash(:error, gettext("Tickets module is not enabled"))
-       |> push_navigate(to: Routes.path("/admin"))}
+       |> push_navigate(to: Routes.path("/dashboard"))}
     end
   end
 
@@ -88,39 +87,20 @@ defmodule PhoenixKit.Modules.Tickets.Web.New do
     socket = process_pending_uploads(socket)
     pending_file_uuids = socket.assigns.pending_file_uuids
 
-    # Determine the user for the ticket
-    # If admin is creating for a specific user, use that user_uuid
-    # Otherwise use admin's own uuid
-    user_uuid =
-      case params["user_uuid"] do
-        nil -> current_user.uuid
-        "" -> current_user.uuid
-        uuid -> uuid
-      end
+    case CustomerService.create_ticket(current_user.uuid, params) do
+      {:ok, ticket} ->
+        # Attach pending files to the newly created ticket
+        Enum.each(pending_file_uuids, fn file_uuid ->
+          CustomerService.add_attachment_to_ticket(ticket.uuid, file_uuid)
+        end)
 
-    # Merge the determined user_uuid into params
-    params = Map.put(params, "user_uuid", user_uuid)
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Ticket created successfully"))
+         |> push_navigate(to: Routes.path("/dashboard/customer-service/tickets/#{ticket.uuid}"))}
 
-    try do
-      case Tickets.create_ticket(user_uuid, params) do
-        {:ok, ticket} ->
-          # Attach pending files to the newly created ticket
-          Enum.each(pending_file_uuids, fn file_uuid ->
-            Tickets.add_attachment_to_ticket(ticket.uuid, file_uuid)
-          end)
-
-          {:noreply,
-           socket
-           |> put_flash(:info, gettext("Ticket created successfully"))
-           |> push_navigate(to: Routes.path("/admin/tickets/#{ticket.uuid}"))}
-
-        {:error, %Ecto.Changeset{} = changeset} ->
-          {:noreply, assign(socket, :form, to_form(changeset))}
-      end
-    rescue
-      e ->
-        Logger.error("Ticket save failed: #{Exception.message(e)}")
-        {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
 

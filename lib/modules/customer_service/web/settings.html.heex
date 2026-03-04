@@ -1,15 +1,15 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Tickets Settings"
+  page_title="Customer Service Settings"
   current_path={@url_path}
   project_title={@project_title}
 >
   <div class="container flex flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin/settings")}
-      title="Tickets Settings"
-      subtitle="Configure support tickets module behavior and features"
+      title="Customer Service Settings"
+      subtitle="Configure customer service module behavior and features"
     />
 
     <%!-- Main Content --%>
@@ -58,9 +58,9 @@
                 phx-click="toggle_enabled"
               />
               <div>
-                <span class="label-text font-medium">Enable Tickets Module</span>
+                <span class="label-text font-medium">Enable Customer Service Module</span>
                 <p class="text-sm text-base-content/50">
-                  When disabled, the tickets interface will not be accessible
+                  When disabled, the customer service interface will not be accessible
                 </p>
               </div>
             </label>

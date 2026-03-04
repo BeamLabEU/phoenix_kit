@@ -406,23 +406,6 @@ defmodule PhoenixKit.Users.Auth do
     end
   end
 
-  @doc """
-  Gets the UUID of the first user in the system.
-
-  Convenience function for getting a user UUID for `created_by_uuid` fields.
-
-  ## Examples
-
-      iex> get_first_user_uuid()
-      "019b5704-3680-7b95-9d82-ef16127f1fd2"
-  """
-  def get_first_user_uuid do
-    case get_first_user() do
-      nil -> nil
-      user -> user.uuid
-    end
-  end
-
   ## User registration
 
   @doc """

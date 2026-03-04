@@ -545,16 +545,16 @@
         </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
       <% end %>
 
-      <%!-- Support Tickets Module --%>
-      <%= if "tickets" in @accessible_modules do %>
-        <% cfg = @module_configs["tickets"] || %{} %>
+      <%!-- Customer Service Module --%>
+      <%= if "customer_service" in @accessible_modules do %>
+        <% cfg = @module_configs["customer_service"] || %{} %>
         <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-          title="Support Tickets"
+          title="Customer Service"
           description="Customer support ticketing system with internal notes and status tracking"
           icon="🎫"
           enabled={cfg[:enabled]}
           toggle_event="toggle_module"
-          toggle_key="tickets"
+          toggle_key="customer_service"
         >
           <:status_badges>
             <span class={[
@@ -574,20 +574,20 @@
             <div class="flex flex-col gap-2 w-full">
               <%= if cfg[:enabled] do %>
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/tickets")}
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/customer-service/tickets")}
                   class="btn btn-primary btn-sm"
                 >
                   <.icon name="hero-ticket" class="w-4 h-4 mr-1" /> Manage Tickets
                 </.link>
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/tickets")}
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/customer-service")}
                   class="btn btn-outline btn-sm"
                 >
                   <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Settings
                 </.link>
               <% else %>
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/tickets")}
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/customer-service")}
                   class="btn btn-outline btn-sm"
                 >
                   <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
