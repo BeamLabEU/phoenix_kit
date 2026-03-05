@@ -621,7 +621,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 77
+  @current_version 78
   @default_prefix "public"
 
   @doc false

@@ -1,3 +1,10 @@
+## 1.7.62 - 2026-03-05
+- Fix UnicodeConversionError crash in integration plug when response body contains non-UTF8 binary data
+- Fix DB browser rendering of raw binary values (e.g. UUID bytes) in table and activity views
+- Add V78 migration: backfill missing AI module columns skipped by V41 conditional checks
+  - Add `reasoning_enabled`, `reasoning_effort`, `reasoning_max_tokens`, `reasoning_exclude` to `phoenix_kit_ai_endpoints`
+  - Add `prompt_uuid`, `prompt_name` to `phoenix_kit_ai_requests` with index and FK constraint
+
 ## 1.7.61 - 2026-03-04
 - Replace `plug_cowboy` with `bandit ~> 1.0` as HTTP adapter (Phoenix 1.8 default)
 - Remove stale deps from lock: `cowboy`, `cowlib`, `cowboy_telemetry`, `plug_cowboy`, `combine`, `dns_cluster`, `phoenix_live_dashboard`, `poolboy`, `timex`, `tzdata`

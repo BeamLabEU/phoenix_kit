@@ -158,7 +158,11 @@ defmodule PhoenixKit.Modules.DB.Web.Show do
 
   def format_cell(value) when is_map(value), do: Jason.encode!(value)
   def format_cell(value) when is_list(value), do: inspect(value)
-  def format_cell(value) when is_binary(value), do: value
+
+  def format_cell(value) when is_binary(value) do
+    if String.valid?(value), do: value, else: inspect(value)
+  end
+
   def format_cell(value), do: to_string(value || "")
 
   # Parse and validate page number - must be positive integer

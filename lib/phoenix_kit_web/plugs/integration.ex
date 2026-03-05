@@ -91,34 +91,44 @@ defmodule PhoenixKitWeb.Plugs.Integration do
   # Inject the script right after <head> tag so it runs before any other scripts
   # Uses simple string replacement instead of regex for better performance
   defp inject_script_into_head(conn) do
-    body = to_string(conn.resp_body)
+    body =
+      try do
+        IO.iodata_to_binary(conn.resp_body)
+      rescue
+        _ -> nil
+      end
 
-    # Try simple replacements first (faster than regex)
-    cond do
-      String.contains?(body, "<head>") ->
-        new_body =
-          String.replace(body, "<head>", "<head>" <> @websocket_fix_script, global: false)
+    # Skip if body couldn't be converted or isn't valid UTF-8
+    if is_nil(body) or not String.valid?(body) do
+      conn
+    else
+      # Try simple replacements first (faster than regex)
+      cond do
+        String.contains?(body, "<head>") ->
+          new_body =
+            String.replace(body, "<head>", "<head>" <> @websocket_fix_script, global: false)
 
-        %{conn | resp_body: new_body}
+          %{conn | resp_body: new_body}
 
-      String.contains?(body, "<HEAD>") ->
-        new_body =
-          String.replace(body, "<HEAD>", "<HEAD>" <> @websocket_fix_script, global: false)
+        String.contains?(body, "<HEAD>") ->
+          new_body =
+            String.replace(body, "<HEAD>", "<HEAD>" <> @websocket_fix_script, global: false)
 
-        %{conn | resp_body: new_body}
+          %{conn | resp_body: new_body}
 
-      true ->
-        # No simple <head> tag found, try regex for <head ...> with attributes
-        case Regex.run(~r/<head[^>]*>/i, body, return: :index) do
-          [{start, length}] ->
-            insert_pos = start + length
-            {before, after_head} = String.split_at(body, insert_pos)
-            new_body = before <> @websocket_fix_script <> after_head
-            %{conn | resp_body: new_body}
+        true ->
+          # No simple <head> tag found, try regex for <head ...> with attributes
+          case Regex.run(~r/<head[^>]*>/i, body, return: :index) do
+            [{start, length}] ->
+              insert_pos = start + length
+              {before, after_head} = String.split_at(body, insert_pos)
+              new_body = before <> @websocket_fix_script <> after_head
+              %{conn | resp_body: new_body}
 
-          _ ->
-            conn
-        end
+            _ ->
+              conn
+          end
+      end
     end
   end
 end

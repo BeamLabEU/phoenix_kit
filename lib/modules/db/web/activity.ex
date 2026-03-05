@@ -223,8 +223,12 @@ defmodule PhoenixKit.Modules.DB.Web.Activity do
   def format_value(value) when is_map(value), do: Jason.encode!(value, pretty: true)
   def format_value(value) when is_list(value), do: inspect(value, pretty: true)
 
-  def format_value(value) when is_binary(value) and byte_size(value) > 200 do
-    String.slice(value, 0, 200) <> "..."
+  def format_value(value) when is_binary(value) do
+    if String.valid?(value) do
+      if byte_size(value) > 200, do: String.slice(value, 0, 200) <> "...", else: value
+    else
+      inspect(value)
+    end
   end
 
   def format_value(value), do: inspect(value)
