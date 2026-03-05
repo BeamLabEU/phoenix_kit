@@ -156,6 +156,23 @@ defmodule PhoenixKit.ModuleRegistry do
     |> Enum.reject(&is_nil/1)
   end
 
+  @doc """
+  Collect modules that have versioned migrations.
+
+  Returns a list of `{module_name, migration_module}` tuples for all registered
+  modules that implement `migration_module/0` and return a non-nil value.
+  """
+  @spec modules_with_migrations() :: [{String.t(), module()}]
+  def modules_with_migrations do
+    all_modules()
+    |> Enum.flat_map(fn mod ->
+      case safe_call(mod, :migration_module, nil) do
+        nil -> []
+        migration_mod -> [{safe_call(mod, :module_name, inspect(mod)), migration_mod}]
+      end
+    end)
+  end
+
   @doc "Find a registered module by its key string."
   @spec get_by_key(String.t()) :: module() | nil
   def get_by_key(key) when is_binary(key) do

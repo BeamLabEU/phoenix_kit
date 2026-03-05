@@ -77,6 +77,9 @@ defmodule PhoenixKit.Module do
   - `children/0` - Supervisor child specs (default: `[]`)
   - `route_module/0` - Module providing route macros (default: `nil`)
   - `version/0` - Module version string (default: `"0.0.0"`)
+  - `migration_module/0` - Module implementing versioned migrations (default: `nil`).
+    When set, `mix phoenix_kit.update` will automatically run this module's migrations
+    alongside the core PhoenixKit migrations.
   """
 
   @typedoc "Permission metadata for the module"
@@ -103,6 +106,7 @@ defmodule PhoenixKit.Module do
   @callback children() :: [Supervisor.child_spec() | module() | {module(), term()}]
   @callback route_module() :: module() | nil
   @callback version() :: String.t()
+  @callback migration_module() :: module() | nil
 
   @optional_callbacks [
     get_config: 0,
@@ -112,7 +116,8 @@ defmodule PhoenixKit.Module do
     user_dashboard_tabs: 0,
     children: 0,
     route_module: 0,
-    version: 0
+    version: 0,
+    migration_module: 0
   ]
 
   defmacro __using__(_opts) do
@@ -149,6 +154,9 @@ defmodule PhoenixKit.Module do
       @impl PhoenixKit.Module
       def version, do: "0.0.0"
 
+      @impl PhoenixKit.Module
+      def migration_module, do: nil
+
       defoverridable get_config: 0,
                      permission_metadata: 0,
                      admin_tabs: 0,
@@ -156,7 +164,8 @@ defmodule PhoenixKit.Module do
                      user_dashboard_tabs: 0,
                      children: 0,
                      route_module: 0,
-                     version: 0
+                     version: 0,
+                     migration_module: 0
     end
   end
 end
