@@ -289,26 +289,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
     |> validate_body_size()
   end
 
-  @doc """
-  Creates an email log from a Swoosh.Email struct.
-
-  Extracts relevant data and creates an appropriately formatted log entry.
-
-  ## Examples
-
-      iex> email = new() |> to("user@example.com") |> from("app@example.com")
-      iex> PhoenixKit.Modules.Emails.Log.create_from_swoosh_email(email, provider: "aws_ses")
-      {:ok, %PhoenixKit.Modules.Emails.Log{}}
-  """
-  def create_from_swoosh_email(%Swoosh.Email{} = email, opts \\ []) do
-    attrs = extract_swoosh_data(email, opts)
-    create_log(attrs)
-  end
-
-  @doc """
-  Validates email format using basic regex pattern.
-  """
-  def validate_email_format(changeset, field) do
+  defp validate_email_format(changeset, field) do
     validate_format(changeset, field, ~r/^[^\s]+@[^\s]+\.[^\s]+$/,
       message: "must be a valid email address"
     )
@@ -765,18 +746,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
     repo().delete(email_log)
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking email log changes.
-
-  ## Examples
-
-      iex> PhoenixKit.Modules.Emails.Log.change_log(log)
-      %Ecto.Changeset{data: %PhoenixKit.Modules.Emails.Log{}}
-  """
-  def change_log(%__MODULE__{} = email_log, attrs \\ %{}) do
-    changeset(email_log, attrs)
-  end
-
   ## --- Analytics Functions ---
 
   @doc """
@@ -1108,63 +1077,6 @@ defmodule PhoenixKit.Modules.Emails.Log do
     order_dir = Map.get(filters, :order_dir, :desc)
 
     order_by(query, [log: l], [{^order_dir, field(l, ^order_by)}])
-  end
-
-  # Extract data from Swoosh.Email struct
-  defp extract_swoosh_data(%Swoosh.Email{} = email, opts) do
-    %{
-      message_id: generate_message_id(),
-      to: extract_primary_recipient(email.to),
-      from: extract_sender(email.from),
-      subject: email.subject,
-      headers: if(Keyword.get(opts, :save_headers, false), do: Map.new(email.headers), else: %{}),
-      body_preview: extract_body_preview(email),
-      body_full: extract_body_full(email, opts),
-      attachments_count: length(email.attachments),
-      provider: Keyword.get(opts, :provider, "unknown"),
-      template_name: Keyword.get(opts, :template_name),
-      campaign_id: Keyword.get(opts, :campaign_id),
-      user_uuid: Keyword.get(opts, :user_uuid),
-      configuration_set: Keyword.get(opts, :configuration_set),
-      message_tags: Keyword.get(opts, :message_tags, %{}),
-      sent_at: UtilsDate.utc_now()
-    }
-  end
-
-  # Generate a unique message ID if not provided by the email service
-  defp generate_message_id do
-    "pk_" <> (:crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower))
-  end
-
-  # Extract primary recipient from to field
-  defp extract_primary_recipient([{_name, email} | _]), do: email
-  defp extract_primary_recipient([email | _]) when is_binary(email), do: email
-  defp extract_primary_recipient({_name, email}), do: email
-  defp extract_primary_recipient(email) when is_binary(email), do: email
-  defp extract_primary_recipient(_), do: "unknown@example.com"
-
-  # Extract sender from from field
-  defp extract_sender({_name, email}), do: email
-  defp extract_sender(email) when is_binary(email), do: email
-  defp extract_sender(_), do: "unknown@example.com"
-
-  # Extract body preview (first 500 characters)
-  defp extract_body_preview(email) do
-    body = email.text_body || email.html_body || ""
-
-    body
-    |> String.slice(0, 500)
-    |> String.replace(~r/\s+/, " ")
-    |> String.trim()
-  end
-
-  # Extract full body if settings allow
-  defp extract_body_full(email, opts) do
-    if Keyword.get(opts, :save_body, false) do
-      email.text_body || email.html_body
-    else
-      nil
-    end
   end
 
   # Validate message_id uniqueness
