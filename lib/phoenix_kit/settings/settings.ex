@@ -68,6 +68,7 @@ defmodule PhoenixKit.Settings do
 
   alias PhoenixKit.Config.AWS
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Settings.Queries
   alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Settings.Setting.SettingsForm
   alias PhoenixKit.Users.Role
@@ -76,12 +77,6 @@ defmodule PhoenixKit.Settings do
 
   @default_locale PhoenixKit.Config.default_locale()
   @cache_name :settings
-
-  # Gets the configured repository for database operations.
-  # Uses PhoenixKit.RepoHelper to get the configured repo with proper prefix support.
-  defp repo do
-    PhoenixKit.RepoHelper.repo()
-  end
 
   @doc """
   Gets default values for all settings.
@@ -182,7 +177,7 @@ defmodule PhoenixKit.Settings do
     if Application.get_env(:phoenix_kit, :update_mode, false) do
       nil
     else
-      setting_record = repo().get_by(Setting, key: key)
+      setting_record = Queries.get_setting_by_key(key)
 
       case setting_record do
         %Setting{value: value} -> value
@@ -402,7 +397,7 @@ defmodule PhoenixKit.Settings do
       nil
   """
   def get_json_setting(key) when is_binary(key) do
-    setting_record = repo().get_by(Setting, key: key)
+    setting_record = Queries.get_setting_by_key(key)
 
     case setting_record do
       %Setting{value_json: value_json} when not is_nil(value_json) -> value_json
@@ -487,16 +482,16 @@ defmodule PhoenixKit.Settings do
   """
   def update_json_setting(key, json_value) when is_binary(key) do
     result =
-      case repo().get_by(Setting, key: key) do
+      case Queries.get_setting_by_key(key) do
         %Setting{} = setting ->
           setting
           |> Setting.update_changeset(%{value_json: json_value, value: nil})
-          |> repo().update()
+          |> Queries.update_setting()
 
         nil ->
           %Setting{}
           |> Setting.changeset(%{key: key, value_json: json_value, value: nil})
-          |> repo().insert()
+          |> Queries.insert_setting()
       end
 
     # Invalidate cache on successful update
@@ -522,19 +517,19 @@ defmodule PhoenixKit.Settings do
   """
   def update_json_setting_with_module(key, json_value, module)
       when is_binary(key) and is_binary(module) do
-    existing_setting = repo().get_by(Setting, key: key)
+    existing_setting = Queries.get_setting_by_key(key)
 
     result =
       case existing_setting do
         %Setting{} = setting ->
           setting
           |> Setting.update_changeset(%{value_json: json_value, value: nil, module: module})
-          |> repo().update()
+          |> Queries.update_setting()
 
         nil ->
           %Setting{}
           |> Setting.changeset(%{key: key, value_json: json_value, value: nil, module: module})
-          |> repo().insert()
+          |> Queries.insert_setting()
       end
 
     # Invalidate cache on successful update
@@ -724,10 +719,7 @@ defmodule PhoenixKit.Settings do
       %{}
     else
       if repo_available?() do
-        Setting
-        |> where([s], s.key in ^keys)
-        |> select([s], {s.key, s.value})
-        |> repo().all()
+        Queries.list_settings_key_values_by_keys(keys)
         |> Map.new()
       else
         %{}
@@ -882,9 +874,7 @@ defmodule PhoenixKit.Settings do
       }
   """
   def list_all_settings do
-    Setting
-    |> select([s], {s.key, s.value})
-    |> repo().all()
+    Queries.list_settings_key_values()
     |> Map.new()
   end
 
@@ -903,9 +893,7 @@ defmodule PhoenixKit.Settings do
       ]
   """
   def list_settings do
-    Setting
-    |> order_by([s], s.key)
-    |> repo().all()
+    Queries.list_settings()
   end
 
   @doc """
@@ -1033,16 +1021,16 @@ defmodule PhoenixKit.Settings do
     stored_value = value || ""
 
     result =
-      case repo().get_by(Setting, key: key) do
+      case Queries.get_setting_by_key(key) do
         %Setting{} = setting ->
           setting
           |> Setting.update_changeset(%{value: stored_value})
-          |> repo().update()
+          |> Queries.update_setting()
 
         nil ->
           %Setting{}
           |> Setting.changeset(%{key: key, value: stored_value})
-          |> repo().insert()
+          |> Queries.insert_setting()
       end
 
     # Invalidate cache on successful update
@@ -1078,16 +1066,14 @@ defmodule PhoenixKit.Settings do
 
     # Load all existing settings in a single query
     existing_settings =
-      Setting
-      |> where([s], s.key in ^keys)
-      |> repo().all()
+      Queries.list_settings_by_keys(keys)
       |> Map.new(fn setting -> {setting.key, setting} end)
 
     # Perform all updates/inserts in a transaction
     result =
       Ecto.Multi.new()
       |> add_batch_operations(settings_map, existing_settings)
-      |> repo().transaction()
+      |> Queries.transaction()
 
     case result do
       {:ok, _changes} ->
@@ -1155,19 +1141,19 @@ defmodule PhoenixKit.Settings do
       {:ok, %Setting{key: "codes_enabled", value: "true", module: "referral_codes"}}
   """
   def update_setting_with_module(key, value, module) when is_binary(key) and is_binary(value) do
-    existing_setting = repo().get_by(Setting, key: key)
+    existing_setting = Queries.get_setting_by_key(key)
 
     result =
       case existing_setting do
         %Setting{} = setting ->
           setting
           |> Setting.update_changeset(%{value: value, module: module})
-          |> repo().update()
+          |> Queries.update_setting()
 
         nil ->
           %Setting{}
           |> Setting.changeset(%{key: key, value: value, module: module})
-          |> repo().insert()
+          |> Queries.insert_setting()
       end
 
     # Invalidate cache on successful update
@@ -1485,7 +1471,7 @@ defmodule PhoenixKit.Settings do
       # Check if repository is available before attempting to warm cache
       # This prevents errors during Mix tasks when repo might not be started yet
       if repo_available?() do
-        settings = repo().all(Setting)
+        settings = Queries.list_settings()
 
         settings
         |> Enum.map(fn setting ->
@@ -1537,23 +1523,7 @@ defmodule PhoenixKit.Settings do
 
     # Check if repository is available
     if repo_available?() do
-      settings =
-        Setting
-        |> where([s], s.key in ^critical_keys)
-        |> repo().all()
-
-      settings
-      |> Enum.map(fn setting ->
-        # Prioritize JSON value over string value for cache storage
-        value =
-          if setting.value_json do
-            setting.value_json
-          else
-            setting.value
-          end
-
-        {setting.key, value}
-      end)
+      Queries.list_settings_with_json_priority_by_keys(critical_keys)
       |> Map.new()
     else
       # Repo not available - return empty map
@@ -1574,10 +1544,7 @@ defmodule PhoenixKit.Settings do
 
   # Batch query multiple string settings from database in a single operation
   defp query_settings_batch(keys) do
-    Setting
-    |> where([s], s.key in ^keys)
-    |> select([s], {s.key, s.value})
-    |> repo().all()
+    Queries.list_settings_key_values_by_keys(keys)
     |> Map.new()
   rescue
     _error ->
@@ -1587,10 +1554,9 @@ defmodule PhoenixKit.Settings do
 
   # Batch query multiple JSON settings from database in a single operation
   defp query_json_settings_batch(keys) do
-    Setting
-    |> where([s], s.key in ^keys)
-    |> repo().all()
-    |> Enum.reduce(%{}, fn setting, acc ->
+    settings = Queries.list_settings_by_keys(keys)
+
+    Enum.reduce(settings, %{}, fn setting, acc ->
       # Prioritize JSON value over string value (same logic as warm_cache_data)
       value = if setting.value_json, do: setting.value_json, else: nil
       Map.put(acc, setting.key, value)
@@ -1611,7 +1577,7 @@ defmodule PhoenixKit.Settings do
     else
       # Check if repository is available before attempting query
       if repo_available?() do
-        case repo().get_by(Setting, key: key) do
+        case Queries.get_setting_by_key(key) do
           %Setting{value: value} ->
             PhoenixKit.Cache.put(@cache_name, key, value)
             value
@@ -1642,7 +1608,7 @@ defmodule PhoenixKit.Settings do
   defp query_and_cache_json_setting(key) do
     # Check if repository is available before attempting query
     if repo_available?() do
-      case repo().get_by(Setting, key: key) do
+      case Queries.get_setting_by_key(key) do
         %Setting{value_json: value_json} when not is_nil(value_json) ->
           PhoenixKit.Cache.put(@cache_name, key, value_json)
           value_json
