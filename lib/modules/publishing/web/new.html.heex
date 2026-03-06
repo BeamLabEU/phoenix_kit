@@ -13,7 +13,7 @@
       title={gettext("Create a New Publishing Group")}
       subtitle={
         gettext(
-          "Spin up a dedicated workspace for your content team. Choose the content type and storage approach that fits your publishing needs."
+          "Spin up a dedicated workspace for your content team. Choose the content type that fits your publishing needs."
         )
       }
     />
@@ -86,8 +86,6 @@
                 end %>
               <%!-- Use first enabled language (default) for preview URLs --%>
               <% default_language = List.first(@enabled_languages) %>
-              <% timestamp_file_pattern =
-                "priv/publishing/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>/<locale>.phk" %>
               <% timestamp_url_pattern =
                 if length(@enabled_languages) == 1 do
                   @endpoint_url <> "#{url_prefix}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
@@ -95,7 +93,6 @@
                   @endpoint_url <>
                     "#{url_prefix}/#{default_language}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
                 end %>
-              <% slug_file_pattern = "priv/publishing/#{slug_sample}/<slug>/<locale>.phk" %>
               <% slug_url_pattern =
                 if length(@enabled_languages) == 1 do
                   @endpoint_url <> "#{url_prefix}/#{slug_sample}/:post_slug"
@@ -235,11 +232,11 @@
               </label>
             </div>
 
-            <%!-- Storage Mode Section --%>
+            <%!-- URL Mode Section --%>
             <div class="form-control">
               <label class="label">
                 <span class="label-text text-sm font-semibold text-base-content">
-                  {gettext("Storage Mode")}
+                  {gettext("URL Mode")}
                 </span>
               </label>
               <div class="space-y-3">
@@ -259,10 +256,6 @@
                       )}
                     </p>
                     <div class="mt-2 space-y-1 text-xs text-base-content/70">
-                      <p>
-                        <span class="font-medium text-base-content">{gettext("Files")}: </span>
-                        <code class="font-mono break-all">{timestamp_file_pattern}</code>
-                      </p>
                       <p>
                         <span class="font-medium text-base-content">
                           {gettext("Public URL")}:
@@ -289,10 +282,6 @@
                     </p>
                     <div class="mt-2 space-y-1 text-xs text-base-content/70">
                       <p>
-                        <span class="font-medium text-base-content">{gettext("Files")}: </span>
-                        <code class="font-mono break-all">{slug_file_pattern}</code>
-                      </p>
-                      <p>
                         <span class="font-medium text-base-content">
                           {gettext("Public URL")}:
                         </span>
@@ -305,7 +294,7 @@
               <label class="label">
                 <span class="label-text-alt text-xs text-base-content/60">
                   {gettext(
-                    "The storage mode locks in after creation to keep your structure consistent."
+                    "The URL mode locks in after creation to keep your structure consistent."
                   )}
                 </span>
               </label>
@@ -331,7 +320,7 @@
             {gettext("What happens next")}
           </h3>
           <ul class="text-sm text-base-content/70 space-y-2">
-            <li>• {gettext("We create a publishing workspace under priv/publishing.")}</li>
+            <li>• {gettext("We create a publishing group in the database.")}</li>
             <li>• {gettext("You'll see the new group in the navigation immediately.")}</li>
             <li>• {gettext("Editors can jump right in and start creating content.")}</li>
           </ul>

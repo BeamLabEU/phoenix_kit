@@ -1,14 +1,13 @@
 defmodule PhoenixKit.Modules.Publishing.PageBuilder do
   @moduledoc """
-  Rendering pipeline for .phk (PhoenixKit) page files.
+  Rendering pipeline for PHK (PhoenixKit) page content.
 
   Processes component-based page definitions through:
-  1. Read .phk file
-  2. Parse XML to AST
-  3. Inject dynamic data ({{variable}} placeholders)
-  4. Resolve components (map to actual component modules)
-  5. Apply theme/variants
-  6. Render to HTML
+  1. Parse XML to AST
+  2. Inject dynamic data ({{variable}} placeholders)
+  3. Resolve components (map to actual component modules)
+  4. Apply theme/variants
+  5. Render to HTML
   """
 
   alias PhoenixKit.Modules.Publishing.PageBuilder.Parser
@@ -19,29 +18,7 @@ defmodule PhoenixKit.Modules.Publishing.PageBuilder do
   @type render_result :: {:ok, Phoenix.LiveView.Rendered.t()} | {:error, term()}
 
   @doc """
-  Renders a .phk page file to HTML.
-
-  ## Examples
-
-      iex> PageBuilder.render_page("/path/to/page.phk", %{user: %{name: "Alice"}})
-      {:ok, rendered_html}
-  """
-  @spec render_page(String.t(), assigns()) :: render_result()
-  def render_page(page_path, assigns \\ %{}) do
-    with {:ok, content} <- read_page_file(page_path),
-         {:ok, ast} <- parse_to_ast(content),
-         {:ok, ast_with_data} <- inject_dynamic_data(ast, assigns),
-         {:ok, resolved} <- resolve_components(ast_with_data),
-         {:ok, themed} <- apply_theme(resolved, assigns),
-         {:ok, html} <- render_to_html(themed, assigns) do
-      {:ok, html}
-    else
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @doc """
-  Renders .phk content directly (without file path).
+  Renders PHK content directly from a string.
   """
   @spec render_content(String.t(), assigns()) :: render_result()
   def render_content(content, assigns \\ %{}) do
@@ -56,15 +33,7 @@ defmodule PhoenixKit.Modules.Publishing.PageBuilder do
     end
   end
 
-  # Step 1: Read .phk file
-  defp read_page_file(page_path) do
-    case File.read(page_path) do
-      {:ok, content} -> {:ok, content}
-      {:error, reason} -> {:error, {:file_read_error, reason}}
-    end
-  end
-
-  # Step 2: Parse XML to AST
+  # Step 1: Parse XML to AST
   defp parse_to_ast(content) do
     Parser.parse(content)
   end

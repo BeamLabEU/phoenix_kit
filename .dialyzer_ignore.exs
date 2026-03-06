@@ -61,6 +61,7 @@
   {"lib/mix/tasks/phoenix_kit.sync_email_status.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :callback_info_missing, 1},
 
@@ -89,8 +90,6 @@
   # Publishing module - with-chain type inference false positives
   # Dialyzer incorrectly infers read_post/update_post only return errors in certain contexts
   # The actual functions return both {:ok, post} and {:error, reason} at runtime
-  ~r/lib\/modules\/publishing\/storage\/.*\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/storage\/.*\.ex:.*call/,
   ~r/lib\/modules\/publishing\/listing_cache\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/listing\.ex:.*unused_fun/,
@@ -111,14 +110,6 @@
   # Dialyzer incorrectly infers read_post only returns errors in certain contexts
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*unused_fun/,
-  ~r/lib\/modules\/publishing\/workers\/migrate_to_database_worker\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/workers\/migrate_to_database_worker\.ex:.*unused_fun/,
-  ~r/lib\/modules\/publishing\/workers\/validate_migration_worker\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/workers\/validate_migration_worker\.ex:.*unused_fun/,
-
-  # Publishing DB Importer - read_post type inference false positives
-  ~r/lib\/modules\/publishing\/db_importer\.ex:.*pattern_match/,
-
   # Pages module - same type inference false positives as Publishing (copied codebase)
   ~r/lib\/modules\/pages\/listing_cache\.ex:.*pattern_match/,
   ~r/lib\/modules\/pages\/storage\/.*\.ex:.*pattern_match/,

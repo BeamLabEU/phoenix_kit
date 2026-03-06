@@ -120,9 +120,9 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   def per_blog_cache_key(group_slug), do: per_group_cache_key(group_slug)
 
   @doc """
-  Renders markdown or .phk content directly without caching.
+  Renders markdown or PHK content directly without caching.
 
-  Automatically detects .phk XML format and routes to PageBuilder.
+  Automatically detects PHK XML format and routes to PageBuilder.
   Falls back to Earmark markdown rendering for non-XML content.
 
   ## Examples
@@ -151,7 +151,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
   def render_markdown(_), do: ""
 
-  # Detect if content is pure .phk XML format (starts with <Page> or <Hero>)
+  # Detect if content is pure PHK XML format (starts with <Page> or <Hero>)
   defp pure_phk_content?(content) do
     trimmed = String.trim(content)
     String.starts_with?(trimmed, "<Page") || String.starts_with?(trimmed, "<Hero")
@@ -168,7 +168,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
       String.contains?(content, "<EntityForm")
   end
 
-  # Render .phk content using PageBuilder
+  # Render PHK content using PageBuilder
   defp render_phk_content(content) do
     case PageBuilder.render_content(content) do
       {:ok, html} ->
@@ -486,11 +486,11 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   end
 
   defp extract_identifier_from_path(path) when is_binary(path) do
-    # For timestamp mode: "blog/2025-01-15/09:30/en.phk" -> "2025-01-15/09:30"
-    # For slug mode: "blog/getting-started/en.phk" -> "getting-started"
+    # For timestamp mode: "blog/2025-01-15/09:30/v1/en" -> "2025-01-15/09:30"
+    # For slug mode: "blog/getting-started/v1/en" -> "getting-started"
     path
     |> String.split("/")
-    # Remove language.phk
+    # Remove language suffix
     |> Enum.drop(-1)
     # Remove blog name
     |> Enum.drop(1)

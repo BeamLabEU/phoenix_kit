@@ -1,14 +1,9 @@
 defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @moduledoc """
-  Database storage adapter for the Publishing module.
+  Database storage layer for the Publishing module.
 
-  Provides CRUD operations for publishing groups, posts, versions, and contents.
-  Works alongside the existing filesystem `Storage` module during the transition.
-
-  ## Usage
-
-  This module is used by the dual-write layer (Phase 3) and becomes the primary
-  storage when `publishing_storage` is set to `:db`.
+  Provides CRUD operations for publishing groups, posts, versions, and contents
+  via PostgreSQL with Ecto.
   """
 
   import Ecto.Query

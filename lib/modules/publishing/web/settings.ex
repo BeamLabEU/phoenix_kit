@@ -11,17 +11,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  # New settings keys (write to these)
-  @file_cache_key "publishing_file_cache_enabled"
+  # Settings keys
   @memory_cache_key "publishing_memory_cache_enabled"
   @render_cache_key "publishing_render_cache_enabled"
 
   # Legacy settings keys (read from these as fallback)
-  @legacy_file_cache_key "blogging_file_cache_enabled"
   @legacy_memory_cache_key "blogging_memory_cache_enabled"
   @legacy_render_cache_key "blogging_render_cache_enabled"
 
@@ -31,11 +28,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       PublishingPubSub.subscribe_to_groups()
     end
 
-    # Admin side reads from database only — groups appear after import
+    # Admin side reads from database only
     groups = db_groups_to_maps()
-    fs_groups = fs_groups_to_maps()
-    # Cache management uses DB groups if imported, else FS groups (caches serve public pages)
-    cache_groups = if groups != [], do: groups, else: fs_groups
+    cache_groups = groups
     languages_enabled = Languages.enabled?()
 
     socket =
@@ -50,8 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       |> assign(:publishing, groups)
       |> assign(:cache_groups, cache_groups)
       |> assign(:languages_enabled, languages_enabled)
-      |> assign(:global_primary_language, Storage.get_primary_language())
-      |> assign(:file_cache_enabled, get_cache_setting(@file_cache_key, @legacy_file_cache_key))
+      |> assign(:global_primary_language, Publishing.get_primary_language())
       |> assign(
         :memory_cache_enabled,
         get_cache_setting(@memory_cache_key, @legacy_memory_cache_key)
@@ -150,16 +144,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
      |> put_flash(:info, gettext("Regenerated %{count} caches", count: success_count))}
   end
 
-  def handle_event("toggle_file_cache", _params, socket) do
-    new_value = !socket.assigns.file_cache_enabled
-    Settings.update_setting(@file_cache_key, to_string(new_value))
-
-    {:noreply,
-     socket
-     |> assign(:file_cache_enabled, new_value)
-     |> put_flash(:info, cache_toggle_message("File cache", new_value))}
-  end
-
   def handle_event("toggle_memory_cache", _params, socket) do
     new_value = !socket.assigns.memory_cache_enabled
     Settings.update_setting(@memory_cache_key, to_string(new_value))
@@ -248,23 +232,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
   defp refresh_groups(socket) do
     groups = db_groups_to_maps()
-    fs_groups = fs_groups_to_maps()
-    cache_groups = if groups != [], do: groups, else: fs_groups
 
     socket
     |> assign(:publishing, groups)
-    |> assign(:cache_groups, cache_groups)
-    |> assign(:fs_group_count, length(fs_groups))
-    |> assign(:cache_status, build_cache_status(cache_groups))
-    |> assign(:render_cache_per_group, build_render_cache_per_group(cache_groups))
+    |> assign(:cache_groups, groups)
+    |> assign(:cache_status, build_cache_status(groups))
+    |> assign(:render_cache_per_group, build_render_cache_per_group(groups))
   end
 
   defp db_groups_to_maps do
-    global_primary = Storage.get_primary_language()
+    global_primary = Publishing.get_primary_language()
 
     DBStorage.list_groups()
     |> Enum.map(fn g ->
-      # Check DB records for primary language issues (not filesystem)
       primary_lang_status = DBStorage.count_primary_language_status(g.slug, global_primary)
 
       needs_lang_migration =
@@ -277,18 +257,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
         "position" => g.position,
         "needs_primary_lang_migration" => needs_lang_migration,
         "primary_language_status" => primary_lang_status
-      }
-    end)
-  end
-
-  defp fs_groups_to_maps do
-    Publishing.list_groups()
-    |> Enum.map(fn g ->
-      %{
-        "name" => g["name"],
-        "slug" => g["slug"],
-        "mode" => g["mode"],
-        "position" => g["position"]
       }
     end)
   end

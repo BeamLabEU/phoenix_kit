@@ -12,10 +12,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.Listing
-  alias PhoenixKit.Modules.Publishing.Web.Controller.PostFetching
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
 
   # ============================================================================
@@ -121,13 +119,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
   # Finds the latest published version for a specific language
   defp find_published_version_for_language(group_slug, post_slug, language) do
-    versions = Storage.list_versions(group_slug, post_slug)
+    versions = Publishing.list_versions(group_slug, post_slug)
 
     published_version =
       versions
       |> Enum.sort(:desc)
       |> Enum.find(fn version ->
-        Storage.get_version_status(group_slug, post_slug, version, language) == "published"
+        Publishing.get_version_status(group_slug, post_slug, version, language) == "published"
       end)
 
     case published_version do
@@ -195,9 +193,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
     if group_exists?(group_slug) do
       # Step 1: Try other languages for this exact time
-      post_dir = Path.join([Storage.group_path(group_slug), date, time])
-      # Use version-aware language detection (handles both versioned and legacy)
-      available = PostFetching.detect_available_languages_in_timestamp_dir(post_dir)
+      # Use DB to get available languages for this timestamp post
+      available = get_available_languages_for_timestamp(group_slug, date, time)
 
       # Time exists with language files - try other languages
       if available != [] do
@@ -224,7 +221,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
   # Fallback to another time on the same date
   defp fallback_to_other_time_on_date(group_slug, date, exclude_time, default_lang) do
-    case Storage.list_times_on_date(group_slug, date) do
+    case Publishing.list_times_on_date(group_slug, date) do
       [] ->
         # No posts on this date at all - try other dates or fall back to group listing
         fallback_to_other_date(group_slug, default_lang)
@@ -253,9 +250,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   # Find the first published post at any of the given times
   defp find_first_published_time(group_slug, date, times, preferred_lang) do
     Enum.find_value(times, fn time ->
-      post_dir = Path.join([Storage.group_path(group_slug), date, time])
-      # Use version-aware language detection (handles both versioned and legacy)
-      available = PostFetching.detect_available_languages_in_timestamp_dir(post_dir)
+      available = get_available_languages_for_timestamp(group_slug, date, time)
 
       if available != [] do
         # Try preferred language first, then others
@@ -273,58 +268,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
   @doc """
   Tries each language for timestamp mode until finding a published version.
-  Handles both versioned and legacy structures.
   """
   def find_first_published_timestamp_version(group_slug, date, time, languages) do
-    post_dir = Path.join([Storage.group_path(group_slug), date, time])
+    identifier = "#{date}/#{time}"
 
-    case Storage.detect_post_structure(post_dir) do
-      :versioned ->
-        find_first_published_versioned_timestamp(group_slug, date, time, languages, post_dir)
-
-      :legacy ->
-        find_first_published_legacy_timestamp(group_slug, date, time, languages)
-
-      :empty ->
-        :not_found
-    end
-  end
-
-  # Find first published post in versioned timestamp structure
-  # Iterates versions from highest to lowest, then tries each language
-  defp find_first_published_versioned_timestamp(group_slug, date, time, languages, post_dir) do
-    versions = PostFetching.list_timestamp_versions(post_dir) |> Enum.sort(:desc)
-
-    Enum.find_value(versions, fn version ->
-      version_dir = Path.join(post_dir, "v#{version}")
-      available_languages = PostFetching.detect_available_languages_in_dir(version_dir)
-
-      # Try preferred languages first, then fall back to what's available
-      languages_to_try =
-        (languages ++ available_languages)
-        |> Enum.uniq()
-        |> Enum.filter(&(&1 in available_languages))
-
-      Enum.find_value(languages_to_try, fn lang ->
-        path = "#{group_slug}/#{date}/#{time}/v#{version}/#{lang}.phk"
-
-        case Publishing.read_post(group_slug, path) do
-          {:ok, post} when post.metadata.status == "published" ->
-            {:ok, build_timestamp_url(group_slug, date, time, lang)}
-
-          _ ->
-            nil
-        end
-      end)
-    end) || :not_found
-  end
-
-  # Find first published post in legacy timestamp structure
-  defp find_first_published_legacy_timestamp(group_slug, date, time, languages) do
     Enum.find_value(languages, fn lang ->
-      path = "#{group_slug}/#{date}/#{time}/#{lang}.phk"
-
-      case Publishing.read_post(group_slug, path) do
+      case Publishing.read_post(group_slug, identifier, lang) do
         {:ok, post} when post.metadata.status == "published" ->
           {:ok, build_timestamp_url(group_slug, date, time, lang)}
 
@@ -358,5 +307,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
   defp build_timestamp_url(group_slug, date, time, language) do
     PublishingHTML.build_public_path_with_time(language, group_slug, date, time)
+  end
+
+  # Gets available languages for a timestamp post from the DB
+  defp get_available_languages_for_timestamp(group_slug, date, time) do
+    identifier = "#{date}/#{time}"
+    posts = Publishing.list_posts(group_slug, nil)
+
+    case Enum.find(posts, fn p -> "#{p.date}/#{p.time}" == identifier or p.slug == identifier end) do
+      nil -> []
+      post -> post.available_languages || []
+    end
   end
 end

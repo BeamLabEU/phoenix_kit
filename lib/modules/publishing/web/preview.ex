@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Modules.Publishing.Web.Preview do
   @moduledoc """
-  Preview rendering for .phk publishing posts.
+  Preview rendering for publishing posts.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext

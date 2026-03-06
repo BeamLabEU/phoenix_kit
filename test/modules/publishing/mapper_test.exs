@@ -85,7 +85,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
       assert result.mode == :slug
       assert result.language == "en"
       assert result.version == 1
-      assert result.is_legacy_structure == false
       assert result.content == content.content
       assert result.primary_language == "en"
     end
@@ -225,7 +224,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
       assert result.group == "blog"
       assert result.slug == "hello-world"
       assert result.mode == :slug
-      assert result.is_legacy_structure == false
     end
 
     test "uses primary language content for listing" do

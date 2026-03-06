@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
           page = get_page_param(params)
           per_page = get_per_page_setting()
 
-          # Try cache first, fall back to filesystem scan
+          # Try cache first, fall back to DB query
           all_posts_unfiltered = PostFetching.fetch_posts_with_cache(group_slug)
           published_posts = filter_published(all_posts_unfiltered)
 

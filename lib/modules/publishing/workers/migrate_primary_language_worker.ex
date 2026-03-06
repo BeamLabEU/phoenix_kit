@@ -128,7 +128,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
     end
   end
 
-  # For timestamp mode, extract date/time from path like "group/date/time/version/file.phk"
+  # For timestamp mode, extract date/time from path identifier
   defp derive_timestamp_post_dir(nil), do: nil
   defp derive_timestamp_post_dir(""), do: nil
 
@@ -136,15 +136,12 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
     parts = Path.split(path)
 
     case parts do
-      # Versioned: group/date/time/v1/lang.phk
-      [_group, date, time, "v" <> _, _lang_file] -> Path.join(date, time)
-      # Legacy: group/date/time/lang.phk
-      [_group, date, time, _lang_file] -> Path.join(date, time)
+      [_group, date, time | _rest] -> Path.join(date, time)
       _ -> nil
     end
   end
 
-  # For slug mode, extract slug from path
+  # For slug mode, extract slug from path identifier
   defp derive_slug_from_path(nil), do: nil
   defp derive_slug_from_path(""), do: nil
 
@@ -152,10 +149,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
     parts = Path.split(path)
 
     case parts do
-      # Versioned: group/slug/v1/lang.phk
-      [_group, slug, "v" <> _, _lang_file] -> slug
-      # Legacy: group/slug/lang.phk
-      [_group, slug, _lang_file] -> slug
+      [_group, slug | _rest] -> slug
       _ -> nil
     end
   end

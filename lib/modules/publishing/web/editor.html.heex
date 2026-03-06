@@ -250,7 +250,7 @@
       <% end %>
 
       <%!-- Version Switcher (for versioned posts in both slug and timestamp modes) --%>
-      <%= if !@is_new_post && @post && !Map.get(@post, :is_legacy_structure, true) do %>
+      <%= if !@is_new_post && @post do %>
         <div class="flex items-center gap-1.5">
           <%= if length(@available_versions) > 1 do %>
             <span class="text-xs font-medium text-base-content/60">{gettext("Version:")}</span>
@@ -313,10 +313,10 @@
         <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
         <div>
           <%= if not @current_language_known do %>
-            <span class="font-medium">{gettext("Unknown language file:")}</span>
+            <span class="font-medium">{gettext("Unknown language:")}</span>
             <span>
               {gettext(
-                "This file (%{code}.phk) doesn't match a recognized language code. The publishing status will still be respected.",
+                "This language (%{code}) doesn't match a recognized language code. The publishing status will still be respected.",
                 code: @current_language
               )}
             </span>
@@ -333,7 +333,6 @@
       </div>
     <% end %>
 
-    <%!-- Legacy structure migration banner --%>
     <%!-- Primary Language Needs Update Warning (shown on ALL languages when update needed) --%>
     <% needs_update =
       not @is_new_post and length(@all_enabled_languages) > 1 and
@@ -928,45 +927,6 @@
                     </p>
                   </div>
                 <% end %>
-
-                <%!-- Version Access Toggle - DISABLED: Boss doesn't want public version history
-                <% is_versioned_post = @post && not Map.get(@post, :is_legacy_structure, true) %>
-                <% can_toggle_version_access =
-                  is_versioned_post && @is_primary_language && not @viewing_older_version %>
-                <%= if can_toggle_version_access do %>
-                  <div class="border-t border-base-200 pt-4 mt-4">
-                    <div class="flex items-center justify-between">
-                      <div class="space-y-0.5">
-                        <span class="text-sm font-semibold text-base-content">
-                          {gettext("Show Version History")}
-                        </span>
-                        <p class="text-xs text-base-content/60">
-                          {gettext("Display a version dropdown on the public post")}
-                        </p>
-                      </div>
-                      <label class={"swap #{if @readonly?, do: "opacity-50 pointer-events-none"}"}>
-                        <input
-                          type="checkbox"
-                          checked={Map.get(@post.metadata, :allow_version_access, false)}
-                          phx-click="toggle_version_access"
-                          phx-value-enabled={
-                            if Map.get(@post.metadata, :allow_version_access, false),
-                              do: "false",
-                              else: "true"
-                          }
-                          disabled={@readonly?}
-                        />
-                        <span class="swap-on">
-                          <span class="badge badge-success badge-sm h-auto">{gettext("On")}</span>
-                        </span>
-                        <span class="swap-off">
-                          <span class="badge badge-ghost badge-sm h-auto">{gettext("Off")}</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                <% end %>
-                --%>
               </div>
             </div>
 

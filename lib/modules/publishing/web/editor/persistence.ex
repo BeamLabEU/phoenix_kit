@@ -13,7 +13,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
@@ -69,7 +68,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
       language = editor_language(socket.assigns)
       post_slug = socket.assigns.post.slug || socket.assigns.post[:uuid]
 
-      case Storage.validate_url_slug(group_slug, url_slug, language, post_slug) do
+      case Publishing.validate_url_slug(group_slug, url_slug, language, post_slug) do
         {:ok, _} ->
           {:ok, params}
 
@@ -138,7 +137,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     is_new_post = Map.get(socket.assigns, :is_new_post, false)
     is_new_translation = Map.get(socket.assigns, :is_new_translation, false)
 
-    # Check if translation file was created in background
+    # Check if translation was created in background
     {socket, is_new_translation} =
       if is_new_translation do
         check_background_translation_creation(socket)
@@ -206,7 +205,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         result =
           case Publishing.update_post(socket.assigns.group_slug, new_post, params, %{scope: scope}) do
             {:ok, updated_post} ->
-              # Preserve UUID from create_post (update_post returns FS post without it)
+              # Preserve UUID from create_post (update_post may not include it)
               {:ok, if(uuid, do: Map.put(updated_post, :uuid, uuid), else: updated_post)}
 
             error ->
@@ -285,8 +284,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
 
     # Check if we need to create a new version
     should_create_version =
-      not Map.get(post, :is_legacy_structure, false) and
-        Storage.should_create_new_version?(post, params, language)
+      Publishing.should_create_new_version?(post, params, language)
 
     if should_create_version do
       create_new_version_from_edit(socket, params, scope)
@@ -348,7 +346,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     # not the stale language from when the post was initially loaded
     post = %{socket.assigns.post | language: socket.assigns.current_language}
     current_version = socket.assigns[:current_version]
-    # Use saved_status (on-disk status) not post.metadata.status (form-updated status)
+    # Use saved_status (stored status) not post.metadata.status (form-updated status)
     saved_status = socket.assigns[:saved_status] || Map.get(post.metadata, :status, "draft")
     is_primary_language = socket.assigns[:is_primary_language] == true
 
@@ -397,12 +395,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     end
   end
 
-  defp should_publish_version?(is_primary, new_status, current_status, current_version, post) do
+  defp should_publish_version?(is_primary, new_status, current_status, current_version, _post) do
     is_primary and
       new_status == "published" and
       current_status != "published" and
-      current_version != nil and
-      not Map.get(post, :is_legacy_structure, false)
+      current_version != nil
   end
 
   # ============================================================================
@@ -719,7 +716,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   defp editor_language(assigns) do
     assigns[:current_language] ||
       assigns |> Map.get(:post, %{}) |> Map.get(:language) ||
-      hd(Storage.enabled_language_codes())
+      hd(Publishing.enabled_language_codes())
   end
 
   # ============================================================================

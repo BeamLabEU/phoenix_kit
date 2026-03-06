@@ -28,7 +28,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -228,7 +227,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     case Publishing.read_post_by_uuid(post_uuid, language, version) do
       {:ok, post} ->
-        all_enabled_languages = Storage.enabled_language_codes()
+        all_enabled_languages = Publishing.enabled_language_codes()
 
         old_form_key = socket.assigns[:form_key]
         old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
@@ -277,7 +276,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     case Publishing.read_post(group_slug, path) do
       {:ok, post} ->
-        all_enabled_languages = Storage.enabled_language_codes()
+        all_enabled_languages = Publishing.enabled_language_codes()
         requested_lang = Map.get(params, "lang")
 
         old_form_key = socket.assigns[:form_key]
@@ -324,8 +323,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp handle_new_post(socket) do
     group_slug = socket.assigns.group_slug
     group_mode = Publishing.get_group_mode(group_slug)
-    all_enabled_languages = Storage.enabled_language_codes()
-    primary_language = Storage.get_primary_language()
+    all_enabled_languages = Publishing.enabled_language_codes()
+    primary_language = Publishing.get_primary_language()
 
     now = UtilsDate.utc_now() |> DateTime.truncate(:second) |> Forms.floor_datetime_to_minute()
     virtual_post = Helpers.build_virtual_post(group_slug, group_mode, primary_language, now)
@@ -903,7 +902,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     post = socket.assigns.post
 
     if post do
-      primary_language = Storage.get_primary_language()
+      primary_language = Publishing.get_primary_language()
       language_name = Helpers.get_language_name(primary_language)
 
       post_identifier = post.slug || post[:uuid]

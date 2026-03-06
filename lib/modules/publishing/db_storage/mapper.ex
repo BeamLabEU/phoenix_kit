@@ -1,15 +1,11 @@
 defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
   @moduledoc """
-  Transitional mapper: converts DB records to the legacy map format
-  expected by Publishing's web layer (LiveViews, templates, controllers).
+  Mapper: converts DB records to the map format expected by
+  Publishing's web layer (LiveViews, templates, controllers).
 
-  This exists so the web layer doesn't need changes during the transition.
-  Once the DB migration is complete and verified, the web layer can be
-  updated to use DB records directly and this mapper can be removed.
+  ## Map Shape
 
-  ## Legacy Map Shape
-
-  The filesystem `Storage` module returns maps with these keys:
+  The web layer expects maps with these keys:
   - `:group` - group slug
   - `:slug` - post directory slug
   - `:url_slug` - per-language URL slug
@@ -87,7 +83,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       version_statuses: version_statuses,
       version_dates: version_dates,
       version_languages: version_languages,
-      is_legacy_structure: false,
       content: content.content,
       metadata: build_metadata(post, version, content),
       primary_language: post.primary_language
@@ -141,7 +136,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       version_statuses: version_statuses,
       version_dates: version_dates,
       version_languages: %{},
-      is_legacy_structure: false,
       content: primary_content && extract_excerpt(primary_content),
       metadata: build_listing_metadata(post, primary_content),
       primary_language: post.primary_language,

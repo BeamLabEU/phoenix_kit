@@ -1,27 +1,21 @@
 defmodule PhoenixKit.Modules.Publishing.ListingCache do
   @moduledoc """
-  Caches publishing group listing metadata to avoid expensive filesystem scans on every request.
+  Caches publishing group listing metadata in :persistent_term for sub-millisecond reads.
 
-  Instead of scanning 50+ files per request, the listing page reads a single
-  `.listing_cache.json` file containing all post metadata.
+  Instead of querying the database on every request, the listing page reads from
+  an in-memory cache populated from the database.
 
   ## How It Works
 
   1. When a post is created/updated/published, `regenerate/1` is called
-  2. This scans all posts and writes metadata to `.listing_cache.json`
-  3. `render_group_listing` reads from cache instead of scanning filesystem
+  2. This queries the database and stores post metadata in :persistent_term
+  3. `render_group_listing` reads from the in-memory cache
   4. Cache includes: title, slug, date, status, languages, versions (no content)
-
-  ## Cache File Location
-
-      priv/publishing/{group-slug}/.listing_cache.json
-
-  (With legacy fallback to `priv/blogging/{group-slug}/.listing_cache.json`)
 
   ## Performance
 
-  - Before: ~500ms (50+ file operations)
-  - After: ~20ms (1 file read + JSON parse)
+  - Cache miss: ~20ms (DB query + store in :persistent_term)
+  - Cache hit: ~0.1μs (direct memory access, no variance)
 
   ## Cache Invalidation
 
@@ -36,94 +30,62 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
   For sub-millisecond performance, parsed cache data is stored in `:persistent_term`.
 
-  - First read after restart: loads from file, parses JSON, stores in :persistent_term (~2ms)
+  - First read after restart: queries DB, stores in :persistent_term (~20ms)
   - Subsequent reads: direct memory access (~0.1μs, no variance)
-  - On regenerate: updates both file and :persistent_term
-  - On invalidate: clears :persistent_term entry
-
-  The JSON file provides persistence across restarts. :persistent_term provides
-  zero-copy, sub-microsecond reads during runtime.
+  - On regenerate: updates :persistent_term from DB
+  - On invalidate: clears :persistent_term entry (next read triggers regeneration)
   """
 
-  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
 
-  # Suppress dialyzer false positive for guard clause in read_from_file_and_cache
-  @dialyzer {:nowarn_function, read_from_file_and_cache: 3}
-
-  @cache_filename ".listing_cache.json"
   @persistent_term_prefix :phoenix_kit_group_listing_cache
   @persistent_term_loaded_at_prefix :phoenix_kit_group_listing_cache_loaded_at
-  @persistent_term_file_generated_at_prefix :phoenix_kit_group_listing_cache_file_generated_at
+  @persistent_term_cache_generated_at_prefix :phoenix_kit_group_listing_cache_generated_at
 
   # ETS table for regeneration locks (provides atomic test-and-set via insert_new)
   @lock_table :phoenix_kit_listing_cache_locks
 
-  # New settings keys (write to these)
-  @file_cache_key "publishing_file_cache_enabled"
+  # Settings keys for memory cache toggle
   @memory_cache_key "publishing_memory_cache_enabled"
 
-  # Legacy settings keys (read from these as fallback)
-  @legacy_file_cache_key "blogging_file_cache_enabled"
+  # Legacy settings key (read as fallback)
   @legacy_memory_cache_key "blogging_memory_cache_enabled"
 
   @doc """
   Reads the cached listing for a publishing group.
 
   Returns `{:ok, posts}` if cache exists and is valid.
-  Returns `{:error, :cache_miss}` if cache doesn't exist, is corrupt, or caching is disabled.
+  Returns `{:error, :cache_miss}` if cache doesn't exist or caching is disabled.
 
-  Respects the `publishing_file_cache_enabled` and `publishing_memory_cache_enabled` settings
-  (with fallback to legacy `blogging_*` keys).
+  Respects the `publishing_memory_cache_enabled` setting
+  (with fallback to legacy `blogging_memory_cache_enabled` key).
   """
   @spec read(String.t()) :: {:ok, [map()]} | {:error, :cache_miss}
   def read(group_slug) do
-    memory_enabled = memory_cache_enabled?()
-    file_enabled = file_cache_enabled?()
-    term_key = persistent_term_key(group_slug)
+    if memory_cache_enabled?() do
+      term_key = persistent_term_key(group_slug)
 
-    cond do
-      # Both caches disabled
-      not memory_enabled and not file_enabled ->
-        {:error, :cache_miss}
+      case safe_persistent_term_get(term_key) do
+        {:ok, _} = hit ->
+          hit
 
-      # Memory enabled and found in persistent_term
-      memory_enabled and memory_cache_hit?(term_key) ->
-        safe_persistent_term_get(term_key)
+        :not_found ->
+          # Cache miss — regenerate from database
+          regenerate(group_slug)
 
-      # Memory enabled, DB mode — regenerate from database on cache miss
-      memory_enabled and Publishing.storage_mode() == :db ->
-        regenerate(group_slug)
-        safe_persistent_term_get(term_key)
-
-      # Memory enabled but not found, try file
-      memory_enabled and file_enabled ->
-        read_from_file_and_cache(group_slug, term_key, true)
-
-      # Memory enabled, file disabled, not in memory
-      memory_enabled ->
-        {:error, :cache_miss}
-
-      # Memory disabled, file enabled
-      file_enabled ->
-        read_from_file_only(group_slug)
-
-      # Fallback
-      true ->
-        {:error, :cache_miss}
-    end
-  end
-
-  defp memory_cache_hit?(term_key) do
-    case safe_persistent_term_get(term_key) do
-      {:ok, _} -> true
-      :not_found -> false
+          case safe_persistent_term_get(term_key) do
+            {:ok, _} = hit -> hit
+            :not_found -> {:error, :cache_miss}
+          end
+      end
+    else
+      {:error, :cache_miss}
     end
   end
 
@@ -134,82 +96,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     ArgumentError -> :not_found
   end
 
-  # Read from JSON file and optionally store in :persistent_term
-  defp read_from_file_and_cache(group_slug, term_key, store_in_memory) do
-    cache_path = cache_path(group_slug)
-
-    with {:ok, content} <- read_cache_file(cache_path),
-         {:ok, normalized_posts, generated_at} <- parse_cache_content(content, group_slug) do
-      if store_in_memory do
-        store_posts_in_memory(group_slug, term_key, normalized_posts, generated_at)
-      end
-
-      {:ok, normalized_posts}
-    end
-  end
-
-  defp read_cache_file(cache_path) do
-    case File.read(cache_path) do
-      {:ok, content} -> {:ok, content}
-      {:error, :enoent} -> {:error, :cache_miss}
-      {:error, _reason} -> {:error, :cache_miss}
-    end
-  end
-
-  defp parse_cache_content(content, group_slug) do
-    case Jason.decode(content) do
-      {:ok, %{"posts" => posts} = data} ->
-        normalized_posts = Enum.map(posts, &normalize_post/1)
-        generated_at = Map.get(data, "generated_at")
-        {:ok, normalized_posts, generated_at}
-
-      {:ok, _} ->
-        Logger.warning("[ListingCache] Invalid cache format for #{group_slug}")
-        {:error, :cache_miss}
-
-      {:error, reason} ->
-        Logger.warning(
-          "[ListingCache] Failed to parse cache for #{group_slug}: #{inspect(reason)}"
-        )
-
-        {:error, :cache_miss}
-    end
-  end
-
-  defp store_posts_in_memory(group_slug, term_key, normalized_posts, generated_at) do
-    safe_persistent_term_put(term_key, normalized_posts)
-
-    safe_persistent_term_put(
-      loaded_at_key(group_slug),
-      UtilsDate.utc_now() |> DateTime.to_iso8601()
-    )
-
-    if generated_at do
-      safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
-    end
-
-    Logger.debug(
-      "[ListingCache] Loaded #{group_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
-    )
-
-    PublishingPubSub.broadcast_cache_changed(group_slug)
-  end
-
-  # Read from JSON file only (no :persistent_term storage)
-  defp read_from_file_only(group_slug) do
-    cache_path = cache_path(group_slug)
-
-    with {:ok, content} <- read_cache_file(cache_path),
-         {:ok, normalized_posts, _generated_at} <- parse_cache_content(content, group_slug) do
-      {:ok, normalized_posts}
-    end
-  end
-
   @doc """
   Regenerates the listing cache for a group.
 
-  Scans all posts using the standard `list_posts` function and writes
-  the metadata to `.listing_cache.json`.
+  Queries the database for all posts and stores the metadata in :persistent_term.
 
   This should be called after any post operation that changes the listing:
   - create_post
@@ -221,14 +111,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   """
   @spec regenerate(String.t()) :: :ok | {:error, any()}
   def regenerate(group_slug) do
-    file_enabled = file_cache_enabled?()
-    memory_enabled = memory_cache_enabled?()
-
-    # If both caches are disabled, nothing to do
-    if not file_enabled and not memory_enabled do
-      :ok
+    if memory_cache_enabled?() do
+      do_regenerate(group_slug)
     else
-      do_regenerate(group_slug, file_enabled, memory_enabled)
+      :ok
     end
   rescue
     error ->
@@ -239,23 +125,16 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       {:error, {:regenerate_failed, error}}
   end
 
-  defp do_regenerate(group_slug, _file_enabled, memory_enabled) do
+  defp do_regenerate(group_slug) do
     start_time = System.monotonic_time(:millisecond)
 
-    do_regenerate_from_db(group_slug, memory_enabled, start_time)
-  end
-
-  # DB mode: fetch from database, store directly in persistent_term (no JSON file)
-  defp do_regenerate_from_db(group_slug, memory_enabled, start_time) do
     # Posts from to_listing_map are already atom-key maps with excerpts
     posts = DBStorage.list_posts_for_listing(group_slug)
     generated_at = UtilsDate.utc_now() |> DateTime.to_iso8601()
 
-    if memory_enabled do
-      safe_persistent_term_put(persistent_term_key(group_slug), posts)
-      safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
-      safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
-    end
+    safe_persistent_term_put(persistent_term_key(group_slug), posts)
+    safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
+    safe_persistent_term_put(cache_generated_at_key(group_slug), generated_at)
 
     elapsed = System.monotonic_time(:millisecond) - start_time
 
@@ -268,7 +147,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   rescue
     error ->
       Logger.error(
-        "[ListingCache] Failed to regenerate DB cache for #{group_slug}: #{inspect(error)}"
+        "[ListingCache] Failed to regenerate cache for #{group_slug}: #{inspect(error)}"
       )
 
       {:error, {:regenerate_failed, error}}
@@ -300,8 +179,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
       case ListingCache.regenerate_if_not_in_progress(group_slug) do
         :ok -> # Cache is ready, read from it
-        :already_in_progress -> # Fall back to filesystem scan
-        {:error, _} -> # Fall back to filesystem scan
+        :already_in_progress -> # Another process is regenerating, try again later
+        {:error, _} -> # Regeneration failed, query DB directly
       end
   """
   @spec regenerate_if_not_in_progress(String.t()) :: :ok | :already_in_progress | {:error, any()}
@@ -417,22 +296,9 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
-  Regenerates only the file cache without loading into memory.
+  Loads the cache from the database into :persistent_term.
 
-  This scans all posts and writes to `.listing_cache.json` but does not
-  update :persistent_term. Use `load_into_memory/1` separately if needed.
-  """
-  @spec regenerate_file_only(String.t()) :: :ok | {:error, any()}
-  def regenerate_file_only(_group_slug) do
-    # No file cache — DB is the persistence layer
-    :ok
-  end
-
-  @doc """
-  Loads the cache from file into :persistent_term without regenerating the file.
-
-  Returns `:ok` if successful, `{:error, :no_file}` if file doesn't exist,
-  or `{:error, reason}` for other failures.
+  Returns `:ok` if successful or `{:error, reason}` on failure.
   """
   @spec load_into_memory(String.t()) :: :ok | {:error, any()}
   def load_into_memory(group_slug) do
@@ -445,7 +311,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
     safe_persistent_term_put(persistent_term_key(group_slug), posts)
     safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
-    safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
+    safe_persistent_term_put(cache_generated_at_key(group_slug), generated_at)
 
     Logger.debug(
       "[ListingCache] Loaded #{group_slug} from DB into :persistent_term (#{length(posts)} posts)"
@@ -461,11 +327,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
-  Invalidates (deletes) the cache for a group.
+  Invalidates (clears) the cache for a group.
 
-  Clears both the :persistent_term entry and the JSON file.
-  The next read will return `:cache_miss`, triggering a fallback to
-  the filesystem scan.
+  Clears the :persistent_term entries. The next read will trigger
+  a regeneration from the database.
   """
   @spec invalidate(String.t()) :: :ok
   def invalidate(group_slug) do
@@ -485,39 +350,23 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
     end
 
     try do
-      :persistent_term.erase(file_generated_at_key(group_slug))
+      :persistent_term.erase(cache_generated_at_key(group_slug))
     rescue
       ArgumentError -> :ok
     end
 
-    # Then delete the file
-    cache_path = cache_path(group_slug)
-
-    case File.rm(cache_path) do
-      :ok ->
-        Logger.debug("[ListingCache] Invalidated cache for #{group_slug}")
-        :ok
-
-      {:error, :enoent} ->
-        :ok
-
-      {:error, reason} ->
-        Logger.warning(
-          "[ListingCache] Failed to delete cache for #{group_slug}: #{inspect(reason)}"
-        )
-
-        :ok
-    end
+    Logger.debug("[ListingCache] Invalidated cache for #{group_slug}")
+    :ok
   end
 
   @doc """
-  Checks if a cache exists for a group (in :persistent_term or file).
+  Checks if a cache exists for a group in :persistent_term.
   """
   @spec exists?(String.t()) :: boolean()
   def exists?(group_slug) do
     case safe_persistent_term_get(persistent_term_key(group_slug)) do
       {:ok, _} -> true
-      :not_found -> cache_path(group_slug) |> File.exists?()
+      :not_found -> false
     end
   end
 
@@ -525,7 +374,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Finds a post by slug in the cache.
 
   This is useful for single post views where we need metadata (language_statuses,
-  version_statuses, allow_version_access) without reading multiple files.
+  version_statuses, allow_version_access) without a separate DB query.
 
   Returns `{:ok, cached_post}` if found, `{:error, :not_found}` otherwise.
   """
@@ -633,7 +482,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   - `url_slug` - The URL slug to find
 
   ## Returns
-  - `{:ok, cached_post}` - Found post (includes internal `slug` for file lookup)
+  - `{:ok, cached_post}` - Found post (includes internal `slug` for DB lookup)
   - `{:error, :not_found}` - No post with this URL slug for this language
   - `{:error, :cache_miss}` - Cache not available
   """
@@ -699,14 +548,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
-  Returns the cache file path for a publishing group.
-  """
-  @spec cache_path(String.t()) :: String.t()
-  def cache_path(group_slug) do
-    Path.join(Storage.group_path(group_slug), @cache_filename)
-  end
-
-  @doc """
   Returns the :persistent_term key for a publishing group's cache.
   """
   @spec persistent_term_key(String.t()) :: tuple()
@@ -734,35 +575,21 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
-  Returns the :persistent_term key for tracking the file's generated_at when loaded into memory.
+  Returns the :persistent_term key for tracking when the cache was last generated.
   """
-  @spec file_generated_at_key(String.t()) :: tuple()
-  def file_generated_at_key(group_slug) do
-    {@persistent_term_file_generated_at_prefix, group_slug}
+  @spec cache_generated_at_key(String.t()) :: tuple()
+  def cache_generated_at_key(group_slug) do
+    {@persistent_term_cache_generated_at_prefix, group_slug}
   end
 
   @doc """
-  Returns the file's generated_at timestamp that was stored when the memory cache was loaded.
-  This tells us what version of the file data is currently in memory.
+  Returns the timestamp of when the cache was last generated from the database.
   """
-  @spec memory_file_generated_at(String.t()) :: String.t() | nil
-  def memory_file_generated_at(group_slug) do
-    case safe_persistent_term_get(file_generated_at_key(group_slug)) do
+  @spec cache_generated_at(String.t()) :: String.t() | nil
+  def cache_generated_at(group_slug) do
+    case safe_persistent_term_get(cache_generated_at_key(group_slug)) do
       {:ok, generated_at} -> generated_at
       :not_found -> nil
-    end
-  end
-
-  @doc """
-  Returns whether file caching is enabled.
-  Uses cached settings to avoid database queries on every call.
-  Checks new key first, falls back to legacy key.
-  """
-  @spec file_cache_enabled?() :: boolean()
-  def file_cache_enabled? do
-    case Settings.get_setting_cached(@file_cache_key, nil) do
-      nil -> Settings.get_setting_cached(@legacy_file_cache_key, "true") == "true"
-      value -> value == "true"
     end
   end
 
@@ -790,7 +617,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   def posts_needing_primary_language_migration(group_slug) do
     case read(group_slug) do
       {:ok, posts} ->
-        global_primary = Storage.get_primary_language()
+        global_primary = LanguageHelpers.get_primary_language()
 
         Enum.filter(posts, fn post ->
           # Use atom key since normalized posts use atoms
@@ -799,31 +626,19 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
         end)
 
       {:error, _} ->
-        # If cache doesn't exist, scan filesystem directly
+        # If cache doesn't exist, query DB directly
         scan_posts_needing_migration(group_slug)
     end
   end
 
   defp scan_posts_needing_migration(group_slug) do
-    global_primary = Storage.get_primary_language()
+    global_primary = LanguageHelpers.get_primary_language()
 
-    # Try slug mode first, then timestamp mode (list_posts handles timestamp)
-    posts = Storage.list_posts_slug_mode(group_slug)
-
-    posts =
-      if posts == [] do
-        Storage.list_posts(group_slug)
-      else
-        posts
-      end
-
-    posts
+    DBStorage.list_posts_for_listing(group_slug)
     |> Enum.filter(fn post ->
-      stored_primary = Map.get(post[:metadata] || %{}, :primary_language)
+      stored_primary = post[:primary_language]
       stored_primary == nil or stored_primary != global_primary
     end)
-    |> Enum.map(&serialize_post/1)
-    |> Enum.map(&normalize_post/1)
   end
 
   @doc """
@@ -838,7 +653,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   def count_primary_language_status(group_slug) do
     case read(group_slug) do
       {:ok, posts} ->
-        global_primary = Storage.get_primary_language()
+        global_primary = LanguageHelpers.get_primary_language()
 
         Enum.reduce(posts, %{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
           # Use atom key since normalized posts use atoms
@@ -857,26 +672,17 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
         end)
 
       {:error, _} ->
-        # If cache doesn't exist, scan filesystem directly
+        # If cache doesn't exist, query DB directly
         scan_primary_language_status(group_slug)
     end
   end
 
   defp scan_primary_language_status(group_slug) do
-    global_primary = Storage.get_primary_language()
+    global_primary = LanguageHelpers.get_primary_language()
 
-    # Try slug mode first, then timestamp mode (list_posts handles timestamp)
-    posts = Storage.list_posts_slug_mode(group_slug)
-
-    posts =
-      if posts == [] do
-        Storage.list_posts(group_slug)
-      else
-        posts
-      end
-
-    Enum.reduce(posts, %{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
-      stored_primary = Map.get(post[:metadata] || %{}, :primary_language)
+    DBStorage.list_posts_for_listing(group_slug)
+    |> Enum.reduce(%{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
+      stored_primary = post[:primary_language]
 
       cond do
         stored_primary == nil ->
@@ -888,377 +694,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
         true ->
           %{acc | needs_migration: acc.needs_migration + 1}
       end
-    end)
-  end
-
-  # ===========================================================================
-  # Legacy Structure Migration Status
-  # ===========================================================================
-
-  @doc """
-  Counts posts by version structure status for a group.
-
-  Returns `%{versioned: n, legacy: n}` where:
-  - `versioned` - posts with v1/, v2/, etc. structure
-  - `legacy` - posts with flat file structure (need migration)
-  """
-  @spec count_legacy_structure_status(String.t()) :: map()
-  def count_legacy_structure_status(group_slug) do
-    case read(group_slug) do
-      {:ok, posts} ->
-        Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
-          if post[:is_legacy_structure] do
-            %{acc | legacy: acc.legacy + 1}
-          else
-            %{acc | versioned: acc.versioned + 1}
-          end
-        end)
-
-      {:error, _} ->
-        # If cache doesn't exist, scan filesystem directly
-        scan_legacy_structure_status(group_slug)
-    end
-  end
-
-  @doc """
-  Returns list of posts that need version structure migration.
-  """
-  @spec posts_needing_version_migration(String.t()) :: [map()]
-  def posts_needing_version_migration(group_slug) do
-    case read(group_slug) do
-      {:ok, posts} ->
-        Enum.filter(posts, & &1[:is_legacy_structure])
-
-      {:error, _} ->
-        # If cache doesn't exist, scan filesystem directly
-        scan_posts_needing_version_migration(group_slug)
-    end
-  end
-
-  defp scan_legacy_structure_status(group_slug) do
-    posts = get_posts_for_scan(group_slug)
-
-    Enum.reduce(posts, %{versioned: 0, legacy: 0}, fn post, acc ->
-      if Map.get(post, :is_legacy_structure, false) do
-        %{acc | legacy: acc.legacy + 1}
-      else
-        %{acc | versioned: acc.versioned + 1}
-      end
-    end)
-  end
-
-  defp scan_posts_needing_version_migration(group_slug) do
-    posts = get_posts_for_scan(group_slug)
-    Enum.filter(posts, &Map.get(&1, :is_legacy_structure, false))
-  end
-
-  defp get_posts_for_scan(group_slug) do
-    # Try slug mode first, then timestamp mode
-    posts = Storage.list_posts_slug_mode(group_slug)
-
-    if posts == [] do
-      Storage.list_posts(group_slug)
-    else
-      posts
-    end
-  end
-
-  # Private functions
-
-  defp serialize_post(post) do
-    # Build both current and previous slugs for all languages
-    {language_slugs, language_previous_slugs} = build_all_language_slugs(post)
-
-    %{
-      "uuid" => post[:uuid],
-      "group" => post[:group],
-      "slug" => post[:slug],
-      "url_slug" => post[:url_slug] || post[:slug],
-      "date" => serialize_date(post[:date]),
-      "time" => serialize_time(post[:time]),
-      "path" => post[:path],
-      "full_path" => post[:full_path],
-      "mode" => to_string(post[:mode]),
-      "language" => post[:language],
-      "available_languages" => post[:available_languages] || [],
-      "language_statuses" => post[:language_statuses] || %{},
-      # Per-language URL slugs for SEO-friendly localized URLs
-      "language_slugs" => language_slugs,
-      # Per-language previous URL slugs for 301 redirects
-      "language_previous_slugs" => language_previous_slugs,
-      "version" => post[:version],
-      "available_versions" => post[:available_versions] || [],
-      "version_statuses" => serialize_version_statuses(post[:version_statuses]),
-      "version_dates" => post[:version_dates] || %{},
-      "version_languages" => serialize_version_languages(post[:version_languages]),
-      "is_legacy_structure" => post[:is_legacy_structure] || false,
-      "metadata" => serialize_metadata(post[:metadata]),
-      # Pre-compute excerpt for listing page (avoids needing full content)
-      "excerpt" => extract_excerpt(post[:content], post[:metadata]),
-      # Primary language for this post (controls versioning/status inheritance)
-      # NOTE: Do NOT fall back to global setting - we need nil to detect posts needing backfill
-      "primary_language" => Map.get(post[:metadata] || %{}, :primary_language)
-    }
-  end
-
-  # Build both language_slugs and language_previous_slugs maps
-  # Returns {language_slugs, language_previous_slugs}
-  # language_slugs: language -> current url_slug
-  # language_previous_slugs: language -> [previous_url_slugs]
-  defp build_all_language_slugs(post) do
-    current_lang = post[:language]
-    current_url_slug = post[:url_slug] || post[:slug]
-    current_previous = Map.get(post[:metadata] || %{}, :previous_url_slugs) || []
-    available_langs = post[:available_languages] || []
-    group_slug = post[:group] || post[:blog]
-    post_slug = post[:slug]
-
-    # Start with the current language's data
-    base_slugs = %{current_lang => current_url_slug}
-    base_previous = %{current_lang => current_previous}
-
-    # For each available language, read its url_slug and previous_url_slugs
-    {final_slugs, final_previous} =
-      Enum.reduce(available_langs, {base_slugs, base_previous}, fn lang, {slugs_acc, prev_acc} ->
-        if Map.has_key?(slugs_acc, lang) do
-          {slugs_acc, prev_acc}
-        else
-          # Read both url_slug and previous_url_slugs from this language's file
-          {url_slug, prev_slugs} = get_slugs_for_language(group_slug, post_slug, lang, post)
-          {Map.put(slugs_acc, lang, url_slug), Map.put(prev_acc, lang, prev_slugs)}
-        end
-      end)
-
-    {final_slugs, final_previous}
-  end
-
-  # Gets both url_slug and previous_url_slugs for a specific language
-  # Handles both slug mode and timestamp mode posts correctly
-  defp get_slugs_for_language(group_slug, post_slug, lang, post) do
-    # Use appropriate read function based on post mode
-    result =
-      case post[:mode] do
-        :timestamp ->
-          # For timestamp mode, use the path-based read
-          post_identifier = extract_timestamp_identifier_for_cache(post[:path])
-
-          if post_identifier do
-            path = Path.join([group_slug, post_identifier, Storage.language_filename(lang)])
-            Storage.read_post(group_slug, path)
-          else
-            {:error, :invalid_path}
-          end
-
-        _ ->
-          # For slug mode, use the slug-based read
-          Storage.read_post_slug_mode(group_slug, post_slug, lang, nil)
-      end
-
-    case result do
-      {:ok, lang_post} ->
-        url_slug = lang_post.url_slug
-        previous = Map.get(lang_post.metadata, :previous_url_slugs) || []
-        {url_slug, previous}
-
-      {:error, _} ->
-        # File doesn't exist or can't be read - use defaults
-        {post_slug, []}
-    end
-  rescue
-    _ -> {post[:slug] || post_slug, []}
-  end
-
-  # Extract timestamp identifier (date/time) from a timestamp mode path
-  defp extract_timestamp_identifier_for_cache(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> nil
-    end
-  end
-
-  defp extract_timestamp_identifier_for_cache(_), do: nil
-
-  # Extract excerpt: use description if available, otherwise extract from content
-  defp extract_excerpt(_content, %{description: desc}) when is_binary(desc) and desc != "",
-    do: desc
-
-  defp extract_excerpt(content, _metadata) when is_binary(content) do
-    # Get first paragraph or content before <!-- more --> tag
-    excerpt_text =
-      if String.contains?(content, "<!-- more -->") do
-        content
-        |> String.split("<!-- more -->")
-        |> List.first()
-        |> String.trim()
-      else
-        content
-        |> String.split(~r/\n\n+/)
-        |> Enum.reject(&String.starts_with?(&1, "#"))
-        |> List.first()
-        |> case do
-          nil -> ""
-          text -> String.trim(text)
-        end
-      end
-
-    # Strip markdown formatting and limit length
-    excerpt_text
-    |> String.replace(~r/[#*_`\[\]()]/, "")
-    |> String.replace(~r/\s+/, " ")
-    |> String.trim()
-    |> String.slice(0, 300)
-  end
-
-  defp extract_excerpt(_, _), do: nil
-
-  defp serialize_metadata(nil), do: %{}
-
-  defp serialize_metadata(metadata) when is_map(metadata) do
-    %{
-      "title" => Map.get(metadata, :title),
-      "description" => Map.get(metadata, :description),
-      "slug" => Map.get(metadata, :slug),
-      "status" => Map.get(metadata, :status),
-      "published_at" => Map.get(metadata, :published_at),
-      "featured_image_uuid" => Map.get(metadata, :featured_image_uuid),
-      "version" => Map.get(metadata, :version),
-      "allow_version_access" => Map.get(metadata, :allow_version_access),
-      "url_slug" => Map.get(metadata, :url_slug),
-      "previous_url_slugs" => Map.get(metadata, :previous_url_slugs)
-    }
-  end
-
-  defp serialize_date(nil), do: nil
-  defp serialize_date(%Date{} = date), do: Date.to_iso8601(date)
-  defp serialize_date(date) when is_binary(date), do: date
-
-  defp serialize_time(nil), do: nil
-  defp serialize_time(%Time{} = time), do: Time.to_string(time)
-  defp serialize_time(time) when is_binary(time), do: time
-
-  defp serialize_version_statuses(nil), do: %{}
-
-  defp serialize_version_statuses(statuses) when is_map(statuses) do
-    # Convert integer keys to strings for JSON
-    Map.new(statuses, fn {k, v} -> {to_string(k), v} end)
-  end
-
-  defp serialize_version_languages(nil), do: %{}
-
-  defp serialize_version_languages(version_languages) when is_map(version_languages) do
-    # Convert integer keys to strings for JSON
-    Map.new(version_languages, fn {k, v} -> {to_string(k), v} end)
-  end
-
-  defp normalize_post(post) when is_map(post) do
-    slug = post["slug"]
-
-    %{
-      uuid: post["uuid"],
-      # Support both "group" (new) and "blog" (old cache) keys
-      group: post["group"] || post["blog"],
-      slug: slug,
-      url_slug: post["url_slug"] || slug,
-      date: parse_date(post["date"]),
-      time: parse_time(post["time"]),
-      path: post["path"],
-      full_path: post["full_path"],
-      mode: parse_mode(post["mode"]),
-      language: post["language"],
-      available_languages: post["available_languages"] || [],
-      language_statuses: post["language_statuses"] || %{},
-      # Per-language URL slugs for SEO-friendly localized URLs
-      language_slugs: post["language_slugs"] || %{},
-      # Per-language previous URL slugs for 301 redirects
-      language_previous_slugs: post["language_previous_slugs"] || %{},
-      version: post["version"],
-      available_versions: post["available_versions"] || [],
-      version_statuses: parse_version_statuses(post["version_statuses"]),
-      version_dates: post["version_dates"] || %{},
-      version_languages: parse_version_languages(post["version_languages"]),
-      is_legacy_structure: post["is_legacy_structure"] || false,
-      metadata: normalize_metadata(post["metadata"]),
-      # Primary language for this post (controls versioning/status inheritance)
-      primary_language: post["primary_language"],
-      # Use pre-computed excerpt as content for template compatibility
-      # The template's extract_excerpt() will just return this text
-      content: post["excerpt"]
-    }
-  end
-
-  defp normalize_metadata(nil), do: %{}
-
-  defp normalize_metadata(metadata) when is_map(metadata) do
-    %{
-      title: metadata["title"],
-      description: metadata["description"],
-      slug: metadata["slug"],
-      status: metadata["status"],
-      published_at: metadata["published_at"],
-      featured_image_uuid: metadata["featured_image_uuid"],
-      version: metadata["version"],
-      allow_version_access: metadata["allow_version_access"],
-      url_slug: metadata["url_slug"],
-      previous_url_slugs: metadata["previous_url_slugs"]
-    }
-  end
-
-  defp parse_date(nil), do: nil
-
-  defp parse_date(date_str) when is_binary(date_str) do
-    case Date.from_iso8601(date_str) do
-      {:ok, date} -> date
-      _ -> nil
-    end
-  end
-
-  defp parse_time(nil), do: nil
-
-  defp parse_time(time_str) when is_binary(time_str) do
-    case Time.from_iso8601(time_str) do
-      {:ok, time} ->
-        time
-
-      # Try parsing without seconds (HH:MM format)
-      _ ->
-        case Time.from_iso8601(time_str <> ":00") do
-          {:ok, time} -> time
-          _ -> nil
-        end
-    end
-  end
-
-  defp parse_mode("slug"), do: :slug
-  defp parse_mode("timestamp"), do: :timestamp
-  defp parse_mode(_), do: :timestamp
-
-  defp parse_version_statuses(nil), do: %{}
-
-  defp parse_version_statuses(statuses) when is_map(statuses) do
-    # Convert string keys back to integers
-    Map.new(statuses, fn {k, v} ->
-      key =
-        case Integer.parse(k) do
-          {int, ""} -> int
-          _ -> k
-        end
-
-      {key, v}
-    end)
-  end
-
-  defp parse_version_languages(nil), do: %{}
-
-  defp parse_version_languages(version_languages) when is_map(version_languages) do
-    # Convert string keys back to integers
-    Map.new(version_languages, fn {k, v} ->
-      key =
-        case Integer.parse(k) do
-          {int, ""} -> int
-          _ -> k
-        end
-
-      {key, v}
     end)
   end
 end

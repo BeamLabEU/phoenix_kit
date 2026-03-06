@@ -42,7 +42,6 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBloggingToPublishing do
   use Mix.Task
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
 
   @impl Mix.Task
@@ -72,43 +71,10 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBloggingToPublishing do
     Mix.shell().info("\nMigration complete!")
   end
 
-  defp migrate_storage_directory(dry_run, _verbose) do
+  defp migrate_storage_directory(_dry_run, _verbose) do
     Mix.shell().info("\n1. Storage Directory Migration")
     Mix.shell().info(String.duplicate("-", 30))
-
-    # Get paths
-    legacy_path = Storage.legacy_root_path()
-    new_path = Storage.new_root_path()
-
-    legacy_exists = File.dir?(legacy_path)
-    new_exists = File.dir?(new_path)
-
-    cond do
-      new_exists ->
-        Mix.shell().info("✓ New path already exists: #{new_path}")
-        Mix.shell().info("  Skipping directory rename")
-
-      legacy_exists ->
-        if dry_run do
-          Mix.shell().info("Would rename: #{legacy_path}")
-          Mix.shell().info("         to: #{new_path}")
-        else
-          case File.rename(legacy_path, new_path) do
-            :ok ->
-              Mix.shell().info("✓ Renamed: #{legacy_path}")
-              Mix.shell().info("       to: #{new_path}")
-
-            {:error, reason} ->
-              Mix.shell().error("✗ Failed to rename directory: #{inspect(reason)}")
-              Mix.shell().error("  You may need to rename manually:")
-              Mix.shell().error("  mv #{legacy_path} #{new_path}")
-          end
-        end
-
-      true ->
-        Mix.shell().info("✓ Neither path exists - fresh installation")
-        Mix.shell().info("  New installations will use: #{new_path}")
-    end
+    Mix.shell().info("✓ Filesystem storage has been removed — all content is in the database.")
   end
 
   defp migrate_settings_keys(dry_run, verbose) do
