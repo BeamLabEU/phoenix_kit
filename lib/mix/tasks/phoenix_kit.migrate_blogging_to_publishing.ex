@@ -1,15 +1,13 @@
 defmodule Mix.Tasks.PhoenixKit.MigrateBloggingToPublishing do
-  @shortdoc "Migrates blogging module to publishing (storage path and settings)"
+  @shortdoc "Migrates blogging module to publishing (settings)"
   @moduledoc """
   Migrates the PhoenixKit blogging module to the new publishing module.
 
   ## What this task does
 
-  1. Renames `priv/blogging` directory to `priv/publishing` (if it exists)
-  2. Migrates settings keys from legacy names to new names:
+  Migrates settings keys from legacy names to new names:
      - `blogging_enabled` → `publishing_enabled`
      - `blogging_blogs` → `publishing_groups`
-     - `blogging_file_cache_enabled` → `publishing_file_cache_enabled`
      - `blogging_memory_cache_enabled` → `publishing_memory_cache_enabled`
      - `blogging_render_cache_enabled` → `publishing_render_cache_enabled`
      - `blogging_render_cache_enabled_*` → `publishing_render_cache_enabled_*`

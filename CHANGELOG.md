@@ -1,5 +1,9 @@
 ## 1.7.63 - 2026-03-06
-- Remove filesystem storage mode from publishing module — `storage_mode()` now always returns `:db`, remove ~780 lines of dead FS code, migration gate, and "Database migration required" banner
+- Remove filesystem storage from publishing module — delete Storage, DualWrite, and all storage/* submodules (~7k lines removed)
+- Add LanguageHelpers and SlugHelpers as standalone modules, simplify to DB-only throughout
+- Fix slug conflict clearing bug: `clear_url_slugs_for_conflicts` passed wrong slug to DB cleanup
+- Fix ngettext interpolation in primary language migration modal (literal `%{count}` in UI)
+- Clean up stale filesystem references in comments, docs, and user-facing strings
 - Fix V77/V78 migration crashes when UUID columns are missing (tables created after V56 ran)
 - Simplify V77/V78 migrations — remove over-engineered column detection, rely on idempotent patterns
 - Fix email tracking bug: `handle_delivery_result` used `get_log!` (raises) in a nil-matching branch; add `get_log/1` non-bang wrapper and remove unused public functions

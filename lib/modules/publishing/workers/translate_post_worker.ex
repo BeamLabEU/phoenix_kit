@@ -470,8 +470,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     Logger.info("[TranslatePostWorker] Saving translation for #{language}...")
 
-    # Check if translation file already exists for this exact language
-    # We need to check if the file exists directly because read_post has fallback behavior
+    # Check if translation already exists for this exact language
+    # We need to check directly because read_post has fallback behavior
     # that returns a different language if the requested one doesn't exist
     case check_translation_exists(group_slug, post_slug, language, version) do
       {:ok, existing_post} ->
@@ -503,8 +503,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     case Publishing.read_post(group_slug, post_slug, language, version) do
       {:ok, post} ->
         # Verify the returned post is actually for the requested language
-        # AND that it's not a "new translation" stub (is_new_translation means the file
-        # doesn't exist and read_post returned a fallback with empty content)
+        # AND that it's not a "new translation" stub (is_new_translation means no record
+        # exists and read_post returned a fallback with empty content)
         is_new_translation = Map.get(post, :is_new_translation, false)
 
         if post.language == language && !is_new_translation do
@@ -619,9 +619,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
       version: version
     } = opts
 
-    Logger.info(
-      "[TranslatePostWorker] Translation file already exists for #{language}, updating..."
-    )
+    Logger.info("[TranslatePostWorker] Translation already exists for #{language}, updating...")
 
     case Publishing.read_post(group_slug, post_slug, language, version) do
       {:ok, existing_post} ->

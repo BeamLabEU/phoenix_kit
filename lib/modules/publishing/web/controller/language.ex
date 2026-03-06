@@ -150,31 +150,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   # ============================================================================
 
   @doc """
-  Resolves a language code to an actual file language.
+  Resolves a language code to an actual content language.
   Handles base codes by finding a matching dialect in available languages.
   """
   def resolve_language_for_post(language, available_languages) do
     cond do
-      # Direct match - language exactly matches an available file
+      # Direct match - language exactly matches an available language
       language in available_languages ->
         language
 
       # Base code - try to find a dialect that matches
       base_code?(language) ->
-        find_dialect_for_base_in_files(language, available_languages) ||
+        find_dialect_for_base_in_languages(language, available_languages) ||
           DialectMapper.base_to_dialect(language)
 
       # Full dialect code not found - try base code match as fallback
       true ->
         base = DialectMapper.extract_base(language)
-        find_dialect_for_base_in_files(base, available_languages) || language
+        find_dialect_for_base_in_languages(base, available_languages) || language
     end
   end
 
   @doc """
-  Find a dialect in available files that matches the given base code.
+  Find a dialect in available languages that matches the given base code.
   """
-  def find_dialect_for_base_in_files(base_code, available_languages) do
+  def find_dialect_for_base_in_languages(base_code, available_languages) do
     base_lower = String.downcase(base_code)
 
     Enum.find(available_languages, fn lang ->

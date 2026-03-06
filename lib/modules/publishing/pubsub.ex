@@ -372,7 +372,7 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   end
 
   @doc """
-  Broadcasts that the cache state has changed (file regenerated, memory loaded, etc).
+  Broadcasts that the cache state has changed (cache regenerated, memory loaded, etc).
   """
   def broadcast_cache_changed(group_slug) do
     Manager.broadcast(cache_topic(group_slug), {:cache_changed, group_slug})

@@ -76,7 +76,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
          )}
 
       {:error, :not_found} ->
-        # Group directory doesn't exist, just remove from config
+        # Group not found in DB, just remove from config
         case Publishing.remove_group(slug) do
           {:ok, _} ->
             # The `Publishing.remove_group` call handles the broadcast. This

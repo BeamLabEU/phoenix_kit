@@ -117,9 +117,9 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
   @impl Oban.Worker
   def timeout(_job), do: :timer.minutes(5)
 
-  # Get post directory path from cached post
+  # Get post identifier from cached post
   # For slug mode: returns the slug (e.g., "hello")
-  # For timestamp mode: returns the date/time path (e.g., "2025-12-31/03:42")
+  # For timestamp mode: returns the date/time identifier (e.g., "2025-12-31/03:42")
   defp get_post_slug(post) do
     case post[:mode] do
       :timestamp -> derive_timestamp_post_dir(post[:path])

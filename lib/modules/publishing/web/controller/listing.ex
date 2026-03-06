@@ -234,12 +234,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
 
       # Base code - find a dialect that matches
       Language.base_code?(language) ->
-        Language.find_dialect_for_base_in_files(language, available_languages)
+        Language.find_dialect_for_base_in_languages(language, available_languages)
 
       # Full dialect not found - try base code match
       true ->
         base = DialectMapper.extract_base(language)
-        Language.find_dialect_for_base_in_files(base, available_languages)
+        Language.find_dialect_for_base_in_languages(base, available_languages)
     end
   end
 

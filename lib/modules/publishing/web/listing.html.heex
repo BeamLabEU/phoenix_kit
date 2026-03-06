@@ -507,7 +507,8 @@
             {ngettext(
               "This will update the primary language setting for %{count} post in this publishing group.",
               "This will update the primary language setting for %{count} posts in this publishing group.",
-              total_needing
+              total_needing,
+              count: total_needing
             )}
           </p>
 
@@ -556,7 +557,9 @@
             phx-disable-with={gettext("Updating...")}
           >
             <.icon name="hero-arrow-path" class="w-4 h-4" />
-            {ngettext("Update %{count} Post", "Update %{count} Posts", total_needing)}
+            {ngettext("Update %{count} Post", "Update %{count} Posts", total_needing,
+              count: total_needing
+            )}
           </button>
         </div>
       </div>

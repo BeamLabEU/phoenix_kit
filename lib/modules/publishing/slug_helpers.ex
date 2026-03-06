@@ -95,7 +95,7 @@ defmodule PhoenixKit.Modules.Publishing.SlugHelpers do
     case ListingCache.read(group_slug) do
       {:ok, posts} ->
         conflicts = find_conflicting_url_slugs(posts, directory_slug)
-        clear_url_slugs_for_conflicts(group_slug, conflicts)
+        clear_url_slugs_for_conflicts(group_slug, directory_slug, conflicts)
         log_cleared_conflicts(conflicts, directory_slug)
         conflicts
 
@@ -212,10 +212,9 @@ defmodule PhoenixKit.Modules.Publishing.SlugHelpers do
     end)
   end
 
-  defp clear_url_slugs_for_conflicts(group_slug, conflicts) do
+  defp clear_url_slugs_for_conflicts(group_slug, directory_slug, conflicts) do
     Enum.each(conflicts, fn {post_slug, _language} ->
-      # Clear via DB
-      DBStorage.clear_url_slug_from_post(group_slug, post_slug, post_slug)
+      DBStorage.clear_url_slug_from_post(group_slug, post_slug, directory_slug)
     end)
   end
 
