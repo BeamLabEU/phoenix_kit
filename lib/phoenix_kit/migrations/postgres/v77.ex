@@ -35,7 +35,7 @@ defmodule PhoenixKit.Migrations.Postgres.V77 do
     rename_setting(table, "tickets_allow_reopen", "customer_service_allow_reopen")
     rename_setting(table, "auto_granted_perm:tickets", "auto_granted_perm:customer_service")
 
-    rename_role_permission(perms_table, "tickets", "customer_service")
+    rename_role_permission(perms_table, "tickets", "customer_service", prefix)
 
     execute("COMMENT ON TABLE #{prefix_str(prefix)}phoenix_kit IS '77'")
   end
@@ -57,22 +57,47 @@ defmodule PhoenixKit.Migrations.Postgres.V77 do
 
   # Renames role permission module_key. If target already exists for the same role,
   # deletes the source row to avoid unique constraint violations.
-  defp rename_role_permission(table, from_key, to_key) do
+  # Dynamically detects whether uuid/role_uuid columns exist (V56 may have skipped them)
+  # and falls back to id/role_id when they don't.
+  defp rename_role_permission(table, from_key, to_key, prefix) do
+    schema = prefix || "public"
+
     execute("""
     DO $$
     DECLARE
+      has_role_uuid BOOLEAN;
       r RECORD;
     BEGIN
-      FOR r IN SELECT uuid, role_uuid FROM #{table} WHERE module_key = '#{from_key}' LOOP
-        IF EXISTS (
-          SELECT 1 FROM #{table}
-          WHERE module_key = '#{to_key}' AND role_uuid = r.role_uuid
-        ) THEN
-          DELETE FROM #{table} WHERE uuid = r.uuid;
-        ELSE
-          UPDATE #{table} SET module_key = '#{to_key}' WHERE uuid = r.uuid;
-        END IF;
-      END LOOP;
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+        AND table_name = 'phoenix_kit_role_permissions'
+        AND column_name = 'role_uuid'
+      ) INTO has_role_uuid;
+
+      IF has_role_uuid THEN
+        FOR r IN SELECT uuid, role_uuid FROM #{table} WHERE module_key = '#{from_key}' LOOP
+          IF EXISTS (
+            SELECT 1 FROM #{table}
+            WHERE module_key = '#{to_key}' AND role_uuid = r.role_uuid
+          ) THEN
+            DELETE FROM #{table} WHERE uuid = r.uuid;
+          ELSE
+            UPDATE #{table} SET module_key = '#{to_key}' WHERE uuid = r.uuid;
+          END IF;
+        END LOOP;
+      ELSE
+        FOR r IN SELECT id, role_id FROM #{table} WHERE module_key = '#{from_key}' LOOP
+          IF EXISTS (
+            SELECT 1 FROM #{table}
+            WHERE module_key = '#{to_key}' AND role_id = r.role_id
+          ) THEN
+            DELETE FROM #{table} WHERE id = r.id;
+          ELSE
+            UPDATE #{table} SET module_key = '#{to_key}' WHERE id = r.id;
+          END IF;
+        END LOOP;
+      END IF;
     END $$;
     """)
   end
@@ -81,7 +106,7 @@ defmodule PhoenixKit.Migrations.Postgres.V77 do
     table = "#{prefix_str(prefix)}phoenix_kit_settings"
     perms_table = "#{prefix_str(prefix)}phoenix_kit_role_permissions"
 
-    rename_role_permission(perms_table, "customer_service", "tickets")
+    rename_role_permission(perms_table, "customer_service", "tickets", prefix)
     rename_setting(table, "auto_granted_perm:customer_service", "auto_granted_perm:tickets")
     rename_setting(table, "customer_service_allow_reopen", "tickets_allow_reopen")
     rename_setting(table, "customer_service_attachments_enabled", "tickets_attachments_enabled")
