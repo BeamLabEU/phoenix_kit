@@ -57,47 +57,21 @@ defmodule PhoenixKit.Migrations.Postgres.V77 do
 
   # Renames role permission module_key. If target already exists for the same role,
   # deletes the source row to avoid unique constraint violations.
-  # Dynamically detects whether uuid/role_uuid columns exist (V56 may have skipped them)
-  # and falls back to id/role_id when they don't.
-  defp rename_role_permission(table, from_key, to_key, prefix) do
-    schema = prefix || "public"
-
+  # Uses role_id (always present, original column) for duplicate detection.
+  defp rename_role_permission(table, from_key, to_key, _prefix) do
     execute("""
     DO $$
-    DECLARE
-      has_role_uuid BOOLEAN;
-      r RECORD;
     BEGIN
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = '#{schema}'
-        AND table_name = 'phoenix_kit_role_permissions'
-        AND column_name = 'role_uuid'
-      ) INTO has_role_uuid;
+      -- Delete source rows where target already exists for the same role
+      DELETE FROM #{table} src
+      WHERE src.module_key = '#{from_key}'
+        AND EXISTS (
+          SELECT 1 FROM #{table} tgt
+          WHERE tgt.module_key = '#{to_key}' AND tgt.role_id = src.role_id
+        );
 
-      IF has_role_uuid THEN
-        FOR r IN SELECT uuid, role_uuid FROM #{table} WHERE module_key = '#{from_key}' LOOP
-          IF EXISTS (
-            SELECT 1 FROM #{table}
-            WHERE module_key = '#{to_key}' AND role_uuid = r.role_uuid
-          ) THEN
-            DELETE FROM #{table} WHERE uuid = r.uuid;
-          ELSE
-            UPDATE #{table} SET module_key = '#{to_key}' WHERE uuid = r.uuid;
-          END IF;
-        END LOOP;
-      ELSE
-        FOR r IN SELECT id, role_id FROM #{table} WHERE module_key = '#{from_key}' LOOP
-          IF EXISTS (
-            SELECT 1 FROM #{table}
-            WHERE module_key = '#{to_key}' AND role_id = r.role_id
-          ) THEN
-            DELETE FROM #{table} WHERE id = r.id;
-          ELSE
-            UPDATE #{table} SET module_key = '#{to_key}' WHERE id = r.id;
-          END IF;
-        END LOOP;
-      END IF;
+      -- Rename remaining rows
+      UPDATE #{table} SET module_key = '#{to_key}' WHERE module_key = '#{from_key}';
     END $$;
     """)
   end

@@ -37,11 +37,9 @@ defmodule PhoenixKit.Migrations.Postgres.V78 do
                            )
 
       if table_exists?(:phoenix_kit_ai_prompts, prefix) do
-        # V56 may have skipped adding the uuid column to ai_prompts if the table
-        # didn't exist at V56 time. Ensure it exists before creating the FK.
-        unless column_exists?(:phoenix_kit_ai_prompts, :uuid, prefix) do
-          ensure_uuid_column_and_index(:phoenix_kit_ai_prompts, prefix)
-        end
+        # V56 skips tables that don't exist yet, so ai_prompts may lack a uuid
+        # column if the AI module was enabled after V56 ran. Ensure it exists.
+        ensure_uuid_column(:phoenix_kit_ai_prompts, prefix)
 
         execute """
         DO $$
@@ -119,45 +117,23 @@ defmodule PhoenixKit.Migrations.Postgres.V78 do
     exists
   end
 
-  defp column_exists?(table_name, column_name, prefix) do
-    query = """
-    SELECT EXISTS (
-      SELECT FROM information_schema.columns
-      WHERE table_schema = '#{prefix}'
-      AND table_name = '#{table_name}'
-      AND column_name = '#{column_name}'
-    )
-    """
-
-    %{rows: [[exists]]} = PhoenixKit.RepoHelper.repo().query!(query)
-    exists
-  end
-
-  # Replicates V56's idempotent pattern for adding a uuid column with
-  # backfill, NOT NULL constraint, and unique index.
-  defp ensure_uuid_column_and_index(table_name, prefix) do
+  # Idempotently adds uuid column + backfill + NOT NULL + unique index.
+  # All statements use IF NOT EXISTS / IF NULL guards, safe to run on tables
+  # that already have the column.
+  defp ensure_uuid_column(table_name, prefix) do
     full_table = "#{prefix_str(prefix)}#{table_name}"
-    index_name = "#{table_name}_uuid_index"
 
     execute("""
     ALTER TABLE #{full_table}
     ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7()
     """)
 
-    execute("""
-    UPDATE #{full_table}
-    SET uuid = uuid_generate_v7()
-    WHERE uuid IS NULL
-    """)
+    execute("UPDATE #{full_table} SET uuid = uuid_generate_v7() WHERE uuid IS NULL")
+
+    execute("ALTER TABLE #{full_table} ALTER COLUMN uuid SET NOT NULL")
 
     execute("""
-    ALTER TABLE #{full_table}
-    ALTER COLUMN uuid SET NOT NULL
-    """)
-
-    execute("""
-    CREATE UNIQUE INDEX IF NOT EXISTS #{index_name}
-    ON #{full_table}(uuid)
+    CREATE UNIQUE INDEX IF NOT EXISTS #{table_name}_uuid_index ON #{full_table}(uuid)
     """)
   end
 
