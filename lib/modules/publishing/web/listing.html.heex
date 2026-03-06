@@ -45,21 +45,6 @@
       </div>
     </.admin_page_header>
 
-    <%!-- Database Migration Required Banner --%>
-    <%= if not @db_storage do %>
-      <div class="alert alert-warning shadow-sm mb-6">
-        <.icon name="hero-exclamation-triangle" class="w-6 h-6" />
-        <div class="flex-1">
-          <h3 class="font-bold">{gettext("Database migration required")}</h3>
-          <p class="text-sm">
-            {gettext(
-              "Posts must be imported into the database before you can create or edit content. Use the \"Import to DB\" button below for each group, or import all groups at once."
-            )}
-          </p>
-        </div>
-      </div>
-    <% end %>
-
     <%!-- Cache Status Section (Collapsible) --%>
     <%= if @cache_info do %>
       <div class="collapse collapse-arrow bg-base-100 shadow-sm border border-base-200 mb-6">

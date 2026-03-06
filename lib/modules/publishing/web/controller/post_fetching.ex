@@ -12,7 +12,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
-  alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
 
@@ -25,18 +24,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   Falls back to primary language or first available if requested language isn't found.
   """
   def fetch_post(group_slug, {:slug, post_slug}, language) do
-    if Publishing.db_storage?() do
-      # In DB mode, read directly from database (no filesystem)
-      Publishing.read_post(group_slug, post_slug, language)
-    else
-      case Storage.list_versions(group_slug, post_slug) do
-        [] ->
-          {:error, :post_not_found}
-
-        versions ->
-          find_published_slug_post(group_slug, post_slug, versions, language)
-      end
-    end
+    Publishing.read_post(group_slug, post_slug, language)
   end
 
   def fetch_post(group_slug, {:timestamp, date, time}, language) do
@@ -63,138 +51,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
   end
 
   # ============================================================================
-  # Slug Mode Post Fetching
-  # ============================================================================
-
-  defp find_published_slug_post(group_slug, post_slug, versions, language) do
-    # Use post's stored primary language for fallback, not global
-    primary_language = Storage.get_post_primary_language(group_slug, post_slug)
-    post_dir = Path.join([Storage.group_path(group_slug), post_slug])
-
-    published_result =
-      versions
-      |> Enum.sort(:desc)
-      |> Enum.find_value(
-        &find_published_version(&1, group_slug, post_slug, post_dir, language, primary_language)
-      )
-
-    published_result || {:error, :post_not_found}
-  end
-
-  defp find_published_version(
-         version,
-         group_slug,
-         post_slug,
-         post_dir,
-         language,
-         primary_language
-       ) do
-    version_dir = Path.join(post_dir, "v#{version}")
-    available_languages = detect_available_languages_in_dir(version_dir)
-    resolved_language = Language.resolve_language_for_post(language, available_languages)
-
-    languages_to_try =
-      [resolved_language, primary_language | available_languages]
-      |> Enum.uniq()
-      |> Enum.filter(&(&1 in available_languages))
-
-    Enum.find_value(
-      languages_to_try,
-      &try_read_published_post(group_slug, post_slug, &1, version)
-    )
-  end
-
-  defp try_read_published_post(group_slug, post_slug, lang, version) do
-    case Publishing.read_post(group_slug, post_slug, lang, version) do
-      {:ok, post} when post.metadata.status == "published" -> {:ok, post}
-      _ -> nil
-    end
-  end
-
-  # ============================================================================
-  # Timestamp Mode Post Fetching (Cache)
+  # Timestamp Mode Post Fetching
   # ============================================================================
 
   @doc """
-  Fast path: Use cache to get metadata, only read content file.
+  Reads a timestamp post from the database.
   """
   def fetch_timestamp_post_from_cache(group_slug, date, time, language) do
-    # In DB mode, skip cache and read directly from DB
-    if Publishing.db_storage?() do
-      identifier = "#{date}/#{time}"
-      Publishing.read_post(group_slug, identifier, language)
-    else
-      fetch_timestamp_post_from_listing_cache(group_slug, date, time, language)
-    end
-  end
-
-  defp fetch_timestamp_post_from_listing_cache(group_slug, date, time, language) do
-    case ListingCache.find_post_by_path(group_slug, date, time) do
-      {:ok, cached_post} ->
-        # Cache has all metadata, we just need to read the content
-        # Find the right language file to read
-        resolved_language =
-          Language.resolve_language_for_post(language, cached_post.available_languages)
-
-        if resolved_language do
-          # Build path to the content file
-          # The cached post has the live version's path
-          content_path = build_content_path_from_cache(cached_post, resolved_language)
-
-          case read_content_only(content_path) do
-            {:ok, content} ->
-              # Merge cached metadata with fresh content
-              {:ok, merge_cache_with_content(cached_post, content, resolved_language)}
-
-            {:error, _} ->
-              {:error, :content_not_found}
-          end
-        else
-          {:error, :language_not_found}
-        end
-
-      {:error, _} ->
-        {:error, :cache_miss}
-    end
-  end
-
-  # Build the content file path from cached post data
-  defp build_content_path_from_cache(cached_post, language) do
-    # The cached post's full_path points to the live version
-    # Replace the language portion
-    cached_post.full_path
-    |> Path.dirname()
-    |> Path.join("#{language}.phk")
-  end
-
-  # Read just the content from a file (skip expensive metadata operations)
-  defp read_content_only(path) do
-    with {:ok, file_content} <- File.read(path),
-         {:ok, _metadata, body} <- Metadata.parse_with_content(file_content) do
-      {:ok, body}
-    end
-  end
-
-  # Merge cached metadata with fresh content
-  defp merge_cache_with_content(cached_post, content, language) do
-    %{
-      group: cached_post.group,
-      slug: cached_post.slug,
-      date: cached_post.date,
-      time: cached_post.time,
-      path: cached_post.path,
-      full_path: build_content_path_from_cache(cached_post, language),
-      metadata: cached_post.metadata,
-      content: content,
-      language: language,
-      available_languages: cached_post.available_languages,
-      language_statuses: cached_post.language_statuses,
-      mode: cached_post.mode,
-      version: cached_post.version,
-      available_versions: cached_post.available_versions,
-      version_statuses: cached_post.version_statuses,
-      is_legacy_structure: cached_post.is_legacy_structure
-    }
+    identifier = "#{date}/#{time}"
+    Publishing.read_post(group_slug, identifier, language)
   end
 
   # ============================================================================

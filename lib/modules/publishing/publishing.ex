@@ -257,15 +257,9 @@ defmodule PhoenixKit.Modules.Publishing do
   @spec find_by_url_slug(String.t(), String.t(), String.t()) ::
           {:ok, map()} | {:error, :not_found | :cache_miss}
   def find_by_url_slug(group_slug, language, url_slug) do
-    case storage_mode() do
-      :db ->
-        case DBStorage.find_by_url_slug(group_slug, language, url_slug) do
-          nil -> {:error, :not_found}
-          content -> {:ok, db_content_to_legacy_post(content, group_slug, language)}
-        end
-
-      :filesystem ->
-        ListingCache.find_by_url_slug(group_slug, language, url_slug)
+    case DBStorage.find_by_url_slug(group_slug, language, url_slug) do
+      nil -> {:error, :not_found}
+      content -> {:ok, db_content_to_legacy_post(content, group_slug, language)}
     end
   end
 
@@ -275,16 +269,9 @@ defmodule PhoenixKit.Modules.Publishing do
   @spec find_by_previous_url_slug(String.t(), String.t(), String.t()) ::
           {:ok, map()} | {:error, :not_found | :cache_miss}
   def find_by_previous_url_slug(group_slug, language, url_slug) do
-    case storage_mode() do
-      :db ->
-        # Query content rows where data.previous_url_slugs contains the slug
-        case DBStorage.find_by_previous_url_slug(group_slug, language, url_slug) do
-          nil -> {:error, :not_found}
-          content -> {:ok, db_content_to_legacy_post(content, group_slug, language)}
-        end
-
-      :filesystem ->
-        ListingCache.find_by_previous_url_slug(group_slug, language, url_slug)
+    case DBStorage.find_by_previous_url_slug(group_slug, language, url_slug) do
+      nil -> {:error, :not_found}
+      content -> {:ok, db_content_to_legacy_post(content, group_slug, language)}
     end
   end
 
@@ -317,8 +304,6 @@ defmodule PhoenixKit.Modules.Publishing do
   @legacy_enabled_key "blogging_enabled"
   @legacy_blogs_key "blogging_blogs"
   @legacy_categories_key "blogging_categories"
-
-  @publishing_storage_key "publishing_storage"
 
   @default_group_mode "timestamp"
   @default_group_type "blogging"
@@ -373,74 +358,23 @@ defmodule PhoenixKit.Modules.Publishing do
 
   @doc """
   Returns the current storage mode for publishing reads.
-
-  - `:filesystem` (default) — reads from filesystem via Storage/ListingCache
-  - `:db` — reads from database via DBStorage
-
-  Controlled by the `publishing_storage` setting (seeded by V59 migration).
+  Always returns `:db` — filesystem storage has been removed.
   """
-  @spec storage_mode() :: :filesystem | :db
-  def storage_mode do
-    case settings_call(:get_setting_cached, [@publishing_storage_key, "filesystem"]) do
-      "db" -> :db
-      _ -> :filesystem
-    end
-  end
+  @spec storage_mode() :: :db
+  def storage_mode, do: :db
 
   @doc """
   Returns true when reads are served from the database.
+  Always returns true — filesystem storage has been removed.
   """
   @spec db_storage?() :: boolean()
-  def db_storage?, do: storage_mode() == :db
-
-  @doc """
-  Returns true when the DB says storage mode is "db", bypassing the cache.
-  Used by the editor migration gate to avoid stale cache issues.
-  """
-  @spec db_storage_direct?() :: boolean()
-  def db_storage_direct? do
-    case settings_call(:get_setting, [@publishing_storage_key]) do
-      "db" -> true
-      _ -> false
-    end
-  rescue
-    _ -> false
-  end
+  def db_storage?, do: true
 
   @doc """
   Returns true when the given post is a DB-backed post (has a UUID).
-
-  Use this to discriminate individual posts. Use `db_storage?/0` for
-  global storage mode decisions.
   """
   @spec db_post?(map()) :: boolean()
   def db_post?(post), do: not is_nil(post[:uuid])
-
-  @doc """
-  Returns true if any publishing group has filesystem posts.
-  Used to detect whether FS→DB migration is needed (fresh installs have none).
-  """
-  @spec has_any_fs_posts?() :: boolean()
-  def has_any_fs_posts? do
-    list_groups()
-    |> Enum.any?(fn g -> list_posts(g["slug"]) != [] end)
-  end
-
-  @doc """
-  Switches storage mode to database. Called automatically when migration
-  completes or when a fresh install (no FS posts) is detected.
-  """
-  def enable_db_storage! do
-    settings_call(:update_setting, ["publishing_storage", "db"])
-
-    # Clear stale FS-mode cache entries so DB-mode regeneration starts fresh
-    Enum.each(list_groups(), fn g ->
-      ListingCache.invalidate(g["slug"])
-    end)
-  rescue
-    # Don't let cache cleanup failure prevent the mode switch
-    _ -> :ok
-  end
 
   # ============================================================================
   # Module Behaviour Callbacks
@@ -855,82 +789,8 @@ defmodule PhoenixKit.Modules.Publishing do
   filesystem scan on cache miss.
   """
   @spec list_posts(String.t(), String.t() | nil) :: [Storage.post()]
-  def list_posts(group_slug, preferred_language \\ nil) do
-    case storage_mode() do
-      :db -> list_posts_from_db(group_slug)
-      :filesystem -> list_posts_from_cache(group_slug, preferred_language)
-    end
-  end
-
-  defp list_posts_from_db(group_slug) do
+  def list_posts(group_slug, _preferred_language \\ nil) do
     DBStorage.list_posts_with_metadata(group_slug)
-  end
-
-  defp list_posts_from_cache(group_slug, preferred_language) do
-    start_time = System.monotonic_time(:millisecond)
-
-    # Try cache first for fast response
-    result =
-      case ListingCache.read(group_slug) do
-        {:ok, cached_posts} ->
-          elapsed = System.monotonic_time(:millisecond) - start_time
-
-          Logger.debug(
-            "[Publishing.list_posts] CACHE HIT for #{group_slug} (#{length(cached_posts)} posts) in #{elapsed}ms"
-          )
-
-          cached_posts
-
-        {:error, :cache_miss} ->
-          # Cache miss - regenerate cache synchronously to prevent race condition
-          Logger.debug(
-            "[Publishing.list_posts] CACHE MISS for #{group_slug}, regenerating cache..."
-          )
-
-          case ListingCache.regenerate_if_not_in_progress(group_slug) do
-            :ok ->
-              elapsed = System.monotonic_time(:millisecond) - start_time
-
-              Logger.debug(
-                "[Publishing.list_posts] Cache regenerated for #{group_slug} in #{elapsed}ms"
-              )
-
-              case ListingCache.read(group_slug) do
-                {:ok, posts} -> posts
-                {:error, _} -> list_posts_from_storage(group_slug, preferred_language)
-              end
-
-            :already_in_progress ->
-              posts = list_posts_from_storage(group_slug, preferred_language)
-              elapsed = System.monotonic_time(:millisecond) - start_time
-
-              Logger.debug(
-                "[Publishing.list_posts] Regeneration in progress, filesystem scan for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
-              )
-
-              posts
-
-            {:error, _reason} ->
-              posts = list_posts_from_storage(group_slug, preferred_language)
-              elapsed = System.monotonic_time(:millisecond) - start_time
-
-              Logger.debug(
-                "[Publishing.list_posts] Regeneration failed, filesystem scan for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
-              )
-
-              posts
-          end
-      end
-
-    result
-  end
-
-  # Direct filesystem scan (used on cache miss)
-  defp list_posts_from_storage(group_slug, preferred_language) do
-    case get_group_mode(group_slug) do
-      "slug" -> Storage.list_posts_slug_mode(group_slug, preferred_language)
-      _ -> Storage.list_posts(group_slug, preferred_language)
-    end
   end
 
   @doc """
@@ -1086,20 +946,7 @@ defmodule PhoenixKit.Modules.Publishing do
   @spec read_post(String.t(), String.t(), String.t() | nil, integer() | nil) ::
           {:ok, Storage.post()} | {:error, any()}
   def read_post(group_slug, identifier, language \\ nil, version \\ nil) do
-    case storage_mode() do
-      :db ->
-        read_post_from_db(group_slug, identifier, language, version)
-
-      :filesystem ->
-        case read_post_from_filesystem(group_slug, identifier, language, version) do
-          {:ok, _} = success ->
-            success
-
-          {:error, _} ->
-            # Fallback to DB for groups that were imported but don't exist on filesystem
-            read_post_from_db(group_slug, identifier, language, version)
-        end
-    end
+    read_post_from_db(group_slug, identifier, language, version)
   end
 
   defp read_post_from_db(group_slug, identifier, language, version) do
@@ -1201,57 +1048,6 @@ defmodule PhoenixKit.Modules.Publishing do
     case Time.from_iso8601(time_str <> ":00") do
       {:ok, time} -> {:ok, time}
       _ -> :error
-    end
-  end
-
-  defp read_post_from_filesystem(group_slug, identifier, language, version) do
-    case get_group_mode(group_slug) do
-      "slug" ->
-        {post_slug, inferred_version, inferred_language} =
-          extract_slug_version_and_language(group_slug, identifier)
-
-        final_language = language || inferred_language
-        final_version = version || inferred_version
-
-        Storage.read_post_slug_mode(group_slug, post_slug, final_language, final_version)
-
-      _ ->
-        read_post_timestamp_mode(group_slug, identifier, language, version)
-    end
-  end
-
-  # Handle timestamp mode posts - identifier can be:
-  # - Full path like "blog/2025-12-31/03:42/v2/en.phk"
-  # - Timestamp identifier like "2025-12-31/03:42"
-  defp read_post_timestamp_mode(group_slug, identifier, language, version) do
-    # If identifier looks like a full path (contains .phk), use it directly
-    if String.contains?(identifier, ".phk") do
-      Storage.read_post(group_slug, identifier)
-    else
-      # Build full path from timestamp identifier + language + version
-      final_language = language || Storage.get_primary_language()
-      final_version = version || get_latest_timestamp_version(group_slug, identifier)
-
-      full_path =
-        Path.join([group_slug, identifier, "v#{final_version}", "#{final_language}.phk"])
-
-      Storage.read_post(group_slug, full_path)
-    end
-  end
-
-  # Get the latest version number for a timestamp mode post
-  defp get_latest_timestamp_version(group_slug, timestamp_id) do
-    post_dir = Path.join([Storage.group_path(group_slug), timestamp_id])
-
-    case File.ls(post_dir) do
-      {:ok, entries} ->
-        entries
-        |> Enum.filter(&String.match?(&1, ~r/^v\d+$/))
-        |> Enum.map(fn "v" <> n -> String.to_integer(n) end)
-        |> Enum.max(fn -> 1 end)
-
-      _ ->
-        1
     end
   end
 

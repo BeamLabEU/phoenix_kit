@@ -44,7 +44,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
           {:ok, cached_post} ->
             # Found in previous slugs - redirect to current URL
             current_url_slug =
-              Map.get(cached_post.language_slugs || %{}, language, cached_post.slug)
+              Map.get(cached_post[:language_slugs] || %{}, language, cached_post.slug)
 
             redirect_url =
               build_post_redirect_url(group_slug, cached_post, language, current_url_slug)
@@ -52,13 +52,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
             {:redirect, redirect_url}
 
           {:error, _} ->
-            # Not found in cache - try filesystem fallback
-            resolve_url_slug_from_filesystem(group_slug, url_slug, language)
+            :passthrough
         end
-
-      {:error, :cache_miss} ->
-        # Cache not available - try filesystem fallback
-        resolve_url_slug_from_filesystem(group_slug, url_slug, language)
     end
   end
 

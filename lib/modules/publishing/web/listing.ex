@@ -290,20 +290,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   def handle_event("regenerate_file_cache", _params, socket) do
     group_slug = socket.assigns.group_slug
+    ListingCache.regenerate_file_only(group_slug)
+    PublishingPubSub.broadcast_cache_changed(group_slug)
 
-    case ListingCache.regenerate_file_only(group_slug) do
-      :ok ->
-        # Notify other dashboards about cache change
-        PublishingPubSub.broadcast_cache_changed(group_slug)
-
-        {:noreply,
-         socket
-         |> assign(:cache_info, get_cache_info(group_slug))
-         |> put_flash(:info, gettext("File cache regenerated"))}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to regenerate cache"))}
-    end
+    {:noreply,
+     socket
+     |> assign(:cache_info, get_cache_info(group_slug))
+     |> put_flash(:info, gettext("File cache regenerated"))}
   end
 
   def handle_event("invalidate_file_cache", _params, socket) do
@@ -340,9 +333,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
            socket
            |> assign(:cache_info, get_cache_info(group_slug))
            |> put_flash(:info, gettext("Cache loaded into memory"))}
-
-        {:error, :no_file} ->
-          {:noreply, put_flash(socket, :error, gettext("No file cache to load from"))}
 
         {:error, _reason} ->
           {:noreply, put_flash(socket, :error, gettext("Failed to load cache"))}
@@ -1464,11 +1454,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp get_cache_info(nil), do: nil
 
   defp get_cache_info(group_slug) do
-    if Publishing.db_storage?() do
-      get_cache_info_db(group_slug)
-    else
-      get_cache_info_fs(group_slug)
-    end
+    get_cache_info_db(group_slug)
   end
 
   # DB mode: no file cache, just persistent_term + render cache
@@ -1506,74 +1492,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       render_enabled: render_enabled,
       render_global_enabled: render_global_enabled
     }
-  end
-
-  # Filesystem mode: check JSON file + persistent_term + render cache
-  defp get_cache_info_fs(group_slug) do
-    cache_path = ListingCache.cache_path(group_slug)
-    file_enabled = ListingCache.file_cache_enabled?()
-    memory_enabled = ListingCache.memory_cache_enabled?()
-    render_enabled = Renderer.group_render_cache_enabled?(group_slug)
-    render_global_enabled = Renderer.global_render_cache_enabled?()
-
-    # Check if in :persistent_term
-    in_memory =
-      case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
-        :not_found -> false
-        _ -> true
-      end
-
-    # Get when memory cache was loaded and what file version it contains
-    memory_loaded_at = ListingCache.memory_loaded_at(group_slug)
-    memory_file_generated_at = ListingCache.memory_file_generated_at(group_slug)
-
-    case File.stat(cache_path) do
-      {:ok, stat} ->
-        # Read cache to get post count and generated_at
-        {post_count, generated_at} =
-          case File.read(cache_path) do
-            {:ok, content} ->
-              case Jason.decode(content) do
-                {:ok, %{"post_count" => count, "generated_at" => gen_at}} -> {count, gen_at}
-                {:ok, %{"post_count" => count}} -> {count, nil}
-                _ -> {nil, nil}
-              end
-
-            _ ->
-              {nil, nil}
-          end
-
-        %{
-          exists: true,
-          file_size: stat.size,
-          modified_at: stat.mtime,
-          post_count: post_count,
-          generated_at: generated_at,
-          in_memory: in_memory,
-          memory_loaded_at: memory_loaded_at,
-          memory_file_generated_at: memory_file_generated_at,
-          file_enabled: file_enabled,
-          memory_enabled: memory_enabled,
-          render_enabled: render_enabled,
-          render_global_enabled: render_global_enabled
-        }
-
-      {:error, :enoent} ->
-        %{
-          exists: false,
-          file_size: 0,
-          modified_at: nil,
-          post_count: nil,
-          generated_at: nil,
-          in_memory: in_memory,
-          memory_loaded_at: memory_loaded_at,
-          memory_file_generated_at: memory_file_generated_at,
-          file_enabled: file_enabled,
-          memory_enabled: memory_enabled,
-          render_enabled: render_enabled,
-          render_global_enabled: render_global_enabled
-        }
-    end
   end
 
   defp get_primary_language_status(nil), do: nil

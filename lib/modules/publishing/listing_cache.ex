@@ -239,13 +239,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       {:error, {:regenerate_failed, error}}
   end
 
-  defp do_regenerate(group_slug, file_enabled, memory_enabled) do
+  defp do_regenerate(group_slug, _file_enabled, memory_enabled) do
     start_time = System.monotonic_time(:millisecond)
 
-    case Publishing.storage_mode() do
-      :db -> do_regenerate_from_db(group_slug, memory_enabled, start_time)
-      :filesystem -> do_regenerate_from_fs(group_slug, file_enabled, memory_enabled, start_time)
-    end
+    do_regenerate_from_db(group_slug, memory_enabled, start_time)
   end
 
   # DB mode: fetch from database, store directly in persistent_term (no JSON file)
@@ -275,66 +272,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       )
 
       {:error, {:regenerate_failed, error}}
-  end
-
-  # Filesystem mode: scan files, serialize to JSON, store in persistent_term
-  defp do_regenerate_from_fs(group_slug, file_enabled, memory_enabled, start_time) do
-    # Fetch all posts using the existing storage layer
-    posts =
-      case Publishing.get_group_mode(group_slug) do
-        "slug" -> Storage.list_posts_slug_mode(group_slug, nil)
-        _ -> Storage.list_posts(group_slug, nil)
-      end
-
-    # Enrich FS posts with DB UUIDs when available (for migrated posts)
-    posts = enrich_with_db_uuids(posts, group_slug)
-
-    # Convert to cacheable format (strip content, keep metadata)
-    serialized_posts = Enum.map(posts, &safe_serialize_post/1)
-    normalized_posts = Enum.map(serialized_posts, &normalize_post/1)
-
-    # Generate timestamp once for consistency
-    generated_at = UtilsDate.utc_now() |> DateTime.to_iso8601()
-
-    # Write to file cache if enabled
-    file_result =
-      if file_enabled do
-        cache_data = %{
-          "generated_at" => generated_at,
-          "post_count" => length(posts),
-          "posts" => serialized_posts
-        }
-
-        write_cache_file(cache_path(group_slug), cache_data)
-      else
-        :ok
-      end
-
-    # Update :persistent_term if enabled
-    if memory_enabled do
-      safe_persistent_term_put(persistent_term_key(group_slug), normalized_posts)
-      safe_persistent_term_put(loaded_at_key(group_slug), generated_at)
-      safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
-    end
-
-    elapsed = System.monotonic_time(:millisecond) - start_time
-
-    case file_result do
-      :ok ->
-        Logger.debug(
-          "[ListingCache] Regenerated cache for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
-        )
-
-        # Broadcast cache change so admin UI updates live
-        PublishingPubSub.broadcast_cache_changed(group_slug)
-
-        :ok
-
-      {:error, reason} = error ->
-        Logger.error("[ListingCache] Failed to write cache for #{group_slug}: #{inspect(reason)}")
-
-        error
-    end
   end
 
   # Lock timeout in milliseconds (30 seconds)
@@ -479,15 +416,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       :error
   end
 
-  # Safely serialize a post (returns empty map on failure instead of crashing)
-  defp safe_serialize_post(post) do
-    serialize_post(post)
-  rescue
-    error ->
-      Logger.warning("[ListingCache] Failed to serialize post: #{inspect(error)}")
-      %{"slug" => "error", "metadata" => %{"title" => "Error loading post"}}
-  end
-
   @doc """
   Regenerates only the file cache without loading into memory.
 
@@ -495,57 +423,9 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   update :persistent_term. Use `load_into_memory/1` separately if needed.
   """
   @spec regenerate_file_only(String.t()) :: :ok | {:error, any()}
-  def regenerate_file_only(group_slug) do
-    # No file cache in DB mode — DB is the persistence layer
-    if Publishing.storage_mode() == :db do
-      :ok
-    else
-      do_regenerate_file_only(group_slug)
-    end
-  end
-
-  defp do_regenerate_file_only(group_slug) do
-    start_time = System.monotonic_time(:millisecond)
-
-    # Fetch all posts using the existing storage layer
-    posts =
-      case Publishing.get_group_mode(group_slug) do
-        "slug" -> Storage.list_posts_slug_mode(group_slug, nil)
-        _ -> Storage.list_posts(group_slug, nil)
-      end
-
-    # Convert to cacheable format (use safe version to handle malformed posts)
-    serialized_posts = Enum.map(posts, &safe_serialize_post/1)
-
-    cache_data = %{
-      "generated_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-      "post_count" => length(posts),
-      "posts" => serialized_posts
-    }
-
-    result = write_cache_file(cache_path(group_slug), cache_data)
-    elapsed = System.monotonic_time(:millisecond) - start_time
-
-    case result do
-      :ok ->
-        Logger.debug(
-          "[ListingCache] Regenerated file cache for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
-        )
-
-        :ok
-
-      {:error, reason} = error ->
-        Logger.error("[ListingCache] Failed to write cache for #{group_slug}: #{inspect(reason)}")
-
-        error
-    end
-  rescue
-    error ->
-      Logger.error(
-        "[ListingCache] Failed to regenerate file cache for #{group_slug}: #{inspect(error)}"
-      )
-
-      {:error, {:regenerate_failed, error}}
+  def regenerate_file_only(_group_slug) do
+    # No file cache — DB is the persistence layer
+    :ok
   end
 
   @doc """
@@ -556,10 +436,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   """
   @spec load_into_memory(String.t()) :: :ok | {:error, any()}
   def load_into_memory(group_slug) do
-    case Publishing.storage_mode() do
-      :db -> load_into_memory_from_db(group_slug)
-      :filesystem -> load_into_memory_from_file(group_slug)
-    end
+    load_into_memory_from_db(group_slug)
   end
 
   defp load_into_memory_from_db(group_slug) do
@@ -581,63 +458,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       Logger.error("[ListingCache] Failed to load #{group_slug} from DB: #{inspect(error)}")
 
       {:error, {:load_failed, error}}
-  end
-
-  defp load_into_memory_from_file(group_slug) do
-    cache_path = cache_path(group_slug)
-
-    case File.read(cache_path) do
-      {:ok, content} ->
-        case Jason.decode(content) do
-          {:ok, %{"posts" => posts, "generated_at" => generated_at}} ->
-            normalized_posts = Enum.map(posts, &normalize_post/1)
-            safe_persistent_term_put(persistent_term_key(group_slug), normalized_posts)
-
-            safe_persistent_term_put(
-              loaded_at_key(group_slug),
-              UtilsDate.utc_now() |> DateTime.to_iso8601()
-            )
-
-            # Store the file's generated_at so we know what version of data is in memory
-            safe_persistent_term_put(file_generated_at_key(group_slug), generated_at)
-
-            Logger.debug(
-              "[ListingCache] Loaded #{group_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
-            )
-
-            # Broadcast cache change so admin UI updates live
-            PublishingPubSub.broadcast_cache_changed(group_slug)
-
-            :ok
-
-          {:ok, %{"posts" => posts}} ->
-            # Fallback for files without generated_at
-            normalized_posts = Enum.map(posts, &normalize_post/1)
-            safe_persistent_term_put(persistent_term_key(group_slug), normalized_posts)
-
-            safe_persistent_term_put(
-              loaded_at_key(group_slug),
-              UtilsDate.utc_now() |> DateTime.to_iso8601()
-            )
-
-            # Broadcast cache change so admin UI updates live
-            PublishingPubSub.broadcast_cache_changed(group_slug)
-
-            :ok
-
-          {:ok, _} ->
-            {:error, :invalid_format}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      {:error, :enoent} ->
-        {:error, :no_file}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
   end
 
   @doc """
@@ -1144,57 +964,6 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   # Private functions
-
-  defp write_cache_file(path, data) do
-    # Ensure parent directory exists
-    path |> Path.dirname() |> File.mkdir_p()
-
-    # Write to temp file first, then rename (atomic write)
-    # Use unique suffix to avoid race conditions when multiple processes regenerate simultaneously
-    unique_id = :erlang.unique_integer([:positive])
-    tmp_path = "#{path}.tmp.#{unique_id}"
-
-    case Jason.encode(data, pretty: true) do
-      {:ok, json} ->
-        case File.write(tmp_path, json) do
-          :ok ->
-            result = File.rename(tmp_path, path)
-            # Clean up temp file if rename failed
-            if result != :ok, do: File.rm(tmp_path)
-            result
-
-          error ->
-            error
-        end
-
-      {:error, reason} ->
-        {:error, {:json_encode, reason}}
-    end
-  end
-
-  # Enrich filesystem posts with their DB UUIDs (if migrated to DB).
-  # This enables UUID-based links in the admin listing even in filesystem mode.
-  defp enrich_with_db_uuids(posts, group_slug) do
-    # Batch-fetch all DB posts for this group to avoid N+1 queries
-    db_posts =
-      try do
-        DBStorage.list_posts(group_slug)
-        |> Map.new(fn p -> {p.slug, p.uuid} end)
-      rescue
-        _ -> %{}
-      end
-
-    if map_size(db_posts) == 0 do
-      posts
-    else
-      Enum.map(posts, fn post ->
-        case Map.get(db_posts, post[:slug]) do
-          nil -> post
-          uuid -> Map.put(post, :uuid, uuid)
-        end
-      end)
-    end
-  end
 
   defp serialize_post(post) do
     # Build both current and previous slugs for all languages

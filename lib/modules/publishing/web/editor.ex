@@ -196,76 +196,27 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Match both /admin/publishing/:group/new route AND legacy ?new=true
   def handle_params(params, _uri, %{assigns: %{live_action: :new}} = socket)
       when not is_map_key(params, "preview_token") do
-    case ensure_db_mode(socket) do
-      {:ok, socket} -> handle_new_post(socket)
-      {:redirect, socket} -> {:noreply, socket}
-    end
+    handle_new_post(socket)
   end
 
   def handle_params(%{"new" => "true"} = params, _uri, socket)
       when not is_map_key(params, "preview_token") do
-    case ensure_db_mode(socket) do
-      {:ok, socket} -> handle_new_post(socket)
-      {:redirect, socket} -> {:noreply, socket}
-    end
+    handle_new_post(socket)
   end
 
   # UUID-based route: /admin/publishing/:group/:post_uuid/edit
   def handle_params(%{"post_uuid" => post_uuid} = params, _uri, socket)
       when not is_map_key(params, "preview_token") do
-    case ensure_db_mode(socket) do
-      {:redirect, socket} ->
-        {:noreply, socket}
-
-      {:ok, socket} ->
-        handle_uuid_post_params(socket, post_uuid, params)
-    end
+    handle_uuid_post_params(socket, post_uuid, params)
   end
 
   def handle_params(%{"path" => path} = params, _uri, socket)
       when not is_map_key(params, "preview_token") do
-    case ensure_db_mode(socket) do
-      {:redirect, socket} ->
-        {:noreply, socket}
-
-      {:ok, socket} ->
-        handle_path_post_params(socket, path, params)
-    end
+    handle_path_post_params(socket, path, params)
   end
 
   def handle_params(_params, _uri, socket) do
     {:noreply, socket}
-  end
-
-  # Ensures the editor is in DB mode. Fresh installs (no FS posts) auto-flip to DB.
-  # Existing FS posts require migration before editing is allowed.
-  defp ensure_db_mode(socket) do
-    cond do
-      Publishing.db_storage?() ->
-        {:ok, socket}
-
-      Publishing.db_storage_direct?() ->
-        # Cache was stale — DB says "db" mode, refresh cache and proceed
-        {:ok, socket}
-
-      not Publishing.has_any_fs_posts?() ->
-        # Fresh install — no FS posts, auto-enable DB mode
-        Publishing.enable_db_storage!()
-        {:ok, socket}
-
-      true ->
-        group_slug = socket.assigns.group_slug
-
-        {:redirect,
-         socket
-         |> put_flash(
-           :error,
-           gettext(
-             "Posts must be migrated to the database before editing. Import your posts from the Publishing admin."
-           )
-         )
-         |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
-    end
   end
 
   defp handle_uuid_post_params(socket, post_uuid, params) do

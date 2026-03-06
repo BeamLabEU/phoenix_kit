@@ -318,11 +318,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   end
 
   defp get_cache_info(group_slug) do
-    if Publishing.db_storage?() do
-      get_cache_info_db(group_slug)
-    else
-      get_cache_info_fs(group_slug)
-    end
+    get_cache_info_db(group_slug)
   end
 
   defp get_cache_info_db(group_slug) do
@@ -345,44 +341,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       post_count: post_count,
       in_memory: in_memory
     }
-  end
-
-  defp get_cache_info_fs(group_slug) do
-    cache_path = ListingCache.cache_path(group_slug)
-
-    case File.stat(cache_path) do
-      {:ok, stat} ->
-        # Read cache to get post count
-        post_count =
-          case File.read(cache_path) do
-            {:ok, content} ->
-              case Jason.decode(content) do
-                {:ok, %{"post_count" => count}} -> count
-                _ -> nil
-              end
-
-            _ ->
-              nil
-          end
-
-        # Check if in :persistent_term
-        in_memory =
-          case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
-            :not_found -> false
-            _ -> true
-          end
-
-        %{
-          exists: true,
-          file_size: stat.size,
-          modified_at: stat.mtime,
-          post_count: post_count,
-          in_memory: in_memory
-        }
-
-      {:error, :enoent} ->
-        %{exists: false, file_size: 0, modified_at: nil, post_count: nil, in_memory: false}
-    end
   end
 
   defp get_render_cache_stats do
