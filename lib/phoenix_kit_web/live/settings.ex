@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Config.EndpointUrlSync
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Users.OAuthConfig
@@ -106,6 +107,9 @@ defmodule PhoenixKitWeb.Live.Settings do
     # Update all settings to defaults in database
     case Settings.update_settings(defaults) do
       {:ok, updated_settings} ->
+        # Sync site_url to Endpoint after reset
+        EndpointUrlSync.sync()
+
         # Update socket with default settings
         changeset = Settings.change_settings(updated_settings)
 
@@ -143,7 +147,8 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   # Handle successful settings save
   defp handle_settings_saved(socket, _settings_params_to_save, updated_settings) do
-    # Reload OAuth configuration to apply new credentials immediately
+    # Sync site_url to Endpoint and reload OAuth configuration
+    EndpointUrlSync.sync()
     OAuthConfig.configure_providers()
 
     # Update socket with new settings

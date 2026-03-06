@@ -32,6 +32,7 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   use GenServer
   require Logger
 
+  alias PhoenixKit.Config.EndpointUrlSync
   alias PhoenixKit.Users.OAuthConfig
 
   ## Client API
@@ -101,6 +102,9 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
 
   @impl true
   def init(_) do
+    # Sync site_url to Endpoint config before loading OAuth
+    EndpointUrlSync.sync()
+
     # Load OAuth configuration synchronously during initialization
     # With sync_init in the Cache, critical OAuth settings are already loaded
     case load_oauth_config() do
