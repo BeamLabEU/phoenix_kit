@@ -59,13 +59,13 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
           <%= if PhoenixKit.Users.Auth.Scope.admin?(@scope) do %>
             <li>
-              <a
-                href={PhoenixKit.Utils.Routes.path("/admin")}
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin")}
                 class={"flex items-center gap-3" <> if(active_path?(assigns[:current_path], "/admin"), do: " bg-primary text-primary-content", else: "")}
               >
                 <.icon name="hero-shield-check" class="w-4 h-4" />
                 <span>Admin Panel</span>
-              </a>
+              </.link>
             </li>
             <%= if @admin_edit_url do %>
               <li>
@@ -81,23 +81,23 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
           <% end %>
 
           <li>
-            <a
-              href={PhoenixKit.Utils.Routes.path("/dashboard", locale: @current_locale)}
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/dashboard", locale: @current_locale)}
               class={"flex items-center gap-3" <> if(active_path?(assigns[:current_path], "/dashboard"), do: " bg-primary text-primary-content", else: "")}
             >
               <.icon name="hero-home" class="w-4 h-4" />
               <span>Dashboard</span>
-            </a>
+            </.link>
           </li>
 
           <li>
-            <a
-              href={PhoenixKit.Utils.Routes.path("/dashboard/settings", locale: @current_locale)}
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/dashboard/settings", locale: @current_locale)}
               class={"flex items-center gap-3" <> if(active_path?(assigns[:current_path], "/dashboard/settings"), do: " bg-primary text-primary-content", else: "")}
             >
               <.icon name="hero-cog-6-tooth" class="w-4 h-4" />
               <span>Settings</span>
-            </a>
+            </.link>
           </li>
 
           <% user_languages = get_user_languages() %>

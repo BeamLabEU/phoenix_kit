@@ -37,10 +37,14 @@ config :ueberauth, Ueberauth, providers: %{}
 # Configure Oban (if using job processing)
 config :phoenix_kit, Oban,
   repo: PhoenixKit.Repo,
-  queues: [default: 10, emails: 50, file_processing: 20, posts: 10],
+  queues: [default: 10, emails: 50, file_processing: 20, posts: 10, scheduled_jobs: 1],
   plugins: [
-    # Keep completed/cancelled/discarded jobs for 30 days for dashboard visibility
-    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
+    # Main pruner: 30 days for most queues
+    {Oban.Plugins.Pruner,
+     max_age: 60 * 60 * 24 * 30,
+     queue: [:default, :emails, :file_processing, :posts, :sitemap, :sqs_polling, :sync]},
+    # Dedicated pruner: 1 day only for scheduled_jobs (cron runs every minute)
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24, queue: [:scheduled_jobs]},
     {Oban.Plugins.Cron,
      crontab: [
        {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},

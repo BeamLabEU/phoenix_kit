@@ -35,7 +35,7 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
   - Worker itself always returns :ok to prevent Oban retries
   """
 
-  use Oban.Worker, queue: :default, max_attempts: 1
+  use Oban.Worker, queue: :scheduled_jobs, max_attempts: 1
 
   require Logger
 
