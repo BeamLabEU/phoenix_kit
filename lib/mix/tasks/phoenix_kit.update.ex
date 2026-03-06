@@ -834,9 +834,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           end
         rescue
           error ->
-            Mix.shell().info(
-              "⚠️  #{name} migration check failed: #{Exception.message(error)}"
-            )
+            Mix.shell().info("⚠️  #{name} migration check failed: #{Exception.message(error)}")
         end
       end)
     end
