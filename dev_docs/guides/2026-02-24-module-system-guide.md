@@ -37,7 +37,7 @@ PhoenixKit's module system is a plugin architecture that lets feature modules se
 
 **Three components power the system:**
 
-- **`PhoenixKit.Module`** — the behaviour contract (5 required + 8 optional callbacks)
+- **`PhoenixKit.Module`** — the behaviour contract (5 required + 9 optional callbacks)
 - **`PhoenixKit.ModuleRegistry`** — GenServer + `:persistent_term` registry; zero-cost reads
 - **`PhoenixKit.ModuleDiscovery`** — zero-config beam file scanning; finds modules without config
 
@@ -261,6 +261,26 @@ Module containing route macros injected into the router at compile time. **Defau
 
 Semantic version string. **Default:** `"0.0.0"`. Useful for external packages.
 
+### `migration_module/0 :: module() | nil`
+
+Returns the versioned migration coordinator module for this plugin. **Default:** `nil`
+
+When set, `mix phoenix_kit.update` will auto-detect the module's migration state, compare `migrated_version_runtime()` with `current_version()`, and generate + run migration files if the database is behind.
+
+```elixir
+def migration_module, do: MyModule.Migration
+```
+
+The coordinator module must implement:
+- `current_version/0` — returns the latest migration version (integer)
+- `migrated_version_runtime/1` — reads the current DB version; accepts `[prefix: "public"]` options (safe to call outside migration context)
+- `up/1` — runs migrations; accepts `[prefix: "public", version: target]` options
+- `down/1` — rolls back migrations; accepts `[prefix: "public", version: target]` options
+
+Version is tracked via a SQL comment on a designated table (e.g., `COMMENT ON TABLE phoenix_kit_my_items IS '2'`). Each version is an immutable module (e.g., `MyModule.Migration.Postgres.V01`) that the coordinator calls via `Module.concat/1`.
+
+See `PhoenixKitDocumentCreator.Migration` for a production example.
+
 ---
 
 ## Folder Structure Convention
@@ -435,6 +455,42 @@ end
 
 Routes are generated at compile time via `compile_plugin_admin_routes/0` in `integration.ex`. A recompile is required after adding a new external module.
 
+### Navigation Paths in Templates
+
+Tab struct `path` fields use a relative convention (`"my-module"` → core prepends `/admin/`). But `href` attributes in HEEx templates and `redirect/2` calls are raw — the browser or Phoenix sends the path as-is. These must go through `PhoenixKit.Utils.Routes.path/1`, which handles the URL prefix and locale prefix.
+
+**Create a Paths module** for your module to centralize all path construction:
+
+```elixir
+defmodule PhoenixKitAnalytics.Paths do
+  alias PhoenixKit.Utils.Routes
+
+  @base "/admin/analytics"
+
+  def index, do: Routes.path(@base)
+  def show(id), do: Routes.path("#{@base}/#{id}")
+  def settings, do: Routes.path("#{@base}/settings")
+end
+```
+
+Then in templates and LiveViews:
+
+```elixir
+alias PhoenixKitAnalytics.Paths
+
+# Template href:
+<a href={Paths.show(@item.id)}>View</a>
+
+# Server-side redirect:
+redirect(socket, to: Paths.index())
+```
+
+This gives the same "single point of change" benefit that Tab structs have for sidebar registration — if the admin path changes, you update `@base` in one file instead of every template.
+
+**Why not use relative paths in templates?**
+
+Tab struct `path` fields go through `Tab.resolve_path/2` at registration time. Template `href` attributes and `redirect(to:)` calls do not — they're raw HTML/Phoenix. Relative paths like `"my-module/items"` would be resolved by the browser relative to the current URL, which breaks when locale segments (e.g., `/ja/`) are in the path.
+
 ---
 
 ## Enable / Disable Patterns
@@ -523,7 +579,51 @@ end
 config :phoenix_kit, :modules, [PhoenixKitAnalytics]
 ```
 
-**5. Routes require recompile** after adding the dependency (standard Phoenix constraint).
+**5. Create a Paths module** to centralize all navigation paths (see [Navigation Paths in Templates](#navigation-paths-in-templates)):
+
+```elixir
+defmodule PhoenixKitAnalytics.Paths do
+  alias PhoenixKit.Utils.Routes
+  @base "/admin/analytics"
+
+  def index, do: Routes.path(@base)
+  def show(id), do: Routes.path("#{@base}/#{id}")
+end
+```
+
+**6. Routes require recompile** after adding the dependency (standard Phoenix constraint).
+
+---
+
+## JavaScript in External Modules
+
+External modules **cannot inject into the parent app's asset pipeline** (`app.js`, `esbuild`, `node_modules`). All JavaScript must be delivered as **inline `<script>` tags** in LiveView templates.
+
+### Inline hooks pattern
+
+PhoenixKit's `app.js` collects hooks from `window.PhoenixKitHooks` when creating the LiveSocket. Inline `<script>` tags in `<body>` execute before deferred `<head>` scripts, so hooks are registered in time.
+
+```elixir
+defmodule MyModule.Web.Components.MyScripts do
+  use Phoenix.Component
+
+  def my_scripts(assigns) do
+    ~H"""
+    <script>
+      window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+      window.PhoenixKitHooks.MyHook = {
+        mounted() { /* ... */ }
+      };
+    </script>
+    """
+  end
+end
+```
+
+**Rules:**
+- Register hooks on `window.PhoenixKitHooks` — PhoenixKit spreads this object into the LiveSocket
+- Pages using hooks must use **full page load** (`redirect/2`, not `navigate/2`) so the inline script executes
+- For large vendor libraries, ship minified files in `priv/static/vendor/` and load via `<script src>` — the install task copies them to the parent app
 
 ---
 

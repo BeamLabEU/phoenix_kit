@@ -585,6 +585,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Handle interactive migration execution
       run_interactive_migration_update(opts)
 
+      # Run migrations for registered PhoenixKit modules (e.g. Document Creator)
+      run_module_migrations(opts)
+
       # Show migration status summary
       show_migration_status(prefix)
     end
@@ -797,6 +800,109 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         For more information, visit:
         https://hexdocs.pm/phoenix_kit
       """)
+    end
+
+    # Run versioned migrations for all registered PhoenixKit modules that
+    # implement `migration_module/0`. Generates an incremental migration file
+    # in the parent app for each module that needs updating, then runs migrations.
+    defp run_module_migrations(opts) do
+      prefix = Keyword.get(opts, :prefix, "public")
+
+      modules =
+        try do
+          discover_module_migrations()
+        rescue
+          _ -> []
+        end
+
+      Enum.each(modules, fn {name, migration_mod} ->
+        try do
+          current = migration_mod.migrated_version_runtime(prefix: prefix)
+          target = migration_mod.current_version()
+
+          if current < target do
+            Mix.shell().info("\n⏳ #{name}: V#{pad_version(current)} → V#{pad_version(target)}")
+            generate_module_migration(name, migration_mod, current, target, prefix)
+
+            # Run the newly generated migration
+            Mix.Task.reenable("ecto.migrate")
+            Mix.Task.run("ecto.migrate")
+
+            Mix.shell().info("✅ #{name} migrated to V#{pad_version(target)}")
+          else
+            Mix.shell().info("✅ #{name}: V#{pad_version(current)} (up to date)")
+          end
+        rescue
+          error ->
+            Mix.shell().info("⚠️  #{name} migration check failed: #{Exception.message(error)}")
+        end
+      end)
+    end
+
+    # Discover modules with migrations via beam file scanning.
+    # Works without the full app started — scans beam files directly.
+    defp discover_module_migrations do
+      PhoenixKit.ModuleDiscovery.discover_external_modules()
+      |> Enum.flat_map(fn mod ->
+        if Code.ensure_loaded?(mod) and function_exported?(mod, :migration_module, 0) do
+          case mod.migration_module() do
+            nil -> []
+            migration_mod -> [{safe_module_name(mod), migration_mod}]
+          end
+        else
+          []
+        end
+      end)
+    end
+
+    defp safe_module_name(mod) do
+      if function_exported?(mod, :module_name, 0), do: mod.module_name(), else: inspect(mod)
+    rescue
+      _ -> inspect(mod)
+    end
+
+    defp generate_module_migration(name, migration_mod, current, target, prefix) do
+      migrations_dir = Path.join(["priv", "repo", "migrations"])
+      File.mkdir_p!(migrations_dir)
+
+      slug =
+        name
+        |> String.downcase()
+        |> String.replace(~r/[^a-z0-9]+/, "_")
+        |> String.trim("_")
+
+      mod_name = inspect(migration_mod)
+      timestamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d%H%M%S")
+
+      filename =
+        "#{timestamp}_#{slug}_update_v#{pad_version(current)}_to_v#{pad_version(target)}.exs"
+
+      app_module =
+        Mix.Project.config()[:app]
+        |> to_string()
+        |> Macro.camelize()
+
+      class_name =
+        "#{slug |> Macro.camelize()}UpdateV#{pad_version(current)}ToV#{pad_version(target)}"
+
+      content = """
+      defmodule #{app_module}.Repo.Migrations.#{class_name} do
+        @moduledoc false
+        use Ecto.Migration
+
+        def up do
+          #{mod_name}.up(prefix: "#{prefix}", version: #{target})
+        end
+
+        def down do
+          #{mod_name}.down(prefix: "#{prefix}", version: #{current})
+        end
+      end
+      """
+
+      path = Path.join(migrations_dir, filename)
+      File.write!(path, content)
+      Mix.shell().info("  Created migration: #{path}")
     end
 
     # Show current installation status and available updates
