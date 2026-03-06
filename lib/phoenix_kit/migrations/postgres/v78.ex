@@ -37,6 +37,12 @@ defmodule PhoenixKit.Migrations.Postgres.V78 do
                            )
 
       if table_exists?(:phoenix_kit_ai_prompts, prefix) do
+        # V56 may have skipped adding the uuid column to ai_prompts if the table
+        # didn't exist at V56 time. Ensure it exists before creating the FK.
+        unless column_exists?(:phoenix_kit_ai_prompts, :uuid, prefix) do
+          ensure_uuid_column_and_index(:phoenix_kit_ai_prompts, prefix)
+        end
+
         execute """
         DO $$
         BEGIN
@@ -111,6 +117,48 @@ defmodule PhoenixKit.Migrations.Postgres.V78 do
 
     %{rows: [[exists]]} = PhoenixKit.RepoHelper.repo().query!(query)
     exists
+  end
+
+  defp column_exists?(table_name, column_name, prefix) do
+    query = """
+    SELECT EXISTS (
+      SELECT FROM information_schema.columns
+      WHERE table_schema = '#{prefix}'
+      AND table_name = '#{table_name}'
+      AND column_name = '#{column_name}'
+    )
+    """
+
+    %{rows: [[exists]]} = PhoenixKit.RepoHelper.repo().query!(query)
+    exists
+  end
+
+  # Replicates V56's idempotent pattern for adding a uuid column with
+  # backfill, NOT NULL constraint, and unique index.
+  defp ensure_uuid_column_and_index(table_name, prefix) do
+    full_table = "#{prefix_str(prefix)}#{table_name}"
+    index_name = "#{table_name}_uuid_index"
+
+    execute("""
+    ALTER TABLE #{full_table}
+    ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7()
+    """)
+
+    execute("""
+    UPDATE #{full_table}
+    SET uuid = uuid_generate_v7()
+    WHERE uuid IS NULL
+    """)
+
+    execute("""
+    ALTER TABLE #{full_table}
+    ALTER COLUMN uuid SET NOT NULL
+    """)
+
+    execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS #{index_name}
+    ON #{full_table}(uuid)
+    """)
   end
 
   defp prefix_str("public"), do: "public."
