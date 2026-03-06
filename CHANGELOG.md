@@ -1,3 +1,14 @@
+## 1.7.63 - 2026-03-06
+- Remove filesystem storage mode from publishing module — `storage_mode()` now always returns `:db`, remove ~780 lines of dead FS code, migration gate, and "Database migration required" banner
+- Fix V77/V78 migration crashes when UUID columns are missing (tables created after V56 ran)
+- Simplify V77/V78 migrations — remove over-engineered column detection, rely on idempotent patterns
+- Fix email tracking bug: `handle_delivery_result` used `get_log!` (raises) in a nil-matching branch; add `get_log/1` non-bang wrapper and remove unused public functions
+- Add `migration_module/0` callback to plugin module system — `mix phoenix_kit.update` auto-discovers and runs plugin migrations
+- Add `Settings.Queries` module for database operations
+- Add dedicated queue and 1-day pruner for scheduled jobs cron worker
+- Fix user dashboard navigation links
+- Fix ueberauth providers configuration format in installer
+
 ## 1.7.62 - 2026-03-05
 - Fix UnicodeConversionError crash in integration plug when response body contains non-UTF8 binary data
 - Fix DB browser rendering of raw binary values (e.g. UUID bytes) in table and activity views
