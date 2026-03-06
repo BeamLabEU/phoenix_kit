@@ -11,7 +11,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
-  alias PhoenixKit.Modules.Publishing.Storage
 
   # ============================================================================
   # Language Detection
@@ -37,7 +36,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
         {language_param, params}
 
       # Unknown language code but content exists for it in this group
-      # This handles files like af.phk, test.phk, etc.
+      # This handles content in unknown language codes like "af", "test", etc.
       group_slug && has_content_for_language?(group_slug, language_param) ->
         {language_param, params}
 
@@ -122,7 +121,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
         true
 
       # Check if it looks like a language code pattern (XX or XX-XX format)
-      # This allows access to unknown files like legacy imports
+      # This allows access to unknown language codes like legacy imports
       looks_like_language_code?(code) ->
         true
 
@@ -205,7 +204,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
       end
 
     # Now determine if we should use base or full dialect code
-    Storage.get_display_code(resolved_language, enabled_languages)
+    Publishing.get_display_code(resolved_language, enabled_languages)
   end
 
   @doc """
@@ -214,7 +213,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   """
   def get_canonical_url_language_for_post(post_language) do
     enabled_languages = get_enabled_languages()
-    Storage.get_display_code(post_language, enabled_languages)
+    Publishing.get_display_code(post_language, enabled_languages)
   end
 
   # ============================================================================
@@ -297,7 +296,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
         end)
 
       {:error, _} ->
-        # Cache miss - fall back to filesystem scan
+        # Cache miss - fall back to direct DB read
         posts = Publishing.list_posts(group_slug, nil)
 
         Enum.any?(posts, fn post ->

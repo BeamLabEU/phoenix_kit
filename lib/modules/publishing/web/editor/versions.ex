@@ -10,7 +10,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
   # ============================================================================
@@ -25,7 +24,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     post = socket.assigns.post
     language = socket.assigns.current_language
     # Use the post's stored primary language for fallback, not global
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
 
     read_fn =
       if socket.assigns.group_mode == "slug" do
@@ -46,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     # Extract timestamp identifier from current post path
     timestamp_id = extract_timestamp_identifier(post.path)
 
-    # Use Publishing.read_post which has DB fallback for imported groups
+    # Use Publishing.read_post to fetch the version from the database
     Publishing.read_post(group_slug, timestamp_id, language, version)
   end
 
@@ -273,6 +272,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   defp editor_language(assigns) do
     assigns[:current_language] ||
       assigns |> Map.get(:post, %{}) |> Map.get(:language) ||
-      hd(Storage.enabled_language_codes())
+      hd(Publishing.enabled_language_codes())
   end
 end

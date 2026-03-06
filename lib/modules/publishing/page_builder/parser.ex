@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Modules.Publishing.PageBuilder.Parser do
   @moduledoc """
-  Parses .phk (PhoenixKit) XML-style markup into an AST.
+  Parses PHK (PhoenixKit) XML-style markup into an AST.
 
   Example input:
   ```xml
@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Publishing.PageBuilder.Parser do
   """
 
   @doc """
-  Parses .phk XML content into an AST.
+  Parses PHK XML content into an AST.
   """
   @spec parse(String.t()) :: {:ok, map()} | {:error, term()}
   def parse(content) when is_binary(content) do

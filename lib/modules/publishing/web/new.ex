@@ -7,7 +7,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -32,7 +31,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
       |> assign(:form_params, initial_params)
       |> assign(:form, new_group_form(initial_params))
       |> assign(:preset_types, @preset_types)
-      |> assign(:enabled_languages, Storage.enabled_language_codes())
+      |> assign(:enabled_languages, Publishing.enabled_language_codes())
       |> assign(:endpoint_url, nil)
 
     {:ok, socket}
@@ -181,7 +180,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
            last_generated_slug,
            auto_item_names?
          )
-         |> put_flash(:error, gettext("Invalid storage mode"))}
+         |> put_flash(:error, gettext("Invalid URL mode"))}
 
       {:error, :invalid_type} ->
         {:noreply,

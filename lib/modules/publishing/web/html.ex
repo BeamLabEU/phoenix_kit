@@ -6,8 +6,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Renderer
-  alias PhoenixKit.Modules.Publishing.Storage, as: PublishingStorage
+  alias PhoenixKit.Modules.Storage
 
   # Import publishing-specific components for templates
   import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
@@ -405,7 +406,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   # Counts posts on a given date for a group
   # Used to determine if time should be included in URLs
   defp count_posts_on_date(group_slug, date) do
-    PublishingStorage.count_posts_on_date(group_slug, date)
+    Publishing.count_posts_on_date(group_slug, date)
   end
 
   @doc """
@@ -421,8 +422,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   defp resolve_featured_image_url("", _variant), do: nil
 
   defp resolve_featured_image_url(file_uuid, variant) when is_binary(file_uuid) do
-    PhoenixKit.Modules.Storage.get_public_url_by_uuid(file_uuid, variant) ||
-      PhoenixKit.Modules.Storage.get_public_url_by_uuid(file_uuid)
+    Storage.get_public_url_by_uuid(file_uuid, variant) ||
+      Storage.get_public_url_by_uuid(file_uuid)
   rescue
     _ -> nil
   end

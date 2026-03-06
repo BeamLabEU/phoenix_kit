@@ -14,7 +14,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Renderer
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.Listing
   alias PhoenixKit.Modules.Publishing.Web.Controller.PostFetching
@@ -111,14 +110,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
     # Check per-post version access setting (from the live version's metadata)
     # Each post controls its own version access - no global setting required
     if post_allows_version_access?(group_slug, internal_slug, language) do
-      # Resolve language to actual file language (e.g., "en" -> "en-US")
-      # This matches the behavior in PostFetching.fetch_post
-      version_dir = Path.join([Storage.group_path(group_slug), internal_slug, "v#{version}"])
-      available_languages = PostFetching.detect_available_languages_in_dir(version_dir)
-      resolved_language = Language.resolve_language_for_post(language, available_languages)
-
-      # Fetch the specific version with resolved language
-      case Publishing.read_post(group_slug, internal_slug, resolved_language, version) do
+      # Fetch the specific version - the DB handles language resolution
+      case Publishing.read_post(group_slug, internal_slug, language, version) do
         {:ok, post} ->
           # Check if version is published
           if post.metadata.status == "published" do
@@ -185,7 +178,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   def handle_date_only_url(conn, group_slug, date, language) do
     case Listing.fetch_group(group_slug) do
       {:ok, _group} ->
-        times = Storage.list_times_on_date(group_slug, date)
+        times = Publishing.list_times_on_date(group_slug, date)
 
         case times do
           [] ->
@@ -231,7 +224,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   @doc """
   Builds version dropdown data for the public post template.
   Returns nil if version access is disabled or only one published version exists.
-  Uses listing cache for fast lookups instead of reading files.
+  Uses listing cache for fast lookups.
   """
   def build_version_dropdown(group_slug, post, language) do
     # Try to get cached data first (sub-microsecond from :persistent_term)
@@ -277,7 +270,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
   @doc """
   Gets version info from cache (allow_version_access and live_version).
-  Falls back to file reads if cache miss.
+  Falls back to DB reads if cache miss.
   """
   def get_cached_version_info(group_slug, current_post) do
     # Use appropriate cache lookup based on post mode
@@ -291,16 +284,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
         {allow_access, live_version}
 
       {:error, _} ->
-        # Cache miss - fall back to file reads
+        # Cache miss - fall back to DB reads
         post_identifier = get_post_identifier(current_post)
 
         # Use post's stored primary language, not global
         primary_language =
           current_post[:primary_language] ||
-            Storage.get_post_primary_language(group_slug, post_identifier)
+            Publishing.get_post_primary_language(group_slug, post_identifier)
 
-        allow_access = get_allow_access_from_file(group_slug, current_post, primary_language)
-        live_version = get_live_version_from_file(group_slug, post_identifier)
+        allow_access = get_allow_access_from_db(group_slug, current_post, primary_language)
+        live_version = get_live_version_from_db(group_slug, post_identifier)
         {allow_access, live_version}
     end
   end
@@ -352,8 +345,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
   defp extract_timestamp_identifier(path), do: path
 
-  # Fallback: Gets allow_version_access from file when cache misses
-  defp get_allow_access_from_file(group_slug, current_post, primary_language) do
+  # Fallback: Gets allow_version_access from DB when cache misses
+  defp get_allow_access_from_db(group_slug, current_post, primary_language) do
     if current_post.language == primary_language do
       Map.get(current_post.metadata, :allow_version_access, false)
     else
@@ -366,9 +359,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
     end
   end
 
-  # Fallback: Gets published version from file when cache misses
-  defp get_live_version_from_file(group_slug, post_identifier) do
-    case Storage.get_published_version(group_slug, post_identifier) do
+  # Fallback: Gets published version from DB when cache misses
+  defp get_live_version_from_db(group_slug, post_identifier) do
+    case Publishing.get_published_version(group_slug, post_identifier) do
       {:ok, version} -> version
       {:error, _} -> nil
     end
@@ -380,7 +373,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   """
   def post_allows_version_access?(group_slug, post_slug, _language) do
     # Always read from post's stored primary language to ensure per-post behavior
-    primary_language = Storage.get_post_primary_language(group_slug, post_slug)
+    primary_language = Publishing.get_post_primary_language(group_slug, post_slug)
 
     # Read the live version (version: nil means get latest/live)
     case Publishing.read_post(group_slug, post_slug, primary_language, nil) do

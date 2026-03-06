@@ -10,7 +10,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
   alias PhoenixKit.Settings
 
@@ -62,10 +61,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   def get_target_languages_for_translation(socket) do
     post = socket.assigns.post
     # Use post's stored primary language for translation source
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
     available_languages = post.available_languages || []
 
-    Storage.enabled_language_codes()
+    Publishing.enabled_language_codes()
     |> Enum.reject(&(&1 == primary_language or &1 in available_languages))
   end
 
@@ -75,9 +74,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   def get_all_target_languages(socket) do
     post = socket.assigns.post
     # Use post's stored primary language to exclude from targets
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
 
-    Storage.enabled_language_codes()
+    Publishing.enabled_language_codes()
     |> Enum.reject(&(&1 == primary_language))
   end
 
@@ -136,7 +135,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     source_language =
       post[:primary_language] ||
         socket.assigns[:current_language] ||
-        Storage.get_primary_language()
+        Publishing.get_primary_language()
 
     # For timestamp mode, use date/time identifier; for slug mode, use slug
     post_identifier =
@@ -174,7 +173,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   defp translation_success_socket(socket, target_languages) do
     lang_names =
       Enum.map_join(target_languages, ", ", fn code ->
-        info = Storage.get_language_info(code)
+        info = Publishing.get_language_info(code)
         if info, do: info.name, else: code
       end)
 
@@ -244,7 +243,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
 
   defp format_language_names(language_codes) do
     Enum.map_join(language_codes, ", ", fn code ->
-      info = Storage.get_language_info(code)
+      info = Publishing.get_language_info(code)
       if info, do: info.name, else: code
     end)
   end
@@ -259,7 +258,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     source_language =
       post[:primary_language] ||
         socket.assigns[:current_language] ||
-        Storage.get_primary_language()
+        Publishing.get_primary_language()
 
     current_version = socket.assigns[:current_version]
 
@@ -275,7 +274,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
           _ -> post.slug
         end
 
-      # Read the source language content from disk
+      # Read the source language content from the database
       case Publishing.read_post(group_slug, post_identifier, source_language, current_version) do
         {:ok, source_post} ->
           content = source_post.content || ""

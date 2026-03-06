@@ -9,8 +9,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.PostRendering
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
       end)
       |> Enum.map(fn lang ->
         # Use display_code helper to determine if we show base or full code
-        display_code = Storage.get_display_code(lang, enabled_languages)
+        display_code = Publishing.get_display_code(lang, enabled_languages)
 
         %{
           code: display_code,
@@ -63,9 +63,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     # Order: primary first, then the rest alphabetically
     if Enum.any?(
          translations,
-         &(&1.code == Storage.get_display_code(primary_language, enabled_languages))
+         &(&1.code == Publishing.get_display_code(primary_language, enabled_languages))
        ) do
-      primary_display = Storage.get_display_code(primary_language, enabled_languages)
+      primary_display = Publishing.get_display_code(primary_language, enabled_languages)
       {primary, others} = Enum.split_with(translations, &(&1.code == primary_display))
       primary ++ Enum.sort_by(others, & &1.code)
     else
@@ -135,7 +135,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
     Enum.map(languages, fn lang ->
       # Use display_code helper to determine if we show base or full code
-      display_code = Storage.get_display_code(lang, enabled_languages)
+      display_code = Publishing.get_display_code(lang, enabled_languages)
       is_enabled = language_enabled_for_public?(lang, enabled_languages)
       is_known = Languages.get_predefined_language(lang) != nil
 
@@ -273,7 +273,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   end
 
   # Checks if the exact language file exists and is published
-  # Uses preloaded language_statuses map to avoid redundant file reads
+  # Uses preloaded language_statuses map to avoid redundant DB reads
   defp translation_published_exact?(_group_slug, post, language) do
     language in (post.available_languages || []) and
       Map.get(post.language_statuses, language) == "published"

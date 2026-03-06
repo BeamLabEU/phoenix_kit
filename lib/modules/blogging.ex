@@ -40,12 +40,8 @@ defmodule PhoenixKit.Modules.Blogging do
   defdelegate add_language_to_post(blog_slug, path, new_language, opts),
     to: PhoenixKit.Modules.Publishing
 
-  # Version functions (delegated from Storage)
+  # Version functions
   defdelegate list_versions(blog_slug, post_slug), to: PhoenixKit.Modules.Publishing
-  defdelegate get_latest_version(blog_slug, post_slug), to: PhoenixKit.Modules.Publishing
-
-  defdelegate get_latest_published_version(blog_slug, post_slug),
-    to: PhoenixKit.Modules.Publishing
 
   defdelegate get_live_version(blog_slug, post_slug),
     to: PhoenixKit.Modules.Publishing,
@@ -53,10 +49,6 @@ defmodule PhoenixKit.Modules.Blogging do
 
   defdelegate get_version_status(blog_slug, post_slug, version, language),
     to: PhoenixKit.Modules.Publishing
-
-  defdelegate detect_post_structure(post_path), to: PhoenixKit.Modules.Publishing
-  defdelegate content_changed?(post, params), to: PhoenixKit.Modules.Publishing
-  defdelegate status_change_only?(post, params), to: PhoenixKit.Modules.Publishing
 
   defdelegate should_create_new_version?(post, params, editing_language),
     to: PhoenixKit.Modules.Publishing

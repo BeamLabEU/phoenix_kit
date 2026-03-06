@@ -8,7 +8,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Slug
 
@@ -28,13 +27,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   @doc """
   Build form for a post, handling new translations appropriately.
 
-  For new translations (no file on disk yet), inherits status from the primary language.
+  For new translations (no content in DB yet), inherits status from the primary language.
   For existing files, uses the file's own status to avoid confusion between
   what the dropdown shows and what the language switcher shows.
   """
   def post_form_with_primary_status(group_slug, post, version) do
     form = post_form(post)
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
     original_language = post[:original_language] || post.language
     is_new_translation = Map.get(post, :is_new_translation, false)
 
@@ -356,7 +355,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
     title = Metadata.extract_title_from_content(content)
     current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
 
-    case Storage.generate_unique_slug(socket.assigns.group_slug, title, nil,
+    case Publishing.generate_unique_slug(socket.assigns.group_slug, title, nil,
            current_slug: current_slug
          ) do
       {:ok, ""} ->

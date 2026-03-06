@@ -71,8 +71,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
@@ -90,7 +90,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     # Use post's stored primary language as default source, not global
     source_language =
       Map.get(args, "source_language") ||
-        Storage.get_post_primary_language(group_slug, post_slug, version)
+        Publishing.get_post_primary_language(group_slug, post_slug, version)
 
     target_languages = Map.get(args, "target_languages") || get_target_languages(source_language)
     user_uuid = Map.get(args, "user_uuid") || Map.get(args, "user_id")
@@ -258,8 +258,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     version = source_post.version
 
     # Get language names for the prompt
-    source_lang_info = Storage.get_language_info(source_language)
-    target_lang_info = Storage.get_language_info(target_language)
+    source_lang_info = LanguageHelpers.get_language_info(source_language)
+    target_lang_info = LanguageHelpers.get_language_info(target_language)
 
     source_lang_name = if source_lang_info, do: source_lang_info.name, else: source_language
     target_lang_name = if target_lang_info, do: target_lang_info.name, else: target_language
@@ -670,7 +670,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   # Extract timestamp identifier (date/time) from a timestamp mode path
-  # Path format: "group/YYYY-MM-DD/HH:MM/vN/lang.phk" or just "YYYY-MM-DD/HH:MM/..."
+  # Path format: "group/YYYY-MM-DD/HH:MM/vN/lang" or just "YYYY-MM-DD/HH:MM/..."
   defp extract_timestamp_identifier(path) when is_binary(path) do
     # Match date/time pattern: YYYY-MM-DD/HH:MM
     case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
@@ -683,7 +683,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   # Get target languages (all enabled except source)
   defp get_target_languages(source_language) do
-    Storage.enabled_language_codes()
+    LanguageHelpers.enabled_language_codes()
     |> Enum.reject(&(&1 == source_language))
   end
 
@@ -786,7 +786,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     source_language =
       Keyword.get(opts, :source_language) ||
-        Storage.get_post_primary_language(group_slug, post_slug, version)
+        Publishing.get_post_primary_language(group_slug, post_slug, version)
 
     if AI.enabled?() do
       case AI.get_endpoint(endpoint_uuid) do
@@ -811,8 +811,8 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   defp do_translate_content(source_post, target_language, endpoint, source_language) do
-    source_lang_info = Storage.get_language_info(source_language)
-    target_lang_info = Storage.get_language_info(target_language)
+    source_lang_info = LanguageHelpers.get_language_info(source_language)
+    target_lang_info = LanguageHelpers.get_language_info(target_language)
 
     source_lang_name = if source_lang_info, do: source_lang_info.name, else: source_language
     target_lang_name = if target_lang_info, do: target_lang_info.name, else: target_language
@@ -873,7 +873,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     source_language =
       Keyword.get(opts, :source_language) ||
-        Storage.get_post_primary_language(group_slug, post_slug, version)
+        Publishing.get_post_primary_language(group_slug, post_slug, version)
 
     if AI.enabled?() do
       case AI.get_endpoint(endpoint_uuid) do

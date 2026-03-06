@@ -9,7 +9,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.PostShow do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
@@ -40,7 +39,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.PostShow do
       |> assign(:post, nil)
       |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
       |> assign(:date_time_settings, date_time_settings)
-      |> assign(:enabled_languages, Storage.enabled_language_codes())
+      |> assign(:enabled_languages, Publishing.enabled_language_codes())
       |> assign(:page_title, gettext("Post Overview"))
 
     {:ok, socket}
