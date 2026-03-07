@@ -324,7 +324,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               <%!-- Desktop/Mobile Sidebar --%>
               <div class="drawer-side">
                 <label for="admin-mobile-menu" class="drawer-overlay lg:hidden"></label>
-                <aside class="min-h-full w-64 bg-base-100 shadow-lg border-r border-base-300 flex flex-col pt-16">
+                <aside class="min-h-full w-64 bg-base-100 shadow-lg border-r border-base-300 flex flex-col pt-16 lg:pt-0">
                   <%!-- Navigation (fills available space) --%>
                   <div class="px-4 py-6 flex-1">
                     <.admin_sidebar
