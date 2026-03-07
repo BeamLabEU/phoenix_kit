@@ -314,7 +314,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               <input id="admin-mobile-menu" type="checkbox" class="drawer-toggle" />
 
               <%!-- Main content --%>
-              <div class="drawer-content flex min-h-screen flex-col bg-base-100 transition-colors pt-16">
+              <div class="drawer-content flex min-h-screen flex-col bg-base-100 transition-colors pt-16 lg:pt-0">
                 <%!-- Page content from parent layout --%>
                 <div class="flex-1">
                   {render_slot(@original_inner_block)}
