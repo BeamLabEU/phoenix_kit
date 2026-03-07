@@ -88,11 +88,14 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
-    <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
     <.live_title default={display_title}>
       {assigns[:page_title] || "Dashboard"}
     </.live_title>
-    <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
+    <link
+      phx-track-static
+      rel="stylesheet"
+      href={PhoenixKit.Utils.Routes.path("/assets/css/app.css")}
+    />
     <%!-- PhoenixKit Custom Theme CSS (phoenix-light, phoenix-dark) --%>
     <style data-phoenix-kit-themes>
       <%= Phoenix.HTML.raw(PhoenixKit.ThemeConfig.custom_theme_css()) %>
@@ -149,6 +152,13 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
         }
       }
     </style>
+    <%!-- PhoenixKit Cookie Consent Widget Setup --%>
+    <script>
+      window.PHOENIX_KIT_PREFIX = "<%= PhoenixKit.Utils.Routes.url_prefix() %>";
+    </script>
+    <%!-- PhoenixKit Cookie Consent Widget Script --%>
+    <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
+    </script>
   </head>
   <body class="bg-base-100 antialiased">
     <div class="min-h-screen bg-base-100">

@@ -276,8 +276,7 @@
     }
 
     function getConfigEndpoint() {
-      var meta = document.querySelector('meta[name="phoenix-kit-prefix"]');
-      var prefix = meta ? meta.getAttribute("content") : "/phoenix_kit";
+      var prefix = window.PHOENIX_KIT_PREFIX || "/phoenix_kit";
       // Handle case when prefix is "/" to avoid double slash (//api/...)
       if (prefix === "/") {
         return "/api/consent-config";

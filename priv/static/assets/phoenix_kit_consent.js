@@ -21,21 +21,20 @@
   // CONSTANTS
   // =====================================================
 
-  var STORAGE_KEY = "pk_consent";
-  var VERSION_KEY = "pk_consent_version";
-  var CATEGORIES = ["necessary", "analytics", "marketing", "preferences"];
+  const STORAGE_KEY = "pk_consent";
+  const VERSION_KEY = "pk_consent_version";
+  const CATEGORIES = ["necessary", "analytics", "marketing", "preferences"];
 
-  // Get PhoenixKit URL prefix from meta tag or default
+  // Get PhoenixKit URL prefix from global variable set by PhoenixKit
   function getConfigEndpoint() {
-    var meta = document.querySelector('meta[name="phoenix-kit-prefix"]');
-    var prefix = meta ? meta.getAttribute("content") : "/phoenix_kit";
+    const prefix = window.PHOENIX_KIT_PREFIX || "/phoenix_kit";
     // Handle case when prefix is "/" to avoid double slash (//api/...)
     if (prefix === "/") {
       return "/api/consent-config";
     }
     return prefix + "/api/consent-config";
   }
-  var OPT_IN_FRAMEWORKS = ["gdpr", "uk_gdpr", "lgpd", "pipeda"];
+  const OPT_IN_FRAMEWORKS = ["gdpr", "uk_gdpr", "lgpd", "pipeda"];
 
   // =====================================================
   // MODULE STATE
