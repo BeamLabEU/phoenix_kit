@@ -96,14 +96,50 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().one()
   end
 
-  @doc "Gets a timestamp-mode post by date and time."
+  @doc """
+  Gets a timestamp-mode post by date and time.
+
+  Truncates seconds from the input time since URLs use HH:MM format only,
+  and new posts are stored with seconds zeroed. For legacy posts with non-zero
+  seconds, falls back to hour:minute matching.
+  """
   def get_post_by_datetime(group_slug, %Date{} = date, %Time{} = time) do
-    from(p in PublishingPost,
-      join: g in assoc(p, :group),
-      where: g.slug == ^group_slug and p.post_date == ^date and p.post_time == ^time,
-      preload: [group: g]
-    )
-    |> repo().one()
+    # Normalize to zero seconds (URLs only carry HH:MM)
+    normalized_time = %Time{hour: time.hour, minute: time.minute, second: 0, microsecond: {0, 0}}
+
+    # Try exact match first (fast, uses index, works for all properly-stored posts)
+    result =
+      from(p in PublishingPost,
+        join: g in assoc(p, :group),
+        where: g.slug == ^group_slug and p.post_date == ^date and p.post_time == ^normalized_time,
+        preload: [group: g]
+      )
+      |> repo().one()
+
+    if result do
+      result
+    else
+      # Fallback for legacy posts stored with non-zero seconds
+      hour = time.hour
+      minute = time.minute
+
+      from(p in PublishingPost,
+        join: g in assoc(p, :group),
+        where:
+          g.slug == ^group_slug and p.post_date == ^date and
+            fragment(
+              "EXTRACT(HOUR FROM ?)::integer = ? AND EXTRACT(MINUTE FROM ?)::integer = ?",
+              p.post_time,
+              ^hour,
+              p.post_time,
+              ^minute
+            ),
+        order_by: [asc: p.post_time],
+        limit: 1,
+        preload: [group: g]
+      )
+      |> repo().one()
+    end
   end
 
   @doc "Gets a post by UUID with preloads."
@@ -170,14 +206,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
-  @doc "Finds a post by date and time (timestamp mode)."
+  @doc "Finds a post by date and time (timestamp mode, matches hour:minute only)."
   def find_post_by_date_time(group_slug, date, time) do
-    from(p in PublishingPost,
-      join: g in assoc(p, :group),
-      where: g.slug == ^group_slug and p.post_date == ^date and p.post_time == ^time,
-      preload: [group: g]
-    )
-    |> repo().one()
+    # Delegate to get_post_by_datetime which handles normalization and legacy fallback
+    get_post_by_datetime(group_slug, date, time)
   end
 
   @doc "Soft-deletes a post by setting status to 'archived'."

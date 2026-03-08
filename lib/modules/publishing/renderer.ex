@@ -480,24 +480,10 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
       |> Base.encode16(case: :lower)
       |> String.slice(0..7)
 
-    identifier = post.slug || extract_identifier_from_path(post.path)
+    identifier = post[:uuid] || post.slug
 
     "#{@cache_version}:blog_post:#{post.group}:#{identifier}:#{post.language}:#{content_hash}"
   end
-
-  defp extract_identifier_from_path(path) when is_binary(path) do
-    # For timestamp mode: "blog/2025-01-15/09:30/v1/en" -> "2025-01-15/09:30"
-    # For slug mode: "blog/getting-started/v1/en" -> "getting-started"
-    path
-    |> String.split("/")
-    # Remove language suffix
-    |> Enum.drop(-1)
-    # Remove blog name
-    |> Enum.drop(1)
-    |> Enum.join("/")
-  end
-
-  defp extract_identifier_from_path(_), do: "unknown"
 
   defp get_cached(key) do
     case PhoenixKit.Cache.get(@cache_name, key) do

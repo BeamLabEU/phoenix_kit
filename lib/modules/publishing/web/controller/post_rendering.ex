@@ -327,23 +327,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   defp format_time_for_cache(time) when is_binary(time), do: String.slice(time, 0, 5)
   defp format_time_for_cache(_), do: ""
 
-  # Get the correct post identifier based on mode
   defp get_post_identifier(post) do
-    case Map.get(post, :mode) do
-      :timestamp -> extract_timestamp_identifier(post.path)
-      _ -> post.slug
-    end
+    post[:uuid] || post.slug
   end
-
-  # Extract timestamp identifier (date/time) from a timestamp mode path
-  defp extract_timestamp_identifier(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> path
-    end
-  end
-
-  defp extract_timestamp_identifier(path), do: path
 
   # Fallback: Gets allow_version_access from DB when cache misses
   defp get_allow_access_from_db(group_slug, current_post, primary_language) do

@@ -366,7 +366,7 @@
     <% end %>
 
     <%!-- Primary Language Indicator (only shown on primary language when no update needed) --%>
-    <%= if @is_primary_language and not @is_new_post and length(@all_enabled_languages) > 1 and not needs_update do %>
+    <%= if @is_primary_language and length(@all_enabled_languages) > 1 and not needs_update do %>
       <div class="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20">
         <div class="flex items-center justify-center w-8 h-8 rounded-full text-white shadow-sm bg-gradient-to-br from-amber-400 to-orange-500">
           <.icon name="hero-star-solid" class="w-4 h-4" />

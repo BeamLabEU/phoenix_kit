@@ -116,18 +116,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
       assert result.version_statuses == %{1 => "archived", 2 => "published"}
     end
 
-    test "builds correct path for slug-mode post" do
-      group = build_group()
-      post = build_post(group, %{mode: "slug"})
-      version = build_version(post, %{version_number: 2})
-      content = build_content(version, %{language: "es"})
-
-      result = Mapper.to_legacy_map(post, version, content, [content], [version])
-
-      assert result.path == "hello-world/v2/es.phk"
-    end
-
-    test "builds correct path for timestamp-mode post" do
+    test "includes date/time for timestamp-mode post" do
       group = build_group()
 
       post =
@@ -142,7 +131,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.MapperTest do
 
       result = Mapper.to_legacy_map(post, version, content, [content], [version])
 
-      assert result.path == "2025-06-15/14:30/v1/en.phk"
+      assert result.mode == :timestamp
+      assert result.date == ~D[2025-06-15]
+      assert result.time == ~T[14:30:00]
     end
 
     test "url_slug falls back to post slug when nil" do

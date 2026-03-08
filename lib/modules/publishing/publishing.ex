@@ -144,6 +144,7 @@ defmodule PhoenixKit.Modules.Publishing do
     |> DBStorage.list_posts_timestamp_mode()
     |> Enum.filter(&(&1.post_date == date))
     |> Enum.map(&(Time.to_string(&1.post_time) |> String.slice(0, 5)))
+    |> Enum.uniq()
     |> Enum.sort()
   rescue
     _ -> []
@@ -205,7 +206,7 @@ defmodule PhoenixKit.Modules.Publishing do
           post_slug = get_post_slug(post)
 
           Logger.debug(
-            "[PrimaryLangMigration] Post path=#{inspect(post[:path])} slug=#{inspect(post_slug)}"
+            "[PrimaryLangMigration] Post uuid=#{inspect(post[:uuid])} identifier=#{inspect(post_slug)}"
           )
 
           if post_slug do
@@ -213,7 +214,10 @@ defmodule PhoenixKit.Modules.Publishing do
             Logger.debug("[PrimaryLangMigration] Result for #{post_slug}: #{inspect(result)}")
             result
           else
-            Logger.warning("[PrimaryLangMigration] No slug for post: #{inspect(post[:path])}")
+            Logger.warning(
+              "[PrimaryLangMigration] No identifier for post: #{inspect(post[:uuid])}"
+            )
+
             {:error, :no_slug}
           end
         end)
@@ -235,42 +239,9 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  # Get post directory path from cached post
-  # For slug mode: returns the slug (e.g., "hello")
-  # For timestamp mode: returns the date/time path (e.g., "2025-12-31/03:42")
-  # Uses atom keys since cached posts are normalized
+  # Get post identifier for DB operations (UUID preferred, slug as fallback)
   defp get_post_slug(post) do
-    case post[:mode] do
-      :timestamp -> derive_timestamp_post_dir(post[:path])
-      "timestamp" -> derive_timestamp_post_dir(post[:path])
-      _ -> post[:slug] || derive_slug_from_path(post[:path])
-    end
-  end
-
-  # For timestamp mode, extract date/time from path identifier
-  defp derive_timestamp_post_dir(nil), do: nil
-  defp derive_timestamp_post_dir(""), do: nil
-
-  defp derive_timestamp_post_dir(path) do
-    parts = Path.split(path)
-
-    case parts do
-      [_group, date, time | _rest] -> Path.join(date, time)
-      _ -> nil
-    end
-  end
-
-  # For slug mode, extract slug from path identifier
-  defp derive_slug_from_path(nil), do: nil
-  defp derive_slug_from_path(""), do: nil
-
-  defp derive_slug_from_path(path) do
-    parts = Path.split(path)
-
-    case parts do
-      [_group, slug | _rest] -> slug
-      _ -> nil
-    end
+    post[:uuid] || post[:slug]
   end
 
   # Version metadata lookup (DB-based)
@@ -871,12 +842,18 @@ defmodule PhoenixKit.Modules.Publishing do
         updated_by_uuid: created_by_uuid
       }
 
-      # Add date/time for timestamp mode
+      # Add date/time for timestamp mode (truncate seconds since URLs use HH:MM only)
       post_attrs =
         if mode == "timestamp" do
+          date = DateTime.to_date(now)
+          time = %Time{hour: now.hour, minute: now.minute, second: 0, microsecond: {0, 0}}
+
+          # Find next available minute if this one is taken
+          {date, time} = find_available_timestamp(group_slug, date, time)
+
           Map.merge(post_attrs, %{
-            post_date: DateTime.to_date(now),
-            post_time: DateTime.to_time(now)
+            post_date: date,
+            post_time: time
           })
         else
           post_attrs
@@ -1030,6 +1007,30 @@ defmodule PhoenixKit.Modules.Publishing do
     case Integer.parse("#{v}") do
       {n, _} -> n
       :error -> nil
+    end
+  end
+
+  # Finds the next available minute for a timestamp-mode post.
+  # If the given date/time is already taken, bumps forward by one minute at a time.
+  defp find_available_timestamp(group_slug, date, time) do
+    case DBStorage.get_post_by_datetime(group_slug, date, time) do
+      nil ->
+        {date, time}
+
+      _existing ->
+        # Bump by one minute
+        total_seconds = time.hour * 3600 + time.minute * 60 + 60
+
+        if total_seconds >= 86_400 do
+          # Rolled past midnight — advance to next day at 00:00
+          next_date = Date.add(date, 1)
+          {next_date, ~T[00:00:00]}
+        else
+          next_hour = div(total_seconds, 3600)
+          next_minute = div(rem(total_seconds, 3600), 60)
+          next_time = %Time{hour: next_hour, minute: next_minute, second: 0, microsecond: {0, 0}}
+          find_available_timestamp(group_slug, date, next_time)
+        end
     end
   end
 

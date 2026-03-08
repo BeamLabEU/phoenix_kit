@@ -211,7 +211,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     language = data[:language] || fallback_locale
     mode = data[:mode] || :timestamp
     metadata = extract_preview_metadata(data[:metadata] || %{})
-    path = resolve_preview_path(data[:path], group_slug, metadata[:slug], language, mode)
 
     available_languages = data[:available_languages] || []
 
@@ -223,8 +222,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
       slug: metadata[:slug],
       date: nil,
       time: nil,
-      path: path,
-      full_path: nil,
       metadata: metadata,
       content: data[:content] || "",
       language: language,
@@ -255,33 +252,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     end)
   end
 
-  defp resolve_preview_path(path, _group_slug, _slug, _language, _mode)
-       when is_binary(path) and path != "" do
-    path
-  end
-
-  defp resolve_preview_path(_path, group_slug, slug, language, :slug)
-       when is_binary(slug) and slug != "" do
-    Path.join([group_slug, slug, "#{language}.phk"])
-  end
-
-  defp resolve_preview_path(_, _group_slug, _slug, _language, _mode), do: nil
-
   defp preview_return_params(socket) do
-    base =
-      %{}
-      |> maybe_put_path_param(socket.assigns.post.path)
-
-    base
+    %{}
     |> maybe_put_preview_token(socket.assigns[:preview_token])
     |> maybe_put_new_flag(socket.assigns[:preview_data])
   end
-
-  defp maybe_put_path_param(params, path) when is_binary(path) and path != "" do
-    Map.put(params, "path", path)
-  end
-
-  defp maybe_put_path_param(params, _), do: params
 
   defp maybe_put_preview_token(params, token) when is_binary(token) and token != "" do
     Map.put(params, "preview_token", token)

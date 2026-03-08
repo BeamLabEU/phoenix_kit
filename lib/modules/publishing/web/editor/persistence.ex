@@ -280,8 +280,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     scope = socket.assigns[:phoenix_kit_current_scope]
     post = socket.assigns.post
     language = socket.assigns.current_language
-    old_path = post.path
-
     # Check if we need to create a new version
     should_create_version =
       Publishing.should_create_new_version?(post, params, language)
@@ -289,7 +287,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     if should_create_version do
       create_new_version_from_edit(socket, params, scope)
     else
-      update_post_in_place(socket, params, scope, old_path)
+      update_post_in_place(socket, params, scope)
     end
   end
 
@@ -340,7 +338,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     end
   end
 
-  defp update_post_in_place(socket, params, scope, old_path) do
+  defp update_post_in_place(socket, params, scope) do
     group_slug = socket.assigns.group_slug
     # Ensure the post's language matches the current editing language,
     # not the stale language from when the post was initially loaded
@@ -372,7 +370,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         handle_successful_update(
           socket,
           updated_post,
-          old_path,
           is_publishing,
           post,
           current_version
@@ -409,25 +406,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   defp handle_successful_update(
          socket,
          updated_post,
-         old_path,
          false = _is_publishing,
          _post,
          _version
        ) do
-    handle_post_save_success(socket, updated_post, old_path)
+    handle_post_save_success(socket, updated_post)
   end
 
   defp handle_successful_update(
          socket,
          updated_post,
-         old_path,
          true = _is_publishing,
          post,
          current_version
        ) do
     group_slug = socket.assigns.group_slug
 
-    post_identifier = post.slug || post[:uuid]
+    post_identifier = post[:uuid] || post.slug
 
     # Use user UUID so all tabs for the same user recognize their own publishes
     user_uuid =
@@ -437,7 +432,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
            source_id: user_uuid
          ) do
       :ok ->
-        handle_post_save_success(socket, updated_post, old_path)
+        handle_post_save_success(socket, updated_post)
 
       {:error, reason} ->
         {:noreply,
@@ -451,7 +446,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     end
   end
 
-  defp handle_post_save_success(socket, post, old_path) do
+  defp handle_post_save_success(socket, post) do
     group_slug = socket.assigns.group_slug
 
     invalidate_post_cache(group_slug, post)
@@ -482,7 +477,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
 
         {:error, reason} ->
           Logger.warning(
-            "Failed to re-read post after save: #{inspect(reason)}, post: #{post[:slug] || post[:path]}"
+            "Failed to re-read post after save: #{inspect(reason)}, post: #{post[:slug] || post[:uuid]}"
           )
 
           current_language_statuses = Map.get(post, :language_statuses, %{})
@@ -510,7 +505,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
       |> Phoenix.Component.assign(:version_statuses, refreshed_post.version_statuses)
       |> Phoenix.Component.assign(:version_dates, Map.get(refreshed_post, :version_dates, %{}))
       |> Phoenix.LiveView.push_event("changes-status", %{has_changes: false})
-      |> maybe_update_current_path(old_path, refreshed_post.path)
 
     {:noreply,
      if(flash_message, do: Phoenix.LiveView.put_flash(socket, :info, flash_message), else: socket)}
@@ -693,24 +687,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     identifier = post.slug
 
     Renderer.invalidate_cache(group_slug, identifier, post.language)
-  end
-
-  defp maybe_update_current_path(socket, old_path, new_path)
-       when new_path in [nil, ""] or new_path == old_path,
-       do: socket
-
-  defp maybe_update_current_path(socket, _old_path, _new_path) do
-    post = socket.assigns.post
-
-    path =
-      Helpers.build_edit_url(socket.assigns.group_slug, post,
-        lang: post[:language],
-        version: post[:version]
-      )
-
-    socket
-    |> Phoenix.Component.assign(:current_path, path)
-    |> Phoenix.LiveView.push_patch(to: path)
   end
 
   defp editor_language(assigns) do

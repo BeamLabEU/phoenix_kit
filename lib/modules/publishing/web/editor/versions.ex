@@ -41,12 +41,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     end
   end
 
-  defp read_timestamp_version(group_slug, post, language, version) do
-    # Extract timestamp identifier from current post path
-    timestamp_id = extract_timestamp_identifier(post.path)
-
-    # Use Publishing.read_post to fetch the version from the database
-    Publishing.read_post(group_slug, timestamp_id, language, version)
+  defp read_timestamp_version(_group_slug, post, language, version) do
+    Publishing.read_post_by_uuid(post[:uuid], language, version)
   end
 
   # ============================================================================
@@ -86,7 +82,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
       |> Phoenix.LiveView.push_event("set-content", %{content: version_post.content})
 
     # Return socket with cleanup info for the caller to handle collaborative editing
-    {socket, old_form_key, old_post_slug, new_form_key, actual_language, version_post.path}
+    {socket, old_form_key, old_post_slug, new_form_key, actual_language, version_post[:uuid]}
   end
 
   # ============================================================================
@@ -103,14 +99,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     source_version = socket.assigns.new_version_source
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    post_identifier =
-      case post.mode do
-        :timestamp ->
-          extract_timestamp_identifier(post.path) || post[:uuid]
-
-        _ ->
-          post.slug || post[:uuid]
-      end
+    post_identifier = post[:uuid] || post.slug
 
     # Set just_created_version BEFORE calling create_version_from to prevent race condition
     # where the PubSub broadcast is received before this assign happens
@@ -250,18 +239,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   # ============================================================================
   # Helpers
   # ============================================================================
-
-  @doc """
-  Extract timestamp identifier (YYYY-MM-DD/HH:MM) from a post path.
-  """
-  def extract_timestamp_identifier(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> nil
-    end
-  end
-
-  def extract_timestamp_identifier(_), do: nil
 
   @doc """
   With variant versioning, all versions are editable since they're independent attempts.
