@@ -1,3 +1,6 @@
+## 1.7.65 - 2026-03-08
+- Fix V77 migration crash: role_id column renamed to role_uuid in UUID migration
+
 ## 1.7.64 - 2026-03-08
 - Remove legacy filesystem paths from publishing module — strip all `.phk` virtual path references from mapper, editor, listing, and preview
 - Switch all event handlers and navigation from path-based to UUID-based routing

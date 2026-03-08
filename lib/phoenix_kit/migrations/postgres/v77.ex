@@ -57,7 +57,6 @@ defmodule PhoenixKit.Migrations.Postgres.V77 do
 
   # Renames role permission module_key. If target already exists for the same role,
   # deletes the source row to avoid unique constraint violations.
-  # Uses role_id (always present, original column) for duplicate detection.
   defp rename_role_permission(table, from_key, to_key, _prefix) do
     execute("""
     DO $$
@@ -67,7 +66,7 @@ defmodule PhoenixKit.Migrations.Postgres.V77 do
       WHERE src.module_key = '#{from_key}'
         AND EXISTS (
           SELECT 1 FROM #{table} tgt
-          WHERE tgt.module_key = '#{to_key}' AND tgt.role_id = src.role_id
+          WHERE tgt.module_key = '#{to_key}' AND tgt.role_uuid = src.role_uuid
         );
 
       -- Rename remaining rows
