@@ -109,6 +109,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     do: {:noreply, refresh_dashboard(socket)}
 
   def handle_info({:group_updated, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:version_created, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+
+  def handle_info({:version_live_changed, _uuid, _version}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
+  def handle_info({:version_deleted, _slug, _version}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
 
   # Primary language migration progress handlers
   def handle_info({:primary_language_migration_started, _group_slug, _total_count}, socket) do
@@ -172,6 +179,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
     {:noreply, socket}
   end
+
+  # Catch-all for other PubSub messages (translation progress, cache changes, etc.)
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event(
