@@ -40,7 +40,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
     %{
       group_slug: socket.assigns.group_slug,
-      path: post.path,
       mode: Map.get(post, :mode) || Map.get(post, "mode") || infer_mode(socket),
       language: socket.assigns.current_language,
       available_languages: post.available_languages || [],
@@ -48,7 +47,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       content: socket.assigns.content || "",
       is_new_post:
         Map.get(socket.assigns, :is_new_post, false) ||
-          is_nil(post.path)
+          is_nil(post[:uuid])
     }
   end
 
@@ -185,8 +184,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
   defp build_preview_post(data, group_slug, mode, language, metadata) do
     {date, time} = derive_datetime_fields(mode, metadata[:published_at])
-    path = data[:path] || derive_preview_path(group_slug, metadata[:slug], language, mode)
-    full_path = nil
     available_languages = data[:available_languages] || []
 
     available_languages =
@@ -197,8 +194,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       slug: metadata[:slug],
       date: date,
       time: time,
-      path: path,
-      full_path: full_path,
       metadata: metadata,
       content: data[:content] || "",
       language: language,
@@ -285,8 +280,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   end
 
   defp enrich_from_db(post, group_slug) do
-    if post.path do
-      case Publishing.read_post(group_slug, post.path) do
+    identifier = post[:uuid] || post[:slug]
+
+    if identifier do
+      case Publishing.read_post(group_slug, identifier) do
         {:ok, db_post} ->
           # Merge DB metadata as base, with preview metadata on top.
           # This preserves non-form fields (description, created_at, version_created_at,
@@ -310,7 +307,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
           {enriched, db_post}
 
         {:error, reason} ->
-          Logger.debug("Preview enrich_from_db failed for #{post.path}: #{inspect(reason)}")
+          Logger.debug("Preview enrich_from_db failed for #{identifier}: #{inspect(reason)}")
           fallback_status = Map.get(post.metadata, :status, "draft")
           enriched = Map.put(post, :language_statuses, %{post.language => fallback_status})
           {enriched, nil}
@@ -369,15 +366,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   end
 
   defp derive_datetime_fields(_, _), do: {nil, nil}
-
-  defp derive_preview_path(_group_slug, _slug, _language, :timestamp), do: nil
-
-  defp derive_preview_path(group_slug, slug, language, :slug)
-       when is_binary(slug) and slug != "" do
-    Path.join([group_slug, slug, "#{language}.phk"])
-  end
-
-  defp derive_preview_path(_, _, _, _), do: nil
 
   defp maybe_put_form_slug(form, slug, :slug) do
     Map.put(form, "slug", slug || "")

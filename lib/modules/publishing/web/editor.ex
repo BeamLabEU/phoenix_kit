@@ -240,7 +240,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               group_slug,
               group_mode,
               language,
-              post.path,
+              nil,
               all_enabled_languages
             )
           else
@@ -249,7 +249,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               post,
               group_slug,
               group_mode,
-              post.path,
+              nil,
               all_enabled_languages
             )
           end
@@ -1455,11 +1455,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp switch_to_new_translation(socket, post, group_slug, new_language) do
     current_version = socket.assigns.current_version || 1
 
-    # DB-only: no FS path needed
-    new_path = nil
-
     virtual_post =
-      Helpers.build_virtual_translation(post, group_slug, new_language, new_path, socket)
+      Helpers.build_virtual_translation(post, group_slug, new_language, socket)
 
     available_versions = socket.assigns.available_versions || []
     new_form_key = PublishingPubSub.generate_form_key(group_slug, virtual_post, :edit)

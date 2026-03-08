@@ -11,8 +11,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
   - `:url_slug` - per-language URL slug
   - `:date` - Date struct (timestamp mode)
   - `:time` - Time struct (timestamp mode)
-  - `:path` - relative path
-  - `:full_path` - absolute path
   - `:mode` - :timestamp or :slug atom
   - `:language` - current language code
   - `:available_languages` - list of language codes
@@ -70,8 +68,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       url_slug: presence(content.url_slug) || post.slug,
       date: post.post_date,
       time: post.post_time,
-      path: build_path(post, version.version_number, content.language),
-      full_path: nil,
       mode: String.to_existing_atom(post.mode),
       language: content.language,
       available_languages: available_languages,
@@ -123,8 +119,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       url_slug: presence(primary_content && primary_content.url_slug) || post.slug,
       date: post.post_date,
       time: post.post_time,
-      path: build_path(post, current_version, primary_content && primary_content.language),
-      full_path: nil,
       mode: String.to_existing_atom(post.mode),
       language: post.primary_language,
       available_languages: available_languages,
@@ -151,26 +145,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
 
   defp get_group_slug(%PublishingPost{group: %{slug: slug}}), do: slug
   defp get_group_slug(%PublishingPost{} = _post), do: nil
-
-  defp build_path(
-         %PublishingPost{mode: "timestamp", post_date: date, post_time: time},
-         version_number,
-         language
-       )
-       when not is_nil(date) do
-    date_str = Date.to_iso8601(date)
-    time_str = if time, do: time |> Time.to_string() |> String.slice(0, 5), else: "00:00"
-    version = version_number || 1
-    lang = language || "en"
-    "#{date_str}/#{time_str}/v#{version}/#{lang}.phk"
-  end
-
-  defp build_path(post, version_number, language) do
-    slug = post.slug
-    version = version_number || 1
-    lang = language || post.primary_language || "en"
-    "#{slug}/v#{version}/#{lang}.phk"
-  end
 
   defp build_metadata(post, version, content) do
     %{

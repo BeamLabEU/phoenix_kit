@@ -97,7 +97,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
         {:redirect, fallback_url}
 
       :not_found ->
-        {:error, :no_content_for_language}
+        # Group exists but no published posts — render empty listing instead of 404
+        render_group_index(conn, ctx, [])
     end
   end
 

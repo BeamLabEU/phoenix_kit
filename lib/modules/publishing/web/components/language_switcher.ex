@@ -69,7 +69,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   - `flag` - Flag emoji (e.g., "🇺🇸") - optional
   - `status` - Post status: "published", "draft", "archived", or nil if not exists
   - `url` - URL to navigate to (for public mode or href navigation)
-  - `exists` - Boolean, whether translation file exists (default: inferred from status)
+  - `exists` - Boolean, whether translation exists (default: inferred from status)
   - `enabled` - Boolean, whether the language is enabled in the Languages module (default: true)
   - `known` - Boolean, whether the language code is recognized (default: true)
   """
@@ -150,8 +150,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
         type="button"
         phx-click={@on_click}
         phx-value-language={@lang[:code]}
-        phx-value-path={@lang[:path]}
-        phx-value-post_path={@lang[:post_path]}
         phx-value-uuid={@lang[:uuid]}
         phx-value-status={@status}
         phx-target={@phx_target}

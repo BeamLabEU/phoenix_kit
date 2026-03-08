@@ -144,6 +144,7 @@ defmodule PhoenixKit.Modules.Publishing do
     |> DBStorage.list_posts_timestamp_mode()
     |> Enum.filter(&(&1.post_date == date))
     |> Enum.map(&(Time.to_string(&1.post_time) |> String.slice(0, 5)))
+    |> Enum.uniq()
     |> Enum.sort()
   rescue
     _ -> []
@@ -871,12 +872,18 @@ defmodule PhoenixKit.Modules.Publishing do
         updated_by_uuid: created_by_uuid
       }
 
-      # Add date/time for timestamp mode
+      # Add date/time for timestamp mode (truncate seconds since URLs use HH:MM only)
       post_attrs =
         if mode == "timestamp" do
+          date = DateTime.to_date(now)
+          time = %Time{hour: now.hour, minute: now.minute, second: 0, microsecond: {0, 0}}
+
+          # Find next available minute if this one is taken
+          {date, time} = find_available_timestamp(group_slug, date, time)
+
           Map.merge(post_attrs, %{
-            post_date: DateTime.to_date(now),
-            post_time: DateTime.to_time(now)
+            post_date: date,
+            post_time: time
           })
         else
           post_attrs
@@ -1030,6 +1037,30 @@ defmodule PhoenixKit.Modules.Publishing do
     case Integer.parse("#{v}") do
       {n, _} -> n
       :error -> nil
+    end
+  end
+
+  # Finds the next available minute for a timestamp-mode post.
+  # If the given date/time is already taken, bumps forward by one minute at a time.
+  defp find_available_timestamp(group_slug, date, time) do
+    case DBStorage.get_post_by_datetime(group_slug, date, time) do
+      nil ->
+        {date, time}
+
+      _existing ->
+        # Bump by one minute
+        total_seconds = time.hour * 3600 + time.minute * 60 + 60
+
+        if total_seconds >= 86_400 do
+          # Rolled past midnight — advance to next day at 00:00
+          next_date = Date.add(date, 1)
+          {next_date, ~T[00:00:00]}
+        else
+          next_hour = div(total_seconds, 3600)
+          next_minute = div(rem(total_seconds, 3600), 60)
+          next_time = %Time{hour: next_hour, minute: next_minute, second: 0, microsecond: {0, 0}}
+          find_available_timestamp(group_slug, date, next_time)
+        end
     end
   end
 

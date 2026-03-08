@@ -57,24 +57,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   end
 
   # Get the correct post identifier based on mode
-  # For timestamp mode: extract date/time from path (e.g., "2025-12-31/03:42")
-  # For slug mode: use the post slug
   defp get_post_identifier(post) do
-    case Map.get(post, :mode) do
-      :timestamp -> extract_timestamp_identifier(post.path)
-      _ -> post.slug
-    end
+    post[:uuid] || post.slug
   end
-
-  # Extract timestamp identifier (date/time) from a timestamp mode path
-  defp extract_timestamp_identifier(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> path
-    end
-  end
-
-  defp extract_timestamp_identifier(path), do: path
 
   defp base_form(post) do
     %{

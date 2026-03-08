@@ -200,8 +200,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
       group: group_slug,
       date: nil,
       time: nil,
-      path: nil,
-      full_path: nil,
       metadata: %{
         title: "",
         status: "draft",
@@ -221,21 +219,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     date = DateTime.to_date(now)
     time = DateTime.to_time(now)
 
-    time_folder =
-      "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
-
     %{
       group: group_slug,
       date: date,
       time: time,
-      path:
-        Path.join([
-          group_slug,
-          Date.to_iso8601(date),
-          time_folder,
-          "#{primary_language}.phk"
-        ]),
-      full_path: nil,
       metadata: %{
         title: "",
         status: "draft",
@@ -252,9 +239,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Builds a virtual translation for a new language.
   """
-  def build_virtual_translation(post, group_slug, new_language, new_path, socket) do
+  def build_virtual_translation(post, group_slug, new_language, socket) do
     post
-    |> Map.put(:path, new_path)
     |> Map.put(:language, new_language)
     |> Map.put(:group, group_slug || "group")
     |> Map.put(:content, "")
@@ -303,51 +289,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
 
   @doc """
   Builds the URL for a post overview page.
-
-  Uses UUID-based URL when available, falls back to legacy path URL.
   """
   def build_post_url(group_slug, post, _opts \\ []) do
-    case post[:uuid] do
-      nil ->
-        # Fallback to legacy editor URL
-        path = post[:path] || "#{post[:slug]}/v1/#{post[:language] || "en"}.phk"
-        Routes.path("/admin/publishing/#{group_slug}/edit?path=#{URI.encode(path)}")
-
-      uuid ->
-        Routes.path("/admin/publishing/#{group_slug}/#{uuid}")
-    end
+    Routes.path("/admin/publishing/#{group_slug}/#{post[:uuid]}")
   end
 
   @doc """
   Builds the URL for the post editor.
 
-  Uses UUID-based URL when available, falls back to legacy path URL.
   Options: `:version`, `:lang`
   """
   def build_edit_url(group_slug, post, opts \\ []) do
-    case post[:uuid] do
-      nil ->
-        # Fallback to legacy path URL
-        path = post[:path] || "#{post[:slug]}/v1/#{post[:language] || "en"}.phk"
+    uuid = post[:uuid]
+    base = "/admin/publishing/#{group_slug}/#{uuid}/edit"
+    params = build_query_params(opts)
 
-        base = "/admin/publishing/#{group_slug}/edit?path=#{URI.encode(path)}"
-
-        base =
-          if opts[:lang],
-            do: "#{base}&lang=#{opts[:lang]}",
-            else: base
-
-        Routes.path(base)
-
-      uuid ->
-        base = "/admin/publishing/#{group_slug}/#{uuid}/edit"
-        params = build_query_params(opts)
-
-        if params == "" do
-          Routes.path(base)
-        else
-          Routes.path("#{base}?#{params}")
-        end
+    if params == "" do
+      Routes.path(base)
+    else
+      Routes.path("#{base}?#{params}")
     end
   end
 
@@ -355,13 +315,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   Builds the URL for the post preview.
   """
   def build_preview_url(group_slug, post, _opts \\ []) do
-    case post[:uuid] do
-      nil ->
-        Routes.path("/admin/publishing/#{group_slug}/preview")
-
-      uuid ->
-        Routes.path("/admin/publishing/#{group_slug}/#{uuid}/preview")
-    end
+    Routes.path("/admin/publishing/#{group_slug}/#{post[:uuid]}/preview")
   end
 
   @doc """

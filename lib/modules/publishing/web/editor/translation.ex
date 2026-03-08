@@ -137,12 +137,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
         socket.assigns[:current_language] ||
         Publishing.get_primary_language()
 
-    # For timestamp mode, use date/time identifier; for slug mode, use slug
-    post_identifier =
-      case post.mode do
-        :timestamp -> extract_timestamp_identifier(post.path)
-        _ -> post.slug
-      end
+    post_identifier = post[:uuid] || post.slug
 
     case TranslatePostWorker.enqueue(
            socket.assigns.group_slug,
@@ -267,12 +262,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
       content = socket.assigns.content || ""
       String.trim(content) == ""
     else
-      # For timestamp mode, use date/time identifier; for slug mode, use slug
-      post_identifier =
-        case post.mode do
-          :timestamp -> extract_timestamp_identifier(post.path)
-          _ -> post.slug
-        end
+      post_identifier = post[:uuid] || post.slug
 
       # Read the source language content from the database
       case Publishing.read_post(group_slug, post_identifier, source_language, current_version) do
@@ -333,14 +323,4 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
       socket
     end
   end
-
-  # Extract timestamp identifier (YYYY-MM-DD/HH:MM) from a post path
-  defp extract_timestamp_identifier(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> nil
-    end
-  end
-
-  defp extract_timestamp_identifier(_), do: nil
 end
