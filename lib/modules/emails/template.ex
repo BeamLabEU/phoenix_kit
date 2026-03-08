@@ -294,10 +294,10 @@ defmodule PhoenixKit.Modules.Emails.Template do
     ])
     |> validate_length(:name, min: 2, max: 100)
     |> validate_length(:slug, min: 2, max: 100)
-    |> validate_length(:display_name, min: 2, max: 200)
-    |> validate_length(:subject, min: 1, max: 300)
-    |> validate_length(:html_body, min: 1)
-    |> validate_length(:text_body, min: 1)
+    |> validate_i18n_map(:display_name, min_length: 2, max_length: 200)
+    |> validate_i18n_map(:subject, min_length: 1, max_length: 300)
+    |> validate_i18n_map(:html_body, min_length: 1)
+    |> validate_i18n_map(:text_body, min_length: 1)
     |> validate_inclusion(:category, @valid_categories)
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_format(:name, ~r/^[a-z][a-z0-9_]*$/,
@@ -397,6 +397,54 @@ defmodule PhoenixKit.Modules.Emails.Template do
   end
 
   # Private helper functions
+
+  # Validates that a :map field contains valid language-keyed string values
+  defp validate_i18n_map(changeset, field, opts) do
+    case get_field(changeset, field) do
+      nil ->
+        changeset
+
+      map when is_map(map) and map_size(map) == 0 ->
+        add_error(changeset, field, "must have at least one language")
+
+      map when is_map(map) ->
+        validate_i18n_map_values(changeset, field, map, opts)
+
+      _ ->
+        add_error(changeset, field, "must be a language map (e.g. %{\"en\" => \"...\"})")
+    end
+  end
+
+  defp validate_i18n_map_values(changeset, field, map, opts) do
+    min_length = Keyword.get(opts, :min_length, 0)
+    max_length = Keyword.get(opts, :max_length, nil)
+
+    errors =
+      Enum.flat_map(map, fn {lang, value} ->
+        i18n_value_errors(lang, value, min_length, max_length)
+      end)
+
+    case errors do
+      [] -> changeset
+      msgs -> add_error(changeset, field, Enum.join(msgs, "; "))
+    end
+  end
+
+  defp i18n_value_errors(lang, value, min_length, max_length) do
+    cond do
+      not is_binary(value) ->
+        ["#{lang}: must be a string"]
+
+      String.length(value) < min_length ->
+        ["#{lang}: must be at least #{min_length} characters"]
+
+      max_length != nil and String.length(value) > max_length ->
+        ["#{lang}: must be at most #{max_length} characters"]
+
+      true ->
+        []
+    end
+  end
 
   # Automatically generate slug from name if not provided
   defp auto_generate_slug(changeset) do

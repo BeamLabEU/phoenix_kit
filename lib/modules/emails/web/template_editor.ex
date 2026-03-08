@@ -71,7 +71,10 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
 
         socket =
           socket
-          |> assign(:page_title, "Edit Template: #{template.display_name}")
+          |> assign(
+            :page_title,
+            "Edit Template: #{Template.get_translation(template.display_name, "en")}"
+          )
           |> assign(:template, template)
           |> assign(:mode, :edit)
           |> assign(:changeset, changeset)
