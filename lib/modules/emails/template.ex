@@ -91,7 +91,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
         }
 
   # Valid categories for email templates
-  @valid_categories ["system", "marketing", "transactional", "notification"]
+  @valid_categories ["system", "marketing", "transactional", "notification", "mailing"]
 
   # Valid statuses for email templates
   @valid_statuses ["active", "draft", "archived"]
@@ -115,11 +115,11 @@ defmodule PhoenixKit.Modules.Emails.Template do
   schema "phoenix_kit_email_templates" do
     field :name, :string
     field :slug, :string
-    field :display_name, :string
-    field :description, :string
-    field :subject, :string
-    field :html_body, :string
-    field :text_body, :string
+    field :display_name, :map, default: %{}
+    field :description, :map, default: nil
+    field :subject, :map, default: %{}
+    field :html_body, :map, default: %{}
+    field :text_body, :map, default: %{}
     field :category, :string, default: "transactional"
     field :status, :string, default: "draft"
     field :variables, :map, default: %{}
@@ -148,6 +148,49 @@ defmodule PhoenixKit.Modules.Emails.Template do
   Returns the list of common template variables.
   """
   def common_variables, do: @common_variables
+
+  @doc """
+  Extracts a translated string from a JSON language map field.
+
+  ## Parameters
+  - `field_map` — a map like `%{"en" => "...", "uk" => "..."}`
+  - `locale` — the desired locale code, e.g. `"uk"` or `"en-US"`
+  - `default_locale` — fallback locale, defaults to `"en"`
+
+  ## Behaviour
+  1. Try exact match: `field_map[locale]`
+  2. Try base language: e.g. `"en"` from `"en-US"`
+  3. Try default_locale
+  4. Try any available value (last resort)
+  5. Return `""` if map is empty or nil
+
+  ## Examples
+
+      iex> get_translation(%{"en" => "Hello", "uk" => "Привіт"}, "uk")
+      "Привіт"
+
+      iex> get_translation(%{"en" => "Hello"}, "uk")
+      "Hello"
+
+      iex> get_translation(nil, "uk")
+      ""
+
+  """
+  def get_translation(field_map, locale, default_locale \\ "en")
+
+  def get_translation(nil, _locale, _default_locale), do: ""
+
+  def get_translation(field_map, locale, default_locale) when is_map(field_map) do
+    base_locale = locale |> String.split("-") |> List.first()
+
+    Map.get(field_map, locale) ||
+      Map.get(field_map, base_locale) ||
+      Map.get(field_map, default_locale) ||
+      field_map |> Map.values() |> List.first() ||
+      ""
+  end
+
+  def get_translation(_field_map, _locale, _default_locale), do: ""
 
   @doc """
   Returns the list of valid source modules for email templates.
