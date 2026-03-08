@@ -347,7 +347,15 @@ defmodule PhoenixKit.Modules.Emails.Template do
 
   """
   def extract_variables(%__MODULE__{} = template) do
-    content = "#{template.subject} #{template.html_body} #{template.text_body}"
+    # Collect all language values from all map fields and scan for {{variables}}
+    content =
+      [template.subject, template.html_body, template.text_body]
+      |> Enum.flat_map(fn
+        map when is_map(map) -> Map.values(map)
+        str when is_binary(str) -> [str]
+        _ -> []
+      end)
+      |> Enum.join(" ")
 
     Regex.scan(~r/\{\{([^}]+)\}\}/, content)
     |> Enum.map(fn [_, var] -> String.trim(var) end)
@@ -362,26 +370,29 @@ defmodule PhoenixKit.Modules.Emails.Template do
 
   - `template` - The email template
   - `variables` - Map of variable names to values
+  - `locale` - The target locale code (default: `"en"`)
 
-  Returns a new template struct with variables substituted.
+  Returns a map `%{subject: string, html_body: string, text_body: string}` with
+  the locale-specific content and all variables substituted.
 
   ## Examples
 
       iex> template = %EmailTemplate{
-      ...>   subject: "Welcome {{user_name}}!",
-      ...>   html_body: "<p>Hi {{user_name}}</p>"
+      ...>   subject: %{"en" => "Welcome {{user_name}}!"},
+      ...>   html_body: %{"en" => "<p>Hi {{user_name}}</p>"},
+      ...>   text_body: %{"en" => "Hi {{user_name}}"}
       ...> }
-      iex> result = EmailTemplate.substitute_variables(template, %{"user_name" => "John"})
+      iex> result = EmailTemplate.substitute_variables(template, %{"user_name" => "John"}, "en")
       iex> result.subject
       "Welcome John!"
 
   """
-  def substitute_variables(%__MODULE__{} = template, variables) when is_map(variables) do
+  def substitute_variables(%__MODULE__{} = template, variables, locale \\ "en")
+      when is_map(variables) do
     %{
-      template
-      | subject: substitute_string(template.subject, variables),
-        html_body: substitute_string(template.html_body, variables),
-        text_body: substitute_string(template.text_body, variables)
+      subject: template.subject |> get_translation(locale) |> substitute_string(variables),
+      html_body: template.html_body |> get_translation(locale) |> substitute_string(variables),
+      text_body: template.text_body |> get_translation(locale) |> substitute_string(variables)
     }
   end
 
@@ -416,34 +427,34 @@ defmodule PhoenixKit.Modules.Emails.Template do
 
       variables when is_map(variables) ->
         # Extract variables from template content and validate against declared variables
-        case {get_field(changeset, :subject), get_field(changeset, :html_body),
-              get_field(changeset, :text_body)} do
-          {subject, html_body, text_body}
-          when is_binary(subject) and is_binary(html_body) and is_binary(text_body) ->
-            template = %__MODULE__{
-              subject: subject,
-              html_body: html_body,
-              text_body: text_body
-            }
+        subject = get_field(changeset, :subject)
+        html_body = get_field(changeset, :html_body)
+        text_body = get_field(changeset, :text_body)
 
-            extracted_vars = extract_variables(template)
-            declared_vars = Map.keys(variables)
+        if subject != nil and html_body != nil and text_body != nil do
+          template = %__MODULE__{
+            subject: subject,
+            html_body: html_body,
+            text_body: text_body
+          }
 
-            # Check for undefined variables in template
-            undefined_vars = extracted_vars -- declared_vars
+          extracted_vars = extract_variables(template)
+          declared_vars = Map.keys(variables)
 
-            if Enum.empty?(undefined_vars) do
-              changeset
-            else
-              add_error(
-                changeset,
-                :variables,
-                "Template uses undefined variables: #{Enum.join(undefined_vars, ", ")}"
-              )
-            end
+          # Check for undefined variables in template
+          undefined_vars = extracted_vars -- declared_vars
 
-          _ ->
+          if Enum.empty?(undefined_vars) do
             changeset
+          else
+            add_error(
+              changeset,
+              :variables,
+              "Template uses undefined variables: #{Enum.join(undefined_vars, ", ")}"
+            )
+          end
+        else
+          changeset
         end
 
       _ ->
