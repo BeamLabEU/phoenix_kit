@@ -1012,7 +1012,16 @@ defmodule PhoenixKit.Modules.Publishing do
 
   # Finds the next available minute for a timestamp-mode post.
   # If the given date/time is already taken, bumps forward by one minute at a time.
-  defp find_available_timestamp(group_slug, date, time) do
+  # Limited to 60 attempts to prevent unbounded recursion.
+  @max_timestamp_attempts 60
+
+  defp find_available_timestamp(group_slug, date, time, attempts \\ 0)
+
+  defp find_available_timestamp(_group_slug, date, time, @max_timestamp_attempts) do
+    {date, time}
+  end
+
+  defp find_available_timestamp(group_slug, date, time, attempts) do
     case DBStorage.get_post_by_datetime(group_slug, date, time) do
       nil ->
         {date, time}
@@ -1024,12 +1033,12 @@ defmodule PhoenixKit.Modules.Publishing do
         if total_seconds >= 86_400 do
           # Rolled past midnight — advance to next day at 00:00
           next_date = Date.add(date, 1)
-          {next_date, ~T[00:00:00]}
+          find_available_timestamp(group_slug, next_date, ~T[00:00:00], attempts + 1)
         else
           next_hour = div(total_seconds, 3600)
           next_minute = div(rem(total_seconds, 3600), 60)
           next_time = %Time{hour: next_hour, minute: next_minute, second: 0, microsecond: {0, 0}}
-          find_available_timestamp(group_slug, date, next_time)
+          find_available_timestamp(group_slug, date, next_time, attempts + 1)
         end
     end
   end

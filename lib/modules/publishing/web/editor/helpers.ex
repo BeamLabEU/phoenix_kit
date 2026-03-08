@@ -291,7 +291,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   Builds the URL for a post overview page.
   """
   def build_post_url(group_slug, post, _opts \\ []) do
-    Routes.path("/admin/publishing/#{group_slug}/#{post[:uuid]}")
+    Routes.path("/admin/publishing/#{group_slug}/#{require_uuid!(post)}")
   end
 
   @doc """
@@ -300,7 +300,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   Options: `:version`, `:lang`
   """
   def build_edit_url(group_slug, post, opts \\ []) do
-    uuid = post[:uuid]
+    uuid = require_uuid!(post)
     base = "/admin/publishing/#{group_slug}/#{uuid}/edit"
     params = build_query_params(opts)
 
@@ -315,7 +315,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   Builds the URL for the post preview.
   """
   def build_preview_url(group_slug, post, _opts \\ []) do
-    Routes.path("/admin/publishing/#{group_slug}/#{post[:uuid]}/preview")
+    Routes.path("/admin/publishing/#{group_slug}/#{require_uuid!(post)}/preview")
   end
 
   @doc """
@@ -336,4 +336,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
 
   defp maybe_add_param(params, _key, nil), do: params
   defp maybe_add_param(params, key, value), do: [{key, value} | params]
+
+  defp require_uuid!(post) do
+    case post[:uuid] do
+      nil -> raise ArgumentError, "post UUID is required for URL construction, got nil"
+      uuid -> uuid
+    end
+  end
 end
