@@ -240,6 +240,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       :body_preview,
       :body_full,
       :template_name,
+      :locale,
       :campaign_id,
       :attachments_count,
       :size_bytes,
