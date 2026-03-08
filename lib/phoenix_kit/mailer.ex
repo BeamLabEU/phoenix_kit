@@ -121,8 +121,9 @@ defmodule PhoenixKit.Mailer do
       template ->
         # Ensure template is active
         if template.status == "active" do
-          # Render template with variables
-          rendered = Templates.render_template(template, variables)
+          # Render template with variables in the requested locale
+          locale = Keyword.get(opts, :locale, "en")
+          rendered = Templates.render_template(template, variables, locale)
 
           # Build email
           email =

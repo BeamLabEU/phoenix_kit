@@ -337,23 +337,28 @@ defmodule PhoenixKit.Modules.Emails.Templates do
   end
 
   @doc """
-  Renders a template with the provided variables.
+  Renders a template with the provided variables for a specific locale.
 
   Returns a map with `:subject`, `:html_body`, and `:text_body` keys containing
-  the rendered content with variables substituted.
+  the rendered content with variables substituted in the requested language.
 
   This function performs validation to ensure all template variables are properly substituted:
   - Checks for missing required variables
   - Warns if any unreplaced `{{variable}}` placeholders remain
   - Logs information about unused variables
 
+  ## Parameters
+  - `template` — the EmailTemplate struct
+  - `variables` — map of variable names to values
+  - `locale` — the target locale code (default: `"en"`)
+
   ## Examples
 
-      iex> Templates.render_template(template, %{"user_name" => "John"})
+      iex> Templates.render_template(template, %{"user_name" => "John"}, "uk")
       %{
-        subject: "Welcome John!",
-        html_body: "<h1>Welcome John!</h1>",
-        text_body: "Welcome John!"
+        subject: "Ласкаво просимо, John!",
+        html_body: "<h1>Ласкаво просимо, John!</h1>",
+        text_body: "Ласкаво просимо, John!"
       }
 
   ## Validation
@@ -363,8 +368,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
   This allows for graceful degradation in production.
 
   """
-  def render_template(%Template{} = template, variables \\ %{}) do
-    # Extract required variables from the template
+  def render_template(%Template{} = template, variables \\ %{}, locale \\ "en") do
+    # Extract required variables from all language versions of the template
     required_vars = Template.extract_variables(template)
     provided_vars = Map.keys(variables)
 
@@ -386,17 +391,13 @@ defmodule PhoenixKit.Modules.Emails.Templates do
       )
     end
 
-    # Perform variable substitution
-    rendered_template = Template.substitute_variables(template, variables)
+    # Perform locale-aware variable substitution
+    rendered = Template.substitute_variables(template, variables, locale)
 
     # Check for unreplaced variables in rendered output
-    validate_rendered_content(template.name, rendered_template)
+    validate_rendered_content(template.name, rendered)
 
-    %{
-      subject: rendered_template.subject,
-      html_body: rendered_template.html_body,
-      text_body: rendered_template.text_body
-    }
+    rendered
   end
 
   # Private helper to validate rendered content for unreplaced variables
