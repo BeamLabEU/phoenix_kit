@@ -1,3 +1,16 @@
+## 1.7.64 - 2026-03-08
+- Remove legacy filesystem paths from publishing module — strip all `.phk` virtual path references from mapper, editor, listing, and preview
+- Switch all event handlers and navigation from path-based to UUID-based routing
+- Fix timestamp-mode posts returning 404: normalize post_time to zero seconds, with hour:minute-only fallback query for legacy data
+- Add collision prevention for same-minute timestamp posts (auto-bump to next minute, max 60 attempts)
+- Add unique_constraint on (group_uuid, post_date, post_time) to schema
+- Render empty listing page instead of 404 when group exists but has no published posts
+- Show Primary Language banner during new post creation
+- Add missing PubSub handlers to publishing Index view (version_created, version_live_changed, version_deleted) with catch-all
+- Fix primary language migration using removed path field — now uses UUID/slug directly
+- Remove cache management UI from listing page (accessible via settings only)
+- Add safety guards to URL builders: raise ArgumentError on nil UUID instead of producing broken URLs
+
 ## 1.7.63 - 2026-03-06
 - Remove filesystem storage from publishing module — delete Storage, DualWrite, and all storage/* submodules (~7k lines removed)
 - Add LanguageHelpers and SlugHelpers as standalone modules, simplify to DB-only throughout
