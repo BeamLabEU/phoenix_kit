@@ -206,7 +206,7 @@ defmodule PhoenixKit.Modules.Publishing do
           post_slug = get_post_slug(post)
 
           Logger.debug(
-            "[PrimaryLangMigration] Post path=#{inspect(post[:path])} slug=#{inspect(post_slug)}"
+            "[PrimaryLangMigration] Post uuid=#{inspect(post[:uuid])} identifier=#{inspect(post_slug)}"
           )
 
           if post_slug do
@@ -214,7 +214,10 @@ defmodule PhoenixKit.Modules.Publishing do
             Logger.debug("[PrimaryLangMigration] Result for #{post_slug}: #{inspect(result)}")
             result
           else
-            Logger.warning("[PrimaryLangMigration] No slug for post: #{inspect(post[:path])}")
+            Logger.warning(
+              "[PrimaryLangMigration] No identifier for post: #{inspect(post[:uuid])}"
+            )
+
             {:error, :no_slug}
           end
         end)
@@ -236,42 +239,9 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  # Get post directory path from cached post
-  # For slug mode: returns the slug (e.g., "hello")
-  # For timestamp mode: returns the date/time path (e.g., "2025-12-31/03:42")
-  # Uses atom keys since cached posts are normalized
+  # Get post identifier for DB operations (UUID preferred, slug as fallback)
   defp get_post_slug(post) do
-    case post[:mode] do
-      :timestamp -> derive_timestamp_post_dir(post[:path])
-      "timestamp" -> derive_timestamp_post_dir(post[:path])
-      _ -> post[:slug] || derive_slug_from_path(post[:path])
-    end
-  end
-
-  # For timestamp mode, extract date/time from path identifier
-  defp derive_timestamp_post_dir(nil), do: nil
-  defp derive_timestamp_post_dir(""), do: nil
-
-  defp derive_timestamp_post_dir(path) do
-    parts = Path.split(path)
-
-    case parts do
-      [_group, date, time | _rest] -> Path.join(date, time)
-      _ -> nil
-    end
-  end
-
-  # For slug mode, extract slug from path identifier
-  defp derive_slug_from_path(nil), do: nil
-  defp derive_slug_from_path(""), do: nil
-
-  defp derive_slug_from_path(path) do
-    parts = Path.split(path)
-
-    case parts do
-      [_group, slug | _rest] -> slug
-      _ -> nil
-    end
+    post[:uuid] || post[:slug]
   end
 
   # Version metadata lookup (DB-based)
