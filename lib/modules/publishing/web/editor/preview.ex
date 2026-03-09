@@ -123,35 +123,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   @doc """
   Builds the preview URL query params.
   """
-  def build_preview_query_params(preview_payload, token) do
+  def build_preview_query_params(_preview_payload, token) do
     %{"preview_token" => token}
-    |> maybe_put_preview_path(preview_payload.path)
-    |> maybe_put_preview_new_flag(preview_payload)
   end
-
-  def maybe_put_preview_path(params, path) when is_binary(path) and path != "" do
-    Map.put(params, "path", path)
-  end
-
-  def maybe_put_preview_path(params, _), do: params
-
-  def maybe_put_preview_new_flag(params, %{is_new_post: true}) do
-    Map.put(params, "new", "true")
-  end
-
-  def maybe_put_preview_new_flag(params, _), do: params
 
   @doc """
   Builds the editor path for preview mode.
   """
-  def preview_editor_path(socket, data, token, params) do
+  def preview_editor_path(socket, data, token, _params) do
     group_slug = data[:group_slug] || socket.assigns.group_slug
 
     query_params =
-      %{}
-      |> maybe_put_preview_path(Map.get(params, "path") || data[:path])
-      |> maybe_put_preview_new_flag(%{is_new_post: data[:is_new_post] || false})
-      |> Map.put("preview_token", token)
+      %{"preview_token" => token}
+      |> maybe_put_new_flag(data[:is_new_post])
 
     query =
       case URI.encode_query(query_params) do
@@ -161,6 +145,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
     Routes.path("/admin/publishing/#{group_slug}/edit#{query}")
   end
+
+  defp maybe_put_new_flag(params, true), do: Map.put(params, "new", "true")
+  defp maybe_put_new_flag(params, _), do: params
 
   # ============================================================================
   # Preview State Application

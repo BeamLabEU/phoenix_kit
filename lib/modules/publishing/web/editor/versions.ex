@@ -20,18 +20,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   Reads a specific version of a post.
   """
   def read_version_post(socket, version) do
-    group_slug = socket.assigns.group_slug
     post = socket.assigns.post
     language = socket.assigns.current_language
     # Use the post's stored primary language for fallback, not global
     primary_language = post[:primary_language] || Publishing.get_primary_language()
 
-    read_fn =
-      if socket.assigns.group_mode == "slug" do
-        fn lang -> Publishing.read_post(group_slug, post.slug, lang, version) end
-      else
-        fn lang -> read_timestamp_version(group_slug, post, lang, version) end
-      end
+    read_fn = fn lang -> Publishing.read_post_by_uuid(post.uuid, lang, version) end
 
     # Try current language first, fall back to primary if different
     case read_fn.(language) do
@@ -39,10 +33,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
       {:error, _} when language != primary_language -> read_fn.(primary_language)
       error -> error
     end
-  end
-
-  defp read_timestamp_version(_group_slug, post, language, version) do
-    Publishing.read_post_by_uuid(post[:uuid], language, version)
   end
 
   # ============================================================================
@@ -82,7 +72,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
       |> Phoenix.LiveView.push_event("set-content", %{content: version_post.content})
 
     # Return socket with cleanup info for the caller to handle collaborative editing
-    {socket, old_form_key, old_post_slug, new_form_key, actual_language, version_post[:uuid]}
+    {socket, old_form_key, old_post_slug, new_form_key, actual_language}
   end
 
   # ============================================================================
@@ -157,13 +147,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   @doc """
   Handles when a version is deleted by another editor.
   """
-  def handle_version_deleted(socket, group_slug, post_slug, deleted_version) do
+  def handle_version_deleted(socket, deleted_version) do
     available_versions = socket.assigns[:available_versions] || []
     updated_versions = Enum.reject(available_versions, &(&1 == deleted_version))
     current_version = socket.assigns[:current_version]
 
     if current_version == deleted_version do
-      switch_to_surviving_version(socket, group_slug, post_slug, updated_versions)
+      switch_to_surviving_version(socket, updated_versions)
     else
       # We weren't viewing the deleted version, just update the list
       socket
@@ -175,16 +165,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     end
   end
 
-  defp switch_to_surviving_version(
-         socket,
-         group_slug,
-         post_slug,
-         [surviving_version | _] = versions
-       ) do
+  defp switch_to_surviving_version(socket, [surviving_version | _] = versions) do
     current_language = editor_language(socket.assigns)
+    post_uuid = socket.assigns.post.uuid
 
-    case Publishing.read_post(group_slug, post_slug, current_language, surviving_version) do
+    case Publishing.read_post_by_uuid(post_uuid, current_language, surviving_version) do
       {:ok, fresh_post} ->
+        group_slug = socket.assigns.group_slug
         apply_surviving_version(socket, group_slug, fresh_post, versions, surviving_version)
 
       {:error, _} ->
@@ -197,7 +184,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     end
   end
 
-  defp switch_to_surviving_version(socket, _group_slug, _post_slug, []) do
+  defp switch_to_surviving_version(socket, []) do
     # No versions left - this post is effectively deleted
     socket
     |> Phoenix.Component.assign(:readonly?, true)
@@ -205,7 +192,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     |> Phoenix.Component.assign(:available_versions, [])
     |> Phoenix.Component.assign(
       :post,
-      %{socket.assigns.post | path: nil, current_version: nil}
+      Map.merge(socket.assigns.post, %{current_version: nil})
     )
     |> Phoenix.Component.assign(:has_pending_changes, false)
     |> Phoenix.LiveView.put_flash(
@@ -246,9 +233,5 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   """
   def viewing_older_version?(_current_version, _available_versions, _current_language), do: false
 
-  defp editor_language(assigns) do
-    assigns[:current_language] ||
-      assigns |> Map.get(:post, %{}) |> Map.get(:language) ||
-      hd(Publishing.enabled_language_codes())
-  end
+  defp editor_language(assigns), do: Helpers.editor_language(assigns)
 end

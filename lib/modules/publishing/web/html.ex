@@ -44,7 +44,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   - If only one post exists on the date, uses date-only URL (e.g., /group/2025-12-09)
   - If multiple posts exist on the date, includes time (e.g., /group/2025-12-09/16:26)
   """
-  def build_post_url(group_slug, post, language) do
+  def build_post_url(group_slug, post, language, date_counts \\ nil) do
     case post.mode do
       :slug ->
         # Use language-specific URL slug for SEO-friendly localized URLs
@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
         date = get_timestamp_date(post)
 
         # Check if we need time in URL (only if multiple posts on same date)
-        post_count = count_posts_on_date(group_slug, date)
+        post_count = lookup_date_count(date_counts, group_slug, date)
 
         segments =
           if post_count > 1 do
@@ -202,12 +202,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   @doc """
   Formats a post's publication date, including time only when multiple posts exist on the same date.
   """
-  def format_post_date(post, group_slug) do
+  def format_post_date(post, group_slug, date_counts \\ nil) do
     case post.mode do
       :timestamp ->
         # For timestamp mode, use date/time from directory structure
         date = get_timestamp_date(post)
-        post_count = count_posts_on_date(group_slug, date)
+        post_count = lookup_date_count(date_counts, group_slug, date)
 
         if post_count > 1 do
           format_timestamp_date_with_time(post)
@@ -403,10 +403,26 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
     not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
   end
 
-  # Counts posts on a given date for a group
-  # Used to determine if time should be included in URLs
-  defp count_posts_on_date(group_slug, date) do
+  @doc """
+  Pre-computes date counts for timestamp-mode posts to avoid per-post DB queries.
+
+  Returns a map of `%{date_string => count}` for use with `build_post_url/4`
+  and `format_post_date/3`.
+  """
+  def build_date_counts(posts) do
+    posts
+    |> Enum.filter(&(&1.mode == :timestamp))
+    |> Enum.map(&get_timestamp_date/1)
+    |> Enum.frequencies()
+  end
+
+  # Looks up date count from pre-computed map, falling back to DB query
+  defp lookup_date_count(nil, group_slug, date) do
     Publishing.count_posts_on_date(group_slug, date)
+  end
+
+  defp lookup_date_count(date_counts, _group_slug, date) when is_map(date_counts) do
+    Map.get(date_counts, date, 0)
   end
 
   @doc """

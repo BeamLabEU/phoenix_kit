@@ -135,6 +135,7 @@
               </div>
             </div>
           <% else %>
+            <% date_counts = PublishingHTML.build_date_counts(@posts) %>
             <div class="grid gap-4">
               <%= for post <- @posts do %>
                 <% group_slug =
@@ -144,7 +145,7 @@
                 <% post_primary_lang = post[:primary_language] || @primary_language %>
                 <%!-- Use post's primary language for the public URL --%>
                 <% public_url =
-                  PublishingHTML.build_post_url(group_slug, post, post_primary_lang) %>
+                  PublishingHTML.build_post_url(group_slug, post, post_primary_lang, date_counts) %>
                 <% full_public_url = @endpoint_url <> public_url %>
                 <%!-- Version info (only for slug-mode posts) --%>
                 <% version_count = length(Map.get(post, :available_versions) || []) %>
@@ -176,8 +177,8 @@
                         <% end %>
                       </div>
                       <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                        <a
-                          href={
+                        <.link
+                          navigate={
                             PhoenixKit.Utils.Routes.path(
                               "/admin/publishing/#{group_slug}/#{post.uuid}/edit?lang=#{post_primary_lang}"
                             )
@@ -185,7 +186,7 @@
                           class="hover:text-primary transition-colors"
                         >
                           {post.metadata.title || gettext("Untitled post")}
-                        </a>
+                        </.link>
                       </h3>
                       <p class="text-xs text-base-content/50">
                         <span class="font-medium text-base-content">

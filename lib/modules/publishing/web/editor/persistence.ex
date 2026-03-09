@@ -224,13 +224,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   defp create_new_translation(socket, params) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    original_identifier = socket.assigns.post.slug || socket.assigns.post[:uuid]
-
     current_version = socket.assigns[:current_version]
 
     case Publishing.add_language_to_post(
            socket.assigns.group_slug,
-           original_identifier,
+           socket.assigns.post.uuid,
            socket.assigns.current_language,
            current_version
          ) do
@@ -244,10 +242,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
               socket,
               result,
               gettext("Translation created and saved"),
-              %{
-                is_new_translation: false,
-                original_post_path: nil
-              }
+              %{is_new_translation: false}
             )
 
           error ->
@@ -255,10 +250,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
               socket,
               error,
               gettext("Translation created and saved"),
-              %{
-                is_new_translation: false,
-                original_post_path: nil
-              }
+              %{is_new_translation: false}
             )
         end
 
@@ -422,15 +414,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
        ) do
     group_slug = socket.assigns.group_slug
 
-    post_identifier = post[:uuid] || post.slug
-
     # Use user UUID so all tabs for the same user recognize their own publishes
     user_uuid =
       get_in(socket.assigns, [:phoenix_kit_current_scope, Access.key(:user), Access.key(:uuid)])
 
-    case Publishing.publish_version(group_slug, post_identifier, current_version,
-           source_id: user_uuid
-         ) do
+    case Publishing.publish_version(group_slug, post.uuid, current_version, source_id: user_uuid) do
       :ok ->
         handle_post_save_success(socket, updated_post)
 
@@ -689,11 +677,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     Renderer.invalidate_cache(group_slug, identifier, post.language)
   end
 
-  defp editor_language(assigns) do
-    assigns[:current_language] ||
-      assigns |> Map.get(:post, %{}) |> Map.get(:language) ||
-      hd(Publishing.enabled_language_codes())
-  end
+  defp editor_language(assigns), do: Helpers.editor_language(assigns)
 
   # ============================================================================
   # Reload Operations

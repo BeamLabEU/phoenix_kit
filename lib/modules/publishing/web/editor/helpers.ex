@@ -98,7 +98,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Builds language data for the publishing_language_switcher component.
   """
-  def build_editor_languages(post, _group_slug, enabled_languages, current_language) do
+  def build_editor_languages(post, enabled_languages, current_language) do
     post_primary = post[:primary_language] || Publishing.get_primary_language()
 
     all_languages =
@@ -290,7 +290,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Builds the URL for a post overview page.
   """
-  def build_post_url(group_slug, post, _opts \\ []) do
+  def build_post_url(group_slug, post) do
     Routes.path("/admin/publishing/#{group_slug}/#{require_uuid!(post)}")
   end
 
@@ -314,7 +314,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   @doc """
   Builds the URL for the post preview.
   """
-  def build_preview_url(group_slug, post, _opts \\ []) do
+  def build_preview_url(group_slug, post) do
     Routes.path("/admin/publishing/#{group_slug}/#{require_uuid!(post)}/preview")
   end
 
