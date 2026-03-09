@@ -1,0 +1,54 @@
+<div class="min-h-screen flex items-center justify-center bg-base-200 p-4">
+  <div class="card bg-base-100 shadow-xl w-full max-w-md">
+    <div class="card-body">
+      <h2 class="card-title text-lg">Manage Email Subscriptions</h2>
+
+      <%= if @list do %>
+        <p class="text-sm text-base-content/70">
+          You are about to unsubscribe from <span class="font-semibold">{@list.name}</span>.
+        </p>
+
+        <form
+          method="post"
+          action={PhoenixKit.Utils.Routes.path("/mailing/unsubscribe")}
+          class="mt-4"
+        >
+          <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+          <input type="hidden" name="token" value={@token} />
+          <input type="hidden" name="scope" value="list" />
+          <button type="submit" class="btn btn-primary btn-block">
+            Unsubscribe from "{@list.name}"
+          </button>
+        </form>
+      <% end %>
+
+      <%= if length(@all_lists) > 1 do %>
+        <div class="divider text-xs text-base-content/50">OR</div>
+
+        <div class="text-sm text-base-content/70 mb-2">
+          You are also subscribed to:
+        </div>
+        <ul class="text-sm list-disc list-inside mb-3 text-base-content/70">
+          <%= for membership <- @all_lists, membership.list && (is_nil(@list) || membership.list.uuid != @list.uuid) do %>
+            <li>{membership.list.name}</li>
+          <% end %>
+        </ul>
+
+        <form method="post" action={PhoenixKit.Utils.Routes.path("/mailing/unsubscribe")}>
+          <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+          <input type="hidden" name="token" value={@token} />
+          <input type="hidden" name="scope" value="all" />
+          <button type="submit" class="btn btn-warning btn-outline btn-block">
+            Unsubscribe from all lists
+          </button>
+        </form>
+      <% end %>
+
+      <%= if is_nil(@list) and length(@all_lists) <= 1 do %>
+        <div class="alert alert-info text-sm">
+          <span>No active subscriptions found.</span>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>

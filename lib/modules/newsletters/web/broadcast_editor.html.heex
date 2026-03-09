@@ -1,0 +1,136 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <.admin_page_header
+      back={Routes.path("/admin/mailing/broadcasts")}
+      title={@page_title}
+      subtitle="Compose and send a broadcast email to your mailing list"
+    />
+
+    <form id="broadcast-form" phx-change="validate" phx-submit="save_draft">
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <%!-- Left: Editor --%>
+        <div class="space-y-4">
+          <%!-- Subject --%>
+          <fieldset class="fieldset">
+            <label class="label">Subject</label>
+            <input
+              type="text"
+              name="subject"
+              value={@subject}
+              placeholder="Enter email subject..."
+              class="input w-full"
+            />
+          </fieldset>
+
+          <%!-- List selector --%>
+          <fieldset class="fieldset">
+            <label class="label">Mailing List</label>
+            <select name="list_uuid" class="select w-full">
+              <option value="">Select a list...</option>
+              <option :for={list <- @lists} value={list.uuid} selected={@list_uuid == list.uuid}>
+                {list.name} ({list.subscriber_count} subscribers)
+              </option>
+            </select>
+          </fieldset>
+
+          <%!-- Template selector --%>
+          <fieldset class="fieldset">
+            <label class="label">Email Template</label>
+            <select name="template_uuid" class="select w-full">
+              <option value="">No template (plain markdown)</option>
+              <option
+                :for={template <- @templates}
+                value={template.uuid}
+                selected={@template_uuid == template.uuid}
+              >
+                {template.display_name || template.name}
+              </option>
+            </select>
+          </fieldset>
+
+          <%!-- Markdown Editor --%>
+          <fieldset class="fieldset">
+            <label class="label">Content (Markdown)</label>
+            <.live_component
+              module={PhoenixKitWeb.Components.Core.MarkdownEditor}
+              id="broadcast-editor"
+              content={@markdown_content}
+              save_status={:saved}
+              show_formatting_toolbar={true}
+              protect_navigation={false}
+              height="400px"
+              placeholder="Write your broadcast content in Markdown..."
+            />
+          </fieldset>
+
+          <%!-- Actions --%>
+          <div class="flex flex-col sm:flex-row gap-3 pt-2">
+            <button type="submit" class="btn btn-outline btn-sm" disabled={@saving}>
+              <%= if @saving do %>
+                <span class="loading loading-spinner loading-xs"></span>
+              <% end %>
+              Save Draft
+            </button>
+
+            <button
+              type="button"
+              phx-click="send_now"
+              class="btn btn-primary btn-sm"
+              disabled={@saving or @subject == "" or @list_uuid == ""}
+            >
+              <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Now
+            </button>
+
+            <div class="flex items-center gap-2 ml-auto">
+              <input
+                type="datetime-local"
+                name="scheduled_at"
+                value={@scheduled_at}
+                class="input input-sm"
+              />
+              <button
+                type="button"
+                phx-click="schedule"
+                class="btn btn-secondary btn-sm"
+                disabled={@saving or @scheduled_at == "" or @subject == "" or @list_uuid == ""}
+              >
+                <.icon name="hero-clock" class="w-4 h-4" /> Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Right: Preview --%>
+        <div>
+          <label class="label">Preview</label>
+          <div
+            class="border border-base-300 rounded-lg overflow-hidden bg-white"
+            style="height: 580px;"
+          >
+            <%= if @preview_html != "" do %>
+              <iframe
+                srcdoc={@preview_html}
+                class="w-full h-full border-0"
+                sandbox="allow-same-origin"
+              >
+              </iframe>
+            <% else %>
+              <div class="flex items-center justify-center h-full text-base-content/40">
+                <div class="text-center">
+                  <.icon name="hero-eye" class="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p class="text-sm">Preview will appear here as you type</p>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
