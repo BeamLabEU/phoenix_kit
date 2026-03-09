@@ -8,7 +8,7 @@
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header back={Routes.path("/admin/emails")}>
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
-        Email Details #{@email_uuid}
+        {gettext("Email Details %{uuid}", uuid: @email_uuid)}
       </h1>
       <%= if @email_log do %>
         <p class="text-sm text-base-content/60 mt-0.5">{@email_log.to}</p>
@@ -20,7 +20,7 @@
       <%= if @loading do %>
         <div class="flex justify-center items-center h-32">
           <span class="loading loading-spinner loading-md"></span>
-          <span class="ml-2">Loading email details...</span>
+          <span class="ml-2">{gettext("Loading email details...")}</span>
         </div>
       <% else %>
         <%= if @email_log do %>
@@ -28,17 +28,19 @@
           <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
             <div>
               <h1 class="text-2xl font-bold text-base-content mb-2">
-                Email Details {@email_log.uuid}
+                {gettext("Email Details %{uuid}", uuid: @email_log.uuid)}
               </h1>
               <div class="flex items-center gap-4 text-sm text-base-content/70">
-                <span>To: {@email_log.to}</span>
+                <span>{gettext("To:")} {@email_log.to}</span>
                 <span>•</span>
                 <span>
-                  Status: <.email_status_badge status={@email_log.status} />
+                  {gettext("Status:")} <.email_status_badge status={@email_log.status} />
                 </span>
                 <span>•</span>
                 <span>
-                  Sent: {UtilsDate.format_datetime_with_user_format(@email_log.sent_at)}
+                  {gettext("Sent:")} {UtilsDate.format_datetime_with_user_format(
+                    @email_log.sent_at
+                  )}
                 </span>
               </div>
             </div>
@@ -49,7 +51,7 @@
                 target="_blank"
                 class="btn btn-outline btn-sm"
               >
-                <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" /> Export CSV
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" /> {gettext("Export CSV")}
               </.link>
 
               <button
@@ -58,9 +60,13 @@
                 disabled={assigns[:syncing]}
               >
                 <%= if assigns[:syncing] do %>
-                  <span class="loading loading-spinner loading-xs mr-1"></span> Syncing...
+                  <span class="loading loading-spinner loading-xs mr-1"></span> {gettext(
+                    "Syncing..."
+                  )}
                 <% else %>
-                  <.icon name="hero-arrow-path-rounded-square" class="w-4 h-4 mr-1" /> Sync Status
+                  <.icon name="hero-arrow-path-rounded-square" class="w-4 h-4 mr-1" /> {gettext(
+                    "Sync Status"
+                  )}
                 <% end %>
               </button>
 
@@ -70,9 +76,11 @@
                 disabled={assigns[:loading]}
               >
                 <%= if assigns[:loading] do %>
-                  <span class="loading loading-spinner loading-xs mr-1"></span> Loading...
+                  <span class="loading loading-spinner loading-xs mr-1"></span> {gettext(
+                    "Loading..."
+                  )}
                 <% else %>
-                  <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
+                  <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
                 <% end %>
               </button>
             </div>
@@ -84,28 +92,36 @@
               <%!-- Email Overview Card --%>
               <div class="card bg-base-100 shadow-sm">
                 <div class="card-body">
-                  <h2 class="card-title text-lg mb-4">Email Overview</h2>
+                  <h2 class="card-title text-lg mb-4">{gettext("Email Overview")}</h2>
 
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="space-y-3">
                       <div>
-                        <label class="text-sm font-medium text-base-content/70">Subject</label>
-                        <p class="text-sm">{@email_log.subject || "(no subject)"}</p>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("Subject")}
+                        </label>
+                        <p class="text-sm">{@email_log.subject || gettext("(no subject)")}</p>
                       </div>
 
                       <div>
-                        <label class="text-sm font-medium text-base-content/70">From</label>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("From")}
+                        </label>
                         <p class="text-sm">{@email_log.from}</p>
                       </div>
 
                       <div>
-                        <label class="text-sm font-medium text-base-content/70">To</label>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("To")}
+                        </label>
                         <p class="text-sm">{@email_log.to}</p>
                       </div>
 
                       <%= if @email_log.template_name do %>
                         <div>
-                          <label class="text-sm font-medium text-base-content/70">Template</label>
+                          <label class="text-sm font-medium text-base-content/70">
+                            {gettext("Template")}
+                          </label>
                           <div class="flex items-center gap-2">
                             <span class="badge badge-primary badge-sm h-auto">
                               {@email_log.template_name}
@@ -115,7 +131,7 @@
                               phx-value-template_name={@email_log.template_name}
                               class="text-xs text-blue-600 hover:underline"
                             >
-                              View related emails
+                              {gettext("View related emails")}
                             </button>
                           </div>
                         </div>
@@ -124,21 +140,27 @@
 
                     <div class="space-y-3">
                       <div>
-                        <label class="text-sm font-medium text-base-content/70">Status</label>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("Status")}
+                        </label>
                         <div>
                           <.email_status_badge status={@email_log.status} />
                         </div>
                       </div>
 
                       <div>
-                        <label class="text-sm font-medium text-base-content/70">Provider</label>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("Provider")}
+                        </label>
                         <div class="badge badge-outline badge-sm h-auto">
                           {@email_log.provider}
                         </div>
                       </div>
 
                       <div>
-                        <label class="text-sm font-medium text-base-content/70">Size</label>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("Size")}
+                        </label>
                         <p class="text-sm">
                           <.file_size bytes={@email_log.size_bytes} />
                         </p>
@@ -146,7 +168,7 @@
 
                       <div>
                         <label class="text-sm font-medium text-base-content/70">
-                          Attachments
+                          {gettext("Attachments")}
                         </label>
                         <p class="text-sm">{@email_log.attachments_count}</p>
                       </div>
@@ -157,7 +179,7 @@
                   <div class="border-t pt-4 mt-4 space-y-3">
                     <div>
                       <label class="text-sm font-medium text-base-content/70">
-                        Message ID (Internal)
+                        {gettext("Message ID (Internal)")}
                       </label>
                       <p class="text-xs font-mono text-base-content/90 break-all">
                         {@email_log.message_id}
@@ -167,7 +189,7 @@
                     <%= if @email_log.aws_message_id do %>
                       <div>
                         <label class="text-sm font-medium text-base-content/70">
-                          AWS Message ID
+                          {gettext("AWS Message ID")}
                         </label>
                         <p class="text-xs font-mono text-base-content/90 break-all">
                           {@email_log.aws_message_id}
@@ -178,7 +200,9 @@
 
                   <%= if @email_log.campaign_id do %>
                     <div class="border-t pt-4 mt-4">
-                      <label class="text-sm font-medium text-base-content/70">Campaign</label>
+                      <label class="text-sm font-medium text-base-content/70">
+                        {gettext("Campaign")}
+                      </label>
                       <div class="flex items-center gap-2 mt-1">
                         <span class="badge badge-secondary badge-sm h-auto">
                           {@email_log.campaign_id}
@@ -188,7 +212,7 @@
                           phx-value-campaign_id={@email_log.campaign_id}
                           class="text-xs text-blue-600 hover:underline"
                         >
-                          View campaign emails
+                          {gettext("View campaign emails")}
                         </button>
                       </div>
                     </div>
@@ -198,7 +222,7 @@
                     <div class="alert alert-error mt-4">
                       <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
                       <div>
-                        <strong>Error:</strong> {@email_log.error_message}
+                        <strong>{gettext("Error:")}</strong> {@email_log.error_message}
                       </div>
                     </div>
                   <% end %>
@@ -209,14 +233,16 @@
               <div class="card bg-base-100 shadow-sm">
                 <div class="card-body">
                   <div class="flex items-center justify-between mb-4">
-                    <h2 class="card-title text-lg">Email Content</h2>
+                    <h2 class="card-title text-lg">{gettext("Email Content")}</h2>
                     <div class="flex gap-2">
                       <%= if @email_log.body_full do %>
                         <button
                           phx-click="toggle_body"
                           class="btn btn-outline btn-sm"
                         >
-                          {if assigns[:show_body], do: "Hide", else: "Show"} Full Body
+                          {if assigns[:show_body],
+                            do: gettext("Hide Full Body"),
+                            else: gettext("Show Full Body")}
                         </button>
                       <% end %>
                       <%= if @email_log.headers && map_size(@email_log.headers) > 0 do %>
@@ -224,7 +250,9 @@
                           phx-click="toggle_headers"
                           class="btn btn-outline btn-sm"
                         >
-                          {if assigns[:show_headers], do: "Hide", else: "Show"} Headers
+                          {if assigns[:show_headers],
+                            do: gettext("Hide Headers"),
+                            else: gettext("Show Headers")}
                         </button>
                       <% end %>
                     </div>
@@ -233,13 +261,13 @@
                   <%!-- Body Preview --%>
                   <div class="mb-4">
                     <label class="text-sm font-medium text-base-content/70 block mb-2">
-                      Body Preview
+                      {gettext("Body Preview")}
                     </label>
                     <div class="bg-base-200 p-3 rounded text-sm max-h-40 overflow-y-auto">
                       <%= if @email_log.body_preview do %>
                         <pre class="whitespace-pre-wrap"><%= @email_log.body_preview %></pre>
                       <% else %>
-                        <em class="text-base-content/60">No preview available</em>
+                        <em class="text-base-content/60">{gettext("No preview available")}</em>
                       <% end %>
                     </div>
                   </div>
@@ -248,7 +276,7 @@
                   <%= if assigns[:show_body] and @email_log.body_full do %>
                     <div class="mb-4">
                       <label class="text-sm font-medium text-base-content/70 block mb-2">
-                        Full Body
+                        {gettext("Full Body")}
                       </label>
                       <div class="bg-base-200 p-3 rounded text-sm max-h-60 overflow-y-auto">
                         <pre class="whitespace-pre-wrap"><%= @email_log.body_full %></pre>
@@ -260,14 +288,18 @@
                   <%= if assigns[:show_headers] and @email_log.headers && map_size(@email_log.headers) > 0 do %>
                     <div>
                       <label class="text-sm font-medium text-base-content/70 block mb-2">
-                        Headers
+                        {gettext("Headers")}
                       </label>
                       <div class="bg-base-200 p-3 rounded text-sm max-h-40 overflow-y-auto">
                         <.table_default size="xs" class="w-full">
                           <.table_default_header>
                             <.table_default_row>
-                              <.table_default_header_cell>Header</.table_default_header_cell>
-                              <.table_default_header_cell>Value</.table_default_header_cell>
+                              <.table_default_header_cell>
+                                {gettext("Header")}
+                              </.table_default_header_cell>
+                              <.table_default_header_cell>
+                                {gettext("Value")}
+                              </.table_default_header_cell>
                             </.table_default_row>
                           </.table_default_header>
                           <.table_default_body>
@@ -291,10 +323,10 @@
                   <%= if assigns[:show_headers] and (is_nil(@email_log.headers) or map_size(@email_log.headers) == 0) do %>
                     <div>
                       <label class="text-sm font-medium text-base-content/70 block mb-2">
-                        Headers
+                        {gettext("Headers")}
                       </label>
                       <div class="bg-base-200 p-3 rounded text-sm text-base-content/60 italic">
-                        No headers available for this email
+                        {gettext("No headers available for this email")}
                       </div>
                     </div>
                   <% end %>
@@ -304,7 +336,7 @@
               <%!-- Events Timeline --%>
               <div class="card bg-base-100 shadow-sm">
                 <div class="card-body">
-                  <h2 class="card-title text-lg mb-4">Events Timeline</h2>
+                  <h2 class="card-title text-lg mb-4">{gettext("Events Timeline")}</h2>
 
                   <%= if length(@events) > 0 do %>
                     <div class="space-y-4">
@@ -318,7 +350,7 @@
                         name="hero-clock"
                         class="w-12 h-12 mx-auto mb-2 text-base-content/30"
                       />
-                      <p>No events recorded for this email</p>
+                      <p>{gettext("No events recorded for this email")}</p>
                     </div>
                   <% end %>
                 </div>
@@ -330,11 +362,11 @@
               <%!-- Quick Stats --%>
               <div class="card bg-base-100 shadow-sm">
                 <div class="card-body">
-                  <h3 class="card-title text-base mb-4">Quick Stats</h3>
+                  <h3 class="card-title text-base mb-4">{gettext("Quick Stats")}</h3>
 
                   <div class="stats stats-vertical shadow-none bg-transparent">
                     <div class="stat px-0 py-2">
-                      <div class="stat-title text-xs">Message ID</div>
+                      <div class="stat-title text-xs">{gettext("Message ID")}</div>
                       <div class="stat-value text-xs font-mono break-all">
                         {@email_log.message_id}
                       </div>
@@ -342,7 +374,7 @@
 
                     <%= if @email_log.aws_message_id do %>
                       <div class="stat px-0 py-2">
-                        <div class="stat-title text-xs">AWS Message ID</div>
+                        <div class="stat-title text-xs">{gettext("AWS Message ID")}</div>
                         <div class="stat-value text-xs font-mono break-all">
                           {@email_log.aws_message_id}
                         </div>
@@ -350,7 +382,7 @@
                     <% end %>
 
                     <div class="stat px-0 py-2">
-                      <div class="stat-title text-xs">Sent At</div>
+                      <div class="stat-title text-xs">{gettext("Sent At")}</div>
                       <div class="stat-value text-sm">
                         {UtilsDate.format_datetime_with_user_format(@email_log.sent_at)}
                       </div>
@@ -358,7 +390,7 @@
 
                     <%= if @email_log.delivered_at do %>
                       <div class="stat px-0 py-2">
-                        <div class="stat-title text-xs">Delivered At</div>
+                        <div class="stat-title text-xs">{gettext("Delivered At")}</div>
                         <div class="stat-value text-sm">
                           {UtilsDate.format_datetime_with_user_format(@email_log.delivered_at)}
                         </div>
@@ -366,19 +398,19 @@
                           <.duration_display
                             start_time={@email_log.sent_at}
                             end_time={@email_log.delivered_at}
-                          /> delivery time
+                          /> {gettext("delivery time")}
                         </div>
                       </div>
                     <% end %>
 
                     <div class="stat px-0 py-2">
-                      <div class="stat-title text-xs">Events</div>
+                      <div class="stat-title text-xs">{gettext("Events")}</div>
                       <div class="stat-value text-lg">{length(@events)}</div>
                     </div>
 
                     <%= if @email_log.retry_count > 0 do %>
                       <div class="stat px-0 py-2">
-                        <div class="stat-title text-xs">Retries</div>
+                        <div class="stat-title text-xs">{gettext("Retries")}</div>
                         <div class="stat-value text-lg text-warning">
                           {@email_log.retry_count}
                         </div>
@@ -392,7 +424,7 @@
               <%= if map_size(@email_log.message_tags) > 0 do %>
                 <div class="card bg-base-100 shadow-sm">
                   <div class="card-body">
-                    <h3 class="card-title text-base mb-4">Message Tags</h3>
+                    <h3 class="card-title text-base mb-4">{gettext("Message Tags")}</h3>
 
                     <div class="space-y-2">
                       <%= for {key, value} <- @email_log.message_tags do %>
@@ -410,7 +442,7 @@
               <%= if length(@related_emails) > 0 do %>
                 <div class="card bg-base-100 shadow-sm">
                   <div class="card-body">
-                    <h3 class="card-title text-base mb-4">Related Emails</h3>
+                    <h3 class="card-title text-base mb-4">{gettext("Related Emails")}</h3>
 
                     <div class="space-y-2">
                       <%= for related <- Enum.take(@related_emails, 5) do %>
@@ -435,7 +467,9 @@
                             phx-value-campaign_id={@email_log.campaign_id}
                             class="text-xs text-blue-600 hover:underline"
                           >
-                            View all {length(@related_emails)} related emails
+                            {gettext("View all %{count} related emails",
+                              count: length(@related_emails)
+                            )}
                           </button>
                         </div>
                       <% end %>
@@ -448,9 +482,11 @@
         <% else %>
           <div class="text-center py-12">
             <.icon name="hero-envelope-open" class="w-16 h-16 mx-auto mb-4 text-base-content/30" />
-            <h2 class="text-xl font-semibold text-base-content/70 mb-2">Email Not Found</h2>
+            <h2 class="text-xl font-semibold text-base-content/70 mb-2">
+              {gettext("Email Not Found")}
+            </h2>
             <p class="text-base-content/60 mb-4">
-              The email with ID {@email_uuid} could not be found.
+              {gettext("The email with ID %{uuid} could not be found.", uuid: @email_uuid)}
             </p>
             <.link navigate={Routes.path("/admin/emails")} class="btn btn-primary">
               <.icon name="hero-arrow-left" class="w-4 h-4" />
