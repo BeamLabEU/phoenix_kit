@@ -25,6 +25,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Suppress dialyzer warnings for pattern matches
   @dialyzer {:nowarn_function, handle_event: 3}
 
+  alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -119,9 +120,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:show_new_version_modal, false)
       |> assign(:new_version_source, nil)
       |> assign(:show_ai_translation, false)
-      |> assign(:ai_enabled, Translation.ai_translation_available?())
+      |> assign(:ai_enabled, AI.enabled?())
       |> assign(:ai_endpoints, Translation.list_ai_endpoints())
       |> assign(:ai_selected_endpoint_uuid, Translation.get_default_ai_endpoint_uuid())
+      |> assign(:ai_prompts, Translation.list_ai_prompts())
+      |> assign(:ai_selected_prompt_uuid, Translation.get_default_ai_prompt_uuid())
+      |> assign(:ai_default_prompt_exists, Translation.default_translation_prompt_exists?())
       |> assign(:ai_translation_status, nil)
       |> assign(:ai_translation_progress, nil)
       |> assign(:ai_translation_total, nil)
@@ -254,10 +258,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           end
 
         socket =
-          Collaborative.setup_collaborative_editing(socket, form_key,
+          socket
+          |> Collaborative.setup_collaborative_editing(form_key,
             old_form_key: old_form_key,
             old_post_slug: old_post_slug
           )
+          |> Translation.maybe_restore_translation_status()
 
         {:noreply, socket}
 
@@ -303,10 +309,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           end
 
         socket =
-          Collaborative.setup_collaborative_editing(socket, form_key,
+          socket
+          |> Collaborative.setup_collaborative_editing(form_key,
             old_form_key: old_form_key,
             old_post_slug: old_post_slug
           )
+          |> Translation.maybe_restore_translation_status()
 
         {:noreply, socket}
 
@@ -725,6 +733,32 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     endpoint_uuid = if endpoint_uuid == "", do: nil, else: endpoint_uuid
 
     {:noreply, assign(socket, :ai_selected_endpoint_uuid, endpoint_uuid)}
+  end
+
+  def handle_event("select_ai_prompt", %{"prompt_uuid" => prompt_uuid}, socket) do
+    prompt_uuid = if prompt_uuid == "", do: nil, else: prompt_uuid
+
+    {:noreply, assign(socket, :ai_selected_prompt_uuid, prompt_uuid)}
+  end
+
+  def handle_event("generate_default_translation_prompt", _params, socket) do
+    case Translation.generate_default_translation_prompt() do
+      {:ok, prompt} ->
+        {:noreply,
+         socket
+         |> assign(:ai_prompts, Translation.list_ai_prompts())
+         |> assign(:ai_selected_prompt_uuid, prompt.uuid)
+         |> assign(:ai_default_prompt_exists, true)
+         |> Phoenix.LiveView.put_flash(:info, gettext("Default translation prompt created"))}
+
+      {:error, _changeset} ->
+        {:noreply,
+         Phoenix.LiveView.put_flash(
+           socket,
+           :error,
+           gettext("Failed to create prompt. It may already exist.")
+         )}
+    end
   end
 
   def handle_event("translate_to_all_languages", _params, socket) do
@@ -1169,6 +1203,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
       socket =
         socket
+        |> assign(:ai_translation_status, :in_progress)
         |> assign(:ai_translation_progress, completed)
         |> assign(:ai_translation_total, total)
         |> Persistence.refresh_available_languages()
