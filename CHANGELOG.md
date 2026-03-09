@@ -1,3 +1,15 @@
+## 1.7.66 - 2026-03-09
+- Clean up publishing module: fix UUID routing bugs (slug vs UUID in version creation, PubSub broadcasts, translation status), remove dead code and filesystem path references
+- Optimize publishing DB queries: batch loading, ListingCache for dashboard, bulk UPDATE for translation statuses, debounced PubSub updates
+- Rework editor to two-column layout with content-first design (title + editor left, metadata right)
+- Rework AI translation: integrate AI prompt system, modal UI replacing slidedown, translation progress recovery across page refreshes
+- Replace primary language banner with compact tooltip on language switcher
+- Add skeleton loading UI for language switching in publishing editor
+- Fix collaborative editing: spectator initial sync, lock promotion JS updates, lock expiration timer
+- Fix admin sidebar highlighting for publishing group pages
+- Fix custom fields card hidden when no field definitions are registered
+- Add bulk "Add to Group" action on posts index with dynamic group filter dropdown
+
 ## 1.7.65 - 2026-03-08
 - Fix V77 migration crash: role_id column renamed to role_uuid in UUID migration
 
