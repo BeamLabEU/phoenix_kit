@@ -109,6 +109,9 @@
               <option value="marketing" selected={@filters.category == "marketing"}>
                 Marketing
               </option>
+              <option value="mailing" selected={@filters.category == "mailing"}>
+                Mailing
+              </option>
             </select>
           </div>
 
@@ -169,7 +172,12 @@
                   <%!-- Template Column --%>
                   <.table_default_cell>
                     <div class="space-y-1">
-                      <div class="font-medium text-sm">{template.display_name}</div>
+                      <div class="font-medium text-sm">
+                        {PhoenixKit.Modules.Emails.Template.get_translation(
+                          template.display_name,
+                          @display_locale
+                        )}
+                      </div>
                       <div class="text-xs text-base-content/70">{template.name}</div>
                       <%= if template.is_system do %>
                         <div class="badge badge-info badge-xs h-auto">System</div>
@@ -179,15 +187,25 @@
 
                   <%!-- Subject Column --%>
                   <.table_default_cell>
-                    <div class="text-sm truncate" title={template.subject}>
-                      {template.subject}
+                    <% subj =
+                      PhoenixKit.Modules.Emails.Template.get_translation(
+                        template.subject,
+                        @display_locale
+                      ) %>
+                    <div class="text-sm truncate" title={subj}>
+                      {subj}
                     </div>
-                    <%= if template.description do %>
+                    <% desc =
+                      PhoenixKit.Modules.Emails.Template.get_translation(
+                        template.description || %{},
+                        @display_locale
+                      ) %>
+                    <%= if desc != "" do %>
                       <div
                         class="text-xs text-base-content/70 truncate"
-                        title={template.description}
+                        title={desc}
                       >
-                        {template.description}
+                        {desc}
                       </div>
                     <% end %>
                   </.table_default_cell>
@@ -334,7 +352,7 @@
         <h3 class="font-bold text-lg mb-4">Clone Template</h3>
         <%= if @clone_template do %>
           <p class="text-sm text-base-content/70 mb-4">
-            Creating a copy of "<strong>{@clone_template.display_name}</strong>"
+            Creating a copy of "<strong>{PhoenixKit.Modules.Emails.Template.get_translation(@clone_template.display_name, @display_locale)}</strong>"
           </p>
         <% end %>
 

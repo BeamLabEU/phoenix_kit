@@ -62,6 +62,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
       |> assign(:clone_template, nil)
       |> assign(:clone_form, %{name: "", display_name: "", errors: %{}})
       |> assign(:confirmation_modal, %{show: false})
+      |> assign(:display_locale, Settings.get_content_language() || "en")
       |> assign_filter_defaults()
       |> assign_pagination_defaults()
 
