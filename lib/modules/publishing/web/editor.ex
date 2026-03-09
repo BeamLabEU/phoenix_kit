@@ -25,6 +25,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Suppress dialyzer warnings for pattern matches
   @dialyzer {:nowarn_function, handle_event: 3}
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
@@ -58,6 +59,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   defdelegate build_editor_languages(post, enabled_languages, current_language),
     to: Helpers
+
+  # JS command for language switching: instantly shows skeleton, hides fields
+  defp switch_lang_js(lang_code, current_lang) do
+    if lang_code == current_lang do
+      # Already on this language — no-op to prevent skeleton ghosts
+      %JS{}
+    else
+      JS.push("switch_language", value: %{language: lang_code})
+      |> JS.add_class("hidden", to: "[data-translatable=fields]")
+      |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
+    end
+  end
 
   # ============================================================================
   # Mount
