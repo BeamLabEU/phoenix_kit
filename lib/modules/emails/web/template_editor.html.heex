@@ -58,10 +58,28 @@
                   <label class="label">
                     <span class="label-text">Display Name</span>
                   </label>
+                  <%!-- Hidden inputs preserve all locale values --%>
+                  <%= for locale <- @available_locales, locale != @current_editor_locale do %>
+                    <input
+                      type="hidden"
+                      name={"email_template[display_name][#{locale}]"}
+                      value={
+                        PhoenixKit.Modules.Emails.Template.get_translation(
+                          Ecto.Changeset.get_field(@changeset, :display_name) || %{},
+                          locale
+                        )
+                      }
+                    />
+                  <% end %>
                   <input
                     type="text"
-                    name="email_template[display_name]"
-                    value={Ecto.Changeset.get_field(@changeset, :display_name)}
+                    name={"email_template[display_name][#{@current_editor_locale}]"}
+                    value={
+                      PhoenixKit.Modules.Emails.Template.get_translation(
+                        Ecto.Changeset.get_field(@changeset, :display_name) || %{},
+                        @current_editor_locale
+                      )
+                    }
                     placeholder="Welcome Email"
                     class="input input-bordered"
                   />
@@ -128,6 +146,12 @@
                       selected={Ecto.Changeset.get_field(@changeset, :category) == "notification"}
                     >
                       Notification
+                    </option>
+                    <option
+                      value="mailing"
+                      selected={Ecto.Changeset.get_field(@changeset, :category) == "mailing"}
+                    >
+                      Mailing
                     </option>
                   </select>
                   <%= if error = Keyword.get(@changeset.errors, :category) do %>
@@ -206,12 +230,16 @@
                 <label class="label">
                   <span class="label-text">Description (Optional)</span>
                 </label>
+                <%!-- Hidden textareas preserve all locale values --%>
+                <%= for locale <- @available_locales, locale != @current_editor_locale do %>
+                  <textarea name={"email_template[description][#{locale}]"} hidden><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :description) || %{}, locale) %></textarea>
+                <% end %>
                 <textarea
-                  name="email_template[description]"
+                  name={"email_template[description][#{@current_editor_locale}]"}
                   placeholder="Brief description of this template..."
                   class="textarea textarea-bordered"
                   rows="2"
-                ><%= Ecto.Changeset.get_field(@changeset, :description) %></textarea>
+                ><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :description) || %{}, @current_editor_locale) %></textarea>
                 <%= if error = Keyword.get(@changeset.errors, :description) do %>
                   <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
                 <% end %>
@@ -222,17 +250,52 @@
           <%!-- Email Content --%>
           <div class="card bg-base-100 shadow-sm">
             <div class="card-body">
-              <h2 class="card-title text-lg mb-4">Email Content</h2>
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="card-title text-lg">Email Content</h2>
+                <%!-- Locale tab bar — only shown when multiple locales configured --%>
+                <%= if length(@available_locales) > 1 do %>
+                  <div class="tabs tabs-border tabs-sm">
+                    <%= for locale <- @available_locales do %>
+                      <button
+                        type="button"
+                        class={"tab #{if locale == @current_editor_locale, do: "tab-active font-semibold", else: ""}"}
+                        phx-click="switch_editor_locale"
+                        phx-value-locale={locale}
+                      >
+                        {String.upcase(locale)}
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
 
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">Subject Line</span>
                 </label>
+                <%!-- Hidden inputs preserve all locale values --%>
+                <%= for locale <- @available_locales, locale != @current_editor_locale do %>
+                  <input
+                    type="hidden"
+                    name={"email_template[subject][#{locale}]"}
+                    value={
+                      PhoenixKit.Modules.Emails.Template.get_translation(
+                        Ecto.Changeset.get_field(@changeset, :subject) || %{},
+                        locale
+                      )
+                    }
+                  />
+                <% end %>
                 <input
                   type="text"
-                  name="email_template[subject]"
-                  value={Ecto.Changeset.get_field(@changeset, :subject)}
-                  placeholder="Welcome to {{app_name}}!"
+                  name={"email_template[subject][#{@current_editor_locale}]"}
+                  value={
+                    PhoenixKit.Modules.Emails.Template.get_translation(
+                      Ecto.Changeset.get_field(@changeset, :subject) || %{},
+                      @current_editor_locale
+                    )
+                  }
+                  placeholder={"Welcome to {{app_name}}! (#{String.upcase(@current_editor_locale)})"}
                   class="input input-bordered"
                 />
                 <%= if error = Keyword.get(@changeset.errors, :subject) do %>
@@ -249,12 +312,16 @@
                 <label class="label">
                   <span class="label-text">HTML Body</span>
                 </label>
+                <%!-- Hidden textareas preserve all locale values --%>
+                <%= for locale <- @available_locales, locale != @current_editor_locale do %>
+                  <textarea name={"email_template[html_body][#{locale}]"} hidden><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :html_body) || %{}, locale) %></textarea>
+                <% end %>
                 <textarea
-                  name="email_template[html_body]"
+                  name={"email_template[html_body][#{@current_editor_locale}]"}
                   class="textarea textarea-bordered font-mono"
                   rows="12"
-                  placeholder="<h1>Welcome {{user_name}}!</h1>"
-                ><%= Ecto.Changeset.get_field(@changeset, :html_body) %></textarea>
+                  placeholder={"<h1>Welcome {{user_name}}!</h1> (#{String.upcase(@current_editor_locale)})"}
+                ><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :html_body) || %{}, @current_editor_locale) %></textarea>
                 <%= if error = Keyword.get(@changeset.errors, :html_body) do %>
                   <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
                 <% end %>
@@ -264,12 +331,16 @@
                 <label class="label">
                   <span class="label-text">Text Body</span>
                 </label>
+                <%!-- Hidden textareas preserve all locale values --%>
+                <%= for locale <- @available_locales, locale != @current_editor_locale do %>
+                  <textarea name={"email_template[text_body][#{locale}]"} hidden><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :text_body) || %{}, locale) %></textarea>
+                <% end %>
                 <textarea
-                  name="email_template[text_body]"
+                  name={"email_template[text_body][#{@current_editor_locale}]"}
                   class="textarea textarea-bordered font-mono"
                   rows="8"
-                  placeholder="Welcome {{user_name}}!"
-                ><%= Ecto.Changeset.get_field(@changeset, :text_body) %></textarea>
+                  placeholder={"Welcome {{user_name}}! (#{String.upcase(@current_editor_locale)})"}
+                ><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :text_body) || %{}, @current_editor_locale) %></textarea>
                 <%= if error = Keyword.get(@changeset.errors, :text_body) do %>
                   <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
                 <% end %>
@@ -427,43 +498,56 @@
               </div>
             </div>
 
-            <%!-- Subject Preview --%>
+            <%!-- Subject Preview — locale-aware --%>
+            <% preview_subject =
+              PhoenixKit.Modules.Emails.Template.get_translation(
+                Ecto.Changeset.get_field(@changeset, :subject) || %{},
+                @current_editor_locale
+              ) %>
             <div class="mb-4">
-              <div class="text-sm font-medium text-base-content/70 mb-1">Subject:</div>
+              <div class="text-sm font-medium text-base-content/70 mb-1">
+                Subject ({String.upcase(@current_editor_locale)}):
+              </div>
               <div class="p-2 bg-base-200 rounded text-sm">
-                {Ecto.Changeset.get_field(@changeset, :subject) || "No subject"}
+                {if preview_subject == "", do: "No subject", else: preview_subject}
               </div>
             </div>
 
-            <%!-- Body Preview --%>
+            <%!-- Body Preview — locale-aware --%>
+            <% preview_html =
+              PhoenixKit.Modules.Emails.Template.get_translation(
+                Ecto.Changeset.get_field(@changeset, :html_body) || %{},
+                @current_editor_locale
+              ) %>
+            <% preview_text =
+              PhoenixKit.Modules.Emails.Template.get_translation(
+                Ecto.Changeset.get_field(@changeset, :text_body) || %{},
+                @current_editor_locale
+              ) %>
             <div class="border rounded-lg overflow-hidden">
               <%= if @preview_mode == "html" do %>
-                <%= case Ecto.Changeset.get_field(@changeset, :html_body) do %>
-                  <% html_content when is_binary(html_content) and html_content != "" -> %>
-                    <iframe
-                      id="email-preview-iframe"
-                      sandbox="allow-same-origin"
-                      class="w-full border-0 bg-white"
-                      style="min-height: 400px; height: auto;"
-                      srcdoc={html_content}
-                      phx-update="ignore"
-                      onload="this.style.height = (this.contentWindow.document.body.scrollHeight + 40) + 'px';"
-                    >
-                    </iframe>
-                  <% _ -> %>
-                    <div class="bg-white p-4 min-h-96">
-                      <div class="text-gray-500 italic">No HTML content</div>
-                    </div>
+                <%= if preview_html != "" do %>
+                  <iframe
+                    id="email-preview-iframe"
+                    sandbox="allow-same-origin"
+                    class="w-full border-0 bg-white"
+                    style="min-height: 400px; height: auto;"
+                    srcdoc={preview_html}
+                    phx-update="ignore"
+                    onload="this.style.height = (this.contentWindow.document.body.scrollHeight + 40) + 'px';"
+                  >
+                  </iframe>
+                <% else %>
+                  <div class="bg-white p-4 min-h-96">
+                    <div class="text-gray-500 italic">No HTML content</div>
+                  </div>
                 <% end %>
               <% else %>
                 <div class="bg-gray-50 p-4 min-h-96 font-mono text-sm whitespace-pre-wrap">
-                  <%= case Ecto.Changeset.get_field(@changeset, :text_body) do %>
-                    <% nil -> %>
-                      <div class="text-gray-500 italic not-italic">No text content</div>
-                    <% "" -> %>
-                      <div class="text-gray-500 italic not-italic">No text content</div>
-                    <% text_content -> %>
-                      {text_content}
+                  <%= if preview_text != "" do %>
+                    {preview_text}
+                  <% else %>
+                    <div class="text-gray-500 italic not-italic">No text content</div>
                   <% end %>
                 </div>
               <% end %>
