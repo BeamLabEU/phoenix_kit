@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       socket
       |> assign(:project_title, Settings.get_project_title())
       |> assign(:page_title, "Publishing")
-      |> assign(:current_path, Routes.path("/admin/publishing"))
+      |> assign(:current_path, Routes.path("/admin/publishing/#{group_slug}"))
       |> assign(:groups, [])
       |> assign(:current_group, nil)
       |> assign(:group_slug, group_slug)

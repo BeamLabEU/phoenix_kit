@@ -418,7 +418,7 @@ defmodule PhoenixKit.Modules.Publishing do
         priority: 600,
         level: :admin,
         permission: "publishing",
-        match: :exact,
+        match: :prefix,
         group: :admin_modules,
         subtab_display: :when_active,
         highlight_with_subtabs: false,
