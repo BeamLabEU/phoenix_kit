@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   For existing files, uses the file's own status to avoid confusion between
   what the dropdown shows and what the language switcher shows.
   """
-  def post_form_with_primary_status(group_slug, post, version) do
+  def post_form_with_primary_status(_group_slug, post, version) do
     form = post_form(post)
     primary_language = post[:primary_language] || Publishing.get_primary_language()
     original_language = post[:original_language] || post.language
@@ -42,10 +42,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       form
     else
       # For NEW translations only, inherit status from primary language as a default
-      # Use appropriate identifier based on post mode
-      post_identifier = get_post_identifier(post)
-
-      case Publishing.read_post(group_slug, post_identifier, primary_language, version) do
+      case Publishing.read_post_by_uuid(post.uuid, primary_language, version) do
         {:ok, primary_post} ->
           primary_status = Map.get(primary_post.metadata, :status, "draft")
           Map.put(form, "status", primary_status)
@@ -54,11 +51,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
           form
       end
     end
-  end
-
-  # Get the correct post identifier based on mode
-  defp get_post_identifier(post) do
-    post[:uuid] || post.slug
   end
 
   defp base_form(post) do

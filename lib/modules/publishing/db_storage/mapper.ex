@@ -37,12 +37,14 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
         %PublishingVersion{} = version,
         %PublishingContent{} = content,
         all_contents,
-        all_versions
+        all_versions,
+        opts \\ []
       ) do
     available_languages = Enum.map(all_contents, & &1.language) |> Enum.sort()
 
     language_statuses =
       Map.new(all_contents, fn c -> {c.language, c.status} end)
+      |> merge_published_statuses(Keyword.get(opts, :published_language_statuses, %{}))
 
     available_versions = Enum.map(all_versions, & &1.version_number) |> Enum.sort()
 
@@ -52,11 +54,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
     version_dates =
       Map.new(all_versions, fn v ->
         {v.version_number, format_datetime(v.inserted_at)}
-      end)
-
-    version_languages =
-      Map.new(all_versions, fn v ->
-        {v.version_number, available_languages}
       end)
 
     group_slug = get_group_slug(post)
@@ -78,7 +75,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       available_versions: available_versions,
       version_statuses: version_statuses,
       version_dates: version_dates,
-      version_languages: version_languages,
       content: content.content,
       metadata: build_metadata(post, version, content),
       primary_language: post.primary_language
@@ -89,11 +85,12 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
   Converts a post to a listing-format map (no content body, just metadata).
   Used for listing pages where full content isn't needed.
   """
-  def to_listing_map(%PublishingPost{} = post, version, all_contents, all_versions) do
+  def to_listing_map(%PublishingPost{} = post, version, all_contents, all_versions, opts \\ []) do
     available_languages = Enum.map(all_contents, & &1.language) |> Enum.sort()
 
     language_statuses =
       Map.new(all_contents, fn c -> {c.language, c.status} end)
+      |> merge_published_statuses(Keyword.get(opts, :published_language_statuses, %{}))
 
     available_versions = Enum.map(all_versions, & &1.version_number) |> Enum.sort()
 
@@ -129,7 +126,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       available_versions: available_versions,
       version_statuses: version_statuses,
       version_dates: version_dates,
-      version_languages: %{},
       content: primary_content && extract_excerpt(primary_content),
       metadata: build_listing_metadata(post, primary_content),
       primary_language: post.primary_language,
@@ -231,6 +227,20 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
   defp format_datetime(nil), do: nil
   defp format_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
   defp format_datetime(other), do: to_string(other)
+
+  # Merges published version's language statuses into the latest version's statuses.
+  # For each language, if the published version has it as "published", override the
+  # latest version's status. This ensures the listing page shows "published" when
+  # a language is live on an older version even if the latest draft doesn't have it published.
+  defp merge_published_statuses(latest_statuses, published_statuses)
+       when map_size(published_statuses) == 0,
+       do: latest_statuses
+
+  defp merge_published_statuses(latest_statuses, published_statuses) do
+    Map.merge(latest_statuses, published_statuses, fn _lang, latest, published ->
+      if published == "published", do: "published", else: latest
+    end)
+  end
 
   # Returns nil for nil and empty string, otherwise the value
   defp presence(nil), do: nil

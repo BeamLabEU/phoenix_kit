@@ -129,8 +129,8 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   @doc """
   Broadcasts a post deleted event.
   """
-  def broadcast_post_deleted(group_slug, post_path) do
-    Manager.broadcast(posts_topic(group_slug), {:post_deleted, post_path})
+  def broadcast_post_deleted(group_slug, post_identifier) do
+    Manager.broadcast(posts_topic(group_slug), {:post_deleted, post_identifier})
   end
 
   @doc """
@@ -150,15 +150,15 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   @doc """
   Broadcasts that the live version changed for a post.
   """
-  def broadcast_version_live_changed(group_slug, post_slug, version) do
-    Manager.broadcast(posts_topic(group_slug), {:version_live_changed, post_slug, version})
+  def broadcast_version_live_changed(group_slug, post_identifier, version) do
+    Manager.broadcast(posts_topic(group_slug), {:version_live_changed, post_identifier, version})
   end
 
   @doc """
   Broadcasts that a version was deleted from a post.
   """
-  def broadcast_version_deleted(group_slug, post_slug, version) do
-    Manager.broadcast(posts_topic(group_slug), {:version_deleted, post_slug, version})
+  def broadcast_version_deleted(group_slug, post_identifier, version) do
+    Manager.broadcast(posts_topic(group_slug), {:version_deleted, post_identifier, version})
   end
 
   # ============================================================================

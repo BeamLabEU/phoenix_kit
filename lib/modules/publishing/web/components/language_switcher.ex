@@ -79,6 +79,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   attr :show_add, :boolean, default: false
   attr :show_flags, :boolean, default: false
   attr :on_click, :string, default: nil
+  attr :on_click_js, :any, default: nil, doc: "fn(lang_code) -> %JS{} for custom click behavior"
   attr :phx_target, :any, default: nil
   attr :class, :string, default: ""
   attr :size, :atom, default: :sm, values: [:xs, :sm, :md]
@@ -109,6 +110,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
           show_add={@show_add}
           show_flags={@show_flags}
           on_click={@on_click}
+          on_click_js={@on_click_js}
           phx_target={@phx_target}
           size={@size}
         />
@@ -123,6 +125,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   attr :show_add, :boolean, default: false
   attr :show_flags, :boolean, default: false
   attr :on_click, :string, default: nil
+  attr :on_click_js, :any, default: nil
   attr :phx_target, :any, default: nil
   attr :size, :atom, default: :sm
 
@@ -145,13 +148,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
       |> assign(:is_primary, is_primary)
 
     ~H"""
-    <%= if @on_click do %>
+    <%= if @on_click_js || @on_click do %>
       <button
         type="button"
-        phx-click={@on_click}
-        phx-value-language={@lang[:code]}
-        phx-value-uuid={@lang[:uuid]}
-        phx-value-status={@status}
+        phx-click={if @on_click_js, do: @on_click_js.(@lang[:code]), else: @on_click}
+        phx-value-language={unless @on_click_js, do: @lang[:code]}
+        phx-value-uuid={unless @on_click_js, do: @lang[:uuid]}
+        phx-value-status={unless @on_click_js, do: @status}
         phx-target={@phx_target}
         class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
         title={language_title(@lang, @exists, @status, @show_status, @enabled, @known)}

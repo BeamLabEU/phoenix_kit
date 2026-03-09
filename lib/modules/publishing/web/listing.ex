@@ -30,37 +30,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     if connected?(socket), do: subscribe_to_pubsub(group_slug)
 
-    date_time_settings = load_date_time_settings()
-    {groups, current_group} = load_groups_and_current(group_slug)
-
-    initial_posts =
-      case group_slug do
-        nil -> []
-        slug -> DBStorage.list_posts_with_metadata(slug)
-      end
-
-    current_path =
-      case group_slug do
-        nil -> Routes.path("/admin/publishing")
-        slug -> Routes.path("/admin/publishing/#{slug}")
-      end
-
     socket =
       socket
       |> assign(:project_title, Settings.get_project_title())
       |> assign(:page_title, "Publishing")
-      |> assign(:current_path, current_path)
-      |> assign(:groups, groups)
-      |> assign(:current_group, current_group)
+      |> assign(:current_path, Routes.path("/admin/publishing/#{group_slug}"))
+      |> assign(:groups, [])
+      |> assign(:current_group, nil)
       |> assign(:group_slug, group_slug)
       |> assign(:enabled_languages, Publishing.enabled_language_codes())
       |> assign(:primary_language, Publishing.get_primary_language())
       |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
-      |> assign(:posts, initial_posts)
+      |> assign(:posts, [])
       |> assign(:loading, false)
       |> assign(:endpoint_url, "")
-      |> assign(:date_time_settings, date_time_settings)
-      |> assign(:primary_language_status, get_primary_language_status(group_slug))
+      |> assign(:date_time_settings, load_date_time_settings())
+      |> assign(:primary_language_status, nil)
       |> assign(:active_editors, %{})
       |> assign(:translating_posts, %{})
       |> assign(:pending_post_updates, %{})
@@ -68,7 +53,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:migration_in_progress, false)
       |> assign(:migration_progress, nil)
 
-    {:ok, redirect_if_missing(socket)}
+    # Groups, posts, current_group, and primary_language_status are loaded in
+    # handle_params which always runs after mount — no need to load them twice.
+    {:ok, socket}
   end
 
   @impl true
@@ -78,7 +65,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     socket = handle_subscription_change(socket, old_group_slug, new_group_slug)
 
-    {_groups, current_group} = load_groups_and_current(new_group_slug)
+    {groups, current_group} = load_groups_and_current(new_group_slug)
 
     posts =
       case new_group_slug do
@@ -88,21 +75,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     socket =
       socket
+      |> assign(:groups, groups)
       |> assign(:current_group, current_group)
       |> assign(:posts, posts)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
-      |> assign(:primary_language_status, get_primary_language_status(new_group_slug))
+      |> assign(:primary_language_status, primary_language_status_from_posts(posts))
 
     {:noreply, redirect_if_missing(socket)}
   end
 
   @impl true
   def handle_event("create_post", _params, %{assigns: %{group_slug: group_slug}} = socket) do
-    # Use redirect for full page refresh to ensure editor JS initializes properly
-    {:noreply,
-     redirect(socket,
-       to: Helpers.build_new_post_url(group_slug)
-     )}
+    {:noreply, push_navigate(socket, to: Helpers.build_new_post_url(group_slug))}
   end
 
   def handle_event("refresh", _params, socket) do
@@ -117,19 +101,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     lang_code = params["language"]
     group_slug = socket.assigns.group_slug
 
-    url =
-      if uuid = params["uuid"] do
-        Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
-      else
-        post_path = params["path"] || ""
+    uuid = params["uuid"]
+    url = Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
 
-        Routes.path(
-          "/admin/publishing/#{group_slug}/edit?path=#{URI.encode(post_path)}&lang=#{lang_code}"
-        )
-      end
-
-    # Use redirect for full page refresh to ensure editor JS initializes properly
-    {:noreply, redirect(socket, to: url)}
+    {:noreply, push_navigate(socket, to: url)}
   end
 
   def handle_event("language_action", %{"language" => lang_code} = params, socket) do
@@ -138,7 +113,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     case params["uuid"] do
       uuid when is_binary(uuid) and uuid != "" ->
         url = Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
-        {:noreply, redirect(socket, to: url)}
+        {:noreply, push_navigate(socket, to: url)}
 
       _ ->
         {:noreply, socket}
@@ -171,13 +146,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> assign(
-               :posts,
-               Publishing.list_posts(
-                 socket.assigns.group_slug,
-                 socket.assigns.current_locale_base
-               )
-             )}
+             |> replace_post_in_list(updated_post[:slug], updated_post)}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
@@ -223,13 +192,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> assign(
-               :posts,
-               Publishing.list_posts(
-                 socket.assigns.group_slug,
-                 socket.assigns.current_locale_base
-               )
-             )}
+             |> replace_post_in_list(updated_post[:slug], updated_post)}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
@@ -283,10 +246,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       # Synchronous migration for small counts
       case Publishing.migrate_posts_to_current_primary_language(group_slug) do
         {:ok, count} ->
+          posts = DBStorage.list_posts_with_metadata(group_slug)
+
           {:noreply,
            socket
            |> assign(:show_migration_modal, false)
-           |> assign(:primary_language_status, get_primary_language_status(group_slug))
+           |> assign(:posts, posts)
+           |> assign(:primary_language_status, primary_language_status_from_posts(posts))
            |> put_flash(
              :info,
              gettext("Updated %{count} posts to primary language: %{lang}",
@@ -334,9 +300,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, socket}
   end
 
-  def handle_info({:post_deleted, post_path}, socket) do
-    # Remove the deleted post from the list
-    socket = remove_post_from_list(socket, post_path)
+  def handle_info({:post_deleted, post_identifier}, socket) do
+    # Remove the deleted post from the list (identifier may be slug or UUID)
+    socket = remove_post_from_list(socket, post_identifier)
     {:noreply, socket}
   end
 
@@ -485,13 +451,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       ) do
     # Only handle if it's for our current group
     if group_slug == socket.assigns.group_slug do
-      group_slug = socket.assigns.group_slug
+      # Refresh posts from DB to get updated primary_language values
+      posts = DBStorage.list_posts_with_metadata(group_slug)
 
       socket =
         socket
         |> assign(:migration_in_progress, false)
         |> assign(:migration_progress, nil)
-        |> assign(:primary_language_status, get_primary_language_status(group_slug))
+        |> assign(:posts, posts)
+        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
 
       socket =
         if error_count > 0 do
@@ -522,11 +490,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   # Group change handlers - keep sidebar in sync
   def handle_info({:group_created, _group}, socket) do
-    {:noreply, assign(socket, :groups, Publishing.list_groups())}
+    {:noreply, assign(socket, :groups, load_db_groups())}
   end
 
   def handle_info({:group_updated, group}, socket) do
-    groups = Publishing.list_groups()
+    groups = load_db_groups()
     current_group = Enum.find(groups, fn b -> b["slug"] == socket.assigns.group_slug end)
 
     socket =
@@ -538,7 +506,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   def handle_info({:group_deleted, deleted_slug}, socket) do
-    groups = Publishing.list_groups()
+    groups = load_db_groups()
 
     socket =
       if socket.assigns.group_slug == deleted_slug do
@@ -563,8 +531,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         socket
 
       group_slug ->
-        posts = Publishing.list_posts(group_slug, socket.assigns.current_locale_base)
-        assign(socket, :posts, posts)
+        posts = DBStorage.list_posts_with_metadata(group_slug)
+
+        socket
+        |> assign(:posts, posts)
+        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
     end
   end
 
@@ -642,12 +613,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     assign(socket, :posts, updated_posts)
   end
 
-  # Remove a post from the list by slug
-  defp remove_post_from_list(socket, post_slug) do
+  # Remove a post from the list by slug or UUID
+  defp remove_post_from_list(socket, post_identifier) do
     if socket.assigns[:posts] do
       updated_posts =
         Enum.reject(socket.assigns.posts, fn post ->
-          post[:slug] == post_slug
+          post[:slug] == post_identifier or post[:uuid] == post_identifier
         end)
 
       assign(socket, :posts, updated_posts)
@@ -936,74 +907,30 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     primary_lang =
       primary_language || post[:primary_language] || Publishing.get_primary_language()
 
-    version_info = get_version_display_info(post, primary_lang)
-
     all_languages =
       Publishing.order_languages_for_display(
-        version_info.available_languages,
+        post.available_languages || [],
         enabled_languages,
         primary_lang
       )
 
     all_languages
-    |> Enum.map(&build_language_entry(&1, post, version_info, enabled_languages, primary_lang))
+    |> Enum.map(&build_language_entry(&1, post, enabled_languages, primary_lang))
     |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
   end
 
-  defp get_version_display_info(post, primary_lang) do
-    if post[:mode] == :slug do
-      get_versioned_post_display_info(post, primary_lang)
-    else
-      get_default_display_info(post)
-    end
-  end
-
-  defp get_versioned_post_display_info(post, _primary_lang) do
-    case get_published_version(post) do
-      nil ->
-        get_default_display_info(post)
-
-      published_version ->
-        langs = get_live_version_languages(post, published_version)
-
-        %{
-          available_languages: langs,
-          version_status: "published"
-        }
-    end
-  end
-
-  defp get_default_display_info(post) do
-    %{
-      available_languages: post.available_languages || [],
-      version_status: nil
-    }
-  end
-
-  defp get_live_version_languages(post, published_version) do
-    version_languages = Map.get(post, :version_languages, %{})
-    langs = Map.get(version_languages, published_version, [])
-
-    if langs == [] do
-      # Fallback: version_languages should already be populated from DB
-      []
-    else
-      langs
-    end
-  end
-
-  defp build_language_entry(lang_code, post, version_info, enabled_languages, primary_lang) do
+  defp build_language_entry(lang_code, post, enabled_languages, primary_lang) do
     lang_info = Publishing.get_language_info(lang_code)
-    file_exists = lang_code in version_info.available_languages
-
-    status = get_language_status(lang_code, file_exists, version_info, post)
+    available = post.available_languages || []
+    file_exists = lang_code in available
+    language_statuses = Map.get(post, :language_statuses) || %{}
 
     %{
       code: lang_code,
       display_code: Publishing.get_display_code(lang_code, enabled_languages),
       name: if(lang_info, do: lang_info.name, else: lang_code),
       flag: if(lang_info, do: lang_info.flag, else: ""),
-      status: status,
+      status: Map.get(language_statuses, lang_code),
       exists: file_exists,
       enabled: Publishing.language_enabled?(lang_code, enabled_languages),
       known: lang_info != nil,
@@ -1012,19 +939,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     }
   end
 
-  defp get_language_status(lang_code, file_exists, version_info, post) do
-    if version_info.version_status && file_exists do
-      version_info.version_status
-    else
-      language_statuses = Map.get(post, :language_statuses) || %{}
-      Map.get(language_statuses, lang_code)
-    end
-  end
+  defp primary_language_status_from_posts([]), do: nil
 
-  defp get_primary_language_status(nil), do: nil
-
-  defp get_primary_language_status(group_slug) do
-    Publishing.get_primary_language_migration_status(group_slug)
+  defp primary_language_status_from_posts(posts) do
+    global_primary = Publishing.get_primary_language()
+    DBStorage.count_primary_language_status_from_posts(posts, global_primary)
   end
 
   defp get_language_name(language_code) do

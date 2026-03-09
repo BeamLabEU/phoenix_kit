@@ -38,6 +38,7 @@
     </header>
     <%!-- Posts Grid --%>
     <%= if @total_count > 0 do %>
+      <% date_counts = build_date_counts(@posts) %>
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <%= for post <- @posts do %>
           <article class="card bg-base-200 shadow-md hover:shadow-lg transition-shadow">
@@ -54,7 +55,7 @@
             <div class="card-body">
               <h2 class="card-title text-xl">
                 <a
-                  href={build_post_url(@group["slug"], post, @current_language)}
+                  href={build_post_url(@group["slug"], post, @current_language, date_counts)}
                   class="hover:text-primary"
                 >
                   {post.metadata.title}
@@ -79,14 +80,14 @@
                     class="text-xs text-base-content/60"
                     datetime={post.metadata.published_at || ""}
                   >
-                    {format_post_date(post, @group["slug"])}
+                    {format_post_date(post, @group["slug"], date_counts)}
                   </time>
                 <% else %>
                   <span class="text-xs text-base-content/60"></span>
                 <% end %>
 
                 <a
-                  href={build_post_url(@group["slug"], post, @current_language)}
+                  href={build_post_url(@group["slug"], post, @current_language, date_counts)}
                   class="btn btn-sm btn-primary"
                 >
                   {gettext("Read More →")}

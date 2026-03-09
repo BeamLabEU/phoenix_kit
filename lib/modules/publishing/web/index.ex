@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
@@ -75,23 +76,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
   @impl true
   def handle_params(_params, uri, socket) do
-    {groups, insights, summary} =
-      dashboard_snapshot(
-        socket.assigns.current_locale_base,
-        socket.assigns[:phoenix_kit_current_user],
-        socket.assigns.date_time_settings
-      )
-
-    endpoint_url = extract_endpoint_url(uri)
-
-    {:noreply,
-     assign(socket,
-       groups: groups,
-       dashboard_insights: insights,
-       dashboard_summary: summary,
-       empty_state?: groups == [],
-       endpoint_url: endpoint_url
-     )}
+    {:noreply, assign(socket, :endpoint_url, extract_endpoint_url(uri))}
   end
 
   # PubSub handlers for live updates
@@ -102,7 +87,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   def handle_info({:post_status_changed, _post}, socket),
     do: {:noreply, refresh_dashboard(socket)}
 
-  def handle_info({:post_deleted, _post_path}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:post_deleted, _post_identifier}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
   def handle_info({:group_created, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
 
   def handle_info({:group_deleted, _group_slug}, socket),
@@ -319,7 +306,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   defp build_group_insight(db_group, current_user, date_time_settings) do
-    posts = DBStorage.list_posts_with_metadata(db_group.slug)
+    # Use ListingCache when available (sub-microsecond), fall back to DB
+    posts =
+      case ListingCache.read(db_group.slug) do
+        {:ok, cached_posts} -> cached_posts
+        {:error, _} -> DBStorage.list_posts_with_metadata(db_group.slug)
+      end
+
     status_counts = Enum.frequencies_by(posts, &Map.get(&1[:metadata] || %{}, :status, "draft"))
 
     languages =
@@ -330,9 +323,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
     latest_published_at = find_latest_published_at(posts)
 
-    # Check DB records for primary language issues
+    # Reuse already-loaded posts for primary language check (avoids redundant DB query)
     global_primary = Publishing.get_primary_language()
-    primary_lang_status = DBStorage.count_primary_language_status(db_group.slug, global_primary)
+
+    primary_lang_status =
+      DBStorage.count_primary_language_status_from_posts(posts, global_primary)
 
     lang_migration_count =
       primary_lang_status.needs_backfill + primary_lang_status.needs_migration

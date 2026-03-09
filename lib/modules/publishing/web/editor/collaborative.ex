@@ -290,14 +290,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   end
 
   defp load_spectator_state(socket, form_key) do
-    # Owner might have unsaved changes - sync from their Presence metadata
-    case PresenceHelpers.get_lock_owner(form_key) do
-      %{form_state: form_state} when not is_nil(form_state) ->
-        apply_remote_form_state(socket, form_state)
-
-      _ ->
-        socket
-    end
+    # Request current state from the owner so we see their unsaved changes.
+    # The owner handles :editor_sync_request and responds with form + content.
+    PublishingPubSub.broadcast_editor_sync_request(form_key, socket.id)
+    socket
   end
 
   # ============================================================================
@@ -322,15 +318,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
     group_slug = socket.assigns[:group_slug]
     post = socket.assigns[:post]
 
-    if group_slug && post && post[:slug] do
+    broadcast_id = post && (post[:slug] || post[:uuid])
+
+    if group_slug && broadcast_id do
       user_info = build_user_info(socket, user)
 
       case action do
         :joined ->
-          PublishingPubSub.broadcast_editor_joined(group_slug, post.slug, user_info)
+          PublishingPubSub.broadcast_editor_joined(group_slug, broadcast_id, user_info)
 
         :left ->
-          PublishingPubSub.broadcast_editor_left(group_slug, post.slug, user_info)
+          PublishingPubSub.broadcast_editor_left(group_slug, broadcast_id, user_info)
       end
     end
   end
@@ -388,6 +386,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
     |> Phoenix.Component.assign(:form, form)
     |> Phoenix.Component.assign(:content, content)
     |> Phoenix.Component.assign(:has_pending_changes, true)
+    |> Phoenix.LiveView.push_event("set-content", %{content: content})
+    |> Phoenix.LiveView.push_event("form-updated", %{form: form})
   end
 
   @doc """
@@ -532,10 +532,49 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
       |> Phoenix.Component.assign(:readonly?, true)
       |> Phoenix.Component.assign(:lock_warning_shown, false)
       |> cancel_lock_expiration_timer()
+      |> Phoenix.Component.assign(:lock_released_by_timeout, true)
       |> Phoenix.LiveView.put_flash(
-        :error,
-        gettext("Your editing lock was released due to inactivity. Reload to reclaim it.")
+        :warning,
+        gettext("Your editing lock was released due to inactivity. Click anywhere to reclaim it.")
       )
+    else
+      socket
+    end
+  end
+
+  @doc """
+  Attempts to reclaim the editing lock after it was released due to inactivity.
+
+  Called on user interaction when `lock_released_by_timeout` is true.
+  Re-tracks presence, reclaims ownership if no other user holds the lock,
+  and restarts the expiration timer.
+  """
+  def try_reclaim_lock(socket) do
+    form_key = socket.assigns[:form_key]
+    current_user = socket.assigns[:phoenix_kit_current_user]
+
+    if form_key && current_user && socket.assigns[:lock_released_by_timeout] do
+      # Re-track in presence
+      case PresenceHelpers.track_editing_session(form_key, socket, current_user) do
+        {:ok, _ref} -> :ok
+        {:error, {:already_tracked, _pid, _topic, _key}} -> :ok
+      end
+
+      # Re-evaluate role (will be owner if no one else took the lock)
+      socket
+      |> assign_editing_role(form_key)
+      |> Phoenix.Component.assign(:lock_released_by_timeout, false)
+      |> then(fn s ->
+        if s.assigns[:lock_owner?] do
+          s
+          |> maybe_broadcast_editor_joined()
+          |> maybe_start_lock_expiration_timer()
+          |> Phoenix.LiveView.clear_flash()
+        else
+          # Someone else took the lock while we were idle
+          s
+        end
+      end)
     else
       socket
     end
