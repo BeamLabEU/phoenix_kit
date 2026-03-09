@@ -319,7 +319,11 @@ defmodule PhoenixKit.Modules.Emails.Templates do
     base_attrs = %{
       name: new_name,
       slug: String.replace(new_name, "_", "-"),
-      display_name: attrs[:display_name] || "#{template.display_name} (Copy)",
+      display_name: %{
+        "en" =>
+          attrs[:display_name] ||
+            "#{Template.get_translation(template.display_name, "en")} (Copy)"
+      },
       description: template.description,
       subject: template.subject,
       html_body: template.html_body,
@@ -813,8 +817,8 @@ defmodule PhoenixKit.Modules.Emails.Templates do
           q,
           [t],
           ilike(t.name, ^search_term) or
-            ilike(t.display_name, ^search_term) or
-            ilike(t.description, ^search_term)
+            ilike(fragment("?->>'en'", t.display_name), ^search_term) or
+            ilike(fragment("?->>'en'", t.description), ^search_term)
         )
 
       _, q ->

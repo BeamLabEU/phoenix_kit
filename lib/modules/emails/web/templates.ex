@@ -143,7 +143,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
          |> assign(:clone_template, template)
          |> assign(:clone_form, %{
            name: "#{template.name}_copy",
-           display_name: "#{template.display_name} (Copy)",
+           display_name: "#{Template.get_translation(template.display_name, "en")} (Copy)",
            errors: %{}
          })}
     end
