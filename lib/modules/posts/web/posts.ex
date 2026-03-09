@@ -64,6 +64,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
         |> assign(:stats, %{total: 0, drafts: 0, public: 0, scheduled: 0})
         |> assign(:loading, true)
         |> assign(:selected_posts, [])
+        |> assign(:groups, [])
         |> assign_filter_defaults()
         |> assign_pagination_defaults()
 
@@ -83,6 +84,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
       |> apply_params(params)
       |> load_posts()
       |> load_stats()
+      |> load_groups()
 
     {:noreply, socket}
   end
@@ -268,6 +270,21 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   end
 
   @impl true
+  def handle_event("bulk_add_to_group", %{"group_uuid" => group_uuid}, socket) do
+    case Posts.add_posts_to_group(socket.assigns.selected_posts, group_uuid) do
+      {:ok, count} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Added #{count} post(s) to group")
+         |> assign(:selected_posts, [])
+         |> load_posts()}
+
+      {:error, _reason} ->
+        {:noreply, socket |> put_flash(:error, "Failed to add posts to group")}
+    end
+  end
+
+  @impl true
   def handle_event("refresh", _params, socket) do
     {:noreply,
      socket
@@ -347,6 +364,10 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
     }
 
     assign(socket, :stats, stats)
+  end
+
+  defp load_groups(socket) do
+    assign(socket, :groups, Posts.list_groups())
   end
 
   defp count_posts(opts) do

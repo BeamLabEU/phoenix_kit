@@ -1376,6 +1376,52 @@ defmodule PhoenixKit.Modules.Posts do
   end
 
   @doc """
+  Adds multiple posts to a group in a single transaction.
+
+  Uses `on_conflict: :nothing` to skip duplicates, then increments the group's
+  `post_count` by the actual number of newly inserted rows.
+
+  ## Parameters
+
+  - `post_uuids` - List of Post UUIDs (UUIDv7 strings)
+  - `group_uuid` - Group UUID (UUIDv7 string)
+  - `opts` - Options
+    - `:position` - Position in group (default: 0)
+
+  ## Examples
+
+      iex> add_posts_to_group(["018e3c4a-...", "018e3c4b-..."], "018e3c4a-...")
+      {:ok, 2}
+  """
+  def add_posts_to_group(post_uuids, group_uuid, opts \\ []) do
+    position = Keyword.get(opts, :position, 0)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    entries =
+      Enum.map(post_uuids, fn post_uuid ->
+        %{
+          post_uuid: post_uuid,
+          group_uuid: group_uuid,
+          position: position,
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+
+    repo().transaction(fn ->
+      {inserted_count, _} =
+        repo().insert_all(PostGroupAssignment, entries, on_conflict: :nothing)
+
+      if inserted_count > 0 do
+        from(g in PostGroup, where: g.uuid == ^group_uuid)
+        |> repo().update_all(inc: [post_count: inserted_count])
+      end
+
+      inserted_count
+    end)
+  end
+
+  @doc """
   Removes a post from a group.
 
   Decrements the group's post counter.
@@ -1431,6 +1477,27 @@ defmodule PhoenixKit.Modules.Posts do
     preloads = Keyword.get(opts, :preload, [])
 
     from(g in PostGroup, where: g.user_uuid == ^user_uuid, order_by: [asc: g.position])
+    |> repo().all()
+    |> repo().preload(preloads)
+  end
+
+  @doc """
+  Lists all groups ordered by name.
+
+  ## Parameters
+
+  - `opts` - Options
+    - `:preload` - Associations to preload
+
+  ## Examples
+
+      iex> list_groups()
+      [%PostGroup{}, ...]
+  """
+  def list_groups(opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    from(g in PostGroup, order_by: [asc: g.name])
     |> repo().all()
     |> repo().preload(preloads)
   end

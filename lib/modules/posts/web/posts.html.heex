@@ -111,7 +111,11 @@
             </label>
             <select name="filter[group]" class="select select-bordered w-full">
               <option value="all" selected={@filter_group == "all"}>All Groups</option>
-              <%!-- TODO: Add dynamic groups --%>
+              <%= for group <- @groups do %>
+                <option value={group.uuid} selected={@filter_group == group.uuid}>
+                  {group.name}
+                </option>
+              <% end %>
             </select>
           </div>
 
@@ -149,6 +153,28 @@
           <button phx-click="bulk_publish" class="btn btn-success btn-sm">
             Publish Selected
           </button>
+          <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-primary btn-sm">
+              Add to Group
+            </div>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-sm"
+            >
+              <%= for group <- @groups do %>
+                <li>
+                  <button phx-click="bulk_add_to_group" phx-value-group_uuid={group.uuid}>
+                    {group.name}
+                  </button>
+                </li>
+              <% end %>
+              <%= if @groups == [] do %>
+                <li class="disabled">
+                  <span class="text-base-content/50">No groups yet</span>
+                </li>
+              <% end %>
+            </ul>
+          </div>
           <button
             phx-click="bulk_delete"
             class="btn btn-error btn-sm"
