@@ -26,37 +26,35 @@ msgstr "on kehtetu"
 msgid "must be accepted"
 msgstr "peab olema aktsepteeritud"
 
-## From Ecto.Changeset.validate_confirmation/3
-msgid "does not match confirmation"
-msgstr "ei ühti kinnitusega"
+## From Ecto.Changeset.validate_format/3
+msgid "has invalid format"
+msgstr "on vale formaadiga"
 
-## From Ecto.Changeset.validate_confirmation/3
-msgid "does not match"
-msgstr "ei ühti"
+## From Ecto.Changeset.validate_subset/3
+msgid "has an invalid entry"
+msgstr ""
 
 ## From Ecto.Changeset.validate_exclusion/3
 msgid "is reserved"
 msgstr "on reserveeritud"
 
-## From Ecto.Changeset.validate_format/3
-msgid "has invalid format"
-msgstr "on vale formaadiga"
+## From Ecto.Changeset.validate_confirmation/3
+msgid "does not match confirmation"
+msgstr "ei ühti kinnitusega"
 
-## From Ecto.Changeset.validate_inclusion/3
-msgid "is not included in the list"
-msgstr "ei ole nimekirjas"
+## From Ecto.Changeset.no_assoc_constraint/3
+msgid "is still associated with this entry"
+msgstr ""
+
+msgid "are still associated with this entry"
+msgstr ""
 
 ## From Ecto.Changeset.validate_length/3, when: opts = [count: :bytes]
-msgid "should be %{count} byte(s)"
-msgid_plural "should be %{count} byte(s)"
+#, fuzzy
+msgid "should have %{count} item(s)"
+msgid_plural "should have %{count} item(s)"
 msgstr[0] "peab olema %{count} bait"
 msgstr[1] "peab olema %{count} baiti"
-
-## From Ecto.Changeset.validate_length/3, when: opts = [count: :codepoints]
-msgid "should be %{count} codepoint(s)"
-msgid_plural "should be %{count} codepoint(s)"
-msgstr[0] "peab olema %{count} koodipunkt"
-msgstr[1] "peab olema %{count} koodipunkti"
 
 ## From Ecto.Changeset.validate_length/3, when: opts = [count: :graphemes]
 msgid "should be %{count} character(s)"
@@ -64,21 +62,47 @@ msgid_plural "should be %{count} character(s)"
 msgstr[0] "peab olema %{count} tähemärk"
 msgstr[1] "peab olema %{count} tähemärki"
 
-## From Ecto.Changeset.validate_length/3, when: opts = [min: _, max: _]
-msgid "should be between %{min} and %{max} character(s)"
-msgid_plural "should be between %{min} and %{max} character(s)"
-msgstr[0] "peab olema %{min} kuni %{max} tähemärki"
-msgstr[1] "peab olema %{min} kuni %{max} tähemärki"
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :bytes]
+msgid "should be %{count} byte(s)"
+msgid_plural "should be %{count} byte(s)"
+msgstr[0] "peab olema %{count} bait"
+msgstr[1] "peab olema %{count} baiti"
+
+msgid "should have at least %{count} item(s)"
+msgid_plural "should have at least %{count} item(s)"
+msgstr[0] ""
+msgstr[1] ""
 
 ## From Ecto.Changeset.validate_length/3, when: opts = [min: _]
-msgid "should be at least %{min} character(s)"
-msgid_plural "should be at least %{min} character(s)"
+#, fuzzy
+msgid "should be at least %{count} character(s)"
+msgid_plural "should be at least %{count} character(s)"
 msgstr[0] "peab olema vähemalt %{min} tähemärk"
 msgstr[1] "peab olema vähemalt %{min} tähemärki"
 
+## From Ecto.Changeset.validate_length/3, when: opts = [min: _]
+#, fuzzy
+msgid "should be at least %{count} byte(s)"
+msgid_plural "should be at least %{count} byte(s)"
+msgstr[0] "peab olema vähemalt %{min} tähemärk"
+msgstr[1] "peab olema vähemalt %{min} tähemärki"
+
+msgid "should have at most %{count} item(s)"
+msgid_plural "should have at most %{count} item(s)"
+msgstr[0] ""
+msgstr[1] ""
+
 ## From Ecto.Changeset.validate_length/3, when: opts = [max: _]
-msgid "should be at most %{max} character(s)"
-msgid_plural "should be at most %{max} character(s)"
+#, fuzzy
+msgid "should be at most %{count} character(s)"
+msgid_plural "should be at most %{count} character(s)"
+msgstr[0] "peab olema kuni %{max} tähemärk"
+msgstr[1] "peab olema kuni %{max} tähemärki"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [max: _]
+#, fuzzy
+msgid "should be at most %{count} byte(s)"
+msgid_plural "should be at most %{count} byte(s)"
 msgstr[0] "peab olema kuni %{max} tähemärk"
 msgstr[1] "peab olema kuni %{max} tähemärki"
 
