@@ -1333,11 +1333,7 @@ defmodule PhoenixKit.Modules.Publishing do
     do: DBStorage.get_version(db_post.uuid, version_number)
 
   defp propagate_db_status_to_translations(version_uuid, primary_language, new_status) do
-    DBStorage.list_contents(version_uuid)
-    |> Enum.reject(fn c -> c.language == primary_language end)
-    |> Enum.each(fn c ->
-      DBStorage.update_content(c, %{status: new_status})
-    end)
+    DBStorage.update_content_status_except(version_uuid, primary_language, new_status)
   end
 
   defp parse_published_at(params, db_post) do
