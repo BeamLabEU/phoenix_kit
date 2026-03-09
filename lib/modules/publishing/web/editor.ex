@@ -55,7 +55,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defdelegate featured_image_preview_url(value), to: Helpers
   defdelegate format_language_list(codes), to: Helpers
 
-  defdelegate build_editor_languages(post, group_slug, enabled_languages, current_language),
+  defdelegate build_editor_languages(post, enabled_languages, current_language),
     to: Helpers
 
   # ============================================================================
@@ -240,7 +240,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               group_slug,
               group_mode,
               language,
-              nil,
               all_enabled_languages
             )
           else
@@ -290,7 +289,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               group_slug,
               group_mode,
               requested_lang,
-              path,
               all_enabled_languages
             )
           else
@@ -385,19 +383,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
          group_slug,
          group_mode,
          switch_to_lang,
-         _path,
          all_enabled_languages
        ) do
-    # DB-only: no FS path needed
-    new_path = nil
-    original_id = post.slug
-
     current_version = Map.get(post, :version, 1)
 
     virtual_post =
       post
       |> Map.put(:original_language, post.language)
-      |> Map.put(:path, new_path)
       |> Map.put(:language, switch_to_lang)
       |> Map.put(:group, group_slug)
       |> Map.put(:content, "")
@@ -437,7 +429,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_translation, true)
-      |> assign(:original_post_path, original_id)
       |> assign(:public_url, nil)
       |> assign(:form_key, fk)
       |> assign(:saved_status, form["status"])
@@ -512,6 +503,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   @impl true
   def handle_event("update_meta", params, socket) do
+    socket = maybe_reclaim_lock(socket)
+
     if socket.assigns[:readonly?] do
       {:noreply, socket}
     else
@@ -583,6 +576,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("update_content", %{"content" => content}, socket) do
+    socket = maybe_reclaim_lock(socket)
+
     if socket.assigns[:readonly?] do
       {:noreply, socket}
     else
@@ -636,8 +631,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Handle Events - Save
   # ============================================================================
 
-  def handle_event("save", _params, %{assigns: %{readonly?: true}} = socket) do
-    {:noreply, put_flash(socket, :error, gettext("Cannot save - you are spectating"))}
+  def handle_event("save", _params, socket) when socket.assigns.readonly? == true do
+    socket = maybe_reclaim_lock(socket)
+
+    if socket.assigns[:readonly?] do
+      {:noreply, put_flash(socket, :error, gettext("Cannot save - you are spectating"))}
+    else
+      Persistence.perform_save(socket)
+    end
   end
 
   def handle_event("save", _params, socket) do
@@ -817,7 +818,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     else
       case Versions.read_version_post(socket, version) do
         {:ok, version_post} ->
-          {socket, old_form_key, old_post_slug, new_form_key, actual_language, _new_path} =
+          {socket, old_form_key, old_post_slug, new_form_key, actual_language} =
             Versions.apply_version_switch(
               socket,
               version,
@@ -905,9 +906,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       primary_language = Publishing.get_primary_language()
       language_name = Helpers.get_language_name(primary_language)
 
-      post_identifier = post.slug || post[:uuid]
-
-      case Publishing.update_post_primary_language(group_slug, post_identifier, primary_language) do
+      case Publishing.update_post_primary_language(group_slug, post.uuid, primary_language) do
         :ok ->
           Persistence.regenerate_listing_cache(group_slug)
 
@@ -917,7 +916,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           editor_languages =
             Helpers.build_editor_languages(
               updated_post,
-              group_slug,
               enabled_languages,
               socket.assigns.current_language
             )
@@ -1151,10 +1149,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Handle Info - Translation Events
   # ============================================================================
 
-  def handle_info({:translation_started, group_slug, post_slug, target_languages}, socket) do
-    if socket.assigns[:group_slug] == group_slug &&
-         socket.assigns[:post] &&
-         socket.assigns.post[:slug] == post_slug do
+  def handle_info({:translation_started, group_slug, post_identifier, target_languages}, socket) do
+    if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
       {:noreply,
        socket
        |> assign(:ai_translation_status, :in_progress)
@@ -1167,12 +1163,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_info(
-        {:translation_progress, group_slug, post_slug, completed, total, _last_language},
+        {:translation_progress, group_slug, post_identifier, completed, total, _last_language},
         socket
       ) do
-    if socket.assigns[:group_slug] == group_slug &&
-         socket.assigns[:post] &&
-         socket.assigns.post[:slug] == post_slug do
+    if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
       socket =
         socket
         |> assign(:ai_translation_progress, completed)
@@ -1185,10 +1179,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:translation_completed, group_slug, post_slug, results}, socket) do
-    if socket.assigns[:group_slug] == group_slug &&
-         socket.assigns[:post] &&
-         socket.assigns.post[:slug] == post_slug do
+  def handle_info({:translation_completed, group_slug, post_identifier, results}, socket) do
+    if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
       flash_msg =
         if results.failure_count > 0 do
           gettext("Translation completed with %{success} succeeded, %{failed} failed",
@@ -1226,10 +1218,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:translation_created, group_slug, post_slug, language}, socket) do
-    if socket.assigns[:group_slug] == group_slug &&
-         socket.assigns[:post] &&
-         socket.assigns.post[:slug] == post_slug do
+  def handle_info({:translation_created, group_slug, post_identifier, language}, socket) do
+    if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
       case re_read_post(socket) do
         {:ok, updated_post} ->
           socket =
@@ -1258,10 +1248,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:translation_deleted, group_slug, post_slug, language}, socket) do
-    if socket.assigns[:group_slug] == group_slug &&
-         socket.assigns[:post] &&
-         socket.assigns.post[:slug] == post_slug do
+  def handle_info({:translation_deleted, group_slug, post_identifier, language}, socket) do
+    if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
       available = socket.assigns[:available_languages] || []
       updated_available = List.delete(available, language)
 
@@ -1280,11 +1268,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Handle Info - Version Events
   # ============================================================================
 
-  def handle_info({:post_version_created, group_slug, post_slug, version_info}, socket) do
+  def handle_info({:post_version_created, group_slug, post_identifier, version_info}, socket) do
     is_our_post =
-      socket.assigns[:group_slug] == group_slug &&
-        socket.assigns[:post] &&
-        socket.assigns.post[:slug] == post_slug
+      socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier)
 
     we_just_created = socket.assigns[:just_created_version] == true
 
@@ -1310,14 +1296,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_info({:post_version_deleted, group_slug, post_slug, deleted_version}, socket) do
+  def handle_info({:post_version_deleted, group_slug, post_identifier, deleted_version}, socket) do
     is_our_post =
-      socket.assigns[:group_slug] == group_slug &&
-        socket.assigns[:post] &&
-        socket.assigns.post[:slug] == post_slug
+      socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier)
 
     if is_our_post do
-      {:noreply, Versions.handle_version_deleted(socket, group_slug, post_slug, deleted_version)}
+      {:noreply, Versions.handle_version_deleted(socket, deleted_version)}
     else
       {:noreply, socket}
     end
@@ -1325,13 +1309,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   # Handle version published with source_id (user UUID)
   def handle_info(
-        {:post_version_published, group_slug, post_slug, published_version, source_user_uuid},
+        {:post_version_published, group_slug, post_identifier, published_version,
+         source_user_uuid},
         socket
       ) do
     is_our_post =
-      socket.assigns[:group_slug] == group_slug &&
-        socket.assigns[:post] &&
-        socket.assigns.post[:slug] == post_slug
+      socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier)
 
     # Ignore if same user published (works across all their tabs)
     our_user_uuid =
@@ -1382,6 +1365,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # Private Helpers
   # ============================================================================
 
+  # Matches a broadcast identifier (slug or UUID) against the current post.
+  # Broadcasts may send slug for slug-mode posts or UUID for timestamp-mode posts.
+  defp post_matches?(socket, broadcast_id) do
+    post = socket.assigns[:post]
+
+    post != nil &&
+      (post[:slug] == broadcast_id || post[:uuid] == broadcast_id)
+  end
+
   defp reload_post_on_lock_acquired(socket) do
     case re_read_post(socket) do
       {:ok, post} ->
@@ -1402,6 +1394,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
       {:error, _} ->
         socket
+    end
+  end
+
+  defp maybe_reclaim_lock(socket) do
+    if socket.assigns[:lock_released_by_timeout] do
+      Collaborative.try_reclaim_lock(socket)
+    else
+      socket
     end
   end
 
@@ -1465,8 +1465,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     form = Forms.post_form_with_primary_status(group_slug, virtual_post, current_version)
 
-    original_id = post.slug
-
     socket =
       socket
       |> assign(:post, virtual_post)
@@ -1479,7 +1477,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_translation, true)
-      |> assign(:original_post_path, original_id)
       |> assign(:form_key, new_form_key)
       |> push_event("changes-status", %{has_changes: false})
 

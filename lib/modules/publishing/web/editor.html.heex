@@ -179,7 +179,6 @@
         <% all_languages =
           build_editor_languages(
             @post,
-            @group_slug,
             @all_enabled_languages,
             @current_language
           ) %>
@@ -283,24 +282,33 @@
 
     <%!-- Version locking banner removed - with variant versioning all versions are editable --%>
 
-    <%!-- Spectator mode banner - someone else is editing --%>
+    <%!-- Spectator mode banner - someone else is editing or lock expired --%>
     <%= if @readonly? do %>
       <div class="alert alert-warning shadow-sm">
         <.icon name="hero-eye" class="w-5 h-5" />
         <div class="flex-1">
-          <span class="font-medium">{gettext("View only mode:")}</span>
-          <span>
-            <%= if @lock_owner_user do %>
+          <%= if assigns[:lock_released_by_timeout] do %>
+            <span class="font-medium">{gettext("Session paused:")}</span>
+            <span>
               {gettext(
-                "%{email} is currently editing this post. You can view but not make changes.",
-                email: @lock_owner_user.email
+                "Your editing lock expired due to inactivity. Start typing or click Save to resume editing."
               )}
-            <% else %>
-              {gettext(
-                "Another user is currently editing this post. You can view but not make changes."
-              )}
-            <% end %>
-          </span>
+            </span>
+          <% else %>
+            <span class="font-medium">{gettext("View only mode:")}</span>
+            <span>
+              <%= if @lock_owner_user do %>
+                {gettext(
+                  "%{email} is currently editing this post. You can view but not make changes.",
+                  email: @lock_owner_user.email
+                )}
+              <% else %>
+                {gettext(
+                  "Another user is currently editing this post. You can view but not make changes."
+                )}
+              <% end %>
+            </span>
+          <% end %>
         </div>
       </div>
     <% end %>

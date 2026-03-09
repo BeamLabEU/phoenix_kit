@@ -137,11 +137,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
         socket.assigns[:current_language] ||
         Publishing.get_primary_language()
 
-    post_identifier = post[:uuid] || post.slug
-
     case TranslatePostWorker.enqueue(
            socket.assigns.group_slug,
-           post_identifier,
+           post.uuid,
            endpoint_uuid: socket.assigns.ai_selected_endpoint_uuid,
            version: socket.assigns.current_version,
            user_uuid: user_uuid,
@@ -248,7 +246,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   """
   def source_content_blank?(socket) do
     post = socket.assigns.post
-    group_slug = socket.assigns.group_slug
 
     source_language =
       post[:primary_language] ||
@@ -262,10 +259,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
       content = socket.assigns.content || ""
       String.trim(content) == ""
     else
-      post_identifier = post[:uuid] || post.slug
-
       # Read the source language content from the database
-      case Publishing.read_post(group_slug, post_identifier, source_language, current_version) do
+      case Publishing.read_post_by_uuid(post.uuid, source_language, current_version) do
         {:ok, source_post} ->
           content = source_post.content || ""
           String.trim(content) == ""

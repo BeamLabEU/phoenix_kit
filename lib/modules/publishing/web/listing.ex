@@ -117,16 +117,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     lang_code = params["language"]
     group_slug = socket.assigns.group_slug
 
-    url =
-      if uuid = params["uuid"] do
-        Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
-      else
-        post_path = params["path"] || ""
-
-        Routes.path(
-          "/admin/publishing/#{group_slug}/edit?path=#{URI.encode(post_path)}&lang=#{lang_code}"
-        )
-      end
+    uuid = params["uuid"]
+    url = Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
 
     # Use redirect for full page refresh to ensure editor JS initializes properly
     {:noreply, redirect(socket, to: url)}
@@ -334,9 +326,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, socket}
   end
 
-  def handle_info({:post_deleted, post_path}, socket) do
-    # Remove the deleted post from the list
-    socket = remove_post_from_list(socket, post_path)
+  def handle_info({:post_deleted, post_identifier}, socket) do
+    # Remove the deleted post from the list (identifier may be slug or UUID)
+    socket = remove_post_from_list(socket, post_identifier)
     {:noreply, socket}
   end
 
@@ -485,8 +477,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       ) do
     # Only handle if it's for our current group
     if group_slug == socket.assigns.group_slug do
-      group_slug = socket.assigns.group_slug
-
       socket =
         socket
         |> assign(:migration_in_progress, false)
@@ -642,12 +632,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     assign(socket, :posts, updated_posts)
   end
 
-  # Remove a post from the list by slug
-  defp remove_post_from_list(socket, post_slug) do
+  # Remove a post from the list by slug or UUID
+  defp remove_post_from_list(socket, post_identifier) do
     if socket.assigns[:posts] do
       updated_posts =
         Enum.reject(socket.assigns.posts, fn post ->
-          post[:slug] == post_slug
+          post[:slug] == post_identifier or post[:uuid] == post_identifier
         end)
 
       assign(socket, :posts, updated_posts)

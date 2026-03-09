@@ -54,11 +54,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
         {v.version_number, format_datetime(v.inserted_at)}
       end)
 
-    version_languages =
-      Map.new(all_versions, fn v ->
-        {v.version_number, available_languages}
-      end)
-
     group_slug = get_group_slug(post)
 
     %{
@@ -78,7 +73,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       available_versions: available_versions,
       version_statuses: version_statuses,
       version_dates: version_dates,
-      version_languages: version_languages,
       content: content.content,
       metadata: build_metadata(post, version, content),
       primary_language: post.primary_language
@@ -129,7 +123,6 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       available_versions: available_versions,
       version_statuses: version_statuses,
       version_dates: version_dates,
-      version_languages: %{},
       content: primary_content && extract_excerpt(primary_content),
       metadata: build_listing_metadata(post, primary_content),
       primary_language: post.primary_language,

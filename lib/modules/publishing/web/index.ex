@@ -102,7 +102,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   def handle_info({:post_status_changed, _post}, socket),
     do: {:noreply, refresh_dashboard(socket)}
 
-  def handle_info({:post_deleted, _post_path}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:post_deleted, _post_identifier}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
   def handle_info({:group_created, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
 
   def handle_info({:group_deleted, _group_slug}, socket),
