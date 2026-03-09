@@ -290,14 +290,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   end
 
   defp load_spectator_state(socket, form_key) do
-    # Owner might have unsaved changes - sync from their Presence metadata
-    case PresenceHelpers.get_lock_owner(form_key) do
-      %{form_state: form_state} when not is_nil(form_state) ->
-        apply_remote_form_state(socket, form_state)
-
-      _ ->
-        socket
-    end
+    # Request current state from the owner so we see their unsaved changes.
+    # The owner handles :editor_sync_request and responds with form + content.
+    PublishingPubSub.broadcast_editor_sync_request(form_key, socket.id)
+    socket
   end
 
   # ============================================================================
@@ -390,6 +386,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
     |> Phoenix.Component.assign(:form, form)
     |> Phoenix.Component.assign(:content, content)
     |> Phoenix.Component.assign(:has_pending_changes, true)
+    |> Phoenix.LiveView.push_event("set-content", %{content: content})
+    |> Phoenix.LiveView.push_event("form-updated", %{form: form})
   end
 
   @doc """

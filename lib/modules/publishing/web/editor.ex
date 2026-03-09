@@ -1438,10 +1438,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         |> assign(:content, post.content)
         |> assign(:has_pending_changes, false)
         |> push_event("changes-status", %{has_changes: false})
+        |> push_event("set-content", %{content: post.content})
         |> Collaborative.maybe_start_lock_expiration_timer()
 
       {:error, _} ->
-        socket
+        # Still start the lock expiration timer even if re-read fails,
+        # since this user is now the owner
+        Collaborative.maybe_start_lock_expiration_timer(socket)
     end
   end
 
