@@ -263,6 +263,26 @@
                   </div>
                 </div>
               </div>
+            <% else %>
+              <%= if @user.custom_fields && map_size(@user.custom_fields) > 0 do %>
+                <div class="card bg-base-200 shadow-sm">
+                  <div class="card-body">
+                    <h3 class="card-title text-lg">{gettext("Custom Fields")}</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                      <%= for {key, value} <- Enum.sort(@user.custom_fields) do %>
+                        <div>
+                          <label class="text-sm font-medium text-base-content/70">
+                            {Phoenix.Naming.humanize(key)}
+                          </label>
+                          <p class="text-base-content">
+                            {format_custom_field_value(value, nil, key)}
+                          </p>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
             <% end %>
           </div>
         </div>
