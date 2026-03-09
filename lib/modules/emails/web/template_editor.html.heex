@@ -16,7 +16,9 @@
           )} • {String.capitalize(@template.status)}
         </p>
       <% else %>
-        <p class="text-sm text-base-content/60 mt-0.5">Create a new email template</p>
+        <p class="text-sm text-base-content/60 mt-0.5">
+          {gettext("Create a new email template")}
+        </p>
       <% end %>
     </.admin_page_header>
 
@@ -34,12 +36,12 @@
           <%!-- Basic Information --%>
           <div class="card bg-base-100 shadow-sm">
             <div class="card-body">
-              <h2 class="card-title text-lg mb-4">Basic Information</h2>
+              <h2 class="card-title text-lg mb-4">{gettext("Basic Information")}</h2>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text">Template Name</span>
+                    <span class="label-text">{gettext("Template Name")}</span>
                   </label>
                   <input
                     type="text"
@@ -56,7 +58,7 @@
 
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text">Display Name</span>
+                    <span class="label-text">{gettext("Display Name")}</span>
                   </label>
                   <%!-- Hidden inputs preserve all locale values --%>
                   <%= for locale <- @available_locales, locale != @current_editor_locale do %>
@@ -91,7 +93,7 @@
 
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Slug</span>
+                  <span class="label-text">{gettext("Slug")}</span>
                 </label>
                 <input
                   type="text"
@@ -106,7 +108,7 @@
                 <% end %>
                 <label class="label">
                   <span class="label-text-alt">
-                    URL-friendly identifier (auto-generated from name if left empty)
+                    {gettext("URL-friendly identifier (auto-generated from name if left empty)")}
                   </span>
                 </label>
               </div>
@@ -114,7 +116,7 @@
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text">Category</span>
+                    <span class="label-text">{gettext("Category")}</span>
                   </label>
                   <select
                     name="email_template[category]"
@@ -127,31 +129,31 @@
                         Ecto.Changeset.get_field(@changeset, :category) == "transactional"
                       }
                     >
-                      Transactional
+                      {gettext("Transactional")}
                     </option>
                     <option
                       value="marketing"
                       selected={Ecto.Changeset.get_field(@changeset, :category) == "marketing"}
                     >
-                      Marketing
+                      {gettext("Marketing")}
                     </option>
                     <option
                       value="system"
                       selected={Ecto.Changeset.get_field(@changeset, :category) == "system"}
                     >
-                      System
+                      {gettext("System")}
                     </option>
                     <option
                       value="notification"
                       selected={Ecto.Changeset.get_field(@changeset, :category) == "notification"}
                     >
-                      Notification
+                      {gettext("Notification")}
                     </option>
                     <option
                       value="mailing"
                       selected={Ecto.Changeset.get_field(@changeset, :category) == "mailing"}
                     >
-                      Mailing
+                      {gettext("Mailing")}
                     </option>
                   </select>
                   <%= if error = Keyword.get(@changeset.errors, :category) do %>
@@ -161,7 +163,7 @@
 
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text">Source Module</span>
+                    <span class="label-text">{gettext("Source Module")}</span>
                   </label>
                   <% current_metadata = Ecto.Changeset.get_field(@changeset, :metadata) || %{} %>
                   <% current_source_module = Map.get(current_metadata, "source_module", "custom") %>
@@ -170,32 +172,32 @@
                     class="select select-bordered"
                   >
                     <option value="users" selected={current_source_module == "users"}>
-                      Users
+                      {gettext("Users")}
                     </option>
                     <option value="billing" selected={current_source_module == "billing"}>
-                      Billing
+                      {gettext("Billing")}
                     </option>
                     <option value="publishing" selected={current_source_module == "publishing"}>
-                      Publishing
+                      {gettext("Publishing")}
                     </option>
                     <option value="entities" selected={current_source_module == "entities"}>
-                      Entities
+                      {gettext("Entities")}
                     </option>
                     <option value="admin" selected={current_source_module == "admin"}>
-                      Admin
+                      {gettext("Admin")}
                     </option>
                     <option value="custom" selected={current_source_module == "custom"}>
-                      Custom
+                      {gettext("Custom")}
                     </option>
                   </select>
                   <label class="label">
-                    <span class="label-text-alt">Module that sends this email</span>
+                    <span class="label-text-alt">{gettext("Module that sends this email")}</span>
                   </label>
                 </div>
 
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text">Status</span>
+                    <span class="label-text">{gettext("Status")}</span>
                   </label>
                   <select
                     name="email_template[status]"
@@ -205,19 +207,19 @@
                       value="draft"
                       selected={Ecto.Changeset.get_field(@changeset, :status) == "draft"}
                     >
-                      Draft
+                      {gettext("Draft")}
                     </option>
                     <option
                       value="active"
                       selected={Ecto.Changeset.get_field(@changeset, :status) == "active"}
                     >
-                      Active
+                      {gettext("Active")}
                     </option>
                     <option
                       value="archived"
                       selected={Ecto.Changeset.get_field(@changeset, :status) == "archived"}
                     >
-                      Archived
+                      {gettext("Archived")}
                     </option>
                   </select>
                   <%= if error = Keyword.get(@changeset.errors, :status) do %>
@@ -228,7 +230,7 @@
 
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Description (Optional)</span>
+                  <span class="label-text">{gettext("Description (Optional)")}</span>
                 </label>
                 <%!-- Hidden textareas preserve all locale values --%>
                 <%= for locale <- @available_locales, locale != @current_editor_locale do %>
@@ -236,7 +238,7 @@
                 <% end %>
                 <textarea
                   name={"email_template[description][#{@current_editor_locale}]"}
-                  placeholder="Brief description of this template..."
+                  placeholder={gettext("Brief description of this template...")}
                   class="textarea textarea-bordered"
                   rows="2"
                 ><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :description) || %{}, @current_editor_locale) %></textarea>
@@ -251,7 +253,7 @@
           <div class="card bg-base-100 shadow-sm">
             <div class="card-body">
               <div class="flex items-center justify-between mb-4">
-                <h2 class="card-title text-lg">Email Content</h2>
+                <h2 class="card-title text-lg">{gettext("Email Content")}</h2>
                 <%!-- Locale tab bar — only shown when multiple locales configured --%>
                 <%= if length(@available_locales) > 1 do %>
                   <div class="tabs tabs-border tabs-sm">
@@ -271,7 +273,7 @@
 
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Subject Line</span>
+                  <span class="label-text">{gettext("Subject Line")}</span>
                 </label>
                 <%!-- Hidden inputs preserve all locale values --%>
                 <%= for locale <- @available_locales, locale != @current_editor_locale do %>
@@ -310,7 +312,7 @@
 
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">HTML Body</span>
+                  <span class="label-text">{gettext("HTML Body")}</span>
                 </label>
                 <%!-- Hidden textareas preserve all locale values --%>
                 <%= for locale <- @available_locales, locale != @current_editor_locale do %>
@@ -329,7 +331,7 @@
 
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text">Text Body</span>
+                  <span class="label-text">{gettext("Text Body")}</span>
                 </label>
                 <%!-- Hidden textareas preserve all locale values --%>
                 <%= for locale <- @available_locales, locale != @current_editor_locale do %>
@@ -351,17 +353,21 @@
           <%!-- Template Variables --%>
           <div class="card bg-base-100 shadow-sm">
             <div class="card-body">
-              <h2 class="card-title text-lg mb-4">Template Variables</h2>
+              <h2 class="card-title text-lg mb-4">{gettext("Template Variables")}</h2>
 
               <%= if length(@extracted_variables) > 0 do %>
                 <div class="alert alert-info mb-4">
                   <.icon name="hero-information-circle" class="w-5 h-5" />
                   <div>
                     <div class="font-semibold">
-                      {length(@extracted_variables)} variable(s) detected and auto-added
+                      {gettext("%{count} variable(s) detected and auto-added",
+                        count: length(@extracted_variables)
+                      )}
                     </div>
                     <div class="text-sm mt-1">
-                      Variables are automatically managed. Edit descriptions below or remove if not needed.
+                      {gettext(
+                        "Variables are automatically managed. Edit descriptions below or remove if not needed."
+                      )}
                     </div>
                   </div>
                 </div>
@@ -376,7 +382,7 @@
                         <input
                           type="text"
                           value={description}
-                          placeholder="Description for this variable..."
+                          placeholder={gettext("Description for this variable...")}
                           class="input input-sm input-bordered w-full"
                           phx-change="update_variable_description"
                           phx-value-name={name}
@@ -393,7 +399,7 @@
                         phx-click="remove_variable"
                         phx-value-name={name}
                         class="btn btn-xs btn-ghost text-error mt-1"
-                        title="Remove variable"
+                        title={gettext("Remove variable")}
                       >
                         <.icon name="hero-trash" class="w-4 h-4" />
                       </button>
@@ -403,7 +409,7 @@
               <% else %>
                 <div class="text-center py-8 text-base-content/60">
                   <.icon name="hero-code-bracket" class="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <div class="font-medium mb-2">No variables found in template</div>
+                  <div class="font-medium mb-2">{gettext("No variables found in template")}</div>
                   <div class="text-sm">
                     Use {"{{variable_name}}"} syntax in subject or body to add dynamic variables.
                   </div>
@@ -424,7 +430,7 @@
                 phx-click="show_test_modal"
                 class="btn btn-outline btn-secondary"
               >
-                <.icon name="hero-envelope" class="w-4 h-4 mr-1" /> Test Send
+                <.icon name="hero-envelope" class="w-4 h-4 mr-1" /> {gettext("Test Send")}
               </button>
 
               <%!-- Save as Draft button (only in new mode) --%>
@@ -435,7 +441,7 @@
                   value="draft"
                   class="btn btn-outline btn-warning"
                 >
-                  <.icon name="hero-document" class="w-4 h-4 mr-1" /> Save as Draft
+                  <.icon name="hero-document" class="w-4 h-4 mr-1" /> {gettext("Save as Draft")}
                 </button>
               <% end %>
             </div>
@@ -445,7 +451,7 @@
                 navigate={Routes.path("/admin/emails/templates")}
                 class="btn btn-ghost"
               >
-                Cancel
+                {gettext("Cancel")}
               </.link>
               <button
                 type="submit"
@@ -456,9 +462,11 @@
                 disabled={@saving}
               >
                 <%= if @saving do %>
-                  Saving...
+                  {gettext("Saving...")}
                 <% else %>
-                  {if @mode == :new, do: "Create Template", else: "Update Template"}
+                  {if @mode == :new,
+                    do: gettext("Create Template"),
+                    else: gettext("Update Template")}
                 <% end %>
               </button>
             </div>
@@ -471,7 +479,7 @@
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="card-title text-lg">Live Preview</h2>
+              <h2 class="card-title text-lg">{gettext("Live Preview")}</h2>
               <div class="btn-group">
                 <button
                   type="button"
@@ -506,10 +514,10 @@
               ) %>
             <div class="mb-4">
               <div class="text-sm font-medium text-base-content/70 mb-1">
-                Subject ({String.upcase(@current_editor_locale)}):
+                {gettext("Subject (%{locale}):", locale: String.upcase(@current_editor_locale))}
               </div>
               <div class="p-2 bg-base-200 rounded text-sm">
-                {if preview_subject == "", do: "No subject", else: preview_subject}
+                {if preview_subject == "", do: gettext("No subject"), else: preview_subject}
               </div>
             </div>
 
@@ -539,7 +547,7 @@
                   </iframe>
                 <% else %>
                   <div class="bg-white p-4 min-h-96">
-                    <div class="text-gray-500 italic">No HTML content</div>
+                    <div class="text-gray-500 italic">{gettext("No HTML content")}</div>
                   </div>
                 <% end %>
               <% else %>
@@ -547,7 +555,9 @@
                   <%= if preview_text != "" do %>
                     {preview_text}
                   <% else %>
-                    <div class="text-gray-500 italic not-italic">No text content</div>
+                    <div class="text-gray-500 italic not-italic">
+                      {gettext("No text content")}
+                    </div>
                   <% end %>
                 </div>
               <% end %>
@@ -564,7 +574,7 @@
       phx-click-away="hide_test_modal"
     >
       <div class="modal-box max-w-4xl">
-        <h3 class="font-bold text-lg mb-4">Send Test Email</h3>
+        <h3 class="font-bold text-lg mb-4">{gettext("Send Test Email")}</h3>
 
         <.form
           for={%{}}
@@ -574,7 +584,7 @@
         >
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Recipient Email</span>
+              <span class="label-text">{gettext("Recipient Email")}</span>
             </label>
             <input
               type="email"
@@ -599,7 +609,7 @@
           <%= if length(@extracted_variables) > 0 do %>
             <div class="form-control">
               <label class="label">
-                <span class="label-text">Sample Variable Values</span>
+                <span class="label-text">{gettext("Sample Variable Values")}</span>
               </label>
               <div class="space-y-2">
                 <%= for variable <- @extracted_variables do %>
@@ -623,7 +633,9 @@
           <div class="alert alert-info">
             <.icon name="hero-information-circle" class="w-5 h-5" />
             <div class="text-sm">
-              This will send a test email using the current template content with the sample variables provided above.
+              {gettext(
+                "This will send a test email using the current template content with the sample variables provided above."
+              )}
             </div>
           </div>
 
@@ -633,7 +645,7 @@
               phx-click="hide_test_modal"
               class="btn btn-ghost"
             >
-              Cancel
+              {gettext("Cancel")}
             </button>
             <button
               type="submit"
@@ -644,9 +656,9 @@
               disabled={@test_sending}
             >
               <%= if @test_sending do %>
-                Sending...
+                {gettext("Sending...")}
               <% else %>
-                Send Test Email
+                {gettext("Send Test Email")}
               <% end %>
             </button>
           </div>
