@@ -1,15 +1,15 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Emails"
+  page_title={gettext("Emails")}
   current_path={@url_path}
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={Routes.path("/admin")}
-      title="Emails"
-      subtitle="Monitor and track all outgoing emails"
+      title={gettext("Emails")}
+      subtitle={gettext("Monitor and track all outgoing emails")}
     />
 
     <%!-- Statistics Summary --%>
@@ -18,8 +18,8 @@
         compact={true}
         rounded="xl"
         value={@stats[:total_sent] || 0}
-        title="Total Sent"
-        subtitle="Last 30 days"
+        title={gettext("Total Sent")}
+        subtitle={gettext("Last 30 days")}
       >
         <:icon>
           <.icon name="hero-envelope" class="w-5 h-5" />
@@ -30,8 +30,8 @@
         compact={true}
         rounded="xl"
         value={@stats[:delivered] || 0}
-        title="Delivered"
-        subtitle={"#{@stats[:delivery_rate] || 0}% rate"}
+        title={gettext("Delivered")}
+        subtitle={gettext("%{rate}% rate", rate: @stats[:delivery_rate] || 0)}
       >
         <:icon>
           <.icon name="hero-check-circle" class="w-5 h-5" />
@@ -42,8 +42,8 @@
         compact={true}
         rounded="xl"
         value={@stats[:bounced] || 0}
-        title="Bounced"
-        subtitle={"#{@stats[:bounce_rate] || 0}% rate"}
+        title={gettext("Bounced")}
+        subtitle={gettext("%{rate}% rate", rate: @stats[:bounce_rate] || 0)}
       >
         <:icon>
           <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
@@ -54,8 +54,8 @@
         compact={true}
         rounded="xl"
         value={@stats[:opened] || 0}
-        title="Opened"
-        subtitle={"#{@stats[:open_rate] || 0}% rate"}
+        title={gettext("Opened")}
+        subtitle={gettext("%{rate}% rate", rate: @stats[:open_rate] || 0)}
       >
         <:icon>
           <.icon name="hero-envelope-open" class="w-5 h-5" />
@@ -72,12 +72,12 @@
             type="text"
             name="search[query]"
             value={@filters.search}
-            placeholder="Search by recipient, subject, or campaign..."
+            placeholder={gettext("Search by recipient, subject, or campaign...")}
             class="input input-bordered flex-1"
             phx-debounce="300"
           />
           <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
-            Clear
+            {gettext("Clear")}
           </button>
         </div>
 
@@ -86,51 +86,68 @@
           <%!-- Status Filter --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Status</span>
+              <span class="label-text">{gettext("Status")}</span>
             </label>
             <select name="filter[status]" class="select select-bordered">
-              <option value="">All Statuses</option>
-              <option value="queued" selected={@filters.status == "queued"}>Queued</option>
-              <option value="sent" selected={@filters.status == "sent"}>Sent</option>
-              <option value="delivered" selected={@filters.status == "delivered"}>
-                Delivered
+              <option value="">{gettext("All Statuses")}</option>
+              <option value="queued" selected={@filters.status == "queued"}>
+                {gettext("Queued")}
               </option>
-              <option value="opened" selected={@filters.status == "opened"}>Opened</option>
-              <option value="clicked" selected={@filters.status == "clicked"}>Clicked</option>
-              <option value="bounced" selected={@filters.status == "bounced"}>Bounced</option>
+              <option value="sent" selected={@filters.status == "sent"}>{gettext("Sent")}</option>
+              <option value="delivered" selected={@filters.status == "delivered"}>
+                {gettext("Delivered")}
+              </option>
+              <option value="opened" selected={@filters.status == "opened"}>
+                {gettext("Opened")}
+              </option>
+              <option value="clicked" selected={@filters.status == "clicked"}>
+                {gettext("Clicked")}
+              </option>
+              <option value="bounced" selected={@filters.status == "bounced"}>
+                {gettext("Bounced")}
+              </option>
               <option value="hard_bounced" selected={@filters.status == "hard_bounced"}>
-                Hard Bounced
+                {gettext("Hard Bounced")}
               </option>
               <option value="soft_bounced" selected={@filters.status == "soft_bounced"}>
-                Soft Bounced
+                {gettext("Soft Bounced")}
               </option>
-              <option value="rejected" selected={@filters.status == "rejected"}>Rejected</option>
-              <option value="delayed" selected={@filters.status == "delayed"}>Delayed</option>
+              <option value="rejected" selected={@filters.status == "rejected"}>
+                {gettext("Rejected")}
+              </option>
+              <option value="delayed" selected={@filters.status == "delayed"}>
+                {gettext("Delayed")}
+              </option>
               <option value="complaint" selected={@filters.status == "complaint"}>
-                Complaint
+                {gettext("Complaint")}
               </option>
-              <option value="failed" selected={@filters.status == "failed"}>Failed</option>
+              <option value="failed" selected={@filters.status == "failed"}>
+                {gettext("Failed")}
+              </option>
             </select>
           </div>
 
           <%!-- Category Filter --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Category</span>
+              <span class="label-text">{gettext("Category")}</span>
             </label>
             <select name="filter[category]" class="select select-bordered">
-              <option value="">All Categories</option>
+              <option value="">{gettext("All Categories")}</option>
               <option value="system" selected={@filters.category == "system"}>
-                System
+                {gettext("System")}
               </option>
               <option value="transactional" selected={@filters.category == "transactional"}>
-                Transactional
+                {gettext("Transactional")}
               </option>
               <option value="marketing" selected={@filters.category == "marketing"}>
-                Marketing
+                {gettext("Marketing")}
               </option>
               <option value="notification" selected={@filters.category == "notification"}>
-                Notification
+                {gettext("Notification")}
+              </option>
+              <option value="mailing" selected={@filters.category == "mailing"}>
+                {gettext("Mailing")}
               </option>
             </select>
           </div>
@@ -138,27 +155,27 @@
           <%!-- Source Module Filter --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Source Module</span>
+              <span class="label-text">{gettext("Source Module")}</span>
             </label>
             <select name="filter[source_module]" class="select select-bordered">
-              <option value="">All Modules</option>
+              <option value="">{gettext("All Modules")}</option>
               <option value="users" selected={@filters.source_module == "users"}>
-                Users
+                {gettext("Users")}
               </option>
               <option value="billing" selected={@filters.source_module == "billing"}>
-                Billing
+                {gettext("Billing")}
               </option>
               <option value="publishing" selected={@filters.source_module == "publishing"}>
-                Publishing
+                {gettext("Publishing")}
               </option>
               <option value="entities" selected={@filters.source_module == "entities"}>
-                Entities
+                {gettext("Entities")}
               </option>
               <option value="admin" selected={@filters.source_module == "admin"}>
-                Admin
+                {gettext("Admin")}
               </option>
               <option value="custom" selected={@filters.source_module == "custom"}>
-                Custom
+                {gettext("Custom")}
               </option>
             </select>
           </div>
@@ -169,7 +186,7 @@
           <%!-- Date Range --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">From Date</span>
+              <span class="label-text">{gettext("From Date")}</span>
             </label>
             <input
               type="date"
@@ -181,7 +198,7 @@
 
           <div class="form-control">
             <label class="label">
-              <span class="label-text">To Date</span>
+              <span class="label-text">{gettext("To Date")}</span>
             </label>
             <input
               type="date"
@@ -195,17 +212,17 @@
         <%!-- Quick Actions Row --%>
         <div class="w-full">
           <label class="label">
-            <span class="label-text">Quick Actions</span>
+            <span class="label-text">{gettext("Quick Actions")}</span>
           </label>
           <div class="flex flex-wrap gap-2">
             <button
               type="button"
               phx-click="show_column_modal"
               class="btn btn-info btn-sm"
-              title="Customize columns"
+              title={gettext("Customize columns")}
             >
               <.icon name="hero-view-columns" class="h-5 w-5" />
-              <span class="hidden sm:inline">Columns</span>
+              <span class="hidden sm:inline">{gettext("Columns")}</span>
             </button>
 
             <.link
@@ -213,7 +230,7 @@
               class="btn btn-outline btn-secondary btn-sm"
             >
               <.icon name="hero-document-text" class="w-4 h-4" />
-              <span class="hidden sm:inline ml-1">Templates</span>
+              <span class="hidden sm:inline ml-1">{gettext("Templates")}</span>
             </.link>
 
             <button
@@ -222,7 +239,7 @@
               class="btn btn-primary btn-sm"
             >
               <.icon name="hero-envelope" class="w-4 h-4" />
-              <span class="hidden sm:inline ml-1">Send Test</span>
+              <span class="hidden sm:inline ml-1">{gettext("Send Test")}</span>
             </button>
 
             <.link
@@ -231,12 +248,12 @@
               class="btn btn-outline btn-sm"
             >
               <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
-              <span class="hidden sm:inline ml-1">Export CSV</span>
+              <span class="hidden sm:inline ml-1">{gettext("Export CSV")}</span>
             </.link>
 
             <button type="button" phx-click="refresh" class="btn btn-outline btn-sm">
               <.icon name="hero-arrow-path" class="w-4 h-4" />
-              <span class="hidden sm:inline ml-1">Refresh</span>
+              <span class="hidden sm:inline ml-1">{gettext("Refresh")}</span>
             </button>
           </div>
         </div>
@@ -248,7 +265,7 @@
       <%= if @loading do %>
         <div class="flex justify-center items-center h-32">
           <span class="loading loading-spinner loading-md"></span>
-          <span class="ml-2">Loading emails...</span>
+          <span class="ml-2">{gettext("Loading emails...")}</span>
         </div>
       <% else %>
         <%= if length(@logs) > 0 do %>
@@ -273,35 +290,35 @@
                               tabindex="0"
                               class="dropdown-content z-[1] p-3 shadow-lg bg-base-100 rounded-box w-40 border border-base-300 text-base-content"
                             >
-                              <div class="text-xs font-medium mb-2">Legend:</div>
+                              <div class="text-xs font-medium mb-2">{gettext("Legend:")}</div>
                               <div class="flex flex-col gap-1.5">
                                 <div class="flex items-center gap-2">
                                   <span class="badge badge-ghost badge-xs h-auto"></span>
-                                  <span class="text-xs">Queued</span>
+                                  <span class="text-xs">{gettext("Queued")}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                   <span class="badge badge-info badge-xs h-auto"></span>
-                                  <span class="text-xs">Sent</span>
+                                  <span class="text-xs">{gettext("Sent")}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                   <span class="badge badge-success badge-xs h-auto"></span>
-                                  <span class="text-xs">Delivered</span>
+                                  <span class="text-xs">{gettext("Delivered")}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                   <span class="badge badge-primary badge-xs h-auto"></span>
-                                  <span class="text-xs">Opened</span>
+                                  <span class="text-xs">{gettext("Opened")}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                   <span class="badge badge-secondary badge-xs h-auto"></span>
-                                  <span class="text-xs">Clicked</span>
+                                  <span class="text-xs">{gettext("Clicked")}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                   <span class="badge badge-warning badge-xs h-auto"></span>
-                                  <span class="text-xs">Delayed</span>
+                                  <span class="text-xs">{gettext("Delayed")}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                   <span class="badge badge-error badge-xs h-auto"></span>
-                                  <span class="text-xs">Error</span>
+                                  <span class="text-xs">{gettext("Error")}</span>
                                 </div>
                               </div>
                             </div>
@@ -322,20 +339,20 @@
                                 tabindex="0"
                                 class="dropdown-content z-[1] p-3 shadow-lg bg-base-100 rounded-box w-48 border border-base-300 text-base-content"
                               >
-                                <div class="text-xs font-medium mb-2">Legend:</div>
+                                <div class="text-xs font-medium mb-2">{gettext("Legend:")}</div>
                                 <div class="flex flex-col gap-1.5">
                                   <div class="flex items-center gap-2">
                                     <span class="w-3 h-3 rounded-full bg-accent"></span>
-                                    <span class="text-xs">Source Module</span>
+                                    <span class="text-xs">{gettext("Source Module")}</span>
                                   </div>
                                   <div class="flex items-center gap-2">
                                     <span class="w-3 h-3 rounded-full bg-primary"></span>
-                                    <span class="text-xs">Campaign</span>
+                                    <span class="text-xs">{gettext("Campaign")}</span>
                                   </div>
                                   <div class="flex items-center gap-2">
                                     <span class="w-3 h-3 rounded-full border-2 border-base-content/30 bg-transparent">
                                     </span>
-                                    <span class="text-xs">Template</span>
+                                    <span class="text-xs">{gettext("Template")}</span>
                                   </div>
                                 </div>
                               </div>
@@ -368,7 +385,7 @@
                           </div>
                         <% "subject" -> %>
                           <div class="text-sm truncate" title={log.subject}>
-                            {log.subject || "(no subject)"}
+                            {log.subject || gettext("(no subject)")}
                           </div>
                         <% "status" -> %>
                           <.email_activity_badges log={log} />
@@ -423,10 +440,10 @@
           <div class="text-center py-12">
             <.icon name="hero-envelope" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
             <h3 class="text-lg font-medium text-base-content mb-2">
-              No emails found
+              {gettext("No emails found")}
             </h3>
             <p class="text-base-content/70 mb-4">
-              No emails found matching your criteria
+              {gettext("No emails found matching your criteria")}
             </p>
           </div>
         <% end %>
@@ -461,10 +478,11 @@
       phx-click-away="hide_test_email_modal"
     >
       <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Send Test Email</h3>
+        <h3 class="font-bold text-lg mb-4">{gettext("Send Test Email")}</h3>
         <p class="text-sm text-base-content/70 mb-4">
-          Send a test email to verify that email is working correctly.
-          The test email will include test links.
+          {gettext(
+            "Send a test email to verify that email is working correctly. The test email will include test links."
+          )}
         </p>
 
         <.form
@@ -475,7 +493,7 @@
         >
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Recipient Email Address</span>
+              <span class="label-text">{gettext("Recipient Email Address")}</span>
             </label>
             <input
               type="email"
@@ -500,12 +518,12 @@
           <div class="alert alert-info">
             <.icon name="hero-information-circle" class="w-5 h-5" />
             <div class="text-sm">
-              <div class="font-semibold">This test email will:</div>
+              <div class="font-semibold">{gettext("This test email will:")}</div>
               <ul class="mt-1 list-disc list-inside">
-                <li>Verify AWS SES configuration (if enabled)</li>
-                <li>Test email delivery management</li>
-                <li>Include trackable links for click testing</li>
-                <li>Appear in your emails with "TEST" campaign</li>
+                <li>{gettext("Verify AWS SES configuration (if enabled)")}</li>
+                <li>{gettext("Test email delivery management")}</li>
+                <li>{gettext("Include trackable links for click testing")}</li>
+                <li>{gettext("Appear in your emails with \"TEST\" campaign")}</li>
               </ul>
             </div>
           </div>
@@ -516,7 +534,7 @@
               phx-click="hide_test_email_modal"
               class="btn btn-ghost"
             >
-              Cancel
+              {gettext("Cancel")}
             </button>
             <button
               type="submit"
@@ -527,9 +545,9 @@
               disabled={@test_email_sending}
             >
               <%= if @test_email_sending do %>
-                Sending...
+                {gettext("Sending...")}
               <% else %>
-                Send Test Email
+                {gettext("Send Test Email")}
               <% end %>
             </button>
           </div>
@@ -541,9 +559,11 @@
     <%= if @show_column_modal do %>
       <div class="modal modal-open" phx-click-away="hide_column_modal">
         <div class="modal-box max-w-2xl">
-          <h3 class="font-bold text-xl mb-4">Customize Table Columns</h3>
+          <h3 class="font-bold text-xl mb-4">{gettext("Customize Table Columns")}</h3>
           <p class="text-base-content/70 mb-6">
-            Select which columns to display in the emails table. Required columns (Email, Subject, Status, Actions) cannot be hidden.
+            {gettext(
+              "Select which columns to display in the emails table. Required columns (Email, Subject, Status, Actions) cannot be hidden."
+            )}
           </p>
 
           <div class="space-y-2 max-h-96 overflow-y-auto">
@@ -564,12 +584,12 @@
                   </div>
                   <%= if column.required do %>
                     <div class="text-xs text-base-content/50">
-                      Required column
+                      {gettext("Required column")}
                     </div>
                   <% end %>
                 </label>
                 <%= if column.required do %>
-                  <div class="badge badge-sm badge-ghost">Required</div>
+                  <div class="badge badge-sm badge-ghost">{gettext("Required")}</div>
                 <% end %>
               </div>
             <% end %>
@@ -581,14 +601,14 @@
               phx-click="reset_columns"
               class="btn btn-outline"
             >
-              Reset to Default
+              {gettext("Reset to Default")}
             </button>
             <button
               type="button"
               phx-click="hide_column_modal"
               class="btn btn-primary"
             >
-              Close
+              {gettext("Close")}
             </button>
           </div>
         </div>
