@@ -1,26 +1,26 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Email Templates"
+  page_title={gettext("Email Templates")}
   current_path={@url_path}
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={Routes.path("/admin/emails")}
-      title="Email Templates"
-      subtitle="Manage and organize your email templates"
+      title={gettext("Email Templates")}
+      subtitle={gettext("Manage and organize your email templates")}
     >
       <:actions>
         <.link
           navigate={Routes.path("/admin/emails/templates/new")}
           class="btn btn-primary btn-sm"
         >
-          <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New Template
+          <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("New Template")}
         </.link>
 
         <.button phx-click="refresh" class="btn btn-outline btn-sm">
-          <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
+          <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
         </.button>
       </:actions>
     </.admin_page_header>
@@ -31,8 +31,8 @@
         compact={true}
         rounded="xl"
         value={@stats[:total_templates] || 0}
-        title="Total Templates"
-        subtitle="All templates"
+        title={gettext("Total Templates")}
+        subtitle={gettext("All templates")}
       >
         <:icon>
           <.icon name="hero-document-text" class="w-5 h-5" />
@@ -43,8 +43,8 @@
         compact={true}
         rounded="xl"
         value={@stats[:active_templates] || 0}
-        title="Active"
-        subtitle="Ready to use"
+        title={gettext("Active")}
+        subtitle={gettext("Ready to use")}
       >
         <:icon>
           <.icon name="hero-check-circle" class="w-5 h-5" />
@@ -55,8 +55,8 @@
         compact={true}
         rounded="xl"
         value={@stats[:system_templates] || 0}
-        title="System"
-        subtitle="Core templates"
+        title={gettext("System")}
+        subtitle={gettext("Core templates")}
       >
         <:icon>
           <.icon name="hero-cog-6-tooth" class="w-5 h-5" />
@@ -67,8 +67,10 @@
         compact={true}
         rounded="xl"
         value={if @stats[:most_used], do: @stats[:most_used].usage_count, else: 0}
-        title="Most Used"
-        subtitle={if @stats[:most_used], do: @stats[:most_used].name, else: "No usage yet"}
+        title={gettext("Most Used")}
+        subtitle={
+          if @stats[:most_used], do: @stats[:most_used].name, else: gettext("No usage yet")
+        }
       >
         <:icon>
           <.icon name="hero-star" class="w-5 h-5" />
@@ -85,11 +87,11 @@
             type="text"
             name="search[query]"
             value={@filters.search}
-            placeholder="Search by name, display name, or description..."
+            placeholder={gettext("Search by name, display name, or description...")}
             class="input input-bordered flex-1"
           />
           <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
-            Clear Filters
+            {gettext("Clear Filters")}
           </button>
         </div>
 
@@ -98,19 +100,21 @@
           <%!-- Category Filter --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Category</span>
+              <span class="label-text">{gettext("Category")}</span>
             </label>
             <select name="filter[category]" class="select select-bordered">
-              <option value="">All Categories</option>
-              <option value="system" selected={@filters.category == "system"}>System</option>
+              <option value="">{gettext("All Categories")}</option>
+              <option value="system" selected={@filters.category == "system"}>
+                {gettext("System")}
+              </option>
               <option value="transactional" selected={@filters.category == "transactional"}>
-                Transactional
+                {gettext("Transactional")}
               </option>
               <option value="marketing" selected={@filters.category == "marketing"}>
-                Marketing
+                {gettext("Marketing")}
               </option>
               <option value="mailing" selected={@filters.category == "mailing"}>
-                Mailing
+                {gettext("Mailing")}
               </option>
             </select>
           </div>
@@ -118,14 +122,18 @@
           <%!-- Status Filter --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Status</span>
+              <span class="label-text">{gettext("Status")}</span>
             </label>
             <select name="filter[status]" class="select select-bordered">
-              <option value="">All Statuses</option>
-              <option value="active" selected={@filters.status == "active"}>Active</option>
-              <option value="draft" selected={@filters.status == "draft"}>Draft</option>
+              <option value="">{gettext("All Statuses")}</option>
+              <option value="active" selected={@filters.status == "active"}>
+                {gettext("Active")}
+              </option>
+              <option value="draft" selected={@filters.status == "draft"}>
+                {gettext("Draft")}
+              </option>
               <option value="archived" selected={@filters.status == "archived"}>
-                Archived
+                {gettext("Archived")}
               </option>
             </select>
           </div>
@@ -133,12 +141,16 @@
           <%!-- System/Custom Filter --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Type</span>
+              <span class="label-text">{gettext("Type")}</span>
             </label>
             <select name="filter[is_system]" class="select select-bordered">
-              <option value="">All Types</option>
-              <option value="true" selected={@filters.is_system == "true"}>System</option>
-              <option value="false" selected={@filters.is_system == "false"}>Custom</option>
+              <option value="">{gettext("All Types")}</option>
+              <option value="true" selected={@filters.is_system == "true"}>
+                {gettext("System")}
+              </option>
+              <option value="false" selected={@filters.is_system == "false"}>
+                {gettext("Custom")}
+              </option>
             </select>
           </div>
         </div>
@@ -150,19 +162,19 @@
       <%= if @loading do %>
         <div class="flex justify-center items-center h-32">
           <span class="loading loading-spinner loading-md"></span>
-          <span class="ml-2">Loading templates...</span>
+          <span class="ml-2">{gettext("Loading templates...")}</span>
         </div>
       <% else %>
         <%= if length(@templates) > 0 do %>
           <.table_default variant="zebra" class="w-full">
             <.table_default_header>
               <.table_default_row>
-                <.table_default_header_cell>Template</.table_default_header_cell>
-                <.table_default_header_cell>Subject</.table_default_header_cell>
-                <.table_default_header_cell>Category</.table_default_header_cell>
-                <.table_default_header_cell>Status</.table_default_header_cell>
-                <.table_default_header_cell>Usage</.table_default_header_cell>
-                <.table_default_header_cell>Actions</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Template")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Subject")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Category")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Usage")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
               </.table_default_row>
             </.table_default_header>
 
@@ -180,7 +192,7 @@
                       </div>
                       <div class="text-xs text-base-content/70">{template.name}</div>
                       <%= if template.is_system do %>
-                        <div class="badge badge-info badge-xs h-auto">System</div>
+                        <div class="badge badge-info badge-xs h-auto">{gettext("System")}</div>
                       <% end %>
                     </div>
                   </.table_default_cell>
@@ -230,14 +242,14 @@
                   <.table_default_cell>
                     <div class="space-y-1 text-xs">
                       <div class="font-medium">
-                        {template.usage_count} uses
+                        {gettext("%{count} uses", count: template.usage_count)}
                       </div>
                       <%= if template.last_used_at do %>
                         <div class="text-base-content/70">
                           Last: {UtilsDate.format_date_with_user_format(template.last_used_at)}
                         </div>
                       <% else %>
-                        <div class="text-base-content/70">Never used</div>
+                        <div class="text-base-content/70">{gettext("Never used")}</div>
                       <% end %>
                     </div>
                   </.table_default_cell>
@@ -314,10 +326,10 @@
           <div class="text-center py-12">
             <.icon name="hero-document-text" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
             <h3 class="text-lg font-medium text-base-content mb-2">
-              No templates found
+              {gettext("No templates found")}
             </h3>
             <p class="text-base-content/70 mb-4">
-              No templates found matching your criteria
+              {gettext("No templates found matching your criteria")}
             </p>
           </div>
         <% end %>
@@ -349,10 +361,10 @@
       phx-click-away="hide_clone_modal"
     >
       <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Clone Template</h3>
+        <h3 class="font-bold text-lg mb-4">{gettext("Clone Template")}</h3>
         <%= if @clone_template do %>
           <p class="text-sm text-base-content/70 mb-4">
-            Creating a copy of "<strong>{PhoenixKit.Modules.Emails.Template.get_translation(@clone_template.display_name, @display_locale)}</strong>"
+            {gettext("Creating a copy of")} "<strong>{PhoenixKit.Modules.Emails.Template.get_translation(@clone_template.display_name, @display_locale)}</strong>"
           </p>
         <% end %>
 
@@ -364,7 +376,7 @@
         >
           <div class="form-control">
             <label class="label">
-              <span class="label-text">New Template Name</span>
+              <span class="label-text">{gettext("New Template Name")}</span>
             </label>
             <input
               type="text"
@@ -388,7 +400,7 @@
 
           <div class="form-control">
             <label class="label">
-              <span class="label-text">New Display Name</span>
+              <span class="label-text">{gettext("New Display Name")}</span>
             </label>
             <input
               type="text"
@@ -416,10 +428,10 @@
               phx-click="hide_clone_modal"
               class="btn btn-ghost"
             >
-              Cancel
+              {gettext("Cancel")}
             </button>
             <button type="submit" class="btn btn-primary">
-              Clone Template
+              {gettext("Clone Template")}
             </button>
           </div>
         </.form>
@@ -434,7 +446,7 @@
           <p class="py-4">{@confirmation_modal.message}</p>
           <div class="modal-action">
             <button class="btn btn-ghost" phx-click="cancel_confirmation">
-              Cancel
+              {gettext("Cancel")}
             </button>
             <button
               class="btn btn-error"
