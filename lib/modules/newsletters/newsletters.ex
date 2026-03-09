@@ -1,8 +1,8 @@
-defmodule PhoenixKit.Modules.Mailing do
+defmodule PhoenixKit.Modules.Newsletters do
   @moduledoc """
-  Mailing module — email broadcasts and subscription management.
+  Newsletters module — email broadcasts and subscription management.
 
-  Provides mailing list management, broadcast creation with Markdown editor,
+  Provides newsletter list management, broadcast creation with Markdown editor,
   per-recipient delivery tracking via Oban workers, and unsubscribe flow.
   """
 
@@ -19,21 +19,21 @@ defmodule PhoenixKit.Modules.Mailing do
   # ============================================================================
 
   @impl PhoenixKit.Module
-  def module_key, do: "mailing"
+  def module_key, do: "newsletters"
 
   @impl PhoenixKit.Module
-  def module_name, do: "Mailing"
+  def module_name, do: "Newsletters"
 
   @impl PhoenixKit.Module
   def enabled? do
-    Settings.get_boolean_setting("mailing_enabled", false)
+    Settings.get_boolean_setting("newsletters_enabled", false)
   end
 
   @impl PhoenixKit.Module
   def enable_system do
     # Require emails module to be enabled
     if Emails.enabled?() do
-      Settings.update_boolean_setting_with_module("mailing_enabled", true, "mailing")
+      Settings.update_boolean_setting_with_module("newsletters_enabled", true, "newsletters")
     else
       {:error, :emails_required}
     end
@@ -41,14 +41,14 @@ defmodule PhoenixKit.Modules.Mailing do
 
   @impl PhoenixKit.Module
   def disable_system do
-    Settings.update_boolean_setting_with_module("mailing_enabled", false, "mailing")
+    Settings.update_boolean_setting_with_module("newsletters_enabled", false, "newsletters")
   end
 
   @impl PhoenixKit.Module
   def permission_metadata do
     %{
-      key: "mailing",
-      label: "Mailing",
+      key: "newsletters",
+      label: "Newsletters",
       icon: "hero-megaphone",
       description: "Email broadcasts and subscription management"
     }
@@ -58,13 +58,13 @@ defmodule PhoenixKit.Modules.Mailing do
   def admin_tabs do
     [
       Tab.new!(
-        id: :admin_mailing,
-        label: "Mailing",
+        id: :admin_newsletters,
+        label: "Newsletters",
         icon: "hero-megaphone",
-        path: "mailing/broadcasts",
+        path: "newsletters/broadcasts",
         priority: 520,
         level: :admin,
-        permission: "mailing",
+        permission: "newsletters",
         match: :prefix,
         group: :admin_modules,
         subtab_display: :when_active,
@@ -72,38 +72,38 @@ defmodule PhoenixKit.Modules.Mailing do
         subtab_indent: "pl-4"
       ),
       Tab.new!(
-        id: :admin_mailing_broadcasts,
+        id: :admin_newsletters_broadcasts,
         label: "Broadcasts",
         icon: "hero-paper-airplane",
-        path: "mailing/broadcasts",
+        path: "newsletters/broadcasts",
         priority: 521,
         level: :admin,
-        permission: "mailing",
-        parent: :admin_mailing,
+        permission: "newsletters",
+        parent: :admin_newsletters,
         match: :prefix
       ),
       Tab.new!(
-        id: :admin_mailing_lists,
+        id: :admin_newsletters_lists,
         label: "Lists",
         icon: "hero-list-bullet",
-        path: "mailing/lists",
+        path: "newsletters/lists",
         priority: 522,
         level: :admin,
-        permission: "mailing",
-        parent: :admin_mailing,
+        permission: "newsletters",
+        parent: :admin_newsletters,
         match: :prefix
       )
     ]
   end
 
   @impl PhoenixKit.Module
-  def route_module, do: PhoenixKitWeb.Routes.MailingRoutes
+  def route_module, do: PhoenixKitWeb.Routes.NewslettersRoutes
 
   # ============================================================================
   # Lists
   # ============================================================================
 
-  alias PhoenixKit.Modules.Mailing.{Broadcast, Broadcaster, Delivery, List, ListMember}
+  alias PhoenixKit.Modules.Newsletters.{Broadcast, Broadcaster, Delivery, List, ListMember}
 
   import Ecto.Query
 
