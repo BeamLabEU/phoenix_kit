@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Mailing.Broadcaster do
+defmodule PhoenixKit.Modules.Newsletters.Broadcaster do
   @moduledoc """
   Orchestrates broadcast sending: paginates list members, creates Delivery
   records and Oban jobs in batches.
@@ -8,9 +8,9 @@ defmodule PhoenixKit.Modules.Mailing.Broadcaster do
 
   import Ecto.Query
 
-  alias PhoenixKit.Modules.Mailing
-  alias PhoenixKit.Modules.Mailing.{Broadcast, Delivery, ListMember}
-  alias PhoenixKit.Modules.Mailing.Workers.DeliveryWorker
+  alias PhoenixKit.Modules.Newsletters
+  alias PhoenixKit.Modules.Newsletters.{Broadcast, Delivery, ListMember}
+  alias PhoenixKit.Modules.Newsletters.Workers.DeliveryWorker
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @batch_size 500
@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Mailing.Broadcaster do
     text = strip_html(html)
 
     {:ok, broadcast} =
-      Mailing.update_broadcast(broadcast, %{
+      Newsletters.update_broadcast(broadcast, %{
         status: "sending",
         html_body: html,
         text_body: text,
@@ -47,8 +47,8 @@ defmodule PhoenixKit.Modules.Mailing.Broadcaster do
       })
 
     # Count total active members
-    total = Mailing.count_active_members(broadcast.list_uuid)
-    {:ok, broadcast} = Mailing.update_broadcast(broadcast, %{total_recipients: total})
+    total = Newsletters.count_active_members(broadcast.list_uuid)
+    {:ok, broadcast} = Newsletters.update_broadcast(broadcast, %{total_recipients: total})
 
     # Process in batches using transaction-wrapped stream
     repo.transaction(fn ->

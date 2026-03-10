@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Mailing.Workers.DeliveryWorker do
+defmodule PhoenixKit.Modules.Newsletters.Workers.DeliveryWorker do
   @moduledoc """
   Oban worker for sending a single broadcast email to one recipient.
 
@@ -12,22 +12,22 @@ defmodule PhoenixKit.Modules.Mailing.Workers.DeliveryWorker do
   Add to your Oban config (concurrency controls rate limiting):
 
       config :my_app, Oban,
-        queues: [mailing_delivery: 10]
+        queues: [newsletters_delivery: 10]
 
-  The `mailing_rate_limit` setting (default: 14 emails/sec) maps to queue concurrency.
-  Parent app should read `Settings.get_setting("mailing_rate_limit", "10")` and apply to Oban queue config.
+  The `newsletters_rate_limit` setting (default: 14 emails/sec) maps to queue concurrency.
+  Parent app should read `Settings.get_setting("newsletters_rate_limit", "10")` and apply to Oban queue config.
   """
 
   use Oban.Worker,
-    queue: :mailing_delivery,
+    queue: :newsletters_delivery,
     max_attempts: 3,
     unique: [period: :infinity, keys: [:delivery_uuid], states: :incomplete]
 
   require Logger
 
   alias PhoenixKit.Modules.Emails.Template
-  alias PhoenixKit.Modules.Mailing
-  alias PhoenixKit.Modules.Mailing.Delivery
+  alias PhoenixKit.Modules.Newsletters
+  alias PhoenixKit.Modules.Newsletters.Delivery
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Mailing.Workers.DeliveryWorker do
          {:ok, user} <- get_user(delivery.user_uuid),
          {:ok, html_body, text_body} <- render_email(broadcast, user),
          {:ok, _result} <- send_email(broadcast, user, html_body, text_body) do
-      Mailing.update_delivery_status(delivery, "sent", %{
+      Newsletters.update_delivery_status(delivery, "sent", %{
         sent_at: UtilsDate.utc_now(),
         message_id: nil
       })
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Mailing.Workers.DeliveryWorker do
   end
 
   defp get_broadcast(uuid) do
-    {:ok, Mailing.get_broadcast!(uuid)}
+    {:ok, Newsletters.get_broadcast!(uuid)}
   rescue
     Ecto.NoResultsError -> {:error, :broadcast_not_found}
   end
@@ -93,7 +93,7 @@ defmodule PhoenixKit.Modules.Mailing.Workers.DeliveryWorker do
       Phoenix.Token.sign(PhoenixKitWeb.Endpoint, "unsubscribe", token_data)
 
     unsubscribe_url =
-      Routes.url("/mailing/unsubscribe?token=#{unsubscribe_token}")
+      Routes.url("/newsletters/unsubscribe?token=#{unsubscribe_token}")
 
     %{
       "name" => user.username || user.email,
@@ -133,7 +133,7 @@ defmodule PhoenixKit.Modules.Mailing.Workers.DeliveryWorker do
   defp handle_failure(delivery_uuid, broadcast_uuid, reason) do
     case get_delivery(delivery_uuid) do
       {:ok, delivery} ->
-        Mailing.update_delivery_status(delivery, "failed", %{
+        Newsletters.update_delivery_status(delivery, "failed", %{
           error: inspect(reason)
         })
 
@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Mailing.Workers.DeliveryWorker do
   defp update_broadcast_counter(broadcast_uuid, field) do
     import Ecto.Query
 
-    PhoenixKit.Modules.Mailing.Broadcast
+    PhoenixKit.Modules.Newsletters.Broadcast
     |> where([b], b.uuid == ^broadcast_uuid)
     |> repo().update_all(inc: [{field, 1}])
   end
