@@ -1,3 +1,7 @@
+## 1.7.69 - 2026-03-10
+- Add responsive multi-column card grid to `table_default` component: 1 col on mobile, 2 cols on md, 3 cols on lg breakpoints
+- Style card view cards with `bg-base-200` and `shadow-sm` to visually distinguish them from the page background
+
 ## 1.7.68 - 2026-03-10
 - Merge upstream changes: publishing editor rework, AI translation, bulk group actions, V77/V78 migration fixes, scheduled jobs queue, Settings.Queries module, plugin migration callbacks
 

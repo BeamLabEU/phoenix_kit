@@ -9,8 +9,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
   - **Geographic Distribution**: Map showing engagement by location
   - **Provider Performance**: Comparison of different email providers
   - **Campaign Analytics**: Performance breakdown by campaign and template
-  - **Real-time Updates**: Live metrics refreshing every 30 seconds
-
   ## Features
 
   - **Interactive Charts**: Built with Chart.js for responsive visualizations
@@ -40,16 +38,11 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
 
   use PhoenixKitWeb, :live_view
 
-  require Logger
-
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Number, as: UtilsNumber
   alias PhoenixKit.Utils.Routes
-
-  # Auto-refresh every 30 seconds
-  @refresh_interval 30_000
 
   ## --- Lifecycle Callbacks ---
 
@@ -59,13 +52,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
     if Emails.enabled?() do
       # Get project title from settings
       project_title = Settings.get_project_title()
-
-      # Schedule periodic refresh
-      if connected?(socket) do
-        Process.send_after(self(), :refresh_metrics, @refresh_interval)
-        # Also send initial chart data after a short delay to ensure JS is ready
-        Process.send_after(self(), :initial_chart_push, 500)
-      end
 
       socket =
         socket
@@ -177,31 +163,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Metrics do
          socket
          |> put_flash(:error, "Unsupported export format")}
     end
-  end
-
-  @impl true
-  def handle_info(:refresh_metrics, socket) do
-    # Schedule next refresh
-    Process.send_after(self(), :refresh_metrics, @refresh_interval)
-
-    {:noreply,
-     socket
-     |> assign(:last_updated, UtilsDate.utc_now())
-     |> load_metrics_data()}
-  end
-
-  @impl true
-  def handle_info(:initial_chart_push, socket) do
-    # Push current chart data to ensure charts are properly initialized
-    socket =
-      if connected?(socket) and socket.assigns.charts_data do
-        Logger.debug("Sent initial chart push event")
-        push_event(socket, "email-charts-update", %{charts: socket.assigns.charts_data})
-      else
-        socket
-      end
-
-    {:noreply, socket}
   end
 
   defp load_metrics_data(socket) do

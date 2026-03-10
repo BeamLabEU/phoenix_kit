@@ -289,7 +289,46 @@
         </div>
       <% else %>
         <%= if length(@blocked_emails) > 0 do %>
-          <.table_default variant="zebra" size="sm" class="w-full">
+          <.table_default
+            id="blocklist-table"
+            variant="zebra"
+            size="sm"
+            class="w-full"
+            toggleable={true}
+            items={@blocked_emails}
+            card_title={fn b -> b.email end}
+            card_fields={
+              fn b ->
+                is_expired =
+                  b.expires_at &&
+                    DateTime.compare(b.expires_at, DateTime.utc_now()) == :lt
+
+                [
+                  %{
+                    label: gettext("Reason"),
+                    value: String.replace(b.reason, "_", " ")
+                  },
+                  %{
+                    label: gettext("Status"),
+                    value: if(is_expired, do: gettext("Expired"), else: gettext("Active"))
+                  },
+                  %{
+                    label: gettext("Added"),
+                    value: UtilsDate.format_date_with_user_format(DateTime.to_date(b.inserted_at))
+                  }
+                ]
+              end
+            }
+          >
+            <:card_actions :let={blocked}>
+              <button
+                phx-click="remove_block"
+                phx-value-email={blocked.email}
+                class="btn btn-xs btn-outline btn-success"
+              >
+                <.icon name="hero-check" class="w-3 h-3 mr-1" />{gettext("Unblock")}
+              </button>
+            </:card_actions>
             <.table_default_header>
               <.table_default_row>
                 <.table_default_header_cell>

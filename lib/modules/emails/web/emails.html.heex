@@ -269,7 +269,32 @@
         </div>
       <% else %>
         <%= if length(@logs) > 0 do %>
-          <.table_default variant="zebra" class="w-full">
+          <.table_default
+            id="emails-table"
+            variant="zebra"
+            class="w-full"
+            toggleable={true}
+            items={@logs}
+            card_title={fn log -> log.to end}
+            card_fields={
+              fn log ->
+                [
+                  %{label: gettext("Subject"), value: log.subject || gettext("(no subject)")},
+                  %{label: gettext("Status"), value: log.status || "—"},
+                  %{label: gettext("Template"), value: log.template_name || "—"}
+                ]
+              end
+            }
+          >
+            <:card_actions :let={log}>
+              <button
+                phx-click="view_details"
+                phx-value-uuid={log.uuid}
+                class="btn btn-xs btn-outline btn-primary"
+              >
+                <.icon name="hero-eye" class="w-3 h-3 mr-1" />{gettext("View")}
+              </button>
+            </:card_actions>
             <.table_default_header>
               <.table_default_row>
                 <%= for field <- @selected_columns do %>
