@@ -10,6 +10,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.PresenceHelpers
+  alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
   alias PhoenixKit.Settings
 
@@ -322,7 +324,108 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
         warnings
       end
 
+    # Check if any target languages are currently being edited by other users
+    active_editors = get_active_editors_for_languages(socket, target_languages)
+
+    warnings =
+      if active_editors != [] do
+        editor_warnings =
+          Enum.map(active_editors, fn {lang_code, editor_email} ->
+            lang_name = get_language_display_name(lang_code)
+
+            {:warning,
+             gettext(
+               "%{language} is currently being edited by %{user}. They will be locked out and unsaved changes will be discarded.",
+               language: lang_name,
+               user: editor_email
+             )}
+          end)
+
+        editor_warnings ++ warnings
+      else
+        warnings
+      end
+
+    # Also check source language
+    warnings = check_source_language_editor(socket, warnings)
+
     Enum.reverse(warnings)
+  end
+
+  defp get_active_editors_for_languages(socket, target_languages) do
+    post = socket.assigns.post
+    group_slug = socket.assigns.group_slug
+
+    Enum.flat_map(target_languages, fn lang_code ->
+      form_key =
+        PublishingPubSub.generate_form_key(group_slug, %{uuid: post.uuid, language: lang_code})
+
+      case PresenceHelpers.get_lock_owner(form_key) do
+        nil ->
+          []
+
+        owner_meta ->
+          # Don't warn about ourselves
+          current_user = socket.assigns[:phoenix_kit_current_scope]
+          current_uuid = if current_user, do: current_user.user.uuid, else: nil
+
+          if owner_meta.user_uuid != current_uuid do
+            [{lang_code, owner_meta.user_email}]
+          else
+            []
+          end
+      end
+    end)
+  end
+
+  defp check_source_language_editor(socket, warnings) do
+    post = socket.assigns.post
+    group_slug = socket.assigns.group_slug
+    source_language = post[:primary_language] || Publishing.get_primary_language()
+    current_language = socket.assigns[:current_language]
+
+    # If we're currently on the source language, we are the editor — no warning needed
+    if current_language == source_language do
+      warnings
+    else
+      form_key =
+        PublishingPubSub.generate_form_key(group_slug, %{
+          uuid: post.uuid,
+          language: source_language
+        })
+
+      case PresenceHelpers.get_lock_owner(form_key) do
+        nil ->
+          warnings
+
+        owner_meta ->
+          current_user = socket.assigns[:phoenix_kit_current_scope]
+          current_uuid = if current_user, do: current_user.user.uuid, else: nil
+
+          if owner_meta.user_uuid != current_uuid do
+            lang_name = get_language_display_name(source_language)
+
+            [
+              {:warning,
+               gettext(
+                 "%{language} (source) is currently being edited by %{user}. They will be locked out during translation.",
+                 language: lang_name,
+                 user: owner_meta.user_email
+               )}
+              | warnings
+            ]
+          else
+            warnings
+          end
+      end
+    end
+  end
+
+  defp get_language_display_name(lang_code) do
+    case Publishing.get_language_info(lang_code) do
+      %{name: name} -> name
+      _ -> String.upcase(lang_code)
+    end
   end
 
   defp get_existing_translation_languages(socket, target_languages) do
@@ -435,12 +538,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
 
         job ->
           target_languages = Map.get(job.args, "target_languages", [])
+          source_language = Map.get(job.args, "source_language")
+          current_lang = socket.assigns[:current_language]
+
+          # Lock this editor if the current language is being translated or is the source
+          should_lock =
+            current_lang != nil and
+              (current_lang == source_language or current_lang in target_languages)
 
           socket
           |> Phoenix.Component.assign(:ai_translation_status, :in_progress)
           |> Phoenix.Component.assign(:ai_translation_progress, 0)
           |> Phoenix.Component.assign(:ai_translation_total, length(target_languages))
           |> Phoenix.Component.assign(:ai_translation_languages, target_languages)
+          |> Phoenix.Component.assign(:translation_locked?, should_lock)
       end
     else
       socket

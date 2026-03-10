@@ -143,6 +143,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:ai_translation_progress, nil)
       |> assign(:ai_translation_total, nil)
       |> assign(:ai_translation_languages, [])
+      |> assign(:translation_locked?, false)
       |> assign(:show_translation_confirm, false)
       |> assign(:pending_translation_languages, [])
       |> assign(:translation_warnings, [])
@@ -526,7 +527,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("update_meta", params, socket) do
     socket = maybe_reclaim_lock(socket)
 
-    if socket.assigns[:readonly?] do
+    if socket.assigns[:readonly?] or socket.assigns[:translation_locked?] do
       {:noreply, socket}
     else
       params = params |> Map.drop(["_target"])
@@ -599,7 +600,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("update_content", %{"content" => content}, socket) do
     socket = maybe_reclaim_lock(socket)
 
-    if socket.assigns[:readonly?] do
+    if socket.assigns[:readonly?] or socket.assigns[:translation_locked?] do
       {:noreply, socket}
     else
       {socket, new_form, slug_events} = Forms.maybe_update_slug_from_content(socket, content)
@@ -660,6 +661,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     else
       Persistence.perform_save(socket)
     end
+  end
+
+  def handle_event("save", _params, socket)
+      when socket.assigns.translation_locked? == true do
+    {:noreply, put_flash(socket, :error, gettext("Cannot save while translation is in progress"))}
   end
 
   def handle_event("save", _params, socket) do
@@ -1037,7 +1043,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   @impl true
   def handle_info(:autosave, socket) do
-    if socket.assigns.has_pending_changes do
+    if socket.assigns.has_pending_changes and not socket.assigns[:translation_locked?] do
       socket =
         socket
         |> assign(:is_autosaving, true)
@@ -1198,12 +1204,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_info({:translation_started, group_slug, post_identifier, target_languages}, socket) do
     if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
+      current_lang = socket.assigns[:current_language]
+      source_lang = source_language_for_translation(socket)
+      should_lock = current_lang == source_lang or current_lang in target_languages
+
       {:noreply,
        socket
        |> assign(:ai_translation_status, :in_progress)
        |> assign(:ai_translation_progress, 0)
        |> assign(:ai_translation_total, length(target_languages))
-       |> assign(:ai_translation_languages, target_languages)}
+       |> assign(:ai_translation_languages, target_languages)
+       |> assign(:translation_locked?, should_lock)}
     else
       {:noreply, socket}
     end
@@ -1250,11 +1261,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         socket
         |> assign(:ai_translation_status, :completed)
         |> assign(:ai_translation_languages, [])
+        |> assign(:translation_locked?, false)
 
       socket =
         if current_language in succeeded_languages do
           Persistence.reload_translated_content(socket, flash_msg, flash_level)
         else
+          # Reload source language content too (worker reads from DB, no conflict)
           socket
           |> Persistence.refresh_available_languages()
           |> put_flash(flash_level, flash_msg)
@@ -1412,6 +1425,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
   # Private Helpers
   # ============================================================================
+
+  defp source_language_for_translation(socket) do
+    post = socket.assigns[:post]
+    (post && post[:primary_language]) || Publishing.get_primary_language()
+  end
 
   # Matches a broadcast identifier (slug or UUID) against the current post.
   # Broadcasts may send slug for slug-mode posts or UUID for timestamp-mode posts.
