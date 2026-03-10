@@ -8,8 +8,8 @@
   <div class="container flex flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin/settings")}
-      title="Emails Settings"
-      subtitle="Configure emails behavior and data retention"
+      title={gettext("Emails Settings")}
+      subtitle={gettext("Configure emails behavior and data retention")}
     />
 
     <%!-- Main Content --%>
@@ -18,15 +18,15 @@
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title text-2xl mb-4">
-            <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Status
+            <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> {gettext("Status")}
           </h2>
 
           <div class="form-control">
             <label class="label cursor-pointer">
               <span class="label-text text-lg">
-                <span class="font-semibold">Enable Emails</span>
+                <span class="font-semibold">{gettext("Enable Emails")}</span>
                 <div class="text-sm text-base-content/70 mt-1">
-                  Track email delivery, opens, clicks, and other events
+                  {gettext("Track email delivery, opens, clicks, and other events")}
                 </div>
               </span>
               <input
@@ -45,7 +45,7 @@
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title text-2xl mb-4">
-              <.icon name="hero-envelope" class="w-6 h-6" /> Sender Configuration
+              <.icon name="hero-envelope" class="w-6 h-6" /> {gettext("Sender Configuration")}
             </h2>
 
             <form phx-submit="save_sender_settings">
@@ -53,7 +53,7 @@
                 <%!-- From Email --%>
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text font-medium">From Email</span>
+                    <span class="label-text font-medium">{gettext("From Email")}</span>
                   </label>
                   <input
                     name="sender[from_email]"
@@ -65,7 +65,7 @@
                   />
                   <label class="label">
                     <span class="label-text-alt">
-                      Email address used as sender for all outgoing emails
+                      {gettext("Email address used as sender for all outgoing emails")}
                     </span>
                   </label>
                 </div>
@@ -73,7 +73,7 @@
                 <%!-- From Name --%>
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text font-medium">From Name</span>
+                    <span class="label-text font-medium">{gettext("From Name")}</span>
                   </label>
                   <input
                     name="sender[from_name]"
@@ -84,7 +84,9 @@
                     required
                   />
                   <label class="label">
-                    <span class="label-text-alt">Sender name displayed to recipients</span>
+                    <span class="label-text-alt">
+                      {gettext("Sender name displayed to recipients")}
+                    </span>
                   </label>
                 </div>
               </div>
@@ -100,9 +102,11 @@
                   disabled={@saving_sender}
                 >
                   <%= if @saving_sender do %>
-                    Saving...
+                    {gettext("Saving...")}
                   <% else %>
-                    <.icon name="hero-check" class="w-4 h-4 mr-2" /> Save Sender Settings
+                    <.icon name="hero-check" class="w-4 h-4 mr-2" /> {gettext(
+                      "Save Sender Settings"
+                    )}
                   <% end %>
                 </button>
               </div>
@@ -114,16 +118,16 @@
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title text-2xl mb-4">
-              <.icon name="hero-adjustments-horizontal" class="w-6 h-6" /> Options
+              <.icon name="hero-adjustments-horizontal" class="w-6 h-6" /> {gettext("Options")}
             </h2>
 
             <%!-- Save Email Bodies --%>
             <div class="form-control mb-4">
               <label class="label cursor-pointer">
                 <span class="label-text text-lg">
-                  <span class="font-semibold">Save Email Bodies</span>
+                  <span class="font-semibold">{gettext("Save Email Bodies")}</span>
                   <div class="text-sm text-base-content/70 mt-1">
-                    Store the full content of sent emails for debugging and analysis
+                    {gettext("Store the full content of sent emails for debugging and analysis")}
                   </div>
                 </span>
                 <input
@@ -141,9 +145,11 @@
             <div class="form-control mb-4">
               <label class="label cursor-pointer">
                 <span class="label-text text-lg">
-                  <span class="font-semibold">Save Email Headers</span>
+                  <span class="font-semibold">{gettext("Save Email Headers")}</span>
                   <div class="text-sm text-base-content/70 mt-1">
-                    Store email headers for debugging and analysis (increases storage usage)
+                    {gettext(
+                      "Store email headers for debugging and analysis (increases storage usage)"
+                    )}
                   </div>
                 </span>
                 <input
@@ -161,9 +167,9 @@
             <div class="form-control mb-4">
               <label class="label cursor-pointer">
                 <span class="label-text text-lg">
-                  <span class="font-semibold">AWS SES Events Options</span>
+                  <span class="font-semibold">{gettext("AWS SES Events Options")}</span>
                   <div class="text-sm text-base-content/70 mt-1">
-                    Track delivery, bounce, and complaint events from Amazon SES
+                    {gettext("Track delivery, bounce, and complaint events from Amazon SES")}
                   </div>
                 </span>
                 <input
@@ -180,13 +186,15 @@
             <%!-- Sampling Rate --%>
             <div class="form-control">
               <label class="label">
-                <span class="label-text text-lg font-semibold">Emails Sampling Rate</span>
+                <span class="label-text text-lg font-semibold">
+                  {gettext("Emails Sampling Rate")}
+                </span>
               </label>
               <div class="input-group">
                 <input
                   name="sampling_rate"
                   type="number"
-                  placeholder="Enter sampling rate"
+                  placeholder={gettext("Enter sampling rate")}
                   class="input input-bordered w-full max-w-xs"
                   value={@email_sampling_rate}
                   min="0"
@@ -197,7 +205,7 @@
               </div>
               <label class="label">
                 <span class="label-text-alt text-base-content/70">
-                  Percentage of emails to fully track for analytics (0-100%)
+                  {gettext("Percentage of emails to fully track for analytics (0-100%)")}
                 </span>
               </label>
             </div>
@@ -208,26 +216,28 @@
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title text-2xl mb-4">
-              <.icon name="hero-archive-box" class="w-6 h-6" /> Data Retention
+              <.icon name="hero-archive-box" class="w-6 h-6" /> {gettext("Data Retention")}
             </h2>
 
             <div class="form-control">
               <label class="label">
-                <span class="label-text text-lg font-semibold">Email Retention Period</span>
+                <span class="label-text text-lg font-semibold">
+                  {gettext("Email Retention Period")}
+                </span>
               </label>
               <div class="flex gap-2 items-start">
                 <div class="input-group flex-1">
                   <input
                     name="retention_days"
                     type="number"
-                    placeholder="Enter retention days"
+                    placeholder={gettext("Enter retention days")}
                     class="input input-bordered w-full max-w-xs"
                     value={@email_retention_days}
                     min="1"
                     max="365"
                     phx-blur="update_email_retention"
                   />
-                  <span class="bg-base-200 px-4 py-3 text-sm">days</span>
+                  <span class="bg-base-200 px-4 py-3 text-sm">{gettext("days")}</span>
                 </div>
                 <button
                   type="button"
@@ -239,15 +249,15 @@
                   disabled={assigns[:running_cleanup]}
                 >
                   <%= if assigns[:running_cleanup] do %>
-                    Running...
+                    {gettext("Running...")}
                   <% else %>
-                    <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Run Cleanup Now
+                    <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Run Cleanup Now")}
                   <% end %>
                 </button>
               </div>
               <label class="label">
                 <span class="label-text-alt text-base-content/70">
-                  How long to keep emails data before automatic cleanup (1-365 days)
+                  {gettext("How long to keep emails data before automatic cleanup (1-365 days)")}
                 </span>
               </label>
             </div>
@@ -259,10 +269,10 @@
               <div class="form-control">
                 <label class="label">
                   <span class="label-text text-lg font-semibold">
-                    Compress Email Bodies After
+                    {gettext("Compress Email Bodies After")}
                   </span>
                   <span class="label-text-alt text-base-content/70">
-                    Auto-saves when you click outside the input field
+                    {gettext("Auto-saves when you click outside the input field")}
                   </span>
                 </label>
                 <div class="flex gap-2 items-start">
@@ -270,7 +280,7 @@
                     <input
                       name="compress_days"
                       type="number"
-                      placeholder="Enter compression days"
+                      placeholder={gettext("Enter compression days")}
                       class={[
                         "input input-bordered w-full max-w-xs",
                         "transition-colors duration-200",
@@ -287,7 +297,7 @@
                       phx-focus="set_compress_days_focused"
                       phx-keydown="set_compress_days_changed"
                     />
-                    <span class="bg-base-200 px-4 py-3 text-sm">days</span>
+                    <span class="bg-base-200 px-4 py-3 text-sm">{gettext("days")}</span>
                   </div>
                   <button
                     type="button"
@@ -299,10 +309,10 @@
                     disabled={assigns[:running_compression]}
                   >
                     <%= if assigns[:running_compression] do %>
-                      Compressing...
+                      {gettext("Compressing...")}
                     <% else %>
                       <.icon name="hero-archive-box-arrow-down" class="w-4 h-4 mr-1" />
-                      Compress Now
+                      {gettext("Compress Now")}
                     <% end %>
                   </button>
                 </div>
@@ -310,8 +320,9 @@
                   <span class="label-text-alt text-base-content/70">
                     <span class="flex items-center gap-1">
                       <.icon name="hero-information-circle" class="w-3 h-3" />
-                      Compress old email bodies to save storage space (7-365 days).
-                      Changes are saved automatically.
+                      {gettext(
+                        "Compress old email bodies to save storage space (7-365 days). Changes are saved automatically."
+                      )}
                     </span>
                   </span>
                 </label>
@@ -324,9 +335,9 @@
             <div class="form-control mb-4">
               <label class="label cursor-pointer">
                 <span class="label-text text-lg">
-                  <span class="font-semibold">Enable S3 Archival</span>
+                  <span class="font-semibold">{gettext("Enable S3 Archival")}</span>
                   <div class="text-sm text-base-content/70 mt-1">
-                    Move old email data to AWS S3 for long-term cold storage
+                    {gettext("Move old email data to AWS S3 for long-term cold storage")}
                   </div>
                 </span>
                 <input
@@ -344,7 +355,9 @@
                 <div class="flex gap-2 items-start">
                   <div class="flex-1">
                     <span class="text-sm text-base-content/70">
-                      Manually trigger S3 archival for emails older than retention period
+                      {gettext(
+                        "Manually trigger S3 archival for emails older than retention period"
+                      )}
                     </span>
                   </div>
                   <button
@@ -357,9 +370,10 @@
                     disabled={assigns[:running_archival]}
                   >
                     <%= if assigns[:running_archival] do %>
-                      Archiving...
+                      {gettext("Archiving...")}
                     <% else %>
-                      <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-1" /> Archive to S3 Now
+                      <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-1" />
+                      {gettext("Archive to S3 Now")}
                     <% end %>
                   </button>
                 </div>
@@ -369,10 +383,11 @@
             <div class="alert alert-warning mt-4">
               <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
               <div>
-                <h3 class="font-bold">Data Privacy Notice</h3>
+                <h3 class="font-bold">{gettext("Data Privacy Notice")}</h3>
                 <p class="text-sm mt-1">
-                  Email data will be automatically deleted after the retention period expires.
-                  This helps maintain privacy compliance and reduces storage requirements.
+                  {gettext(
+                    "Email data will be automatically deleted after the retention period expires. This helps maintain privacy compliance and reduces storage requirements."
+                  )}
                 </p>
               </div>
             </div>
@@ -383,7 +398,7 @@
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title text-2xl mb-4">
-              <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> AWS Configuration
+              <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> {gettext("AWS Configuration")}
             </h2>
 
             <%!-- AWS Setup Guide (daisyUI collapse) --%>
@@ -391,7 +406,7 @@
               <input type="checkbox" class="peer" />
               <div class="collapse-title text-sm font-medium">
                 <span class="flex items-center gap-2">
-                  <.icon name="hero-book-open" class="w-5 h-5" /> AWS Setup Guide
+                  <.icon name="hero-book-open" class="w-5 h-5" /> {gettext("AWS Setup Guide")}
                 </span>
               </div>
               <div class="collapse-content text-sm space-y-4">
@@ -534,7 +549,7 @@
                 <%!-- AWS Access Key ID --%>
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text font-medium">AWS Access Key ID</span>
+                    <span class="label-text font-medium">{gettext("AWS Access Key ID")}</span>
                   </label>
                   <input
                     name="aws_settings[access_key_id]"
@@ -553,7 +568,7 @@
                 <%!-- AWS Secret Access Key --%>
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text font-medium">AWS Secret Access Key</span>
+                    <span class="label-text font-medium">{gettext("AWS Secret Access Key")}</span>
                   </label>
                   <input
                     name="aws_settings[secret_access_key]"
@@ -596,8 +611,8 @@
                       class="btn btn-outline btn-sm h-fit"
                       title={
                         if @regions_loaded,
-                          do: "Refresh regions list",
-                          else: "Load available regions"
+                          do: gettext("Refresh regions list"),
+                          else: gettext("Load available regions")
                       }
                     >
                       <%= if @verifying_credentials do %>
@@ -618,20 +633,25 @@
                   <input type="checkbox" />
                   <div class="collapse-title text-sm font-medium">
                     <span class="flex items-center gap-2">
-                      <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Advanced AWS Settings
+                      <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> {gettext(
+                        "Advanced AWS Settings"
+                      )}
                     </span>
                   </div>
                   <div class="collapse-content text-sm space-y-4">
                     <p class="text-base-content/70 mb-4">
-                      These settings are automatically configured when you run "Setup AWS Infrastructure".
-                      Manual changes may break the integration.
+                      {gettext(
+                        "These settings are automatically configured when you run \"Setup AWS Infrastructure\". Manual changes may break the integration."
+                      )}
                     </p>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <%!-- SES Configuration Set --%>
                       <div class="form-control">
                         <label class="label">
-                          <span class="label-text font-medium">SES Configuration Set</span>
+                          <span class="label-text font-medium">
+                            {gettext("SES Configuration Set")}
+                          </span>
                         </label>
                         <input
                           name="aws_settings[ses_configuration_set]"
@@ -641,14 +661,16 @@
                           class="input input-bordered focus:input-primary"
                         />
                         <label class="label">
-                          <span class="label-text-alt">SES configuration set name</span>
+                          <span class="label-text-alt">
+                            {gettext("SES configuration set name")}
+                          </span>
                         </label>
                       </div>
 
                       <%!-- SNS Topic ARN --%>
                       <div class="form-control md:col-span-2">
                         <label class="label">
-                          <span class="label-text font-medium">SNS Topic ARN</span>
+                          <span class="label-text font-medium">{gettext("SNS Topic ARN")}</span>
                         </label>
                         <input
                           name="aws_settings[sns_topic_arn]"
@@ -658,14 +680,16 @@
                           class="input input-bordered focus:input-primary"
                         />
                         <label class="label">
-                          <span class="label-text-alt">SNS topic for email events</span>
+                          <span class="label-text-alt">
+                            {gettext("SNS topic for email events")}
+                          </span>
                         </label>
                       </div>
 
                       <%!-- SQS Queue URL --%>
                       <div class="form-control md:col-span-2">
                         <label class="label">
-                          <span class="label-text font-medium">SQS Queue URL</span>
+                          <span class="label-text font-medium">{gettext("SQS Queue URL")}</span>
                         </label>
                         <input
                           name="aws_settings[sqs_queue_url]"
@@ -675,14 +699,16 @@
                           class="input input-bordered focus:input-primary"
                         />
                         <label class="label">
-                          <span class="label-text-alt">Main queue for email events</span>
+                          <span class="label-text-alt">
+                            {gettext("Main queue for email events")}
+                          </span>
                         </label>
                       </div>
 
                       <%!-- SQS Queue ARN --%>
                       <div class="form-control md:col-span-1">
                         <label class="label">
-                          <span class="label-text font-medium">SQS Queue ARN</span>
+                          <span class="label-text font-medium">{gettext("SQS Queue ARN")}</span>
                         </label>
                         <input
                           name="aws_settings[sqs_queue_arn]"
@@ -692,14 +718,18 @@
                           class="input input-bordered focus:input-primary"
                         />
                         <label class="label">
-                          <span class="label-text-alt">SQS queue ARN for permissions</span>
+                          <span class="label-text-alt">
+                            {gettext("SQS queue ARN for permissions")}
+                          </span>
                         </label>
                       </div>
 
                       <%!-- SQS DLQ URL --%>
                       <div class="form-control md:col-span-1">
                         <label class="label">
-                          <span class="label-text font-medium">SQS Dead Letter Queue URL</span>
+                          <span class="label-text font-medium">
+                            {gettext("SQS Dead Letter Queue URL")}
+                          </span>
                         </label>
                         <input
                           name="aws_settings[sqs_dlq_url]"
@@ -710,7 +740,7 @@
                         />
                         <label class="label">
                           <span class="label-text-alt">
-                            Dead letter queue for failed messages
+                            {gettext("Dead letter queue for failed messages")}
                           </span>
                         </label>
                       </div>
@@ -723,7 +753,9 @@
                   <input type="checkbox" />
                   <div class="collapse-title text-sm font-medium">
                     <span class="flex items-center gap-2">
-                      <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> SQS Worker Settings
+                      <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> {gettext(
+                        "SQS Worker Settings"
+                      )}
                     </span>
                   </div>
                   <div class="collapse-content text-sm space-y-4">
@@ -731,9 +763,11 @@
                     <div class="form-control">
                       <label class="label cursor-pointer">
                         <span class="label-text text-lg">
-                          <span class="font-semibold">Enable SQS Polling</span>
+                          <span class="font-semibold">{gettext("Enable SQS Polling")}</span>
                           <div class="text-sm text-base-content/70 mt-1">
-                            Automatically poll SQS queue for email events in background
+                            {gettext(
+                              "Automatically poll SQS queue for email events in background"
+                            )}
                           </div>
                         </span>
                         <input
@@ -748,7 +782,9 @@
                     <%!-- SQS Polling Interval --%>
                     <div class="form-control">
                       <label class="label">
-                        <span class="label-text font-medium">SQS Polling Interval</span>
+                        <span class="label-text font-medium">
+                          {gettext("SQS Polling Interval")}
+                        </span>
                       </label>
                       <div class="input-group">
                         <input
@@ -764,7 +800,7 @@
                       </div>
                       <label class="label">
                         <span class="label-text-alt">
-                          How often to check for SQS messages (1-60 seconds)
+                          {gettext("How often to check for SQS messages (1-60 seconds)")}
                         </span>
                       </label>
                     </div>
@@ -773,24 +809,28 @@
                       <%!-- SQS Max Messages Per Poll --%>
                       <div class="form-control">
                         <label class="label">
-                          <span class="label-text font-medium">Max Messages Per Poll</span>
+                          <span class="label-text font-medium">
+                            {gettext("Max Messages Per Poll")}
+                          </span>
                         </label>
                         <div class="input-group">
                           <input
                             name="max_messages"
                             type="number"
-                            placeholder="Enter max messages"
+                            placeholder={gettext("Enter max messages")}
                             class="input input-bordered w-full max-w-xs"
                             value={@sqs_max_messages_per_poll}
                             min="1"
                             max="10"
                             phx-blur="update_max_messages"
                           />
-                          <span class="bg-base-200 px-4 py-3 text-sm">messages</span>
+                          <span class="bg-base-200 px-4 py-3 text-sm">{gettext("messages")}</span>
                         </div>
                         <label class="label">
                           <span class="label-text-alt text-base-content/70">
-                            Maximum number of messages to process in each polling cycle (1-10)
+                            {gettext(
+                              "Maximum number of messages to process in each polling cycle (1-10)"
+                            )}
                           </span>
                         </label>
                       </div>
@@ -798,24 +838,28 @@
                       <%!-- SQS Visibility Timeout --%>
                       <div class="form-control">
                         <label class="label">
-                          <span class="label-text font-medium">Visibility Timeout</span>
+                          <span class="label-text font-medium">
+                            {gettext("Visibility Timeout")}
+                          </span>
                         </label>
                         <div class="input-group">
                           <input
                             name="timeout"
                             type="number"
-                            placeholder="Enter timeout"
+                            placeholder={gettext("Enter timeout")}
                             class="input input-bordered w-full max-w-xs"
                             value={@sqs_visibility_timeout}
                             min="30"
                             max="43200"
                             phx-blur="update_visibility_timeout"
                           />
-                          <span class="bg-base-200 px-4 py-3 text-sm">seconds</span>
+                          <span class="bg-base-200 px-4 py-3 text-sm">{gettext("seconds")}</span>
                         </div>
                         <label class="label">
                           <span class="label-text-alt text-base-content/70">
-                            How long messages remain invisible after being received (30-43200 seconds)
+                            {gettext(
+                              "How long messages remain invisible after being received (30-43200 seconds)"
+                            )}
                           </span>
                         </label>
                       </div>
@@ -824,13 +868,21 @@
                     <%!-- Performance Optimization Tips --%>
                     <div class="p-4 bg-blue-50 border border-blue-200 rounded-md">
                       <h4 class="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                        <.icon name="hero-light-bulb" class="w-4 h-4" /> Performance Tips
+                        <.icon name="hero-light-bulb" class="w-4 h-4" /> {gettext(
+                          "Performance Tips"
+                        )}
                       </h4>
                       <ul class="text-sm text-blue-800 space-y-1">
-                        <li>• Use longer polling intervals (5-10 seconds) to reduce API calls</li>
-                        <li>• Set visibility timeout to match processing time</li>
-                        <li>• Monitor queue depth and adjust max messages accordingly</li>
-                        <li>• Enable compression to reduce storage requirements</li>
+                        <li>
+                          • {gettext(
+                            "Use longer polling intervals (5-10 seconds) to reduce API calls"
+                          )}
+                        </li>
+                        <li>• {gettext("Set visibility timeout to match processing time")}</li>
+                        <li>
+                          • {gettext("Monitor queue depth and adjust max messages accordingly")}
+                        </li>
+                        <li>• {gettext("Enable compression to reduce storage requirements")}</li>
                       </ul>
                     </div>
                   </div>
@@ -842,9 +894,11 @@
                 <div class="alert alert-warning mb-4">
                   <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
                   <div>
-                    <h3 class="font-bold">Configuration Changes Detected</h3>
+                    <h3 class="font-bold">{gettext("Configuration Changes Detected")}</h3>
                     <p class="text-sm mt-1">
-                      You've modified your AWS credentials. Click "Save AWS Settings" first, then use "Setup AWS Infrastructure" to create the required resources.
+                      {gettext(
+                        "You've modified your AWS credentials. Click \"Save AWS Settings\" first, then use \"Setup AWS Infrastructure\" to create the required resources."
+                      )}
                     </p>
                   </div>
                 </div>
@@ -862,9 +916,11 @@
                     disabled={@saving or @verifying_credentials}
                   >
                     <%= if @saving do %>
-                      Saving...
+                      {gettext("Saving...")}
                     <% else %>
-                      <.icon name="hero-check" class="w-4 h-4 mr-2" /> Save AWS Settings
+                      <.icon name="hero-check" class="w-4 h-4 mr-2" /> {gettext(
+                        "Save AWS Settings"
+                      )}
                     <% end %>
                   </button>
                 </div>
@@ -883,10 +939,10 @@
                     }
                   >
                     <%= if @setting_up_aws do %>
-                      Setting up...
+                      {gettext("Setting up...")}
                     <% else %>
                       <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" />
-                      Setup AWS Infrastructure
+                      {gettext("Setup AWS Infrastructure")}
                     <% end %>
                   </button>
                 </div>
@@ -899,31 +955,35 @@
         <div class="alert alert-info">
           <.icon name="hero-information-circle" class="w-5 h-5" />
           <div>
-            <h3 class="font-bold">Current Configuration</h3>
+            <h3 class="font-bold">{gettext("Current Configuration")}</h3>
             <div class="text-sm mt-1">
-              <p>Status: <span class="font-semibold">Enabled</span></p>
+              <p>{gettext("Status:")} <span class="font-semibold">{gettext("Enabled")}</span></p>
               <p>
-                Save email bodies:
+                {gettext("Save email bodies:")}
                 <span class="font-semibold">
-                  {if @email_save_body, do: "Yes", else: "No"}
+                  {if @email_save_body, do: gettext("Yes"), else: gettext("No")}
                 </span>
               </p>
               <p>
-                AWS SES events:
+                {gettext("AWS SES events:")}
                 <span class="font-semibold">
-                  {if @email_ses_events, do: "Yes", else: "No"}
+                  {if @email_ses_events, do: gettext("Yes"), else: gettext("No")}
                 </span>
               </p>
               <p>
-                Retention period: <span class="font-semibold">{@email_retention_days} days</span>
-              </p>
-              <p>
-                Sampling rate: <span class="font-semibold">{@email_sampling_rate}%</span>
-              </p>
-              <p>
-                SQS polling:
+                {gettext("Retention period:")}
                 <span class="font-semibold">
-                  {if @sqs_polling_enabled, do: "Enabled", else: "Disabled"}
+                  {gettext("%{days} days", days: @email_retention_days)}
+                </span>
+              </p>
+              <p>
+                {gettext("Sampling rate:")}
+                <span class="font-semibold">{@email_sampling_rate}%</span>
+              </p>
+              <p>
+                {gettext("SQS polling:")}
+                <span class="font-semibold">
+                  {if @sqs_polling_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
                 </span>
               </p>
             </div>
@@ -934,9 +994,11 @@
         <div class="alert alert-warning">
           <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
           <div>
-            <h3 class="font-bold">Emails Disabled</h3>
+            <h3 class="font-bold">{gettext("Emails Disabled")}</h3>
             <p class="text-sm mt-1">
-              Enable the emails above to access configuration options and start managing email delivery events.
+              {gettext(
+                "Enable the emails above to access configuration options and start managing email delivery events."
+              )}
             </p>
           </div>
         </div>
@@ -945,16 +1007,16 @@
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title text-2xl mb-4">
-              <.icon name="hero-light-bulb" class="w-6 h-6" /> Emails Benefits
+              <.icon name="hero-light-bulb" class="w-6 h-6" /> {gettext("Emails Benefits")}
             </h2>
 
             <div class="space-y-3">
               <div class="flex items-start gap-3">
                 <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
                 <div>
-                  <h3 class="font-semibold">Delivery Monitoring</h3>
+                  <h3 class="font-semibold">{gettext("Delivery Monitoring")}</h3>
                   <p class="text-sm text-base-content/70">
-                    Track successful email deliveries and identify issues
+                    {gettext("Track successful email deliveries and identify issues")}
                   </p>
                 </div>
               </div>
@@ -962,9 +1024,9 @@
               <div class="flex items-start gap-3">
                 <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
                 <div>
-                  <h3 class="font-semibold">Engagement Analytics</h3>
+                  <h3 class="font-semibold">{gettext("Engagement Analytics")}</h3>
                   <p class="text-sm text-base-content/70">
-                    Monitor email opens, clicks, and user engagement
+                    {gettext("Monitor email opens, clicks, and user engagement")}
                   </p>
                 </div>
               </div>
@@ -972,9 +1034,9 @@
               <div class="flex items-start gap-3">
                 <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
                 <div>
-                  <h3 class="font-semibold">Debugging Support</h3>
+                  <h3 class="font-semibold">{gettext("Debugging Support")}</h3>
                   <p class="text-sm text-base-content/70">
-                    Store email content for troubleshooting delivery issues
+                    {gettext("Store email content for troubleshooting delivery issues")}
                   </p>
                 </div>
               </div>
@@ -982,9 +1044,9 @@
               <div class="flex items-start gap-3">
                 <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
                 <div>
-                  <h3 class="font-semibold">AWS SES Integration</h3>
+                  <h3 class="font-semibold">{gettext("AWS SES Integration")}</h3>
                   <p class="text-sm text-base-content/70">
-                    Automatic webhook handling for bounce and complaint events
+                    {gettext("Automatic webhook handling for bounce and complaint events")}
                   </p>
                 </div>
               </div>

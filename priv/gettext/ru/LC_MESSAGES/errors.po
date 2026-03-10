@@ -26,39 +26,36 @@ msgstr "недействительно"
 msgid "must be accepted"
 msgstr "должно быть принято"
 
-## From Ecto.Changeset.validate_confirmation/3
-msgid "does not match confirmation"
-msgstr "не совпадает с подтверждением"
+## From Ecto.Changeset.validate_format/3
+msgid "has invalid format"
+msgstr "имеет неверный формат"
 
-## From Ecto.Changeset.validate_confirmation/3
-msgid "does not match"
-msgstr "не совпадает"
+## From Ecto.Changeset.validate_subset/3
+msgid "has an invalid entry"
+msgstr ""
 
 ## From Ecto.Changeset.validate_exclusion/3
 msgid "is reserved"
 msgstr "зарезервировано"
 
-## From Ecto.Changeset.validate_format/3
-msgid "has invalid format"
-msgstr "имеет неверный формат"
+## From Ecto.Changeset.validate_confirmation/3
+msgid "does not match confirmation"
+msgstr "не совпадает с подтверждением"
 
-## From Ecto.Changeset.validate_inclusion/3
-msgid "is not included in the list"
-msgstr "не входит в список"
+## From Ecto.Changeset.no_assoc_constraint/3
+msgid "is still associated with this entry"
+msgstr ""
+
+msgid "are still associated with this entry"
+msgstr ""
 
 ## From Ecto.Changeset.validate_length/3, when: opts = [count: :bytes]
-msgid "should be %{count} byte(s)"
-msgid_plural "should be %{count} byte(s)"
+#, fuzzy
+msgid "should have %{count} item(s)"
+msgid_plural "should have %{count} item(s)"
 msgstr[0] "должно быть %{count} байт"
 msgstr[1] "должно быть %{count} байта"
 msgstr[2] "должно быть %{count} байт"
-
-## From Ecto.Changeset.validate_length/3, when: opts = [count: :codepoints]
-msgid "should be %{count} codepoint(s)"
-msgid_plural "should be %{count} codepoint(s)"
-msgstr[0] "должно быть %{count} символ"
-msgstr[1] "должно быть %{count} символа"
-msgstr[2] "должно быть %{count} символов"
 
 ## From Ecto.Changeset.validate_length/3, when: opts = [count: :graphemes]
 msgid "should be %{count} character(s)"
@@ -67,23 +64,53 @@ msgstr[0] "должно быть %{count} символ"
 msgstr[1] "должно быть %{count} символа"
 msgstr[2] "должно быть %{count} символов"
 
-## From Ecto.Changeset.validate_length/3, when: opts = [min: _, max: _]
-msgid "should be between %{min} and %{max} character(s)"
-msgid_plural "should be between %{min} and %{max} character(s)"
-msgstr[0] "должно быть от %{min} до %{max} символов"
-msgstr[1] "должно быть от %{min} до %{max} символов"
-msgstr[2] "должно быть от %{min} до %{max} символов"
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :bytes]
+msgid "should be %{count} byte(s)"
+msgid_plural "should be %{count} byte(s)"
+msgstr[0] "должно быть %{count} байт"
+msgstr[1] "должно быть %{count} байта"
+msgstr[2] "должно быть %{count} байт"
+
+msgid "should have at least %{count} item(s)"
+msgid_plural "should have at least %{count} item(s)"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 ## From Ecto.Changeset.validate_length/3, when: opts = [min: _]
-msgid "should be at least %{min} character(s)"
-msgid_plural "should be at least %{min} character(s)"
+#, fuzzy
+msgid "should be at least %{count} character(s)"
+msgid_plural "should be at least %{count} character(s)"
 msgstr[0] "должно быть не менее %{min} символов"
 msgstr[1] "должно быть не менее %{min} символов"
 msgstr[2] "должно быть не менее %{min} символов"
 
+## From Ecto.Changeset.validate_length/3, when: opts = [min: _]
+#, fuzzy
+msgid "should be at least %{count} byte(s)"
+msgid_plural "should be at least %{count} byte(s)"
+msgstr[0] "должно быть не менее %{min} символов"
+msgstr[1] "должно быть не менее %{min} символов"
+msgstr[2] "должно быть не менее %{min} символов"
+
+msgid "should have at most %{count} item(s)"
+msgid_plural "should have at most %{count} item(s)"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
 ## From Ecto.Changeset.validate_length/3, when: opts = [max: _]
-msgid "should be at most %{max} character(s)"
-msgid_plural "should be at most %{max} character(s)"
+#, fuzzy
+msgid "should be at most %{count} character(s)"
+msgid_plural "should be at most %{count} character(s)"
+msgstr[0] "должно быть не более %{max} символов"
+msgstr[1] "должно быть не более %{max} символов"
+msgstr[2] "должно быть не более %{max} символов"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [max: _]
+#, fuzzy
+msgid "should be at most %{count} byte(s)"
+msgid_plural "should be at most %{count} byte(s)"
 msgstr[0] "должно быть не более %{max} символов"
 msgstr[1] "должно быть не более %{max} символов"
 msgstr[2] "должно быть не более %{max} символов"

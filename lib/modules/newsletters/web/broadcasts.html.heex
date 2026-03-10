@@ -1,0 +1,149 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Broadcasts"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <.admin_page_header
+      back={Routes.path("/admin")}
+      title="Broadcasts"
+      subtitle="Create and manage email broadcasts"
+    />
+
+    <%!-- Actions Bar --%>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div>
+        <select
+          name="status"
+          class="select select-sm"
+          phx-change="filter_status"
+        >
+          <option value="" selected={@status_filter == ""}>All Statuses</option>
+          <option value="draft" selected={@status_filter == "draft"}>Draft</option>
+          <option value="scheduled" selected={@status_filter == "scheduled"}>Scheduled</option>
+          <option value="sending" selected={@status_filter == "sending"}>Sending</option>
+          <option value="sent" selected={@status_filter == "sent"}>Sent</option>
+          <option value="cancelled" selected={@status_filter == "cancelled"}>Cancelled</option>
+        </select>
+      </div>
+
+      <.pk_link navigate="/admin/newsletters/broadcasts/new" class="btn btn-primary btn-sm">
+        <.icon name="hero-plus" class="w-4 h-4" /> New Broadcast
+      </.pk_link>
+    </div>
+
+    <%!-- Broadcasts Table (desktop) --%>
+    <%= if @broadcasts == [] do %>
+      <div class="text-center py-12 text-base-content/60">
+        <.icon name="hero-megaphone" class="w-12 h-12 mx-auto mb-4 opacity-40" />
+        <p class="text-lg font-medium">No broadcasts found</p>
+        <p class="text-sm mt-1">Create your first broadcast to get started.</p>
+      </div>
+    <% else %>
+      <div class="hidden md:block">
+        <.table_default variant="zebra" size="sm" class="w-full">
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell>Subject</.table_default_header_cell>
+              <.table_default_header_cell>List</.table_default_header_cell>
+              <.table_default_header_cell>Status</.table_default_header_cell>
+              <.table_default_header_cell class="text-right">Sent</.table_default_header_cell>
+              <.table_default_header_cell class="text-right">
+                Delivered
+              </.table_default_header_cell>
+              <.table_default_header_cell class="text-right">Opened</.table_default_header_cell>
+              <.table_default_header_cell class="text-right">Bounced</.table_default_header_cell>
+              <.table_default_header_cell>Sent At</.table_default_header_cell>
+            </.table_default_row>
+          </.table_default_header>
+
+          <.table_default_body>
+            <.table_default_row
+              :for={broadcast <- @broadcasts}
+              class="hover cursor-pointer"
+              phx-click="view_broadcast"
+              phx-value-uuid={broadcast.uuid}
+            >
+              <.table_default_cell class="font-medium max-w-xs truncate">
+                {broadcast.subject}
+              </.table_default_cell>
+              <.table_default_cell>
+                <%= if broadcast.list do %>
+                  {broadcast.list.name}
+                <% else %>
+                  <span class="text-base-content/40">-</span>
+                <% end %>
+              </.table_default_cell>
+              <.table_default_cell>
+                <span class={"badge badge-sm #{status_badge_class(broadcast.status)}"}>
+                  {broadcast.status}
+                </span>
+              </.table_default_cell>
+              <.table_default_cell class="text-right">{broadcast.sent_count}</.table_default_cell>
+              <.table_default_cell class="text-right">
+                {broadcast.delivered_count}
+              </.table_default_cell>
+              <.table_default_cell class="text-right">
+                {broadcast.opened_count}
+              </.table_default_cell>
+              <.table_default_cell class="text-right">
+                {broadcast.bounced_count}
+              </.table_default_cell>
+              <.table_default_cell class="text-sm text-base-content/70">
+                {format_datetime(broadcast.sent_at)}
+              </.table_default_cell>
+            </.table_default_row>
+          </.table_default_body>
+        </.table_default>
+      </div>
+
+      <%!-- Broadcasts Cards (mobile) --%>
+      <div class="md:hidden mb-6">
+        <div class="space-y-3">
+          <%= for broadcast <- @broadcasts do %>
+            <div
+              class="card card-border card-sm bg-base-100 cursor-pointer hover:bg-base-200/50"
+              phx-click="view_broadcast"
+              phx-value-uuid={broadcast.uuid}
+            >
+              <div class="card-body gap-3">
+                <%!-- Header: subject + status --%>
+                <div class="flex items-start justify-between gap-2">
+                  <span class="font-medium text-sm truncate">{broadcast.subject}</span>
+                  <span class={"badge badge-sm #{status_badge_class(broadcast.status)}"}>
+                    {broadcast.status}
+                  </span>
+                </div>
+
+                <%!-- Body: key/value grid --%>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div class="text-base-content/60">List</div>
+                  <div>
+                    {if broadcast.list, do: broadcast.list.name, else: "-"}
+                  </div>
+
+                  <div class="text-base-content/60">Sent</div>
+                  <div>{broadcast.sent_count}</div>
+
+                  <div class="text-base-content/60">Delivered</div>
+                  <div>{broadcast.delivered_count}</div>
+
+                  <div class="text-base-content/60">Opened</div>
+                  <div>{broadcast.opened_count}</div>
+
+                  <div class="text-base-content/60">Bounced</div>
+                  <div>{broadcast.bounced_count}</div>
+
+                  <div class="text-base-content/60">Sent At</div>
+                  <div class="text-base-content/70">{format_datetime(broadcast.sent_at)}</div>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

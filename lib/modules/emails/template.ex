@@ -91,7 +91,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
         }
 
   # Valid categories for email templates
-  @valid_categories ["system", "marketing", "transactional", "notification"]
+  @valid_categories ["system", "marketing", "transactional", "notification", "newsletters"]
 
   # Valid statuses for email templates
   @valid_statuses ["active", "draft", "archived"]
@@ -115,11 +115,11 @@ defmodule PhoenixKit.Modules.Emails.Template do
   schema "phoenix_kit_email_templates" do
     field :name, :string
     field :slug, :string
-    field :display_name, :string
-    field :description, :string
-    field :subject, :string
-    field :html_body, :string
-    field :text_body, :string
+    field :display_name, :map, default: %{}
+    field :description, :map, default: nil
+    field :subject, :map, default: %{}
+    field :html_body, :map, default: %{}
+    field :text_body, :map, default: %{}
     field :category, :string, default: "transactional"
     field :status, :string, default: "draft"
     field :variables, :map, default: %{}
@@ -148,6 +148,49 @@ defmodule PhoenixKit.Modules.Emails.Template do
   Returns the list of common template variables.
   """
   def common_variables, do: @common_variables
+
+  @doc """
+  Extracts a translated string from a JSON language map field.
+
+  ## Parameters
+  - `field_map` — a map like `%{"en" => "...", "uk" => "..."}`
+  - `locale` — the desired locale code, e.g. `"uk"` or `"en-US"`
+  - `default_locale` — fallback locale, defaults to `"en"`
+
+  ## Behaviour
+  1. Try exact match: `field_map[locale]`
+  2. Try base language: e.g. `"en"` from `"en-US"`
+  3. Try default_locale
+  4. Try any available value (last resort)
+  5. Return `""` if map is empty or nil
+
+  ## Examples
+
+      iex> get_translation(%{"en" => "Hello", "uk" => "Привіт"}, "uk")
+      "Привіт"
+
+      iex> get_translation(%{"en" => "Hello"}, "uk")
+      "Hello"
+
+      iex> get_translation(nil, "uk")
+      ""
+
+  """
+  def get_translation(field_map, locale, default_locale \\ "en")
+
+  def get_translation(nil, _locale, _default_locale), do: ""
+
+  def get_translation(field_map, locale, default_locale) when is_map(field_map) do
+    base_locale = locale |> String.split("-") |> List.first()
+
+    Map.get(field_map, locale) ||
+      Map.get(field_map, base_locale) ||
+      Map.get(field_map, default_locale) ||
+      field_map |> Map.values() |> List.first() ||
+      ""
+  end
+
+  def get_translation(_field_map, _locale, _default_locale), do: ""
 
   @doc """
   Returns the list of valid source modules for email templates.
@@ -251,10 +294,10 @@ defmodule PhoenixKit.Modules.Emails.Template do
     ])
     |> validate_length(:name, min: 2, max: 100)
     |> validate_length(:slug, min: 2, max: 100)
-    |> validate_length(:display_name, min: 2, max: 200)
-    |> validate_length(:subject, min: 1, max: 300)
-    |> validate_length(:html_body, min: 1)
-    |> validate_length(:text_body, min: 1)
+    |> validate_i18n_map(:display_name, min_length: 2, max_length: 200)
+    |> validate_i18n_map(:subject, min_length: 1, max_length: 300)
+    |> validate_i18n_map(:html_body, min_length: 1)
+    |> validate_i18n_map(:text_body, min_length: 1)
     |> validate_inclusion(:category, @valid_categories)
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_format(:name, ~r/^[a-z][a-z0-9_]*$/,
@@ -304,7 +347,15 @@ defmodule PhoenixKit.Modules.Emails.Template do
 
   """
   def extract_variables(%__MODULE__{} = template) do
-    content = "#{template.subject} #{template.html_body} #{template.text_body}"
+    # Collect all language values from all map fields and scan for {{variables}}
+    content =
+      [template.subject, template.html_body, template.text_body]
+      |> Enum.flat_map(fn
+        map when is_map(map) -> Map.values(map)
+        str when is_binary(str) -> [str]
+        _ -> []
+      end)
+      |> Enum.join(" ")
 
     Regex.scan(~r/\{\{([^}]+)\}\}/, content)
     |> Enum.map(fn [_, var] -> String.trim(var) end)
@@ -319,30 +370,81 @@ defmodule PhoenixKit.Modules.Emails.Template do
 
   - `template` - The email template
   - `variables` - Map of variable names to values
+  - `locale` - The target locale code (default: `"en"`)
 
-  Returns a new template struct with variables substituted.
+  Returns a map `%{subject: string, html_body: string, text_body: string}` with
+  the locale-specific content and all variables substituted.
 
   ## Examples
 
       iex> template = %EmailTemplate{
-      ...>   subject: "Welcome {{user_name}}!",
-      ...>   html_body: "<p>Hi {{user_name}}</p>"
+      ...>   subject: %{"en" => "Welcome {{user_name}}!"},
+      ...>   html_body: %{"en" => "<p>Hi {{user_name}}</p>"},
+      ...>   text_body: %{"en" => "Hi {{user_name}}"}
       ...> }
-      iex> result = EmailTemplate.substitute_variables(template, %{"user_name" => "John"})
+      iex> result = EmailTemplate.substitute_variables(template, %{"user_name" => "John"}, "en")
       iex> result.subject
       "Welcome John!"
 
   """
-  def substitute_variables(%__MODULE__{} = template, variables) when is_map(variables) do
+  def substitute_variables(%__MODULE__{} = template, variables, locale \\ "en")
+      when is_map(variables) do
     %{
-      template
-      | subject: substitute_string(template.subject, variables),
-        html_body: substitute_string(template.html_body, variables),
-        text_body: substitute_string(template.text_body, variables)
+      subject: template.subject |> get_translation(locale) |> substitute_string(variables),
+      html_body: template.html_body |> get_translation(locale) |> substitute_string(variables),
+      text_body: template.text_body |> get_translation(locale) |> substitute_string(variables)
     }
   end
 
   # Private helper functions
+
+  # Validates that a :map field contains valid language-keyed string values
+  defp validate_i18n_map(changeset, field, opts) do
+    case get_field(changeset, field) do
+      nil ->
+        changeset
+
+      map when is_map(map) and map_size(map) == 0 ->
+        add_error(changeset, field, "must have at least one language")
+
+      map when is_map(map) ->
+        validate_i18n_map_values(changeset, field, map, opts)
+
+      _ ->
+        add_error(changeset, field, "must be a language map (e.g. %{\"en\" => \"...\"})")
+    end
+  end
+
+  defp validate_i18n_map_values(changeset, field, map, opts) do
+    min_length = Keyword.get(opts, :min_length, 0)
+    max_length = Keyword.get(opts, :max_length, nil)
+
+    errors =
+      Enum.flat_map(map, fn {lang, value} ->
+        i18n_value_errors(lang, value, min_length, max_length)
+      end)
+
+    case errors do
+      [] -> changeset
+      msgs -> add_error(changeset, field, Enum.join(msgs, "; "))
+    end
+  end
+
+  defp i18n_value_errors(lang, value, min_length, max_length) do
+    cond do
+      not is_binary(value) ->
+        ["#{lang}: must be a string"]
+
+      String.length(value) < min_length ->
+        ["#{lang}: must be at least #{min_length} characters"]
+
+      max_length != nil and String.length(value) > max_length ->
+        ["#{lang}: must be at most #{max_length} characters"]
+
+      true ->
+        []
+    end
+  end
 
   # Automatically generate slug from name if not provided
   defp auto_generate_slug(changeset) do
@@ -373,34 +475,34 @@ defmodule PhoenixKit.Modules.Emails.Template do
 
       variables when is_map(variables) ->
         # Extract variables from template content and validate against declared variables
-        case {get_field(changeset, :subject), get_field(changeset, :html_body),
-              get_field(changeset, :text_body)} do
-          {subject, html_body, text_body}
-          when is_binary(subject) and is_binary(html_body) and is_binary(text_body) ->
-            template = %__MODULE__{
-              subject: subject,
-              html_body: html_body,
-              text_body: text_body
-            }
+        subject = get_field(changeset, :subject)
+        html_body = get_field(changeset, :html_body)
+        text_body = get_field(changeset, :text_body)
 
-            extracted_vars = extract_variables(template)
-            declared_vars = Map.keys(variables)
+        if subject != nil and html_body != nil and text_body != nil do
+          template = %__MODULE__{
+            subject: subject,
+            html_body: html_body,
+            text_body: text_body
+          }
 
-            # Check for undefined variables in template
-            undefined_vars = extracted_vars -- declared_vars
+          extracted_vars = extract_variables(template)
+          declared_vars = Map.keys(variables)
 
-            if Enum.empty?(undefined_vars) do
-              changeset
-            else
-              add_error(
-                changeset,
-                :variables,
-                "Template uses undefined variables: #{Enum.join(undefined_vars, ", ")}"
-              )
-            end
+          # Check for undefined variables in template
+          undefined_vars = extracted_vars -- declared_vars
 
-          _ ->
+          if Enum.empty?(undefined_vars) do
             changeset
+          else
+            add_error(
+              changeset,
+              :variables,
+              "Template uses undefined variables: #{Enum.join(undefined_vars, ", ")}"
+            )
+          end
+        else
+          changeset
         end
 
       _ ->

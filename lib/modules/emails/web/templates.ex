@@ -62,6 +62,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
       |> assign(:clone_template, nil)
       |> assign(:clone_form, %{name: "", display_name: "", errors: %{}})
       |> assign(:confirmation_modal, %{show: false})
+      |> assign(:display_locale, Settings.get_content_language() || "en")
       |> assign_filter_defaults()
       |> assign_pagination_defaults()
 
@@ -142,7 +143,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Templates do
          |> assign(:clone_template, template)
          |> assign(:clone_form, %{
            name: "#{template.name}_copy",
-           display_name: "#{template.display_name} (Copy)",
+           display_name: "#{Template.get_translation(template.display_name, "en")} (Copy)",
            errors: %{}
          })}
     end

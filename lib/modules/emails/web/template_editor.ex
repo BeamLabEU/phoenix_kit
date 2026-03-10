@@ -28,6 +28,7 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
 
   alias PhoenixKit.Modules.Emails.Template
   alias PhoenixKit.Modules.Emails.Templates
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
@@ -38,6 +39,9 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
   def mount(_params, _session, socket) do
     # Get project title from settings
     project_title = Settings.get_project_title()
+
+    available_locales = get_available_locales()
+    default_locale = List.first(available_locales) || "en"
 
     socket =
       socket
@@ -52,6 +56,8 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
       |> assign(:test_sending, false)
       |> assign(:test_form, %{recipient: "", sample_variables: %{}, errors: %{}})
       |> assign(:extracted_variables, [])
+      |> assign(:available_locales, available_locales)
+      |> assign(:current_editor_locale, default_locale)
 
     {:ok, socket}
   end
@@ -71,7 +77,10 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
 
         socket =
           socket
-          |> assign(:page_title, "Edit Template: #{template.display_name}")
+          |> assign(
+            :page_title,
+            "Edit Template: #{Template.get_translation(template.display_name, "en")}"
+          )
           |> assign(:template, template)
           |> assign(:mode, :edit)
           |> assign(:changeset, changeset)
@@ -230,6 +239,17 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
   end
 
   @impl true
+  def handle_event("switch_editor_locale", %{"locale" => locale}, socket) do
+    available = socket.assigns.available_locales
+
+    if locale in available do
+      {:noreply, assign(socket, :current_editor_locale, locale)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
   def handle_event("show_test_modal", _params, socket) do
     # Generate sample variables based on extracted variables
     sample_variables = generate_sample_variables(socket.assigns.extracted_variables)
@@ -287,8 +307,13 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
       changeset_data = Ecto.Changeset.apply_changes(socket.assigns.changeset)
       sample_variables = test_params["sample_variables"] || %{}
 
-      # Send test email
-      send(self(), {:send_test_email, test_params["recipient"], changeset_data, sample_variables})
+      # Send test email using the current editor locale
+      locale = socket.assigns.current_editor_locale
+
+      send(
+        self(),
+        {:send_test_email, test_params["recipient"], changeset_data, sample_variables, locale}
+      )
 
       {:noreply, socket}
     else
@@ -333,17 +358,17 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
   ## --- Info Handlers ---
 
   @impl true
-  def handle_info({:send_test_email, recipient, template_data, sample_variables}, socket) do
+  def handle_info({:send_test_email, recipient, template_data, sample_variables, locale}, socket) do
     # Create a temporary template for testing
     temp_template = %Template{
       name: template_data.name || "test_template",
-      subject: template_data.subject || "",
-      html_body: template_data.html_body || "",
-      text_body: template_data.text_body || ""
+      subject: template_data.subject || %{},
+      html_body: template_data.html_body || %{},
+      text_body: template_data.text_body || %{}
     }
 
-    # Render template with sample variables
-    rendered = Templates.render_template(temp_template, sample_variables)
+    # Render template with sample variables in the current editor locale
+    rendered = Templates.render_template(temp_template, sample_variables, locale)
 
     # Use PhoenixKit.Mailer to send test email
     email =
@@ -556,5 +581,15 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
 
     Thank you for using our service!
     """
+  end
+
+  # Returns the list of enabled locale codes for the editor tab bar.
+  # Falls back to [content_language] if the Languages module is not active.
+  defp get_available_locales do
+    if function_exported?(Languages, :enabled?, 0) and Languages.enabled?() do
+      Languages.get_enabled_language_codes()
+    else
+      [Settings.get_content_language() || "en"]
+    end
   end
 end

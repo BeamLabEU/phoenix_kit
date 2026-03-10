@@ -1,26 +1,26 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Email Queue"
+  page_title={gettext("Email Queue")}
   current_path={@url_path}
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={Routes.path("/admin/emails")}
-      title="Email Queue"
-      subtitle="Real-time monitoring and queue management"
+      title={gettext("Email Queue")}
+      subtitle={gettext("Real-time monitoring and queue management")}
     />
 
     <%!-- Action Buttons --%>
     <div class="flex justify-between items-center gap-2 mb-6">
       <div class="text-sm text-base-content/70">
-        Last updated: {UtilsDate.format_time_with_user_format(@last_updated)}
+        {gettext("Last updated:")} {UtilsDate.format_time_with_user_format(@last_updated)}
       </div>
 
       <div class="flex gap-2">
         <.button phx-click="refresh" class="btn btn-outline btn-sm">
-          <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
+          <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
         </.button>
       </div>
     </div>
@@ -30,12 +30,14 @@
       <PhoenixKitWeb.Components.Core.StatCard.stat_card
         compact={true}
         rounded="xl"
-        value={if @system_status[:system_enabled], do: "Online", else: "Offline"}
-        title="System Status"
+        value={
+          if @system_status[:system_enabled], do: gettext("Online"), else: gettext("Offline")
+        }
+        title={gettext("System Status")}
         subtitle={
           if @system_status[:system_enabled],
-            do: "Email system is operational",
-            else: "Email system is disabled"
+            do: gettext("Email system is operational"),
+            else: gettext("Email system is disabled")
         }
       >
         <:icon>
@@ -47,8 +49,8 @@
         compact={true}
         rounded="xl"
         value={UtilsNumber.format(@system_status[:total_sent_today] || 0)}
-        title="Sent Today"
-        subtitle="Total emails sent since midnight"
+        title={gettext("Sent Today")}
+        subtitle={gettext("Total emails sent since midnight")}
       >
         <:icon>
           <.icon name="hero-envelope" class="w-5 h-5" />
@@ -59,8 +61,8 @@
         compact={true}
         rounded="xl"
         value={length(@failed_emails)}
-        title="Failed (24h)"
-        subtitle="Failed emails in last 24 hours"
+        title={gettext("Failed (24h)")}
+        subtitle={gettext("Failed emails in last 24 hours")}
       >
         <:icon>
           <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
@@ -71,8 +73,8 @@
         compact={true}
         rounded="xl"
         value={@system_status[:retention_days] || 90}
-        title="Retention"
-        subtitle="Days of data retention"
+        title={gettext("Retention")}
+        subtitle={gettext("Days of data retention")}
       >
         <:icon>
           <.icon name="hero-clock" class="w-5 h-5" />
@@ -83,12 +85,12 @@
     <%!-- Rate Limit Status --%>
     <div class="card bg-base-100 shadow-sm mb-6">
       <div class="card-body">
-        <h2 class="card-title text-lg mb-4">Rate Limit Status</h2>
+        <h2 class="card-title text-lg mb-4">{gettext("Rate Limit Status")}</h2>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <%!-- Global Rate Limit --%>
           <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Global Hourly Limit</div>
+            <div class="stat-title">{gettext("Global Hourly Limit")}</div>
             <div class="stat-value text-sm">
               {UtilsNumber.format(@rate_limit_status[:global][:count] || 0)} / {UtilsNumber.format(
                 @rate_limit_status[:global][:limit] || 0
@@ -107,41 +109,49 @@
                   max="100"
                 >
                 </progress>
-                <span class="text-xs">{@rate_limit_status[:global][:percentage] || 0}% used</span>
+                <span class="text-xs">
+                  {gettext("%{pct}% used", pct: @rate_limit_status[:global][:percentage] || 0)}
+                </span>
               </div>
             </div>
           </div>
 
           <%!-- Recipients --%>
           <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Recipient Limits</div>
+            <div class="stat-title">{gettext("Recipient Limits")}</div>
             <div class="stat-value text-sm">
               {@rate_limit_status[:recipients][:active_limits] || 0}
             </div>
             <div class="stat-desc">
-              Active recipient rate limits ({@rate_limit_status[:recipients][:total_emails] || 0} emails)
+              {gettext("Active recipient rate limits (%{count} emails)",
+                count: @rate_limit_status[:recipients][:total_emails] || 0
+              )}
             </div>
           </div>
 
           <%!-- Senders --%>
           <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Sender Limits</div>
+            <div class="stat-title">{gettext("Sender Limits")}</div>
             <div class="stat-value text-sm">
               {@rate_limit_status[:senders][:active_limits] || 0}
             </div>
             <div class="stat-desc">
-              Active sender rate limits ({@rate_limit_status[:senders][:total_emails] || 0} emails)
+              {gettext("Active sender rate limits (%{count} emails)",
+                count: @rate_limit_status[:senders][:total_emails] || 0
+              )}
             </div>
           </div>
 
           <%!-- Blocklist --%>
           <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Blocklist</div>
+            <div class="stat-title">{gettext("Blocklist")}</div>
             <div class="stat-value text-sm">
               {@rate_limit_status[:blocklist][:active_blocks] || 0}
             </div>
             <div class="stat-desc">
-              Active blocks ({@rate_limit_status[:blocklist][:expired_today] || 0} expired today)
+              {gettext("Active blocks (%{count} expired today)",
+                count: @rate_limit_status[:blocklist][:expired_today] || 0
+              )}
             </div>
           </div>
         </div>
@@ -153,25 +163,27 @@
       <div class="card bg-base-100 shadow-sm mb-6">
         <div class="card-body">
           <div class="flex justify-between items-center mb-4">
-            <h2 class="card-title text-lg">Failed Emails (Last 24 Hours)</h2>
+            <h2 class="card-title text-lg">{gettext("Failed Emails (Last 24 Hours)")}</h2>
 
             <%= if length(@selected_emails) > 0 do %>
               <div class="flex gap-2">
-                <span class="badge badge-primary">{length(@selected_emails)} selected</span>
+                <span class="badge badge-primary">
+                  {gettext("%{count} selected", count: length(@selected_emails))}
+                </span>
                 <button phx-click="clear_selection" class="btn btn-xs btn-ghost">
-                  Clear
+                  {gettext("Clear")}
                 </button>
                 <button
                   phx-click="set_bulk_action"
                   phx-value-action="retry"
                   class="btn btn-xs btn-success"
                 >
-                  Retry Selected
+                  {gettext("Retry Selected")}
                 </button>
               </div>
             <% else %>
               <button phx-click="select_all_failed" class="btn btn-xs btn-outline">
-                Select All
+                {gettext("Select All")}
               </button>
             <% end %>
           </div>
@@ -181,77 +193,108 @@
               <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
               <div>
                 <p class="font-semibold">
-                  Confirm bulk action: {String.upcase(@bulk_action)}
+                  {gettext("Confirm bulk action: %{action}", action: String.upcase(@bulk_action))}
                 </p>
                 <p class="text-sm">
-                  This will {@bulk_action} {length(@selected_emails)} emails
+                  {gettext("This will %{action} %{count} emails",
+                    action: @bulk_action,
+                    count: length(@selected_emails)
+                  )}
                 </p>
               </div>
               <div class="flex gap-2">
                 <button phx-click="execute_bulk_action" class="btn btn-sm btn-warning">
-                  Confirm
+                  {gettext("Confirm")}
                 </button>
                 <button phx-click="clear_selection" class="btn btn-sm btn-ghost">
-                  Cancel
+                  {gettext("Cancel")}
                 </button>
               </div>
             </div>
           <% end %>
 
-          <div class="overflow-x-auto">
-            <.table_default size="sm">
-              <.table_default_header>
+          <.table_default
+            id="failed-emails-table"
+            size="sm"
+            toggleable={true}
+            items={@failed_emails}
+            card_title={fn e -> e.to end}
+            card_fields={
+              fn e ->
+                [
+                  %{label: gettext("Subject"), value: e.subject || "—"},
+                  %{
+                    label: gettext("Error"),
+                    value: e.error_message || gettext("Unknown error")
+                  },
+                  %{
+                    label: gettext("Time"),
+                    value: UtilsDate.format_datetime_with_user_format(e.sent_at)
+                  }
+                ]
+              end
+            }
+          >
+            <:card_actions :let={email}>
+              <button
+                phx-click="retry_email"
+                phx-value-email_uuid={email.uuid}
+                class="btn btn-xs btn-outline btn-success"
+              >
+                <.icon name="hero-arrow-path" class="w-3 h-3 mr-1" />{gettext("Retry")}
+              </button>
+            </:card_actions>
+            <.table_default_header>
+              <.table_default_row>
+                <.table_default_header_cell>
+                  <input type="checkbox" class="checkbox checkbox-sm" disabled />
+                </.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Recipient")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Subject")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Error")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Time")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
+              </.table_default_row>
+            </.table_default_header>
+            <.table_default_body>
+              <%= for email <- @failed_emails do %>
                 <.table_default_row>
-                  <.table_default_header_cell>
-                    <input type="checkbox" class="checkbox checkbox-sm" disabled />
-                  </.table_default_header_cell>
-                  <.table_default_header_cell>Recipient</.table_default_header_cell>
-                  <.table_default_header_cell>Subject</.table_default_header_cell>
-                  <.table_default_header_cell>Error</.table_default_header_cell>
-                  <.table_default_header_cell>Time</.table_default_header_cell>
-                  <.table_default_header_cell>Actions</.table_default_header_cell>
+                  <.table_default_cell>
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-sm"
+                      checked={email.uuid in @selected_emails}
+                      phx-click="toggle_email_selection"
+                      phx-value-email_uuid={email.uuid}
+                    />
+                  </.table_default_cell>
+                  <.table_default_cell class="font-mono text-xs">
+                    {email.to}
+                  </.table_default_cell>
+                  <.table_default_cell class="truncate max-w-xs">
+                    {email.subject}
+                  </.table_default_cell>
+                  <.table_default_cell class="text-error text-xs truncate max-w-xs">
+                    {email.error_message || gettext("Unknown error")}
+                  </.table_default_cell>
+                  <.table_default_cell class="text-xs">
+                    {UtilsDate.format_datetime_with_user_format(email.sent_at)}
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <button
+                      phx-click="retry_email"
+                      phx-value-email_uuid={email.uuid}
+                      class="btn btn-xs btn-outline btn-success tooltip tooltip-bottom"
+                      data-tip={gettext("Retry")}
+                    >
+                      <.icon name="hero-arrow-path" class="w-3 h-3 hidden sm:inline" />
+                      <span class="sm:hidden whitespace-nowrap">{gettext("Retry")}</span>
+                    </button>
+                  </.table_default_cell>
                 </.table_default_row>
-              </.table_default_header>
-              <.table_default_body>
-                <%= for email <- @failed_emails do %>
-                  <.table_default_row>
-                    <.table_default_cell>
-                      <input
-                        type="checkbox"
-                        class="checkbox checkbox-sm"
-                        checked={email.uuid in @selected_emails}
-                        phx-click="toggle_email_selection"
-                        phx-value-email_uuid={email.uuid}
-                      />
-                    </.table_default_cell>
-                    <.table_default_cell class="font-mono text-xs">
-                      {email.to}
-                    </.table_default_cell>
-                    <.table_default_cell class="truncate max-w-xs">
-                      {email.subject}
-                    </.table_default_cell>
-                    <.table_default_cell class="text-error text-xs truncate max-w-xs">
-                      {email.error_message || "Unknown error"}
-                    </.table_default_cell>
-                    <.table_default_cell class="text-xs">
-                      {UtilsDate.format_datetime_with_user_format(email.sent_at)}
-                    </.table_default_cell>
-                    <.table_default_cell>
-                      <button
-                        phx-click="retry_email"
-                        phx-value-email_uuid={email.uuid}
-                        class="btn btn-xs btn-outline btn-success tooltip tooltip-bottom"
-                        data-tip={gettext("Retry")}
-                      >
-                        <.icon name="hero-arrow-path" class="w-3 h-3 hidden sm:inline" />
-                        <span class="sm:hidden whitespace-nowrap">{gettext("Retry")}</span>
-                      </button>
-                    </.table_default_cell>
-                  </.table_default_row>
-                <% end %>
-              </.table_default_body>
-            </.table_default>
-          </div>
+              <% end %>
+            </.table_default_body>
+          </.table_default>
         </div>
       </div>
     <% end %>
@@ -259,79 +302,108 @@
     <%!-- Recent Activity Section --%>
     <div class="card bg-base-100 shadow-sm">
       <div class="card-body">
-        <h2 class="card-title text-lg mb-4">Recent Activity (Last 20 Emails)</h2>
+        <h2 class="card-title text-lg mb-4">{gettext("Recent Activity (Last 20 Emails)")}</h2>
 
         <%= if @loading do %>
           <div class="flex justify-center items-center h-32">
             <span class="loading loading-spinner loading-md"></span>
-            <span class="ml-2">Loading activity...</span>
+            <span class="ml-2">{gettext("Loading activity...")}</span>
           </div>
         <% else %>
-          <div class="overflow-x-auto">
-            <.table_default size="sm">
-              <.table_default_header>
-                <.table_default_row>
-                  <.table_default_header_cell>Status</.table_default_header_cell>
-                  <.table_default_header_cell>Recipient</.table_default_header_cell>
-                  <.table_default_header_cell>Subject</.table_default_header_cell>
-                  <.table_default_header_cell>Sent At</.table_default_header_cell>
-                  <.table_default_header_cell>Events</.table_default_header_cell>
-                </.table_default_row>
-              </.table_default_header>
-              <.table_default_body>
-                <%= for email <- @recent_activity do %>
-                  <.table_default_row>
-                    <.table_default_cell>
-                      <div class={[
-                        "badge badge-sm h-auto",
-                        (email.status == "sent" && "badge-success") ||
-                          (email.status == "failed" &&
-                             "badge-error") || "badge-warning"
-                      ]}>
-                        {String.capitalize(email.status || "unknown")}
-                      </div>
-                    </.table_default_cell>
-                    <.table_default_cell class="font-mono text-xs">
-                      {email.to}
-                    </.table_default_cell>
-                    <.table_default_cell class="truncate max-w-xs">
-                      {email.subject}
-                    </.table_default_cell>
-                    <.table_default_cell class="text-xs">
-                      {UtilsDate.format_datetime_with_user_format(email.sent_at)}
-                    </.table_default_cell>
-                    <.table_default_cell>
-                      <div class="flex gap-1">
-                        <%= if email.delivered_at do %>
-                          <div class="badge badge-xs badge-success" title="Delivered">
-                            <.icon name="hero-check" class="w-3 h-3" />
-                          </div>
-                        <% end %>
-                        <%= if email.opened_at do %>
-                          <div class="badge badge-xs badge-info" title="Opened">
-                            <.icon name="hero-envelope-open" class="w-3 h-3" />
-                          </div>
-                        <% end %>
-                        <%= if email.clicked_at do %>
-                          <div class="badge badge-xs badge-secondary" title="Clicked">
-                            <.icon name="hero-cursor-arrow-rays" class="w-3 h-3" />
-                          </div>
-                        <% end %>
-                      </div>
-                    </.table_default_cell>
-                  </.table_default_row>
-                <% end %>
+          <.table_default
+            id="recent-activity-table"
+            size="sm"
+            toggleable={true}
+            items={@recent_activity}
+            card_title={fn email -> email.to end}
+            card_fields={
+              fn email ->
+                events =
+                  [
+                    email.delivered_at && gettext("Delivered"),
+                    email.opened_at && gettext("Opened"),
+                    email.clicked_at && gettext("Clicked")
+                  ]
+                  |> Enum.filter(& &1)
+                  |> Enum.join(", ")
 
-                <%= if length(@recent_activity) == 0 do %>
-                  <.table_default_row>
-                    <.table_default_cell colspan={5} class="text-center py-8 text-base-content/60">
-                      No recent email activity
-                    </.table_default_cell>
-                  </.table_default_row>
-                <% end %>
-              </.table_default_body>
-            </.table_default>
-          </div>
+                [
+                  %{
+                    label: gettext("Status"),
+                    value: String.capitalize(email.status || "unknown")
+                  },
+                  %{label: gettext("Subject"), value: email.subject || "—"},
+                  %{
+                    label: gettext("Sent At"),
+                    value: UtilsDate.format_datetime_with_user_format(email.sent_at)
+                  },
+                  %{label: gettext("Events"), value: if(events == "", do: "—", else: events)}
+                ]
+              end
+            }
+          >
+            <.table_default_header>
+              <.table_default_row>
+                <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Recipient")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Subject")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Sent At")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Events")}</.table_default_header_cell>
+              </.table_default_row>
+            </.table_default_header>
+            <.table_default_body>
+              <%= for email <- @recent_activity do %>
+                <.table_default_row>
+                  <.table_default_cell>
+                    <div class={[
+                      "badge badge-sm h-auto",
+                      (email.status == "sent" && "badge-success") ||
+                        (email.status == "failed" &&
+                           "badge-error") || "badge-warning"
+                    ]}>
+                      {String.capitalize(email.status || "unknown")}
+                    </div>
+                  </.table_default_cell>
+                  <.table_default_cell class="font-mono text-xs">
+                    {email.to}
+                  </.table_default_cell>
+                  <.table_default_cell class="truncate max-w-xs">
+                    {email.subject}
+                  </.table_default_cell>
+                  <.table_default_cell class="text-xs">
+                    {UtilsDate.format_datetime_with_user_format(email.sent_at)}
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <div class="flex gap-1">
+                      <%= if email.delivered_at do %>
+                        <div class="badge badge-xs badge-success" title={gettext("Delivered")}>
+                          <.icon name="hero-check" class="w-3 h-3" />
+                        </div>
+                      <% end %>
+                      <%= if email.opened_at do %>
+                        <div class="badge badge-xs badge-info" title={gettext("Opened")}>
+                          <.icon name="hero-envelope-open" class="w-3 h-3" />
+                        </div>
+                      <% end %>
+                      <%= if email.clicked_at do %>
+                        <div class="badge badge-xs badge-secondary" title={gettext("Clicked")}>
+                          <.icon name="hero-cursor-arrow-rays" class="w-3 h-3" />
+                        </div>
+                      <% end %>
+                    </div>
+                  </.table_default_cell>
+                </.table_default_row>
+              <% end %>
+
+              <%= if length(@recent_activity) == 0 do %>
+                <.table_default_row>
+                  <.table_default_cell colspan={5} class="text-center py-8 text-base-content/60">
+                    {gettext("No recent email activity")}
+                  </.table_default_cell>
+                </.table_default_row>
+              <% end %>
+            </.table_default_body>
+          </.table_default>
         <% end %>
       </div>
     </div>

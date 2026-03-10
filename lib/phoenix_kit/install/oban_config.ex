@@ -18,6 +18,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   @dialyzer {:nowarn_function, ensure_sqs_polling_queue: 2}
   @dialyzer {:nowarn_function, ensure_sync_queue: 2}
   @dialyzer {:nowarn_function, ensure_shop_imports_queue: 2}
+  @dialyzer {:nowarn_function, ensure_newsletters_delivery_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
   @dialyzer {:nowarn_function, ensure_pruner_max_age: 2}
   @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
@@ -121,7 +122,8 @@ defmodule PhoenixKit.Install.ObanConfig do
         scheduled_jobs: 1,     # Scheduled jobs cron (1-day retention)
         sitemap: 5,            # Sitemap generation
         sqs_polling: 1,        # SQS polling for email events (only one concurrent job)
-        sync: 5             # Sync data import
+        sync: 5,            # Sync data import
+        newsletters_delivery: 10  # Newsletters broadcast deliveries
       ],
       plugins: [
         # Main pruner: 30 days for most queues
@@ -179,6 +181,7 @@ defmodule PhoenixKit.Install.ObanConfig do
       |> ensure_sqs_polling_queue(app_name)
       |> ensure_sync_queue(app_name)
       |> ensure_shop_imports_queue(app_name)
+      |> ensure_newsletters_delivery_queue(app_name)
       |> ensure_cron_plugin(app_name)
       |> ensure_pruner_max_age(app_name)
 
@@ -414,6 +417,47 @@ defmodule PhoenixKit.Install.ObanConfig do
           )
 
           Mix.shell().error("     Please manually add: shop_imports: 2")
+          content
+      end
+    end
+  end
+
+  # Ensure newsletters_delivery queue exists in the queues list
+  defp ensure_newsletters_delivery_queue(content, app_name) do
+    if Regex.match?(~r/newsletters_delivery:\s*\d+/, content) do
+      Mix.shell().info("  ℹ️  newsletters_delivery queue already configured")
+      content
+    else
+      Mix.shell().info("  ➕ Adding newsletters_delivery queue to Oban configuration...")
+
+      case Regex.run(
+             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
+             content,
+             capture: :all
+           ) do
+        [full_match, before_queues, queues_content, after_queues] ->
+          Mix.shell().info("  ✓ Found queues block, adding newsletters_delivery queue")
+
+          trimmed_content = String.trim_trailing(queues_content)
+          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+
+          new_queue_entry =
+            if has_trailing_comma do
+              "\n    newsletters_delivery: 10"
+            else
+              ",\n    newsletters_delivery: 10"
+            end
+
+          updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
+
+          String.replace(content, full_match, updated_queues, global: false)
+
+        nil ->
+          Mix.shell().error(
+            "  ⚠️  Could not parse queues block for :#{app_name} - skipping newsletters_delivery queue update"
+          )
+
+          Mix.shell().error("     Please manually add: newsletters_delivery: 10")
           content
       end
     end
@@ -774,7 +818,8 @@ defmodule PhoenixKit.Install.ObanConfig do
           scheduled_jobs: 1,     # Scheduled jobs cron (1-day retention)
           sitemap: 5,
           sqs_polling: 1,
-          sync: 5
+          sync: 5,
+          newsletters_delivery: 10
         ],
         plugins: [
           # Main pruner: 30 days for most queues

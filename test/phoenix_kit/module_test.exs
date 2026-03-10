@@ -24,6 +24,7 @@ defmodule PhoenixKit.ModuleTest do
     PhoenixKit.Modules.Storage,
     PhoenixKit.Modules.Sync,
     PhoenixKit.Modules.CustomerService,
+    PhoenixKit.Modules.Mailing,
     PhoenixKit.Jobs
   ]
 

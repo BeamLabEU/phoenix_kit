@@ -529,7 +529,17 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V77 - Rename Tickets module to Customer Service ⚡ LATEST
+  ### V80 - Emails i18n: JSON language fields ⚡ LATEST
+  - Converts 5 fields in `phoenix_kit_email_templates` to JSONB for multilingual support
+    (`subject`, `html_body`, `text_body`, `display_name`, `description`)
+  - Existing string values are wrapped as `{"en": "original_value"}`
+  - Adds `locale VARCHAR(10)` to `phoenix_kit_email_logs` for tracking sent language
+
+  ### V79 - Newsletters module: newsletter lists, broadcasts, deliveries
+  - Creates `phoenix_kit_newsletters_lists`, `phoenix_kit_newsletters_list_members`,
+    `phoenix_kit_newsletters_broadcasts`, `phoenix_kit_newsletters_deliveries`
+
+  ### V77 - Rename Tickets module to Customer Service
   - Renames settings keys from `tickets_*` → `customer_service_*`
   - Renames `auto_granted_perm:tickets` → `auto_granted_perm:customer_service`
   - Updates `phoenix_kit_role_permissions.module_key` from `tickets` → `customer_service`
@@ -621,7 +631,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 78
+  @current_version 80
   @default_prefix "public"
 
   @doc false

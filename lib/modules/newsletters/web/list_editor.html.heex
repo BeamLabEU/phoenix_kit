@@ -1,0 +1,105 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <.admin_page_header
+      back={Routes.path("/admin/newsletters/lists")}
+      title={@page_title}
+      subtitle={
+        if @list, do: "Edit newsletter list settings", else: "Create a new newsletter list"
+      }
+    />
+
+    <div class="max-w-2xl">
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <.form for={@form} phx-change="validate" phx-submit="save">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <fieldset class="fieldset">
+                <label class="label" for={@form[:name].id}>
+                  Name <span class="text-error">*</span>
+                </label>
+                <.input
+                  field={@form[:name]}
+                  type="text"
+                  placeholder="My Newsletter"
+                  class="input w-full"
+                />
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <label class="label" for={@form[:slug].id}>
+                  Slug <span class="text-error">*</span>
+                </label>
+                <.input
+                  field={@form[:slug]}
+                  type="text"
+                  placeholder="my-newsletter"
+                  class="input w-full"
+                />
+                <p class="text-xs text-base-content/60 mt-1">
+                  Auto-generated from name if left empty
+                </p>
+              </fieldset>
+
+              <fieldset class="fieldset md:col-span-2">
+                <label class="label" for={@form[:description].id}>Description</label>
+                <textarea
+                  id={@form[:description].id}
+                  name={@form[:description].name}
+                  rows="3"
+                  placeholder="Describe this list..."
+                  class="textarea w-full"
+                >{Phoenix.HTML.Form.normalize_value("textarea", @form[:description].value)}</textarea>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <label class="label" for={@form[:status].id}>Status</label>
+                <select
+                  id={@form[:status].id}
+                  name={@form[:status].name}
+                  class="select w-full"
+                >
+                  <option value="active" selected={@form[:status].value == "active"}>
+                    Active
+                  </option>
+                  <option value="archived" selected={@form[:status].value == "archived"}>
+                    Archived
+                  </option>
+                </select>
+              </fieldset>
+
+              <fieldset class="fieldset justify-end">
+                <label class="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    id={@form[:is_default].id}
+                    name={@form[:is_default].name}
+                    value="true"
+                    checked={@form[:is_default].value}
+                    class="checkbox"
+                  />
+                  <span>Default list</span>
+                </label>
+              </fieldset>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6">
+              <.pk_link navigate="/admin/newsletters/lists" class="btn btn-ghost">
+                Cancel
+              </.pk_link>
+              <button type="submit" class="btn btn-primary">
+                <.icon name="hero-check" class="w-4 h-4 mr-1" />
+                {if @list, do: "Update List", else: "Create List"}
+              </button>
+            </div>
+          </.form>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

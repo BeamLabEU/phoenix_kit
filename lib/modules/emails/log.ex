@@ -183,6 +183,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
     field :body_preview, :string
     field :body_full, :string
     field :template_name, :string
+    field :locale, :string, default: "en"
     field :campaign_id, :string
     field :attachments_count, :integer, default: 0
     field :size_bytes, :integer
@@ -239,6 +240,7 @@ defmodule PhoenixKit.Modules.Emails.Log do
       :body_preview,
       :body_full,
       :template_name,
+      :locale,
       :campaign_id,
       :attachments_count,
       :size_bytes,

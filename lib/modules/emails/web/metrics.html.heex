@@ -1,15 +1,15 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Email Analytics"
+  page_title={gettext("Email Analytics")}
   current_path={@url_path}
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={Routes.path("/admin")}
-      title="Email Dashboard"
-      subtitle="Comprehensive email performance metrics and insights"
+      title={gettext("Email Dashboard")}
+      subtitle={gettext("Comprehensive email performance metrics and insights")}
     />
     <%!-- Controls Section --%>
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
@@ -23,7 +23,7 @@
           phx-click="change_period"
           phx-value-period="last_24_hours"
         >
-          24 Hours
+          {gettext("24 Hours")}
         </button>
         <button
           class={[
@@ -33,7 +33,7 @@
           phx-click="change_period"
           phx-value-period="last_7_days"
         >
-          7 Days
+          {gettext("7 Days")}
         </button>
         <button
           class={[
@@ -43,7 +43,7 @@
           phx-click="change_period"
           phx-value-period="last_30_days"
         >
-          30 Days
+          {gettext("30 Days")}
         </button>
         <button
           class={[
@@ -53,13 +53,13 @@
           phx-click="change_period"
           phx-value-period="last_90_days"
         >
-          90 Days
+          {gettext("90 Days")}
         </button>
         <button
           class="btn btn-sm btn-outline"
           phx-click="toggle_custom_range"
         >
-          Custom Range
+          {gettext("Custom Range")}
         </button>
       </div>
       <%!-- Action Buttons --%>
@@ -74,11 +74,13 @@
           <% else %>
             <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4" />
           <% end %>
-          Refresh
+          {gettext("Refresh")}
         </button>
         <div class="dropdown dropdown-end">
           <div tabindex="0" role="button" class="btn btn-sm btn-outline">
-            <PhoenixKitWeb.Components.Core.Icons.icon_download class="w-4 h-4" /> Export
+            <PhoenixKitWeb.Components.Core.Icons.icon_download class="w-4 h-4" /> {gettext(
+              "Export"
+            )}
           </div>
           <ul
             tabindex="0"
@@ -86,12 +88,12 @@
           >
             <li>
               <a phx-click="export_metrics" phx-value-format="csv">
-                Export as CSV
+                {gettext("Export as CSV")}
               </a>
             </li>
             <li>
               <a phx-click="export_metrics" phx-value-format="json">
-                Export as JSON
+                {gettext("Export as JSON")}
               </a>
             </li>
           </ul>
@@ -102,12 +104,12 @@
     <%= if @custom_range do %>
       <div class="modal modal-open">
         <div class="modal-box">
-          <h3 class="font-bold text-lg mb-4">Select Custom Date Range</h3>
+          <h3 class="font-bold text-lg mb-4">{gettext("Select Custom Date Range")}</h3>
           <form phx-submit="apply_custom_range">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="label">
-                  <span class="label-text">Start Date</span>
+                  <span class="label-text">{gettext("Start Date")}</span>
                 </label>
                 <input
                   type="date"
@@ -119,7 +121,7 @@
               </div>
               <div>
                 <label class="label">
-                  <span class="label-text">End Date</span>
+                  <span class="label-text">{gettext("End Date")}</span>
                 </label>
                 <input
                   type="date"
@@ -131,8 +133,10 @@
               </div>
             </div>
             <div class="modal-action">
-              <button type="submit" class="btn btn-primary">Apply</button>
-              <button type="button" class="btn" phx-click="toggle_custom_range">Cancel</button>
+              <button type="submit" class="btn btn-primary">{gettext("Apply")}</button>
+              <button type="button" class="btn" phx-click="toggle_custom_range">
+                {gettext("Cancel")}
+              </button>
             </div>
           </form>
         </div>
@@ -142,7 +146,7 @@
     <%= if @loading do %>
       <div class="flex justify-center items-center h-32">
         <span class="loading loading-spinner loading-lg"></span>
-        <span class="ml-3 text-lg">Loading analytics data...</span>
+        <span class="ml-3 text-lg">{gettext("Loading analytics data...")}</span>
       </div>
     <% else %>
       <%!-- KPI Cards --%>
@@ -152,7 +156,7 @@
           <div class="card-body p-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-primary-content/70 text-sm">Total Sent</p>
+                <p class="text-primary-content/70 text-sm">{gettext("Total Sent")}</p>
                 <p class="text-2xl font-bold">{UtilsNumber.format(@metrics.total_sent || 0)}</p>
               </div>
               <div class="text-primary-content/70">
@@ -166,7 +170,7 @@
           <div class="card-body p-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-success-content/70 text-sm">Delivery Rate</p>
+                <p class="text-success-content/70 text-sm">{gettext("Delivery Rate")}</p>
                 <p class="text-2xl font-bold">
                   {UtilsNumber.format_percentage(@metrics.delivery_rate || 0)}
                 </p>
@@ -182,7 +186,7 @@
           <div class="card-body p-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-warning-content/70 text-sm">Bounce Rate</p>
+                <p class="text-warning-content/70 text-sm">{gettext("Bounce Rate")}</p>
                 <p class="text-2xl font-bold">
                   {UtilsNumber.format_percentage(@metrics.bounce_rate || 0)}
                 </p>
@@ -198,7 +202,7 @@
           <div class="card-body p-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-info-content/70 text-sm">Open Rate</p>
+                <p class="text-info-content/70 text-sm">{gettext("Open Rate")}</p>
                 <p class="text-2xl font-bold">
                   {UtilsNumber.format_percentage(@metrics.open_rate || 0)}
                 </p>
@@ -219,7 +223,7 @@
         <%!-- Delivery Trends Chart --%>
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body">
-            <h2 class="card-title text-lg mb-4">Delivery Trends</h2>
+            <h2 class="card-title text-lg mb-4">{gettext("Delivery Trends")}</h2>
             <div
               class="w-full h-64"
               id="delivery-chart-container"
@@ -233,7 +237,7 @@
         <%!-- Engagement Chart --%>
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body">
-            <h2 class="card-title text-lg mb-4">Engagement Metrics</h2>
+            <h2 class="card-title text-lg mb-4">{gettext("Engagement Metrics")}</h2>
             <div
               class="w-full h-64"
               id="engagement-chart-container"
@@ -249,16 +253,22 @@
         <%!-- Provider Performance --%>
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body">
-            <h2 class="card-title text-lg mb-4">Provider Performance</h2>
+            <h2 class="card-title text-lg mb-4">{gettext("Provider Performance")}</h2>
             <%= if @metrics.by_provider && length(Map.keys(@metrics.by_provider)) > 0 do %>
               <div class="overflow-x-auto">
                 <.table_default size="sm">
                   <.table_default_header>
                     <.table_default_row>
-                      <.table_default_header_cell>Provider</.table_default_header_cell>
-                      <.table_default_header_cell>Sent</.table_default_header_cell>
-                      <.table_default_header_cell>Delivery Rate</.table_default_header_cell>
-                      <.table_default_header_cell>Bounce Rate</.table_default_header_cell>
+                      <.table_default_header_cell>
+                        {gettext("Provider")}
+                      </.table_default_header_cell>
+                      <.table_default_header_cell>{gettext("Sent")}</.table_default_header_cell>
+                      <.table_default_header_cell>
+                        {gettext("Delivery Rate")}
+                      </.table_default_header_cell>
+                      <.table_default_header_cell>
+                        {gettext("Bounce Rate")}
+                      </.table_default_header_cell>
                     </.table_default_row>
                   </.table_default_header>
                   <.table_default_body>
@@ -288,7 +298,7 @@
               </div>
             <% else %>
               <div class="text-center text-base-content/50 py-8">
-                No provider data available
+                {gettext("No provider data available")}
               </div>
             <% end %>
           </div>
@@ -296,28 +306,28 @@
         <%!-- Recent Activity --%>
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body">
-            <h2 class="card-title text-lg mb-4">System Status</h2>
+            <h2 class="card-title text-lg mb-4">{gettext("System Status")}</h2>
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-sm">Email</span>
-                <span class="badge badge-success">Active</span>
+                <span class="text-sm">{gettext("Email")}</span>
+                <span class="badge badge-success">{gettext("Active")}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-sm">Last Updated</span>
+                <span class="text-sm">{gettext("Last Updated")}</span>
                 <span class="text-sm text-base-content/70">
                   {UtilsDate.format_datetime_with_user_format(@last_updated)}
                 </span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-sm">Total Emails Today</span>
+                <span class="text-sm">{gettext("Total Emails Today")}</span>
                 <span class="text-sm font-medium">
                   {UtilsNumber.format(@metrics.today_count || 0)}
                 </span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-sm">Data Retention</span>
+                <span class="text-sm">{gettext("Data Retention")}</span>
                 <span class="text-sm text-base-content/70">
-                  {PhoenixKit.Modules.Emails.get_retention_days()} days
+                  {gettext("%{days} days", days: PhoenixKit.Modules.Emails.get_retention_days())}
                 </span>
               </div>
             </div>
@@ -326,340 +336,4 @@
       </div>
     <% end %>
   </div>
-  <%!-- Chart.js CDN and Enhanced Chart System --%>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js">
-  </script>
-  <script>
-    (() => {
-      // Enhanced Chart Manager for PhoenixKit with retry and buffering
-      const PhoenixKitCharts = {
-        deliveryChart: null,
-        engagementChart: null,
-        isInitialized: false,
-        initAttempts: 0,
-        maxInitAttempts: 5,
-        bufferedData: null,
-        chartJsLoaded: false,
-
-        // Wait for Chart.js to be available
-        waitForChartJs() {
-          return new Promise((resolve) => {
-            if (typeof Chart !== 'undefined') {
-              this.chartJsLoaded = true;
-              resolve();
-              return;
-            }
-
-            let attempts = 0;
-            const checkInterval = setInterval(() => {
-              attempts++;
-              if (typeof Chart !== 'undefined') {
-                this.chartJsLoaded = true;
-                clearInterval(checkInterval);
-                resolve();
-              } else if (attempts > 50) { // 5 seconds max wait
-                clearInterval(checkInterval);
-                console.error('Chart.js failed to load');
-                resolve(); // Resolve anyway to prevent hanging
-              }
-            }, 100);
-          });
-        },
-
-        async initializeCharts() {
-          // Wait for Chart.js library to load
-          await this.waitForChartJs();
-
-          if (!this.chartJsLoaded) {
-            console.error('Cannot initialize charts: Chart.js not loaded');
-            return false;
-          }
-
-          // Check if elements exist
-          const deliveryCanvas = document.getElementById('delivery-trend-chart');
-          const engagementCanvas = document.getElementById('engagement-chart');
-
-          if (!deliveryCanvas || !engagementCanvas) {
-            console.log('Chart elements not found, will retry...');
-            return false;
-          }
-
-          try {
-            this.initDeliveryChart();
-            this.initEngagementChart();
-            this.isInitialized = true;
-
-            // Apply buffered data if exists
-            if (this.bufferedData) {
-              console.log('Applying buffered chart data');
-              this.updateCharts(this.bufferedData);
-              this.bufferedData = null;
-            }
-
-            return true;
-          } catch (error) {
-            console.error('Error initializing charts:', error);
-            this.isInitialized = false;
-            return false;
-          }
-        },
-
-        initDeliveryChart() {
-          const container = document.getElementById('delivery-chart-container');
-          const canvas = document.getElementById('delivery-trend-chart');
-          if (!canvas || !container) {
-            throw new Error('Delivery chart elements not found');
-          }
-
-          // Destroy existing chart
-          if (this.deliveryChart) {
-            this.deliveryChart.destroy();
-            this.deliveryChart = null;
-          }
-
-          // Get data from HTML attribute
-          let chartData = {};
-          try {
-            const dataAttr = container.getAttribute('data-chart-data');
-            if (dataAttr) {
-              chartData = JSON.parse(dataAttr);
-              console.log('Delivery chart data loaded from attribute');
-            }
-          } catch (e) {
-            console.warn('Failed to parse delivery chart data:', e);
-          }
-
-          // Create chart with data or defaults
-          const hasData = chartData.labels && chartData.labels.length > 0;
-          this.deliveryChart = new Chart(canvas, {
-            type: 'line',
-            data: hasData ? chartData : {
-              labels: [],
-              datasets: [
-                {
-                  label: "Delivered",
-                  data: [],
-                  borderColor: "rgb(34, 197, 94)",
-                  backgroundColor: "rgba(34, 197, 94, 0.1)",
-                  tension: 0.1,
-                  fill: true
-                },
-                {
-                  label: "Bounced",
-                  data: [],
-                  borderColor: "rgb(239, 68, 68)",
-                  backgroundColor: "rgba(239, 68, 68, 0.1)",
-                  tension: 0.1,
-                  fill: true
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: {
-                duration: hasData ? 750 : 0
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  grid: { color: 'rgba(0, 0, 0, 0.1)' }
-                },
-                x: {
-                  grid: { color: 'rgba(0, 0, 0, 0.1)' }
-                }
-              },
-              plugins: {
-                legend: { position: 'top' },
-                tooltip: {
-                  mode: 'index',
-                  intersect: false,
-                }
-              }
-            }
-          });
-        },
-
-        initEngagementChart() {
-          const container = document.getElementById('engagement-chart-container');
-          const canvas = document.getElementById('engagement-chart');
-          if (!canvas || !container) {
-            throw new Error('Engagement chart elements not found');
-          }
-
-          // Destroy existing chart
-          if (this.engagementChart) {
-            this.engagementChart.destroy();
-            this.engagementChart = null;
-          }
-
-          // Get data from HTML attribute
-          let chartData = {};
-          try {
-            const dataAttr = container.getAttribute('data-chart-data');
-            if (dataAttr) {
-              chartData = JSON.parse(dataAttr);
-              console.log('Engagement chart data loaded from attribute');
-            }
-          } catch (e) {
-            console.warn('Failed to parse engagement chart data:', e);
-          }
-
-          // Create chart with data or defaults
-          const hasData = chartData.labels && chartData.labels.length > 0;
-          this.engagementChart = new Chart(canvas, {
-            type: 'doughnut',
-            data: hasData ? chartData : {
-              labels: ["Opens", "Clicks", "Bounces", "Complaints"],
-              datasets: [{
-                data: [0, 0, 0, 0],
-                backgroundColor: [
-                  "rgb(59, 130, 246)",
-                  "rgb(34, 197, 94)",
-                  "rgb(251, 191, 36)",
-                  "rgb(239, 68, 68)"
-                ]
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: {
-                duration: hasData ? 750 : 0
-              },
-              plugins: {
-                legend: { position: 'bottom' },
-                tooltip: {
-                  callbacks: {
-                    label: function(context) {
-                      const label = context.label || '';
-                      const value = context.parsed || 0;
-                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                      const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                      return `${label}: ${value} (${percentage}%)`;
-                    }
-                  }
-                }
-              }
-            }
-          });
-        },
-
-        updateCharts(chartsData) {
-          // If not initialized yet, buffer the data
-          if (!this.isInitialized) {
-            console.log('Charts not initialized, buffering data');
-            this.bufferedData = chartsData;
-            this.tryInitWithRetry(); // Try to initialize
-            return;
-          }
-
-          // Update delivery chart
-          if (this.deliveryChart && chartsData.delivery_trend) {
-            this.deliveryChart.data = chartsData.delivery_trend;
-            this.deliveryChart.update();
-          }
-
-          // Update engagement chart
-          if (this.engagementChart && chartsData.engagement) {
-            this.engagementChart.data = chartsData.engagement;
-            this.engagementChart.update();
-          }
-        },
-
-        cleanup() {
-          this.isInitialized = false;
-          if (this.deliveryChart) {
-            this.deliveryChart.destroy();
-            this.deliveryChart = null;
-          }
-          if (this.engagementChart) {
-            this.engagementChart.destroy();
-            this.engagementChart = null;
-          }
-        },
-
-        async tryInitWithRetry() {
-          if (this.isInitialized || this.initAttempts >= this.maxInitAttempts) {
-            return;
-          }
-
-          this.initAttempts++;
-          console.log(`Chart initialization attempt ${this.initAttempts}/${this.maxInitAttempts}`);
-
-          const success = await this.initializeCharts();
-
-          if (!success && this.initAttempts < this.maxInitAttempts) {
-            // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms
-            const delay = Math.min(100 * Math.pow(2, this.initAttempts - 1), 1600);
-            setTimeout(() => this.tryInitWithRetry(), delay);
-          } else if (success) {
-            console.log('Charts initialized successfully');
-            this.initAttempts = 0; // Reset for potential future reinits
-          }
-        }
-      };
-
-      // Make PhoenixKitCharts available globally for hooks
-      window.PhoenixKitCharts = PhoenixKitCharts;
-
-      // Listen for LiveView updates
-      window.addEventListener('phx:email-charts-update', (event) => {
-        if (event.detail && event.detail.charts) {
-          console.log('Received chart update event');
-          PhoenixKitCharts.updateCharts(event.detail.charts);
-        }
-      });
-
-      // Initialize charts when DOM is ready
-      const initCharts = () => {
-        PhoenixKitCharts.tryInitWithRetry();
-      };
-
-      // Handle different loading states
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initCharts);
-      } else {
-        // DOM already loaded, but give LiveView time to render
-        setTimeout(initCharts, 50);
-      }
-
-      // Track if we're on the metrics page
-      let onMetricsPage = false;
-
-      // Check if we're on metrics page
-      const checkMetricsPage = () => {
-        return document.getElementById('email-charts-container') !== null;
-      };
-
-      // Handle LiveView navigation
-      window.addEventListener('phx:page-loading-start', () => {
-        PhoenixKitCharts.cleanup();
-        onMetricsPage = false;
-      });
-
-      window.addEventListener('phx:page-loading-stop', () => {
-        // Check if we landed on metrics page
-        setTimeout(() => {
-          onMetricsPage = checkMetricsPage();
-          if (onMetricsPage) {
-            console.log('Navigated to metrics page, initializing charts');
-            PhoenixKitCharts.initAttempts = 0;
-            initCharts();
-          }
-        }, 100);
-      });
-
-      // Reinitialize on visibility change (tab becomes active)
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && !PhoenixKitCharts.isInitialized) {
-          console.log('Tab became visible, checking charts');
-          PhoenixKitCharts.tryInitWithRetry();
-        }
-      });
-
-      // Make available for debugging
-      window.PhoenixKitCharts = PhoenixKitCharts;
-    })();
-  </script>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

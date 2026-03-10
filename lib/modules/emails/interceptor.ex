@@ -383,6 +383,7 @@ defmodule PhoenixKit.Modules.Emails.Interceptor do
       attachments_count: length(email.attachments || []),
       size_bytes: estimate_email_size(email),
       template_name: Keyword.get(opts, :template_name),
+      locale: Keyword.get(opts, :locale, "en"),
       campaign_id: Keyword.get(opts, :campaign_id),
       user_uuid: user_uuid,
       provider: detect_provider(email, opts),
