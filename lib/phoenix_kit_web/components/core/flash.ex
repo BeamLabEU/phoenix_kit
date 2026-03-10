@@ -22,6 +22,7 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
+  attr :autoclose, :any, default: 5000, doc: "Auto-dismiss delay in ms, or false to disable"
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
@@ -33,13 +34,16 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
+      phx-hook={@autoclose && "FlashAutoDismiss"}
+      data-dismiss-after={@autoclose && @autoclose}
+      data-flash-kind={@autoclose && @kind}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide_flash("##{@id}")}
       role="alert"
       class="toast toast-top toast-end z-[1000]"
       {@rest}
     >
       <div class={[
-        "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap",
+        "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap relative",
         @kind == :info && "alert-info",
         @kind == :error && "alert-error"
       ]}>
@@ -53,6 +57,19 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
         <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
           <.icon name="hero-x-mark" class="size-5 opacity-40 group-hover:opacity-70" />
         </button>
+        <%= if @autoclose do %>
+          <div class="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden rounded-b-box">
+            <div
+              data-flash-progress
+              class={[
+                "h-full",
+                @kind == :info && "bg-info-content/30",
+                @kind == :error && "bg-error-content/30"
+              ]}
+              style="width: 100%"
+            />
+          </div>
+        <% end %>
       </div>
     </div>
     """

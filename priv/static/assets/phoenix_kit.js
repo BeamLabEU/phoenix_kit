@@ -28,6 +28,8 @@
  *   - LanguageSwitcherSearch ... Client-side language filtering for dropdown
  *   - LanguageSwitcherPosition . Auto-position dropdown based on viewport space
  *   - PreserveScroll ........... Preserve scroll position during LiveView updates
+ *   - FlashAutoDismiss ......... Auto-dismiss flash messages with progress bar
+ *   - TableCardView ............ Card/table view toggle with localStorage
  *
  * @version 2.0.0
  * @license MIT
@@ -1346,6 +1348,116 @@
         if (this.openDetails.includes(identifier)) {
           detail.open = true;
         }
+      });
+    }
+  };
+
+
+  // ============================================================================
+  // 4. FLASH AUTO-DISMISS HOOK
+  // ============================================================================
+
+  window.PhoenixKitHooks.FlashAutoDismiss = {
+    mounted() {
+      this.duration = parseInt(this.el.dataset.dismissAfter || "5000");
+      this.startTimer();
+
+      this.el.addEventListener("mouseenter", () => this.pauseTimer());
+      this.el.addEventListener("mouseleave", () => this.resumeTimer());
+    },
+    startTimer() {
+      this.remaining = this.duration;
+      this.startTime = Date.now();
+      var bar = this.el.querySelector("[data-flash-progress]");
+      if (bar) {
+        bar.style.transition = "width " + this.duration + "ms linear";
+        requestAnimationFrame(function() {
+          bar.style.width = "0%";
+        });
+      }
+      var self = this;
+      this.timer = setTimeout(function() { self.dismiss(); }, this.duration);
+    },
+    pauseTimer() {
+      clearTimeout(this.timer);
+      this.elapsed = Date.now() - this.startTime;
+      this.remaining = this.remaining - this.elapsed;
+      var bar = this.el.querySelector("[data-flash-progress]");
+      if (bar) {
+        var computedWidth = getComputedStyle(bar).width;
+        var parentWidth = bar.parentElement ? bar.parentElement.offsetWidth : 1;
+        var widthPx = parseFloat(computedWidth);
+        bar.style.transition = "none";
+        bar.style.width = (widthPx / parentWidth * 100) + "%";
+      }
+    },
+    resumeTimer() {
+      this.startTime = Date.now();
+      var bar = this.el.querySelector("[data-flash-progress]");
+      if (bar) {
+        bar.style.transition = "width " + this.remaining + "ms linear";
+        requestAnimationFrame(function() {
+          bar.style.width = "0%";
+        });
+      }
+      var self = this;
+      this.timer = setTimeout(function() { self.dismiss(); }, this.remaining);
+    },
+    dismiss() {
+      this.pushEvent("lv:clear-flash", {key: this.el.dataset.flashKind});
+      this.el.style.transition = "opacity 200ms ease-out, transform 200ms ease-out";
+      this.el.style.opacity = "0";
+      this.el.style.transform = "translateX(0.5rem)";
+      var el = this.el;
+      setTimeout(function() {
+        if (el) el.style.display = "none";
+      }, 200);
+    },
+    destroyed() {
+      clearTimeout(this.timer);
+    }
+  };
+
+
+  // ============================================================================
+  // Section: TableCardView - Card/Table view toggle
+  // ============================================================================
+  window.PhoenixKitHooks.TableCardView = {
+    mounted() {
+      var key = this.el.dataset.storageKey || (this.el.id + "-view");
+      var saved = localStorage.getItem(key) || "table";
+      this.storageKey = key;
+      this.applyMode(saved);
+
+      var self = this;
+      this.el.querySelectorAll("[data-view-action]").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var mode = btn.dataset.viewAction;
+          localStorage.setItem(self.storageKey, mode);
+          self.applyMode(mode);
+        });
+      });
+    },
+
+    applyMode(mode) {
+      var tableEl = this.el.querySelector("[data-table-view]");
+      var cardEl  = this.el.querySelector("[data-card-view]");
+      var btns    = this.el.querySelectorAll("[data-view-action]");
+
+      if (!tableEl || !cardEl) return;
+
+      if (mode === "card") {
+        tableEl.classList.add("md:hidden");
+        tableEl.classList.remove("md:block");
+        cardEl.classList.remove("md:hidden");
+      } else {
+        tableEl.classList.remove("md:hidden");
+        tableEl.classList.add("md:block");
+        cardEl.classList.add("md:hidden");
+      }
+
+      btns.forEach(function(b) {
+        b.classList.toggle("btn-active", b.dataset.viewAction === mode);
       });
     }
   };
