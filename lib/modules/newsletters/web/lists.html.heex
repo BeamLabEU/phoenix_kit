@@ -14,7 +14,7 @@
 
     <%!-- Actions Bar --%>
     <div class="flex justify-end mb-6">
-      <.pk_link navigate="/admin/mailing/lists/new" class="btn btn-sm btn-primary">
+      <.pk_link navigate="/admin/newsletters/lists/new" class="btn btn-sm btn-primary">
         <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New List
       </.pk_link>
     </div>
@@ -75,7 +75,7 @@
                 <.table_default_cell>
                   <div class="flex gap-1">
                     <.pk_link
-                      navigate={"/admin/mailing/lists/#{list.uuid}/members"}
+                      navigate={"/admin/newsletters/lists/#{list.uuid}/members"}
                       class="btn btn-xs btn-outline"
                       title="View members"
                     >
@@ -83,7 +83,7 @@
                       <span class="sm:hidden whitespace-nowrap">Members</span>
                     </.pk_link>
                     <.pk_link
-                      navigate={"/admin/mailing/lists/#{list.uuid}/edit"}
+                      navigate={"/admin/newsletters/lists/#{list.uuid}/edit"}
                       class="btn btn-xs btn-outline"
                       title="Edit"
                     >
@@ -141,13 +141,13 @@
                 <%!-- Footer: actions --%>
                 <div class="card-actions justify-end pt-1 border-t border-base-200">
                   <.pk_link
-                    navigate={"/admin/mailing/lists/#{list.uuid}/members"}
+                    navigate={"/admin/newsletters/lists/#{list.uuid}/members"}
                     class="btn btn-xs btn-outline"
                   >
                     <.icon name="hero-users" class="w-3 h-3" /> Members
                   </.pk_link>
                   <.pk_link
-                    navigate={"/admin/mailing/lists/#{list.uuid}/edit"}
+                    navigate={"/admin/newsletters/lists/#{list.uuid}/edit"}
                     class="btn btn-xs btn-outline"
                   >
                     <.icon name="hero-pencil" class="w-3 h-3" /> Edit
@@ -173,7 +173,7 @@
         <p class="text-base-content/70 mb-4">
           Create your first list to start managing subscribers.
         </p>
-        <.pk_link navigate="/admin/mailing/lists/new" class="btn btn-primary btn-sm">
+        <.pk_link navigate="/admin/newsletters/lists/new" class="btn btn-primary btn-sm">
           <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Create First List
         </.pk_link>
       </div>

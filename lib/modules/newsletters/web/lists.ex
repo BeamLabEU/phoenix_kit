@@ -1,25 +1,25 @@
-defmodule PhoenixKit.Modules.Mailing.Web.Lists do
+defmodule PhoenixKit.Modules.Newsletters.Web.Lists do
   @moduledoc """
   LiveView for managing mailing lists.
   """
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Mailing
+  alias PhoenixKit.Modules.Newsletters
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
-    if Mailing.enabled?() do
-      lists = Mailing.list_lists()
+    if Newsletters.enabled?() do
+      lists = Newsletters.list_lists()
       project_title = Settings.get_project_title()
 
       socket =
         socket
-        |> assign(:page_title, "Mailing Lists")
+        |> assign(:page_title, "Newsletters Lists")
         |> assign(:project_title, project_title)
-        |> assign(:url_path, Routes.path("/admin/mailing/lists"))
+        |> assign(:url_path, Routes.path("/admin/newsletters/lists"))
         |> assign(:lists, lists)
         |> assign(:show_confirm_modal, false)
         |> assign(:confirm_action, nil)
@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.Lists do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Mailing module is not enabled")
+       |> put_flash(:error, "Newsletters module is not enabled")
        |> push_navigate(to: Routes.path("/admin"))}
     end
   end
@@ -70,14 +70,14 @@ defmodule PhoenixKit.Modules.Mailing.Web.Lists do
   end
 
   defp handle_delete(socket, uuid) do
-    list = Mailing.get_list!(uuid)
+    list = Newsletters.get_list!(uuid)
 
-    case Mailing.delete_list(list) do
+    case Newsletters.delete_list(list) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "List deleted")
-         |> assign(:lists, Mailing.list_lists())}
+         |> assign(:lists, Newsletters.list_lists())}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Cannot delete list")}

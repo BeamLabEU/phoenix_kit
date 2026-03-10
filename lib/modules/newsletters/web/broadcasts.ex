@@ -1,24 +1,24 @@
-defmodule PhoenixKit.Modules.Mailing.Web.Broadcasts do
+defmodule PhoenixKit.Modules.Newsletters.Web.Broadcasts do
   @moduledoc """
   LiveView for the broadcasts list in the mailing admin panel.
   """
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Mailing
+  alias PhoenixKit.Modules.Newsletters
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
-    if Mailing.enabled?() do
+    if Newsletters.enabled?() do
       project_title = Settings.get_project_title()
 
       socket =
         socket
         |> assign(:page_title, "Broadcasts")
         |> assign(:project_title, project_title)
-        |> assign(:url_path, Routes.path("/admin/mailing/broadcasts"))
+        |> assign(:url_path, Routes.path("/admin/newsletters/broadcasts"))
         |> assign(:broadcasts, [])
         |> assign(:status_filter, "")
 
@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.Broadcasts do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Mailing module is not enabled")
+       |> put_flash(:error, "Newsletters module is not enabled")
        |> push_navigate(to: Routes.path("/admin"))}
     end
   end
@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.Broadcasts do
   def handle_params(params, _url, socket) do
     status = params["status"] || ""
 
-    broadcasts = Mailing.list_broadcasts(%{status: status})
+    broadcasts = Newsletters.list_broadcasts(%{status: status})
 
     {:noreply,
      socket
@@ -49,14 +49,16 @@ defmodule PhoenixKit.Modules.Mailing.Web.Broadcasts do
     query = URI.encode_query(params)
 
     path =
-      if query == "", do: "/admin/mailing/broadcasts", else: "/admin/mailing/broadcasts?#{query}"
+      if query == "",
+        do: "/admin/newsletters/broadcasts",
+        else: "/admin/newsletters/broadcasts?#{query}"
 
     {:noreply, push_patch(socket, to: Routes.path(path))}
   end
 
   @impl true
   def handle_event("view_broadcast", %{"uuid" => uuid}, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/mailing/broadcasts/#{uuid}"))}
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/newsletters/broadcasts/#{uuid}"))}
   end
 
   defp status_badge_class(status) do

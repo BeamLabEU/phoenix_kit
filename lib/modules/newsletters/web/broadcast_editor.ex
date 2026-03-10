@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
+defmodule PhoenixKit.Modules.Newsletters.Web.BroadcastEditor do
   @moduledoc """
   LiveView for creating and editing mailing broadcasts with Markdown editor and live preview.
   """
@@ -6,25 +6,25 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Emails.Templates
-  alias PhoenixKit.Modules.Mailing
-  alias PhoenixKit.Modules.Mailing.Broadcaster
+  alias PhoenixKit.Modules.Newsletters
+  alias PhoenixKit.Modules.Newsletters.Broadcaster
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
-    if Mailing.enabled?() do
+    if Newsletters.enabled?() do
       project_title = Settings.get_project_title()
-      lists = Mailing.list_lists(%{status: "active"})
+      lists = Newsletters.list_lists(%{status: "active"})
       templates = Templates.list_templates(%{status: "active"})
 
-      default_template_uuid = Settings.get_setting("mailing_default_template")
+      default_template_uuid = Settings.get_setting("newsletters_default_template")
 
       socket =
         socket
         |> assign(:page_title, "New Broadcast")
         |> assign(:project_title, project_title)
-        |> assign(:url_path, Routes.path("/admin/mailing/broadcasts/new"))
+        |> assign(:url_path, Routes.path("/admin/newsletters/broadcasts/new"))
         |> assign(:lists, lists)
         |> assign(:templates, templates)
         |> assign(:broadcast, nil)
@@ -40,19 +40,19 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Mailing module is not enabled")
+       |> put_flash(:error, "Newsletters module is not enabled")
        |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 
   @impl true
   def handle_params(%{"id" => id}, _url, %{assigns: %{live_action: :edit}} = socket) do
-    broadcast = Mailing.get_broadcast!(id)
+    broadcast = Newsletters.get_broadcast!(id)
 
     {:noreply,
      socket
      |> assign(:page_title, "Edit Broadcast")
-     |> assign(:url_path, Routes.path("/admin/mailing/broadcasts/#{id}/edit"))
+     |> assign(:url_path, Routes.path("/admin/newsletters/broadcasts/#{id}/edit"))
      |> assign(:broadcast, broadcast)
      |> assign(:subject, broadcast.subject || "")
      |> assign(:list_uuid, broadcast.list_uuid || "")
@@ -67,7 +67,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
       {:noreply,
        socket
        |> put_flash(:error, "Broadcast not found")
-       |> push_navigate(to: Routes.path("/admin/mailing/broadcasts"))}
+       |> push_navigate(to: Routes.path("/admin/newsletters/broadcasts"))}
   end
 
   def handle_params(_params, _url, socket) do
@@ -110,7 +110,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
             {:noreply,
              socket
              |> put_flash(:info, "Broadcast is being sent")
-             |> push_navigate(to: Routes.path("/admin/mailing/broadcasts/#{broadcast.uuid}"))}
+             |> push_navigate(to: Routes.path("/admin/newsletters/broadcasts/#{broadcast.uuid}"))}
 
           {:error, reason} ->
             {:noreply, put_flash(socket, :error, "Failed to send: #{inspect(reason)}")}
@@ -175,8 +175,8 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
 
     result =
       case socket.assigns.broadcast do
-        nil -> Mailing.create_broadcast(attrs)
-        broadcast -> Mailing.update_broadcast(broadcast, attrs)
+        nil -> Newsletters.create_broadcast(attrs)
+        broadcast -> Newsletters.update_broadcast(broadcast, attrs)
       end
 
     case result do
@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
          |> assign(:saving, false)
          |> assign(:broadcast, broadcast)
          |> put_flash(:info, "Broadcast saved as #{status}")
-         |> push_navigate(to: Routes.path("/admin/mailing/broadcasts"))}
+         |> push_navigate(to: Routes.path("/admin/newsletters/broadcasts"))}
 
       {:error, changeset} ->
         errors =
@@ -212,8 +212,8 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastEditor do
     }
 
     case socket.assigns.broadcast do
-      nil -> Mailing.create_broadcast(attrs)
-      broadcast -> Mailing.update_broadcast(broadcast, attrs)
+      nil -> Newsletters.create_broadcast(attrs)
+      broadcast -> Newsletters.update_broadcast(broadcast, attrs)
     end
   end
 

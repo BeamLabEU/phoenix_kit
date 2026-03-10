@@ -1,27 +1,27 @@
-defmodule PhoenixKit.Modules.Mailing.Web.ListMembers do
+defmodule PhoenixKit.Modules.Newsletters.Web.ListMembers do
   @moduledoc """
   LiveView for managing members of a mailing list.
   """
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Mailing
+  alias PhoenixKit.Modules.Newsletters
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(%{"id" => list_uuid}, _session, socket) do
-    if Mailing.enabled?() do
-      list = Mailing.get_list!(list_uuid)
-      members = Mailing.list_members(list_uuid)
+    if Newsletters.enabled?() do
+      list = Newsletters.get_list!(list_uuid)
+      members = Newsletters.list_members(list_uuid)
       project_title = Settings.get_project_title()
 
       socket =
         socket
         |> assign(:page_title, "#{list.name} — Members")
         |> assign(:project_title, project_title)
-        |> assign(:url_path, Routes.path("/admin/mailing/lists/#{list_uuid}/members"))
+        |> assign(:url_path, Routes.path("/admin/newsletters/lists/#{list_uuid}/members"))
         |> assign(:list, list)
         |> assign(:members, members)
         |> assign(:status_filter, "")
@@ -37,7 +37,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.ListMembers do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Mailing module is not enabled")
+       |> put_flash(:error, "Newsletters module is not enabled")
        |> push_navigate(to: Routes.path("/admin"))}
     end
   end
@@ -78,7 +78,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.ListMembers do
 
   @impl true
   def handle_event("filter_status", %{"status" => status}, socket) do
-    members = Mailing.list_members(socket.assigns.list.uuid, %{status: status})
+    members = Newsletters.list_members(socket.assigns.list.uuid, %{status: status})
 
     {:noreply,
      socket
@@ -103,7 +103,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.ListMembers do
 
   @impl true
   def handle_event("add_member", %{"user-uuid" => user_uuid}, socket) do
-    case Mailing.subscribe_user(socket.assigns.list.uuid, user_uuid) do
+    case Newsletters.subscribe_user(socket.assigns.list.uuid, user_uuid) do
       {:ok, _} ->
         members = reload_members(socket)
 
@@ -124,7 +124,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.ListMembers do
 
     added =
       Enum.reduce(users, 0, fn user, acc ->
-        case Mailing.subscribe_user(socket.assigns.list.uuid, user.uuid) do
+        case Newsletters.subscribe_user(socket.assigns.list.uuid, user.uuid) do
           {:ok, _} -> acc + 1
           _ -> acc
         end
@@ -144,7 +144,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.ListMembers do
     member = find_member(socket.assigns.members, member_uuid)
 
     if member do
-      case Mailing.unsubscribe_user(member.list_uuid, member.user_uuid) do
+      case Newsletters.unsubscribe_user(member.list_uuid, member.user_uuid) do
         {:ok, _} ->
           members = reload_members(socket)
 
@@ -200,6 +200,6 @@ defmodule PhoenixKit.Modules.Mailing.Web.ListMembers do
   end
 
   defp reload_members(socket) do
-    Mailing.list_members(socket.assigns.list.uuid, %{status: socket.assigns.status_filter})
+    Newsletters.list_members(socket.assigns.list.uuid, %{status: socket.assigns.status_filter})
   end
 end

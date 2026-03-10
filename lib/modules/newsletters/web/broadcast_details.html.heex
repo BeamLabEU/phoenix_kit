@@ -2,11 +2,11 @@
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title || "Broadcast Details"}
-  current_path={@url_path || Routes.path("/admin/mailing/broadcasts")}
+  current_path={@url_path || Routes.path("/admin/newsletters/broadcasts")}
   project_title={@project_title}
 >
   <div class="container flex-col mx-auto px-4 py-6">
-    <.admin_page_header back={Routes.path("/admin/mailing/broadcasts")}>
+    <.admin_page_header back={Routes.path("/admin/newsletters/broadcasts")}>
       <h1 class="text-xl sm:text-2xl font-bold text-base-content">
         {if @broadcast, do: @broadcast.subject, else: "Broadcast Details"}
       </h1>
@@ -37,7 +37,7 @@
         <div class="flex flex-wrap gap-2 mb-6">
           <%= if @broadcast.status == "draft" do %>
             <.pk_link
-              navigate={"/admin/mailing/broadcasts/#{@broadcast.uuid}/edit"}
+              navigate={"/admin/newsletters/broadcasts/#{@broadcast.uuid}/edit"}
               class="btn btn-outline btn-sm"
             >
               <.icon name="hero-pencil" class="w-4 h-4" /> Edit

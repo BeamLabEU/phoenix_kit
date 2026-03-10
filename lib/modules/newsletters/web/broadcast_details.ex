@@ -1,17 +1,17 @@
-defmodule PhoenixKit.Modules.Mailing.Web.BroadcastDetails do
+defmodule PhoenixKit.Modules.Newsletters.Web.BroadcastDetails do
   @moduledoc """
   LiveView for viewing broadcast details and delivery statistics.
   """
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Mailing
+  alias PhoenixKit.Modules.Newsletters
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    if Mailing.enabled?() do
+    if Newsletters.enabled?() do
       project_title = Settings.get_project_title()
 
       socket =
@@ -33,7 +33,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastDetails do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Mailing module is not enabled")
+       |> put_flash(:error, "Newsletters module is not enabled")
        |> push_navigate(to: Routes.path("/admin"))}
     end
   end
@@ -62,7 +62,7 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastDetails do
 
     case socket.assigns.confirm_action do
       :cancel_broadcast ->
-        case Mailing.update_broadcast(socket.assigns.broadcast, %{status: "cancelled"}) do
+        case Newsletters.update_broadcast(socket.assigns.broadcast, %{status: "cancelled"}) do
           {:ok, broadcast} ->
             {:noreply,
              socket
@@ -92,9 +92,9 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastDetails do
     id = socket.assigns.broadcast_id
 
     try do
-      broadcast = Mailing.get_broadcast!(id)
-      deliveries = Mailing.list_deliveries(id)
-      stats = Mailing.get_delivery_stats(id)
+      broadcast = Newsletters.get_broadcast!(id)
+      deliveries = Newsletters.list_deliveries(id)
+      stats = Newsletters.get_delivery_stats(id)
 
       socket
       |> assign(:broadcast, broadcast)
@@ -102,13 +102,13 @@ defmodule PhoenixKit.Modules.Mailing.Web.BroadcastDetails do
       |> assign(:delivery_stats, stats)
       |> assign(:loading, false)
       |> assign(:page_title, broadcast.subject)
-      |> assign(:url_path, Routes.path("/admin/mailing/broadcasts/#{id}"))
+      |> assign(:url_path, Routes.path("/admin/newsletters/broadcasts/#{id}"))
     rescue
       Ecto.NoResultsError ->
         socket
         |> assign(:loading, false)
         |> put_flash(:error, "Broadcast not found")
-        |> push_navigate(to: Routes.path("/admin/mailing/broadcasts"))
+        |> push_navigate(to: Routes.path("/admin/newsletters/broadcasts"))
     end
   end
 

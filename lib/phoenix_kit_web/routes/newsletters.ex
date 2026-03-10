@@ -1,25 +1,25 @@
-defmodule PhoenixKitWeb.Routes.MailingRoutes do
+defmodule PhoenixKitWeb.Routes.NewslettersRoutes do
   @moduledoc """
-  Mailing module routes.
+  Newsletters module routes.
 
-  Provides route definitions for mailing admin interfaces and unsubscribe flow.
+  Provides route definitions for newsletters admin interfaces and unsubscribe flow.
   Separated to improve compilation time.
   """
 
   @doc """
-  Returns quoted code for mailing non-LiveView routes (unsubscribe).
+  Returns quoted code for newsletters non-LiveView routes (unsubscribe).
   """
   def generate(url_prefix) do
     quote do
       scope unquote(url_prefix) do
         pipe_through [:browser]
 
-        get "/mailing/unsubscribe",
-            PhoenixKit.Modules.Mailing.Web.UnsubscribeController,
+        get "/newsletters/unsubscribe",
+            PhoenixKit.Modules.Newsletters.Web.UnsubscribeController,
             :unsubscribe
 
-        post "/mailing/unsubscribe",
-             PhoenixKit.Modules.Mailing.Web.UnsubscribeController,
+        post "/newsletters/unsubscribe",
+             PhoenixKit.Modules.Newsletters.Web.UnsubscribeController,
              :process_unsubscribe
       end
     end
@@ -30,33 +30,45 @@ defmodule PhoenixKitWeb.Routes.MailingRoutes do
   """
   def admin_routes do
     quote do
-      live "/admin/mailing/broadcasts", PhoenixKit.Modules.Mailing.Web.Broadcasts, :index,
-        as: :mailing_broadcasts
+      live "/admin/newsletters/broadcasts",
+           PhoenixKit.Modules.Newsletters.Web.Broadcasts,
+           :index,
+           as: :newsletters_broadcasts
 
-      live "/admin/mailing/broadcasts/new", PhoenixKit.Modules.Mailing.Web.BroadcastEditor, :new,
-        as: :mailing_broadcast_new
+      live "/admin/newsletters/broadcasts/new",
+           PhoenixKit.Modules.Newsletters.Web.BroadcastEditor,
+           :new,
+           as: :newsletters_broadcast_new
 
-      live "/admin/mailing/broadcasts/:id/edit",
-           PhoenixKit.Modules.Mailing.Web.BroadcastEditor,
+      live "/admin/newsletters/broadcasts/:id/edit",
+           PhoenixKit.Modules.Newsletters.Web.BroadcastEditor,
            :edit,
-           as: :mailing_broadcast_edit
+           as: :newsletters_broadcast_edit
 
-      live "/admin/mailing/broadcasts/:id",
-           PhoenixKit.Modules.Mailing.Web.BroadcastDetails,
+      live "/admin/newsletters/broadcasts/:id",
+           PhoenixKit.Modules.Newsletters.Web.BroadcastDetails,
            :show,
-           as: :mailing_broadcast_details
+           as: :newsletters_broadcast_details
 
-      live "/admin/mailing/lists", PhoenixKit.Modules.Mailing.Web.Lists, :index,
-        as: :mailing_lists
+      live "/admin/newsletters/lists",
+           PhoenixKit.Modules.Newsletters.Web.Lists,
+           :index,
+           as: :newsletters_lists
 
-      live "/admin/mailing/lists/new", PhoenixKit.Modules.Mailing.Web.ListEditor, :new,
-        as: :mailing_list_new
+      live "/admin/newsletters/lists/new",
+           PhoenixKit.Modules.Newsletters.Web.ListEditor,
+           :new,
+           as: :newsletters_list_new
 
-      live "/admin/mailing/lists/:id/edit", PhoenixKit.Modules.Mailing.Web.ListEditor, :edit,
-        as: :mailing_list_edit
+      live "/admin/newsletters/lists/:id/edit",
+           PhoenixKit.Modules.Newsletters.Web.ListEditor,
+           :edit,
+           as: :newsletters_list_edit
 
-      live "/admin/mailing/lists/:id/members", PhoenixKit.Modules.Mailing.Web.ListMembers, :index,
-        as: :mailing_list_members
+      live "/admin/newsletters/lists/:id/members",
+           PhoenixKit.Modules.Newsletters.Web.ListMembers,
+           :index,
+           as: :newsletters_list_members
     end
   end
 end
