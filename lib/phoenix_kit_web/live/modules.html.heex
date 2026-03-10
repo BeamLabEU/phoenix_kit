@@ -195,6 +195,50 @@
         </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
       <% end %>
 
+      <%!-- Newsletters Module --%>
+      <%= if "newsletters" in @accessible_modules do %>
+        <% cfg = @module_configs["newsletters"] || %{} %>
+        <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+          title="Newsletters"
+          description="Email broadcasts and subscription management"
+          icon="📨"
+          enabled={cfg[:enabled]}
+          toggle_event="toggle_module"
+          toggle_key="newsletters"
+        >
+          <:status_badges>
+            <span class={[
+              "badge",
+              if(cfg[:enabled], do: "badge-success", else: "badge-neutral")
+            ]}>
+              {if cfg[:enabled], do: "Enabled", else: "Disabled"}
+            </span>
+            <%= unless mcfg(@module_configs, "emails", :enabled, false) do %>
+              <span class="badge badge-warning">Requires Emails</span>
+            <% end %>
+          </:status_badges>
+
+          <:action_buttons>
+            <%= if cfg[:enabled] do %>
+              <div class="flex gap-2">
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/newsletters/broadcasts")}
+                  class="btn btn-outline btn-sm flex-1"
+                >
+                  <.icon name="hero-paper-airplane" class="w-4 h-4 mr-1" /> Broadcasts
+                </.link>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/newsletters/lists")}
+                  class="btn btn-outline btn-sm flex-1"
+                >
+                  <.icon name="hero-list-bullet" class="w-4 h-4 mr-1" /> Lists
+                </.link>
+              </div>
+            <% end %>
+          </:action_buttons>
+        </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+      <% end %>
+
       <%!-- Languages Module --%>
       <%= if "languages" in @accessible_modules do %>
         <% cfg = @module_configs["languages"] || %{} %>

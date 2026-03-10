@@ -9,7 +9,9 @@
     <.admin_page_header
       back={Routes.path("/admin/newsletters/lists")}
       title={@page_title}
-      subtitle={if @list, do: "Edit mailing list settings", else: "Create a new mailing list"}
+      subtitle={
+        if @list, do: "Edit newsletter list settings", else: "Create a new newsletter list"
+      }
     />
 
     <div class="max-w-2xl">

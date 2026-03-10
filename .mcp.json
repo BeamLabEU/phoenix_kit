@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "hydroforce-tidewave": {
-      "type": "http",
+      "type": "sse",
       "url": "http://localhost:4000/tidewave/mcp"
     },
     "decor-shop-tidewave": {
@@ -10,7 +10,7 @@
     },
     "openmemory": {
       "type": "sse",
-      "url": "http://localhost:8765/mcp/claude/sse/phoenixkit"
+      "url": "http://openmemory-mcp:8765/mcp/claude/sse/phoenixkit"
     }
   }
 }

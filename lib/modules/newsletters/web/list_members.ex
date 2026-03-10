@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Modules.Newsletters.Web.ListMembers do
   @moduledoc """
-  LiveView for managing members of a mailing list.
+  LiveView for managing members of a newsletter list.
   """
 
   use PhoenixKitWeb, :live_view

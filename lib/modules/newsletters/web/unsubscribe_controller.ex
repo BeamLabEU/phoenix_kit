@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.Newsletters.Web.UnsubscribeController do
 
   plug :put_view, html: PhoenixKit.Modules.Newsletters.Web.UnsubscribeHTML
 
-  # GET /mailing/unsubscribe?token=...
+  # GET /newsletters/unsubscribe?token=...
   # Shows unsubscribe options page (per-list + global)
   def unsubscribe(conn, %{"token" => token}) do
     case Phoenix.Token.verify(PhoenixKitWeb.Endpoint, "unsubscribe", token, max_age: 604_800) do
@@ -28,7 +28,7 @@ defmodule PhoenixKit.Modules.Newsletters.Web.UnsubscribeController do
     end
   end
 
-  # POST /mailing/unsubscribe — process the choice
+  # POST /newsletters/unsubscribe — process the choice
   def process_unsubscribe(conn, %{"token" => token, "scope" => "list"}) do
     case Phoenix.Token.verify(PhoenixKitWeb.Endpoint, "unsubscribe", token, max_age: 604_800) do
       {:ok, %{user_uuid: user_uuid, list_uuid: list_uuid}} ->

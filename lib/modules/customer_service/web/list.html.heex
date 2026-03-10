@@ -23,26 +23,70 @@
 
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-      <div class="stat bg-base-200 rounded-lg p-4">
-        <div class="stat-title text-sm">Total</div>
-        <div class="stat-value text-2xl">{@stats.total}</div>
-      </div>
-      <div class="stat bg-info/20 rounded-lg p-4">
-        <div class="stat-title text-sm">Open</div>
-        <div class="stat-value text-2xl text-info">{@stats.open}</div>
-      </div>
-      <div class="stat bg-warning/20 rounded-lg p-4">
-        <div class="stat-title text-sm">In Progress</div>
-        <div class="stat-value text-2xl text-warning">{@stats.in_progress}</div>
-      </div>
-      <div class="stat bg-success/20 rounded-lg p-4">
-        <div class="stat-title text-sm">Resolved</div>
-        <div class="stat-value text-2xl text-success">{@stats.resolved}</div>
-      </div>
-      <div class="stat bg-base-300 rounded-lg p-4">
-        <div class="stat-title text-sm">Closed</div>
-        <div class="stat-value text-2xl">{@stats.closed}</div>
-      </div>
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        color="primary"
+        value={@stats.total}
+        title="Total"
+        subtitle="All support requests"
+      >
+        <:icon>
+          <.icon name="hero-list-bullet" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        color="info"
+        value={@stats.open}
+        title="Open"
+        subtitle="Awaiting response"
+      >
+        <:icon>
+          <.icon name="hero-inbox" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        color="warning"
+        value={@stats.in_progress}
+        title="In Progress"
+        subtitle="Being worked on"
+      >
+        <:icon>
+          <.icon name="hero-clock" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        color="success"
+        value={@stats.resolved}
+        title="Resolved"
+        subtitle="Solution provided"
+      >
+        <:icon>
+          <.icon name="hero-check-circle" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        color="neutral"
+        value={@stats.closed}
+        title="Closed"
+        subtitle="No further action"
+      >
+        <:icon>
+          <.icon name="hero-archive-box" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
     </div>
 
     <%!-- Filters --%>
@@ -104,7 +148,7 @@
         </div>
       <% else %>
         <%!-- Desktop Table --%>
-        <div class="hidden md:block bg-base-100 mb-6">
+        <div class="hidden lg:block bg-base-100 mb-6">
           <.table_default variant="zebra" class="w-full table-fixed">
             <.table_default_header>
               <.table_default_row>
@@ -202,7 +246,7 @@
         </div>
 
         <%!-- Mobile Cards --%>
-        <div class="md:hidden mb-6">
+        <div class="lg:hidden mb-6">
           <div class="space-y-3">
             <%= for ticket <- @tickets do %>
               <div class="card card-border card-sm bg-base-100">
@@ -283,7 +327,7 @@
         <%= if @total_pages > 1 do %>
           <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="text-sm text-base-content/70">
-              Page {@page} of {@total_pages}
+              Showing {(@page - 1) * @per_page + 1} to {min(@page * @per_page, @total_count)} of {@total_count} tickets
             </div>
             <div class="join">
               <%= if @page > 1 do %>

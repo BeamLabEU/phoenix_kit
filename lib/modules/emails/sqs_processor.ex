@@ -45,7 +45,11 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Emails.Event
   alias PhoenixKit.Modules.Emails.Log
+  alias PhoenixKit.Modules.Newsletters
+  alias PhoenixKit.Modules.Newsletters.Broadcast, as: NewslettersBroadcast
   alias PhoenixKit.Utils.Date, as: UtilsDate
+
+  import Ecto.Query
 
   ## --- Public API ---
 
@@ -387,6 +391,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
           {:ok, updated_log} ->
             # Create event record
             create_delivery_event(updated_log, delivery_data)
+            maybe_update_newsletters_delivery(message_id, "Delivery", updated_log.delivered_at)
 
             Logger.info("Email delivered", %{
               log_uuid: updated_log.uuid,
@@ -459,16 +464,23 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
       bounce_subtype: bounce_subtype
     }
 
-    process_ses_event(
-      message_id,
-      mail_data,
-      update_attrs,
-      bounce_data,
-      "bounce",
-      &create_bounce_event/2,
-      extra_log_data,
-      nil
-    )
+    result =
+      process_ses_event(
+        message_id,
+        mail_data,
+        update_attrs,
+        bounce_data,
+        "bounce",
+        &create_bounce_event/2,
+        extra_log_data,
+        nil
+      )
+
+    if match?({:ok, _}, result) do
+      maybe_update_newsletters_delivery(message_id, "Bounce", UtilsDate.utc_now())
+    end
+
+    result
   end
 
   defp determine_bounce_status(bounce_type) do
@@ -532,6 +544,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
           {:ok, updated_log} ->
             # Create event record
             create_open_event(updated_log, open_data, open_timestamp)
+            maybe_update_newsletters_delivery(message_id, "Open", parse_timestamp(open_timestamp))
 
             {:ok, %{type: "open", log_uuid: updated_log.uuid, updated: true}}
 
@@ -1380,6 +1393,45 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
 
       true ->
         do_update_log_headers(log, mail_data)
+    end
+  end
+
+  # Updates mailing delivery record when a matching SES event arrives
+  defp maybe_update_newsletters_delivery(message_id, event_type, timestamp) do
+    case Newsletters.find_delivery_by_message_id(message_id) do
+      nil -> :ok
+      delivery -> apply_delivery_event(delivery, event_type, timestamp)
+    end
+  end
+
+  defp apply_delivery_event(delivery, event_type, timestamp) do
+    {status, attrs} =
+      case event_type do
+        "Delivery" -> {"delivered", %{delivered_at: timestamp}}
+        "Open" -> {"opened", %{opened_at: timestamp}}
+        "Bounce" -> {"bounced", %{error: "Bounced"}}
+        _ -> {nil, %{}}
+      end
+
+    if status do
+      Newsletters.update_delivery_status(delivery, status, attrs)
+      increment_broadcast_counter(delivery.broadcast_uuid, event_type)
+    end
+  end
+
+  defp increment_broadcast_counter(broadcast_uuid, event_type) do
+    field_name =
+      case event_type do
+        "Delivery" -> :delivered_count
+        "Open" -> :opened_count
+        "Bounce" -> :bounced_count
+        _ -> nil
+      end
+
+    if field_name do
+      NewslettersBroadcast
+      |> where([b], b.uuid == ^broadcast_uuid)
+      |> PhoenixKit.RepoHelper.repo().update_all(inc: [{field_name, 1}])
     end
   end
 

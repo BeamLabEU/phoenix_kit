@@ -303,10 +303,10 @@
         >
           <%!-- Redundancy Settings --%>
           <div class="form-control">
-            <label class="label">
+            <div class="mb-2">
               <span class="label-text font-semibold">Redundancy Copies</span>
-              <span class="label-text-alt">Number of copies to store</span>
-            </label>
+              <span class="block text-xs text-base-content/60">Number of copies to store</span>
+            </div>
             <%= if @active_buckets_count == 0 do %>
               <div class="alert alert-warning">
                 <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
@@ -332,33 +332,31 @@
                 max={@max_redundancy}
                 class={"input input-bordered #{if @form_redundancy > @max_redundancy, do: "input-warning", else: ""}"}
               />
-              <label class="label">
-                <span class="label-text-alt">
-                  Enter number of copies (1-#{@max_redundancy}).
-                  <%= if @max_redundancy == 1 do %>
-                    Only 1 active bucket available. Add more buckets to enable redundancy.
-                  <% else %>
-                    Maximum #{@max_redundancy} copies based on #{@active_buckets_count} active bucket(s).
-                  <% end %>
-                </span>
-              </label>
+              <p class="text-xs text-base-content/70 mt-1">
+                Enter number of copies (1-{@max_redundancy}).
+                <%= if @max_redundancy == 1 do %>
+                  Only 1 active bucket available. Add more buckets to enable redundancy.
+                <% else %>
+                  Maximum {@max_redundancy} copies based on {@active_buckets_count} active bucket(s).
+                <% end %>
+              </p>
             <% end %>
           </div>
 
           <%!-- Auto-Variant Generation --%>
           <div class="form-control">
-            <label class="label cursor-pointer">
+            <label class="flex items-start gap-3 cursor-pointer py-2">
               <input
                 type="checkbox"
                 name="form_auto_generate_variants"
                 checked={@form_auto_generate_variants}
                 phx-click="toggle_form_variants"
                 value="true"
-                class="checkbox checkbox-primary"
+                class="checkbox checkbox-primary mt-0.5 flex-shrink-0"
               />
-              <span class="label-text ml-2">
-                <span class="font-semibold">Auto-Generate Variants</span>
-                <span class="block text-xs opacity-70">
+              <span>
+                <span class="font-semibold text-sm">Auto-Generate Variants</span>
+                <span class="block text-xs text-base-content/70 mt-0.5">
                   Automatically resize images and videos to configured dimensions
                 </span>
               </span>

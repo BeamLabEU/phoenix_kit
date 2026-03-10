@@ -9,7 +9,7 @@
     <.admin_page_header
       back={Routes.path("/admin/newsletters/broadcasts")}
       title={@page_title}
-      subtitle="Compose and send a broadcast email to your mailing list"
+      subtitle="Compose and send a broadcast email to your newsletter list"
     />
 
     <form id="broadcast-form" phx-change="validate" phx-submit="save_draft">
@@ -30,7 +30,7 @@
 
           <%!-- List selector --%>
           <fieldset class="fieldset">
-            <label class="label">Mailing List</label>
+            <label class="label">Newsletter List</label>
             <select name="list_uuid" class="select w-full">
               <option value="">Select a list...</option>
               <option :for={list <- @lists} value={list.uuid} selected={@list_uuid == list.uuid}>

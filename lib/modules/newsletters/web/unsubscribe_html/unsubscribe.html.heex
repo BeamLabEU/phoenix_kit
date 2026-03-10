@@ -10,7 +10,7 @@
 
         <form
           method="post"
-          action={PhoenixKit.Utils.Routes.path("/mailing/unsubscribe")}
+          action={PhoenixKit.Utils.Routes.path("/newsletters/unsubscribe")}
           class="mt-4"
         >
           <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
@@ -34,7 +34,7 @@
           <% end %>
         </ul>
 
-        <form method="post" action={PhoenixKit.Utils.Routes.path("/mailing/unsubscribe")}>
+        <form method="post" action={PhoenixKit.Utils.Routes.path("/newsletters/unsubscribe")}>
           <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
           <input type="hidden" name="token" value={@token} />
           <input type="hidden" name="scope" value="all" />

@@ -150,10 +150,10 @@
                       {gettext("Notification")}
                     </option>
                     <option
-                      value="mailing"
-                      selected={Ecto.Changeset.get_field(@changeset, :category) == "mailing"}
+                      value="newsletters"
+                      selected={Ecto.Changeset.get_field(@changeset, :category) == "newsletters"}
                     >
-                      {gettext("Mailing")}
+                      {gettext("Newsletters")}
                     </option>
                   </select>
                   <%= if error = Keyword.get(@changeset.errors, :category) do %>

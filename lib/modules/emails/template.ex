@@ -91,7 +91,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
         }
 
   # Valid categories for email templates
-  @valid_categories ["system", "marketing", "transactional", "notification", "mailing"]
+  @valid_categories ["system", "marketing", "transactional", "notification", "newsletters"]
 
   # Valid statuses for email templates
   @valid_statuses ["active", "draft", "archived"]

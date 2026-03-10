@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Modules.Newsletters.Web.Broadcasts do
   @moduledoc """
-  LiveView for the broadcasts list in the mailing admin panel.
+  LiveView for the broadcasts list in the newsletters admin panel.
   """
 
   use PhoenixKitWeb, :live_view

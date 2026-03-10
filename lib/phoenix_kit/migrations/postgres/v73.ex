@@ -127,6 +127,15 @@ defmodule PhoenixKit.Migrations.Postgres.V73 do
           AND table_schema = '#{escaped_prefix}'
           AND column_name = '#{column}'
           AND is_nullable = 'NO'
+        ) AND NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          WHERE tc.constraint_type = 'PRIMARY KEY'
+            AND tc.table_name = '#{table}'
+            AND tc.table_schema = '#{escaped_prefix}'
+            AND kcu.column_name = '#{column}'
         ) THEN
           ALTER TABLE #{table_name} ALTER COLUMN #{column} DROP NOT NULL;
         END IF;

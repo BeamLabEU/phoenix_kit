@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Modules.Newsletters.Web.BroadcastEditor do
   @moduledoc """
-  LiveView for creating and editing mailing broadcasts with Markdown editor and live preview.
+  LiveView for creating and editing newsletter broadcasts with Markdown editor and live preview.
   """
 
   use PhoenixKitWeb, :live_view

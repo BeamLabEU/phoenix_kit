@@ -141,6 +141,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   defp dispatch_toggle(socket, "billing"), do: toggle_billing(socket)
   defp dispatch_toggle(socket, "legal"), do: toggle_legal(socket)
   defp dispatch_toggle(socket, "shop"), do: toggle_shop(socket)
+  defp dispatch_toggle(socket, "newsletters"), do: toggle_newsletters(socket)
   defp dispatch_toggle(socket, key), do: generic_toggle(socket, key)
 
   # ============================================================================
@@ -364,6 +365,25 @@ defmodule PhoenixKitWeb.Live.Modules do
         end
       else
         {:noreply, put_flash(socket, :error, gettext("Please enable Billing module first"))}
+      end
+    end
+  end
+
+  defp toggle_newsletters(socket) do
+    configs = socket.assigns.module_configs
+    newsletters_config = configs["newsletters"] || %{}
+    newsletters_enabled = newsletters_config[:enabled] || false
+    emails_enabled = (configs["emails"] || %{})[:enabled] || false
+
+    if newsletters_enabled do
+      # Disabling — always allowed
+      generic_toggle(socket, "newsletters")
+    else
+      # Enabling — require emails
+      if emails_enabled do
+        generic_toggle(socket, "newsletters")
+      else
+        {:noreply, put_flash(socket, :error, "Please enable Emails module first")}
       end
     end
   end
