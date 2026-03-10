@@ -1,0 +1,182 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Mailing Lists"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <.admin_page_header
+      back={Routes.path("/admin")}
+      title="Mailing Lists"
+      subtitle="Manage your email subscriber lists"
+    />
+
+    <%!-- Actions Bar --%>
+    <div class="flex justify-end mb-6">
+      <.pk_link navigate="/admin/newsletters/lists/new" class="btn btn-sm btn-primary">
+        <.icon name="hero-plus" class="w-4 h-4 mr-1" /> New List
+      </.pk_link>
+    </div>
+
+    <%!-- Confirm Modal --%>
+    <%= if @show_confirm_modal do %>
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-bold text-lg mb-4">{@confirm_title}</h3>
+          <p class="mb-4">{@confirm_message}</p>
+          <div class="modal-action">
+            <button phx-click="hide_confirm" class="btn btn-outline">Cancel</button>
+            <button phx-click="confirm_action" class="btn btn-error">{@confirm_title}</button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Lists Table (desktop) --%>
+    <%= if length(@lists) > 0 do %>
+      <div class="hidden md:block">
+        <.table_default variant="zebra" size="sm" class="w-full">
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell>Name</.table_default_header_cell>
+              <.table_default_header_cell>Slug</.table_default_header_cell>
+              <.table_default_header_cell>Status</.table_default_header_cell>
+              <.table_default_header_cell>Subscribers</.table_default_header_cell>
+              <.table_default_header_cell>Actions</.table_default_header_cell>
+            </.table_default_row>
+          </.table_default_header>
+
+          <.table_default_body>
+            <%= for list <- @lists do %>
+              <.table_default_row>
+                <.table_default_cell>
+                  <div class="font-medium">{list.name}</div>
+                  <%= if list.is_default do %>
+                    <span class="badge badge-xs badge-info ml-1">Default</span>
+                  <% end %>
+                  <%= if list.description do %>
+                    <div class="text-xs text-base-content/60 mt-0.5">{list.description}</div>
+                  <% end %>
+                </.table_default_cell>
+                <.table_default_cell class="font-mono text-xs">
+                  {list.slug}
+                </.table_default_cell>
+                <.table_default_cell>
+                  <%= if list.status == "active" do %>
+                    <span class="badge badge-sm badge-success">Active</span>
+                  <% else %>
+                    <span class="badge badge-sm badge-ghost">Archived</span>
+                  <% end %>
+                </.table_default_cell>
+                <.table_default_cell>
+                  {list.subscriber_count}
+                </.table_default_cell>
+                <.table_default_cell>
+                  <div class="flex gap-1">
+                    <.pk_link
+                      navigate={"/admin/newsletters/lists/#{list.uuid}/members"}
+                      class="btn btn-xs btn-outline"
+                      title="View members"
+                    >
+                      <.icon name="hero-users" class="w-3 h-3 hidden sm:inline" />
+                      <span class="sm:hidden whitespace-nowrap">Members</span>
+                    </.pk_link>
+                    <.pk_link
+                      navigate={"/admin/newsletters/lists/#{list.uuid}/edit"}
+                      class="btn btn-xs btn-outline"
+                      title="Edit"
+                    >
+                      <.icon name="hero-pencil" class="w-3 h-3 hidden sm:inline" />
+                      <span class="sm:hidden whitespace-nowrap">Edit</span>
+                    </.pk_link>
+                    <button
+                      phx-click="show_confirm"
+                      phx-value-action="delete"
+                      phx-value-uuid={list.uuid}
+                      class="btn btn-xs btn-outline btn-error"
+                      title="Delete"
+                    >
+                      <.icon name="hero-trash" class="w-3 h-3 hidden sm:inline" />
+                      <span class="sm:hidden whitespace-nowrap">Delete</span>
+                    </button>
+                  </div>
+                </.table_default_cell>
+              </.table_default_row>
+            <% end %>
+          </.table_default_body>
+        </.table_default>
+      </div>
+
+      <%!-- Lists Cards (mobile) --%>
+      <div class="md:hidden mb-6">
+        <div class="space-y-3">
+          <%= for list <- @lists do %>
+            <div class="card card-border card-sm bg-base-100">
+              <div class="card-body gap-3">
+                <%!-- Header: name + status --%>
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex flex-col min-w-0">
+                    <span class="font-medium text-sm truncate">{list.name}</span>
+                    <%= if list.is_default do %>
+                      <span class="badge badge-xs badge-info mt-0.5">Default</span>
+                    <% end %>
+                  </div>
+                  <%= if list.status == "active" do %>
+                    <span class="badge badge-sm badge-success">Active</span>
+                  <% else %>
+                    <span class="badge badge-sm badge-ghost">Archived</span>
+                  <% end %>
+                </div>
+
+                <%!-- Body: key/value grid --%>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div class="text-base-content/60">Slug</div>
+                  <div class="font-mono text-xs">{list.slug}</div>
+
+                  <div class="text-base-content/60">Subscribers</div>
+                  <div>{list.subscriber_count}</div>
+                </div>
+
+                <%!-- Footer: actions --%>
+                <div class="card-actions justify-end pt-1 border-t border-base-200">
+                  <.pk_link
+                    navigate={"/admin/newsletters/lists/#{list.uuid}/members"}
+                    class="btn btn-xs btn-outline"
+                  >
+                    <.icon name="hero-users" class="w-3 h-3" /> Members
+                  </.pk_link>
+                  <.pk_link
+                    navigate={"/admin/newsletters/lists/#{list.uuid}/edit"}
+                    class="btn btn-xs btn-outline"
+                  >
+                    <.icon name="hero-pencil" class="w-3 h-3" /> Edit
+                  </.pk_link>
+                  <button
+                    phx-click="show_confirm"
+                    phx-value-action="delete"
+                    phx-value-uuid={list.uuid}
+                    class="btn btn-xs btn-outline btn-error"
+                  >
+                    <.icon name="hero-trash" class="w-3 h-3" /> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% else %>
+      <div class="text-center py-12">
+        <.icon name="hero-list-bullet" class="w-16 h-16 mx-auto mb-4 opacity-30" />
+        <h3 class="text-lg font-medium text-base-content mb-2">No mailing lists yet</h3>
+        <p class="text-base-content/70 mb-4">
+          Create your first list to start managing subscribers.
+        </p>
+        <.pk_link navigate="/admin/newsletters/lists/new" class="btn btn-primary btn-sm">
+          <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Create First List
+        </.pk_link>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

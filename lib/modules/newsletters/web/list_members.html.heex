@@ -1,0 +1,247 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <.admin_page_header
+      back={Routes.path("/admin/newsletters/lists")}
+      title={@list.name}
+      subtitle={"#{@list.subscriber_count} active subscribers"}
+    />
+
+    <%!-- Confirm Modal --%>
+    <%= if @show_confirm_modal do %>
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-bold text-lg mb-4">{@confirm_title}</h3>
+          <p class="mb-4">{@confirm_message}</p>
+          <div class="modal-action">
+            <button phx-click="hide_confirm" class="btn btn-outline">Cancel</button>
+            <button phx-click="confirm_action" class="btn btn-error">{@confirm_title}</button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Add Members --%>
+    <div class="card bg-base-100 shadow-sm mb-6">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="card-title text-base">Add Members</h3>
+          <button
+            phx-click="show_confirm"
+            phx-value-action="add_all_users"
+            class="btn btn-sm btn-outline"
+          >
+            <.icon name="hero-user-group" class="w-4 h-4" /> Add All Users
+          </button>
+        </div>
+
+        <fieldset class="fieldset">
+          <input
+            type="text"
+            name="query"
+            value={@search_query}
+            placeholder="Search users by email or name..."
+            class="input w-full"
+            phx-change="search_users"
+            phx-debounce="300"
+          />
+        </fieldset>
+
+        <%= if length(@search_results) > 0 do %>
+          <div class="mt-2 border border-base-300 rounded-lg divide-y divide-base-300">
+            <%= for user <- @search_results do %>
+              <div class="flex items-center justify-between px-3 py-2">
+                <div>
+                  <span class="font-medium text-sm">{user.email}</span>
+                  <%= if user.username do %>
+                    <span class="text-xs text-base-content/60 ml-2">@{user.username}</span>
+                  <% end %>
+                </div>
+                <button
+                  phx-click="add_member"
+                  phx-value-user-uuid={user.uuid}
+                  class="btn btn-xs btn-primary"
+                >
+                  <.icon name="hero-plus" class="w-3 h-3" /> Add
+                </button>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%= if @search_query != "" and length(@search_results) == 0 do %>
+          <p class="text-sm text-base-content/60 mt-2">
+            No users found matching "{@search_query}"
+          </p>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Filters --%>
+    <div class="bg-base-200 rounded-lg p-4 mb-6">
+      <div class="flex gap-2 items-center">
+        <span class="text-sm font-medium">Filter by status:</span>
+        <select
+          phx-change="filter_status"
+          name="status"
+          class="select select-sm"
+        >
+          <option value="" selected={@status_filter == ""}>All</option>
+          <option value="active" selected={@status_filter == "active"}>Active</option>
+          <option value="unsubscribed" selected={@status_filter == "unsubscribed"}>
+            Unsubscribed
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <%!-- Members Table (desktop) --%>
+    <%= if length(@members) > 0 do %>
+      <div class="hidden md:block">
+        <.table_default variant="zebra" size="sm" class="w-full">
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell>Email</.table_default_header_cell>
+              <.table_default_header_cell>Status</.table_default_header_cell>
+              <.table_default_header_cell>Subscribed At</.table_default_header_cell>
+              <.table_default_header_cell>Actions</.table_default_header_cell>
+            </.table_default_row>
+          </.table_default_header>
+
+          <.table_default_body>
+            <%= for member <- @members do %>
+              <.table_default_row>
+                <.table_default_cell class="font-mono text-xs">
+                  <%= if member.user do %>
+                    {member.user.email}
+                  <% else %>
+                    <span class="text-base-content/50">(unknown)</span>
+                  <% end %>
+                </.table_default_cell>
+                <.table_default_cell>
+                  <%= if member.status == "active" do %>
+                    <span class="badge badge-sm badge-success">Active</span>
+                  <% else %>
+                    <span class="badge badge-sm badge-ghost">Unsubscribed</span>
+                  <% end %>
+                </.table_default_cell>
+                <.table_default_cell class="text-xs">
+                  <%= if member.subscribed_at do %>
+                    {Calendar.strftime(member.subscribed_at, "%Y-%m-%d %H:%M")}
+                  <% end %>
+                </.table_default_cell>
+                <.table_default_cell>
+                  <div class="flex gap-1">
+                    <%= if member.status == "active" do %>
+                      <button
+                        phx-click="show_confirm"
+                        phx-value-action="unsubscribe"
+                        phx-value-uuid={member.uuid}
+                        class="btn btn-xs btn-outline btn-warning"
+                        title="Unsubscribe"
+                      >
+                        <.icon
+                          name="hero-arrow-left-on-rectangle"
+                          class="w-3 h-3 hidden sm:inline"
+                        />
+                        <span class="sm:hidden whitespace-nowrap">Unsubscribe</span>
+                      </button>
+                    <% end %>
+                    <button
+                      phx-click="show_confirm"
+                      phx-value-action="remove"
+                      phx-value-uuid={member.uuid}
+                      class="btn btn-xs btn-outline btn-error"
+                      title="Remove"
+                    >
+                      <.icon name="hero-trash" class="w-3 h-3 hidden sm:inline" />
+                      <span class="sm:hidden whitespace-nowrap">Remove</span>
+                    </button>
+                  </div>
+                </.table_default_cell>
+              </.table_default_row>
+            <% end %>
+          </.table_default_body>
+        </.table_default>
+      </div>
+
+      <%!-- Members Cards (mobile) --%>
+      <div class="md:hidden mb-6">
+        <div class="space-y-3">
+          <%= for member <- @members do %>
+            <div class="card card-border card-sm bg-base-100">
+              <div class="card-body gap-3">
+                <%!-- Header: email + status --%>
+                <div class="flex items-start justify-between gap-2">
+                  <span class="font-medium text-sm truncate">
+                    <%= if member.user do %>
+                      {member.user.email}
+                    <% else %>
+                      <span class="text-base-content/50">(unknown)</span>
+                    <% end %>
+                  </span>
+                  <%= if member.status == "active" do %>
+                    <span class="badge badge-sm badge-success">Active</span>
+                  <% else %>
+                    <span class="badge badge-sm badge-ghost">Unsubscribed</span>
+                  <% end %>
+                </div>
+
+                <%!-- Body: key/value grid --%>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div class="text-base-content/60">Subscribed At</div>
+                  <div>
+                    <%= if member.subscribed_at do %>
+                      {Calendar.strftime(member.subscribed_at, "%Y-%m-%d %H:%M")}
+                    <% else %>
+                      -
+                    <% end %>
+                  </div>
+                </div>
+
+                <%!-- Footer: actions --%>
+                <div class="card-actions justify-end pt-1 border-t border-base-200">
+                  <%= if member.status == "active" do %>
+                    <button
+                      phx-click="show_confirm"
+                      phx-value-action="unsubscribe"
+                      phx-value-uuid={member.uuid}
+                      class="btn btn-xs btn-outline btn-warning"
+                    >
+                      <.icon name="hero-arrow-left-on-rectangle" class="w-3 h-3" /> Unsubscribe
+                    </button>
+                  <% end %>
+                  <button
+                    phx-click="show_confirm"
+                    phx-value-action="remove"
+                    phx-value-uuid={member.uuid}
+                    class="btn btn-xs btn-outline btn-error"
+                  >
+                    <.icon name="hero-trash" class="w-3 h-3" /> Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% else %>
+      <div class="text-center py-12">
+        <.icon name="hero-users" class="w-16 h-16 mx-auto mb-4 opacity-30" />
+        <h3 class="text-lg font-medium text-base-content mb-2">No members found</h3>
+        <p class="text-base-content/70">
+          <%= if @status_filter != "" do %>
+            Try changing the filter above.
+          <% else %>
+            This list has no subscribers yet.
+          <% end %>
+        </p>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
