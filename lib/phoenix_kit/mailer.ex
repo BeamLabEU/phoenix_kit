@@ -371,7 +371,7 @@ defmodule PhoenixKit.Mailer do
           :ok
 
         log_uuid ->
-          case Emails.get_log!(log_uuid) do
+          case Emails.get_log(log_uuid) do
             nil -> :ok
             log -> update_log_after_delivery(log, result, opts)
           end

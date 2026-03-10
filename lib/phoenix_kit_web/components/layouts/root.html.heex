@@ -8,7 +8,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
     <%= if @seo_no_index do %>
       <meta name="robots" content="noindex,nofollow" />
       <meta name="googlebot" content="noindex,nofollow" />
@@ -21,6 +20,13 @@
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    </script>
+    <%!-- PhoenixKit Cookie Consent Widget Setup --%>
+    <script>
+      window.PHOENIX_KIT_PREFIX = "<%= PhoenixKit.Utils.Routes.url_prefix() %>";
+    </script>
+    <%!-- PhoenixKit Cookie Consent Widget Script --%>
+    <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
     </script>
   </head>
   <body class="bg-gray-50">

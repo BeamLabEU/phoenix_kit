@@ -119,13 +119,17 @@ defmodule PhoenixKit.Install.ObanConfig do
         emails: 50,            # Email processing
         file_processing: 20,   # File variant generation (storage system)
         posts: 10,             # Posts scheduled publishing
+        scheduled_jobs: 1,     # Scheduled jobs cron (1-day retention)
         sitemap: 5,            # Sitemap generation
         sqs_polling: 1,        # SQS polling for email events (only one concurrent job)
         sync: 5,            # Sync data import
         newsletters_delivery: 10  # Newsletters broadcast deliveries
       ],
       plugins: [
-        {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days
+        # Main pruner: 30 days for most queues
+        {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30, queue: [:default, :emails, :file_processing, :posts, :sitemap, :sqs_polling, :sync]},
+        # Dedicated pruner: 1 day only for scheduled_jobs (cron runs every minute)
+        {Oban.Plugins.Pruner, max_age: 60 * 60 * 24, queue: [:scheduled_jobs]},
         {Oban.Plugins.Cron,
          crontab: [
            {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
@@ -811,13 +815,17 @@ defmodule PhoenixKit.Install.ObanConfig do
           emails: 50,
           file_processing: 20,
           posts: 10,
+          scheduled_jobs: 1,     # Scheduled jobs cron (1-day retention)
           sitemap: 5,
           sqs_polling: 1,
           sync: 5,
           newsletters_delivery: 10
         ],
         plugins: [
-          {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days
+          # Main pruner: 30 days for most queues
+          {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30, queue: [:default, :emails, :file_processing, :posts, :sitemap, :sqs_polling, :sync]},
+          # Dedicated pruner: 1 day only for scheduled_jobs (cron runs every minute)
+          {Oban.Plugins.Pruner, max_age: 60 * 60 * 24, queue: [:scheduled_jobs]},
           {Oban.Plugins.Cron,
            crontab: [
              {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}

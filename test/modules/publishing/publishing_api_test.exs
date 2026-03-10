@@ -16,16 +16,16 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
       assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.DBStorage)
     end
 
-    test "DualWrite module is defined" do
-      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.DualWrite)
-    end
-
     test "ListingCache module is defined" do
       assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.ListingCache)
     end
 
-    test "Storage module is defined" do
-      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.Storage)
+    test "LanguageHelpers module is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.LanguageHelpers)
+    end
+
+    test "SlugHelpers module is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.SlugHelpers)
     end
 
     test "Metadata module is defined" do
@@ -50,10 +50,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
     test "Worker modules are defined" do
       assert Code.ensure_loaded?(
                PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
-             )
-
-      assert Code.ensure_loaded?(
-               PhoenixKit.Modules.Publishing.Workers.MigrateLegacyStructureWorker
              )
     end
   end
@@ -159,7 +155,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
     end
 
     test "extracts slug, version, and language" do
-      assert Publishing.extract_slug_version_and_language("blog", "hello-world/v2/en.phk") ==
+      assert Publishing.extract_slug_version_and_language("blog", "hello-world/v2/en") ==
                {"hello-world", 2, "en"}
     end
 
@@ -168,7 +164,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
     end
 
     test "drops group prefix when present" do
-      assert Publishing.extract_slug_version_and_language("blog", "blog/hello-world/v1/en.phk") ==
+      assert Publishing.extract_slug_version_and_language("blog", "blog/hello-world/v1/en") ==
                {"hello-world", 1, "en"}
     end
 

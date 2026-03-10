@@ -1,6 +1,6 @@
 # Publishing Module
 
-The PhoenixKit Publishing module provides a database-backed content management system with multi-language support and dual URL modes (slug-based or timestamp-based). Posts are stored in PostgreSQL via four normalized tables (`publishing_groups`, `publishing_posts`, `publishing_versions`, `publishing_contents`) with UUIDv7 primary keys. A legacy filesystem reader remains for backward compatibility during migration from the older `.phk` file format.
+The PhoenixKit Publishing module provides a database-backed content management system with multi-language support and dual URL modes (slug-based or timestamp-based). Posts are stored in PostgreSQL via four normalized tables (`publishing_groups`, `publishing_posts`, `publishing_versions`, `publishing_contents`) with UUIDv7 primary keys.
 
 ## Quick Links
 
@@ -8,7 +8,7 @@ The PhoenixKit Publishing module provides a database-backed content management s
 - **Public Content**: `/{prefix}/{language}/{group-slug}` (listing) or `/{prefix}/{group-slug}` (single-language)
 - **Settings**: Configure via `publishing_public_enabled` and `publishing_posts_per_page` in Settings
 - **Enable Module**: Activate via Admin → Modules or run `PhoenixKit.Modules.Publishing.enable_system/0`
-- **Cache Settings**: Toggle `publishing_file_cache_enabled`, `publishing_memory_cache_enabled`, and `publishing_render_cache_enabled[_<slug>]`
+- **Cache Settings**: Toggle `publishing_memory_cache_enabled` and `publishing_render_cache_enabled[_<slug>]`
 - **What it ships**: Listing cache, render cache, collaborative editor, public fallback routing, and optional per-post version history
 
 ## Public Content Display
@@ -48,7 +48,7 @@ The publishing module includes public-facing routes for displaying published pos
 - **Status-Based Access Control** - Only `status: published` posts are visible
 - **Markdown Rendering** - GitHub-style markdown CSS with syntax highlighting
 - **Language Support** - Multi-language posts with language switcher
-- **Content-Based Language Detection** - Custom language files (e.g., `af.phk`) work without predefinition
+- **Content-Based Language Detection** - Custom language content records work without predefinition
 - **Flexible Fallbacks** - Missing language versions redirect to available alternatives
 - **Pagination** - Configurable posts per page (default: 20)
 - **SEO Ready** - Clean URLs, breadcrumbs, responsive design
@@ -67,9 +67,9 @@ The publishing module uses a multi-step detection process to determine if a URL 
 
 **Supported Language Types:**
 - **Predefined Languages** - Languages configured in the Languages module (e.g., `en`, `fr`, `es`)
-- **Content-Based Languages** - Any `.phk` file in a post directory is treated as a valid language
+- **Content-Based Languages** - Any content record with a language code is treated as a valid language
 
-This allows custom language files like `af.phk` (Afrikaans) or `test.phk` to work correctly even if not predefined in the Languages module. In the **admin interface**, the language switcher shows these with a strikethrough to indicate they're not officially enabled. In the **public display**, only enabled languages appear in the language switcher, but custom language URLs remain accessible via direct link.
+This allows custom language content records (e.g., Afrikaans `af`) to work correctly even if not predefined in the Languages module. In the **admin interface**, the language switcher shows these with a strikethrough to indicate they're not officially enabled. In the **public display**, only enabled languages appear in the language switcher, but custom language URLs remain accessible via direct link.
 
 **Single-Language Mode:**
 When only one language is enabled, URLs don't require the language segment:
@@ -137,11 +137,10 @@ When editing a post in the admin interface:
 
 PhoenixKit ships two cache layers:
 
-1. **Listing cache** – `PhoenixKit.Modules.Publishing.ListingCache` writes summary JSON to
-   `priv/publishing/<group>/.listing_cache.json` and mirrors parsed data into `:persistent_term`
-   for sub-microsecond reads. File vs memory caching can be toggled via the
-   `publishing_file_cache_enabled` / `publishing_memory_cache_enabled` settings or from the Publishing
-   Settings UI, which also offers regenerate/clear actions per group.
+1. **Listing cache** – `PhoenixKit.Modules.Publishing.ListingCache` stores parsed listing data
+   in `:persistent_term` for sub-microsecond reads. Memory caching can be toggled via the
+   `publishing_memory_cache_enabled` setting or from the Publishing Settings UI, which also
+   offers regenerate/clear actions per group.
 2. **Render cache** – `PhoenixKit.Modules.Publishing.Renderer` stores rendered HTML for published posts in the
    `:publishing_posts` cache (6-hour TTL) with content-hash keys, a global
    `publishing_render_cache_enabled` toggle, and per-group overrides (`publishing_render_cache_enabled_<slug>`)
@@ -176,8 +175,7 @@ Renderer.clear_all_cache()
 - **PhoenixKit.Modules.Publishing** – Main context module with mode-aware routing (all writes are DB-only)
 - **PhoenixKit.Modules.Publishing.DBStorage** – Database CRUD layer for groups, posts, versions, and contents
 - **PhoenixKit.Modules.Publishing.DBStorage.Mapper** – Converts DB records to the legacy map format consumed by web layer
-- **PhoenixKit.Modules.Publishing.Storage** – Read-only filesystem layer (legacy `.phk` file reads for pre-migration content)
-- **PhoenixKit.Modules.Publishing.Metadata** – YAML frontmatter parsing and serialization (used by FS reader and import workers)
+- **PhoenixKit.Modules.Publishing.Metadata** – Metadata parsing and serialization
 
 **Schemas (V59 migration):**
 
@@ -188,7 +186,7 @@ Renderer.clear_all_cache()
 
 **Admin Interfaces:**
 
-- **PhoenixKit.Modules.Publishing.Web.Settings** – Admin interface for group configuration and DB import
+- **PhoenixKit.Modules.Publishing.Web.Settings** – Admin interface for group configuration
 - **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave and featured images (DB-only, gated by migration)
 - **PhoenixKit.Modules.Publishing.Web.Preview** – Live preview for posts
 
@@ -199,7 +197,7 @@ Renderer.clear_all_cache()
 
 **Rendering & Caching:**
 
-- **PhoenixKit.Modules.Publishing.ListingCache** – File + memory listing cache
+- **PhoenixKit.Modules.Publishing.ListingCache** – Memory listing cache
 - **PhoenixKit.Modules.Publishing.Renderer** – Markdown/PHK rendering with content-hash caching
 
 **Collaborative Editing:**
@@ -211,7 +209,6 @@ Renderer.clear_all_cache()
 **Workers:**
 
 - **MigratePrimaryLanguageWorker** – Ensures primary language metadata consistency
-- **MigrateLegacyStructureWorker** – Upgrades legacy non-versioned posts to versioned structure
 
 ## Core Features
 
@@ -219,7 +216,7 @@ Renderer.clear_all_cache()
 - **Mode Immutability** – URL mode locked at group creation, cannot be changed
 - **Slug Mutability** – Post slugs can be changed after creation (DB update, no file movement)
 - **Multi-Language Support** – Separate content records per language, all stored in `publishing_contents` table
-- **Database Storage** – All writes go to PostgreSQL; legacy `.phk` file reading preserved for migration
+- **Database Storage** – All reads and writes go to PostgreSQL
 - **Markdown Content** – Full Markdown support with syntax highlighting
 - **JSONB Metadata** – Flexible metadata via `data` JSONB columns on all four schemas
 - **Backward Compatibility** – Legacy groups without mode field default to "timestamp"
@@ -261,39 +258,20 @@ Posts addressed by semantic slug:
 
 **Example URL:** `/phoenix_kit/en/docs/getting-started`
 
-## File Format (.phk files)
+## Content Format
 
-> **Note:** The `.phk` format is the legacy filesystem format. New posts are stored in the database. This section documents the format for migration purposes and for understanding the `Metadata` module.
-
-PhoenixKit posts use YAML frontmatter followed by Markdown content:
-
-```yaml
----
-slug: getting-started
-status: published
-published_at: 2025-01-15T09:30:00Z
-created_at: 2025-01-15T09:30:00Z
----
-
-# Getting Started Guide
-
-This is the **Markdown content** of your post.
-
-- Supports all standard Markdown features
-- Code blocks with syntax highlighting
-- Images, links, tables, etc.
-```
+Post content is stored in the `publishing_contents` table as Markdown text with metadata tracked in the schema fields and `data` JSONB column.
 
 **Title Extraction:**
 
-The post title is **extracted from the first Markdown heading** (`# Title`), not stored in frontmatter. This approach:
+The post title is **extracted from the first Markdown heading** (`# Title`) in the content body. This approach:
 - Keeps the title visible in the content for authors
-- Avoids duplication between frontmatter and content
-- Makes the rendered output match the source file
+- Avoids duplication between metadata and content
+- Makes the rendered output match the source
 
-**Frontmatter Fields:**
+**Metadata Fields:**
 
-- `slug` – Post slug (required, used for file path in slug mode)
+- `slug` – Post slug (used for URL in slug mode)
 - `status` – Publication status: `draft`, `published`, or `archived`
 - `published_at` – Publication timestamp (ISO8601 format)
 - `featured_image_uuid` – Optional reference to a featured image asset
@@ -309,17 +287,11 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `updated_by_uuid` – User ID who last updated the post
 - `updated_by_email` – Email of user who last updated the post
 
-**Advanced: PHK Component Format**
+**PHK Component Format**
 
-In addition to Markdown, `.phk` files can contain PHK components for structured page layouts:
+In addition to Markdown, post content can contain PHK components for structured page layouts:
 
 ```html
----
-slug: landing-page
-status: published
-published_at: 2025-01-15T09:30:00Z
----
-
 <Hero variant="centered" title="Welcome" />
 
 # Introduction
@@ -394,7 +366,7 @@ iex> {:ok, post_es} = Publishing.read_post("docs", "getting-started", "es")
 iex> {:ok, updated} = Publishing.update_post("docs", post, %{"content" => "# v2"}, scope: scope)
 ```
 
-- Slug-mode identifiers can include versions, e.g. `"getting-started/v2/en.phk"`.
+- Slug-mode identifiers can include versions, e.g. `"getting-started"` with version number.
 - Timestamp-mode identifiers are `"YYYY-MM-DD/HH:MM"` paths.
 - `update_post/4` updates the DB record directly; slug changes are tracked via `previous_url_slugs`.
 
@@ -420,13 +392,13 @@ iex> {:ok, cached} = Publishing.find_cached_post("docs", "getting-started")
 iex> {:ok, _} = Publishing.trash_post("docs", "getting-started")
 ```
 
-- Listing cache uses file + `:persistent_term` for sub-microsecond reads.
+- Listing cache uses `:persistent_term` for sub-microsecond reads.
 - `trash_post/2` performs a DB soft-delete (sets `deleted_at` timestamp). Trashed posts can be restored via DB if needed.
 
 ### Group Management
 
 ```elixir
-# Create group with storage mode
+# Create group with URL mode
 {:ok, group} = Publishing.add_group("Documentation", mode: "slug")
 {:ok, group} = Publishing.add_group("Company News", mode: "timestamp")
 
@@ -437,7 +409,7 @@ iex> {:ok, _} = Publishing.trash_post("docs", "getting-started")
 groups = Publishing.list_groups()
 # => [%{"name" => "Docs", "slug" => "docs", "mode" => "slug"}, ...]
 
-# Get group storage mode
+# Get group URL mode
 mode = Publishing.get_group_mode("docs")  # => "slug"
 
 # Update group name/slug
@@ -642,11 +614,7 @@ Public URLs always show the published version's content:
 **Version Browsing (Opt-in):**
 
 By default, only the published version is accessible. To enable public access to older
-published versions, set `allow_version_access: true` in the post's metadata:
-
-```yaml
-allow_version_access: true
-```
+published versions, set `allow_version_access: true` in the post's metadata (stored in the `data` JSONB column).
 
 When enabled, versioned URLs become accessible:
 - `/{prefix}/{language}/{group}/{post}/v/{version}` - Direct version access
@@ -706,34 +674,6 @@ post_map = Mapper.to_legacy_map(group, post, version, content, available_languag
 listing_map = Mapper.to_listing_map(group, post, version, primary_content)
 ```
 
-### Filesystem Storage (Read-Only — Legacy Migration)
-
-The `Storage` module provides read-only access to legacy `.phk` files for pre-migration content:
-
-```elixir
-alias PhoenixKit.Modules.Publishing.Storage
-
-# Read-only operations (used by public rendering before DB migration completes)
-{:ok, post} = Storage.read_post_slug_mode("docs", "hello", "en")
-posts = Storage.list_posts_slug_mode("docs", "en")
-posts = Storage.list_posts("news", "en")
-
-# Utility functions (still active)
-Storage.valid_slug?("hello-world")  # => true
-{:ok, "hello-world"} = Storage.validate_slug("hello-world")
-Storage.slug_exists?("docs", "getting-started")  # => true/false
-{:ok, slug} = Storage.generate_unique_slug("docs", "Getting Started")
-Storage.content_changed?(post, params)  # => true/false
-Storage.status_change_only?(post, params)  # => true/false
-
-# Language helpers
-Storage.enabled_language_codes()   # => ["en", "es", "fr"]
-Storage.get_language_info("en")    # => %{code: "en", name: "English", flag: "🇺🇸"}
-Storage.language_enabled?("en", ["en-US", "es"])  # => true
-```
-
-**Note:** All write functions (`create_post`, `update_post`, `trash_post`, `delete_language`, `delete_version`, etc.) have been removed from `Storage`. Use the context layer (`Publishing.*`) which routes to `DBStorage`.
-
 ## LiveView Interfaces
 
 ### Settings (`settings.ex`)
@@ -776,11 +716,11 @@ Posts can have an optional featured image:
 - Click "Select Featured Image" to open the media picker
 - Preview displays below the image selector
 - Click "Clear" to remove the featured image
-- Stored as `featured_image_uuid` in frontmatter
+- Stored as `featured_image_uuid` in metadata
 
 **Migration Gate:**
 
-The editor requires DB storage mode to be active. If filesystem posts exist but haven't been migrated, the editor redirects to the Publishing admin with a prompt to run the DB import. For fresh installs (no FS posts), DB mode is enabled automatically.
+The editor requires the V59 database migration to be applied. The editor is available immediately on fresh installs.
 
 **Mode-Specific Behavior:**
 
@@ -863,10 +803,10 @@ The `Mapper` module converts DB records into this map format consumed by templat
 %{
   group: "docs",                    # Publishing group slug
   slug: "getting-started",          # Slug mode only
-  uuid: "01234567-...",             # UUIDv7 from DB (nil for FS-only posts)
+  uuid: "01234567-...",             # UUIDv7 from DB
   date: ~D[2025-01-15],             # Timestamp mode only
   time: ~T[09:30:00],               # Timestamp mode only
-  path: "docs/getting-started/v1/en.phk",  # Virtual path for compatibility
+  path: "docs/getting-started/v1/en",      # Virtual path for compatibility
   metadata: %{
     title: "Getting Started",
     status: "published",            # "published", "draft", or "archived"
@@ -884,12 +824,11 @@ The `Mapper` module converts DB records into this map format consumed by templat
   mode: :slug,                      # :slug or :timestamp
   version: 1,                       # Current version number
   available_versions: [1, 2, 3],    # All versions for this post
-  version_statuses: %{1 => "archived", 2 => "archived", 3 => "published"},
-  is_legacy_structure: false
+  version_statuses: %{1 => "archived", 2 => "archived", 3 => "published"}
 }
 ```
 
-**Note on `uuid`:** Posts read from the database have a non-nil `uuid` field. The helper `Publishing.db_post?(post)` checks this to distinguish DB posts from legacy FS posts during the migration period.
+**Note on `uuid`:** All posts have a non-nil `uuid` field. The helper `Publishing.db_post?(post)` checks this.
 
 ## AI Translation
 
@@ -910,7 +849,7 @@ When prerequisites are met, a collapsible **AI Translation** panel appears in th
 3. Select an AI endpoint from the dropdown
 4. Click one of the translation buttons:
    - **Translate All Languages** - Translates to ALL enabled languages
-   - **Translate Missing Only** - Only translates languages that don't have a translation file yet
+   - **Translate Missing Only** - Only translates languages that don't have a content record yet
 
 The translation runs as a background job. Progress can be monitored in the Oban dashboard or via logs.
 
@@ -1020,7 +959,7 @@ Example log output:
 - **Partial Failures**: If some languages fail, the job reports which languages succeeded and which failed
 - **Retries**: Jobs retry up to 3 times with exponential backoff
 - **Timeout**: Jobs have a 10-minute timeout for large posts or many languages
-- **Language Fallback Protection**: The worker verifies each translation is saved to the correct language file (prevents overwriting primary)
+- **Language Fallback Protection**: The worker verifies each translation is saved to the correct language record (prevents overwriting primary)
 
 ### Programmatic Usage
 
@@ -1037,7 +976,7 @@ job = TranslatePostWorker.create_job("docs", "getting-started", endpoint_id: 1)
 {:ok, oban_job} = TranslatePostWorker.enqueue("docs", "getting-started", endpoint_id: 1)
 
 # Translate only missing languages
-missing_langs = ["de", "ja", "zh"]  # Languages without translation files
+missing_langs = ["de", "ja", "zh"]  # Languages without content records
 {:ok, job} = TranslatePostWorker.enqueue("docs", "getting-started",
   endpoint_id: 1,
   target_languages: missing_langs
@@ -1048,13 +987,7 @@ missing_langs = ["de", "ja", "zh"]  # Languages without translation files
 
 ### Fresh Installs
 
-New installs start with DB storage mode immediately. No filesystem content exists, so the editor is available right away.
-
-### Existing Installs (Filesystem → Database)
-
-Publishing groups and posts are stored in the database. The `publishing_storage` setting
-controls which storage backend is used for reads (`"filesystem"` or `"db"`). When set to `"db"`,
-the admin editor becomes available and all reads use the database tables.
+New installs start with database storage immediately. The editor is available right away after the V59 migration is applied.
 
 ### Existing Groups (Pre-Dual-Mode)
 
@@ -1125,7 +1058,6 @@ Publishing.enabled?()  # => true/false
 # Note: The inner "blogs" key is a legacy JSON key preserved for backward compatibility
 
 # Cache toggles (with legacy blogging_* fallback)
-PhoenixKit.Settings.update_setting("publishing_file_cache_enabled", "true")
 PhoenixKit.Settings.update_setting("publishing_memory_cache_enabled", "true")
 
 # Render cache (global + per group, with legacy fallback)
@@ -1136,9 +1068,9 @@ PhoenixKit.Settings.update_setting("publishing_render_cache_enabled_docs", "fals
 config :phoenix_kit, publishing_settings_module: MyApp.CustomSettings
 ```
 
-### Storage
+### Database Tables
 
-**Primary (DB):** All content is stored in PostgreSQL via the V59 migration tables:
+All content is stored in PostgreSQL via the V59 migration tables:
 
 | Table | Purpose |
 |-------|---------|
@@ -1147,15 +1079,11 @@ config :phoenix_kit, publishing_settings_module: MyApp.CustomSettings
 | `phoenix_kit_publishing_versions` | Versions (post FK, version_number, status) |
 | `phoenix_kit_publishing_contents` | Content/translations (version FK, language, title, content, url_slug) |
 
-**Legacy (FS, read-only):** Pre-migration `.phk` files in `priv/publishing/` (with `priv/blogging/` fallback) are read-only. When `publishing_storage` is set to `"db"`, all reads and writes use the database and the editor becomes available.
-
-**Feature flag:** The `publishing_storage` setting controls the read path:
-- `"filesystem"` (default) — Public rendering reads from FS; editor is gated/blocked
-- `"db"` — All reads and writes use the database
+All reads and writes use the database. The editor is available once the V59 migration is applied.
 
 ## Best Practices
 
-### Choosing Storage Mode
+### Choosing URL Mode
 
 **Use Timestamp Mode when:**
 - Content is time-sensitive (news, announcements, changelogs)
@@ -1186,8 +1114,8 @@ config :phoenix_kit, publishing_settings_module: MyApp.CustomSettings
 
 1. **Always create English first** – Establish primary content structure
 2. **Use consistent slugs** – All translations share the same slug/path
-3. **Translate titles** – Each language file has its own `# Title` heading
-4. **Don't mix languages** – One language per `.phk` file
+3. **Translate titles** – Each language content record has its own `# Title` heading
+4. **Don't mix languages** – One language per content record
 5. **Test translations** – Use language switcher in editor/preview
 
 ## Troubleshooting
@@ -1310,7 +1238,7 @@ Mode field is read-only in settings UI.
 
 **Root Cause:**
 
-Mode immutability is by design – storage mode is locked at group creation.
+Mode immutability is by design – URL mode is locked at group creation.
 
 **Solution:**
 
@@ -1427,14 +1355,7 @@ Each language translation can have its own SEO-friendly URL slug, enabling local
 
 **In Database:**
 
-The `url_slug` is stored on the `publishing_contents` record. For legacy `.phk` files, it's in the YAML frontmatter:
-
-```yaml
----
-slug: getting-started
-url_slug: primeros-pasos
----
-```
+The `url_slug` is stored on the `publishing_contents` record.
 
 **Auto-Generation:**
 
@@ -1455,19 +1376,12 @@ URL slugs are validated before saving:
 
 ### 301 Redirects for Changed Slugs
 
-When you change a URL slug, the old slug is automatically stored in `previous_url_slugs` for 301 redirects:
-
-```yaml
----
-url_slug: nuevo-slug
-previous_url_slugs: antiguo-slug,otro-slug-viejo
----
-```
+When you change a URL slug, the old slug is automatically stored in `previous_url_slugs` (in the content record's `data` JSONB) for 301 redirects.
 
 **Redirect Behavior:**
 - Old URLs automatically 301 redirect to the new URL
-- Multiple previous slugs are supported (comma-separated)
-- Works even on cold starts (no cache) via filesystem fallback
+- Multiple previous slugs are supported
+- Works even on cold starts (no cache) via database query
 
 **Example:**
 ```
@@ -1518,8 +1432,8 @@ The listing cache stores per-language slug mappings for O(1) lookups:
 # => Returns post so you can build redirect URL
 
 # Validate URL slug before saving
-{:ok, "primeros-pasos"} = Storage.validate_url_slug("docs", "primeros-pasos", "es", "getting-started")
-{:error, :slug_already_exists} = Storage.validate_url_slug("docs", "existing-slug", "es", nil)
+{:ok, "primeros-pasos"} = SlugHelpers.validate_url_slug("docs", "primeros-pasos", "es", "getting-started")
+{:error, :slug_already_exists} = SlugHelpers.validate_url_slug("docs", "existing-slug", "es", nil)
 ```
 
 ### Cold Start Fallback
@@ -1528,7 +1442,6 @@ On cold starts (no cache), the system queries the database to resolve URL slugs:
 
 1. Queries `publishing_contents` for matching `url_slug` or entries in `data->previous_url_slugs`
 2. Returns redirect for previous slugs, resolution for current slugs
-3. For pre-migration installs, falls back to scanning `.phk` files on the filesystem
 
 This ensures localized URLs work immediately after deployment without waiting for cache warm-up.
 

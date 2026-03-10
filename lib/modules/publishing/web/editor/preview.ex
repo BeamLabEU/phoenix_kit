@@ -9,7 +9,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   require Logger
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Utils.Routes
@@ -41,7 +40,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
     %{
       group_slug: socket.assigns.group_slug,
-      path: post.path,
       mode: Map.get(post, :mode) || Map.get(post, "mode") || infer_mode(socket),
       language: socket.assigns.current_language,
       available_languages: post.available_languages || [],
@@ -49,7 +47,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       content: socket.assigns.content || "",
       is_new_post:
         Map.get(socket.assigns, :is_new_post, false) ||
-          is_nil(post.path)
+          is_nil(post[:uuid])
     }
   end
 
@@ -125,35 +123,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   @doc """
   Builds the preview URL query params.
   """
-  def build_preview_query_params(preview_payload, token) do
+  def build_preview_query_params(_preview_payload, token) do
     %{"preview_token" => token}
-    |> maybe_put_preview_path(preview_payload.path)
-    |> maybe_put_preview_new_flag(preview_payload)
   end
-
-  def maybe_put_preview_path(params, path) when is_binary(path) and path != "" do
-    Map.put(params, "path", path)
-  end
-
-  def maybe_put_preview_path(params, _), do: params
-
-  def maybe_put_preview_new_flag(params, %{is_new_post: true}) do
-    Map.put(params, "new", "true")
-  end
-
-  def maybe_put_preview_new_flag(params, _), do: params
 
   @doc """
   Builds the editor path for preview mode.
   """
-  def preview_editor_path(socket, data, token, params) do
+  def preview_editor_path(socket, data, token, _params) do
     group_slug = data[:group_slug] || socket.assigns.group_slug
 
     query_params =
-      %{}
-      |> maybe_put_preview_path(Map.get(params, "path") || data[:path])
-      |> maybe_put_preview_new_flag(%{is_new_post: data[:is_new_post] || false})
-      |> Map.put("preview_token", token)
+      %{"preview_token" => token}
+      |> maybe_put_new_flag(data[:is_new_post])
 
     query =
       case URI.encode_query(query_params) do
@@ -163,6 +145,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
 
     Routes.path("/admin/publishing/#{group_slug}/edit#{query}")
   end
+
+  defp maybe_put_new_flag(params, true), do: Map.put(params, "new", "true")
+  defp maybe_put_new_flag(params, _), do: params
 
   # ============================================================================
   # Preview State Application
@@ -178,16 +163,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     metadata = normalize_preview_metadata(data[:metadata] || %{}, mode)
 
     post = build_preview_post(data, group_slug, mode, language, metadata)
-    {post, disk_post} = enrich_from_disk(post, group_slug)
-    form = build_preview_form(metadata, mode, disk_post)
+    {post, db_post} = enrich_from_db(post, group_slug)
+    form = build_preview_form(metadata, mode, db_post)
 
-    apply_preview_assigns(socket, post, form, group_slug, mode, data, disk_post)
+    apply_preview_assigns(socket, post, form, group_slug, mode, data, db_post)
   end
 
   defp build_preview_post(data, group_slug, mode, language, metadata) do
     {date, time} = derive_datetime_fields(mode, metadata[:published_at])
-    path = data[:path] || derive_preview_path(group_slug, metadata[:slug], language, mode)
-    full_path = if path, do: Storage.absolute_path(path), else: nil
     available_languages = data[:available_languages] || []
 
     available_languages =
@@ -198,18 +181,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       slug: metadata[:slug],
       date: date,
       time: time,
-      path: path,
-      full_path: full_path,
       metadata: metadata,
       content: data[:content] || "",
       language: language,
       available_languages: available_languages,
-      mode: mode,
-      is_legacy_structure: false
+      mode: mode
     }
   end
 
-  defp build_preview_form(metadata, mode, disk_post) do
+  defp build_preview_form(metadata, mode, db_post) do
     %{
       "title" => metadata[:title] || "",
       "status" => metadata[:status] || "draft",
@@ -218,25 +198,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
       "url_slug" => metadata[:url_slug] || ""
     }
     |> maybe_put_form_slug(metadata[:slug], mode)
-    |> supplement_form_from_disk(disk_post)
+    |> supplement_form_from_db(db_post)
     |> Forms.normalize_form()
   end
 
-  # Fill in any form fields that are empty with on-disk values
-  defp supplement_form_from_disk(form, nil), do: form
+  # Fill in any form fields that are empty with DB-stored values
+  defp supplement_form_from_db(form, nil), do: form
 
-  defp supplement_form_from_disk(form, disk_post) do
+  defp supplement_form_from_db(form, db_post) do
     Enum.reduce(
       [
-        {"featured_image_uuid", Map.get(disk_post.metadata, :featured_image_uuid)},
-        {"url_slug", Map.get(disk_post.metadata, :url_slug) || Map.get(disk_post, :url_slug)}
+        {"featured_image_uuid", Map.get(db_post.metadata, :featured_image_uuid)},
+        {"url_slug", Map.get(db_post.metadata, :url_slug) || Map.get(db_post, :url_slug)}
       ],
       form,
-      fn {key, disk_value}, acc ->
+      fn {key, db_value}, acc ->
         current = Map.get(acc, key, "")
 
-        if current in [nil, ""] and disk_value not in [nil, ""] do
-          Map.put(acc, key, to_string(disk_value))
+        if current in [nil, ""] and db_value not in [nil, ""] do
+          Map.put(acc, key, to_string(db_value))
         else
           acc
         end
@@ -244,18 +224,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     )
   end
 
-  defp apply_preview_assigns(socket, post, form, group_slug, mode, data, disk_post) do
+  defp apply_preview_assigns(socket, post, form, group_slug, mode, data, db_post) do
     language = post.language
 
     has_changes =
-      case disk_post do
+      case db_post do
         nil -> true
         dp -> Forms.dirty?(dp, form, data[:content] || "")
       end
 
-    # Derive on-disk status for save logic (saved_status tracks what's actually on disk)
+    # Derive saved status for save logic (saved_status tracks what's actually stored)
     {saved_status, editing_published} =
-      case disk_post do
+      case db_post do
         nil ->
           {"draft", false}
 
@@ -271,7 +251,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     |> Forms.assign_form_with_tracking(form, slug_manually_set: false)
     |> Phoenix.Component.assign(:content, data[:content] || "")
     |> Phoenix.Component.assign(:available_languages, post.available_languages)
-    |> Phoenix.Component.assign(:all_enabled_languages, Storage.enabled_language_codes())
+    |> Phoenix.Component.assign(:all_enabled_languages, Publishing.enabled_language_codes())
     |> Helpers.assign_current_language(language)
     |> Phoenix.Component.assign(:has_pending_changes, has_changes)
     |> Phoenix.Component.assign(:is_new_post, data[:is_new_post] || false)
@@ -286,34 +266,35 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
     |> Phoenix.Component.assign(:saved_status, saved_status)
   end
 
-  defp enrich_from_disk(post, group_slug) do
-    if post.path do
-      case Publishing.read_post(group_slug, post.path) do
-        {:ok, disk_post} ->
-          # Merge disk metadata as base, with preview metadata on top.
+  defp enrich_from_db(post, group_slug) do
+    identifier = post[:uuid] || post[:slug]
+
+    if identifier do
+      case Publishing.read_post(group_slug, identifier) do
+        {:ok, db_post} ->
+          # Merge DB metadata as base, with preview metadata on top.
           # This preserves non-form fields (description, created_at, version_created_at,
           # previous_url_slugs, etc.) that aren't carried in the preview token,
           # preventing silent data loss if the user saves after returning from preview.
           preview_meta_values =
             post.metadata |> Enum.reject(fn {_k, v} -> is_nil(v) end) |> Map.new()
 
-          merged_metadata = Map.merge(disk_post.metadata, preview_meta_values)
+          merged_metadata = Map.merge(db_post.metadata, preview_meta_values)
 
           enriched =
             post
             |> Map.put(:metadata, merged_metadata)
-            |> Map.put(:language_statuses, Map.get(disk_post, :language_statuses, %{}))
-            |> Map.put(:available_versions, Map.get(disk_post, :available_versions, []))
-            |> Map.put(:version_statuses, Map.get(disk_post, :version_statuses, %{}))
-            |> Map.put(:version_dates, Map.get(disk_post, :version_dates, %{}))
-            |> Map.put(:version, Map.get(disk_post, :version))
-            |> Map.put(:primary_language, Map.get(disk_post, :primary_language))
-            |> Map.put(:is_legacy_structure, Map.get(disk_post, :is_legacy_structure, false))
+            |> Map.put(:language_statuses, Map.get(db_post, :language_statuses, %{}))
+            |> Map.put(:available_versions, Map.get(db_post, :available_versions, []))
+            |> Map.put(:version_statuses, Map.get(db_post, :version_statuses, %{}))
+            |> Map.put(:version_dates, Map.get(db_post, :version_dates, %{}))
+            |> Map.put(:version, Map.get(db_post, :version))
+            |> Map.put(:primary_language, Map.get(db_post, :primary_language))
 
-          {enriched, disk_post}
+          {enriched, db_post}
 
         {:error, reason} ->
-          Logger.debug("Preview enrich_from_disk failed for #{post.path}: #{inspect(reason)}")
+          Logger.debug("Preview enrich_from_db failed for #{identifier}: #{inspect(reason)}")
           fallback_status = Map.get(post.metadata, :status, "draft")
           enriched = Map.put(post, :language_statuses, %{post.language => fallback_status})
           {enriched, nil}
@@ -372,15 +353,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Preview do
   end
 
   defp derive_datetime_fields(_, _), do: {nil, nil}
-
-  defp derive_preview_path(_group_slug, _slug, _language, :timestamp), do: nil
-
-  defp derive_preview_path(group_slug, slug, language, :slug)
-       when is_binary(slug) and slug != "" do
-    Path.join([group_slug, slug, "#{language}.phk"])
-  end
-
-  defp derive_preview_path(_, _, _, _), do: nil
 
   defp maybe_put_form_slug(form, slug, :slug) do
     Map.put(form, "slug", slug || "")

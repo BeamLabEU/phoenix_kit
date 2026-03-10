@@ -19,7 +19,7 @@ defmodule PhoenixKit.Modules.Publishing.PresenceHelpers do
 
   ## Examples
 
-      track_editing_session("blog:my-post/en.phk", socket, user)
+      track_editing_session("blog:my-post:en", socket, user)
       # => {:ok, ref}
   """
   def track_editing_session(form_key, socket, user) do
@@ -183,8 +183,8 @@ defmodule PhoenixKit.Modules.Publishing.PresenceHelpers do
 
   ## Examples
 
-      editing_topic("docs:my-post/en.phk")
-      # => "publishing_edit:docs:my-post/en.phk"
+      editing_topic("docs:my-post:en")
+      # => "publishing_edit:docs:my-post:en"
   """
   def editing_topic(form_key), do: "publishing_edit:#{form_key}"
 end

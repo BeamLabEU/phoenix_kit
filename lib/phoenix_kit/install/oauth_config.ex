@@ -17,7 +17,7 @@ defmodule PhoenixKit.Install.OAuthConfig do
   ```
 
   This approach allows:
-  - **Minimal compile-time configuration** - Only `config :ueberauth, Ueberauth, providers: []`
+  - **Minimal compile-time configuration** - Only `config :ueberauth, Ueberauth, providers: %{}`
   - **Database-driven credentials** - Credentials loaded from Settings table at runtime
   - **Dynamic provider management** - Add/remove/modify providers without app restart
 
@@ -70,7 +70,7 @@ defmodule PhoenixKit.Install.OAuthConfig do
 
     # Configure Ueberauth (minimal configuration for compilation)
     # OAuth providers are configured dynamically at runtime from database
-    config :ueberauth, Ueberauth, providers: []
+    config :ueberauth, Ueberauth, providers: %{}
     """
 
     try do
@@ -184,7 +184,7 @@ defmodule PhoenixKit.Install.OAuthConfig do
 
     Please add the following to config/config.exs:
 
-      config :ueberauth, Ueberauth, providers: []
+      config :ueberauth, Ueberauth, providers: %{}
 
     This minimal configuration is required for compilation.
     OAuth providers are configured dynamically at runtime from the database.

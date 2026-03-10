@@ -37,6 +37,10 @@ defmodule PhoenixKit.Migrations.Postgres.V78 do
                            )
 
       if table_exists?(:phoenix_kit_ai_prompts, prefix) do
+        # V56 skips tables that don't exist yet, so ai_prompts may lack a uuid
+        # column if the AI module was enabled after V56 ran. Ensure it exists.
+        ensure_uuid_column(:phoenix_kit_ai_prompts, prefix)
+
         execute """
         DO $$
         BEGIN
@@ -111,6 +115,26 @@ defmodule PhoenixKit.Migrations.Postgres.V78 do
 
     %{rows: [[exists]]} = PhoenixKit.RepoHelper.repo().query!(query)
     exists
+  end
+
+  # Idempotently adds uuid column + backfill + NOT NULL + unique index.
+  # All statements use IF NOT EXISTS / IF NULL guards, safe to run on tables
+  # that already have the column.
+  defp ensure_uuid_column(table_name, prefix) do
+    full_table = "#{prefix_str(prefix)}#{table_name}"
+
+    execute("""
+    ALTER TABLE #{full_table}
+    ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT uuid_generate_v7()
+    """)
+
+    execute("UPDATE #{full_table} SET uuid = uuid_generate_v7() WHERE uuid IS NULL")
+
+    execute("ALTER TABLE #{full_table} ALTER COLUMN uuid SET NOT NULL")
+
+    execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS #{table_name}_uuid_index ON #{full_table}(uuid)
+    """)
   end
 
   defp prefix_str("public"), do: "public."

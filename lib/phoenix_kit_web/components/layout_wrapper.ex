@@ -42,11 +42,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Legal
-
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
+  alias PhoenixKit.Utils.Routes
 
   @doc """
   Renders content with the appropriate layout based on configuration and Phoenix version.
@@ -667,7 +667,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
-        <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
         <.live_title default={"#{assigns[:project_title] || PhoenixKit.Settings.get_project_title()} Admin"}>
           {assigns[:page_title] || "Admin"}
         </.live_title>
@@ -676,7 +675,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
           <meta name="googlebot" content="noindex,nofollow" />
         <% end %>
         <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
-        <script defer src="/assets/phoenix_kit_consent.js">
+        <%!-- PhoenixKit Cookie Consent Widget Setup --%>
+        <script>
+          window.PHOENIX_KIT_PREFIX = "<%= PhoenixKit.Utils.Routes.url_prefix() %>";
+        </script>
+        <script defer src={Routes.path("/assets/phoenix_kit_consent.js")}>
         </script>
       </head>
       <body class="bg-base-100 antialiased transition-colors" data-admin-theme-base="system">

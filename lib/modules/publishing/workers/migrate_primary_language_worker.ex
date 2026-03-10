@@ -45,7 +45,6 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
   def perform(%Oban.Job{args: args}) do
     group_slug = Map.fetch!(args, "group_slug")
     primary_language = Map.fetch!(args, "primary_language")
-    _user_uuid = Map.get(args, "user_uuid") || Map.get(args, "user_id")
 
     Logger.info(
       "[MigratePrimaryLanguageWorker] Starting migration for #{group_slug} to #{primary_language}"
@@ -67,13 +66,13 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
         posts
         |> Enum.with_index(1)
         |> Enum.reduce({0, 0}, fn {post, index}, {successes, errors} ->
-          post_slug = get_post_slug(post)
+          post_uuid = post[:uuid]
 
           result =
-            if post_slug do
-              Publishing.update_post_primary_language(group_slug, post_slug, primary_language)
+            if post_uuid do
+              Publishing.update_post_primary_language(group_slug, post_uuid, primary_language)
             else
-              {:error, :no_slug}
+              {:error, :no_uuid}
             end
 
           # Broadcast progress every batch
@@ -117,49 +116,6 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
   @impl Oban.Worker
   def timeout(_job), do: :timer.minutes(5)
 
-  # Get post directory path from cached post
-  # For slug mode: returns the slug (e.g., "hello")
-  # For timestamp mode: returns the date/time path (e.g., "2025-12-31/03:42")
-  defp get_post_slug(post) do
-    case post[:mode] do
-      :timestamp -> derive_timestamp_post_dir(post[:path])
-      "timestamp" -> derive_timestamp_post_dir(post[:path])
-      _ -> post[:slug] || derive_slug_from_path(post[:path])
-    end
-  end
-
-  # For timestamp mode, extract date/time from path like "group/date/time/version/file.phk"
-  defp derive_timestamp_post_dir(nil), do: nil
-  defp derive_timestamp_post_dir(""), do: nil
-
-  defp derive_timestamp_post_dir(path) do
-    parts = Path.split(path)
-
-    case parts do
-      # Versioned: group/date/time/v1/lang.phk
-      [_group, date, time, "v" <> _, _lang_file] -> Path.join(date, time)
-      # Legacy: group/date/time/lang.phk
-      [_group, date, time, _lang_file] -> Path.join(date, time)
-      _ -> nil
-    end
-  end
-
-  # For slug mode, extract slug from path
-  defp derive_slug_from_path(nil), do: nil
-  defp derive_slug_from_path(""), do: nil
-
-  defp derive_slug_from_path(path) do
-    parts = Path.split(path)
-
-    case parts do
-      # Versioned: group/slug/v1/lang.phk
-      [_group, slug, "v" <> _, _lang_file] -> slug
-      # Legacy: group/slug/lang.phk
-      [_group, slug, _lang_file] -> slug
-      _ -> nil
-    end
-  end
-
   @doc """
   Creates a new migration job.
 
@@ -174,14 +130,12 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
 
   """
   def create_job(group_slug, primary_language, opts \\ []) do
-    user_uuid = Keyword.get(opts, :user_uuid) || Keyword.get(opts, :user_id)
-
     args =
       %{
         "group_slug" => group_slug,
         "primary_language" => primary_language
       }
-      |> maybe_put("user_uuid", user_uuid)
+      |> maybe_put("user_uuid", Keyword.get(opts, :user_uuid))
 
     new(args)
   end

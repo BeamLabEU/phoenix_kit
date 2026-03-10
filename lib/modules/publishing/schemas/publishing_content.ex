@@ -2,7 +2,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
   @moduledoc """
   Schema for publishing content — one row per language per version.
 
-  This mirrors the filesystem's one-`.phk`-file-per-language model. Each content
+  Stores one content entry per language per version. Each content
   row has its own title, content body, status, and optional URL slug.
 
   ## Data JSONB Keys

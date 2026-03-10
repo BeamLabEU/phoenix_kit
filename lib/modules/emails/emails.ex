@@ -1553,6 +1553,23 @@ defmodule PhoenixKit.Modules.Emails do
   end
 
   @doc """
+  Gets a single email log by ID. Returns `nil` if not found or system is disabled.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Emails.get_log("018f1234-5678-7890-abcd-ef1234567890")
+      %Log{}
+
+      iex> PhoenixKit.Modules.Emails.get_log("nonexistent")
+      nil
+  """
+  def get_log(id) do
+    if enabled?() do
+      Log.get_log(id)
+    end
+  end
+
+  @doc """
   Gets a single email log by ID.
 
   Raises `Ecto.NoResultsError` if the log does not exist or system is disabled.
@@ -1573,7 +1590,10 @@ defmodule PhoenixKit.Modules.Emails do
   ## Examples
 
       iex> PhoenixKit.Modules.Emails.get_log_by_message_id("msg-abc123")
-      %Log{}
+      {:ok, %Log{}}
+
+      iex> PhoenixKit.Modules.Emails.get_log_by_message_id("nonexistent")
+      {:error, :not_found}
   """
   def get_log_by_message_id(message_id) when is_binary(message_id) do
     if enabled?() do

@@ -9,8 +9,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.PostRendering
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
       end)
       |> Enum.map(fn lang ->
         # Use display_code helper to determine if we show base or full code
-        display_code = Storage.get_display_code(lang, enabled_languages)
+        display_code = Publishing.get_display_code(lang, enabled_languages)
 
         %{
           code: display_code,
@@ -63,9 +63,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     # Order: primary first, then the rest alphabetically
     if Enum.any?(
          translations,
-         &(&1.code == Storage.get_display_code(primary_language, enabled_languages))
+         &(&1.code == Publishing.get_display_code(primary_language, enabled_languages))
        ) do
-      primary_display = Storage.get_display_code(primary_language, enabled_languages)
+      primary_display = Publishing.get_display_code(primary_language, enabled_languages)
       {primary, others} = Enum.split_with(translations, &(&1.code == primary_display))
       primary ++ Enum.sort_by(others, & &1.code)
     else
@@ -75,12 +75,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   end
 
   # Check if a specific enabled language has published content in the group
-  # ONLY checks for EXACT file matches - no base code fallback
-  # This ensures only languages with actual files show in the public switcher
+  # ONLY checks for EXACT matches - no base code fallback
+  # This ensures only languages with actual content show in the public switcher
   # Uses passed posts to avoid redundant list_posts calls
   defp has_published_content_for_language?(posts, language) do
     Enum.any?(posts, fn post ->
-      # Check if there's a published file for this EXACT language only
+      # Check if there's published content for this EXACT language only
       # Use preloaded language_statuses map
       language in (post.available_languages || []) and
         Map.get(post.language_statuses, language) == "published"
@@ -135,7 +135,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
     Enum.map(languages, fn lang ->
       # Use display_code helper to determine if we show base or full code
-      display_code = Storage.get_display_code(lang, enabled_languages)
+      display_code = Publishing.get_display_code(lang, enabled_languages)
       is_enabled = language_enabled_for_public?(lang, enabled_languages)
       is_known = Languages.get_predefined_language(lang) != nil
 
@@ -249,31 +249,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   defp normalize_languages([], current_language), do: [current_language]
   defp normalize_languages(languages, _current_language) when is_list(languages), do: languages
 
-  # Strict check for public display - only shows files that are:
+  # Strict check for public display - only shows languages that are:
   # 1. Directly in the enabled languages list, OR
   # 2. Base code files where any dialect of that base is enabled
   # This prevents showing en-US, en-GB etc when only en-CA is enabled
   defp language_enabled_for_public?(language, enabled_languages) do
     cond do
-      # Direct match - file code exactly matches an enabled language
+      # Direct match - language code exactly matches an enabled language
       language in enabled_languages ->
         true
 
-      # Base code file (e.g., "en") - show if any dialect is enabled
+      # Base code (e.g., "en") - show if any dialect is enabled
       Language.base_code?(language) ->
         Enum.any?(enabled_languages, fn enabled_lang ->
           DialectMapper.extract_base(enabled_lang) == language
         end)
 
-      # Dialect file (e.g., "en-US") not directly enabled - DON'T show
+      # Dialect (e.g., "en-US") not directly enabled - DON'T show
       # This is the key difference from language_enabled?
       true ->
         false
     end
   end
 
-  # Checks if the exact language file exists and is published
-  # Uses preloaded language_statuses map to avoid redundant file reads
+  # Checks if the exact language translation exists and is published
+  # Uses preloaded language_statuses map to avoid redundant DB reads
   defp translation_published_exact?(_group_slug, post, language) do
     language in (post.available_languages || []) and
       Map.get(post.language_statuses, language) == "published"

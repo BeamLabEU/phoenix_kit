@@ -2,8 +2,8 @@ defmodule PhoenixKit.Modules.Publishing do
   @moduledoc """
   Publishing module for managing content groups and their posts.
 
-  This keeps content in the filesystem while providing an admin-friendly UI
-  for creating timestamped or slug-based markdown posts with multi-language support.
+  Database-backed CMS for creating timestamped or slug-based posts
+  with multi-language support and versioning.
   """
 
   use PhoenixKit.Module
@@ -13,11 +13,11 @@ defmodule PhoenixKit.Modules.Publishing do
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing.DBStorage
-  alias PhoenixKit.Modules.Publishing.DualWrite
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.SlugHelpers
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -25,53 +25,144 @@ defmodule PhoenixKit.Modules.Publishing do
   @dialyzer :no_match
   @dialyzer {:nowarn_function, create_post: 2}
   @dialyzer {:nowarn_function, add_language_to_post: 4}
-  @dialyzer {:nowarn_function, parse_version_directory: 1}
 
-  # Delegate language info function to Storage
-  defdelegate get_language_info(language_code), to: Storage
+  # Language utility delegates
+  defdelegate get_language_info(language_code), to: LanguageHelpers
+  defdelegate enabled_language_codes(), to: LanguageHelpers
+  defdelegate get_primary_language(), to: LanguageHelpers
+  defdelegate language_enabled?(language_code, enabled_languages), to: LanguageHelpers
+  defdelegate get_display_code(language_code, enabled_languages), to: LanguageHelpers
 
-  # Delegate version functions to Storage
-  defdelegate list_versions(group_slug, post_slug), to: Storage
-  defdelegate get_latest_version(group_slug, post_slug), to: Storage
-  defdelegate get_latest_published_version(group_slug, post_slug), to: Storage
-  defdelegate get_published_version(group_slug, post_slug), to: Storage
-  defdelegate get_version_status(group_slug, post_slug, version, language), to: Storage
+  defdelegate order_languages_for_display(available_languages, enabled_languages),
+    to: LanguageHelpers
 
-  # Deprecated: Use get_published_version/2 instead
-  @doc false
-  @deprecated "Use get_published_version/2 instead"
-  def get_live_version(group_slug, post_slug),
-    do: Storage.get_published_version(group_slug, post_slug)
+  defdelegate order_languages_for_display(available_languages, enabled_languages, primary),
+    to: LanguageHelpers
 
-  defdelegate detect_post_structure(post_path), to: Storage
-  defdelegate content_changed?(post, params), to: Storage
-  defdelegate status_change_only?(post, params), to: Storage
-  defdelegate should_create_new_version?(post, params, editing_language), to: Storage
+  # Slug utility delegates
+  defdelegate validate_slug(slug), to: SlugHelpers
+  defdelegate slug_exists?(group_slug, post_slug), to: SlugHelpers
+  defdelegate generate_unique_slug(group_slug, title), to: SlugHelpers
+  defdelegate generate_unique_slug(group_slug, title, preferred_slug), to: SlugHelpers
+  defdelegate generate_unique_slug(group_slug, title, preferred_slug, opts), to: SlugHelpers
+  defdelegate validate_url_slug(group_slug, url_slug, language, exclude), to: SlugHelpers
 
-  # Delegate slug utilities to Storage
-  defdelegate validate_slug(slug), to: Storage
-  defdelegate slug_exists?(group_slug, post_slug), to: Storage
-  defdelegate generate_unique_slug(group_slug, title), to: Storage
-  defdelegate generate_unique_slug(group_slug, title, preferred_slug), to: Storage
-  defdelegate generate_unique_slug(group_slug, title, preferred_slug, opts), to: Storage
+  @doc "Always returns false — auto-versioning is disabled."
+  def should_create_new_version?(_post, _params, _editing_language), do: false
 
-  # Delegate language utilities to Storage
-  defdelegate enabled_language_codes(), to: Storage
-  defdelegate get_primary_language(), to: Storage
+  @doc "Gets the primary language for a specific post from the database."
+  def get_post_primary_language(group_slug, post_slug, _version \\ nil) do
+    db_post =
+      if uuid_format?(post_slug) do
+        DBStorage.get_post_by_uuid(post_slug)
+      else
+        DBStorage.get_post(group_slug, post_slug)
+      end
 
-  @doc false
-  @deprecated "Use get_primary_language/0 instead"
-  def get_master_language, do: get_primary_language()
+    case db_post do
+      nil -> LanguageHelpers.get_primary_language()
+      post -> post.primary_language || LanguageHelpers.get_primary_language()
+    end
+  rescue
+    _ -> LanguageHelpers.get_primary_language()
+  end
 
-  # Post-specific primary language functions
-  defdelegate get_post_primary_language(group_slug, post_slug, version \\ nil), to: Storage
-  defdelegate check_primary_language_status(group_slug, post_slug), to: Storage
+  @doc "Checks the primary language migration status for a post."
+  def check_primary_language_status(group_slug, post_slug) do
+    global_primary = LanguageHelpers.get_primary_language()
+
+    case DBStorage.get_post(group_slug, post_slug) do
+      nil ->
+        {:needs_backfill, nil}
+
+      %{primary_language: nil} ->
+        {:needs_backfill, nil}
+
+      %{primary_language: ^global_primary} ->
+        {:ok, :current}
+
+      %{primary_language: stored} ->
+        {:needs_migration, stored}
+    end
+  rescue
+    _ -> {:needs_backfill, nil}
+  end
+
+  @doc "Lists version numbers for a post."
+  def list_versions(group_slug, post_slug) do
+    case DBStorage.get_post(group_slug, post_slug) do
+      nil ->
+        []
+
+      db_post ->
+        db_post.uuid
+        |> DBStorage.list_versions()
+        |> Enum.map(& &1.version_number)
+    end
+  rescue
+    _ -> []
+  end
+
+  @doc "Gets the published version number for a post."
+  def get_published_version(group_slug, post_slug) do
+    case DBStorage.get_post(group_slug, post_slug) do
+      nil ->
+        {:error, :not_found}
+
+      db_post ->
+        db_post.uuid
+        |> DBStorage.list_versions()
+        |> Enum.find(&(&1.status == "published"))
+        |> case do
+          nil -> {:error, :no_published_version}
+          v -> {:ok, v.version_number}
+        end
+    end
+  rescue
+    _ -> {:error, :not_found}
+  end
+
+  @doc "Gets the status of a specific version/language."
+  def get_version_status(group_slug, post_slug, version_number, language) do
+    with db_post when not is_nil(db_post) <- DBStorage.get_post(group_slug, post_slug),
+         db_version when not is_nil(db_version) <-
+           DBStorage.get_version(db_post.uuid, version_number),
+         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language) do
+      content.status
+    else
+      _ -> "draft"
+    end
+  rescue
+    _ -> "draft"
+  end
+
+  @doc "Counts posts on a specific date for a group."
+  def count_posts_on_date(group_slug, date) do
+    group_slug
+    |> list_times_on_date(date)
+    |> length()
+  end
+
+  @doc "Lists time values for posts on a specific date."
+  def list_times_on_date(group_slug, date) do
+    date = if is_binary(date), do: Date.from_iso8601!(date), else: date
+
+    group_slug
+    |> DBStorage.list_posts_timestamp_mode()
+    |> Enum.filter(&(&1.post_date == date))
+    |> Enum.map(&(Time.to_string(&1.post_time) |> String.slice(0, 5)))
+    |> Enum.uniq()
+    |> Enum.sort()
+  rescue
+    _ -> []
+  end
 
   @doc """
-  Updates the primary language for a post. Falls back to DB for DB-only posts.
+  Updates the primary language for a post.
+  Accepts a post UUID.
   """
-  def update_post_primary_language(group_slug, post_slug, new_primary_language) do
-    update_primary_language_in_db(group_slug, post_slug, new_primary_language)
+  def update_post_primary_language(_group_slug, post_uuid, new_primary_language) do
+    update_primary_language_in_db(post_uuid, new_primary_language)
   end
 
   # Migration detection functions (via ListingCache)
@@ -98,7 +189,7 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Migrates all posts in a group to use the current global primary_language.
 
-  This updates the `primary_language` field in all .phk files and regenerates
+  This updates the `primary_language` field in the database and regenerates
   the listing cache. The migration is idempotent - running it multiple times
   is safe and will skip posts that are already at the current primary language.
 
@@ -108,7 +199,7 @@ defmodule PhoenixKit.Modules.Publishing do
           {:ok, integer()} | {:error, any()}
   def migrate_posts_to_current_primary_language(group_slug) do
     require Logger
-    global_primary = Storage.get_primary_language()
+    global_primary = LanguageHelpers.get_primary_language()
     posts = ListingCache.posts_needing_primary_language_migration(group_slug)
 
     Logger.debug("[PrimaryLangMigration] Found #{length(posts)} posts needing migration")
@@ -119,20 +210,13 @@ defmodule PhoenixKit.Modules.Publishing do
       results =
         posts
         |> Enum.map(fn post ->
-          # Get slug from post (using atom keys since posts are normalized)
-          post_slug = get_post_slug(post)
+          post_uuid = post[:uuid]
 
-          Logger.debug(
-            "[PrimaryLangMigration] Post path=#{inspect(post[:path])} slug=#{inspect(post_slug)}"
-          )
-
-          if post_slug do
-            result = update_primary_language_in_db(group_slug, post_slug, global_primary)
-            Logger.debug("[PrimaryLangMigration] Result for #{post_slug}: #{inspect(result)}")
-            result
+          if post_uuid do
+            update_primary_language_in_db(post_uuid, global_primary)
           else
-            Logger.warning("[PrimaryLangMigration] No slug for post: #{inspect(post[:path])}")
-            {:error, :no_slug}
+            Logger.warning("[PrimaryLangMigration] No UUID for post: #{inspect(post[:slug])}")
+            {:error, :no_uuid}
           end
         end)
 
@@ -153,93 +237,24 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  # Get post directory path from cached post
-  # For slug mode: returns the slug (e.g., "hello")
-  # For timestamp mode: returns the date/time path (e.g., "2025-12-31/03:42")
-  # Uses atom keys since cached posts are normalized
-  defp get_post_slug(post) do
-    case post[:mode] do
-      :timestamp -> derive_timestamp_post_dir(post[:path])
-      "timestamp" -> derive_timestamp_post_dir(post[:path])
-      _ -> post[:slug] || derive_slug_from_path(post[:path])
-    end
-  end
-
-  # For timestamp mode, extract date/time from path like "group/date/time/version/file.phk"
-  defp derive_timestamp_post_dir(nil), do: nil
-  defp derive_timestamp_post_dir(""), do: nil
-
-  defp derive_timestamp_post_dir(path) do
-    parts = Path.split(path)
-
-    case parts do
-      # Versioned: group/date/time/v1/lang.phk
-      [_group, date, time, "v" <> _, _lang_file] -> Path.join(date, time)
-      # Legacy: group/date/time/lang.phk
-      [_group, date, time, _lang_file] -> Path.join(date, time)
+  # Version metadata lookup (DB-based)
+  def get_version_metadata(group_slug, post_slug, version_number, language) do
+    with db_post when not is_nil(db_post) <- DBStorage.get_post(group_slug, post_slug),
+         db_version when not is_nil(db_version) <-
+           DBStorage.get_version(db_post.uuid, version_number),
+         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language) do
+      %{
+        status: content.status,
+        title: content.title,
+        url_slug: content.url_slug,
+        version: version_number
+      }
+    else
       _ -> nil
     end
+  rescue
+    _ -> nil
   end
-
-  # For slug mode, extract slug from path
-  defp derive_slug_from_path(nil), do: nil
-  defp derive_slug_from_path(""), do: nil
-
-  defp derive_slug_from_path(path) do
-    parts = Path.split(path)
-
-    case parts do
-      # Versioned: group/slug/v1/lang.phk
-      [_group, slug, "v" <> _, _lang_file] -> slug
-      # Legacy: group/slug/lang.phk
-      [_group, slug, _lang_file] -> slug
-      _ -> nil
-    end
-  end
-
-  # ===========================================================================
-  # Legacy Structure Migration
-  # ===========================================================================
-
-  # Migration detection functions (via ListingCache)
-  defdelegate posts_needing_version_migration(group_slug), to: ListingCache
-  defdelegate count_legacy_structure_status(group_slug), to: ListingCache
-
-  @doc """
-  Checks if any posts in a group need version structure migration.
-  """
-  @spec posts_need_version_migration?(String.t()) :: boolean()
-  def posts_need_version_migration?(group_slug) do
-    ListingCache.posts_needing_version_migration(group_slug) != []
-  end
-
-  @doc """
-  Returns count of posts by version structure status.
-  """
-  @spec get_legacy_structure_status(String.t()) :: map()
-  def get_legacy_structure_status(group_slug) do
-    ListingCache.count_legacy_structure_status(group_slug)
-  end
-
-  @doc """
-  Migrates all legacy structure posts in a group to versioned structure.
-
-  No-op in DB-only mode — database posts are inherently versioned.
-  Kept for API compatibility with listing UI and workers.
-  """
-  @spec migrate_posts_to_versioned_structure(String.t()) ::
-          {:ok, integer()} | {:error, any()}
-  def migrate_posts_to_versioned_structure(_group_slug) do
-    # DB posts are inherently versioned — no filesystem migration needed
-    {:ok, 0}
-  end
-
-  defdelegate language_enabled?(language_code, enabled_languages), to: Storage
-  defdelegate get_display_code(language_code, enabled_languages), to: Storage
-  defdelegate order_languages_for_display(available_languages, enabled_languages), to: Storage
-
-  # Delegate version metadata to Storage
-  defdelegate get_version_metadata(group_slug, post_slug, version, language), to: Storage
 
   # Delegate cache operations to ListingCache
   defdelegate regenerate_cache(group_slug), to: ListingCache, as: :regenerate
@@ -252,20 +267,14 @@ defmodule PhoenixKit.Modules.Publishing do
     as: :find_post_by_path
 
   @doc """
-  Finds a post by URL slug, checking DB or ListingCache based on storage mode.
+  Finds a post by URL slug from the database.
   """
   @spec find_by_url_slug(String.t(), String.t(), String.t()) ::
           {:ok, map()} | {:error, :not_found | :cache_miss}
   def find_by_url_slug(group_slug, language, url_slug) do
-    case storage_mode() do
-      :db ->
-        case DBStorage.find_by_url_slug(group_slug, language, url_slug) do
-          nil -> {:error, :not_found}
-          content -> {:ok, db_content_to_legacy_post(content, group_slug, language)}
-        end
-
-      :filesystem ->
-        ListingCache.find_by_url_slug(group_slug, language, url_slug)
+    case DBStorage.find_by_url_slug(group_slug, language, url_slug) do
+      nil -> {:error, :not_found}
+      content -> {:ok, db_content_to_legacy_post(content)}
     end
   end
 
@@ -275,21 +284,14 @@ defmodule PhoenixKit.Modules.Publishing do
   @spec find_by_previous_url_slug(String.t(), String.t(), String.t()) ::
           {:ok, map()} | {:error, :not_found | :cache_miss}
   def find_by_previous_url_slug(group_slug, language, url_slug) do
-    case storage_mode() do
-      :db ->
-        # Query content rows where data.previous_url_slugs contains the slug
-        case DBStorage.find_by_previous_url_slug(group_slug, language, url_slug) do
-          nil -> {:error, :not_found}
-          content -> {:ok, db_content_to_legacy_post(content, group_slug, language)}
-        end
-
-      :filesystem ->
-        ListingCache.find_by_previous_url_slug(group_slug, language, url_slug)
+    case DBStorage.find_by_previous_url_slug(group_slug, language, url_slug) do
+      nil -> {:error, :not_found}
+      content -> {:ok, db_content_to_legacy_post(content)}
     end
   end
 
   # Converts a DBStorage content record (with preloaded version/post/group) to a legacy post map
-  defp db_content_to_legacy_post(content, _group_slug, _language) do
+  defp db_content_to_legacy_post(content) do
     version = content.version
     post = version.post
 
@@ -305,9 +307,11 @@ defmodule PhoenixKit.Modules.Publishing do
     }
   end
 
-  # Delegate storage path functions
-  defdelegate legacy_group?(group_slug), to: Storage
-  defdelegate has_legacy_groups?(), to: Storage
+  @doc "Always returns false — DB-only mode has no legacy groups."
+  def legacy_group?(_group_slug), do: false
+
+  @doc "Always returns false — DB-only mode has no legacy groups."
+  def has_legacy_groups?, do: false
 
   # New settings keys (write to these)
   @publishing_enabled_key "publishing_enabled"
@@ -317,8 +321,6 @@ defmodule PhoenixKit.Modules.Publishing do
   @legacy_enabled_key "blogging_enabled"
   @legacy_blogs_key "blogging_blogs"
   @legacy_categories_key "blogging_categories"
-
-  @publishing_storage_key "publishing_storage"
 
   @default_group_mode "timestamp"
   @default_group_type "blogging"
@@ -372,75 +374,10 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc """
-  Returns the current storage mode for publishing reads.
-
-  - `:filesystem` (default) — reads from filesystem via Storage/ListingCache
-  - `:db` — reads from database via DBStorage
-
-  Controlled by the `publishing_storage` setting (seeded by V59 migration).
-  """
-  @spec storage_mode() :: :filesystem | :db
-  def storage_mode do
-    case settings_call(:get_setting_cached, [@publishing_storage_key, "filesystem"]) do
-      "db" -> :db
-      _ -> :filesystem
-    end
-  end
-
-  @doc """
-  Returns true when reads are served from the database.
-  """
-  @spec db_storage?() :: boolean()
-  def db_storage?, do: storage_mode() == :db
-
-  @doc """
-  Returns true when the DB says storage mode is "db", bypassing the cache.
-  Used by the editor migration gate to avoid stale cache issues.
-  """
-  @spec db_storage_direct?() :: boolean()
-  def db_storage_direct? do
-    case settings_call(:get_setting, [@publishing_storage_key]) do
-      "db" -> true
-      _ -> false
-    end
-  rescue
-    _ -> false
-  end
-
-  @doc """
   Returns true when the given post is a DB-backed post (has a UUID).
-
-  Use this to discriminate individual posts. Use `db_storage?/0` for
-  global storage mode decisions.
   """
   @spec db_post?(map()) :: boolean()
   def db_post?(post), do: not is_nil(post[:uuid])
-
-  @doc """
-  Returns true if any publishing group has filesystem posts.
-  Used to detect whether FS→DB migration is needed (fresh installs have none).
-  """
-  @spec has_any_fs_posts?() :: boolean()
-  def has_any_fs_posts? do
-    list_groups()
-    |> Enum.any?(fn g -> list_posts(g["slug"]) != [] end)
-  end
-
-  @doc """
-  Switches storage mode to database. Called automatically when migration
-  completes or when a fresh install (no FS posts) is detected.
-  """
-  def enable_db_storage! do
-    settings_call(:update_setting, ["publishing_storage", "db"])
-
-    # Clear stale FS-mode cache entries so DB-mode regeneration starts fresh
-    Enum.each(list_groups(), fn g ->
-      ListingCache.invalidate(g["slug"])
-    end)
-  rescue
-    # Don't let cache cleanup failure prevent the mode switch
-    _ -> :ok
-  end
 
   # ============================================================================
   # Module Behaviour Callbacks
@@ -456,7 +393,6 @@ defmodule PhoenixKit.Modules.Publishing do
   def get_config do
     %{
       enabled: enabled?(),
-      storage_mode: storage_mode(),
       groups_count: length(list_groups())
     }
   end
@@ -467,7 +403,7 @@ defmodule PhoenixKit.Modules.Publishing do
       key: "publishing",
       label: "Publishing",
       icon: "hero-document-duplicate",
-      description: "Filesystem-based CMS pages and multi-language content"
+      description: "Database-backed CMS pages and multi-language content"
     }
   end
 
@@ -482,7 +418,7 @@ defmodule PhoenixKit.Modules.Publishing do
         priority: 600,
         level: :admin,
         permission: "publishing",
-        match: :exact,
+        match: :prefix,
         group: :admin_modules,
         subtab_display: :when_active,
         highlight_with_subtabs: false,
@@ -627,7 +563,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
     * `name` - Display name for the group
     * `opts` - Keyword list or map with options:
-      * `:mode` - Storage mode: "timestamp" or "slug" (default: "timestamp")
+      * `:mode` - Post mode: "timestamp" or "slug" (default: "timestamp")
       * `:slug` - Optional custom slug, auto-generated from name if nil
       * `:type` - Content type: "blogging", "faq", "legal", or custom (default: "blogging")
       * `:item_singular` - Singular name for items (default: based on type, e.g., "post")
@@ -697,7 +633,6 @@ defmodule PhoenixKit.Modules.Publishing do
 
           # Always write to new key
           with {:ok, _} <- settings_call(:update_json_setting, [@publishing_groups_key, payload]) do
-            DualWrite.sync_group_created(group)
             PublishingPubSub.broadcast_group_created(group)
             {:ok, group}
           end
@@ -731,7 +666,6 @@ defmodule PhoenixKit.Modules.Publishing do
 
     # Broadcast after successful deletion
     if match?({:ok, _}, result) do
-      DualWrite.sync_group_deleted(slug)
       PublishingPubSub.broadcast_group_deleted(slug)
     end
 
@@ -809,7 +743,6 @@ defmodule PhoenixKit.Modules.Publishing do
       |> Map.put("slug", sanitized_slug)
 
     with {:ok, _} <- persist_group_update(groups, group["slug"], updated_group) do
-      DualWrite.sync_group_updated(group["slug"], updated_group)
       PublishingPubSub.broadcast_group_updated(updated_group)
       {:ok, updated_group}
     end
@@ -837,7 +770,7 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc """
-  Returns the configured storage mode for a publishing group slug.
+  Returns the configured post mode for a publishing group slug.
   """
   @spec get_group_mode(String.t()) :: String.t()
   def get_group_mode(group_slug) do
@@ -848,108 +781,30 @@ defmodule PhoenixKit.Modules.Publishing do
 
   @doc """
   Lists posts for a given publishing group slug.
-  Accepts optional preferred_language to show titles in user's language.
 
-  When `publishing_storage` is `:db`, queries the database directly.
-  Otherwise uses the ListingCache for fast lookups, falling back to
-  filesystem scan on cache miss.
+  Queries the database directly via DBStorage.
+  The optional second argument is accepted for API compatibility but unused.
   """
-  @spec list_posts(String.t(), String.t() | nil) :: [Storage.post()]
-  def list_posts(group_slug, preferred_language \\ nil) do
-    case storage_mode() do
-      :db -> list_posts_from_db(group_slug)
-      :filesystem -> list_posts_from_cache(group_slug, preferred_language)
-    end
-  end
-
-  defp list_posts_from_db(group_slug) do
+  @spec list_posts(String.t(), String.t() | nil) :: [map()]
+  def list_posts(group_slug, _preferred_language \\ nil) do
     DBStorage.list_posts_with_metadata(group_slug)
-  end
-
-  defp list_posts_from_cache(group_slug, preferred_language) do
-    start_time = System.monotonic_time(:millisecond)
-
-    # Try cache first for fast response
-    result =
-      case ListingCache.read(group_slug) do
-        {:ok, cached_posts} ->
-          elapsed = System.monotonic_time(:millisecond) - start_time
-
-          Logger.debug(
-            "[Publishing.list_posts] CACHE HIT for #{group_slug} (#{length(cached_posts)} posts) in #{elapsed}ms"
-          )
-
-          cached_posts
-
-        {:error, :cache_miss} ->
-          # Cache miss - regenerate cache synchronously to prevent race condition
-          Logger.debug(
-            "[Publishing.list_posts] CACHE MISS for #{group_slug}, regenerating cache..."
-          )
-
-          case ListingCache.regenerate_if_not_in_progress(group_slug) do
-            :ok ->
-              elapsed = System.monotonic_time(:millisecond) - start_time
-
-              Logger.debug(
-                "[Publishing.list_posts] Cache regenerated for #{group_slug} in #{elapsed}ms"
-              )
-
-              case ListingCache.read(group_slug) do
-                {:ok, posts} -> posts
-                {:error, _} -> list_posts_from_storage(group_slug, preferred_language)
-              end
-
-            :already_in_progress ->
-              posts = list_posts_from_storage(group_slug, preferred_language)
-              elapsed = System.monotonic_time(:millisecond) - start_time
-
-              Logger.debug(
-                "[Publishing.list_posts] Regeneration in progress, filesystem scan for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
-              )
-
-              posts
-
-            {:error, _reason} ->
-              posts = list_posts_from_storage(group_slug, preferred_language)
-              elapsed = System.monotonic_time(:millisecond) - start_time
-
-              Logger.debug(
-                "[Publishing.list_posts] Regeneration failed, filesystem scan for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms"
-              )
-
-              posts
-          end
-      end
-
-    result
-  end
-
-  # Direct filesystem scan (used on cache miss)
-  defp list_posts_from_storage(group_slug, preferred_language) do
-    case get_group_mode(group_slug) do
-      "slug" -> Storage.list_posts_slug_mode(group_slug, preferred_language)
-      _ -> Storage.list_posts(group_slug, preferred_language)
-    end
   end
 
   @doc """
   Creates a new post for the given publishing group using the current timestamp.
   """
-  @spec create_post(String.t(), map() | keyword()) :: {:ok, Storage.post()} | {:error, any()}
+  @spec create_post(String.t(), map() | keyword()) :: {:ok, map()} | {:error, any()}
   def create_post(group_slug, opts \\ %{}) do
     create_post_in_db(group_slug, opts)
   end
 
   defp create_post_in_db(group_slug, opts) do
-    alias PhoenixKit.Modules.Publishing.Storage.Slugs
-
     scope = fetch_option(opts, :scope)
     group = DBStorage.get_group_by_slug(group_slug)
     unless group, do: throw({:error, :group_not_found})
 
     mode = get_group_mode(group_slug)
-    primary_language = Storage.get_primary_language()
+    primary_language = LanguageHelpers.get_primary_language()
     now = UtilsDate.utc_now()
 
     # Resolve user UUID for audit
@@ -961,7 +816,7 @@ defmodule PhoenixKit.Modules.Publishing do
         "slug" ->
           title = fetch_option(opts, :title)
           preferred_slug = fetch_option(opts, :slug)
-          Slugs.generate_unique_slug(group_slug, title || "", preferred_slug)
+          SlugHelpers.generate_unique_slug(group_slug, title || "", preferred_slug)
 
         _ ->
           {:ok, nil}
@@ -980,12 +835,18 @@ defmodule PhoenixKit.Modules.Publishing do
         updated_by_uuid: created_by_uuid
       }
 
-      # Add date/time for timestamp mode
+      # Add date/time for timestamp mode (truncate seconds since URLs use HH:MM only)
       post_attrs =
         if mode == "timestamp" do
+          date = DateTime.to_date(now)
+          time = %Time{hour: now.hour, minute: now.minute, second: 0, microsecond: {0, 0}}
+
+          # Find next available minute if this one is taken
+          {date, time} = find_available_timestamp(group_slug, date, time)
+
           Map.merge(post_attrs, %{
-            post_date: DateTime.to_date(now),
-            post_time: DateTime.to_time(now)
+            post_date: date,
+            post_time: time
           })
         else
           post_attrs
@@ -1081,34 +942,26 @@ defmodule PhoenixKit.Modules.Publishing do
   For slug-mode groups, accepts an optional version parameter.
   If version is nil, reads the latest version.
 
-  When `publishing_storage` is `:db`, reads from the database.
+  Reads from the database.
   """
   @spec read_post(String.t(), String.t(), String.t() | nil, integer() | nil) ::
-          {:ok, Storage.post()} | {:error, any()}
+          {:ok, map()} | {:error, any()}
   def read_post(group_slug, identifier, language \\ nil, version \\ nil) do
-    case storage_mode() do
-      :db ->
-        read_post_from_db(group_slug, identifier, language, version)
-
-      :filesystem ->
-        case read_post_from_filesystem(group_slug, identifier, language, version) do
-          {:ok, _} = success ->
-            success
-
-          {:error, _} ->
-            # Fallback to DB for groups that were imported but don't exist on filesystem
-            read_post_from_db(group_slug, identifier, language, version)
-        end
-    end
+    read_post_from_db(group_slug, identifier, language, version)
   end
 
   defp read_post_from_db(group_slug, identifier, language, version) do
-    case get_group_mode(group_slug) do
-      "timestamp" ->
-        read_post_from_db_timestamp(group_slug, identifier, language, version)
+    # If identifier is a UUID, resolve via UUID lookup (handles both modes)
+    if uuid_format?(identifier) do
+      read_post_by_uuid(identifier, language, version)
+    else
+      case get_group_mode(group_slug) do
+        "timestamp" ->
+          read_post_from_db_timestamp(group_slug, identifier, language, version)
 
-      _ ->
-        read_post_from_db_slug(group_slug, identifier, language, version)
+        _ ->
+          read_post_from_db_slug(group_slug, identifier, language, version)
+      end
     end
   end
 
@@ -1155,7 +1008,40 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  # Parses timestamp paths like "2026-01-24/04:13/v7/sq.phk" or "2026-01-24/04:13"
+  # Finds the next available minute for a timestamp-mode post.
+  # If the given date/time is already taken, bumps forward by one minute at a time.
+  # Limited to 60 attempts to prevent unbounded recursion.
+  @max_timestamp_attempts 60
+
+  defp find_available_timestamp(group_slug, date, time, attempts \\ 0)
+
+  defp find_available_timestamp(_group_slug, date, time, @max_timestamp_attempts) do
+    {date, time}
+  end
+
+  defp find_available_timestamp(group_slug, date, time, attempts) do
+    case DBStorage.get_post_by_datetime(group_slug, date, time) do
+      nil ->
+        {date, time}
+
+      _existing ->
+        # Bump by one minute
+        total_seconds = time.hour * 3600 + time.minute * 60 + 60
+
+        if total_seconds >= 86_400 do
+          # Rolled past midnight — advance to next day at 00:00
+          next_date = Date.add(date, 1)
+          find_available_timestamp(group_slug, next_date, ~T[00:00:00], attempts + 1)
+        else
+          next_hour = div(total_seconds, 3600)
+          next_minute = div(rem(total_seconds, 3600), 60)
+          next_time = %Time{hour: next_hour, minute: next_minute, second: 0, microsecond: {0, 0}}
+          find_available_timestamp(group_slug, date, next_time, attempts + 1)
+        end
+    end
+  end
+
+  # Parses timestamp paths like "2026-01-24/04:13/v7/sq" or "2026-01-24/04:13"
   defp parse_timestamp_path(identifier) do
     parts =
       identifier
@@ -1183,7 +1069,7 @@ defmodule PhoenixKit.Modules.Publishing do
             |> case do
               nil -> nil
               "" -> nil
-              lang_file -> String.replace_suffix(lang_file, ".phk", "")
+              lang_file -> lang_file
             end
 
           {:ok, date, time, version, lang}
@@ -1204,62 +1090,11 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  defp read_post_from_filesystem(group_slug, identifier, language, version) do
-    case get_group_mode(group_slug) do
-      "slug" ->
-        {post_slug, inferred_version, inferred_language} =
-          extract_slug_version_and_language(group_slug, identifier)
-
-        final_language = language || inferred_language
-        final_version = version || inferred_version
-
-        Storage.read_post_slug_mode(group_slug, post_slug, final_language, final_version)
-
-      _ ->
-        read_post_timestamp_mode(group_slug, identifier, language, version)
-    end
-  end
-
-  # Handle timestamp mode posts - identifier can be:
-  # - Full path like "blog/2025-12-31/03:42/v2/en.phk"
-  # - Timestamp identifier like "2025-12-31/03:42"
-  defp read_post_timestamp_mode(group_slug, identifier, language, version) do
-    # If identifier looks like a full path (contains .phk), use it directly
-    if String.contains?(identifier, ".phk") do
-      Storage.read_post(group_slug, identifier)
-    else
-      # Build full path from timestamp identifier + language + version
-      final_language = language || Storage.get_primary_language()
-      final_version = version || get_latest_timestamp_version(group_slug, identifier)
-
-      full_path =
-        Path.join([group_slug, identifier, "v#{final_version}", "#{final_language}.phk"])
-
-      Storage.read_post(group_slug, full_path)
-    end
-  end
-
-  # Get the latest version number for a timestamp mode post
-  defp get_latest_timestamp_version(group_slug, timestamp_id) do
-    post_dir = Path.join([Storage.group_path(group_slug), timestamp_id])
-
-    case File.ls(post_dir) do
-      {:ok, entries} ->
-        entries
-        |> Enum.filter(&String.match?(&1, ~r/^v\d+$/))
-        |> Enum.map(fn "v" <> n -> String.to_integer(n) end)
-        |> Enum.max(fn -> 1 end)
-
-      _ ->
-        1
-    end
-  end
-
-  # Adds a language to a DB-only post (no filesystem counterpart).
+  # Adds a language to a post.
   # Creates a new content row in the database and returns the legacy map.
   @doc false
-  def add_language_to_db(group_slug, post_slug, language_code, version_number) do
-    with db_post when not is_nil(db_post) <- resolve_db_post(group_slug, post_slug),
+  def add_language_to_db(group_slug, post_uuid, language_code, version_number) do
+    with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
          version when not is_nil(version) <-
            if(version_number,
              do: DBStorage.get_version(db_post.uuid, version_number),
@@ -1276,14 +1111,14 @@ defmodule PhoenixKit.Modules.Publishing do
              status: "draft"
            }) do
       # Read the post back from DB to return a proper legacy map
-      read_back_post(group_slug, post_slug, db_post, language_code, version.version_number)
+      read_back_post(group_slug, post_uuid, db_post, language_code, version.version_number)
     else
       nil ->
         {:error, :not_found}
 
       %PhoenixKit.Modules.Publishing.PublishingContent{} ->
         # Content already exists for this language - just read the post
-        read_back_post(group_slug, post_slug, nil, language_code, version_number)
+        read_back_post(group_slug, post_uuid, nil, language_code, version_number)
 
       {:error, reason} ->
         {:error, reason}
@@ -1291,32 +1126,6 @@ defmodule PhoenixKit.Modules.Publishing do
   rescue
     Ecto.QueryError -> {:error, :not_found}
     DBConnection.ConnectionError -> {:error, :not_found}
-  end
-
-  # Resolves a DB post by slug, UUID, or datetime depending on what's available
-  defp resolve_db_post(_group_slug, nil), do: nil
-
-  defp resolve_db_post(group_slug, identifier) do
-    # Try UUID lookup if identifier looks like a UUID
-    if uuid_format?(identifier) do
-      DBStorage.get_post_by_uuid(identifier, [:group])
-    else
-      # Try slug-based lookup first
-      case DBStorage.get_post(group_slug, identifier) do
-        nil ->
-          # For timestamp-mode posts, the identifier may be "YYYY-MM-DD/HH:MM"
-          case parse_timestamp_path(identifier) do
-            {:ok, date, time, _version, _lang} ->
-              DBStorage.get_post_by_datetime(group_slug, date, time)
-
-            :error ->
-              nil
-          end
-
-        db_post ->
-          db_post
-      end
-    end
   end
 
   defp uuid_format?(str) when is_binary(str), do: match?({:ok, _}, UUIDv7.cast(str))
@@ -1346,7 +1155,7 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  # Updates a DB-only post (no filesystem counterpart).
+  # Updates a post in the database.
   # Writes directly to the database and returns the updated legacy map.
   defp update_post_in_db(group_slug, post, params, _audit_meta) do
     db_post = find_db_post_for_update(group_slug, post)
@@ -1356,7 +1165,7 @@ defmodule PhoenixKit.Modules.Publishing do
         # Timestamp-mode posts don't have slugs — skip slug validation
         do_update_post_in_db(db_post, post, params, group_slug, nil)
       else
-        # Handle slug changes (same validation as FS path)
+        # Handle slug changes
         desired_slug = Map.get(params, "slug", post.slug)
 
         case maybe_update_db_slug(db_post, desired_slug, group_slug) do
@@ -1402,10 +1211,8 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   defp maybe_update_db_slug(db_post, desired_slug, group_slug) do
-    alias PhoenixKit.Modules.Publishing.Storage.Slugs
-
-    with {:ok, valid_slug} <- Slugs.validate_slug(desired_slug),
-         false <- Slugs.slug_exists?(group_slug, valid_slug),
+    with {:ok, valid_slug} <- SlugHelpers.validate_slug(desired_slug),
+         false <- SlugHelpers.slug_exists?(group_slug, valid_slug),
          {:ok, _} <- DBStorage.update_post(db_post, %{slug: valid_slug}) do
       {:ok, valid_slug}
     else
@@ -1505,8 +1312,8 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   # Propagates a status change from the primary language to all other translations
-  defp update_primary_language_in_db(group_slug, post_identifier, new_primary_language) do
-    case resolve_db_post(group_slug, post_identifier) do
+  defp update_primary_language_in_db(post_uuid, new_primary_language) do
+    case DBStorage.get_post_by_uuid(post_uuid) do
       nil ->
         {:error, :post_not_found}
 
@@ -1526,11 +1333,7 @@ defmodule PhoenixKit.Modules.Publishing do
     do: DBStorage.get_version(db_post.uuid, version_number)
 
   defp propagate_db_status_to_translations(version_uuid, primary_language, new_status) do
-    DBStorage.list_contents(version_uuid)
-    |> Enum.reject(fn c -> c.language == primary_language end)
-    |> Enum.each(fn c ->
-      DBStorage.update_content(c, %{status: new_status})
-    end)
+    DBStorage.update_content_status_except(version_uuid, primary_language, new_status)
   end
 
   defp parse_published_at(params, db_post) do
@@ -1569,10 +1372,10 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc """
-  Updates a post and moves the file if the publication timestamp changes.
+  Updates a post in the database.
   """
-  @spec update_post(String.t(), Storage.post(), map(), map() | keyword()) ::
-          {:ok, Storage.post()} | {:error, any()}
+  @spec update_post(String.t(), map(), map(), map() | keyword()) ::
+          {:ok, map()} | {:error, any()}
   def update_post(group_slug, post, params, opts \\ %{}) do
     # Normalize opts to map (callers may pass keyword list or map)
     opts_map = if Keyword.keyword?(opts), do: Map.new(opts), else: opts
@@ -1604,11 +1407,11 @@ defmodule PhoenixKit.Modules.Publishing do
 
   Note: For more control over which version to branch from, use `create_version_from/5`.
   """
-  @spec create_new_version(String.t(), Storage.post(), map(), map() | keyword()) ::
-          {:ok, Storage.post()} | {:error, any()}
+  @spec create_new_version(String.t(), map(), map(), map() | keyword()) ::
+          {:ok, map()} | {:error, any()}
   def create_new_version(group_slug, source_post, params \\ %{}, opts \\ %{}) do
     source_version = source_post[:version] || 1
-    create_version_in_db(group_slug, source_post.slug, source_version, params, opts)
+    create_version_in_db(group_slug, source_post[:uuid], source_version, params, opts)
   end
 
   @doc """
@@ -1635,8 +1438,8 @@ defmodule PhoenixKit.Modules.Publishing do
       {:error, :not_found}
   """
   @spec publish_version(String.t(), String.t(), integer(), keyword()) :: :ok | {:error, any()}
-  def publish_version(group_slug, post_identifier, version, opts \\ []) do
-    db_post = resolve_db_post(group_slug, post_identifier)
+  def publish_version(group_slug, post_uuid, version, opts \\ []) do
+    db_post = DBStorage.get_post_by_uuid(post_uuid, [:group])
     unless db_post, do: throw({:error, :not_found})
 
     # Set target version to published, archive previously-published versions
@@ -1696,13 +1499,13 @@ defmodule PhoenixKit.Modules.Publishing do
       {:ok, %{version: 3, ...}}
   """
   @spec create_version_from(String.t(), String.t(), integer() | nil, map(), map() | keyword()) ::
-          {:ok, Storage.post()} | {:error, any()}
-  def create_version_from(group_slug, post_slug, source_version, params \\ %{}, opts \\ %{}) do
-    create_version_in_db(group_slug, post_slug, source_version, params, opts)
+          {:ok, map()} | {:error, any()}
+  def create_version_from(group_slug, post_uuid, source_version, params \\ %{}, opts \\ %{}) do
+    create_version_in_db(group_slug, post_uuid, source_version, params, opts)
   end
 
-  defp create_version_in_db(group_slug, post_identifier, source_version, _params, opts) do
-    db_post = resolve_db_post(group_slug, post_identifier)
+  defp create_version_in_db(group_slug, post_uuid, source_version, _params, opts) do
+    db_post = DBStorage.get_post_by_uuid(post_uuid, [:group])
     unless db_post, do: throw({:error, :post_not_found})
 
     scope = fetch_option(opts, :scope)
@@ -1735,7 +1538,7 @@ defmodule PhoenixKit.Modules.Publishing do
       end
 
     with {:ok, db_version} <- result do
-      case read_back_post(group_slug, post_identifier, db_post, nil, db_version.version_number) do
+      case read_back_post(group_slug, post_uuid, db_post, nil, db_version.version_number) do
         {:ok, post} ->
           broadcast_id = db_post.slug || db_post.uuid
           broadcast_version_created(group_slug, broadcast_id, post)
@@ -1750,7 +1553,7 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc false
-  def broadcast_version_created(group_slug, post_slug, new_version) do
+  def broadcast_version_created(group_slug, broadcast_id, new_version) do
     PublishingPubSub.broadcast_version_created(group_slug, new_version)
 
     version_info = %{
@@ -1758,7 +1561,7 @@ defmodule PhoenixKit.Modules.Publishing do
       available_versions: new_version[:available_versions] || []
     }
 
-    PublishingPubSub.broadcast_post_version_created(group_slug, post_slug, version_info)
+    PublishingPubSub.broadcast_post_version_created(group_slug, broadcast_id, version_info)
   end
 
   @doc """
@@ -1767,15 +1570,24 @@ defmodule PhoenixKit.Modules.Publishing do
   When a translation status is set manually, it will NOT inherit status
   changes from the primary language when publishing.
 
+  Accepts a post UUID or slug as the post identifier.
+
   ## Examples
 
-      iex> Publishing.set_translation_status("blog", "my-post", 2, "es", "draft")
+      iex> Publishing.set_translation_status("blog", "019cce93-...", 2, "es", "draft")
       :ok
   """
   @spec set_translation_status(String.t(), String.t(), integer(), String.t(), String.t()) ::
           :ok | {:error, any()}
-  def set_translation_status(group_slug, post_slug, version, language, status) do
-    with db_post when not is_nil(db_post) <- DBStorage.get_post(group_slug, post_slug),
+  def set_translation_status(group_slug, post_identifier, version, language, status) do
+    db_post =
+      if uuid_format?(post_identifier) do
+        DBStorage.get_post_by_uuid(post_identifier)
+      else
+        DBStorage.get_post(group_slug, post_identifier)
+      end
+
+    with db_post when not is_nil(db_post) <- db_post,
          db_version when not is_nil(db_version) <- DBStorage.get_version(db_post.uuid, version),
          content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language) do
       case DBStorage.update_content(content, %{status: status}) do
@@ -1799,56 +1611,39 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc """
-  Adds a new language file to an existing post.
+  Adds a new language translation to an existing post.
 
-  For slug-mode groups, accepts an optional version parameter to specify which
-  version to add the translation to. If not specified, uses the version from
-  the identifier path (if present) or defaults to the latest version.
+  Accepts an optional version parameter to specify which version to add
+  the translation to. If not specified, defaults to the latest version.
   """
   @spec add_language_to_post(String.t(), String.t(), String.t(), integer() | nil) ::
-          {:ok, Storage.post()} | {:error, any()}
-  def add_language_to_post(group_slug, identifier, language_code, version \\ nil) do
-    post_slug = extract_slug_from_identifier(group_slug, identifier)
-    result = add_language_to_db(group_slug, post_slug, language_code, version)
+          {:ok, map()} | {:error, any()}
+  def add_language_to_post(group_slug, post_uuid, language_code, version \\ nil) do
+    result = add_language_to_db(group_slug, post_uuid, language_code, version)
 
     with {:ok, new_post} <- result do
       if should_regenerate_cache?(new_post) do
         ListingCache.regenerate(group_slug)
       end
 
-      if new_post.slug do
-        PublishingPubSub.broadcast_translation_created(group_slug, new_post.slug, language_code)
+      broadcast_id = new_post.slug || new_post.uuid
+
+      if broadcast_id do
+        PublishingPubSub.broadcast_translation_created(group_slug, broadcast_id, language_code)
       end
     end
 
     result
   end
 
-  defp extract_slug_from_identifier(group_slug, identifier) do
-    case get_group_mode(group_slug) do
-      "slug" ->
-        {post_slug, _version, _language} =
-          extract_slug_version_and_language(group_slug, identifier)
-
-        post_slug
-
-      _ ->
-        # For timestamp mode, identifier might be the slug directly
-        identifier
-    end
-  end
-
   @doc """
-  Moves a post to the trash folder.
+  Soft-deletes a post by UUID.
 
-  For slug-mode groups, provide the post slug.
-  For timestamp-mode groups, provide the date/time path (e.g., "2025-01-15/14:30").
-
-  Returns {:ok, trash_path} on success or {:error, reason} on failure.
+  Returns {:ok, post_uuid} on success or {:error, reason} on failure.
   """
   @spec trash_post(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
-  def trash_post(group_slug, post_identifier) do
-    case resolve_db_post(group_slug, post_identifier) do
+  def trash_post(group_slug, post_uuid) do
+    case DBStorage.get_post_by_uuid(post_uuid, [:group]) do
       nil ->
         {:error, :not_found}
 
@@ -1858,7 +1653,7 @@ defmodule PhoenixKit.Modules.Publishing do
             broadcast_id = db_post.slug || db_post.uuid
             ListingCache.regenerate(group_slug)
             PublishingPubSub.broadcast_post_deleted(group_slug, broadcast_id)
-            {:ok, post_identifier}
+            {:ok, post_uuid}
 
           {:error, reason} ->
             {:error, reason}
@@ -1876,8 +1671,8 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec delete_language(String.t(), String.t(), String.t(), integer() | nil) ::
           :ok | {:error, term()}
-  def delete_language(group_slug, post_identifier, language_code, version \\ nil) do
-    with db_post when not is_nil(db_post) <- resolve_db_post(group_slug, post_identifier),
+  def delete_language(group_slug, post_uuid, language_code, version \\ nil) do
+    with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
          db_version when not is_nil(db_version) <- resolve_db_version(db_post, version),
          content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language_code) do
       # Don't delete the last active language
@@ -1889,14 +1684,9 @@ defmodule PhoenixKit.Modules.Publishing do
 
       case DBStorage.update_content(content, %{status: "archived"}) do
         {:ok, _} ->
+          broadcast_id = db_post.slug || db_post.uuid
           ListingCache.regenerate(group_slug)
-
-          PublishingPubSub.broadcast_translation_deleted(
-            group_slug,
-            post_identifier,
-            language_code
-          )
-
+          PublishingPubSub.broadcast_translation_deleted(group_slug, broadcast_id, language_code)
           :ok
 
         {:error, reason} ->
@@ -1912,14 +1702,14 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Deletes an entire version of a post.
 
-  Moves the version folder to trash instead of permanent deletion.
+  Archives the version instead of permanent deletion.
   Refuses to delete the last remaining version or the live version.
 
   Returns :ok on success or {:error, reason} on failure.
   """
   @spec delete_version(String.t(), String.t(), integer()) :: :ok | {:error, term()}
-  def delete_version(group_slug, post_identifier, version) do
-    with db_post when not is_nil(db_post) <- resolve_db_post(group_slug, post_identifier),
+  def delete_version(group_slug, post_uuid, version) do
+    with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
          db_version when not is_nil(db_version) <- DBStorage.get_version(db_post.uuid, version) do
       if db_version.status == "published", do: throw({:error, :cannot_delete_live})
 
@@ -1929,11 +1719,13 @@ defmodule PhoenixKit.Modules.Publishing do
 
       if length(active) <= 1, do: throw({:error, :last_version})
 
+      broadcast_id = db_post.slug || db_post.uuid
+
       case DBStorage.update_version(db_version, %{status: "archived"}) do
         {:ok, _} ->
           ListingCache.regenerate(group_slug)
-          PublishingPubSub.broadcast_version_deleted(group_slug, post_identifier, version)
-          PublishingPubSub.broadcast_post_version_deleted(group_slug, post_identifier, version)
+          PublishingPubSub.broadcast_version_deleted(group_slug, broadcast_id, version)
+          PublishingPubSub.broadcast_post_version_deleted(group_slug, broadcast_id, version)
           :ok
 
         {:error, reason} ->
@@ -2303,9 +2095,9 @@ defmodule PhoenixKit.Modules.Publishing do
   # Extract slug, version, and language from a path identifier
   # Handles paths like:
   #   - "post-slug" → {"post-slug", nil, nil}
-  #   - "post-slug/en.phk" → {"post-slug", nil, "en"}
-  #   - "post-slug/v1/en.phk" → {"post-slug", 1, "en"}
-  #   - "group/post-slug/v2/am.phk" → {"post-slug", 2, "am"}
+  #   - "post-slug/en" → {"post-slug", nil, "en"}
+  #   - "post-slug/v1/en" → {"post-slug", 1, "en"}
+  #   - "group/post-slug/v2/am" → {"post-slug", 2, "am"}
   @doc false
   def extract_slug_version_and_language(_group_slug, nil), do: {"", nil, nil}
 
@@ -2337,7 +2129,7 @@ defmodule PhoenixKit.Modules.Publishing do
           |> case do
             nil -> nil
             <<>> -> nil
-            lang_file -> String.replace_suffix(lang_file, ".phk", "")
+            lang_file -> lang_file
           end
 
         {slug, version, language}
@@ -2401,15 +2193,15 @@ defmodule PhoenixKit.Modules.Publishing do
   ## Examples
 
       # Translate to all enabled languages using default endpoint
-      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started")
+      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "019cce93-...")
 
       # Translate with specific endpoint
-      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "019cce93-...",
         endpoint_uuid: "endpoint-uuid"
       )
 
       # Translate to specific languages only
-      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "019cce93-...",
         endpoint_uuid: "endpoint-uuid",
         target_languages: ["es", "fr", "de"]
       )
@@ -2422,8 +2214,8 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec translate_post_to_all_languages(String.t(), String.t(), keyword()) ::
           {:ok, Oban.Job.t()} | {:error, Ecto.Changeset.t()}
-  def translate_post_to_all_languages(group_slug, post_slug, opts \\ []) do
-    TranslatePostWorker.enqueue(group_slug, post_slug, opts)
+  def translate_post_to_all_languages(group_slug, post_uuid, opts \\ []) do
+    TranslatePostWorker.enqueue(group_slug, post_uuid, opts)
   end
 
   # ============================================================================

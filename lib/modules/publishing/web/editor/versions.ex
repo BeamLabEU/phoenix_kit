@@ -10,7 +10,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
   # ============================================================================
@@ -21,18 +20,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   Reads a specific version of a post.
   """
   def read_version_post(socket, version) do
-    group_slug = socket.assigns.group_slug
     post = socket.assigns.post
     language = socket.assigns.current_language
     # Use the post's stored primary language for fallback, not global
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
 
-    read_fn =
-      if socket.assigns.group_mode == "slug" do
-        fn lang -> Publishing.read_post(group_slug, post.slug, lang, version) end
-      else
-        fn lang -> read_timestamp_version(group_slug, post, lang, version) end
-      end
+    read_fn = fn lang -> Publishing.read_post_by_uuid(post.uuid, lang, version) end
 
     # Try current language first, fall back to primary if different
     case read_fn.(language) do
@@ -40,14 +33,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
       {:error, _} when language != primary_language -> read_fn.(primary_language)
       error -> error
     end
-  end
-
-  defp read_timestamp_version(group_slug, post, language, version) do
-    # Extract timestamp identifier from current post path
-    timestamp_id = extract_timestamp_identifier(post.path)
-
-    # Use Publishing.read_post which has DB fallback for imported groups
-    Publishing.read_post(group_slug, timestamp_id, language, version)
   end
 
   # ============================================================================
@@ -87,7 +72,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
       |> Phoenix.LiveView.push_event("set-content", %{content: version_post.content})
 
     # Return socket with cleanup info for the caller to handle collaborative editing
-    {socket, old_form_key, old_post_slug, new_form_key, actual_language, version_post.path}
+    {socket, old_form_key, old_post_slug, new_form_key, actual_language}
   end
 
   # ============================================================================
@@ -104,14 +89,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     source_version = socket.assigns.new_version_source
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    post_identifier =
-      case post.mode do
-        :timestamp ->
-          extract_timestamp_identifier(post.path) || post[:uuid]
-
-        _ ->
-          post.slug || post[:uuid]
-      end
+    post_identifier = post[:uuid] || post.slug
 
     # Set just_created_version BEFORE calling create_version_from to prevent race condition
     # where the PubSub broadcast is received before this assign happens
@@ -169,13 +147,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   @doc """
   Handles when a version is deleted by another editor.
   """
-  def handle_version_deleted(socket, group_slug, post_slug, deleted_version) do
+  def handle_version_deleted(socket, deleted_version) do
     available_versions = socket.assigns[:available_versions] || []
     updated_versions = Enum.reject(available_versions, &(&1 == deleted_version))
     current_version = socket.assigns[:current_version]
 
     if current_version == deleted_version do
-      switch_to_surviving_version(socket, group_slug, post_slug, updated_versions)
+      switch_to_surviving_version(socket, updated_versions)
     else
       # We weren't viewing the deleted version, just update the list
       socket
@@ -187,16 +165,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     end
   end
 
-  defp switch_to_surviving_version(
-         socket,
-         group_slug,
-         post_slug,
-         [surviving_version | _] = versions
-       ) do
+  defp switch_to_surviving_version(socket, [surviving_version | _] = versions) do
     current_language = editor_language(socket.assigns)
+    post_uuid = socket.assigns.post.uuid
 
-    case Publishing.read_post(group_slug, post_slug, current_language, surviving_version) do
+    case Publishing.read_post_by_uuid(post_uuid, current_language, surviving_version) do
       {:ok, fresh_post} ->
+        group_slug = socket.assigns.group_slug
         apply_surviving_version(socket, group_slug, fresh_post, versions, surviving_version)
 
       {:error, _} ->
@@ -209,7 +184,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     end
   end
 
-  defp switch_to_surviving_version(socket, _group_slug, _post_slug, []) do
+  defp switch_to_surviving_version(socket, []) do
     # No versions left - this post is effectively deleted
     socket
     |> Phoenix.Component.assign(:readonly?, true)
@@ -217,7 +192,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
     |> Phoenix.Component.assign(:available_versions, [])
     |> Phoenix.Component.assign(
       :post,
-      %{socket.assigns.post | path: nil, current_version: nil}
+      Map.merge(socket.assigns.post, %{current_version: nil})
     )
     |> Phoenix.Component.assign(:has_pending_changes, false)
     |> Phoenix.LiveView.put_flash(
@@ -253,26 +228,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Versions do
   # ============================================================================
 
   @doc """
-  Extract timestamp identifier (YYYY-MM-DD/HH:MM) from a post path.
-  """
-  def extract_timestamp_identifier(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> nil
-    end
-  end
-
-  def extract_timestamp_identifier(_), do: nil
-
-  @doc """
   With variant versioning, all versions are editable since they're independent attempts.
   This function always returns false - no version locking.
   """
   def viewing_older_version?(_current_version, _available_versions, _current_language), do: false
 
-  defp editor_language(assigns) do
-    assigns[:current_language] ||
-      assigns |> Map.get(:post, %{}) |> Map.get(:language) ||
-      hd(Storage.enabled_language_codes())
-  end
+  defp editor_language(assigns), do: Helpers.editor_language(assigns)
 end

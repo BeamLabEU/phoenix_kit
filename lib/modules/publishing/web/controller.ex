@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   - `Routing` - URL path parsing and segment building
   - `Language` - Language detection and resolution
   - `SlugResolution` - URL slug resolution and redirects
-  - `PostFetching` - Post retrieval from cache/filesystem
+  - `PostFetching` - Post retrieval from cache/database
   - `Listing` - Group listing rendering and pagination
   - `PostRendering` - Post rendering and version handling
   - `Translations` - Translation link building

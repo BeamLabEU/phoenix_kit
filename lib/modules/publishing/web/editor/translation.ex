@@ -10,9 +10,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
   alias PhoenixKit.Settings
+
+  @translation_prompt_slug "translate-publishing-posts"
 
   # ============================================================================
   # Availability Checks
@@ -42,6 +43,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   end
 
   @doc """
+  Lists available AI prompts for translation.
+  """
+  def list_ai_prompts do
+    if AI.enabled?() do
+      case AI.list_prompts(enabled: true) do
+        {prompts, _total} -> Enum.map(prompts, &{&1.uuid, &1.name})
+        prompts when is_list(prompts) -> Enum.map(prompts, &{&1.uuid, &1.name})
+        _ -> []
+      end
+    else
+      []
+    end
+  end
+
+  @doc """
   Gets the default AI endpoint UUID from settings.
   """
   def get_default_ai_endpoint_uuid do
@@ -50,6 +66,82 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
       "" -> nil
       id -> id
     end
+  end
+
+  @doc """
+  Gets the default AI prompt UUID for translation from settings.
+  """
+  def get_default_ai_prompt_uuid do
+    case Settings.get_setting("publishing_translation_prompt_uuid") do
+      nil -> fallback_prompt_uuid()
+      "" -> fallback_prompt_uuid()
+      id -> id
+    end
+  end
+
+  defp fallback_prompt_uuid do
+    if AI.enabled?() do
+      case AI.get_prompt_by_slug(@translation_prompt_slug) do
+        nil -> nil
+        prompt -> prompt.uuid
+      end
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Checks if the default translation prompt already exists.
+  """
+  def default_translation_prompt_exists? do
+    AI.enabled?() and AI.get_prompt_by_slug(@translation_prompt_slug) != nil
+  end
+
+  @doc """
+  Generates the default translation prompt in the AI prompts system.
+  Returns {:ok, prompt} or {:error, changeset}.
+  """
+  def generate_default_translation_prompt do
+    attrs = %{
+      name: "Translate Publishing Posts",
+      description: "Default prompt for translating publishing posts between languages",
+      content: """
+      Translate the following content from {{SourceLanguage}} to {{TargetLanguage}}.
+
+      RULES:
+      - Preserve the EXACT formatting of the original (headings, line breaks, spacing, etc.)
+      - If the original has a # heading, keep it. If it doesn't, don't add one.
+      - Preserve all Markdown formatting (bold, italic, links, code blocks, lists)
+      - Do NOT translate text inside code blocks or inline code
+      - Translate naturally and idiomatically
+      - Keep HTML tags and special syntax unchanged
+
+      OUTPUT FORMAT - respond with ONLY this format, nothing else before or after:
+
+      ---TITLE---
+      [translated title - just the title text, no # symbol]
+      ---SLUG---
+      [url-friendly-slug-in-target-language]
+      ---CONTENT---
+      [translated content - preserve EXACT original formatting]
+
+      SLUG RULES:
+      - Lowercase letters only (a-z)
+      - Numbers allowed (0-9)
+      - Use hyphens (-) to separate words
+      - No spaces, accents, or special characters
+      - Keep it short and SEO-friendly
+      - Example: "getting-started" -> "primeros-pasos" (Spanish)
+
+      === SOURCE CONTENT ===
+
+      Title: {{Title}}
+
+      {{Content}}
+      """
+    }
+
+    AI.create_prompt(attrs)
   end
 
   # ============================================================================
@@ -62,10 +154,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   def get_target_languages_for_translation(socket) do
     post = socket.assigns.post
     # Use post's stored primary language for translation source
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
     available_languages = post.available_languages || []
 
-    Storage.enabled_language_codes()
+    Publishing.enabled_language_codes()
     |> Enum.reject(&(&1 == primary_language or &1 in available_languages))
   end
 
@@ -75,9 +167,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   def get_all_target_languages(socket) do
     post = socket.assigns.post
     # Use post's stored primary language to exclude from targets
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
 
-    Storage.enabled_language_codes()
+    Publishing.enabled_language_codes()
     |> Enum.reject(&(&1 == primary_language))
   end
 
@@ -102,6 +194,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
       is_nil(socket.assigns.ai_selected_endpoint_uuid) ->
         {:noreply,
          Phoenix.LiveView.put_flash(socket, :error, gettext("Please select an AI endpoint"))}
+
+      is_nil(socket.assigns[:ai_selected_prompt_uuid]) ->
+        {:noreply,
+         Phoenix.LiveView.put_flash(socket, :error, gettext("Please select an AI prompt"))}
 
       target_languages == [] ->
         {:noreply, Phoenix.LiveView.put_flash(socket, empty_level, empty_message)}
@@ -136,19 +232,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     source_language =
       post[:primary_language] ||
         socket.assigns[:current_language] ||
-        Storage.get_primary_language()
-
-    # For timestamp mode, use date/time identifier; for slug mode, use slug
-    post_identifier =
-      case post.mode do
-        :timestamp -> extract_timestamp_identifier(post.path)
-        _ -> post.slug
-      end
+        Publishing.get_primary_language()
 
     case TranslatePostWorker.enqueue(
            socket.assigns.group_slug,
-           post_identifier,
+           post.uuid,
            endpoint_uuid: socket.assigns.ai_selected_endpoint_uuid,
+           prompt_uuid: socket.assigns[:ai_selected_prompt_uuid],
            version: socket.assigns.current_version,
            user_uuid: user_uuid,
            target_languages: target_languages,
@@ -174,7 +264,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   defp translation_success_socket(socket, target_languages) do
     lang_names =
       Enum.map_join(target_languages, ", ", fn code ->
-        info = Storage.get_language_info(code)
+        info = Publishing.get_language_info(code)
         if info, do: info.name, else: code
       end)
 
@@ -244,7 +334,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
 
   defp format_language_names(language_codes) do
     Enum.map_join(language_codes, ", ", fn code ->
-      info = Storage.get_language_info(code)
+      info = Publishing.get_language_info(code)
       if info, do: info.name, else: code
     end)
   end
@@ -254,12 +344,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
   """
   def source_content_blank?(socket) do
     post = socket.assigns.post
-    group_slug = socket.assigns.group_slug
 
     source_language =
       post[:primary_language] ||
         socket.assigns[:current_language] ||
-        Storage.get_primary_language()
+        Publishing.get_primary_language()
 
     current_version = socket.assigns[:current_version]
 
@@ -268,15 +357,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
       content = socket.assigns.content || ""
       String.trim(content) == ""
     else
-      # For timestamp mode, use date/time identifier; for slug mode, use slug
-      post_identifier =
-        case post.mode do
-          :timestamp -> extract_timestamp_identifier(post.path)
-          _ -> post.slug
-        end
-
-      # Read the source language content from disk
-      case Publishing.read_post(group_slug, post_identifier, source_language, current_version) do
+      # Read the source language content from the database
+      case Publishing.read_post_by_uuid(post.uuid, source_language, current_version) do
         {:ok, source_post} ->
           content = source_post.content || ""
           String.trim(content) == ""
@@ -309,6 +391,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
         {:noreply,
          Phoenix.LiveView.put_flash(socket, :error, gettext("Please select an AI endpoint"))}
 
+      is_nil(socket.assigns[:ai_selected_prompt_uuid]) ->
+        {:noreply,
+         Phoenix.LiveView.put_flash(socket, :error, gettext("Please select an AI prompt"))}
+
       true ->
         target_language = socket.assigns.current_language
         # Enqueue as Oban job with single target language
@@ -335,13 +421,29 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     end
   end
 
-  # Extract timestamp identifier (YYYY-MM-DD/HH:MM) from a post path
-  defp extract_timestamp_identifier(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> nil
+  @doc """
+  Restores translation status from an active Oban job if one exists for this post.
+  Call on mount to survive page refreshes.
+  """
+  def maybe_restore_translation_status(socket) do
+    post = socket.assigns[:post]
+
+    if post && post[:uuid] do
+      case TranslatePostWorker.active_job(post.uuid) do
+        nil ->
+          socket
+
+        job ->
+          target_languages = Map.get(job.args, "target_languages", [])
+
+          socket
+          |> Phoenix.Component.assign(:ai_translation_status, :in_progress)
+          |> Phoenix.Component.assign(:ai_translation_progress, 0)
+          |> Phoenix.Component.assign(:ai_translation_total, length(target_languages))
+          |> Phoenix.Component.assign(:ai_translation_languages, target_languages)
+      end
+    else
+      socket
     end
   end
-
-  defp extract_timestamp_identifier(_), do: nil
 end

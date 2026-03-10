@@ -129,8 +129,8 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   @doc """
   Broadcasts a post deleted event.
   """
-  def broadcast_post_deleted(group_slug, post_path) do
-    Manager.broadcast(posts_topic(group_slug), {:post_deleted, post_path})
+  def broadcast_post_deleted(group_slug, post_identifier) do
+    Manager.broadcast(posts_topic(group_slug), {:post_deleted, post_identifier})
   end
 
   @doc """
@@ -150,15 +150,15 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   @doc """
   Broadcasts that the live version changed for a post.
   """
-  def broadcast_version_live_changed(group_slug, post_slug, version) do
-    Manager.broadcast(posts_topic(group_slug), {:version_live_changed, post_slug, version})
+  def broadcast_version_live_changed(group_slug, post_identifier, version) do
+    Manager.broadcast(posts_topic(group_slug), {:version_live_changed, post_identifier, version})
   end
 
   @doc """
   Broadcasts that a version was deleted from a post.
   """
-  def broadcast_version_deleted(group_slug, post_slug, version) do
-    Manager.broadcast(posts_topic(group_slug), {:version_deleted, post_slug, version})
+  def broadcast_version_deleted(group_slug, post_identifier, version) do
+    Manager.broadcast(posts_topic(group_slug), {:version_deleted, post_identifier, version})
   end
 
   # ============================================================================
@@ -266,7 +266,7 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   # ============================================================================
 
   @doc """
-  Broadcasts that a post was saved, so other editors can reload from disk.
+  Broadcasts that a post was saved, so other editors can reload.
 
   The `source` is the socket.id of the saver, so they don't reload their own save.
   """
@@ -372,7 +372,7 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   end
 
   @doc """
-  Broadcasts that the cache state has changed (file regenerated, memory loaded, etc).
+  Broadcasts that the cache state has changed (cache regenerated, memory loaded, etc).
   """
   def broadcast_cache_changed(group_slug) do
     Manager.broadcast(cache_topic(group_slug), {:cache_changed, group_slug})
@@ -560,8 +560,8 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
 
   ## Examples
 
-      generate_form_key("blog", %{path: "blog/my-post/v1/en.phk"})
-      # => "blog:blog/my-post/v1/en.phk"
+      generate_form_key("blog", %{path: "blog/my-post/v1/en"})
+      # => "blog:blog/my-post/v1/en"
 
       generate_form_key("blog", %{slug: "my-post", language: "en"})
       # => "blog:my-post:en"
@@ -577,7 +577,7 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
     "#{group_slug}:#{uuid}:#{lang}"
   end
 
-  # Path already includes language (e.g., "blog/my-post/v1/en.phk")
+  # Path already includes language (e.g., "blog/my-post/v1/en")
   def generate_form_key(group_slug, %{path: path}, :edit) when is_binary(path) do
     "#{group_slug}:#{path}"
   end
@@ -642,40 +642,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
       posts_topic(group_slug),
       {:primary_language_migration_completed, group_slug, success_count, error_count,
        primary_language}
-    )
-  end
-
-  # ============================================================================
-  # Legacy Structure Migration Progress
-  # ============================================================================
-
-  @doc """
-  Broadcasts that legacy structure migration has started.
-  """
-  def broadcast_legacy_structure_migration_started(group_slug, total_count) do
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:legacy_structure_migration_started, group_slug, total_count}
-    )
-  end
-
-  @doc """
-  Broadcasts legacy structure migration progress.
-  """
-  def broadcast_legacy_structure_migration_progress(group_slug, current, total) do
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:legacy_structure_migration_progress, group_slug, current, total}
-    )
-  end
-
-  @doc """
-  Broadcasts that legacy structure migration has completed.
-  """
-  def broadcast_legacy_structure_migration_completed(group_slug, success_count, error_count) do
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:legacy_structure_migration_completed, group_slug, success_count, error_count}
     )
   end
 end

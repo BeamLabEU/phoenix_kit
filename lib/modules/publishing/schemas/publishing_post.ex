@@ -104,6 +104,10 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
     |> validate_scheduled_at()
     |> maybe_require_timestamp_fields()
     |> unique_constraint([:group_uuid, :slug], name: :idx_publishing_posts_group_slug)
+    |> unique_constraint([:group_uuid, :post_date, :post_time],
+      name: :idx_publishing_posts_group_date_time_unique,
+      message: "a post already exists at this date and time"
+    )
     |> foreign_key_constraint(:group_uuid, name: :fk_publishing_posts_group)
     |> foreign_key_constraint(:created_by_uuid, name: :fk_publishing_posts_created_by)
     |> foreign_key_constraint(:updated_by_uuid, name: :fk_publishing_posts_updated_by)

@@ -1,4 +1,7 @@
-## 1.7.63 - 2026-03-10
+## 1.7.68 - 2026-03-10
+- Merge upstream changes: publishing editor rework, AI translation, bulk group actions, V77/V78 migration fixes, scheduled jobs queue, Settings.Queries module, plugin migration callbacks
+
+## 1.7.67 - 2026-03-10
 
 ### Breaking Changes (requires manual steps in parent app)
 
@@ -18,6 +21,50 @@
 - Rename route module: `PhoenixKitWeb.Routes.MailingRoutes` → `NewslettersRoutes`
 - Rename dashboard tabs: `:admin_mailing` → `:admin_newsletters`
 
+## 1.7.66 - 2026-03-09
+- Clean up publishing module: fix UUID routing bugs (slug vs UUID in version creation, PubSub broadcasts, translation status), remove dead code and filesystem path references
+- Optimize publishing DB queries: batch loading, ListingCache for dashboard, bulk UPDATE for translation statuses, debounced PubSub updates
+- Rework editor to two-column layout with content-first design (title + editor left, metadata right)
+- Rework AI translation: integrate AI prompt system, modal UI replacing slidedown, translation progress recovery across page refreshes
+- Replace primary language banner with compact tooltip on language switcher
+- Add skeleton loading UI for language switching in publishing editor
+- Fix collaborative editing: spectator initial sync, lock promotion JS updates, lock expiration timer
+- Fix admin sidebar highlighting for publishing group pages
+- Fix custom fields card hidden when no field definitions are registered
+- Add bulk "Add to Group" action on posts index with dynamic group filter dropdown
+
+## 1.7.65 - 2026-03-08
+- Fix V77 migration crash: role_id column renamed to role_uuid in UUID migration
+
+## 1.7.64 - 2026-03-08
+- Remove legacy filesystem paths from publishing module — strip all `.phk` virtual path references from mapper, editor, listing, and preview
+- Switch all event handlers and navigation from path-based to UUID-based routing
+- Fix timestamp-mode posts returning 404: normalize post_time to zero seconds, with hour:minute-only fallback query for legacy data
+- Add collision prevention for same-minute timestamp posts (auto-bump to next minute, max 60 attempts)
+- Add unique_constraint on (group_uuid, post_date, post_time) to schema
+- Render empty listing page instead of 404 when group exists but has no published posts
+- Show Primary Language banner during new post creation
+- Add missing PubSub handlers to publishing Index view (version_created, version_live_changed, version_deleted) with catch-all
+- Fix primary language migration using removed path field — now uses UUID/slug directly
+- Remove cache management UI from listing page (accessible via settings only)
+- Add safety guards to URL builders: raise ArgumentError on nil UUID instead of producing broken URLs
+
+## 1.7.63 - 2026-03-06
+- Remove filesystem storage from publishing module — delete Storage, DualWrite, and all storage/* submodules (~7k lines removed)
+- Add LanguageHelpers and SlugHelpers as standalone modules, simplify to DB-only throughout
+- Fix slug conflict clearing bug: `clear_url_slugs_for_conflicts` passed wrong slug to DB cleanup
+- Fix ngettext interpolation in primary language migration modal (literal `%{count}` in UI)
+- Clean up stale filesystem references in comments, docs, and user-facing strings
+- Fix V77/V78 migration crashes when UUID columns are missing (tables created after V56 ran)
+- Simplify V77/V78 migrations — remove over-engineered column detection, rely on idempotent patterns
+- Fix email tracking bug: `handle_delivery_result` used `get_log!` (raises) in a nil-matching branch; add `get_log/1` non-bang wrapper and remove unused public functions
+- Add `migration_module/0` callback to plugin module system — `mix phoenix_kit.update` auto-discovers and runs plugin migrations
+- Add `Settings.Queries` module for database operations
+- Add dedicated queue and 1-day pruner for scheduled jobs cron worker
+- Fix user dashboard navigation links
+- Fix ueberauth providers configuration format in installer
+
+>>>>>>> upstream/dev
 ## 1.7.62 - 2026-03-05
 - Fix UnicodeConversionError crash in integration plug when response body contains non-UTF8 binary data
 - Fix DB browser rendering of raw binary values (e.g. UUID bytes) in table and activity views

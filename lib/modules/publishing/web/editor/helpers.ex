@@ -7,7 +7,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   """
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Modules.Storage.URLSigner
@@ -24,11 +23,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     enabled_languages = socket.assigns[:all_enabled_languages] || []
     lang_info = Publishing.get_language_info(language_code)
     post_primary = socket.assigns[:post] && socket.assigns.post[:primary_language]
-    primary_language = post_primary || Storage.get_primary_language()
+    primary_language = post_primary || Publishing.get_primary_language()
     is_primary = language_code == primary_language
 
     # Check if this post's primary language matches the global setting
-    global_primary = Storage.get_primary_language()
+    global_primary = Publishing.get_primary_language()
 
     primary_lang_status =
       cond do
@@ -49,7 +48,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     |> Phoenix.Component.assign(:global_primary_language_name, global_primary_language_name)
     |> Phoenix.Component.assign(
       :current_language_enabled,
-      Storage.language_enabled?(language_code, enabled_languages)
+      Publishing.language_enabled?(language_code, enabled_languages)
     )
     |> Phoenix.Component.assign(:current_language_known, lang_info != nil)
     |> Phoenix.Component.assign(:is_primary_language, is_primary)
@@ -93,17 +92,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   def editor_language(assigns) do
     assigns[:current_language] ||
       assigns |> Map.get(:post, %{}) |> Map.get(:language) ||
-      hd(Storage.enabled_language_codes())
+      hd(Publishing.enabled_language_codes())
   end
 
   @doc """
   Builds language data for the publishing_language_switcher component.
   """
-  def build_editor_languages(post, _group_slug, enabled_languages, current_language) do
-    post_primary = post[:primary_language] || Storage.get_primary_language()
+  def build_editor_languages(post, enabled_languages, current_language) do
+    post_primary = post[:primary_language] || Publishing.get_primary_language()
 
     all_languages =
-      Storage.order_languages_for_display(
+      Publishing.order_languages_for_display(
         post.available_languages || [],
         enabled_languages,
         post_primary
@@ -115,12 +114,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
       lang_info = Publishing.get_language_info(lang_code)
       file_exists = lang_code in (post.available_languages || [])
       is_current = lang_code == current_language
-      is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
+      is_enabled = Publishing.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
       is_primary = lang_code == post_primary
 
       status = Map.get(language_statuses, lang_code)
-      display_code = Storage.get_display_code(lang_code, enabled_languages)
+      display_code = Publishing.get_display_code(lang_code, enabled_languages)
 
       %{
         code: lang_code,
@@ -201,8 +200,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
       group: group_slug,
       date: nil,
       time: nil,
-      path: nil,
-      full_path: nil,
       metadata: %{
         title: "",
         status: "draft",
@@ -214,8 +211,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
       language: primary_language,
       available_languages: [],
       mode: :slug,
-      slug: nil,
-      is_legacy_structure: false
+      slug: nil
     }
   end
 
@@ -223,21 +219,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     date = DateTime.to_date(now)
     time = DateTime.to_time(now)
 
-    time_folder =
-      "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
-
     %{
       group: group_slug,
       date: date,
       time: time,
-      path:
-        Path.join([
-          group_slug,
-          Date.to_iso8601(date),
-          time_folder,
-          "#{primary_language}.phk"
-        ]),
-      full_path: nil,
       metadata: %{
         title: "",
         status: "draft",
@@ -247,17 +232,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
       content: "",
       language: primary_language,
       available_languages: [],
-      mode: :timestamp,
-      is_legacy_structure: false
+      mode: :timestamp
     }
   end
 
   @doc """
   Builds a virtual translation for a new language.
   """
-  def build_virtual_translation(post, group_slug, new_language, new_path, socket) do
+  def build_virtual_translation(post, group_slug, new_language, socket) do
     post
-    |> Map.put(:path, new_path)
     |> Map.put(:language, new_language)
     |> Map.put(:group, group_slug || "group")
     |> Map.put(:content, "")
@@ -306,65 +289,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
 
   @doc """
   Builds the URL for a post overview page.
-
-  Uses UUID-based URL when available, falls back to legacy path URL.
   """
-  def build_post_url(group_slug, post, _opts \\ []) do
-    case post[:uuid] do
-      nil ->
-        # Fallback to legacy editor URL
-        path = post[:path] || "#{post[:slug]}/v1/#{post[:language] || "en"}.phk"
-        Routes.path("/admin/publishing/#{group_slug}/edit?path=#{URI.encode(path)}")
-
-      uuid ->
-        Routes.path("/admin/publishing/#{group_slug}/#{uuid}")
-    end
+  def build_post_url(group_slug, post) do
+    Routes.path("/admin/publishing/#{group_slug}/#{require_uuid!(post)}")
   end
 
   @doc """
   Builds the URL for the post editor.
 
-  Uses UUID-based URL when available, falls back to legacy path URL.
   Options: `:version`, `:lang`
   """
   def build_edit_url(group_slug, post, opts \\ []) do
-    case post[:uuid] do
-      nil ->
-        # Fallback to legacy path URL
-        path = post[:path] || "#{post[:slug]}/v1/#{post[:language] || "en"}.phk"
+    uuid = require_uuid!(post)
+    base = "/admin/publishing/#{group_slug}/#{uuid}/edit"
+    params = build_query_params(opts)
 
-        base = "/admin/publishing/#{group_slug}/edit?path=#{URI.encode(path)}"
-
-        base =
-          if opts[:lang],
-            do: "#{base}&lang=#{opts[:lang]}",
-            else: base
-
-        Routes.path(base)
-
-      uuid ->
-        base = "/admin/publishing/#{group_slug}/#{uuid}/edit"
-        params = build_query_params(opts)
-
-        if params == "" do
-          Routes.path(base)
-        else
-          Routes.path("#{base}?#{params}")
-        end
+    if params == "" do
+      Routes.path(base)
+    else
+      Routes.path("#{base}?#{params}")
     end
   end
 
   @doc """
   Builds the URL for the post preview.
   """
-  def build_preview_url(group_slug, post, _opts \\ []) do
-    case post[:uuid] do
-      nil ->
-        Routes.path("/admin/publishing/#{group_slug}/preview")
-
-      uuid ->
-        Routes.path("/admin/publishing/#{group_slug}/#{uuid}/preview")
-    end
+  def build_preview_url(group_slug, post) do
+    Routes.path("/admin/publishing/#{group_slug}/#{require_uuid!(post)}/preview")
   end
 
   @doc """
@@ -385,4 +336,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
 
   defp maybe_add_param(params, _key, nil), do: params
   defp maybe_add_param(params, key, value), do: [{key, value} | params]
+
+  defp require_uuid!(post) do
+    case post[:uuid] do
+      nil -> raise ArgumentError, "post UUID is required for URL construction, got nil"
+      uuid -> uuid
+    end
+  end
 end

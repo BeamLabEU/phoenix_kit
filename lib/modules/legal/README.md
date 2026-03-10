@@ -238,8 +238,10 @@ Add the following to your root layout (`root.html.heex`):
 
 ```heex
 <%!-- In your <head> section --%>
-<%!-- Meta tag for URL prefix detection --%>
-<meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
+<%!-- Set URL prefix for consent widget --%>
+<script>
+  window.PHOENIX_KIT_PREFIX = "<%= PhoenixKit.Utils.Routes.url_prefix() %>";
+</script>
 
 <%!-- Cookie Consent Script (auto-initializes on DOMContentLoaded) --%>
 <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
@@ -247,9 +249,10 @@ Add the following to your root layout (`root.html.heex`):
 ```
 
 The script will automatically:
-1. Fetch configuration from `/phoenix_kit/api/consent-config`
-2. Create and inject the widget if consent is needed
-3. Handle consent storage and cross-tab synchronization
+1. Read `window.PHOENIX_KIT_PREFIX` to determine the correct API endpoint
+2. Fetch configuration from the prefix-aware URL
+3. Create and inject the widget if consent is needed
+4. Handle consent storage and cross-tab synchronization
 
 ### JavaScript API
 
@@ -429,10 +432,10 @@ Legal.get_consent_widget_config()
 1. Check module is enabled: `Legal.enabled?()`
 2. Check widget is enabled: `Legal.consent_widget_enabled?()`
 3. Check opt-in framework selected: `Legal.has_opt_in_framework?()`
-4. Verify meta tag in layout: `<meta name="phoenix-kit-prefix" ...>`
+4. Verify global variable is set: Check browser console for `window.PHOENIX_KIT_PREFIX`
 5. Verify consent script is loaded: `<script src=".../assets/phoenix_kit_consent.js">`
 6. Check browser console for errors
-7. Verify API endpoint works: `curl http://localhost:4000/phoenix_kit/api/consent-config`
+7. Verify API endpoint works: `curl http://localhost:4000/api/consent-config` (or your prefix + `/api/consent-config`)
 
 ### Pages not generating
 

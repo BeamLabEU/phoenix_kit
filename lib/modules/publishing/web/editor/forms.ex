@@ -8,7 +8,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Slug
 
@@ -28,13 +27,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   @doc """
   Build form for a post, handling new translations appropriately.
 
-  For new translations (no file on disk yet), inherits status from the primary language.
+  For new translations (no content in DB yet), inherits status from the primary language.
   For existing files, uses the file's own status to avoid confusion between
   what the dropdown shows and what the language switcher shows.
   """
-  def post_form_with_primary_status(group_slug, post, version) do
+  def post_form_with_primary_status(_group_slug, post, version) do
     form = post_form(post)
-    primary_language = post[:primary_language] || Storage.get_primary_language()
+    primary_language = post[:primary_language] || Publishing.get_primary_language()
     original_language = post[:original_language] || post.language
     is_new_translation = Map.get(post, :is_new_translation, false)
 
@@ -43,10 +42,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       form
     else
       # For NEW translations only, inherit status from primary language as a default
-      # Use appropriate identifier based on post mode
-      post_identifier = get_post_identifier(post)
-
-      case Publishing.read_post(group_slug, post_identifier, primary_language, version) do
+      case Publishing.read_post_by_uuid(post.uuid, primary_language, version) do
         {:ok, primary_post} ->
           primary_status = Map.get(primary_post.metadata, :status, "draft")
           Map.put(form, "status", primary_status)
@@ -56,26 +52,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       end
     end
   end
-
-  # Get the correct post identifier based on mode
-  # For timestamp mode: extract date/time from path (e.g., "2025-12-31/03:42")
-  # For slug mode: use the post slug
-  defp get_post_identifier(post) do
-    case Map.get(post, :mode) do
-      :timestamp -> extract_timestamp_identifier(post.path)
-      _ -> post.slug
-    end
-  end
-
-  # Extract timestamp identifier (date/time) from a timestamp mode path
-  defp extract_timestamp_identifier(path) when is_binary(path) do
-    case Regex.run(~r/(\d{4}-\d{2}-\d{2}\/\d{2}:\d{2})/, path) do
-      [_, timestamp] -> timestamp
-      nil -> path
-    end
-  end
-
-  defp extract_timestamp_identifier(path), do: path
 
   defp base_form(post) do
     %{
@@ -356,7 +332,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
     title = Metadata.extract_title_from_content(content)
     current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
 
-    case Storage.generate_unique_slug(socket.assigns.group_slug, title, nil,
+    case Publishing.generate_unique_slug(socket.assigns.group_slug, title, nil,
            current_slug: current_slug
          ) do
       {:ok, ""} ->

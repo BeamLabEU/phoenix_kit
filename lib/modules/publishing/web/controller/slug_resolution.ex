@@ -5,12 +5,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   Handles resolving URL slugs to internal slugs, including:
   - Per-language custom URL slugs
   - Previous URL slugs for 301 redirects
-  - Filesystem fallback when cache is unavailable
+  - DB-based slug lookups
   """
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Metadata
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
 
   # ============================================================================
@@ -18,7 +16,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   # ============================================================================
 
   @doc """
-  Resolves URL slug to internal slug using cache.
+  Resolves URL slug to internal slug using cache/DB.
 
   Returns:
   - `{:redirect, url}` for 301 redirect to new URL
@@ -44,7 +42,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
           {:ok, cached_post} ->
             # Found in previous slugs - redirect to current URL
             current_url_slug =
-              Map.get(cached_post.language_slugs || %{}, language, cached_post.slug)
+              Map.get(cached_post[:language_slugs] || %{}, language, cached_post.slug)
 
             redirect_url =
               build_post_redirect_url(group_slug, cached_post, language, current_url_slug)
@@ -52,13 +50,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
             {:redirect, redirect_url}
 
           {:error, _} ->
-            # Not found in cache - try filesystem fallback
-            resolve_url_slug_from_filesystem(group_slug, url_slug, language)
+            :passthrough
         end
-
-      {:error, :cache_miss} ->
-        # Cache not available - try filesystem fallback
-        resolve_url_slug_from_filesystem(group_slug, url_slug, language)
     end
   end
 
@@ -75,176 +68,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
         cached_post.slug || cached_post[:slug]
 
       {:error, _} ->
-        # Fallback: try filesystem scan for custom slug
-        case find_internal_slug_from_filesystem(group_slug, url_slug, language) do
-          {:ok, internal_slug} -> internal_slug
-          {:error, _} -> url_slug
-        end
+        # Not found in cache/DB - use as-is
+        url_slug
     end
-  end
-
-  # ============================================================================
-  # Filesystem Fallback
-  # ============================================================================
-
-  @doc """
-  Filesystem fallback for URL slug resolution when cache is unavailable.
-  Also handles 301 redirects for previous_url_slugs.
-  """
-  def resolve_url_slug_from_filesystem(group_slug, url_slug, language) do
-    case find_slug_in_filesystem(group_slug, url_slug, language) do
-      {:current, internal_slug} when internal_slug != url_slug ->
-        # Found as current url_slug - resolve to internal slug
-        {:ok, {:slug, internal_slug}}
-
-      {:current, _same_slug} ->
-        # URL slug matches internal slug - passthrough
-        :passthrough
-
-      {:previous, internal_slug, current_url_slug} ->
-        # Found in previous_url_slugs - redirect to current URL
-        redirect_url =
-          build_redirect_url_from_slugs(group_slug, internal_slug, language, current_url_slug)
-
-        {:redirect, redirect_url}
-
-      {:error, _} ->
-        # Not found - passthrough for normal handling
-        :passthrough
-    end
-  end
-
-  @doc """
-  Scans filesystem to find a post with matching url_slug or previous_url_slugs.
-
-  Returns:
-  - `{:current, internal_slug}` - found as current url_slug
-  - `{:previous, internal_slug, current_url_slug}` - found in previous_url_slugs (for redirect)
-  - `{:error, reason}` - not found
-  """
-  def find_slug_in_filesystem(group_slug, url_slug, language) do
-    group_path = Storage.group_path(group_slug)
-
-    with true <- File.dir?(group_path),
-         dirs <- File.ls!(group_path),
-         result when not is_nil(result) <-
-           scan_posts_for_slug(group_path, dirs, url_slug, language) do
-      result
-    else
-      false -> {:error, :group_not_found}
-      nil -> {:error, :not_found}
-    end
-  rescue
-    _ -> {:error, :scan_failed}
-  end
-
-  # ============================================================================
-  # Slug Scanning Helpers
-  # ============================================================================
-
-  defp scan_posts_for_slug(group_path, dirs, url_slug, language) do
-    Enum.find_value(dirs, fn post_dir ->
-      post_path = Path.join(group_path, post_dir)
-
-      if File.dir?(post_path) do
-        check_post_for_slug(post_path, post_dir, url_slug, language)
-      end
-    end)
-  end
-
-  defp check_post_for_slug(post_path, post_dir, url_slug, language) do
-    case read_slug_data_from_post(post_path, language) do
-      {:ok, current_slug, previous_slugs} ->
-        match_slug_data(post_dir, url_slug, current_slug, previous_slugs)
-
-      _ ->
-        nil
-    end
-  end
-
-  defp match_slug_data(post_dir, url_slug, current_slug, previous_slugs) do
-    cond do
-      current_slug == url_slug ->
-        {:current, post_dir}
-
-      url_slug in (previous_slugs || []) ->
-        {:previous, post_dir, current_slug || post_dir}
-
-      true ->
-        nil
-    end
-  end
-
-  # Legacy function for resolve_url_slug_to_internal (only needs current slug)
-  defp find_internal_slug_from_filesystem(group_slug, url_slug, language) do
-    case find_slug_in_filesystem(group_slug, url_slug, language) do
-      {:current, internal_slug} -> {:ok, internal_slug}
-      {:previous, internal_slug, _current} -> {:ok, internal_slug}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  # ============================================================================
-  # Slug Data Reading
-  # ============================================================================
-
-  @doc """
-  Reads url_slug and previous_url_slugs from a post's language file metadata.
-  """
-  def read_slug_data_from_post(post_path, language) do
-    # Try versioned structure first, then legacy
-    content_dir =
-      case find_latest_version_dir(post_path) do
-        {:ok, version_dir} -> version_dir
-        {:error, _} -> post_path
-      end
-
-    file_path = Path.join(content_dir, "#{language}.phk")
-
-    if File.exists?(file_path) do
-      case File.read(file_path) do
-        {:ok, content} ->
-          case Metadata.parse_with_content(content) do
-            {:ok, metadata, _content} ->
-              url_slug = Map.get(metadata, :url_slug)
-              previous_slugs = Map.get(metadata, :previous_url_slugs) || []
-              {:ok, url_slug, previous_slugs}
-
-            _ ->
-              {:error, :parse_failed}
-          end
-
-        _ ->
-          {:error, :read_failed}
-      end
-    else
-      {:error, :file_not_found}
-    end
-  end
-
-  @doc """
-  Finds the latest version directory in a versioned post structure.
-  """
-  def find_latest_version_dir(post_path) do
-    versions =
-      post_path
-      |> File.ls!()
-      |> Enum.filter(&String.starts_with?(&1, "v"))
-      |> Enum.map(fn dir ->
-        case Integer.parse(String.trim_leading(dir, "v")) do
-          {num, ""} -> num
-          _ -> nil
-        end
-      end)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.sort(:desc)
-
-    case versions do
-      [latest | _] -> {:ok, Path.join(post_path, "v#{latest}")}
-      [] -> {:error, :no_versions}
-    end
-  rescue
-    _ -> {:error, :scan_failed}
   end
 
   # ============================================================================

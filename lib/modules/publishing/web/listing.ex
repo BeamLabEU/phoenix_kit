@@ -9,13 +9,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
-  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
-  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
-  alias PhoenixKit.Modules.Publishing.Workers.MigrateLegacyStructureWorker
   alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -33,52 +30,32 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     if connected?(socket), do: subscribe_to_pubsub(group_slug)
 
-    date_time_settings = load_date_time_settings()
-    {groups, current_group} = load_groups_and_current(group_slug)
-
-    initial_posts =
-      case group_slug do
-        nil -> []
-        slug -> DBStorage.list_posts_with_metadata(slug)
-      end
-
-    current_path =
-      case group_slug do
-        nil -> Routes.path("/admin/publishing")
-        slug -> Routes.path("/admin/publishing/#{slug}")
-      end
-
     socket =
       socket
       |> assign(:project_title, Settings.get_project_title())
       |> assign(:page_title, "Publishing")
-      |> assign(:current_path, current_path)
-      |> assign(:groups, groups)
-      |> assign(:current_group, current_group)
+      |> assign(:current_path, Routes.path("/admin/publishing/#{group_slug}"))
+      |> assign(:groups, [])
+      |> assign(:current_group, nil)
       |> assign(:group_slug, group_slug)
-      |> assign(:enabled_languages, Storage.enabled_language_codes())
-      |> assign(:primary_language, Storage.get_primary_language())
-      |> assign(:primary_language_name, get_language_name(Storage.get_primary_language()))
-      |> assign(:posts, initial_posts)
+      |> assign(:enabled_languages, Publishing.enabled_language_codes())
+      |> assign(:primary_language, Publishing.get_primary_language())
+      |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
+      |> assign(:posts, [])
       |> assign(:loading, false)
       |> assign(:endpoint_url, "")
-      |> assign(:date_time_settings, date_time_settings)
-      |> assign(:group_files_root, get_group_files_root(group_slug))
-      |> assign(:cache_info, get_cache_info(group_slug))
-      |> assign(:primary_language_status, get_primary_language_status(group_slug))
+      |> assign(:date_time_settings, load_date_time_settings())
+      |> assign(:primary_language_status, nil)
       |> assign(:active_editors, %{})
       |> assign(:translating_posts, %{})
       |> assign(:pending_post_updates, %{})
       |> assign(:show_migration_modal, false)
       |> assign(:migration_in_progress, false)
       |> assign(:migration_progress, nil)
-      |> assign(:legacy_structure_status, get_legacy_structure_status(group_slug))
-      |> assign(:show_version_migration_modal, false)
-      |> assign(:version_migration_in_progress, false)
-      |> assign(:version_migration_progress, nil)
-      |> assign(:db_storage, Publishing.db_storage?())
 
-    {:ok, redirect_if_missing(socket)}
+    # Groups, posts, current_group, and primary_language_status are loaded in
+    # handle_params which always runs after mount — no need to load them twice.
+    {:ok, socket}
   end
 
   @impl true
@@ -88,7 +65,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     socket = handle_subscription_change(socket, old_group_slug, new_group_slug)
 
-    {_groups, current_group} = load_groups_and_current(new_group_slug)
+    {groups, current_group} = load_groups_and_current(new_group_slug)
 
     posts =
       case new_group_slug do
@@ -98,25 +75,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     socket =
       socket
+      |> assign(:groups, groups)
       |> assign(:current_group, current_group)
       |> assign(:posts, posts)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
-      |> assign(:group_files_root, get_group_files_root(new_group_slug))
-      |> assign(:cache_info, get_cache_info(new_group_slug))
-      |> assign(:primary_language_status, get_primary_language_status(new_group_slug))
-      |> assign(:legacy_structure_status, get_legacy_structure_status(new_group_slug))
-      |> assign(:db_storage, Publishing.db_storage?())
+      |> assign(:primary_language_status, primary_language_status_from_posts(posts))
 
     {:noreply, redirect_if_missing(socket)}
   end
 
   @impl true
   def handle_event("create_post", _params, %{assigns: %{group_slug: group_slug}} = socket) do
-    # Use redirect for full page refresh to ensure editor JS initializes properly
-    {:noreply,
-     redirect(socket,
-       to: Helpers.build_new_post_url(group_slug)
-     )}
+    {:noreply, push_navigate(socket, to: Helpers.build_new_post_url(group_slug))}
   end
 
   def handle_event("refresh", _params, socket) do
@@ -124,82 +94,39 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     {:noreply,
      socket
-     |> assign(:posts, DBStorage.list_posts_with_metadata(group_slug))
-     |> assign(:cache_info, get_cache_info(group_slug))}
+     |> assign(:posts, DBStorage.list_posts_with_metadata(group_slug))}
   end
 
   def handle_event("add_language", params, socket) do
     lang_code = params["language"]
     group_slug = socket.assigns.group_slug
 
-    url =
-      if uuid = params["uuid"] do
-        Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
-      else
-        post_path = params["path"] || ""
-
-        Routes.path(
-          "/admin/publishing/#{group_slug}/edit?path=#{URI.encode(post_path)}&lang=#{lang_code}"
-        )
-      end
-
-    # Use redirect for full page refresh to ensure editor JS initializes properly
-    {:noreply, redirect(socket, to: url)}
-  end
-
-  def handle_event("language_action", %{"language" => _lang_code} = params, socket)
-      when is_map_key(params, "uuid") do
     uuid = params["uuid"]
-    group_slug = socket.assigns.group_slug
+    url = Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
 
-    url =
-      if params["path"] && params["path"] != "" do
-        # Language file exists — open it directly
-        Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: params["language"])
-      else
-        # Language doesn't exist yet — open editor to create it
-        Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: params["language"])
-      end
-
-    {:noreply, redirect(socket, to: url)}
-  end
-
-  def handle_event("language_action", %{"language" => _lang_code, "path" => path}, socket)
-      when is_binary(path) and path != "" do
-    # Legacy path-based fallback
-    {:noreply,
-     redirect(socket,
-       to:
-         Routes.path(
-           "/admin/publishing/#{socket.assigns.group_slug}/edit?path=#{URI.encode(path)}"
-         )
-     )}
+    {:noreply, push_navigate(socket, to: url)}
   end
 
   def handle_event("language_action", %{"language" => lang_code} = params, socket) do
-    # For languages without a path (not yet created), add the language
-    post_path = params["post_path"] || ""
+    group_slug = socket.assigns.group_slug
 
-    if post_path != "" do
-      {:noreply,
-       redirect(socket,
-         to:
-           Routes.path(
-             "/admin/publishing/#{socket.assigns.group_slug}/edit?path=#{URI.encode(post_path)}&lang=#{lang_code}"
-           )
-       )}
-    else
-      {:noreply, socket}
+    case params["uuid"] do
+      uuid when is_binary(uuid) and uuid != "" ->
+        url = Helpers.build_edit_url(group_slug, %{uuid: uuid}, lang: lang_code)
+        {:noreply, push_navigate(socket, to: url)}
+
+      _ ->
+        {:noreply, socket}
     end
   end
 
-  def handle_event("change_status", %{"path" => post_path, "status" => new_status}, socket) do
+  def handle_event("change_status", %{"uuid" => post_uuid, "status" => new_status}, socket) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
-    case Publishing.read_post(socket.assigns.group_slug, post_path) do
+    case Publishing.read_post_by_uuid(post_uuid) do
       {:ok, post} ->
         # Determine if this is the primary language for status propagation
-        primary_language = post[:primary_language] || Storage.get_primary_language()
+        primary_language = post[:primary_language] || Publishing.get_primary_language()
         is_primary_language = post.language == primary_language
 
         case Publishing.update_post(socket.assigns.group_slug, post, %{"status" => new_status}, %{
@@ -219,13 +146,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> assign(
-               :posts,
-               Publishing.list_posts(
-                 socket.assigns.group_slug,
-                 socket.assigns.current_locale_base
-               )
-             )}
+             |> replace_post_in_list(updated_post[:slug], updated_post)}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
@@ -238,7 +159,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   def handle_event(
         "toggle_status",
-        %{"path" => post_path, "current-status" => current_status},
+        %{"uuid" => post_uuid, "current-status" => current_status},
         socket
       ) do
     scope = socket.assigns[:phoenix_kit_current_scope]
@@ -251,10 +172,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         _ -> "draft"
       end
 
-    case Publishing.read_post(socket.assigns.group_slug, post_path) do
+    case Publishing.read_post_by_uuid(post_uuid) do
       {:ok, post} ->
         # Determine if this is the primary language for status propagation
-        primary_language = post[:primary_language] || Storage.get_primary_language()
+        primary_language = post[:primary_language] || Publishing.get_primary_language()
         is_primary_language = post.language == primary_language
 
         case Publishing.update_post(socket.assigns.group_slug, post, %{"status" => new_status}, %{
@@ -271,13 +192,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> assign(
-               :posts,
-               Publishing.list_posts(
-                 socket.assigns.group_slug,
-                 socket.assigns.current_locale_base
-               )
-             )}
+             |> replace_post_in_list(updated_post[:slug], updated_post)}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
@@ -285,195 +200,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Post not found"))}
-    end
-  end
-
-  def handle_event("regenerate_file_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-
-    case ListingCache.regenerate_file_only(group_slug) do
-      :ok ->
-        # Notify other dashboards about cache change
-        PublishingPubSub.broadcast_cache_changed(group_slug)
-
-        {:noreply,
-         socket
-         |> assign(:cache_info, get_cache_info(group_slug))
-         |> put_flash(:info, gettext("File cache regenerated"))}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to regenerate cache"))}
-    end
-  end
-
-  def handle_event("invalidate_file_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-    cache_path = ListingCache.cache_path(group_slug)
-
-    case File.rm(cache_path) do
-      :ok -> :ok
-      {:error, :enoent} -> :ok
-      _ -> :ok
-    end
-
-    # Notify other dashboards about cache change
-    PublishingPubSub.broadcast_cache_changed(group_slug)
-
-    {:noreply,
-     socket
-     |> assign(:cache_info, get_cache_info(group_slug))
-     |> put_flash(:info, gettext("File cache cleared"))}
-  end
-
-  def handle_event("load_memory_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-
-    # If file cache is disabled, scan posts directly into memory
-    # Otherwise, load from existing file
-    if ListingCache.file_cache_enabled?() do
-      case ListingCache.load_into_memory(group_slug) do
-        :ok ->
-          # Notify other dashboards about cache change
-          PublishingPubSub.broadcast_cache_changed(group_slug)
-
-          {:noreply,
-           socket
-           |> assign(:cache_info, get_cache_info(group_slug))
-           |> put_flash(:info, gettext("Cache loaded into memory"))}
-
-        {:error, :no_file} ->
-          {:noreply, put_flash(socket, :error, gettext("No file cache to load from"))}
-
-        {:error, _reason} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to load cache"))}
-      end
-    else
-      # File cache disabled - scan posts directly into memory
-      case ListingCache.regenerate(group_slug) do
-        :ok ->
-          # Notify other dashboards about cache change
-          PublishingPubSub.broadcast_cache_changed(group_slug)
-
-          {:noreply,
-           socket
-           |> assign(:cache_info, get_cache_info(group_slug))
-           |> put_flash(:info, gettext("Cache loaded into memory from filesystem scan"))}
-
-        {:error, _reason} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to scan posts"))}
-      end
-    end
-  end
-
-  def handle_event("invalidate_memory_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-
-    # Clear the cache, loaded_at, and file_generated_at timestamps
-    try do
-      :persistent_term.erase(ListingCache.persistent_term_key(group_slug))
-    rescue
-      ArgumentError -> :ok
-    end
-
-    try do
-      :persistent_term.erase(ListingCache.loaded_at_key(group_slug))
-    rescue
-      ArgumentError -> :ok
-    end
-
-    try do
-      :persistent_term.erase(ListingCache.file_generated_at_key(group_slug))
-    rescue
-      ArgumentError -> :ok
-    end
-
-    # Notify other dashboards about cache change
-    PublishingPubSub.broadcast_cache_changed(group_slug)
-
-    {:noreply,
-     socket
-     |> assign(:cache_info, get_cache_info(group_slug))
-     |> put_flash(:info, gettext("Memory cache cleared"))}
-  end
-
-  def handle_event("toggle_file_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-    current = ListingCache.file_cache_enabled?()
-    new_value = !current
-    Settings.update_setting("publishing_file_cache_enabled", to_string(new_value))
-
-    message =
-      if new_value, do: gettext("File cache enabled"), else: gettext("File cache disabled")
-
-    {:noreply,
-     socket
-     |> assign(:cache_info, get_cache_info(group_slug))
-     |> put_flash(:info, message)}
-  end
-
-  def handle_event("toggle_memory_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-    current = ListingCache.memory_cache_enabled?()
-    new_value = !current
-    Settings.update_setting("publishing_memory_cache_enabled", to_string(new_value))
-
-    # If disabling, clear memory cache
-    unless new_value do
-      try do
-        :persistent_term.erase(ListingCache.persistent_term_key(group_slug))
-      rescue
-        ArgumentError -> :ok
-      end
-
-      try do
-        :persistent_term.erase(ListingCache.loaded_at_key(group_slug))
-      rescue
-        ArgumentError -> :ok
-      end
-
-      try do
-        :persistent_term.erase(ListingCache.file_generated_at_key(group_slug))
-      rescue
-        ArgumentError -> :ok
-      end
-    end
-
-    message =
-      if new_value, do: gettext("Memory cache enabled"), else: gettext("Memory cache disabled")
-
-    {:noreply,
-     socket
-     |> assign(:cache_info, get_cache_info(group_slug))
-     |> put_flash(:info, message)}
-  end
-
-  def handle_event("toggle_render_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-    current = Renderer.group_render_cache_enabled?(group_slug)
-    new_value = !current
-    Settings.update_setting(Renderer.per_group_cache_key(group_slug), to_string(new_value))
-
-    message =
-      if new_value, do: gettext("Render cache enabled"), else: gettext("Render cache disabled")
-
-    {:noreply,
-     socket
-     |> assign(:cache_info, get_cache_info(group_slug))
-     |> put_flash(:info, message)}
-  end
-
-  def handle_event("clear_render_cache", _params, socket) do
-    group_slug = socket.assigns.group_slug
-
-    case Renderer.clear_group_cache(group_slug) do
-      {:ok, count} ->
-        {:noreply,
-         socket
-         |> assign(:cache_info, get_cache_info(group_slug))
-         |> put_flash(:info, gettext("Cleared %{count} cached posts", count: count))}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to clear cache"))}
     end
   end
 
@@ -487,7 +213,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   def handle_event("confirm_migrate_primary_language", _params, socket) do
     group_slug = socket.assigns.group_slug
-    primary_language = Storage.get_primary_language()
+    primary_language = Publishing.get_primary_language()
     status = socket.assigns.primary_language_status
     total_count = status.needs_backfill + status.needs_migration
 
@@ -520,10 +246,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       # Synchronous migration for small counts
       case Publishing.migrate_posts_to_current_primary_language(group_slug) do
         {:ok, count} ->
+          posts = DBStorage.list_posts_with_metadata(group_slug)
+
           {:noreply,
            socket
            |> assign(:show_migration_modal, false)
-           |> assign(:primary_language_status, get_primary_language_status(group_slug))
+           |> assign(:posts, posts)
+           |> assign(:primary_language_status, primary_language_status_from_posts(posts))
            |> put_flash(
              :info,
              gettext("Updated %{count} posts to primary language: %{lang}",
@@ -544,61 +273,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
-  # Version structure migration events
-  def handle_event("show_version_migration_modal", _params, socket) do
-    {:noreply, assign(socket, :show_version_migration_modal, true)}
-  end
-
-  def handle_event("close_version_migration_modal", _params, socket) do
-    {:noreply, assign(socket, :show_version_migration_modal, false)}
-  end
-
-  def handle_event("confirm_migrate_to_versioned", _params, socket) do
-    group_slug = socket.assigns.group_slug
-    status = socket.assigns.legacy_structure_status
-    total_count = status.legacy
-
-    # Use background job for large migrations
-    if total_count > @migration_async_threshold do
-      case MigrateLegacyStructureWorker.enqueue(group_slug) do
-        {:ok, _job} ->
-          {:noreply,
-           socket
-           |> assign(:show_version_migration_modal, false)
-           |> assign(:version_migration_in_progress, true)
-           |> assign(:version_migration_progress, %{current: 0, total: total_count})
-           |> put_flash(
-             :info,
-             gettext("Version migration started for %{count} posts. You can continue working.",
-               count: total_count
-             )
-           )}
-
-        {:error, reason} ->
-          {:noreply,
-           socket
-           |> assign(:show_version_migration_modal, false)
-           |> put_flash(
-             :error,
-             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
-           )}
-      end
-    else
-      # Synchronous migration for small counts
-      {:ok, count} = Publishing.migrate_posts_to_versioned_structure(group_slug)
-
-      {:noreply,
-       socket
-       |> assign(:show_version_migration_modal, false)
-       |> assign(:legacy_structure_status, get_legacy_structure_status(group_slug))
-       |> refresh_posts()
-       |> put_flash(
-         :info,
-         gettext("Migrated %{count} posts to versioned structure", count: count)
-       )}
-    end
-  end
-
   # PubSub handlers for live updates
   @impl true
   def handle_info({:post_created, _post}, socket) do
@@ -609,7 +283,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   def handle_info({:post_updated, updated_post}, socket) do
-    # Debounce post updates to prevent disk hammering on rapid saves
+    # Debounce post updates to prevent DB hammering on rapid saves
     socket = schedule_debounced_update(socket, updated_post)
     {:noreply, socket}
   end
@@ -626,9 +300,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, socket}
   end
 
-  def handle_info({:post_deleted, post_path}, socket) do
-    # Remove the deleted post from the list
-    socket = remove_post_from_list(socket, post_path)
+  def handle_info({:post_deleted, post_identifier}, socket) do
+    # Remove the deleted post from the list (identifier may be slug or UUID)
+    socket = remove_post_from_list(socket, post_identifier)
     {:noreply, socket}
   end
 
@@ -650,9 +324,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, socket}
   end
 
-  def handle_info({:cache_changed, group_slug}, socket) do
-    # Refresh cache info when cache state changes (from visitor loading it, etc.)
-    {:noreply, assign(socket, :cache_info, get_cache_info(group_slug))}
+  def handle_info({:cache_changed, _group_slug}, socket) do
+    {:noreply, socket}
   end
 
   # Editor presence handlers - show who's currently editing posts
@@ -778,13 +451,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       ) do
     # Only handle if it's for our current group
     if group_slug == socket.assigns.group_slug do
-      group_slug = socket.assigns.group_slug
+      # Refresh posts from DB to get updated primary_language values
+      posts = DBStorage.list_posts_with_metadata(group_slug)
 
       socket =
         socket
         |> assign(:migration_in_progress, false)
         |> assign(:migration_progress, nil)
-        |> assign(:primary_language_status, get_primary_language_status(group_slug))
+        |> assign(:posts, posts)
+        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
 
       socket =
         if error_count > 0 do
@@ -813,73 +488,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
-  # Legacy structure (version) migration progress handlers
-  def handle_info({:legacy_structure_migration_started, group_slug, total_count}, socket) do
-    # Only track if it's for our current group
-    if group_slug == socket.assigns.group_slug do
-      {:noreply,
-       socket
-       |> assign(:version_migration_in_progress, true)
-       |> assign(:version_migration_progress, %{current: 0, total: total_count})}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info({:legacy_structure_migration_progress, group_slug, current, total}, socket) do
-    if group_slug == socket.assigns.group_slug do
-      {:noreply, assign(socket, :version_migration_progress, %{current: current, total: total})}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info(
-        {:legacy_structure_migration_completed, group_slug, success_count, error_count},
-        socket
-      ) do
-    # Only handle if it's for our current group
-    if group_slug == socket.assigns.group_slug do
-      group_slug = socket.assigns.group_slug
-
-      socket =
-        socket
-        |> assign(:version_migration_in_progress, false)
-        |> assign(:version_migration_progress, nil)
-        |> assign(:legacy_structure_status, get_legacy_structure_status(group_slug))
-        |> refresh_posts()
-
-      socket =
-        if error_count > 0 do
-          put_flash(
-            socket,
-            :warning,
-            gettext("Version migration completed: %{success} succeeded, %{errors} failed",
-              success: success_count,
-              errors: error_count
-            )
-          )
-        else
-          put_flash(
-            socket,
-            :info,
-            gettext("Migrated %{count} posts to versioned structure", count: success_count)
-          )
-        end
-
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
-  end
-
   # Group change handlers - keep sidebar in sync
   def handle_info({:group_created, _group}, socket) do
-    {:noreply, assign(socket, :groups, Publishing.list_groups())}
+    {:noreply, assign(socket, :groups, load_db_groups())}
   end
 
   def handle_info({:group_updated, group}, socket) do
-    groups = Publishing.list_groups()
+    groups = load_db_groups()
     current_group = Enum.find(groups, fn b -> b["slug"] == socket.assigns.group_slug end)
 
     socket =
@@ -891,7 +506,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   def handle_info({:group_deleted, deleted_slug}, socket) do
-    groups = Publishing.list_groups()
+    groups = load_db_groups()
 
     socket =
       if socket.assigns.group_slug == deleted_slug do
@@ -916,8 +531,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         socket
 
       group_slug ->
-        posts = Publishing.list_posts(group_slug, socket.assigns.current_locale_base)
-        assign(socket, :posts, posts)
+        posts = DBStorage.list_posts_with_metadata(group_slug)
+
+        socket
+        |> assign(:posts, posts)
+        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
     end
   end
 
@@ -957,7 +575,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   # Incrementally update a single post in the list by slug
-  # We refresh the full post from storage to ensure all fields are current
+  # We refresh the full post from the database to ensure all fields are current
   # (available_versions, language_slugs, version_statuses, etc.)
   defp update_post_in_list(socket, updated_post) do
     post_slug = updated_post[:slug] || updated_post["slug"]
@@ -995,15 +613,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     assign(socket, :posts, updated_posts)
   end
 
-  # Remove a post from the list by path
-  defp remove_post_from_list(socket, post_path) do
+  # Remove a post from the list by slug or UUID
+  defp remove_post_from_list(socket, post_identifier) do
     if socket.assigns[:posts] do
-      # Extract slug from path (e.g., "group/my-post/v1/en.phk" -> "my-post")
-      post_slug = extract_slug_from_path(post_path)
-
       updated_posts =
         Enum.reject(socket.assigns.posts, fn post ->
-          post[:slug] == post_slug || post[:path] == post_path
+          post[:slug] == post_identifier or post[:uuid] == post_identifier
         end)
 
       assign(socket, :posts, updated_posts)
@@ -1012,7 +627,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
-  # Refresh a single post by slug (used when we need fresh data from storage)
+  # Refresh a single post by slug (used when we need fresh data from the database)
   defp refresh_post_by_slug(socket, post_slug) do
     case socket.assigns.group_slug do
       nil ->
@@ -1029,15 +644,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         end
     end
   end
-
-  # Extract post slug from a full path
-  defp extract_slug_from_path(path) when is_binary(path) do
-    path
-    |> String.split("/")
-    |> Enum.at(1)
-  end
-
-  defp extract_slug_from_path(_), do: nil
 
   # ============================================================================
   # Shared Mount/HandleParams Helpers
@@ -1087,7 +693,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp load_groups_and_current(group_slug) do
     groups = load_db_groups()
     current_group = Enum.find(groups, fn group -> group["slug"] == group_slug end)
-    current_group = resolve_group_with_fs_fallback(current_group, group_slug)
     {groups, current_group}
   end
 
@@ -1097,23 +702,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       %{"name" => g.name, "slug" => g.slug, "mode" => g.mode, "position" => g.position}
     end)
   end
-
-  defp resolve_group_with_fs_fallback(nil, slug) when is_binary(slug) do
-    case Publishing.get_group(slug) do
-      {:ok, fs_group} ->
-        %{
-          "name" => fs_group["name"],
-          "slug" => fs_group["slug"],
-          "mode" => fs_group["mode"] || "timestamp",
-          "position" => fs_group["position"] || 0
-        }
-
-      _ ->
-        nil
-    end
-  end
-
-  defp resolve_group_with_fs_fallback(group, _group_slug), do: group
 
   defp redirect_if_missing(%{assigns: %{current_group: nil}} = socket) do
     case socket.assigns.groups do
@@ -1242,26 +830,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     # Get primary language - prefer passed param, then post's stored value, then global
     primary_lang =
-      primary_language || post[:primary_language] || Storage.get_primary_language()
+      primary_language || post[:primary_language] || Publishing.get_primary_language()
 
     # Use shared ordering function for consistent display
     all_languages =
-      Storage.order_languages_for_display(
+      Publishing.order_languages_for_display(
         available_languages,
         enabled_languages,
         primary_lang
       )
 
     Enum.map(all_languages, fn lang_code ->
-      lang_path =
-        Path.join([
-          Path.dirname(post.path),
-          "#{lang_code}.phk"
-        ])
-
       lang_info = Publishing.get_language_info(lang_code)
       file_exists = lang_code in available_languages
-      is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
+      is_enabled = Publishing.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
       is_primary = lang_code == primary_lang
 
@@ -1269,7 +851,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       lang_status = if file_exists, do: status, else: nil
 
       # Get display code (base or full dialect depending on enabled languages)
-      display_code = Storage.get_display_code(lang_code, enabled_languages)
+      display_code = Publishing.get_display_code(lang_code, enabled_languages)
 
       %{
         code: lang_code,
@@ -1281,8 +863,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         enabled: is_enabled,
         known: is_known,
         is_primary: is_primary,
-        path: if(file_exists, do: lang_path, else: nil),
-        post_path: post.path
+        uuid: post[:uuid]
       }
     end)
     |> Enum.filter(fn lang -> lang.exists end)
@@ -1302,12 +883,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp extract_endpoint_url(_), do: ""
 
   defp invalidate_post_cache(group_slug, post) do
-    # Determine identifier based on post mode
-    identifier =
-      case post.mode do
-        :slug -> post.slug
-        _ -> post.path
-      end
+    identifier = post[:uuid] || post.slug
 
     # Invalidate the render cache for this post
     Renderer.invalidate_cache(group_slug, identifier, post.language)
@@ -1315,13 +891,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   @doc """
   Builds language data for the publishing_language_switcher component.
-  Returns a list of language maps with status, path, enabled flag, known flag, and metadata.
+  Returns a list of language maps with status, enabled flag, known flag, and metadata.
 
   The `enabled` field indicates if the language is currently active in the Languages module.
-  The `known` field indicates if the language code is recognized (vs unknown files like "test.phk").
+  The `known` field indicates if the language code is recognized.
   The `is_primary` field indicates if this is the primary language for versioning.
-
-  For versioned posts with a live version, shows the live version's languages and paths.
   """
   def build_post_languages(
         post,
@@ -1331,280 +905,51 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         primary_language \\ nil
       ) do
     primary_lang =
-      primary_language || post[:primary_language] || Storage.get_primary_language()
-
-    version_info = get_version_display_info(post, primary_lang)
+      primary_language || post[:primary_language] || Publishing.get_primary_language()
 
     all_languages =
-      Storage.order_languages_for_display(
-        version_info.available_languages,
+      Publishing.order_languages_for_display(
+        post.available_languages || [],
         enabled_languages,
         primary_lang
       )
 
     all_languages
-    |> Enum.map(&build_language_entry(&1, post, version_info, enabled_languages, primary_lang))
+    |> Enum.map(&build_language_entry(&1, post, enabled_languages, primary_lang))
     |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
   end
 
-  defp get_version_display_info(post, primary_lang) do
-    if post[:mode] == :slug and not Map.get(post, :is_legacy_structure, true) do
-      get_versioned_post_display_info(post, primary_lang)
-    else
-      get_default_display_info(post)
-    end
-  end
-
-  defp get_versioned_post_display_info(post, primary_lang) do
-    case get_published_version(post) do
-      nil ->
-        get_default_display_info(post)
-
-      published_version ->
-        langs = get_live_version_languages(post, published_version)
-        path_base = Path.join([post.group, post.slug, "v#{published_version}"])
-        live_post_path = Path.join([path_base, "#{primary_lang}.phk"])
-
-        %{
-          available_languages: langs,
-          version_status: "published",
-          path_base: path_base,
-          display_post_path: live_post_path
-        }
-    end
-  end
-
-  defp get_default_display_info(post) do
-    %{
-      available_languages: post.available_languages || [],
-      version_status: nil,
-      path_base: Path.dirname(post.path),
-      display_post_path: post.path
-    }
-  end
-
-  defp get_live_version_languages(post, published_version) do
-    version_languages = Map.get(post, :version_languages, %{})
-    langs = Map.get(version_languages, published_version, [])
-
-    if langs == [] do
-      alias PhoenixKit.Modules.Publishing.Storage.Versions
-      version_langs = Versions.load_version_languages(post.group, post.slug, [published_version])
-      Map.get(version_langs, published_version, [])
-    else
-      langs
-    end
-  end
-
-  defp build_language_entry(lang_code, post, version_info, enabled_languages, primary_lang) do
-    lang_path = Path.join([version_info.path_base, "#{lang_code}.phk"])
+  defp build_language_entry(lang_code, post, enabled_languages, primary_lang) do
     lang_info = Publishing.get_language_info(lang_code)
-    file_exists = lang_code in version_info.available_languages
-
-    status = get_language_status(lang_code, file_exists, version_info, post)
+    available = post.available_languages || []
+    file_exists = lang_code in available
+    language_statuses = Map.get(post, :language_statuses) || %{}
 
     %{
       code: lang_code,
-      display_code: Storage.get_display_code(lang_code, enabled_languages),
+      display_code: Publishing.get_display_code(lang_code, enabled_languages),
       name: if(lang_info, do: lang_info.name, else: lang_code),
       flag: if(lang_info, do: lang_info.flag, else: ""),
-      status: status,
+      status: Map.get(language_statuses, lang_code),
       exists: file_exists,
-      enabled: Storage.language_enabled?(lang_code, enabled_languages),
+      enabled: Publishing.language_enabled?(lang_code, enabled_languages),
       known: lang_info != nil,
       is_primary: lang_code == primary_lang,
-      path: if(file_exists, do: lang_path, else: nil),
-      post_path: if(file_exists, do: lang_path, else: version_info.display_post_path),
       uuid: post[:uuid]
     }
   end
 
-  defp get_language_status(lang_code, file_exists, version_info, post) do
-    if version_info.version_status && file_exists do
-      version_info.version_status
-    else
-      language_statuses = Map.get(post, :language_statuses) || %{}
-      Map.get(language_statuses, lang_code)
-    end
-  end
+  defp primary_language_status_from_posts([]), do: nil
 
-  # Cache info helper
-
-  def format_cache_time(nil), do: ""
-
-  def format_cache_time(iso_string) when is_binary(iso_string) do
-    case DateTime.from_iso8601(iso_string) do
-      {:ok, dt, _offset} ->
-        # Format as relative time if recent, otherwise show date/time
-        now = UtilsDate.utc_now()
-        diff_seconds = DateTime.diff(now, dt, :second)
-
-        cond do
-          diff_seconds < 60 ->
-            gettext("just now")
-
-          diff_seconds < 3600 ->
-            minutes = div(diff_seconds, 60)
-            ngettext("%{count} minute ago", "%{count} minutes ago", minutes, count: minutes)
-
-          diff_seconds < 86_400 ->
-            hours = div(diff_seconds, 3600)
-            ngettext("%{count} hour ago", "%{count} hours ago", hours, count: hours)
-
-          true ->
-            # Show date for older caches
-            Calendar.strftime(dt, "%Y-%m-%d %H:%M")
-        end
-
-      _ ->
-        iso_string
-    end
-  end
-
-  defp get_cache_info(nil), do: nil
-
-  defp get_cache_info(group_slug) do
-    if Publishing.db_storage?() do
-      get_cache_info_db(group_slug)
-    else
-      get_cache_info_fs(group_slug)
-    end
-  end
-
-  # DB mode: no file cache, just persistent_term + render cache
-  defp get_cache_info_db(group_slug) do
-    memory_enabled = ListingCache.memory_cache_enabled?()
-    render_enabled = Renderer.group_render_cache_enabled?(group_slug)
-    render_global_enabled = Renderer.global_render_cache_enabled?()
-
-    in_memory =
-      case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
-        :not_found -> false
-        _ -> true
-      end
-
-    memory_loaded_at = ListingCache.memory_loaded_at(group_slug)
-
-    # In DB mode, get post count from persistent_term cache or DB
-    post_count =
-      case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
-        :not_found -> length(DBStorage.list_posts(group_slug))
-        posts -> length(posts)
-      end
-
-    %{
-      exists: false,
-      file_size: 0,
-      modified_at: nil,
-      post_count: post_count,
-      generated_at: memory_loaded_at,
-      in_memory: in_memory,
-      memory_loaded_at: memory_loaded_at,
-      memory_file_generated_at: memory_loaded_at,
-      file_enabled: false,
-      memory_enabled: memory_enabled,
-      render_enabled: render_enabled,
-      render_global_enabled: render_global_enabled
-    }
-  end
-
-  # Filesystem mode: check JSON file + persistent_term + render cache
-  defp get_cache_info_fs(group_slug) do
-    cache_path = ListingCache.cache_path(group_slug)
-    file_enabled = ListingCache.file_cache_enabled?()
-    memory_enabled = ListingCache.memory_cache_enabled?()
-    render_enabled = Renderer.group_render_cache_enabled?(group_slug)
-    render_global_enabled = Renderer.global_render_cache_enabled?()
-
-    # Check if in :persistent_term
-    in_memory =
-      case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
-        :not_found -> false
-        _ -> true
-      end
-
-    # Get when memory cache was loaded and what file version it contains
-    memory_loaded_at = ListingCache.memory_loaded_at(group_slug)
-    memory_file_generated_at = ListingCache.memory_file_generated_at(group_slug)
-
-    case File.stat(cache_path) do
-      {:ok, stat} ->
-        # Read cache to get post count and generated_at
-        {post_count, generated_at} =
-          case File.read(cache_path) do
-            {:ok, content} ->
-              case Jason.decode(content) do
-                {:ok, %{"post_count" => count, "generated_at" => gen_at}} -> {count, gen_at}
-                {:ok, %{"post_count" => count}} -> {count, nil}
-                _ -> {nil, nil}
-              end
-
-            _ ->
-              {nil, nil}
-          end
-
-        %{
-          exists: true,
-          file_size: stat.size,
-          modified_at: stat.mtime,
-          post_count: post_count,
-          generated_at: generated_at,
-          in_memory: in_memory,
-          memory_loaded_at: memory_loaded_at,
-          memory_file_generated_at: memory_file_generated_at,
-          file_enabled: file_enabled,
-          memory_enabled: memory_enabled,
-          render_enabled: render_enabled,
-          render_global_enabled: render_global_enabled
-        }
-
-      {:error, :enoent} ->
-        %{
-          exists: false,
-          file_size: 0,
-          modified_at: nil,
-          post_count: nil,
-          generated_at: nil,
-          in_memory: in_memory,
-          memory_loaded_at: memory_loaded_at,
-          memory_file_generated_at: memory_file_generated_at,
-          file_enabled: file_enabled,
-          memory_enabled: memory_enabled,
-          render_enabled: render_enabled,
-          render_global_enabled: render_global_enabled
-        }
-    end
-  end
-
-  defp get_primary_language_status(nil), do: nil
-
-  defp get_primary_language_status(group_slug) do
-    Publishing.get_primary_language_migration_status(group_slug)
-  end
-
-  defp get_legacy_structure_status(nil), do: %{versioned: 0, legacy: 0}
-
-  defp get_legacy_structure_status(group_slug) do
-    Publishing.get_legacy_structure_status(group_slug)
+  defp primary_language_status_from_posts(posts) do
+    global_primary = Publishing.get_primary_language()
+    DBStorage.count_primary_language_status_from_posts(posts, global_primary)
   end
 
   defp get_language_name(language_code) do
     case Publishing.get_language_info(language_code) do
       %{name: name} -> name
       _ -> String.upcase(language_code)
-    end
-  end
-
-  # Returns the relative path prefix for files (e.g., "priv/blogging/" or "priv/publishing/")
-  defp get_group_files_root(nil), do: "priv/publishing/"
-
-  defp get_group_files_root(group_slug) do
-    group_path = Storage.group_path(group_slug)
-
-    cond do
-      String.contains?(group_path, "/blogging/") -> "priv/blogging/"
-      String.contains?(group_path, "/publishing/") -> "priv/publishing/"
-      true -> "priv/publishing/"
     end
   end
 end

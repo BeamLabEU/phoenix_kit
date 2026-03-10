@@ -11,7 +11,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
-  alias PhoenixKit.Modules.Publishing.Storage
 
   # ============================================================================
   # Language Detection
@@ -37,7 +36,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
         {language_param, params}
 
       # Unknown language code but content exists for it in this group
-      # This handles files like af.phk, test.phk, etc.
+      # This handles content in unknown language codes like "af", "test", etc.
       group_slug && has_content_for_language?(group_slug, language_param) ->
         {language_param, params}
 
@@ -122,7 +121,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
         true
 
       # Check if it looks like a language code pattern (XX or XX-XX format)
-      # This allows access to unknown files like legacy imports
+      # This allows access to unknown language codes like legacy imports
       looks_like_language_code?(code) ->
         true
 
@@ -151,31 +150,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   # ============================================================================
 
   @doc """
-  Resolves a language code to an actual file language.
+  Resolves a language code to an actual content language.
   Handles base codes by finding a matching dialect in available languages.
   """
   def resolve_language_for_post(language, available_languages) do
     cond do
-      # Direct match - language exactly matches an available file
+      # Direct match - language exactly matches an available language
       language in available_languages ->
         language
 
       # Base code - try to find a dialect that matches
       base_code?(language) ->
-        find_dialect_for_base_in_files(language, available_languages) ||
+        find_dialect_for_base_in_languages(language, available_languages) ||
           DialectMapper.base_to_dialect(language)
 
       # Full dialect code not found - try base code match as fallback
       true ->
         base = DialectMapper.extract_base(language)
-        find_dialect_for_base_in_files(base, available_languages) || language
+        find_dialect_for_base_in_languages(base, available_languages) || language
     end
   end
 
   @doc """
-  Find a dialect in available files that matches the given base code.
+  Find a dialect in available languages that matches the given base code.
   """
-  def find_dialect_for_base_in_files(base_code, available_languages) do
+  def find_dialect_for_base_in_languages(base_code, available_languages) do
     base_lower = String.downcase(base_code)
 
     Enum.find(available_languages, fn lang ->
@@ -205,7 +204,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
       end
 
     # Now determine if we should use base or full dialect code
-    Storage.get_display_code(resolved_language, enabled_languages)
+    Publishing.get_display_code(resolved_language, enabled_languages)
   end
 
   @doc """
@@ -214,7 +213,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   """
   def get_canonical_url_language_for_post(post_language) do
     enabled_languages = get_enabled_languages()
-    Storage.get_display_code(post_language, enabled_languages)
+    Publishing.get_display_code(post_language, enabled_languages)
   end
 
   # ============================================================================
@@ -297,7 +296,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
         end)
 
       {:error, _} ->
-        # Cache miss - fall back to filesystem scan
+        # Cache miss - fall back to direct DB read
         posts = Publishing.list_posts(group_slug, nil)
 
         Enum.any?(posts, fn post ->
