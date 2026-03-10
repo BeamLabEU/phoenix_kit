@@ -51,27 +51,34 @@ lib/modules/publishing/components/
 └── entity_form.ex                   # Embeddable public form component
 
 lib/phoenix_kit/migrations/postgres/
-└── v17.ex                           # Creates entities + entity_data tables, seeds settings
+├── v17.ex                           # Creates entities + entity_data tables, seeds settings
+└── v81.ex                           # Adds position column for manual record ordering
 ```
 
 ---
 
-## Database schema (migration V17)
+## Database schema (migration V17, V81)
 
 ### `phoenix_kit_entities`
 - `uuid` – primary key (UUIDv7)
 - `name` – unique slug (snake_case)
 - `display_name` – singular UI label
-- `display_name_plural` – plural label (for menus/navigation)
+- `display_name_plural` – plural label (for menus/navigation and entity listing page)
 - `description` – optional help text
 - `icon` – hero icon identifier
 - `status` – `draft | published | archived`
 - `fields_definition` – JSONB array describing fields
-- `settings` – optional JSONB for entity-specific config
+- `settings` – optional JSONB for entity-specific config (includes `sort_mode`, `mirror_definitions`, `mirror_data`, `translations`, public form settings)
 - `created_by_uuid` – admin user UUID
 - `date_created`, `date_updated` – UTC timestamps
 
 Indexes cover `name`, `status`, `created_by_uuid`. A comment block documents JSON columns.
+
+**Entity settings keys:**
+- `sort_mode` – `"auto"` (default, sort records by creation date) or `"manual"` (sort by position)
+- `mirror_definitions` / `mirror_data` – filesystem mirroring toggles
+- `translations` – nested map of language translations for display_name, etc.
+- `public_form_*` – public form builder configuration
 
 ### `phoenix_kit_entity_data`
 - `uuid` – primary key (UUIDv7)
@@ -79,12 +86,13 @@ Indexes cover `name`, `status`, `created_by_uuid`. A comment block documents JSO
 - `title` – record label
 - `slug` – optional unique slug per entity
 - `status` – `draft | published | archived`
+- `position` – integer for manual ordering (V81, auto-populated on create)
 - `data` – JSONB map keyed by field definition (or multilang structure, see below)
 - `metadata` – optional JSONB extras (tags, categories, etc.)
 - `created_by_uuid` – admin user UUID
 - `date_created`, `date_updated`
 
-Indexes cover `entity_uuid`, `slug`, `status`, `created_by_uuid`, `title`. FK cascades on delete.
+Indexes cover `entity_uuid`, `slug`, `status`, `created_by_uuid`, `title`, `(entity_uuid, position)`. FK cascades on delete.
 
 ### Seeded settings
 - `entities_enabled` – boolean toggle (default `false`)
@@ -99,10 +107,12 @@ Indexes cover `entity_uuid`, `slug`, `status`, `created_by_uuid`, `title`. FK ca
 ### `PhoenixKit.Modules.Entities`
 Responsible for entity blueprints:
 - Schema + changeset enforcing unique names, valid field definitions, timestamps, etc.
-- CRUD helpers (`list_entities/0`, `get_entity!/1`, `get_entity/1`, `get_entity_by_name/1`, `create_entity/1`, `update_entity/2`, `delete_entity/1`, `change_entity/2`).
+- CRUD helpers (`list_entities/1`, `get_entity!/2`, `get_entity/2`, `get_entity_by_name/2`, `create_entity/1`, `update_entity/2`, `delete_entity/1`, `change_entity/2`). All query functions accept an optional `lang:` keyword option for language-aware results.
 - Statistics (`get_system_stats/0`, `count_entities/0`, `count_user_entities/1`).
 - Settings helpers (`enabled?/0`, `enable_system/0`, `disable_system/0`, `get_config/0`).
+- Sort mode helpers (`get_sort_mode/1`, `get_sort_mode_by_uuid/1`, `manual_sort?/1`, `update_sort_mode/2`).
 - Limit enforcement (`validate_user_entity_limit/1`).
+- Language resolution (`resolve_language/2`, `resolve_languages/2`) for applying translations to entity structs.
 
 Note: `create_entity/1` auto-fills `created_by_uuid` with the first admin user if not provided.
 
@@ -111,10 +121,12 @@ Field validation pipeline ensures every entry in `fields_definition` has `type/k
 ### `PhoenixKit.Modules.Entities.EntityData`
 Manages actual records:
 - Schema + changeset verifying required fields, slug format, status, and cross-checking submitted JSON against the entity definition.
-- CRUD and query helpers (`list_all/0`, `list_by_entity/1`, `get!/1`, `get/1`, `search_by_title/2`, `create/1`, `update/2`, `delete/1`, `change/2`).
+- CRUD and query helpers (`list_all/1`, `list_by_entity/2`, `get!/2`, `get/2`, `search_by_title/3`, `create/1`, `update/2`, `delete/1`, `change/2`). All query functions accept an optional `lang:` keyword option for language-aware results.
+- Ordering helpers (`update_position/2`, `move_to_position/2`, `reorder/2`, `bulk_update_positions/1`, `next_position/1`). Queries automatically respect the parent entity's sort mode.
+- Language resolution (`resolve_language/2`, `resolve_languages/2`) for applying translations to data record structs.
 - Field-level validation ensures required fields are present, numbers are numeric, booleans are booleans, options exist, etc.
 
-Note: `create/1` auto-fills `created_by_uuid` with the first admin user if not provided.
+Note: `create/1` auto-fills `created_by_uuid` with the first admin user if not provided. It also auto-populates `position` with the next sequential value for the entity.
 
 ### `PhoenixKit.Modules.Entities.FieldTypes`
 Registry of supported field types with metadata:
@@ -202,7 +214,17 @@ Each field definition is a map like:
 | `entities_enable_revisions` | Reserved for revision history | Settings UI | 🚧 Not yet enforced |
 | `entities_enable_comments` | Reserved for commenting system | Settings UI | 🚧 Not yet enforced |
 
-> **Note**: Settings marked "Not yet enforced" are persisted in the database and visible in the admin UI, but the underlying functionality is not yet implemented. They are placeholders for future features.
+**Per-entity settings** (stored in entity `settings` JSONB, not in `phoenix_kit_settings`):
+
+| Setting | Description | API | Status |
+|---------|-------------|-----|--------|
+| `sort_mode` | Record ordering: `"auto"` or `"manual"` | `Entities.get_sort_mode/1`, `update_sort_mode/2` | ✅ Active |
+| `mirror_definitions` | Filesystem mirroring of entity definition | `Entities.mirror_definitions_enabled?/1` | ✅ Active |
+| `mirror_data` | Filesystem mirroring of entity data | `Entities.mirror_data_enabled?/1` | ✅ Active |
+| `translations` | Translated display_name/description per language | `Entities.get_entity_translations/1` | ✅ Active |
+| `public_form_*` | Public form builder configuration | Entity form UI | ✅ Active |
+
+> **Note**: System-level settings marked "Not yet enforced" are persisted in the database and visible in the admin UI, but the underlying functionality is not yet implemented. They are placeholders for future features.
 
 `PhoenixKit.Modules.Entities.get_config/0` returns a map:
 ```elixir
@@ -287,6 +309,66 @@ PhoenixKit.Modules.Entities.get_system_stats()
 ```elixir
 PhoenixKit.Modules.Entities.validate_user_entity_limit(admin.uuid)
 # {:ok, :valid} or {:error, "You have reached the maximum limit of 100 entities"}
+```
+
+### Language-aware queries
+
+All list/get functions accept an optional `lang:` keyword to return structs with translated fields already resolved. When omitted, raw data is returned (backward compatible).
+
+```elixir
+alias PhoenixKit.Modules.Entities
+alias PhoenixKit.Modules.Entities.EntityData
+
+# Entity definitions — resolves display_name, display_name_plural, description
+entities = Entities.list_entities(lang: "es-ES")
+entity = Entities.get_entity!(uuid, lang: "es-ES")
+entity = Entities.get_entity_by_name("products", lang: "fr-FR")
+active = Entities.list_active_entities(lang: "ja-JP")
+
+# Entity data — resolves title from _title, data to merged language fields
+records = EntityData.list_by_entity(entity_uuid, lang: "es-ES")
+record = EntityData.get!(uuid, lang: "fr-FR")
+results = EntityData.search_by_title("Acme", entity_uuid, lang: "es-ES")
+published = EntityData.published_records(entity_uuid, lang: "ja-JP")
+record = EntityData.get_by_slug(entity_uuid, "acme", lang: "es-ES")
+
+# Manual resolution (without opts)
+resolved = Entities.resolve_language(entity, "es-ES")
+resolved_list = EntityData.resolve_languages(records, "es-ES")
+```
+
+For the primary language (or when no translation exists for a field), the original value is returned unchanged. For secondary languages, overrides are merged onto primary values.
+
+### Record ordering
+
+Each entity has a sort mode (`"auto"` or `"manual"`) stored in `settings["sort_mode"]`. All listing queries respect this automatically.
+
+```elixir
+alias PhoenixKit.Modules.Entities
+alias PhoenixKit.Modules.Entities.EntityData
+
+# Check and change sort mode
+Entities.get_sort_mode(entity)          # => "auto"
+Entities.manual_sort?(entity)           # => false
+{:ok, entity} = Entities.update_sort_mode(entity, "manual")
+
+# Convenience lookup by UUID
+Entities.get_sort_mode_by_uuid(entity_uuid)  # => "manual"
+
+# Queries automatically use the right order:
+# - "auto" → ORDER BY date_created DESC
+# - "manual" → ORDER BY position ASC, date_created DESC
+records = EntityData.list_by_entity(entity_uuid)
+
+# Position is auto-populated on create (next sequential value)
+{:ok, record} = EntityData.create(%{entity_uuid: entity_uuid, title: "New", ...})
+# record.position => 5 (auto-assigned)
+
+# Reordering operations (for drag-and-drop UI)
+EntityData.move_to_position(record, 2)        # shift others to make room
+EntityData.reorder(entity_uuid, ["uuid3", "uuid1", "uuid2"])  # full reorder
+EntityData.update_position(record, 10)        # set position directly
+EntityData.bulk_update_positions([{"uuid1", 1}, {"uuid2", 2}])  # raw bulk
 ```
 
 ---
@@ -471,7 +553,8 @@ The entity form editor supports real-time collaboration with FIFO locking:
 ## Related documentation
 
 - `DEEP_DIVE.md` – long-form analysis, rationale, and implementation notes (in this directory)
-- `lib/phoenix_kit/migrations/postgres/v17.ex` – database migration
+- `lib/phoenix_kit/migrations/postgres/v17.ex` – initial entities database migration
+- `lib/phoenix_kit/migrations/postgres/v81.ex` – adds `position` column for manual record ordering
 - `lib/phoenix_kit/utils/routes.ex` – locale-aware path helpers
 - `lib/phoenix_kit_web/components/layout_wrapper.ex` – navigation wrapper that consumes the assigns set by these LiveViews
 

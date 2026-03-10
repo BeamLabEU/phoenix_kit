@@ -15,66 +15,47 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, _session, socket) do
+  def mount(_params, _session, socket) do
     project_title = Settings.get_project_title()
-
     entities = Entities.list_entities()
 
-    # Get entity from route params using slug (entity_slug or entity_id for backwards compat)
-    {entity, entity_uuid} =
-      case params["entity_slug"] || params["entity_id"] do
-        nil ->
-          {nil, nil}
+    # Subscribe to entity definition events so we know about creates/updates/deletes
+    if connected?(socket) do
+      Events.subscribe_to_entities()
+      Events.subscribe_to_all_data()
+    end
 
-        slug when is_binary(slug) ->
-          # Try to get entity by name (slug)
-          case Entities.get_entity_by_name(slug) do
-            nil -> {nil, nil}
-            entity -> {entity, entity.uuid}
-          end
-      end
-
-    # Get stats filtered by entity if one is selected
-    stats = EntityData.get_data_stats(entity_uuid)
-
-    # Set page title based on entity
-    page_title =
-      if entity do
-        entity.display_name
-      else
-        gettext("Data Navigator")
-      end
-
+    # Set defaults only — entity resolution and data loading deferred to handle_params
     socket =
       socket
-      |> assign(:page_title, page_title)
+      |> assign(:page_title, gettext("Data Navigator"))
       |> assign(:project_title, project_title)
       |> assign(:entities, entities)
-      |> assign(:total_records, stats.total_records)
-      |> assign(:published_records, stats.published_records)
-      |> assign(:draft_records, stats.draft_records)
-      |> assign(:archived_records, stats.archived_records)
-      |> assign(:selected_entity, entity)
-      |> assign(:selected_entity_uuid, entity_uuid)
+      |> assign(:total_records, 0)
+      |> assign(:published_records, 0)
+      |> assign(:draft_records, 0)
+      |> assign(:archived_records, 0)
+      |> assign(:selected_entity, nil)
+      |> assign(:selected_entity_uuid, nil)
       |> assign(:selected_status, "all")
       |> assign(:selected_uuids, MapSet.new())
       |> assign(:search_term, "")
       |> assign(:view_mode, "table")
-      |> apply_filters()
-
-    if connected?(socket) && entity_uuid do
-      Events.subscribe_to_entity_data(entity_uuid)
-    end
+      |> assign(:entity_data_records, [])
 
     {:ok, socket}
   end
 
   def handle_params(params, _url, socket) do
-    # Get entity from slug in params (entity_slug or entity_id for backwards compat)
+    # Resolve entity from slug in params
     {entity, entity_uuid} = resolve_entity_from_params(params, socket)
 
-    # Recalculate stats and subscribe if entity changed
+    # Update stats if entity changed
     socket = maybe_update_entity_stats(socket, entity_uuid)
+
+    # Set page title based on entity
+    page_title =
+      if entity, do: entity.display_name, else: gettext("Data Navigator")
 
     # Extract filter params with defaults
     status = params["status"] || "all"
@@ -83,6 +64,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
 
     socket =
       socket
+      |> assign(:page_title, page_title)
       |> assign(:selected_entity, entity)
       |> assign(:selected_entity_uuid, entity_uuid)
       |> assign(:selected_status, status)
@@ -115,20 +97,12 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     end
   end
 
-  # Update entity stats and subscribe to events if entity changed
+  # Update entity stats if entity changed
   defp maybe_update_entity_stats(socket, new_entity_uuid) do
     if new_entity_uuid != socket.assigns.selected_entity_uuid do
-      maybe_subscribe_to_entity(socket, new_entity_uuid)
       update_entity_stats(socket, new_entity_uuid)
     else
       socket
-    end
-  end
-
-  # Subscribe to entity data events if connected
-  defp maybe_subscribe_to_entity(socket, entity_uuid) do
-    if connected?(socket) && entity_uuid do
-      Events.subscribe_to_entity_data(entity_uuid)
     end
   end
 
@@ -497,13 +471,16 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
     {:noreply, socket}
   end
 
+  def handle_info({:data_reordered, _entity_uuid}, socket) do
+    {:noreply, apply_filters(socket)}
+  end
+
   # Helper Functions
 
   defp build_base_path(nil), do: "/admin/entities"
 
   defp build_base_path(entity_uuid) when is_binary(entity_uuid) do
-    # Get entity by UUID to get its slug
-    case Entities.get_entity!(entity_uuid) do
+    case Entities.get_entity(entity_uuid) do
       nil -> "/admin/entities"
       entity -> "/admin/entities/#{entity.name}/data"
     end
@@ -539,30 +516,31 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   end
 
   defp apply_filters(socket) do
+    entity = socket.assigns[:selected_entity]
     entity_uuid = socket.assigns[:selected_entity_uuid]
     status = socket.assigns[:selected_status] || "all"
     search_term = socket.assigns[:search_term] || ""
 
+    # Pass sort_mode from the already-loaded entity to avoid redundant DB lookups
+    sort_opts =
+      if entity, do: [sort_mode: Entities.get_sort_mode(entity)], else: []
+
     entity_data_records =
-      EntityData.list_all_data()
-      |> filter_by_entity(entity_uuid)
-      |> filter_by_status(status)
+      fetch_records(entity_uuid, status, sort_opts)
       |> filter_by_search(search_term)
 
     assign(socket, :entity_data_records, entity_data_records)
   end
 
-  defp filter_by_entity(records, nil), do: records
+  # When an entity is selected, use sort-mode-aware queries
+  defp fetch_records(nil, "all", _opts), do: EntityData.list_all_data()
+  defp fetch_records(nil, status, _opts), do: EntityData.list_data_by_status(status)
 
-  defp filter_by_entity(records, entity_uuid) do
-    Enum.filter(records, fn record -> record.entity_uuid == entity_uuid end)
-  end
+  defp fetch_records(entity_uuid, "all", opts),
+    do: EntityData.list_by_entity(entity_uuid, opts)
 
-  defp filter_by_status(records, "all"), do: records
-
-  defp filter_by_status(records, status) do
-    Enum.filter(records, fn record -> record.status == status end)
-  end
+  defp fetch_records(entity_uuid, status, opts),
+    do: EntityData.list_by_entity_and_status(entity_uuid, status, opts)
 
   defp filter_by_search(records, ""), do: records
 

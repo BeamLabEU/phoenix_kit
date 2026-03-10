@@ -101,6 +101,8 @@ defmodule PhoenixKit.Modules.Entities do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
+  @type t :: %__MODULE__{}
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @valid_statuses ~w(draft published archived)
 
@@ -332,11 +334,12 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.list_entities()
       [%PhoenixKit.Entities{}, ...]
   """
-  def list_entities do
+  def list_entities(opts \\ []) do
     __MODULE__
     |> order_by([e], desc: e.date_created)
     |> preload([:creator])
     |> repo().all()
+    |> maybe_resolve_langs(opts)
   end
 
   @doc """
@@ -347,13 +350,14 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.list_active_entities()
       [%PhoenixKit.Entities{status: "published"}, ...]
   """
-  def list_active_entities do
+  def list_active_entities(opts \\ []) do
     from(e in __MODULE__,
       where: e.status == "published",
       order_by: [desc: e.date_created],
       preload: [:creator]
     )
     |> repo().all()
+    |> maybe_resolve_langs(opts)
   end
 
   @doc """
@@ -397,18 +401,20 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.get_entity(456)
       nil
   """
-  def get_entity(uuid) when is_binary(uuid) do
+  def get_entity(uuid, opts \\ [])
+
+  def get_entity(uuid, opts) when is_binary(uuid) do
     if UUIDUtils.valid?(uuid) do
       case repo().get_by(__MODULE__, uuid: uuid) do
         nil -> nil
-        entity -> repo().preload(entity, :creator)
+        entity -> entity |> repo().preload(:creator) |> maybe_resolve_lang(opts)
       end
     else
       nil
     end
   end
 
-  def get_entity(_), do: nil
+  def get_entity(_, _opts), do: nil
 
   @doc """
   Gets a single entity by integer ID or UUID.
@@ -423,8 +429,8 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.get_entity!(456)
       ** (Ecto.NoResultsError)
   """
-  def get_entity!(id) do
-    case get_entity(id) do
+  def get_entity!(id, opts \\ []) do
+    case get_entity(id, opts) do
       nil -> raise Ecto.NoResultsError, queryable: __MODULE__
       entity -> entity
     end
@@ -443,8 +449,11 @@ defmodule PhoenixKit.Modules.Entities do
       iex> PhoenixKit.Modules.Entities.get_entity_by_name("invalid")
       nil
   """
-  def get_entity_by_name(name) when is_binary(name) do
-    repo().get_by(__MODULE__, name: name)
+  def get_entity_by_name(name, opts \\ []) when is_binary(name) do
+    case repo().get_by(__MODULE__, name: name) do
+      nil -> nil
+      entity -> maybe_resolve_lang(entity, opts)
+    end
   end
 
   @doc """
@@ -855,6 +864,73 @@ defmodule PhoenixKit.Modules.Entities do
   def children, do: [PhoenixKit.Modules.Entities.Presence]
 
   # ============================================================================
+  # Sort Mode Settings
+  # ============================================================================
+
+  @valid_sort_modes ~w(auto manual)
+
+  @doc """
+  Gets the sort mode for an entity.
+
+  Returns `"auto"` (sort by creation date, default) or `"manual"` (sort by position).
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.get_sort_mode(entity)
+      "auto"
+  """
+  def get_sort_mode(%__MODULE__{settings: settings}) do
+    (settings || %{}) |> Map.get("sort_mode", "auto")
+  end
+
+  @doc """
+  Gets the sort mode for an entity by UUID.
+
+  Convenience wrapper that looks up the entity first.
+  Returns `"auto"` if the entity is not found.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.get_sort_mode_by_uuid(entity_uuid)
+      "manual"
+  """
+  def get_sort_mode_by_uuid(entity_uuid) when is_binary(entity_uuid) do
+    case get_entity(entity_uuid) do
+      nil -> "auto"
+      entity -> get_sort_mode(entity)
+    end
+  end
+
+  @doc """
+  Checks if an entity uses manual sorting.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.manual_sort?(entity)
+      true
+  """
+  def manual_sort?(%__MODULE__{} = entity), do: get_sort_mode(entity) == "manual"
+
+  @doc """
+  Updates the sort mode for an entity.
+
+  Valid modes: `"auto"` (sort by creation date) or `"manual"` (sort by position).
+
+  When switching to manual mode, existing records retain their auto-populated
+  positions from creation order. Admins can then reorder as needed.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Entities.update_sort_mode(entity, "manual")
+      {:ok, %PhoenixKit.Modules.Entities{}}
+  """
+  def update_sort_mode(%__MODULE__{} = entity, mode) when mode in @valid_sort_modes do
+    current_settings = entity.settings || %{}
+    new_settings = Map.put(current_settings, "sort_mode", mode)
+    update_entity(entity, %{settings: new_settings})
+  end
+
+  # ============================================================================
   # Per-Entity Mirror Settings
   # ============================================================================
 
@@ -1164,6 +1240,74 @@ defmodule PhoenixKit.Modules.Entities do
       true
   """
   def multilang_enabled?, do: Multilang.enabled?()
+
+  # ============================================================================
+  # Language-aware API
+  # ============================================================================
+
+  @doc """
+  Resolves translated fields on an entity struct for a given language.
+
+  Merges translations from `settings["translations"][lang_code]` onto the
+  entity's `display_name`, `display_name_plural`, and `description` fields.
+
+  For the primary language (or when no translation exists), returns the entity
+  unchanged. For secondary languages, applies override values where they exist
+  and keeps primary values as defaults.
+
+  ## Examples
+
+      iex> resolve_language(entity, "es-ES")
+      %PhoenixKit.Modules.Entities{display_name: "Productos", ...}
+
+      iex> resolve_language(entity, "en-US")  # primary language
+      %PhoenixKit.Modules.Entities{display_name: "Products", ...}
+  """
+  @spec resolve_language(t(), String.t()) :: t()
+  def resolve_language(%__MODULE__{} = entity, lang_code) when is_binary(lang_code) do
+    translation = get_entity_translation(entity, lang_code)
+
+    entity
+    |> maybe_apply_translation(:display_name, translation["display_name"])
+    |> maybe_apply_translation(:display_name_plural, translation["display_name_plural"])
+    |> maybe_apply_translation(:description, translation["description"])
+  end
+
+  defp maybe_apply_translation(entity, _field, nil), do: entity
+  defp maybe_apply_translation(entity, _field, ""), do: entity
+
+  defp maybe_apply_translation(entity, field, value) do
+    Map.put(entity, field, value)
+  end
+
+  @doc """
+  Resolves translations on a list of entity structs.
+
+  ## Examples
+
+      iex> resolve_languages(entities, "es-ES")
+      [%PhoenixKit.Modules.Entities{display_name: "Productos"}, ...]
+  """
+  @spec resolve_languages([t()], String.t()) :: [t()]
+  def resolve_languages(entities, lang_code) when is_list(entities) and is_binary(lang_code) do
+    Enum.map(entities, &resolve_language(&1, lang_code))
+  end
+
+  # Applies :lang option to a single entity if present in opts
+  defp maybe_resolve_lang(entity, opts) when is_list(opts) do
+    case Keyword.get(opts, :lang) do
+      nil -> entity
+      lang -> resolve_language(entity, lang)
+    end
+  end
+
+  # Applies :lang option to a list of entities if present in opts
+  defp maybe_resolve_langs(entities, opts) when is_list(entities) and is_list(opts) do
+    case Keyword.get(opts, :lang) do
+      nil -> entities
+      lang -> resolve_languages(entities, lang)
+    end
+  end
 
   defp repo do
     PhoenixKit.RepoHelper.repo()

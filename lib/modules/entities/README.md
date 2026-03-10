@@ -20,6 +20,8 @@ All templates follow Phoenix 1.8 layout conventions (`<Layouts.app ...>` with `@
 - **Entity Designer** – Build custom fields, validations, and display ordering for each entity type.
 - **JSONB Storage** – Field definitions stored as JSONB, no database migrations needed for schema changes.
 - **Multi-Language Support** – Language tabs in forms, override-only storage for secondary languages, lazy re-keying on primary language change. Driven globally by the Languages module.
+- **Language-Aware API** – All list/get functions accept an optional `lang:` option to return translated fields resolved for a specific language.
+- **Record Ordering** – Per-entity sort mode (auto by creation date or manual by position). Manual mode supports drag-and-drop reordering via the `position` column (V81 migration).
 - **Data Navigator** – Browse, search, and filter entity data with status filters and archive/restore workflow.
 - **Collaborative Editing** – Presence helpers in entity_form and data_form prevent overwrites when multiple admins edit the same record.
 - **Settings Guardrails** – Module can be toggled on/off via PhoenixKit Settings (`entities_enabled`).
