@@ -707,6 +707,74 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
   end
 
+  # Card view helpers
+
+  def build_card_fields(user, selected_columns, current_user, date_time_settings) do
+    selected_columns
+    |> Enum.reject(&(&1 in ["email", "actions"]))
+    |> Enum.filter(&should_render_column?/1)
+    |> Enum.map(fn column_id ->
+      label = render_column_header(column_id) || column_id
+      value = build_card_field_value(user, column_id, current_user, date_time_settings)
+      %{label: label, value: value}
+    end)
+  end
+
+  defp build_card_field_value(user, column_id, current_user, date_time_settings) do
+    case column_id do
+      "full_name" -> card_full_name(user)
+      "role" -> card_roles(user)
+      "status" -> card_status(user)
+      "registered" -> card_datetime(user.inserted_at, current_user, date_time_settings)
+      "last_confirmed" -> card_confirmed_at(user.confirmed_at, current_user, date_time_settings)
+      "location" -> card_location(user)
+      _ -> render_column_cell(user, column_id, current_user, date_time_settings)
+    end
+  end
+
+  defp card_full_name(user) do
+    case User.full_name(user) do
+      nil -> "-"
+      "" -> "-"
+      name -> name
+    end
+  end
+
+  defp card_roles(user) do
+    roles = get_user_roles(user)
+    if Enum.empty?(roles), do: "No roles", else: Enum.join(roles, ", ")
+  end
+
+  defp card_status(user) do
+    confirmation = if user.confirmed_at, do: "Confirmed", else: "Pending"
+    active = if user.is_active, do: "Active", else: "Inactive"
+    "#{confirmation} / #{active}"
+  end
+
+  defp card_datetime(nil, _current_user, _date_time_settings), do: "-"
+
+  defp card_datetime(dt, current_user, date_time_settings) do
+    date = UtilsDate.format_date_with_user_timezone_cached(dt, current_user, date_time_settings)
+    time = UtilsDate.format_time_with_user_timezone_cached(dt, current_user, date_time_settings)
+    "#{date} #{time}"
+  end
+
+  defp card_confirmed_at(nil, _current_user, _date_time_settings), do: "Never"
+
+  defp card_confirmed_at(dt, current_user, date_time_settings) do
+    date = UtilsDate.format_date_with_user_timezone_cached(dt, current_user, date_time_settings)
+    time = UtilsDate.format_time_with_user_timezone_cached(dt, current_user, date_time_settings)
+    "#{date} #{time}"
+  end
+
+  defp card_location(user) do
+    parts =
+      [user.registration_country, user.registration_region, user.registration_city]
+      |> Enum.reject(&(is_nil(&1) or &1 == ""))
+
+    if Enum.empty?(parts), do: "-", else: Enum.join(parts, " · ")
+  end
+
   # Column rendering helpers
   def render_column_header(column_id) do
     case TableColumns.get_column_metadata(column_id) do

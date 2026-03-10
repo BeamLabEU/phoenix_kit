@@ -166,7 +166,105 @@
         </div>
       <% else %>
         <%= if length(@templates) > 0 do %>
-          <.table_default variant="zebra" class="w-full">
+          <.table_default
+            id="templates-table"
+            variant="zebra"
+            size="sm"
+            class="w-full"
+            toggleable={true}
+            items={@templates}
+            card_fields={
+              fn t ->
+                subject =
+                  PhoenixKit.Modules.Emails.Template.get_translation(t.subject, @display_locale)
+
+                last_used =
+                  if t.last_used_at,
+                    do: UtilsDate.format_date_with_user_format(t.last_used_at),
+                    else: gettext("Never")
+
+                [
+                  %{label: gettext("Subject"), value: subject},
+                  %{label: gettext("Category"), value: String.capitalize(t.category || "")},
+                  %{label: gettext("Status"), value: t.status},
+                  %{
+                    label: gettext("Usage"),
+                    value: "#{t.usage_count} (#{gettext("Last")}: #{last_used})"
+                  }
+                ]
+              end
+            }
+          >
+            <:card_header :let={template}>
+              <div class="space-y-0.5">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-sm">
+                    {PhoenixKit.Modules.Emails.Template.get_translation(
+                      template.display_name,
+                      @display_locale
+                    )}
+                  </span>
+                  <%= if template.is_system do %>
+                    <span class="badge badge-info badge-xs h-auto">{gettext("System")}</span>
+                  <% end %>
+                </div>
+                <div class="text-xs text-base-content/70">{template.name}</div>
+              </div>
+            </:card_header>
+            <:card_actions :let={template}>
+              <div class="flex flex-wrap gap-1">
+                <%!-- Edit --%>
+                <button
+                  phx-click="edit_template"
+                  phx-value-uuid={template.uuid}
+                  class="btn btn-xs btn-outline btn-primary tooltip tooltip-bottom"
+                  data-tip={gettext("Edit Template")}
+                >
+                  <.icon name="hero-pencil" class="w-3 h-3" />
+                </button>
+                <%!-- Clone --%>
+                <button
+                  phx-click="show_clone_modal"
+                  phx-value-uuid={template.uuid}
+                  class="btn btn-xs btn-outline tooltip tooltip-bottom"
+                  data-tip={gettext("Clone Template")}
+                >
+                  <.icon name="hero-document-duplicate" class="w-3 h-3" />
+                </button>
+                <%!-- Archive / Activate (non-system only) --%>
+                <%= unless template.is_system do %>
+                  <%= if template.status == "active" do %>
+                    <button
+                      phx-click="archive_template"
+                      phx-value-uuid={template.uuid}
+                      class="btn btn-xs btn-outline tooltip tooltip-bottom"
+                      data-tip={gettext("Archive Template")}
+                    >
+                      <.icon name="hero-archive-box" class="w-3 h-3" />
+                    </button>
+                  <% else %>
+                    <button
+                      phx-click="activate_template"
+                      phx-value-uuid={template.uuid}
+                      class="btn btn-xs btn-outline btn-success tooltip tooltip-bottom"
+                      data-tip={gettext("Activate Template")}
+                    >
+                      <.icon name="hero-check-circle" class="w-3 h-3" />
+                    </button>
+                  <% end %>
+                  <%!-- Delete --%>
+                  <button
+                    phx-click="request_delete"
+                    phx-value-uuid={template.uuid}
+                    phx-value-name={template.name}
+                    class="btn btn-xs btn-outline text-error hover:btn-error tooltip tooltip-bottom"
+                    data-tip={gettext("Delete Template")}
+                  >
+                    <.icon name="hero-trash" class="w-3 h-3" />
+                  </button>
+                <% end %>
+              </div>
+            </:card_actions>
             <.table_default_header>
               <.table_default_row>
                 <.table_default_header_cell>{gettext("Template")}</.table_default_header_cell>
@@ -182,9 +280,9 @@
               <%= for template <- @templates do %>
                 <.table_default_row>
                   <%!-- Template Column --%>
-                  <.table_default_cell>
+                  <.table_default_cell class="max-w-xs">
                     <div class="space-y-1">
-                      <div class="font-medium text-sm">
+                      <div class="font-medium text-sm truncate">
                         {PhoenixKit.Modules.Emails.Template.get_translation(
                           template.display_name,
                           @display_locale
@@ -198,7 +296,7 @@
                   </.table_default_cell>
 
                   <%!-- Subject Column --%>
-                  <.table_default_cell>
+                  <.table_default_cell class="max-w-xs">
                     <% subj =
                       PhoenixKit.Modules.Emails.Template.get_translation(
                         template.subject,
