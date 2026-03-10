@@ -68,7 +68,7 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
     end
 
     ~H"""
-    <header class="mb-6">
+    <header class="mb-3 sm:mb-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div class="flex items-center gap-3">
           <.link :if={@back} navigate={@back} class="btn btn-ghost btn-sm">
@@ -95,7 +95,10 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
             <% end %>
           </div>
         </div>
-        <div :if={@actions != []} class="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+        <div
+          :if={@actions != []}
+          class="flex flex-wrap items-center gap-2 sm:flex-shrink-0 [&>*]:w-full [&>*]:sm:w-auto"
+        >
           {render_slot(@actions)}
         </div>
       </div>

@@ -7,6 +7,7 @@
   current_locale={@current_locale}
 >
   <% nonce = assigns[:script_csp_nonce] || assigns[:csp_nonce] || "" %>
+  <% edit_disabled? = @readonly? or @translation_locked? %>
 
   <%!-- Unsaved changes tracking and navigation protection --%>
   <script nonce={nonce}>
@@ -277,9 +278,9 @@
           <%!-- New Version Button --%>
           <button
             type="button"
-            class={"btn btn-ghost btn-xs gap-1 #{if @readonly?, do: "btn-disabled opacity-60"}"}
+            class={"btn btn-ghost btn-xs gap-1 #{if edit_disabled?, do: "btn-disabled opacity-60"}"}
             phx-click="open_new_version_modal"
-            disabled={@readonly?}
+            disabled={edit_disabled?}
           >
             <.icon name="hero-plus" class="w-3 h-3" />
             {gettext("New Version")}
@@ -392,6 +393,21 @@
       </div>
     <% end %>
 
+    <%!-- Translation in progress lock banner --%>
+    <%= if @translation_locked? do %>
+      <div class="alert shadow-sm border border-primary/30 bg-primary/5">
+        <span class="loading loading-spinner loading-sm text-primary"></span>
+        <div>
+          <span class="font-medium">{gettext("Translation in progress")}</span>
+          <span class="text-sm text-base-content/70">
+            {gettext(
+              "Editing is paused while AI translates this content. It will unlock automatically when finished."
+            )}
+          </span>
+        </div>
+      </div>
+    <% end %>
+
     <%!-- AI Translation Modal --%>
     <%= if @ai_enabled and not @is_new_post do %>
       <dialog id="ai-translation-modal" class={["modal", @show_ai_translation && "modal-open"]}>
@@ -440,12 +456,14 @@
                   <% end %>
                 </select>
               </form>
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/ai/endpoints")}
-                class="text-xs link link-primary"
-              >
-                {gettext("Manage Endpoints")}
-              </.link>
+              <div class="flex items-center gap-2">
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/ai/endpoints")}
+                  class="text-xs link link-primary"
+                >
+                  {gettext("Manage Endpoints")}
+                </.link>
+              </div>
             </div>
 
             <%!-- Prompt Selection --%>
@@ -666,9 +684,9 @@
                     id="title-input"
                     value={@form["title"] || ""}
                     maxlength="500"
-                    class={"input input-bordered w-full text-2xl font-semibold #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                    class={"input input-bordered w-full text-2xl font-semibold #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
                     placeholder={gettext("Post title")}
-                    readonly={@readonly? or @viewing_older_version}
+                    readonly={edit_disabled? or @viewing_older_version}
                   />
                   <p class="text-xs text-base-content/60 mt-1">
                     <%= if @is_primary_language do %>
@@ -717,7 +735,7 @@
                           {gettext("Saved")}
                         </span>
                     <% end %>
-                    <% save_disabled = @readonly? || @is_autosaving %>
+                    <% save_disabled = edit_disabled? || @is_autosaving %>
                     <button
                       type="button"
                       phx-click="save"
@@ -747,10 +765,10 @@
                   height="480px"
                   debounce={400}
                   toolbar={[:image, :video]}
-                  show_formatting_toolbar={not (@readonly? or @viewing_older_version)}
+                  show_formatting_toolbar={not (edit_disabled? or @viewing_older_version)}
                   protect_navigation={false}
                   script_nonce={nonce}
-                  readonly={@readonly? or @viewing_older_version}
+                  readonly={edit_disabled? or @viewing_older_version}
                 />
               </div>
             </div>
@@ -775,14 +793,14 @@
                         id="slug-input"
                         value={@form["slug"]}
                         pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                        class={"input input-bordered w-full lowercase #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                        class={"input input-bordered w-full lowercase #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
                         placeholder={gettext("auto-generated from first heading")}
                         title={
                           gettext(
                             "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."
                           )
                         }
-                        readonly={@readonly? or @viewing_older_version}
+                        readonly={edit_disabled? or @viewing_older_version}
                       />
                       <p class="text-xs text-base-content/60 mt-1">
                         {gettext("Use lowercase letters, numbers, and hyphens only.")}
@@ -806,14 +824,14 @@
                         id="url-slug-input"
                         value={@form["url_slug"] || ""}
                         pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                        class={"input input-bordered w-full lowercase #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                        class={"input input-bordered w-full lowercase #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
                         placeholder={@form["slug"] || ""}
                         title={
                           gettext(
                             "Use lowercase letters, numbers, and hyphens only. Leave empty to use the default slug."
                           )
                         }
-                        readonly={@readonly? or @viewing_older_version}
+                        readonly={edit_disabled? or @viewing_older_version}
                       />
                       <p class="text-xs text-base-content/60 mt-1">
                         {gettext(
@@ -858,7 +876,7 @@
                           loading="lazy"
                         />
                         <%!-- Desktop: Hover overlay (hidden when readonly or viewing older version) --%>
-                        <%= if not (@readonly? or @viewing_older_version) do %>
+                        <%= if not (edit_disabled? or @viewing_older_version) do %>
                           <div class="hidden md:flex absolute inset-0 bg-base-content/0 group-hover:bg-base-content/60 transition-all rounded-lg items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
                             <button
                               type="button"
@@ -880,7 +898,7 @@
                         <% end %>
                       </div>
                       <%!-- Mobile: Always visible buttons (hidden when readonly or viewing older version) --%>
-                      <%= if not (@readonly? or @viewing_older_version) do %>
+                      <%= if not (edit_disabled? or @viewing_older_version) do %>
                         <div class="flex md:hidden gap-2">
                           <button
                             type="button"
@@ -906,8 +924,8 @@
                     <button
                       type="button"
                       phx-click="open_media_selector"
-                      class={"w-full border-2 border-dashed border-base-300 rounded-lg p-8 transition-all group #{if @readonly? or @viewing_older_version, do: "opacity-50 cursor-not-allowed", else: "hover:border-primary hover:bg-primary/5"}"}
-                      disabled={@readonly? or @viewing_older_version}
+                      class={"w-full border-2 border-dashed border-base-300 rounded-lg p-8 transition-all group #{if edit_disabled? or @viewing_older_version, do: "opacity-50 cursor-not-allowed", else: "hover:border-primary hover:bg-primary/5"}"}
+                      disabled={edit_disabled? or @viewing_older_version}
                     >
                       <div class="flex flex-col items-center gap-3 text-base-content/60 group-hover:text-primary transition-colors">
                         <.icon name="hero-photo" class="w-12 h-12" />
@@ -944,9 +962,9 @@
                         type="text"
                         name="featured_image_uuid"
                         value={@form["featured_image_uuid"]}
-                        class={"input input-bordered input-sm w-full font-mono text-xs #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                        class={"input input-bordered input-sm w-full font-mono text-xs #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
                         placeholder="018e3c4a-9f6b-7890-abcd-ef1234567890"
-                        readonly={@readonly? or @viewing_older_version}
+                        readonly={edit_disabled? or @viewing_older_version}
                       />
                       <p class="text-xs text-base-content/60 mt-2">
                         {gettext("Paste a Phoenix Kit Media ID if you know it.")}
@@ -969,9 +987,9 @@
                   </label>
                   <%= if @is_primary_language do %>
                     <select
-                      class={"select select-bordered w-full #{if @readonly?, do: "select-disabled bg-base-200"}"}
+                      class={"select select-bordered w-full #{if edit_disabled?, do: "select-disabled bg-base-200"}"}
                       name="status"
-                      disabled={@readonly?}
+                      disabled={edit_disabled?}
                     >
                       <%= if @viewing_older_version do %>
                         <%!-- Older versions can only be published or archived, not draft --%>
@@ -1015,8 +1033,8 @@
                       type="datetime-local"
                       name="published_at"
                       value={datetime_local_value(@form["published_at"])}
-                      class={"input input-bordered w-full #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                      readonly={@readonly? or @viewing_older_version}
+                      class={"input input-bordered w-full #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                      readonly={edit_disabled? or @viewing_older_version}
                     />
                     <p class="text-xs text-base-content/60 mt-1">
                       {gettext(
