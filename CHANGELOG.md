@@ -1,3 +1,23 @@
+## 1.7.63 - 2026-03-10
+
+### Breaking Changes (requires manual steps in parent app)
+
+- Rename `mailing` module to `newsletters` — run `mix ecto.rollback --to 78` before migrating
+- V79 migration rewritten in-place: drops `phoenix_kit_mailing_*` tables, creates `phoenix_kit_newsletters_*`
+- Oban queue renamed: `mailing_delivery` → `newsletters_delivery` (update `config/config.exs`)
+- Settings keys changed: `mailing_enabled` → `newsletters_enabled`, `mailing_default_template` → `newsletters_default_template`, `mailing_rate_limit` → `newsletters_rate_limit`
+- Email template category value changed: `"mailing"` → `"newsletters"` (existing templates need DB update)
+- URL paths changed: `/admin/mailing/*` → `/admin/newsletters/*`, `/mailing/unsubscribe` → `/newsletters/unsubscribe`
+
+### Changed
+
+- Rename `PhoenixKit.Modules.Mailing` → `PhoenixKit.Modules.Newsletters` and all submodules
+- Rename DB tables: `phoenix_kit_mailing_lists/list_members/broadcasts/deliveries` → `phoenix_kit_newsletters_*`
+- Rename Elixir modules: `Mailing.List`, `Mailing.Broadcast`, `Mailing.Delivery`, `Mailing.ListMember`, `Mailing.Broadcaster`, `Mailing.Workers.DeliveryWorker` → `Newsletters.*`
+- Rename web modules: `Mailing.Web.*` → `Newsletters.Web.*`
+- Rename route module: `PhoenixKitWeb.Routes.MailingRoutes` → `NewslettersRoutes`
+- Rename dashboard tabs: `:admin_mailing` → `:admin_newsletters`
+
 ## 1.7.62 - 2026-03-05
 - Fix UnicodeConversionError crash in integration plug when response body contains non-UTF8 binary data
 - Fix DB browser rendering of raw binary values (e.g. UUID bytes) in table and activity views
