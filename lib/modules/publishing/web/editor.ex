@@ -527,7 +527,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("update_meta", params, socket) do
     socket = maybe_reclaim_lock(socket)
 
-    if socket.assigns[:readonly?] or socket.assigns[:translation_locked?] do
+    if socket.assigns.readonly? or socket.assigns.translation_locked? do
       {:noreply, socket}
     else
       params = params |> Map.drop(["_target"])
@@ -600,7 +600,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("update_content", %{"content" => content}, socket) do
     socket = maybe_reclaim_lock(socket)
 
-    if socket.assigns[:readonly?] or socket.assigns[:translation_locked?] do
+    if socket.assigns.readonly? or socket.assigns.translation_locked? do
       {:noreply, socket}
     else
       {socket, new_form, slug_events} = Forms.maybe_update_slug_from_content(socket, content)
@@ -656,10 +656,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("save", _params, socket) when socket.assigns.readonly? == true do
     socket = maybe_reclaim_lock(socket)
 
-    if socket.assigns[:readonly?] do
-      {:noreply, put_flash(socket, :error, gettext("Cannot save - you are spectating"))}
-    else
-      Persistence.perform_save(socket)
+    cond do
+      socket.assigns.readonly? ->
+        {:noreply, put_flash(socket, :error, gettext("Cannot save - you are spectating"))}
+
+      socket.assigns.translation_locked? ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Cannot save while translation is in progress"))}
+
+      true ->
+        Persistence.perform_save(socket)
     end
   end
 
@@ -1043,7 +1049,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   @impl true
   def handle_info(:autosave, socket) do
-    if socket.assigns.has_pending_changes and not socket.assigns[:translation_locked?] do
+    if socket.assigns.has_pending_changes and not socket.assigns.translation_locked? do
       socket =
         socket
         |> assign(:is_autosaving, true)
@@ -1427,8 +1433,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   defp source_language_for_translation(socket) do
-    post = socket.assigns[:post]
-    (post && post[:primary_language]) || Publishing.get_primary_language()
+    Translation.source_language_for_translation(socket)
   end
 
   # Matches a broadcast identifier (slug or UUID) against the current post.
