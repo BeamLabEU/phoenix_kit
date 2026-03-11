@@ -153,9 +153,7 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
       }
     </style>
     <%!-- PhoenixKit Cookie Consent Widget Setup --%>
-    <script>
-      window.PHOENIX_KIT_PREFIX = "<%= PhoenixKit.Utils.Routes.url_prefix() %>";
-    </script>
+    <.phoenix_kit_globals />
     <%!-- PhoenixKit Cookie Consent Widget Script --%>
     <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
     </script>
