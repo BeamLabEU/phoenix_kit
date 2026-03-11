@@ -242,7 +242,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             assigns = template_assigns
 
             ~H"""
-            <%!-- PhoenixKit Admin Layout following EZNews pattern --%>
+            <%!-- PhoenixKit Admin Layout --%>
+            <%!-- Globals needed here for render_admin_with_parent path where parent layout may not set them --%>
             <.phoenix_kit_globals />
             <style data-phoenix-kit-themes>
               <%= HTML.raw(ThemeConfig.custom_theme_css()) %>
