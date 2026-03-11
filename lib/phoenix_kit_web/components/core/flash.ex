@@ -89,7 +89,7 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
     ~H"""
     <div id={@id}>
       <.flash kind={:info} title="Success!" flash={@flash} />
-      <.flash kind={:error} title="Error!" flash={@flash} />
+      <.flash kind={:error} title="Error!" flash={@flash} autoclose={false} />
     </div>
     """
   end

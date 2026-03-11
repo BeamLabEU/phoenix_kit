@@ -80,7 +80,11 @@
                 <p class="text-base-content/60 text-xs font-medium uppercase mb-1">Template</p>
                 <p class="font-medium">
                   {if @broadcast.template,
-                    do: @broadcast.template.display_name || @broadcast.template.name,
+                    do:
+                      PhoenixKit.Modules.Emails.Template.get_translation(
+                        @broadcast.template.display_name,
+                        "en"
+                      ) || @broadcast.template.name,
                     else: "-"}
                 </p>
               </div>

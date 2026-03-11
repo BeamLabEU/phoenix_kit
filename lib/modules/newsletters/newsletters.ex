@@ -205,7 +205,9 @@ defmodule PhoenixKit.Modules.Newsletters do
   def unsubscribe_from_all(user_uuid) do
     ListMember
     |> where([m], m.user_uuid == ^user_uuid and m.status == "active")
-    |> repo().update_all(set: [status: "unsubscribed", unsubscribed_at: DateTime.utc_now()])
+    |> repo().update_all(
+      set: [status: "unsubscribed", unsubscribed_at: PhoenixKit.Utils.Date.utc_now()]
+    )
   end
 
   # ============================================================================

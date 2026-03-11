@@ -35,7 +35,12 @@ defmodule PhoenixKit.Modules.Newsletters.Broadcaster do
     repo = repo()
 
     # Render markdown to HTML before sending
-    {:ok, html, _warnings} = Earmark.as_html(broadcast.markdown_body || "")
+    html =
+      case Earmark.as_html(broadcast.markdown_body || "") do
+        {:ok, html, _warnings} -> html
+        {:error, html, _errors} -> html
+      end
+
     text = strip_html(html)
 
     {:ok, broadcast} =

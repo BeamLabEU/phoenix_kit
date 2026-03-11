@@ -39,10 +39,12 @@ defmodule PhoenixKit.Modules.Newsletters.Workers.DeliveryWorker do
          {:ok, broadcast} <- get_broadcast(broadcast_uuid),
          {:ok, user} <- get_user(delivery.user_uuid),
          {:ok, html_body, text_body} <- render_email(broadcast, user),
-         {:ok, _result} <- send_email(broadcast, user, html_body, text_body) do
+         {:ok, result} <- send_email(broadcast, user, html_body, text_body) do
+      message_id = Map.get(result, :id)
+
       Newsletters.update_delivery_status(delivery, "sent", %{
         sent_at: UtilsDate.utc_now(),
-        message_id: nil
+        message_id: message_id
       })
 
       update_broadcast_counter(broadcast_uuid, :sent_count)
@@ -89,8 +91,10 @@ defmodule PhoenixKit.Modules.Newsletters.Workers.DeliveryWorker do
   defp build_variables(broadcast, user) do
     token_data = %{user_uuid: user.uuid, list_uuid: broadcast.list_uuid}
 
+    endpoint = PhoenixKit.Config.get(:endpoint, PhoenixKitWeb.Endpoint)
+
     unsubscribe_token =
-      Phoenix.Token.sign(PhoenixKitWeb.Endpoint, "unsubscribe", token_data)
+      Phoenix.Token.sign(endpoint, "unsubscribe", token_data)
 
     unsubscribe_url =
       Routes.url("/newsletters/unsubscribe?token=#{unsubscribe_token}")
@@ -112,8 +116,12 @@ defmodule PhoenixKit.Modules.Newsletters.Workers.DeliveryWorker do
 
   defp maybe_apply_template(content, %{template_uuid: template_uuid}) do
     case repo().get(Template, template_uuid) do
-      nil -> content
-      template -> String.replace(template.html_body, "{{content}}", content)
+      nil ->
+        content
+
+      template ->
+        html = Template.get_translation(template.html_body, "en")
+        String.replace(html, "{{content}}", content)
     end
   end
 
