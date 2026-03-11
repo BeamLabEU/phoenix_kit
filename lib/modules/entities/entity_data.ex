@@ -81,6 +81,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
+  @type t :: %__MODULE__{}
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   @derive {Jason.Encoder,
@@ -89,6 +91,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
              :title,
              :slug,
              :status,
+             :position,
              :data,
              :metadata,
              :date_created,
@@ -101,6 +104,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     field :status, :string, default: "published"
     field :data, :map
     field :metadata, :map
+    field :position, :integer
     field :created_by_uuid, UUIDv7
     field :date_created, :utc_datetime
     field :date_updated, :utc_datetime
@@ -129,6 +133,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       :title,
       :slug,
       :status,
+      :position,
       :data,
       :metadata,
       :created_by_uuid,
@@ -403,6 +408,21 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   defp notify_data_event(result, _event), do: result
 
+  # Broadcast a reorder event for an entity so live views refresh.
+  defp notify_reorder_event(entity_uuid) when is_binary(entity_uuid) do
+    Events.broadcast_data_reordered(entity_uuid)
+  end
+
+  defp notify_reorder_event(_), do: :ok
+
+  # Resolve entity_uuid from the first record in a bulk update list
+  defp resolve_entity_uuid_from_pairs([{uuid, _} | _]) do
+    from(d in __MODULE__, where: d.uuid == ^uuid, select: d.entity_uuid)
+    |> repo().one()
+  end
+
+  defp resolve_entity_uuid_from_pairs(_), do: nil
+
   # Mirror export helpers for auto-sync (per-entity settings)
   defp maybe_mirror_data(entity_data) do
     # Check if the parent entity has data mirroring enabled
@@ -439,12 +459,13 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.list_all()
       [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
-  def list_all do
+  def list_all(opts \\ []) do
     from(d in __MODULE__,
       order_by: [desc: d.date_created],
       preload: [:entity, :creator]
     )
     |> repo().all()
+    |> maybe_resolve_langs(opts)
   end
 
   @doc """
@@ -455,13 +476,16 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity(entity_uuid)
       [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
-  def list_by_entity(entity_uuid) when is_binary(entity_uuid) do
+  def list_by_entity(entity_uuid, opts \\ []) when is_binary(entity_uuid) do
+    order = resolve_sort_order(entity_uuid, opts)
+
     from(d in __MODULE__,
       where: d.entity_uuid == ^entity_uuid,
-      order_by: [desc: d.date_created],
+      order_by: ^order,
       preload: [:entity, :creator]
     )
     |> repo().all()
+    |> maybe_resolve_langs(opts)
   end
 
   @doc """
@@ -472,14 +496,17 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity_and_status(entity_uuid, "published")
       [%PhoenixKit.Modules.Entities.EntityData{status: "published"}, ...]
   """
-  def list_by_entity_and_status(entity_uuid, status)
+  def list_by_entity_and_status(entity_uuid, status, opts \\ [])
       when is_binary(entity_uuid) and status in @valid_statuses do
+    order = resolve_sort_order(entity_uuid, opts)
+
     from(d in __MODULE__,
       where: d.entity_uuid == ^entity_uuid and d.status == ^status,
-      order_by: [desc: d.date_created],
+      order_by: ^order,
       preload: [:entity, :creator]
     )
     |> repo().all()
+    |> maybe_resolve_langs(opts)
   end
 
   @doc """
@@ -495,18 +522,20 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.get("invalid")
       nil
   """
-  def get(uuid) when is_binary(uuid) do
+  def get(uuid, opts \\ [])
+
+  def get(uuid, opts) when is_binary(uuid) do
     if UUIDUtils.valid?(uuid) do
       case repo().get_by(__MODULE__, uuid: uuid) do
         nil -> nil
-        record -> repo().preload(record, [:entity, :creator])
+        record -> record |> repo().preload([:entity, :creator]) |> maybe_resolve_lang(opts)
       end
     else
       nil
     end
   end
 
-  def get(_), do: nil
+  def get(_, _opts), do: nil
 
   @doc """
   Gets a single entity data record by UUID.
@@ -521,8 +550,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.get!("nonexistent-uuid")
       ** (Ecto.NoResultsError)
   """
-  def get!(id) do
-    case get(id) do
+  def get!(id, opts \\ []) do
+    case get(id, opts) do
       nil -> raise Ecto.NoResultsError, queryable: __MODULE__
       record -> record
     end
@@ -541,10 +570,11 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(entity_uuid, "invalid")
       nil
   """
-  def get_by_slug(entity_uuid, slug) when is_binary(entity_uuid) and is_binary(slug) do
+  def get_by_slug(entity_uuid, slug, opts \\ [])
+      when is_binary(entity_uuid) and is_binary(slug) do
     case repo().get_by(__MODULE__, entity_uuid: entity_uuid, slug: slug) do
       nil -> nil
-      record -> repo().preload(record, [:entity, :creator])
+      record -> record |> repo().preload([:entity, :creator]) |> maybe_resolve_lang(opts)
     end
   end
 
@@ -589,11 +619,18 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
   will fail with a validation error on `created_by`.
   """
   def create(attrs \\ %{}) do
-    attrs = maybe_add_created_by(attrs)
+    # Transaction ensures next_position read + insert are atomic
+    repo().transaction(fn ->
+      attrs =
+        attrs
+        |> maybe_add_created_by()
+        |> maybe_add_position()
 
-    %__MODULE__{}
-    |> changeset(attrs)
-    |> repo().insert()
+      case %__MODULE__{} |> changeset(attrs) |> repo().insert() do
+        {:ok, record} -> record
+        {:error, changeset} -> repo().rollback(changeset)
+      end
+    end)
     |> notify_data_event(:created)
   end
 
@@ -617,6 +654,198 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
           Map.put(attrs, :created_by_uuid, admin_uuid)
       end
     end
+  end
+
+  # Auto-fill position with next value for the entity if not provided
+  defp maybe_add_position(attrs) when is_map(attrs) do
+    has_position = Map.has_key?(attrs, :position) or Map.has_key?(attrs, "position")
+
+    if has_position do
+      attrs
+    else
+      entity_uuid =
+        Map.get(attrs, :entity_uuid) || Map.get(attrs, "entity_uuid")
+
+      if entity_uuid do
+        next_pos = next_position(entity_uuid)
+        Map.put(attrs, :position, next_pos)
+      else
+        attrs
+      end
+    end
+  end
+
+  @doc """
+  Gets the next available position for an entity's data records.
+
+  ## Examples
+
+      iex> next_position(entity_uuid)
+      6
+  """
+  def next_position(entity_uuid) when is_binary(entity_uuid) do
+    # FOR UPDATE locks matching rows within a transaction to prevent
+    # concurrent creates from reading the same max position.
+    # NOTE: The lock only takes effect inside a repo().transaction/1 block.
+    # Called internally by create/1 which wraps in a transaction.
+    max_pos =
+      from(d in __MODULE__,
+        where: d.entity_uuid == ^entity_uuid,
+        select: max(d.position),
+        lock: "FOR UPDATE"
+      )
+      |> repo().one()
+
+    (max_pos || 0) + 1
+  end
+
+  @doc """
+  Updates the position of a single entity data record.
+
+  ## Examples
+
+      iex> update_position(record, 3)
+      {:ok, %EntityData{position: 3}}
+  """
+  def update_position(%__MODULE__{} = entity_data, position) when is_integer(position) do
+    __MODULE__.update(entity_data, %{position: position})
+  end
+
+  @doc """
+  Bulk updates positions for multiple records.
+
+  Accepts a list of `{uuid, position}` tuples. Each record is updated
+  individually to trigger events and maintain consistency.
+
+  ## Examples
+
+      iex> bulk_update_positions([{"uuid1", 1}, {"uuid2", 2}, {"uuid3", 3}])
+      :ok
+  """
+  def bulk_update_positions(uuid_position_pairs, opts \\ [])
+      when is_list(uuid_position_pairs) do
+    result =
+      repo().transaction(fn ->
+        now = UtilsDate.utc_now()
+
+        Enum.each(uuid_position_pairs, fn {uuid, position} ->
+          from(d in __MODULE__, where: d.uuid == ^uuid)
+          |> repo().update_all(set: [position: position, date_updated: now])
+        end)
+      end)
+
+    case result do
+      {:ok, _} ->
+        entity_uuid =
+          Keyword.get(opts, :entity_uuid) || resolve_entity_uuid_from_pairs(uuid_position_pairs)
+
+        notify_reorder_event(entity_uuid)
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Moves a record to a specific position within its entity, shifting other records.
+
+  Records between the old and new positions are shifted up or down by 1 to
+  make room. This is the operation that a drag-and-drop UI would call.
+
+  ## Examples
+
+      iex> move_to_position(record, 3)
+      :ok
+  """
+  def move_to_position(%__MODULE__{} = record, new_position) when is_integer(new_position) do
+    entity_uuid = record.entity_uuid
+
+    result =
+      repo().transaction(fn ->
+        # Re-read position inside transaction to avoid stale data
+        current = repo().get!(__MODULE__, record.uuid)
+        old_position = current.position
+
+        cond do
+          is_nil(old_position) ->
+            do_update_position!(current, new_position)
+
+          old_position == new_position ->
+            :noop
+
+          true ->
+            now = UtilsDate.utc_now()
+            shift_neighbors(entity_uuid, current.uuid, old_position, new_position, now)
+            do_update_position!(current, new_position)
+        end
+      end)
+
+    case result do
+      {:ok, :noop} ->
+        :ok
+
+      {:ok, _} ->
+        notify_reorder_event(entity_uuid)
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Update position inside a transaction, rolling back on failure
+  defp do_update_position!(record, position) do
+    case update_position(record, position) do
+      {:ok, updated} -> updated
+      {:error, changeset} -> repo().rollback(changeset)
+    end
+  end
+
+  defp shift_neighbors(entity_uuid, record_uuid, old_pos, new_pos, now)
+       when old_pos < new_pos do
+    # Moving down: shift records in (old, new] up by 1
+    from(d in __MODULE__,
+      where:
+        d.entity_uuid == ^entity_uuid and
+          d.position > ^old_pos and
+          d.position <= ^new_pos and
+          d.uuid != ^record_uuid
+    )
+    |> repo().update_all(inc: [position: -1], set: [date_updated: now])
+  end
+
+  defp shift_neighbors(entity_uuid, record_uuid, old_pos, new_pos, now) do
+    # Moving up: shift records in [new, old) down by 1
+    from(d in __MODULE__,
+      where:
+        d.entity_uuid == ^entity_uuid and
+          d.position >= ^new_pos and
+          d.position < ^old_pos and
+          d.uuid != ^record_uuid
+    )
+    |> repo().update_all(inc: [position: 1], set: [date_updated: now])
+  end
+
+  @doc """
+  Reorders all records for an entity based on a list of UUIDs in the desired order.
+
+  This is the full reorder operation — takes a list of UUIDs representing the
+  new order and assigns positions 1, 2, 3, ... accordingly.
+
+  ## Examples
+
+      iex> reorder(entity_uuid, ["uuid3", "uuid1", "uuid2"])
+      :ok
+  """
+  def reorder(entity_uuid, ordered_uuids)
+      when is_binary(entity_uuid) and is_list(ordered_uuids) do
+    pairs =
+      ordered_uuids
+      |> Enum.with_index(1)
+      |> Enum.map(fn {uuid, pos} -> {uuid, pos} end)
+
+    bulk_update_positions(pairs, entity_uuid: entity_uuid)
   end
 
   @doc """
@@ -670,16 +899,29 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
   ## Examples
 
+      iex> PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme")
+      [%PhoenixKit.Modules.Entities.EntityData{}, ...]
+
       iex> PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme", entity_uuid)
       [%PhoenixKit.Modules.Entities.EntityData{}, ...]
+
+      iex> PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme", entity_uuid, lang: "es")
+      [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
-  def search_by_title(search_term, entity_uuid \\ nil) when is_binary(search_term) do
+  def search_by_title(search_term) when is_binary(search_term),
+    do: search_by_title(search_term, nil, [])
+
+  def search_by_title(search_term, entity_uuid, opts \\ [])
+
+  def search_by_title(search_term, entity_uuid, opts)
+      when is_binary(search_term) do
     search_pattern = "%#{search_term}%"
+    order = if entity_uuid, do: resolve_sort_order(entity_uuid, opts), else: [desc: :date_created]
 
     query =
       from(d in __MODULE__,
         where: ilike(d.title, ^search_pattern),
-        order_by: [desc: d.date_created],
+        order_by: ^order,
         preload: [:entity, :creator]
       )
 
@@ -693,6 +935,7 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       end
 
     repo().all(query)
+    |> maybe_resolve_langs(opts)
   end
 
   @doc """
@@ -703,8 +946,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.published_records(entity_uuid)
       [%PhoenixKit.Modules.Entities.EntityData{status: "published"}, ...]
   """
-  def published_records(entity_uuid) when is_binary(entity_uuid) do
-    list_by_entity_and_status(entity_uuid, "published")
+  def published_records(entity_uuid, opts \\ []) when is_binary(entity_uuid) do
+    list_by_entity_and_status(entity_uuid, "published", opts)
   end
 
   @doc """
@@ -728,39 +971,44 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
       iex> PhoenixKit.Modules.Entities.EntityData.filter_by_status("draft")
       [%PhoenixKit.Modules.Entities.EntityData{status: "draft"}, ...]
   """
-  def filter_by_status(status) when status in @valid_statuses do
+  def filter_by_status(status, opts \\ []) when status in @valid_statuses do
     from(d in __MODULE__,
       where: d.status == ^status,
       order_by: [desc: d.date_created],
       preload: [:entity, :creator]
     )
     |> repo().all()
+    |> maybe_resolve_langs(opts)
   end
 
   @doc """
-  Alias for list_all/0 for consistency with LiveView naming.
+  Alias for list_all/1 for consistency with LiveView naming.
   """
-  def list_all_data, do: list_all()
+  def list_all_data(opts \\ []), do: list_all(opts)
 
   @doc """
-  Alias for list_by_entity/1 for consistency with LiveView naming.
+  Alias for list_by_entity/2 for consistency with LiveView naming.
   """
-  def list_data_by_entity(entity_uuid), do: list_by_entity(entity_uuid)
+  def list_data_by_entity(entity_uuid, opts \\ []), do: list_by_entity(entity_uuid, opts)
 
   @doc """
-  Alias for filter_by_status/1 for consistency with LiveView naming.
+  Alias for filter_by_status/2 for consistency with LiveView naming.
   """
-  def list_data_by_status(status), do: filter_by_status(status)
+  def list_data_by_status(status, opts \\ []), do: filter_by_status(status, opts)
 
   @doc """
-  Alias for search_by_title/1 for consistency with LiveView naming.
+  Alias for search_by_title for consistency with LiveView naming.
   """
-  def search_data(search_term), do: search_by_title(search_term)
+  def search_data(search_term) when is_binary(search_term),
+    do: search_by_title(search_term, nil, [])
+
+  def search_data(search_term, entity_uuid, opts \\ []),
+    do: search_by_title(search_term, entity_uuid, opts)
 
   @doc """
-  Alias for get!/1 for consistency with LiveView naming.
+  Alias for get!/2 for consistency with LiveView naming.
   """
-  def get_data!(id), do: get!(id)
+  def get_data!(id, opts \\ []), do: get!(id, opts)
 
   @doc """
   Alias for delete/1 for consistency with LiveView naming.
@@ -1044,6 +1292,93 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     |> Map.new(fn lang ->
       {lang, get_title_translation(entity_data, lang)}
     end)
+  end
+
+  # ============================================================================
+  # Language-aware API
+  # ============================================================================
+
+  @doc """
+  Resolves translated fields on an entity data record for a given language.
+
+  Resolves the `title` from `_title` in the language's data, and replaces
+  the `data` field with the merged language data (primary as base + overrides).
+
+  For the primary language or flat (non-multilang) data, the struct is
+  returned with the primary language data resolved. When no translation
+  exists for a field, the primary language value is used as fallback.
+
+  ## Examples
+
+      iex> resolve_language(record, "es-ES")
+      %EntityData{title: "Mi Producto", data: %{"name" => "Acme España", ...}}
+
+      iex> resolve_language(record, "en-US")  # primary language
+      %EntityData{title: "My Product", data: %{"name" => "Acme", ...}}
+  """
+  @spec resolve_language(t(), String.t()) :: t()
+  def resolve_language(%__MODULE__{} = record, lang_code) when is_binary(lang_code) do
+    resolved_title = get_title_translation(record, lang_code)
+    resolved_data = Multilang.get_language_data(record.data, lang_code)
+
+    %{record | title: resolved_title, data: resolved_data}
+  end
+
+  @doc """
+  Resolves translations on a list of entity data records.
+
+  ## Examples
+
+      iex> resolve_languages(records, "es-ES")
+      [%EntityData{title: "Mi Producto"}, ...]
+  """
+  @spec resolve_languages([t()], String.t()) :: [t()]
+  def resolve_languages(records, lang_code) when is_list(records) and is_binary(lang_code) do
+    Enum.map(records, &resolve_language(&1, lang_code))
+  end
+
+  # Returns the Ecto order_by clause based on the entity's sort_mode setting.
+  # "manual" mode sorts by position ASC (with nulls last via date_created fallback).
+  # "auto" mode (default) sorts by date_created DESC.
+  #
+  # Accepts opts with :sort_mode to skip the entity lookup when the caller
+  # already has the entity loaded. Falls back to a DB lookup by entity_uuid.
+  defp resolve_sort_order(entity_uuid, opts) do
+    mode =
+      case Keyword.get(opts, :sort_mode) do
+        nil -> entity_sort_mode_from_db(entity_uuid)
+        mode -> mode
+      end
+
+    sort_order_for_mode(mode)
+  end
+
+  defp entity_sort_mode_from_db(entity_uuid) when is_binary(entity_uuid) do
+    case Entities.get_entity(entity_uuid) do
+      %{settings: %{"sort_mode" => mode}} -> mode
+      _ -> "auto"
+    end
+  end
+
+  defp entity_sort_mode_from_db(_), do: "auto"
+
+  defp sort_order_for_mode("manual"), do: [asc_nulls_last: :position, desc: :date_created]
+  defp sort_order_for_mode(_), do: [desc: :date_created]
+
+  # Applies :lang option to a single record if present in opts
+  defp maybe_resolve_lang(record, opts) when is_list(opts) do
+    case Keyword.get(opts, :lang) do
+      nil -> record
+      lang -> resolve_language(record, lang)
+    end
+  end
+
+  # Applies :lang option to a list of records if present in opts
+  defp maybe_resolve_langs(records, opts) when is_list(records) and is_list(opts) do
+    case Keyword.get(opts, :lang) do
+      nil -> records
+      lang -> resolve_languages(records, lang)
+    end
   end
 
   defp repo do

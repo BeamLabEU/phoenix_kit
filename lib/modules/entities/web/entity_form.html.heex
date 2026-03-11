@@ -407,6 +407,36 @@
                 </span>
               </.label>
             </div>
+
+            <%!-- Sort Mode --%>
+            <div>
+              <.label for="entity_sort_mode">{gettext("Record Ordering")}</.label>
+              <select
+                id="entity_sort_mode"
+                name="entities[sort_mode]"
+                class="select select-bordered w-full"
+                disabled={@readonly?}
+              >
+                <option
+                  value="auto"
+                  selected={@sort_mode == "auto"}
+                >
+                  {gettext("Automatic (by creation date)")}
+                </option>
+                <option
+                  value="manual"
+                  selected={@sort_mode == "manual"}
+                >
+                  {gettext("Manual (custom order)")}
+                </option>
+              </select>
+              <%!-- TODO: uncomment when table drag-and-drop is ready --%>
+              <%!-- <.label class="label">
+                <span class="label-text-alt">
+                  {gettext("Manual mode enables drag-and-drop reordering of records")}
+                </span>
+              </.label> --%>
+            </div>
           </div>
         </div>
       </div>

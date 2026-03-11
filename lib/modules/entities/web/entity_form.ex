@@ -94,6 +94,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       |> assign(:primary_language, primary_language)
       |> assign(:current_lang, primary_language)
       |> assign(:language_tabs, language_tabs)
+      |> assign(:sort_mode, Entities.get_sort_mode(entity))
 
     socket =
       if connected?(socket) do
@@ -245,8 +246,15 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       # Add fields_definition to params for validation
       entity_params = Map.put(entity_params, "fields_definition", socket.assigns.fields)
 
-      # Add current settings with merged translations to params
+      # Add current settings with merged translations and sort mode to params
       settings = merge_translation_params(socket, entity_params)
+
+      settings =
+        case entity_params["sort_mode"] do
+          mode when mode in ~w(auto manual) -> Map.put(settings, "sort_mode", mode)
+          _ -> settings
+        end
+
       entity_params = Map.put(entity_params, "settings", settings)
       entity_params = Map.delete(entity_params, "translations")
 
@@ -270,6 +278,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
         socket
         |> assign(:changeset, changeset)
         |> assign(:entity, entity)
+        |> assign(:sort_mode, settings["sort_mode"] || "auto")
 
       reply_with_broadcast(socket)
     else
@@ -294,8 +303,15 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       # Add current fields to entity params
       entity_params = Map.put(entity_params, "fields_definition", socket.assigns.fields)
 
-      # Add current settings with merged translations
+      # Add current settings with merged translations and sort mode
       settings = merge_translation_params(socket, entity_params)
+
+      settings =
+        case entity_params["sort_mode"] do
+          mode when mode in ~w(auto manual) -> Map.put(settings, "sort_mode", mode)
+          _ -> settings
+        end
+
       entity_params = Map.put(entity_params, "settings", settings)
       entity_params = Map.delete(entity_params, "translations")
 
@@ -320,6 +336,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
                 |> assign(:entity, saved_entity)
                 |> assign(:changeset, changeset)
                 |> assign(:fields, saved_entity.fields_definition || [])
+                |> assign(:sort_mode, Entities.get_sort_mode(saved_entity))
                 |> put_flash(:info, gettext("Entity saved successfully"))
 
               reply_with_broadcast(socket)
