@@ -29,10 +29,13 @@ defmodule PhoenixKitWeb.FileController do
 
   Success (200):
   - File streamed to client with appropriate headers:
-    - `Cache-Control: public, max-age=31536000` (1 year)
+    - `Cache-Control: public, max-age=31536000, immutable` (1 year)
     - `ETag: "md5-hash"`
     - `Content-Type: <mime-type>`
     - `Content-Disposition: inline; filename="..."`
+
+  Not Modified (304):
+  - Returned when request includes `If-None-Match` matching the file ETag
 
   Error (401):
       "Invalid or expired token"
@@ -232,15 +235,24 @@ defmodule PhoenixKitWeb.FileController do
 
   # Serve a local file with proper headers
   defp serve_file(conn, file, instance, file_path) do
-    conn
-    |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
-    |> put_resp_header("etag", ~s("#{instance.checksum}"))
-    |> put_resp_header(
-      "content-disposition",
-      ~s(inline; filename="#{file.original_file_name}")
-    )
-    |> put_resp_content_type(instance.mime_type)
-    |> send_file(200, file_path)
+    etag = ~s("#{instance.checksum}")
+
+    if etag in Plug.Conn.get_req_header(conn, "if-none-match") do
+      conn
+      |> put_resp_header("etag", etag)
+      |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
+      |> send_resp(304, "")
+    else
+      conn
+      |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
+      |> put_resp_header("etag", etag)
+      |> put_resp_header(
+        "content-disposition",
+        ~s(inline; filename="#{file.original_file_name}")
+      )
+      |> put_resp_content_type(instance.mime_type)
+      |> send_file(200, file_path)
+    end
   end
 
   # Proxy a remote file through the server (for private buckets)

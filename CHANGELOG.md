@@ -68,7 +68,6 @@
 - Fix user dashboard navigation links
 - Fix ueberauth providers configuration format in installer
 
->>>>>>> upstream/dev
 ## 1.7.62 - 2026-03-05
 - Fix UnicodeConversionError crash in integration plug when response body contains non-UTF8 binary data
 - Fix DB browser rendering of raw binary values (e.g. UUID bytes) in table and activity views

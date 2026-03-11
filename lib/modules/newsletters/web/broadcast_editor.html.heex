@@ -49,7 +49,8 @@
                 value={template.uuid}
                 selected={@template_uuid == template.uuid}
               >
-                {template.display_name || template.name}
+                {PhoenixKit.Modules.Emails.Template.get_translation(template.display_name, "en") ||
+                  template.name}
               </option>
             </select>
           </fieldset>

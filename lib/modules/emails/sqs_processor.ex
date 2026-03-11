@@ -1396,7 +1396,7 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     end
   end
 
-  # Updates mailing delivery record when a matching SES event arrives
+  # Updates newsletters delivery record when a matching SES event arrives
   defp maybe_update_newsletters_delivery(message_id, event_type, timestamp) do
     case Newsletters.find_delivery_by_message_id(message_id) do
       nil -> :ok

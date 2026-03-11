@@ -5,6 +5,7 @@ defmodule PhoenixKit.Modules.Newsletters.Web.BroadcastEditor do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Emails.Template
   alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Modules.Newsletters
   alias PhoenixKit.Modules.Newsletters.Broadcaster
@@ -234,7 +235,8 @@ defmodule PhoenixKit.Modules.Newsletters.Web.BroadcastEditor do
         html
 
       template ->
-        String.replace(template.html_body || "", "{{content}}", html)
+        html_template = Template.get_translation(template.html_body, "en")
+        String.replace(html_template, "{{content}}", html)
     end
   end
 
