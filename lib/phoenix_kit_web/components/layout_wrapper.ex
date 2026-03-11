@@ -34,6 +34,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
   import PhoenixKitWeb.Components.Core.CookieConsent, only: [cookie_consent: 1]
+  import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
   import PhoenixKitWeb.Components.AdminNav
   import PhoenixKitWeb.Components.Dashboard.AdminSidebar, only: [admin_sidebar: 1]
 
@@ -242,6 +243,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
             ~H"""
             <%!-- PhoenixKit Admin Layout following EZNews pattern --%>
+            <.phoenix_kit_globals />
             <style data-phoenix-kit-themes>
               <%= HTML.raw(ThemeConfig.custom_theme_css()) %>
             </style>
@@ -676,9 +678,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <% end %>
         <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
         <%!-- PhoenixKit Cookie Consent Widget Setup --%>
-        <script>
-          window.PHOENIX_KIT_PREFIX = "<%= PhoenixKit.Utils.Routes.url_prefix() %>";
-        </script>
+        <.phoenix_kit_globals />
         <script defer src={Routes.path("/assets/phoenix_kit_consent.js")}>
         </script>
       </head>
