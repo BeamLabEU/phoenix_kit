@@ -157,7 +157,25 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   def resize_and_crop_center(input_path, output_path, width, height, opts \\ []) do
     quality = Keyword.get(opts, :quality, 85)
     format = Keyword.get(opts, :format, nil)
-    background = Keyword.get(opts, :background, "white")
+    alpha? = has_alpha_channel?(input_path)
+
+    background =
+      if Keyword.has_key?(opts, :background) do
+        Keyword.get(opts, :background, "white")
+      else
+        if alpha?, do: "none", else: "white"
+      end
+
+    format =
+      if format == "jpg" and alpha? do
+        Logger.warning(
+          "Image #{input_path} has alpha channel but format is jpg — overriding to webp to preserve transparency"
+        )
+
+        "webp"
+      else
+        format
+      end
 
     if is_nil(width) or is_nil(height) do
       {:error, "Both width and height are required for center-crop resizing"}
@@ -270,5 +288,14 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
       end
 
     args
+  end
+
+  defp has_alpha_channel?(file_path) do
+    case System.cmd("identify", ["-format", "%[channels]", file_path], stderr_to_stdout: true) do
+      {output, 0} -> String.contains?(String.trim(output), "a")
+      _ -> false
+    end
+  rescue
+    _ -> false
   end
 end
