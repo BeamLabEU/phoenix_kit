@@ -456,14 +456,12 @@
                   <% end %>
                 </select>
               </form>
-              <div class="flex items-center gap-2">
-                <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/ai/endpoints")}
-                  class="text-xs link link-primary"
-                >
-                  {gettext("Manage Endpoints")}
-                </.link>
-              </div>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/ai/endpoints")}
+                class="text-xs link link-primary"
+              >
+                {gettext("Manage Endpoints")}
+              </.link>
             </div>
 
             <%!-- Prompt Selection --%>

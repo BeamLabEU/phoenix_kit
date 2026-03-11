@@ -378,10 +378,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     end)
   end
 
+  @doc """
+  Returns the source language for translation based on the post's primary language
+  or the system default.
+  """
+  def source_language_for_translation(socket) do
+    post = socket.assigns[:post]
+    (post && post[:primary_language]) || Publishing.get_primary_language()
+  end
+
   defp check_source_language_editor(socket, warnings) do
     post = socket.assigns.post
     group_slug = socket.assigns.group_slug
-    source_language = post[:primary_language] || Publishing.get_primary_language()
+    source_language = source_language_for_translation(socket)
     current_language = socket.assigns[:current_language]
 
     # If we're currently on the source language, we are the editor — no warning needed
