@@ -78,6 +78,12 @@ defmodule PhoenixKit.Modules.Entities.Events do
     broadcast(data_topic(entity_uuid), message)
   end
 
+  def broadcast_data_reordered(entity_uuid) do
+    message = {:data_reordered, entity_uuid}
+    broadcast(@topic_data, message)
+    broadcast(data_topic(entity_uuid), message)
+  end
+
   ## Collaborative form editing
 
   def broadcast_entity_form_change(form_key, payload, opts \\ []) do
