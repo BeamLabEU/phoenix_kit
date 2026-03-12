@@ -668,7 +668,8 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
 
       if entity_uuid do
         next_pos = next_position(entity_uuid)
-        Map.put(attrs, :position, next_pos)
+        key = if Map.has_key?(attrs, :entity_uuid), do: :position, else: "position"
+        Map.put(attrs, key, next_pos)
       else
         attrs
       end

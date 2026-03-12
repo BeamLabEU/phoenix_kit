@@ -1,6 +1,7 @@
 ## 1.7.71 - 2026-03-12
 
 ### Fixed
+- Fix mixed atom/string key error in `EntityData.maybe_add_position/1` when auto-assigning position to string-keyed params
 - Fix `FOR UPDATE` with aggregate function error in `EntityData.next_position/1` (PostgreSQL `0A000 feature_not_supported`)
 
 ## 1.7.70 - 2026-03-12
