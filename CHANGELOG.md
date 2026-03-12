@@ -1,3 +1,29 @@
+## 1.7.70 - 2026-03-12
+
+### Added
+- Add PhoenixKitGlobals component for JavaScript globals injection
+- Add metadata JSONB field to comments schema (V82 migration)
+- Add reply indicators to admin comments page
+- Add test comments seed script for visual verification
+- Add admin page generator category index pages with automatic route registration
+- Add duplicate validation (ID, URL, label) to admin page generator
+- Add compile-time warning for unresolved legacy admin LiveView modules
+- Add `phoenix_kit_app_base/0` helper to Routes utility
+
+### Fixed
+- Fix dimension form inputs clearing each other on change
+- Fix MarkdownEditor toolbar not working on LiveView navigation
+- Fix CommentsComponent crash on post details page (`resource_id` → `resource_uuid`)
+- Fix credo alias ordering in integration module
+- Fix WebP transparency loss in center-crop image processing
+- Fix 304 Not Modified support in FileController
+
+### Changed
+- Update admin page generator to use flat `admin_dashboard_tabs` config with `live_view` field
+- Deprecate legacy `admin_dashboard_categories` config format (warning on use)
+- Auto-infer LiveView modules from URL paths for legacy admin categories
+- Add `attr :rest, :global` to `phoenix_kit_globals` component
+
 ## 1.7.69 - 2026-03-10
 - Add responsive multi-column card grid to `table_default` component: 1 col on mobile, 2 cols on md, 3 cols on lg breakpoints
 - Style card view cards with `bg-base-200` and `shadow-sm` to visually distinguish them from the page background
