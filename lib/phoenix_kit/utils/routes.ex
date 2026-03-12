@@ -256,4 +256,30 @@ defmodule PhoenixKit.Utils.Routes do
         site_url
     end
   end
+
+  @doc """
+  Gets the base module name for the parent application.
+
+  Reads from :phoenix_kit, :layouts_module config (e.g., MprojectWeb.Layouts -> MprojectWeb).
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Routes.phoenix_kit_app_base()
+      "MprojectWeb"
+
+  """
+  @spec phoenix_kit_app_base() :: String.t()
+  def phoenix_kit_app_base do
+    case PhoenixKit.Config.get(:layouts_module) do
+      {:ok, module} when is_atom(module) ->
+        module
+        |> Module.split()
+        # Drop last segment (Layouts)
+        |> Enum.slice(0..-2//1)
+        |> Module.concat()
+
+      _ ->
+        "AppWeb"
+    end
+  end
 end
