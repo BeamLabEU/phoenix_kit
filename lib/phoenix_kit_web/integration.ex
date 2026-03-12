@@ -98,6 +98,7 @@ defmodule PhoenixKitWeb.Integration do
   """
 
   alias PhoenixKitWeb
+  alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Routes.BlogRoutes
   alias PhoenixKitWeb.Routes.CustomerServiceRoutes
   alias PhoenixKitWeb.Routes.EmailsRoutes
@@ -949,17 +950,102 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   defp compile_custom_admin_routes_internal do
-    case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
-      tabs when is_list(tabs) ->
-        tabs
-        |> Enum.filter(fn tab ->
-          is_map(tab) and Map.has_key?(tab, :live_view) and
-            match?({module, _action} when is_atom(module), tab.live_view)
-        end)
-        |> Enum.map(&tab_to_route/1)
+    # Process :admin_dashboard_tabs config (new format, flat list with live_view)
+    tabs_routes =
+      case PhoenixKit.Config.get(:admin_dashboard_tabs) do
+        {:ok, tabs} when is_list(tabs) ->
+          tabs
+          |> Enum.filter(fn tab ->
+            is_map(tab) and Map.has_key?(tab, :live_view) and
+              match?({module, _action} when is_atom(module), tab.live_view)
+          end)
+          |> Enum.map(&tab_to_route/1)
+
+        _ ->
+          []
+      end
+
+    # Process legacy :admin_dashboard_categories config (deprecated, hierarchical)
+    # Auto-infer LiveView modules from subsection URLs
+    legacy_routes = compile_legacy_admin_routes()
+
+    tabs_routes ++ legacy_routes
+  end
+
+  # Generates routes from legacy admin_dashboard_categories config.
+  # Reads categories at compile time and infers LiveView modules from URL patterns.
+  defp compile_legacy_admin_routes do
+    case PhoenixKit.Config.get(:admin_dashboard_categories) do
+      {:ok, categories} when is_list(categories) ->
+        categories
+        |> Enum.flat_map(&routes_from_legacy_category/1)
 
       _ ->
         []
+    end
+  end
+
+  # Generates routes from a single legacy category.
+  defp routes_from_legacy_category(category) do
+    subsections = category[:subsections] || []
+
+    Enum.flat_map(subsections, fn subsection ->
+      subsection_url = subsection[:url] || ""
+
+      case infer_live_view_from_legacy_url_with_fallback(subsection_url) do
+        {:ok, live_view} ->
+          [tab_to_route_from_url(subsection_url, live_view, subsection[:id])]
+
+        :error ->
+          []
+      end
+    end)
+  end
+
+  # Infers LiveView module with fallback to assuming it exists during parent app compilation.
+  defp infer_live_view_from_legacy_url_with_fallback("/admin/" <> path_segments) do
+    app_base = Routes.phoenix_kit_app_base()
+
+    segments =
+      path_segments
+      |> String.split("/")
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.map(&Macro.camelize/1)
+
+    if segments == [] do
+      :error
+    else
+      module_name =
+        Module.concat(
+          [
+            app_base,
+            "PhoenixKit",
+            "Live",
+            "Admin"
+          ] ++ segments
+        )
+
+      # Try to load the module first
+      case Code.ensure_loaded(module_name) do
+        {:module, _} ->
+          {:ok, module_name}
+
+        {:error, _} ->
+          # During parent app compilation, assume the module exists
+          # and will be compiled shortly
+          {:ok, module_name}
+      end
+    end
+  end
+
+  defp infer_live_view_from_legacy_url_with_fallback(_), do: :error
+
+  # Creates a route declaration from a URL path and LiveView module.
+  defp tab_to_route_from_url(path, live_view, tab_id) do
+    route_opts = if tab_id, do: [as: tab_id], else: []
+
+    quote do
+      live unquote(path), unquote(live_view), :index, unquote(route_opts)
     end
   end
 
@@ -1062,7 +1148,7 @@ defmodule PhoenixKitWeb.Integration do
   def compile_external_admin_routes(suffix) do
     fun = if suffix == :_locale, do: :admin_locale_routes, else: :admin_routes
 
-    Application.get_env(:phoenix_kit, :route_modules, [])
+    PhoenixKit.Config.get(:route_modules, [])
     |> Enum.flat_map(&collect_admin_routes(&1, fun))
   end
 
@@ -1085,7 +1171,7 @@ defmodule PhoenixKitWeb.Integration do
   # Each module should implement public_routes/1 (receives url_prefix).
   @doc false
   def compile_external_public_routes(url_prefix) do
-    Application.get_env(:phoenix_kit, :route_modules, [])
+    PhoenixKit.Config.get(:route_modules, [])
     |> Enum.flat_map(&collect_public_routes(&1, url_prefix))
   end
 
