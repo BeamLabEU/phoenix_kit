@@ -676,6 +676,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   defp orphaned_files_query do
     existing = existing_optional_tables()
+    protected_uuids = protected_file_uuids()
 
     # Core check — phoenix_kit_users always exists
     base =
@@ -686,6 +687,14 @@ defmodule PhoenixKit.Modules.Storage do
             f.uuid
           )
       )
+
+    # Exclude UUIDs that the parent app has explicitly marked as protected
+    base =
+      if protected_uuids == [] do
+        base
+      else
+        where(base, [f], f.uuid not in ^protected_uuids)
+      end
 
     # Optional module tables — only included if the table exists
     optional_checks = [
@@ -754,6 +763,14 @@ defmodule PhoenixKit.Modules.Storage do
            "NOT EXISTS (SELECT 1 FROM phoenix_kit_posts p WHERE p.metadata->>'featured_image_uuid' = ?::text)",
            f.uuid
          )
+       )},
+      {"phoenix_kit_entity_data",
+       dynamic(
+         [f],
+         fragment(
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_entity_data ed WHERE ed.data::text LIKE '%' || ?::text || '%')",
+           f.uuid
+         )
        )}
     ]
 
@@ -775,6 +792,25 @@ defmodule PhoenixKit.Modules.Storage do
       )
 
     List.flatten(rows)
+  end
+
+  # Returns UUIDs that should never be considered orphans, as configured by the parent app.
+  #
+  # Parent apps can register protected file UUIDs in their config:
+  #
+  #   config :phoenix_kit, :protected_file_uuids, ["uuid1", "uuid2", ...]
+  #
+  # Or via a zero-arity function/MFA for dynamic resolution:
+  #
+  #   config :phoenix_kit, :protected_file_uuids, {MyApp.Media, :all_uuids, []}
+  #   config :phoenix_kit, :protected_file_uuids, fn -> MyApp.Media.all_uuids() end
+  #
+  defp protected_file_uuids do
+    case Application.get_env(:phoenix_kit, :protected_file_uuids, []) do
+      uuids when is_list(uuids) -> uuids
+      fun when is_function(fun, 0) -> fun.()
+      {mod, fun, args} -> apply(mod, fun, args)
+    end
   end
 
   # ===== FILE INSTANCES =====
