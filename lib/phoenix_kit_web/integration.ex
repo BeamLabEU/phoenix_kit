@@ -97,8 +97,8 @@ defmodule PhoenixKitWeb.Integration do
 
   """
 
-  alias PhoenixKitWeb
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb
   alias PhoenixKitWeb.Routes.BlogRoutes
   alias PhoenixKitWeb.Routes.CustomerServiceRoutes
   alias PhoenixKitWeb.Routes.EmailsRoutes
