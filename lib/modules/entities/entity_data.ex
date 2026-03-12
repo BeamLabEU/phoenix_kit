@@ -642,16 +642,18 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     if has_created_by_uuid do
       attrs
     else
+      key = if Map.has_key?(attrs, :entity_uuid), do: :created_by_uuid, else: "created_by_uuid"
+
       case Auth.get_first_admin_uuid() do
         nil ->
           # Fall back to first user if no admin exists
           case Auth.get_first_user_uuid() do
             nil -> attrs
-            user_uuid -> Map.put(attrs, :created_by_uuid, user_uuid)
+            user_uuid -> Map.put(attrs, key, user_uuid)
           end
 
         admin_uuid ->
-          Map.put(attrs, :created_by_uuid, admin_uuid)
+          Map.put(attrs, key, admin_uuid)
       end
     end
   end
