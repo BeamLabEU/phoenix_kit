@@ -6,5 +6,7 @@
     "*.{heex,ex,exs}",
     "{config,lib,test}/**/*.{heex,ex,exs}",
     "priv/*/seeds.exs"
-  ]
+  ],
+  # Exclude template files that contain EEx syntax
+  exclude: ["priv/templates/**/*.*"]
 ]
