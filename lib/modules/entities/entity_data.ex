@@ -688,15 +688,17 @@ defmodule PhoenixKit.Modules.Entities.EntityData do
     # concurrent creates from reading the same max position.
     # NOTE: The lock only takes effect inside a repo().transaction/1 block.
     # Called internally by create/1 which wraps in a transaction.
-    max_pos =
+    # Fetch individual positions with row-level lock, then compute max in Elixir.
+    # PostgreSQL does not allow FOR UPDATE with aggregate functions.
+    positions =
       from(d in __MODULE__,
         where: d.entity_uuid == ^entity_uuid,
-        select: max(d.position),
+        select: d.position,
         lock: "FOR UPDATE"
       )
-      |> repo().one()
+      |> repo().all()
 
-    (max_pos || 0) + 1
+    Enum.max(positions, fn -> 0 end) + 1
   end
 
   @doc """

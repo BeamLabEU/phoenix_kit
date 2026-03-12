@@ -1,3 +1,8 @@
+## 1.7.71 - 2026-03-12
+
+### Fixed
+- Fix `FOR UPDATE` with aggregate function error in `EntityData.next_position/1` (PostgreSQL `0A000 feature_not_supported`)
+
 ## 1.7.70 - 2026-03-12
 
 ### Added
