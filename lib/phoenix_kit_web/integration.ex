@@ -1031,8 +1031,14 @@ defmodule PhoenixKitWeb.Integration do
           {:ok, module_name}
 
         {:error, _} ->
-          # During parent app compilation, assume the module exists
-          # and will be compiled shortly
+          # Module not yet compiled — assume it will be compiled shortly.
+          # Emit a warning so devs get feedback if the module truly doesn't exist.
+          IO.warn(
+            "[PhoenixKit] Auto-inferred LiveView #{inspect(module_name)} from legacy URL " <>
+              "\"/admin/#{path_segments}\" but module is not yet loaded. " <>
+              "If this route fails at runtime, ensure the module exists."
+          )
+
           {:ok, module_name}
       end
     end
