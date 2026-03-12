@@ -23,6 +23,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
   - `depth` - Nesting level (0=top, 1=reply, 2=reply-to-reply, etc.)
   - `like_count` - Denormalized like counter
   - `dislike_count` - Denormalized dislike counter
+  - `metadata` - Arbitrary JSONB data (giphy reactions, custom flags, rich embeds, etc.)
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -40,6 +41,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
           depth: integer(),
           like_count: integer(),
           dislike_count: integer(),
+          metadata: map(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t() | nil,
           parent: t() | Ecto.Association.NotLoaded.t() | nil,
           children: [t()] | Ecto.Association.NotLoaded.t(),
@@ -55,6 +57,7 @@ defmodule PhoenixKit.Modules.Comments.Comment do
     field :depth, :integer, default: 0
     field :like_count, :integer, default: 0
     field :dislike_count, :integer, default: 0
+    field :metadata, :map, default: %{}
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -90,7 +93,8 @@ defmodule PhoenixKit.Modules.Comments.Comment do
       :parent_uuid,
       :content,
       :status,
-      :depth
+      :depth,
+      :metadata
     ])
     |> validate_required([:resource_type, :resource_uuid, :user_uuid, :content])
     |> validate_inclusion(:status, ["published", "hidden", "deleted", "pending"])

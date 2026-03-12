@@ -529,7 +529,16 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V80 - Emails i18n: JSON language fields ⚡ LATEST
+  ### V82 - Add metadata JSONB column to comments ⚡ LATEST
+  - Adds `metadata` column (jsonb, default `'{}'`) to `phoenix_kit_comments`
+  - Enables storing arbitrary extra data on comments without schema changes
+
+  ### V81 - Add position column to entity_data
+  - Adds `position` integer column to `phoenix_kit_entity_data` for manual reordering
+  - Backfills existing records based on creation date
+  - Adds composite index on `(entity_uuid, position)`
+
+  ### V80 - Emails i18n: JSON language fields
   - Converts 5 fields in `phoenix_kit_email_templates` to JSONB for multilingual support
     (`subject`, `html_body`, `text_body`, `display_name`, `description`)
   - Existing string values are wrapped as `{"en": "original_value"}`
@@ -631,7 +640,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 81
+  @current_version 82
   @default_prefix "public"
 
   @doc false
