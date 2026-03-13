@@ -14,32 +14,6 @@
 
     <%!-- Main Content --%>
     <div class="max-w-4xl mx-auto space-y-8">
-      <%!-- Status Card --%>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title text-2xl mb-4">
-            <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> {gettext("Status")}
-          </h2>
-
-          <div class="form-control">
-            <label class="label cursor-pointer">
-              <span class="label-text text-lg">
-                <span class="font-semibold">{gettext("Enable Emails")}</span>
-                <div class="text-sm text-base-content/70 mt-1">
-                  {gettext("Track email delivery, opens, clicks, and other events")}
-                </div>
-              </span>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@email_enabled}
-                phx-click="toggle_emails"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-
       <%= if @email_enabled do %>
         <%!-- Sender Configuration Card --%>
         <div class="card bg-base-100 shadow-xl">

@@ -30,38 +30,6 @@ defmodule PhoenixKit.Modules.Referrals.Web.Settings do
     {:ok, socket}
   end
 
-  def handle_event("toggle_referral_codes", _params, socket) do
-    # Since we're sending "toggle", we just flip the current state
-    new_enabled = !socket.assigns.referral_codes_enabled
-
-    result =
-      if new_enabled do
-        Referrals.enable_system()
-      else
-        Referrals.disable_system()
-      end
-
-    case result do
-      {:ok, _setting} ->
-        socket =
-          socket
-          |> assign(:referral_codes_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Referral codes enabled",
-              else: "Referral codes disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update referral codes")
-        {:noreply, socket}
-    end
-  end
-
   def handle_event("toggle_referral_codes_required", _params, socket) do
     # Since we're sending "toggle", we just flip the current state
     new_required = !socket.assigns.referral_codes_required

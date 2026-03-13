@@ -114,38 +114,6 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
     {:ok, socket}
   end
 
-  def handle_event("toggle_emails", _params, socket) do
-    # Toggle email system
-    new_enabled = !socket.assigns.email_enabled
-
-    result =
-      if new_enabled do
-        Emails.enable_system()
-      else
-        Emails.disable_system()
-      end
-
-    case result do
-      {:ok, _setting} ->
-        socket =
-          socket
-          |> assign(:email_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Email system enabled",
-              else: "Email system disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update email system")
-        {:noreply, socket}
-    end
-  end
-
   def handle_event("toggle_email_save_body", _params, socket) do
     # Toggle email body saving
     new_save_body = !socket.assigns.email_save_body

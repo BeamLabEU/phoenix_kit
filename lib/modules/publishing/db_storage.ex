@@ -243,7 +243,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   """
   def count_primary_language_status_from_posts(posts, global_primary) do
     Enum.reduce(posts, %{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
-      primary_lang = post[:primary_language] || Map.get(post, :primary_language)
+      primary_lang = Map.get(post, :primary_language)
 
       cond do
         is_nil(primary_lang) ->

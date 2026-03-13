@@ -49,45 +49,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
   end
 
   @impl true
-  def handle_event("toggle_enabled", _params, socket) do
-    new_enabled = !socket.assigns.enabled
-
-    if new_enabled and not billing_enabled?() do
-      # Cannot enable Shop without Billing
-      {:noreply,
-       socket
-       |> assign(:enabled, false)
-       |> put_flash(:error, "Please enable Billing module first")}
-    else
-      result =
-        if new_enabled do
-          Shop.enable_system()
-        else
-          Shop.disable_system()
-        end
-
-      case result do
-        {:ok, _} ->
-          socket =
-            socket
-            |> assign(:enabled, new_enabled)
-            |> put_flash(
-              :info,
-              if(new_enabled, do: "E-Commerce module enabled", else: "E-Commerce module disabled")
-            )
-
-          {:noreply, socket}
-
-        _ ->
-          {:noreply,
-           socket
-           |> assign(:enabled, false)
-           |> put_flash(:error, "Failed to update E-Commerce status")}
-      end
-    end
-  end
-
-  @impl true
   def handle_event("toggle_inventory_tracking", _params, socket) do
     new_value = !socket.assigns.inventory_tracking
     value_str = if(new_value, do: "true", else: "false")
@@ -277,43 +238,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
           title="E-Commerce Settings"
           subtitle="Configure your e-commerce store"
         />
-
-        <%!-- Module Status Card --%>
-        <div class="card bg-base-100 shadow-xl mb-6">
-          <div class="card-body">
-            <div class="flex items-center justify-between">
-              <div>
-                <h2 class="card-title text-xl">Module Status</h2>
-                <p class="text-base-content/70">Enable or disable the E-Commerce module</p>
-              </div>
-              <div class="flex items-center gap-4">
-                <span class={[
-                  "badge badge-lg",
-                  if(@enabled, do: "badge-success", else: "badge-neutral")
-                ]}>
-                  {if @enabled, do: "Enabled", else: "Disabled"}
-                </span>
-                <div class="flex flex-col items-end gap-1">
-                  <input
-                    type="checkbox"
-                    class="toggle toggle-primary toggle-lg"
-                    checked={@enabled}
-                    disabled={not @billing_enabled}
-                    phx-click="toggle_enabled"
-                  />
-                  <%= if not @billing_enabled do %>
-                    <.link
-                      navigate={Routes.path("/admin/modules")}
-                      class="badge badge-warning badge-sm hover:badge-error"
-                    >
-                      Billing Required
-                    </.link>
-                  <% end %>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <%!-- Inventory Settings (toggle pattern) --%>
         <div class="card bg-base-100 shadow-xl mb-6">
