@@ -107,6 +107,30 @@ The `protected_file_uuids` mechanism supports three config formats cleanly. Good
 
 ---
 
+## Follow-up: Centralized module guard (v1.7.73)
+
+The "Incomplete mount guard coverage" issue above was addressed in a follow-up commit
+(`65ab7ef5 — Centralize module access guards in on_mount hook`).
+
+**Approach chosen:** Instead of adding per-LiveView `if Module.enabled?()` guards to all
+~50 admin LiveViews, the existing `enforce_admin_view_permission` hook in `auth.ex` was
+modified to block disabled modules for **all roles** (including Owner/Admin). Previously,
+system roles bypassed the enabled check.
+
+**What changed:**
+- `auth.ex:enforce_admin_view_permission/2` — disabled modules now `{:halt, redirect}`
+  before permission checks, using `Permissions.feature_enabled?/1` (which returns `true`
+  for core section keys like `dashboard`, `users`, `settings`, so those are never blocked)
+- All per-LiveView mount guards from this PR were reverted (AI, Entities, Publishing, Sitemap)
+- The 7 settings pages identified as missing guards no longer need them
+
+**Why this is better:**
+- One check covers all admin LiveViews automatically (settings, sub-pages, forms, etc.)
+- New modules get the guard for free — no code to remember
+- Net code deletion (~28 lines removed)
+
+---
+
 ## Verdict
 
-**Approve.** The core changes are solid: module toggle centralization, Legal fix, sitemap filtering, and the guard pattern. The incomplete mount guard coverage is worth tracking as follow-up work but doesn't block this PR.
+**Approve.** The core changes are solid: module toggle centralization, Legal fix, sitemap filtering, and the guard pattern. The incomplete mount guard coverage was resolved in v1.7.73.
