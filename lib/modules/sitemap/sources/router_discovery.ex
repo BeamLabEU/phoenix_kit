@@ -118,6 +118,15 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
     {PhoenixKitWeb.Users.Auth, :phoenix_kit_redirect_if_authenticated_scope}
   ]
 
+  # Mapping of route prefixes to module enabled? checks
+  # Routes with these prefixes are excluded from sitemap when the module is disabled
+  @module_route_prefixes %{
+    "/shop" => {PhoenixKit.Modules.Shop, :enabled?},
+    "/newsletters" => {PhoenixKit.Modules.Newsletters, :enabled?},
+    "/publishing" => {PhoenixKit.Modules.Publishing, :enabled?},
+    "/connections" => {PhoenixKit.Modules.Connections, :enabled?}
+  }
+
   @impl true
   def source_name, do: :router_discovery
 
@@ -157,7 +166,8 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
     get_route?(route) and
       not excluded?(route.path, exclude_patterns) and
       included?(route.path, include_only) and
-      not protected_by_route_info?(route)
+      not protected_by_route_info?(route) and
+      not disabled_module_route?(route.path)
   end
 
   # Single route_info call checks both pipelines and on_mount hooks
@@ -229,6 +239,16 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
 
   defp safe_to_atom(value) when is_atom(value), do: value
   defp safe_to_atom(value) when is_binary(value), do: String.to_atom(value)
+
+  defp disabled_module_route?(path) do
+    Enum.any?(@module_route_prefixes, fn {prefix, {mod, fun}} ->
+      String.starts_with?(path, prefix) and not module_enabled?(mod, fun)
+    end)
+  end
+
+  defp module_enabled?(mod, fun) do
+    function_exported?(mod, fun, 0) and apply(mod, fun, [])
+  end
 
   defp get_route?(route) do
     route.verb == :get

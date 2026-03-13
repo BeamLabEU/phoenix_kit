@@ -59,38 +59,6 @@ defmodule PhoenixKit.Modules.Emails.Web.EmailTracking do
     {:ok, socket}
   end
 
-  def handle_event("toggle_email_tracking", _params, socket) do
-    # Toggle email tracking system
-    new_enabled = !socket.assigns.email_tracking_enabled
-
-    result =
-      if new_enabled do
-        Emails.enable_system()
-      else
-        Emails.disable_system()
-      end
-
-    case result do
-      {:ok, _setting} ->
-        socket =
-          socket
-          |> assign(:email_tracking_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Email tracking system enabled",
-              else: "Email tracking system disabled"
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update email tracking system")
-        {:noreply, socket}
-    end
-  end
-
   def handle_event("toggle_email_tracking_save_body", _params, socket) do
     # Toggle email body saving
     new_save_body = !socket.assigns.email_tracking_save_body

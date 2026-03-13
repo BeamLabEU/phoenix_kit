@@ -42,27 +42,6 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <%!-- Module Status --%>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title">Module Status</h2>
-          <div class="flex items-center justify-between mt-4">
-            <div>
-              <p class="font-medium">Billing Module</p>
-              <p class="text-sm text-base-content/60">Enable or disable billing functionality</p>
-            </div>
-            <label class="cursor-pointer">
-              <input
-                type="checkbox"
-                class="toggle toggle-success toggle-lg"
-                checked={@billing_enabled}
-                phx-click="toggle_billing"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-
       <%!-- General Settings --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">

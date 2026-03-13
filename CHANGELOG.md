@@ -1,3 +1,21 @@
+## 1.7.72 - 2026-03-13
+
+### Added
+- Add module access guards — disabled modules now hide action buttons and block mount on settings/endpoints
+- Add error flash auto-dismiss after 8 seconds
+- Add `enabled?()` mount guards to AI, Media, Entities, Publishing, Sitemap endpoints
+- Add error logging in Legal `list_generated_pages` instead of silent rescue
+
+### Fixed
+- Fix Legal module broken connection with DB-backed Publishing (`post.path` → `post.uuid`, `updated_at` → `published_at`)
+- Fix Legal module Configure button guard when module is disabled
+- Fix Sitemap RouterDiscovery including routes from disabled modules
+- Fix DB.Listener missing `{:eventually, _ref}` case for auto_reconnect
+
+### Changed
+- Remove duplicate enable/disable toggles from 7 module settings pages (Emails, Email Tracking, Legal, Referrals, Billing, Customer Service, Shop)
+- Simplify primary_language lookup in Publishing.DBStorage
+
 ## 1.7.71 - 2026-03-12
 
 ### Fixed

@@ -16,27 +16,6 @@
     />
 
     <div class="max-w-4xl mx-auto space-y-6">
-      <%!-- Module Toggle --%>
-      <div class="flex items-center justify-between bg-base-200 p-4 rounded-lg">
-        <div>
-          <h2 class="font-semibold">{gettext("Legal Module")}</h2>
-          <p class="text-sm text-base-content/60">
-            {gettext("Enable or disable the Legal module")}
-          </p>
-        </div>
-        <div class="form-control">
-          <label class="label cursor-pointer gap-4">
-            <input
-              type="checkbox"
-              class="toggle toggle-primary"
-              checked={@legal_enabled}
-              phx-click="toggle_legal"
-              disabled={not @publishing_enabled}
-            />
-          </label>
-        </div>
-      </div>
-
       <%!-- Publishing Dependency Warning --%>
       <%= if not @publishing_enabled do %>
         <div class="alert alert-warning">

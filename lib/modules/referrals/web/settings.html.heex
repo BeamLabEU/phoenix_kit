@@ -22,23 +22,6 @@
             <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Status
           </h2>
 
-          <div class="form-control">
-            <label class="label cursor-pointer">
-              <span class="label-text text-lg">
-                <span class="font-semibold">Enable Referrals</span>
-                <div class="text-sm text-base-content/70 mt-1">
-                  Allow users to create and use referrals for registration
-                </div>
-              </span>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@referral_codes_enabled}
-                phx-click="toggle_referral_codes"
-              />
-            </label>
-          </div>
-
           <%= if @referral_codes_enabled do %>
             <div class="divider"></div>
 

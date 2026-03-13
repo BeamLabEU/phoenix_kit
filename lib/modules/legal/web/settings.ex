@@ -69,36 +69,6 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   @impl true
-  def handle_event("toggle_legal", _params, socket) do
-    if socket.assigns.legal_enabled do
-      case Legal.disable_system() do
-        {:ok, _} ->
-          {:noreply,
-           socket
-           |> assign(:legal_enabled, false)
-           |> put_flash(:info, gettext("Legal module disabled"))}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to disable Legal module"))}
-      end
-    else
-      case Legal.enable_system() do
-        {:ok, _} ->
-          {:noreply,
-           socket
-           |> assign(:legal_enabled, true)
-           |> put_flash(:info, gettext("Legal module enabled"))}
-
-        {:error, :publishing_required} ->
-          {:noreply, put_flash(socket, :error, gettext("Please enable Publishing module first"))}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}
-      end
-    end
-  end
-
-  @impl true
   def handle_event("toggle_framework", %{"id" => framework_id}, socket) do
     current = socket.assigns.selected_frameworks
 
@@ -306,7 +276,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
         Routes.path("/admin/publishing/legal")
 
       page ->
-        Routes.path("/admin/publishing/legal/edit?path=#{URI.encode(page.path)}")
+        Routes.path("/admin/publishing/legal/#{page.uuid}/edit")
     end
   end
 

@@ -40,51 +40,58 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
 
   @impl true
   def mount(_params, session, socket) do
-    current_path = get_current_path(socket, session)
-    project_title = Settings.get_project_title()
+    if AI.enabled?() do
+      current_path = get_current_path(socket, session)
+      project_title = Settings.get_project_title()
 
-    # Subscribe to real-time updates
-    if connected?(socket) do
-      AI.subscribe_endpoints()
-      AI.subscribe_requests()
+      # Subscribe to real-time updates
+      if connected?(socket) do
+        AI.subscribe_endpoints()
+        AI.subscribe_requests()
+      end
+
+      # Check if we have any endpoints for initial tab selection
+      {_endpoints, total} = AI.list_endpoints()
+      has_endpoints = total > 0
+
+      socket =
+        socket
+        |> assign(:current_path, current_path)
+        |> assign(:page_title, "AI Endpoints")
+        |> assign(:project_title, project_title)
+        |> assign(:endpoints, [])
+        |> assign(:endpoint_stats, %{})
+        |> assign(:has_endpoints, has_endpoints)
+        |> assign(:sort_by, :id)
+        |> assign(:sort_dir, :asc)
+        |> assign(:sort_options, @sort_options)
+        |> assign(:page, 1)
+        |> assign(:page_size, @page_size)
+        |> assign(:total_endpoints, 0)
+        |> assign(:active_tab, if(has_endpoints, do: "endpoints", else: "setup"))
+        |> assign(:usage_loaded, false)
+        |> assign(:usage_stats, nil)
+        |> assign(:usage_requests, [])
+        |> assign(:usage_page, 1)
+        |> assign(:usage_total_requests, 0)
+        |> assign(:selected_request, nil)
+        # Usage tab filters and sorting
+        |> assign(:usage_sort_by, :inserted_at)
+        |> assign(:usage_sort_dir, :desc)
+        |> assign(:usage_filter_endpoint, nil)
+        |> assign(:usage_filter_model, nil)
+        |> assign(:usage_filter_status, nil)
+        |> assign(:usage_filter_source, nil)
+        |> assign(:usage_filter_date, "7d")
+        |> assign(:usage_filter_options, %{endpoints: [], models: [], statuses: [], sources: []})
+
+      {:ok, socket}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "AI module is not enabled")
+       |> push_navigate(to: Routes.path("/admin/modules"))}
     end
-
-    # Check if we have any endpoints for initial tab selection
-    {_endpoints, total} = AI.list_endpoints()
-    has_endpoints = total > 0
-
-    socket =
-      socket
-      |> assign(:current_path, current_path)
-      |> assign(:page_title, "AI Endpoints")
-      |> assign(:project_title, project_title)
-      |> assign(:endpoints, [])
-      |> assign(:endpoint_stats, %{})
-      |> assign(:has_endpoints, has_endpoints)
-      |> assign(:sort_by, :id)
-      |> assign(:sort_dir, :asc)
-      |> assign(:sort_options, @sort_options)
-      |> assign(:page, 1)
-      |> assign(:page_size, @page_size)
-      |> assign(:total_endpoints, 0)
-      |> assign(:active_tab, if(has_endpoints, do: "endpoints", else: "setup"))
-      |> assign(:usage_loaded, false)
-      |> assign(:usage_stats, nil)
-      |> assign(:usage_requests, [])
-      |> assign(:usage_page, 1)
-      |> assign(:usage_total_requests, 0)
-      |> assign(:selected_request, nil)
-      # Usage tab filters and sorting
-      |> assign(:usage_sort_by, :inserted_at)
-      |> assign(:usage_sort_dir, :desc)
-      |> assign(:usage_filter_endpoint, nil)
-      |> assign(:usage_filter_model, nil)
-      |> assign(:usage_filter_status, nil)
-      |> assign(:usage_filter_source, nil)
-      |> assign(:usage_filter_date, "7d")
-      |> assign(:usage_filter_options, %{endpoints: [], models: [], statuses: [], sources: []})
-
-    {:ok, socket}
   end
 
   @impl true

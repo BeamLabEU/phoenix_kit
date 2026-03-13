@@ -23,42 +23,49 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   @legacy_render_cache_key "blogging_render_cache_enabled"
 
   def mount(_params, _session, socket) do
-    # Subscribe to group changes for live updates
-    if connected?(socket) do
-      PublishingPubSub.subscribe_to_groups()
+    if Publishing.enabled?() do
+      # Subscribe to group changes for live updates
+      if connected?(socket) do
+        PublishingPubSub.subscribe_to_groups()
+      end
+
+      # Admin side reads from database only
+      groups = db_groups_to_maps()
+      cache_groups = groups
+      languages_enabled = Languages.enabled?()
+
+      socket =
+        socket
+        |> assign(:project_title, Settings.get_project_title())
+        |> assign(:page_title, gettext("Manage Publishing"))
+        |> assign(
+          :current_path,
+          Routes.path("/admin/settings/publishing")
+        )
+        |> assign(:module_enabled, Publishing.enabled?())
+        |> assign(:publishing, groups)
+        |> assign(:cache_groups, cache_groups)
+        |> assign(:languages_enabled, languages_enabled)
+        |> assign(:global_primary_language, Publishing.get_primary_language())
+        |> assign(
+          :memory_cache_enabled,
+          get_cache_setting(@memory_cache_key, @legacy_memory_cache_key)
+        )
+        |> assign(
+          :render_cache_enabled,
+          get_cache_setting(@render_cache_key, @legacy_render_cache_key)
+        )
+        |> assign(:cache_status, build_cache_status(cache_groups))
+        |> assign(:render_cache_stats, get_render_cache_stats())
+        |> assign(:render_cache_per_group, build_render_cache_per_group(cache_groups))
+
+      {:ok, socket}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "Publishing module is not enabled")
+       |> push_navigate(to: Routes.path("/admin/modules"))}
     end
-
-    # Admin side reads from database only
-    groups = db_groups_to_maps()
-    cache_groups = groups
-    languages_enabled = Languages.enabled?()
-
-    socket =
-      socket
-      |> assign(:project_title, Settings.get_project_title())
-      |> assign(:page_title, gettext("Manage Publishing"))
-      |> assign(
-        :current_path,
-        Routes.path("/admin/settings/publishing")
-      )
-      |> assign(:module_enabled, Publishing.enabled?())
-      |> assign(:publishing, groups)
-      |> assign(:cache_groups, cache_groups)
-      |> assign(:languages_enabled, languages_enabled)
-      |> assign(:global_primary_language, Publishing.get_primary_language())
-      |> assign(
-        :memory_cache_enabled,
-        get_cache_setting(@memory_cache_key, @legacy_memory_cache_key)
-      )
-      |> assign(
-        :render_cache_enabled,
-        get_cache_setting(@render_cache_key, @legacy_render_cache_key)
-      )
-      |> assign(:cache_status, build_cache_status(cache_groups))
-      |> assign(:render_cache_stats, get_render_cache_stats())
-      |> assign(:render_cache_per_group, build_render_cache_per_group(cache_groups))
-
-    {:ok, socket}
   end
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}

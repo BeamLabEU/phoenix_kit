@@ -48,26 +48,6 @@
             <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Module Configuration
           </h2>
 
-          <%!-- Enable/Disable --%>
-          <div class="form-control">
-            <label class="label cursor-pointer justify-start gap-4">
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@enabled}
-                phx-click="toggle_enabled"
-              />
-              <div>
-                <span class="label-text font-medium">Enable Customer Service Module</span>
-                <p class="text-sm text-base-content/50">
-                  When disabled, the customer service interface will not be accessible
-                </p>
-              </div>
-            </label>
-          </div>
-
-          <div class="divider"></div>
-
           <%!-- Per Page --%>
           <div class="form-control">
             <label class="label">

@@ -29,29 +29,6 @@ defmodule PhoenixKit.Modules.CustomerService.Web.Settings do
   end
 
   @impl true
-  def handle_event("toggle_enabled", _params, socket) do
-    new_value = !socket.assigns.enabled
-
-    result =
-      if new_value do
-        CustomerService.enable_system()
-      else
-        CustomerService.disable_system()
-      end
-
-    case result do
-      {:ok, _} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, if(new_value, do: "Tickets enabled", else: "Tickets disabled"))
-         |> assign(:enabled, new_value)}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update setting")}
-    end
-  end
-
-  @impl true
   def handle_event("toggle_internal_notes", _params, socket) do
     toggle_boolean_setting(
       socket,

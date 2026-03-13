@@ -98,6 +98,10 @@ defmodule PhoenixKit.Modules.DB.Listener do
               {:ok, _ref} ->
                 {:ok, %{conn: pid}}
 
+              {:eventually, _ref} ->
+                # auto_reconnect: connection not yet established, will activate later
+                {:ok, %{conn: pid}}
+
               {:error, reason} ->
                 Logger.warning("DB.Listener failed to LISTEN: #{inspect(reason)}")
                 {:ok, %{conn: nil}}
