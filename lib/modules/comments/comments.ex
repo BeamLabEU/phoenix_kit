@@ -379,7 +379,7 @@ defmodule PhoenixKit.Modules.Comments do
     query =
       from(c in Comment,
         order_by: [desc: c.inserted_at],
-        preload: [:user]
+        preload: [:user, :parent]
       )
 
     query =

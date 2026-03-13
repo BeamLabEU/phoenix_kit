@@ -138,6 +138,17 @@
                       />
                     </td>
                     <td class="max-w-xs">
+                      <%= if comment.depth > 0 do %>
+                        <div class="flex items-center gap-1 text-base-content/50 text-xs mb-0.5">
+                          <.icon name="hero-arrow-uturn-right-mini" class="size-3" />
+                          <span>Reply</span>
+                          <%= if comment.parent do %>
+                            <span class="truncate max-w-[200px]">
+                              — Re: {String.slice(comment.parent.content, 0..39)}
+                            </span>
+                          <% end %>
+                        </div>
+                      <% end %>
                       <div class="truncate text-sm">{String.slice(comment.content, 0..99)}</div>
                     </td>
                     <td class="text-sm">

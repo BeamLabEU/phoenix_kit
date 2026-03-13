@@ -1,6 +1,6 @@
-defmodule <%= @web_module_prefix %>.PhoenixKit.Live.Admin.<%= @category %>.<%= @page_name %> do
+defmodule <%= @web_module_prefix %>.PhoenixKit.Live.Admin.<%= @category %>.Index do
   @moduledoc """
-  Admin LiveView for <%= @page_title %> in <%= @category %> category.
+  Index page for the <%= @category %> admin category.
   """
 
   use <%= @web_module_prefix %>, :live_view
@@ -13,7 +13,7 @@ defmodule <%= @web_module_prefix %>.PhoenixKit.Live.Admin.<%= @category %>.<%= @
     socket =
       socket
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
-      |> assign(:page_title, gettext("<%= @page_title %>"))
+      |> assign(:page_title, gettext("<%= @category %>"))
       |> assign(:url_path, "<%= @url %>")
 
     {:ok, socket}
@@ -30,8 +30,8 @@ defmodule <%= @web_module_prefix %>.PhoenixKit.Live.Admin.<%= @category %>.<%= @
           <div class="prose prose-sm dark:prose-invert max-w-none">
             <h1 class="text-2xl font-bold mb-6">{@page_title}</h1>
             <p>
-              This is a hello world template for your {@page_title} administration page.
-              You can customize this page by modifying the LiveView module.
+              This is the index page for the {@page_title} section.
+              Navigate to the subpages using the sidebar menu.
             </p>
           </div>
         </div>

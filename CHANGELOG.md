@@ -1,3 +1,36 @@
+## 1.7.71 - 2026-03-12
+
+### Fixed
+- Fix mixed atom/string key error in `EntityData.maybe_add_position/1` when auto-assigning position to string-keyed params
+- Fix same mixed key error in `EntityData.maybe_add_created_by/1`
+- Fix `FOR UPDATE` with aggregate function error in `EntityData.next_position/1` (PostgreSQL `0A000 feature_not_supported`)
+
+## 1.7.70 - 2026-03-12
+
+### Added
+- Add PhoenixKitGlobals component for JavaScript globals injection
+- Add metadata JSONB field to comments schema (V82 migration)
+- Add reply indicators to admin comments page
+- Add test comments seed script for visual verification
+- Add admin page generator category index pages with automatic route registration
+- Add duplicate validation (ID, URL, label) to admin page generator
+- Add compile-time warning for unresolved legacy admin LiveView modules
+- Add `phoenix_kit_app_base/0` helper to Routes utility
+
+### Fixed
+- Fix dimension form inputs clearing each other on change
+- Fix MarkdownEditor toolbar not working on LiveView navigation
+- Fix CommentsComponent crash on post details page (`resource_id` → `resource_uuid`)
+- Fix credo alias ordering in integration module
+- Fix WebP transparency loss in center-crop image processing
+- Fix 304 Not Modified support in FileController
+
+### Changed
+- Update admin page generator to use flat `admin_dashboard_tabs` config with `live_view` field
+- Deprecate legacy `admin_dashboard_categories` config format (warning on use)
+- Auto-infer LiveView modules from URL paths for legacy admin categories
+- Add `attr :rest, :global` to `phoenix_kit_globals` component
+
 ## 1.7.69 - 2026-03-10
 - Add responsive multi-column card grid to `table_default` component: 1 col on mobile, 2 cols on md, 3 cols on lg breakpoints
 - Style card view cards with `bg-base-200` and `shadow-sm` to visually distinguish them from the page background
@@ -8,8 +41,6 @@
 ## 1.7.67 - 2026-03-10
 
 ### Breaking Changes (requires manual steps in parent app)
-
-- Rename `mailing` module to `newsletters` — run `mix ecto.rollback --to 78` before migrating
 - V79 migration rewritten in-place: drops `phoenix_kit_mailing_*` tables, creates `phoenix_kit_newsletters_*`
 - Oban queue renamed: `mailing_delivery` → `newsletters_delivery` (update `config/config.exs`)
 - Settings keys changed: `mailing_enabled` → `newsletters_enabled`, `mailing_default_template` → `newsletters_default_template`, `mailing_rate_limit` → `newsletters_rate_limit`
@@ -17,7 +48,6 @@
 - URL paths changed: `/admin/mailing/*` → `/admin/newsletters/*`, `/mailing/unsubscribe` → `/newsletters/unsubscribe`
 
 ### Changed
-
 - Rename `PhoenixKit.Modules.Mailing` → `PhoenixKit.Modules.Newsletters` and all submodules
 - Rename DB tables: `phoenix_kit_mailing_lists/list_members/broadcasts/deliveries` → `phoenix_kit_newsletters_*`
 - Rename Elixir modules: `Mailing.List`, `Mailing.Broadcast`, `Mailing.Delivery`, `Mailing.ListMember`, `Mailing.Broadcaster`, `Mailing.Workers.DeliveryWorker` → `Newsletters.*`

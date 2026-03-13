@@ -18,6 +18,8 @@ defmodule PhoenixKitWeb.Components.Core.PhoenixKitGlobals do
   @doc """
   Renders script tags that set PhoenixKit global variables.
   """
+  attr :rest, :global
+
   def phoenix_kit_globals(assigns) do
     ~H"""
     <script>

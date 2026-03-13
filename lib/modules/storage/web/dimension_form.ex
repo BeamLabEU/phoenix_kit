@@ -13,7 +13,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
 
   def mount(params, _session, socket) do
     dimension_uuid = params["id"]
-    _action = socket.assigns[:live_action]
+
+    dimension_type =
+      case socket.assigns[:live_action] do
+        :new_image -> "image"
+        :new_video -> "video"
+        _ -> nil
+      end
 
     mode = if dimension_uuid, do: :edit, else: :new
 
@@ -28,8 +34,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
       |> assign(:current_path, Routes.path("/admin/settings/media/dimensions"))
       |> assign(:project_title, project_title)
       |> assign(:dimension, load_dimension_data(mode, dimension_uuid))
-      # Will be set in assign_form
-      |> assign(:dimension_type, nil)
+      |> assign(:dimension_type, dimension_type)
       |> assign_form()
 
     {:ok, socket}

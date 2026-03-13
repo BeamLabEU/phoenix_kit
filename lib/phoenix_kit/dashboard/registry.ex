@@ -67,6 +67,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.PubSubHelper
   alias PhoenixKit.Users.Permissions
+  alias PhoenixKit.Utils.Routes
 
   @ets_table :phoenix_kit_dashboard_tabs
   @pubsub_topic "phoenix_kit:dashboard:tabs"
@@ -912,10 +913,10 @@ defmodule PhoenixKit.Dashboard.Registry do
   end
 
   defp load_admin_from_config_internal do
-    # Load legacy AdminDashboardCategories config and convert to admin-level tabs
+    # Load legacy admin_dashboard_categories config and convert to admin-level tabs
     load_legacy_admin_categories()
 
-    # Load new :admin_dashboard_tabs config (highest precedence)
+    # Load :admin_dashboard_tabs config (highest precedence)
     case Application.get_env(:phoenix_kit, :admin_dashboard_tabs) do
       nil ->
         :ok
@@ -1003,16 +1004,16 @@ defmodule PhoenixKit.Dashboard.Registry do
       :ok
   end
 
-  # Convert legacy AdminDashboardCategories to admin-level Tab structs
+  # Load legacy admin_dashboard_categories config and convert to admin-level Tab structs
   defp load_legacy_admin_categories do
     alias PhoenixKit.Config.AdminDashboardCategories
 
     categories = AdminDashboardCategories.get_categories()
 
     if categories != [] do
-      Logger.info(
+      Logger.warning(
         "[PhoenixKit] Legacy :admin_dashboard_categories config detected. " <>
-          "Consider migrating to :admin_dashboard_tabs format."
+          "This format is deprecated. Please migrate to :admin_dashboard_tabs format."
       )
 
       # Convert each category to admin-level tabs
@@ -1028,18 +1029,20 @@ defmodule PhoenixKit.Dashboard.Registry do
             _ -> "/admin"
           end
 
-        parent = %Tab{
-          id: cat_id,
-          label: category.title,
-          icon: category.icon || "hero-folder",
-          path: first_url,
-          priority: 700 + cat_idx * 10,
-          level: :admin,
-          match: :prefix,
-          group: :admin_modules,
-          subtab_display: :when_active,
-          highlight_with_subtabs: false
-        }
+        parent =
+          %Tab{
+            id: cat_id,
+            label: category.title,
+            icon: category.icon || "hero-folder",
+            path: first_url,
+            priority: 700 + cat_idx * 10,
+            level: :admin,
+            match: :prefix,
+            group: :admin_modules,
+            subtab_display: :when_active,
+            highlight_with_subtabs: false
+          }
+          |> Tab.resolve_path(:admin)
 
         :ets.insert(@ets_table, {{:tab, parent.id}, parent})
         :ets.insert(@ets_table, {{:namespace, :admin_legacy, parent.id}, true})
@@ -1048,23 +1051,80 @@ defmodule PhoenixKit.Dashboard.Registry do
         category.subsections
         |> Enum.with_index()
         |> Enum.each(fn {subsection, sub_idx} ->
-          child_id = :"admin_custom_#{cat_idx}_#{sub_idx}"
-
-          child = %Tab{
-            id: child_id,
-            label: subsection.title,
-            icon: subsection.icon || "hero-document-text",
-            path: subsection.url,
-            priority: 701 + cat_idx * 10 + sub_idx,
-            level: :admin,
-            match: :prefix,
-            parent: cat_id
-          }
-
-          :ets.insert(@ets_table, {{:tab, child.id}, child})
-          :ets.insert(@ets_table, {{:namespace, :admin_legacy, child.id}, true})
+          create_legacy_child_tab(
+            subsection,
+            cat_idx,
+            sub_idx,
+            cat_id
+          )
         end)
       end)
     end
   end
+
+  # Creates a child tab from a legacy category subsection.
+  defp create_legacy_child_tab(subsection, cat_idx, sub_idx, parent_id) do
+    child_id = :"admin_custom_#{cat_idx}_#{sub_idx}"
+
+    child = %Tab{
+      id: child_id,
+      label: subsection.title,
+      icon: subsection.icon || "hero-document-text",
+      path: subsection.url,
+      priority: 701 + cat_idx * 10 + sub_idx,
+      level: :admin,
+      match: :prefix,
+      parent: parent_id
+    }
+
+    # Auto-infer live_view module from URL path
+    child = maybe_add_live_view(child, subsection.url)
+
+    child = Tab.resolve_path(child, :admin)
+
+    :ets.insert(@ets_table, {{:tab, child.id}, child})
+    :ets.insert(@ets_table, {{:namespace, :admin_legacy, child.id}, true})
+  end
+
+  # Adds live_view to tab if a corresponding module can be inferred from the URL.
+  defp maybe_add_live_view(tab, url) do
+    case infer_live_view_from_url(url) do
+      {:ok, live_view} -> %{tab | live_view: {live_view, :index}}
+      :error -> tab
+    end
+  end
+
+  # Infers LiveView module name from admin URL path.
+  # Pattern: /admin/category1/section1 -> AppWeb.PhoenixKit.Live.Admin.Category1.Section1
+  defp infer_live_view_from_url("/admin/" <> path_segments) do
+    app_base = Routes.phoenix_kit_app_base()
+
+    path_segments
+    |> String.split("/")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&Macro.camelize/1)
+    |> case do
+      [] ->
+        :error
+
+      segments ->
+        module_name =
+          Module.concat(
+            [
+              app_base,
+              "PhoenixKit",
+              "Live",
+              "Admin"
+            ] ++ segments
+          )
+
+        # Verify module exists before returning
+        case Code.ensure_loaded(module_name) do
+          {:module, _} -> {:ok, module_name}
+          {:error, _} -> :error
+        end
+    end
+  end
+
+  defp infer_live_view_from_url(_), do: :error
 end
