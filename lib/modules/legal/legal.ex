@@ -781,18 +781,21 @@ defmodule PhoenixKit.Modules.Legal do
 
       Enum.map(posts, fn post ->
         %{
+          uuid: post.uuid,
           slug: post.slug,
-          path: post.path,
           title: get_in(post, [:metadata, :title]) || post.slug,
           status: get_in(post, [:metadata, :status]) || "draft",
-          updated_at: get_in(post, [:metadata, :updated_at])
+          published_at: get_in(post, [:metadata, :published_at])
         }
       end)
     else
       []
     end
   rescue
-    _ -> []
+    e ->
+      require Logger
+      Logger.error("Legal.list_generated_pages failed: #{inspect(e)}")
+      []
   end
 
   @doc """

@@ -276,7 +276,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
         Routes.path("/admin/publishing/legal")
 
       page ->
-        Routes.path("/admin/publishing/legal/edit?path=#{URI.encode(page.path)}")
+        Routes.path("/admin/publishing/legal/#{page.uuid}/edit")
     end
   end
 
