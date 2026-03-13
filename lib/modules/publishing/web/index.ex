@@ -20,65 +20,58 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    if Publishing.enabled?() do
-      # Load date/time format settings once for performance
-      date_time_settings =
-        Settings.get_settings_cached(
-          ["date_format", "time_format", "time_zone"],
-          %{
-            "date_format" => "Y-m-d",
-            "time_format" => "H:i",
-            "time_zone" => "0"
-          }
-        )
+    # Load date/time format settings once for performance
+    date_time_settings =
+      Settings.get_settings_cached(
+        ["date_format", "time_format", "time_zone"],
+        %{
+          "date_format" => "Y-m-d",
+          "time_format" => "H:i",
+          "time_zone" => "0"
+        }
+      )
 
-      {groups, insights, summary} =
-        dashboard_snapshot(
-          socket.assigns.current_locale_base,
-          socket.assigns[:phoenix_kit_current_user],
-          date_time_settings
-        )
+    {groups, insights, summary} =
+      dashboard_snapshot(
+        socket.assigns.current_locale_base,
+        socket.assigns[:phoenix_kit_current_user],
+        date_time_settings
+      )
 
-      # Subscribe to PubSub for live updates when connected
-      if connected?(socket) do
-        # Subscribe to all groups' post updates
-        Enum.each(groups, fn group ->
-          PublishingPubSub.subscribe_to_posts(group["slug"])
-        end)
+    # Subscribe to PubSub for live updates when connected
+    if connected?(socket) do
+      # Subscribe to all groups' post updates
+      Enum.each(groups, fn group ->
+        PublishingPubSub.subscribe_to_posts(group["slug"])
+      end)
 
-        # Subscribe to global groups topic (for group creation/deletion)
-        PublishingPubSub.subscribe_to_groups()
-      end
-
-      socket =
-        socket
-        |> assign(:project_title, Settings.get_project_title())
-        |> assign(:page_title, gettext("Publishing"))
-        |> assign(
-          :current_path,
-          Routes.path("/admin/publishing")
-        )
-        |> assign(:groups, groups)
-        |> assign(:dashboard_insights, insights)
-        |> assign(:dashboard_summary, summary)
-        |> assign(:empty_state?, groups == [])
-        |> assign(:enabled_languages, Publishing.enabled_language_codes())
-        |> assign(:endpoint_url, nil)
-        |> assign(:date_time_settings, date_time_settings)
-        |> assign(:show_migration_modal, false)
-        |> assign(:migration_modal_slug, nil)
-        |> assign(:migration_modal_name, nil)
-        |> assign(:migration_modal_count, 0)
-        |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
-        |> assign(:migrations_in_progress, %{})
-
-      {:ok, socket}
-    else
-      {:ok,
-       socket
-       |> put_flash(:error, "Publishing module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/modules"))}
+      # Subscribe to global groups topic (for group creation/deletion)
+      PublishingPubSub.subscribe_to_groups()
     end
+
+    socket =
+      socket
+      |> assign(:project_title, Settings.get_project_title())
+      |> assign(:page_title, gettext("Publishing"))
+      |> assign(
+        :current_path,
+        Routes.path("/admin/publishing")
+      )
+      |> assign(:groups, groups)
+      |> assign(:dashboard_insights, insights)
+      |> assign(:dashboard_summary, summary)
+      |> assign(:empty_state?, groups == [])
+      |> assign(:enabled_languages, Publishing.enabled_language_codes())
+      |> assign(:endpoint_url, nil)
+      |> assign(:date_time_settings, date_time_settings)
+      |> assign(:show_migration_modal, false)
+      |> assign(:migration_modal_slug, nil)
+      |> assign(:migration_modal_name, nil)
+      |> assign(:migration_modal_count, 0)
+      |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
+      |> assign(:migrations_in_progress, %{})
+
+    {:ok, socket}
   end
 
   @impl true

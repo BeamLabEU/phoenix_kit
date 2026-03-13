@@ -1,3 +1,10 @@
+## 1.7.73 - 2026-03-13
+
+### Changed
+- Move module access guards from individual mount functions to centralized `enforce_admin_view_permission` hook
+- Disabled modules now block all roles (including Owner/Admin) at the `on_mount` level, covering all ~50 admin LiveViews automatically
+- Remove per-LiveView `enabled?()` mount guards from AI, Entities, Publishing, Sitemap, Billing, Customer Service, Emails, Email Tracking, Legal, Referrals, Shop settings
+
 ## 1.7.72 - 2026-03-13
 
 ### Added

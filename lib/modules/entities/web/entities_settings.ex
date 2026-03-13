@@ -12,57 +12,47 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.Mirror.{Exporter, Importer, Storage}
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
-    if Entities.enabled?() do
-      # Set locale for LiveView process
+    project_title = Settings.get_project_title()
 
-      project_title = Settings.get_project_title()
+    # Load current entities settings
+    settings = %{
+      entities_enabled: Entities.enabled?(),
+      auto_generate_slugs: Settings.get_setting("entities_auto_generate_slugs", "true"),
+      default_status: Settings.get_setting("entities_default_status", "draft"),
+      require_approval: Settings.get_setting("entities_require_approval", "false"),
+      max_entities_per_user: Settings.get_setting("entities_max_per_user", "100"),
+      data_retention_days: Settings.get_setting("entities_data_retention_days", "365"),
+      enable_revisions: Settings.get_setting("entities_enable_revisions", "false"),
+      enable_comments: Settings.get_setting("entities_enable_comments", "false")
+    }
 
-      # Load current entities settings
-      settings = %{
-        entities_enabled: Entities.enabled?(),
-        auto_generate_slugs: Settings.get_setting("entities_auto_generate_slugs", "true"),
-        default_status: Settings.get_setting("entities_default_status", "draft"),
-        require_approval: Settings.get_setting("entities_require_approval", "false"),
-        max_entities_per_user: Settings.get_setting("entities_max_per_user", "100"),
-        data_retention_days: Settings.get_setting("entities_data_retention_days", "365"),
-        enable_revisions: Settings.get_setting("entities_enable_revisions", "false"),
-        enable_comments: Settings.get_setting("entities_enable_comments", "false")
-      }
+    changeset = build_changeset(settings)
 
-      changeset = build_changeset(settings)
+    socket =
+      socket
+      |> assign(:page_title, gettext("Entities Settings"))
+      |> assign(:project_title, project_title)
+      |> assign(:settings, settings)
+      |> assign(:changeset, changeset)
+      |> assign(:entities_stats, get_entities_stats())
+      # Per-entity mirror settings
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+      |> assign(:mirror_path, Storage.root_path())
+      |> assign(:export_stats, Storage.get_stats())
+      |> assign(:import_preview, nil)
+      |> assign(:import_selections, %{})
+      |> assign(:import_active_tab, nil)
+      |> assign(:show_import_modal, false)
+      |> assign(:importing, false)
+      |> assign(:exporting, false)
 
-      socket =
-        socket
-        |> assign(:page_title, gettext("Entities Settings"))
-        |> assign(:project_title, project_title)
-        |> assign(:settings, settings)
-        |> assign(:changeset, changeset)
-        |> assign(:entities_stats, get_entities_stats())
-        # Per-entity mirror settings
-        |> assign(:entities_list, Entities.list_entities_with_mirror_status())
-        |> assign(:mirror_path, Storage.root_path())
-        |> assign(:export_stats, Storage.get_stats())
-        |> assign(:import_preview, nil)
-        |> assign(:import_selections, %{})
-        |> assign(:import_active_tab, nil)
-        |> assign(:show_import_modal, false)
-        |> assign(:importing, false)
-        |> assign(:exporting, false)
-
-      if connected?(socket) do
-        Events.subscribe_to_all_data()
-      end
-
-      {:ok, socket}
-    else
-      {:ok,
-       socket
-       |> put_flash(:error, "Entities module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/modules"))}
+    if connected?(socket) do
+      Events.subscribe_to_all_data()
     end
+
+    {:ok, socket}
   end
 
   def handle_event("validate", %{"settings" => settings_params}, socket) do

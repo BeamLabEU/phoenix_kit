@@ -25,46 +25,39 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   @impl true
   def mount(params, _session, socket) do
-    if Sitemap.enabled?() do
-      if connected?(socket) do
-        PubSubManager.subscribe("sitemap:updates")
-        PubSubManager.subscribe("sitemap:settings")
-      end
-
-      locale = params["locale"] || "en"
-      project_title = Settings.get_project_title()
-      site_url = Settings.get_setting("site_url", "")
-      config = Sitemap.get_config()
-      sitemap_version = get_sitemap_version(config)
-      module_stats = Sitemap.get_module_stats()
-      module_files = FileStorage.list_module_files()
-
-      socket =
-        socket
-        |> assign(:page_title, "Sitemap Settings")
-        |> assign(:project_title, project_title)
-        |> assign(:current_locale, locale)
-        |> assign(:current_path, Routes.path("/admin/settings/sitemap", locale: locale))
-        |> assign(:config, config)
-        |> assign(:site_url, site_url)
-        |> assign(:generating, false)
-        |> assign(:preview_mode, nil)
-        |> assign(:preview_content, nil)
-        |> assign(:show_preview, false)
-        |> assign(:sitemap_version, sitemap_version)
-        |> assign(:module_stats, module_stats)
-        |> assign(:module_files, module_files)
-        |> assign(:include_registration, Sitemap.include_registration?())
-        |> assign(:publishing_split_by_group, Sitemap.publishing_split_by_group?())
-        |> assign(:module_enabled, get_module_enabled_status())
-
-      {:ok, socket}
-    else
-      {:ok,
-       socket
-       |> put_flash(:error, "Sitemap module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/modules"))}
+    if connected?(socket) do
+      PubSubManager.subscribe("sitemap:updates")
+      PubSubManager.subscribe("sitemap:settings")
     end
+
+    locale = params["locale"] || "en"
+    project_title = Settings.get_project_title()
+    site_url = Settings.get_setting("site_url", "")
+    config = Sitemap.get_config()
+    sitemap_version = get_sitemap_version(config)
+    module_stats = Sitemap.get_module_stats()
+    module_files = FileStorage.list_module_files()
+
+    socket =
+      socket
+      |> assign(:page_title, "Sitemap Settings")
+      |> assign(:project_title, project_title)
+      |> assign(:current_locale, locale)
+      |> assign(:current_path, Routes.path("/admin/settings/sitemap", locale: locale))
+      |> assign(:config, config)
+      |> assign(:site_url, site_url)
+      |> assign(:generating, false)
+      |> assign(:preview_mode, nil)
+      |> assign(:preview_content, nil)
+      |> assign(:show_preview, false)
+      |> assign(:sitemap_version, sitemap_version)
+      |> assign(:module_stats, module_stats)
+      |> assign(:module_files, module_files)
+      |> assign(:include_registration, Sitemap.include_registration?())
+      |> assign(:publishing_split_by_group, Sitemap.publishing_split_by_group?())
+      |> assign(:module_enabled, get_module_enabled_status())
+
+    {:ok, socket}
   end
 
   @impl true

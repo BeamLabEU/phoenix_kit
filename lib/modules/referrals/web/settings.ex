@@ -10,8 +10,6 @@ defmodule PhoenixKit.Modules.Referrals.Web.Settings do
   alias PhoenixKit.Settings
 
   def mount(_params, _session, socket) do
-    # Attach locale hook for automatic locale handling
-
     # Get project title from settings
     project_title = Settings.get_project_title()
 
