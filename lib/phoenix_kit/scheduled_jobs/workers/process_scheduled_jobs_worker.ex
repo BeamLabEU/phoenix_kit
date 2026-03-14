@@ -39,7 +39,6 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
   require Logger
 
-  alias PhoenixKit.Modules.Newsletters
   alias PhoenixKit.Modules.Posts
   alias PhoenixKit.ScheduledJobs
 
@@ -75,8 +74,12 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
     end
 
     # Catch-up: Send any broadcasts that are "scheduled" with past scheduled_at
-    if Newsletters.enabled?() do
-      {:ok, newsletters_count} = Newsletters.process_scheduled_broadcasts()
+    newsletters_mod = PhoenixKit.ModuleRegistry.get_by_key("newsletters")
+
+    if newsletters_mod && Code.ensure_loaded?(newsletters_mod) &&
+         function_exported?(newsletters_mod, :enabled?, 0) &&
+         newsletters_mod.enabled?() do
+      {:ok, newsletters_count} = newsletters_mod.process_scheduled_broadcasts()
 
       if newsletters_count > 0 do
         Logger.info(

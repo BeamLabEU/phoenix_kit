@@ -166,10 +166,10 @@ defmodule PhoenixKit.ModuleRegistryTest do
   end
 
   describe "all_feature_keys/0" do
-    test "returns sorted list of 21 feature keys" do
+    test "returns sorted list of 20 feature keys" do
       keys = ModuleRegistry.all_feature_keys()
       assert is_list(keys)
-      assert length(keys) == 21
+      assert length(keys) == 20
       assert keys == Enum.sort(keys)
     end
 
