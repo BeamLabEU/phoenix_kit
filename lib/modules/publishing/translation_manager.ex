@@ -72,70 +72,39 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
   end
 
   @doc """
-  Checks if any posts in a group need primary_language migration.
+  Updates all posts in a group to use the current global primary language.
+
+  Single bulk UPDATE query — runs in milliseconds. Regenerates cache after.
+  Returns `{:ok, count}` with the number of posts updated.
   """
-  @spec posts_need_primary_language_migration?(String.t()) :: boolean()
-  def posts_need_primary_language_migration?(group_slug) do
-    ListingCache.posts_needing_primary_language_migration(group_slug) != []
-  end
+  @spec update_posts_primary_language(String.t()) :: {:ok, integer()}
+  def update_posts_primary_language(group_slug) do
+    primary_language = LanguageHelpers.get_primary_language()
+    {:ok, count} = DBStorage.update_primary_language(group_slug, primary_language)
 
-  @doc """
-  Returns count of posts by primary_language status.
-  Alias for `count_primary_language_status/1`.
-  """
-  @spec get_primary_language_migration_status(String.t()) :: map()
-  def get_primary_language_migration_status(group_slug) do
-    ListingCache.count_primary_language_status(group_slug)
-  end
+    if count > 0 do
+      Logger.info(
+        "[Publishing] Updated #{count} posts in #{group_slug} to primary language #{primary_language}"
+      )
 
-  @doc """
-  Migrates all posts in a group to use the current global primary_language.
-
-  This updates the `primary_language` field in the database and regenerates
-  the listing cache. The migration is idempotent - running it multiple times
-  is safe and will skip posts that are already at the current primary language.
-
-  Returns `{:ok, count}` where count is the number of posts updated.
-  """
-  @spec migrate_posts_to_current_primary_language(String.t()) ::
-          {:ok, integer()} | {:error, any()}
-  def migrate_posts_to_current_primary_language(group_slug) do
-    global_primary = LanguageHelpers.get_primary_language()
-    posts = ListingCache.posts_needing_primary_language_migration(group_slug)
-
-    Logger.debug("[PrimaryLangMigration] Found #{length(posts)} posts needing migration")
-
-    if posts == [] do
-      {:ok, 0}
-    else
-      results =
-        posts
-        |> Enum.map(fn post ->
-          post_uuid = post[:uuid]
-
-          if post_uuid do
-            update_primary_language_in_db(post_uuid, global_primary)
-          else
-            Logger.warning("[PrimaryLangMigration] No UUID for post: #{inspect(post[:slug])}")
-            {:error, :no_uuid}
-          end
-        end)
-
-      success_count = Enum.count(results, &(&1 == :ok))
-      error_count = length(results) - success_count
-
-      Logger.debug("[PrimaryLangMigration] Success: #{success_count}, Errors: #{error_count}")
-
-      # Regenerate cache with updated primary_language values
-      # Note: ListingCache.regenerate/1 broadcasts cache_changed internally
       ListingCache.regenerate(group_slug)
 
-      if error_count > 0 and success_count == 0 do
-        {:error, :all_migrations_failed}
-      else
-        {:ok, success_count}
-      end
+      PublishingPubSub.broadcast_primary_language_migration_completed(
+        group_slug,
+        count,
+        0,
+        primary_language
+      )
     end
+
+    {:ok, count}
+  end
+
+  @doc "Counts posts in a group that don't match the current primary language."
+  @spec count_posts_needing_language_update(String.t()) :: integer()
+  def count_posts_needing_language_update(group_slug) do
+    primary_language = LanguageHelpers.get_primary_language()
+    DBStorage.count_posts_needing_language_update(group_slug, primary_language)
   end
 
   @doc """

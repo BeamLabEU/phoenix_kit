@@ -61,9 +61,8 @@ defmodule PhoenixKit.Modules.Publishing.FacadeTest do
       assert function_exported?(Publishing, :get_post_primary_language, 3)
       assert function_exported?(Publishing, :check_primary_language_status, 2)
       assert function_exported?(Publishing, :update_post_primary_language, 3)
-      assert function_exported?(Publishing, :posts_need_primary_language_migration?, 1)
-      assert function_exported?(Publishing, :get_primary_language_migration_status, 1)
-      assert function_exported?(Publishing, :migrate_posts_to_current_primary_language, 1)
+      assert function_exported?(Publishing, :update_posts_primary_language, 1)
+      assert function_exported?(Publishing, :count_posts_needing_language_update, 1)
       assert function_exported?(Publishing, :add_language_to_post, 3)
       assert function_exported?(Publishing, :add_language_to_post, 4)
       assert function_exported?(Publishing, :add_language_to_db, 4)
@@ -101,8 +100,6 @@ defmodule PhoenixKit.Modules.Publishing.FacadeTest do
       assert function_exported?(Publishing, :cache_exists?, 1)
       assert function_exported?(Publishing, :find_cached_post, 2)
       assert function_exported?(Publishing, :find_cached_post_by_path, 3)
-      assert function_exported?(Publishing, :posts_needing_primary_language_migration, 1)
-      assert function_exported?(Publishing, :count_primary_language_status, 1)
     end
   end
 

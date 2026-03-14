@@ -66,9 +66,6 @@ defmodule PhoenixKit.Modules.Publishing do
     to: ListingCache,
     as: :find_post_by_path
 
-  defdelegate posts_needing_primary_language_migration(group_slug), to: ListingCache
-  defdelegate count_primary_language_status(group_slug), to: ListingCache
-
   # ============================================================================
   # Group Delegates
   # ============================================================================
@@ -154,9 +151,8 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate update_post_primary_language(group_slug, post_uuid, new_primary_language),
     to: TranslationManager
 
-  defdelegate posts_need_primary_language_migration?(group_slug), to: TranslationManager
-  defdelegate get_primary_language_migration_status(group_slug), to: TranslationManager
-  defdelegate migrate_posts_to_current_primary_language(group_slug), to: TranslationManager
+  defdelegate update_posts_primary_language(group_slug), to: TranslationManager
+  defdelegate count_posts_needing_language_update(group_slug), to: TranslationManager
 
   defdelegate add_language_to_post(group_slug, post_uuid, language_code, version \\ nil),
     to: TranslationManager

@@ -273,25 +273,41 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   Returns `{:ok, count}` with the number of updated posts.
   """
-  def migrate_primary_language(group_slug, primary_language) do
-    posts =
+  def update_primary_language(group_slug, primary_language) do
+    group = get_group_by_slug(group_slug)
+
+    if group do
+      {count, _} =
+        from(p in PublishingPost,
+          where:
+            p.group_uuid == ^group.uuid and
+              (is_nil(p.primary_language) or p.primary_language != ^primary_language)
+        )
+        |> repo().update_all(
+          set: [primary_language: primary_language, updated_at: DateTime.utc_now()]
+        )
+
+      {:ok, count}
+    else
+      {:ok, 0}
+    end
+  end
+
+  @doc "Counts posts needing primary language update in a group."
+  def count_posts_needing_language_update(group_slug, primary_language) do
+    group = get_group_by_slug(group_slug)
+
+    if group do
       from(p in PublishingPost,
-        join: g in assoc(p, :group),
         where:
-          g.slug == ^group_slug and
-            (is_nil(p.primary_language) or p.primary_language != ^primary_language)
+          p.group_uuid == ^group.uuid and
+            (is_nil(p.primary_language) or p.primary_language != ^primary_language),
+        select: count(p.uuid)
       )
-      |> repo().all()
-
-    count =
-      Enum.count(posts, fn post ->
-        case update_post(post, %{primary_language: primary_language}) do
-          {:ok, _} -> true
-          {:error, _} -> false
-        end
-      end)
-
-    {:ok, count}
+      |> repo().one() || 0
+    else
+      0
+    end
   end
 
   # ===========================================================================

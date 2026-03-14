@@ -13,13 +13,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
-  alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
-
-  # Threshold for using background job vs synchronous migration
-  @migration_async_threshold 20
 
   # Import publishing-specific components
   import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
@@ -49,9 +45,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:active_editors, %{})
       |> assign(:translating_posts, %{})
       |> assign(:pending_post_updates, %{})
-      |> assign(:show_migration_modal, false)
-      |> assign(:migration_in_progress, false)
-      |> assign(:migration_progress, nil)
 
     # Groups, posts, current_group, and primary_language_status are loaded in
     # handle_params which always runs after mount — no need to load them twice.
@@ -203,79 +196,32 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
-  def handle_event("show_migration_modal", _params, socket) do
-    {:noreply, assign(socket, :show_migration_modal, true)}
-  end
-
-  def handle_event("close_migration_modal", _params, socket) do
-    {:noreply, assign(socket, :show_migration_modal, false)}
-  end
-
-  def handle_event("confirm_migrate_primary_language", _params, socket) do
+  def handle_event("update_primary_language", _params, socket) do
     group_slug = socket.assigns.group_slug
-    primary_language = Publishing.get_primary_language()
-    status = socket.assigns.primary_language_status
 
-    if is_nil(status) do
-      {:noreply, put_flash(socket, :error, gettext("No posts to migrate"))}
-    else
-      total_count = Map.get(status, :needs_backfill, 0) + Map.get(status, :needs_migration, 0)
+    case Publishing.update_posts_primary_language(group_slug) do
+      {:ok, 0} ->
+        {:noreply, put_flash(socket, :info, gettext("All posts already up to date"))}
 
-      # Use background job for large migrations
-      if total_count > @migration_async_threshold do
-        case MigratePrimaryLanguageWorker.enqueue(group_slug, primary_language) do
-          {:ok, _job} ->
-            {:noreply,
-             socket
-             |> assign(:show_migration_modal, false)
-             |> assign(:migration_in_progress, true)
-             |> assign(:migration_progress, %{current: 0, total: total_count})
-             |> put_flash(
-               :info,
-               gettext("Migration started for %{count} posts. You can continue working.",
-                 count: total_count
-               )
-             )}
-
-          {:error, reason} ->
-            {:noreply,
-             socket
-             |> assign(:show_migration_modal, false)
-             |> put_flash(
-               :error,
-               gettext("Failed to start migration: %{reason}", reason: inspect(reason))
-             )}
-        end
-      else
-        # Synchronous migration for small counts
-        case Publishing.migrate_posts_to_current_primary_language(group_slug) do
-          {:ok, count} ->
-            posts = DBStorage.list_posts_with_metadata(group_slug)
-
-            {:noreply,
-             socket
-             |> assign(:show_migration_modal, false)
-             |> assign(:posts, posts)
-             |> assign(:primary_language_status, primary_language_status_from_posts(posts))
-             |> put_flash(
-               :info,
-               gettext("Updated %{count} posts to primary language: %{lang}",
-                 count: count,
-                 lang: get_language_name(primary_language)
-               )
-             )}
-
-          {:error, reason} ->
-            {:noreply,
-             socket
-             |> assign(:show_migration_modal, false)
-             |> put_flash(
-               :error,
-               gettext("Failed to migrate: %{reason}", reason: inspect(reason))
-             )}
-        end
-      end
+      {:ok, count} ->
+        {:noreply,
+         socket
+         |> refresh_posts()
+         |> put_flash(
+           :info,
+           gettext("Updated %{count} posts to primary language: %{lang}",
+             count: count,
+             lang: get_language_name(Publishing.get_primary_language())
+           )
+         )}
     end
+  rescue
+    e ->
+      Logger.warning(
+        "[Publishing.Listing] Primary language update failed: #{Exception.message(e)}"
+      )
+
+      {:noreply, put_flash(socket, :error, gettext("Failed to update primary language"))}
   end
 
   # PubSub handlers for live updates
@@ -428,66 +374,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, socket}
   end
 
-  # Primary language migration progress handlers
-  def handle_info({:primary_language_migration_started, group_slug, total_count}, socket) do
-    # Only track if it's for our current group
+  # Primary language update completed (from this page or elsewhere)
+  def handle_info(
+        {:primary_language_migration_completed, group_slug, count, _errors, primary_language},
+        socket
+      ) do
     if group_slug == socket.assigns.group_slug do
       {:noreply,
        socket
-       |> assign(:migration_in_progress, true)
-       |> assign(:migration_progress, %{current: 0, total: total_count})}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info({:primary_language_migration_progress, group_slug, current, total}, socket) do
-    if group_slug == socket.assigns.group_slug do
-      {:noreply, assign(socket, :migration_progress, %{current: current, total: total})}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info(
-        {:primary_language_migration_completed, group_slug, success_count, error_count,
-         primary_language},
-        socket
-      ) do
-    # Only handle if it's for our current group
-    if group_slug == socket.assigns.group_slug do
-      # Refresh posts from DB to get updated primary_language values
-      posts = DBStorage.list_posts_with_metadata(group_slug)
-
-      socket =
-        socket
-        |> assign(:migration_in_progress, false)
-        |> assign(:migration_progress, nil)
-        |> assign(:posts, posts)
-        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
-
-      socket =
-        if error_count > 0 do
-          put_flash(
-            socket,
-            :warning,
-            gettext("Migration completed: %{success} succeeded, %{errors} failed",
-              success: success_count,
-              errors: error_count
-            )
-          )
-        else
-          put_flash(
-            socket,
-            :info,
-            gettext("Updated %{count} posts to primary language: %{lang}",
-              count: success_count,
-              lang: get_language_name(primary_language)
-            )
-          )
-        end
-
-      {:noreply, socket}
+       |> refresh_posts()
+       |> put_flash(
+         :info,
+         gettext("Updated %{count} posts to primary language: %{lang}",
+           count: count,
+           lang: get_language_name(primary_language)
+         )
+       )}
     else
       {:noreply, socket}
     end

@@ -12,13 +12,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
-
-  # Threshold for using background job vs synchronous migration
-  @migration_async_threshold 20
 
   @impl true
   def mount(_params, _session, socket) do
@@ -66,12 +62,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:enabled_languages, Publishing.enabled_language_codes())
       |> assign(:endpoint_url, nil)
       |> assign(:date_time_settings, date_time_settings)
-      |> assign(:show_migration_modal, false)
-      |> assign(:migration_modal_slug, nil)
-      |> assign(:migration_modal_name, nil)
-      |> assign(:migration_modal_count, 0)
       |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
-      |> assign(:migrations_in_progress, %{})
       |> assign(:dashboard_refresh_timer, nil)
 
     {:ok, socket}
@@ -119,167 +110,48 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   def handle_info(:debounced_dashboard_refresh, socket),
     do: {:noreply, socket |> assign(:dashboard_refresh_timer, nil) |> refresh_dashboard()}
 
-  # Primary language migration progress handlers
-  def handle_info({:primary_language_migration_started, _group_slug, _total_count}, socket) do
-    # Already tracked in migrations_in_progress when job was enqueued
-    {:noreply, socket}
-  end
-
-  def handle_info({:primary_language_migration_progress, group_slug, current, total}, socket) do
-    # Update progress for the specific group
-    migrations =
-      if Map.has_key?(socket.assigns.migrations_in_progress, group_slug) do
-        put_in(
-          socket.assigns.migrations_in_progress,
-          [group_slug],
-          %{current: current, total: total}
-        )
-      else
-        # Migration started elsewhere, add it
-        Map.put(socket.assigns.migrations_in_progress, group_slug, %{
-          current: current,
-          total: total
-        })
-      end
-
-    {:noreply, assign(socket, :migrations_in_progress, migrations)}
-  end
-
+  # Primary language update completed (from this page or elsewhere)
   def handle_info(
-        {:primary_language_migration_completed, group_slug, success_count, error_count,
-         primary_language},
+        {:primary_language_migration_completed, _group_slug, count, _errors, primary_language},
         socket
       ) do
-    # Remove the completed migration from in-progress
-    migrations = Map.delete(socket.assigns.migrations_in_progress, group_slug)
-
-    socket =
-      socket
-      |> assign(:migrations_in_progress, migrations)
-      |> refresh_dashboard()
-
-    socket =
-      if error_count > 0 do
-        put_flash(
-          socket,
-          :warning,
-          gettext("Migration completed: %{success} succeeded, %{errors} failed",
-            success: success_count,
-            errors: error_count
-          )
-        )
-      else
-        put_flash(
-          socket,
-          :info,
-          gettext("Updated %{count} posts to primary language: %{lang}",
-            count: success_count,
-            lang: get_language_name(primary_language)
-          )
-        )
-      end
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> refresh_dashboard()
+     |> put_flash(
+       :info,
+       gettext("Updated %{count} posts to primary language: %{lang}",
+         count: count,
+         lang: get_language_name(primary_language)
+       )
+     )}
   end
 
   # Catch-all for other PubSub messages (translation progress, cache changes, etc.)
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
-  def handle_event(
-        "show_migration_modal",
-        %{"slug" => group_slug, "name" => group_name, "count" => count},
-        socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:show_migration_modal, true)
-     |> assign(:migration_modal_slug, group_slug)
-     |> assign(:migration_modal_name, group_name)
-     |> assign(:migration_modal_count, parse_integer(count, 0))}
-  end
+  def handle_event("update_primary_language", %{"slug" => group_slug}, socket) do
+    case Publishing.update_posts_primary_language(group_slug) do
+      {:ok, 0} ->
+        {:noreply, put_flash(socket, :info, gettext("All posts already up to date"))}
 
-  def handle_event("close_migration_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_migration_modal, false)
-     |> assign(:migration_modal_slug, nil)
-     |> assign(:migration_modal_name, nil)
-     |> assign(:migration_modal_count, 0)}
-  end
-
-  def handle_event("confirm_migrate_primary_language", _params, socket) do
-    group_slug = socket.assigns.migration_modal_slug
-    primary_language = Publishing.get_primary_language()
-    total_count = socket.assigns.migration_modal_count
-
-    # Use background job for large migrations
-    if total_count > @migration_async_threshold do
-      # Subscribe to this group's posts for progress updates
-      PublishingPubSub.subscribe_to_posts(group_slug)
-
-      case MigratePrimaryLanguageWorker.enqueue(group_slug, primary_language) do
-        {:ok, _job} ->
-          migrations =
-            Map.put(socket.assigns.migrations_in_progress, group_slug, %{
-              current: 0,
-              total: total_count
-            })
-
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> assign(:migration_modal_slug, nil)
-           |> assign(:migration_modal_name, nil)
-           |> assign(:migration_modal_count, 0)
-           |> assign(:migrations_in_progress, migrations)
-           |> put_flash(
-             :info,
-             gettext("Migration started for %{count} posts. You can continue working.",
-               count: total_count
-             )
-           )}
-
-        {:error, reason} ->
-          Logger.error(
-            "[Publishing] Failed to enqueue migration for #{group_slug}: #{inspect(reason)}"
-          )
-
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> put_flash(
-             :error,
-             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
-           )}
-      end
-    else
-      # Synchronous migration — update DB records directly
-      {:ok, count} = DBStorage.migrate_primary_language(group_slug, primary_language)
-
-      {:noreply,
-       socket
-       |> assign(:show_migration_modal, false)
-       |> assign(:migration_modal_slug, nil)
-       |> assign(:migration_modal_name, nil)
-       |> assign(:migration_modal_count, 0)
-       |> refresh_dashboard()
-       |> put_flash(
-         :info,
-         gettext("Updated %{count} posts to primary language: %{lang}",
-           count: count,
-           lang: get_language_name(primary_language)
-         )
-       )}
+      {:ok, count} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(
+           :info,
+           gettext("Updated %{count} posts to primary language: %{lang}",
+             count: count,
+             lang: get_language_name(Publishing.get_primary_language())
+           )
+         )}
     end
   rescue
     e ->
-      Logger.error("[Publishing.Index] Migration failed: #{Exception.message(e)}")
-
-      {:noreply,
-       socket
-       |> assign(:show_migration_modal, false)
-       |> put_flash(:error, gettext("Failed to update primary language"))}
+      Logger.error("[Publishing.Index] Primary language update failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Failed to update primary language"))}
   end
 
   defp get_language_name(language_code) do
@@ -297,16 +169,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     timer = Process.send_after(self(), :debounced_dashboard_refresh, @dashboard_debounce_ms)
     assign(socket, :dashboard_refresh_timer, timer)
   end
-
-  defp parse_integer(val, default) when is_binary(val) do
-    case Integer.parse(val) do
-      {n, _} -> n
-      :error -> default
-    end
-  end
-
-  defp parse_integer(val, _default) when is_integer(val), do: val
-  defp parse_integer(_, default), do: default
 
   defp refresh_dashboard(socket) do
     {groups, insights, summary} =
