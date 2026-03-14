@@ -68,20 +68,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         slug -> DBStorage.list_posts_with_metadata(slug)
       end
 
-    trashed_count =
-      case new_group_slug do
-        nil -> 0
-        slug -> DBStorage.list_posts(slug, "trashed") |> length()
-      end
-
     socket =
       socket
       |> assign(:groups, groups)
       |> assign(:current_group, current_group)
       |> assign(:posts, posts)
-      |> assign(:trashed_posts, [])
-      |> assign(:trashed_post_count, trashed_count)
-      |> assign(:post_view_mode, "active")
+      |> assign(:post_view_mode, "all")
       |> assign(:visible_count, 20)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
       |> assign(:primary_language_status, primary_language_status_from_posts(posts))
@@ -100,21 +92,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, assign(socket, :visible_count, socket.assigns.visible_count + 20)}
   end
 
-  def handle_event("switch_post_view", %{"mode" => "trashed"}, socket) do
+  @valid_post_views ["all", "published", "draft", "archived", "scheduled", "trashed"]
+
+  def handle_event("switch_post_view", %{"mode" => mode}, socket)
+      when mode in @valid_post_views do
     group_slug = socket.assigns.group_slug
-    trashed = DBStorage.list_posts(group_slug, "trashed")
+
+    posts =
+      case mode do
+        "all" -> DBStorage.list_posts_with_metadata(group_slug)
+        status -> DBStorage.list_posts(group_slug, status)
+      end
 
     {:noreply,
      socket
-     |> assign(:post_view_mode, "trashed")
-     |> assign(:trashed_posts, trashed)
-     |> assign(:visible_count, 20)}
-  end
-
-  def handle_event("switch_post_view", %{"mode" => "active"}, socket) do
-    {:noreply,
-     socket
-     |> assign(:post_view_mode, "active")
+     |> assign(:post_view_mode, mode)
+     |> assign(:posts, posts)
      |> assign(:visible_count, 20)}
   end
 
@@ -125,8 +118,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       {:ok, _} ->
         {:noreply,
          socket
-         |> refresh_posts()
-         |> assign(:trashed_post_count, (socket.assigns.trashed_post_count || 0) + 1)
+         |> reload_current_view()
          |> put_flash(:info, gettext("Post moved to trash"))}
 
       {:error, reason} ->
@@ -146,13 +138,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         case DBStorage.update_post(db_post, %{status: "draft"}) do
           {:ok, _} ->
             ListingCache.regenerate(group_slug)
-            trashed = DBStorage.list_posts(group_slug, "trashed")
 
             {:noreply,
              socket
-             |> refresh_posts()
-             |> assign(:trashed_posts, trashed)
-             |> assign(:trashed_post_count, length(trashed))
+             |> reload_current_view()
              |> put_flash(:info, gettext("Post restored as draft"))}
 
           {:error, reason} ->
@@ -160,6 +149,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply, put_flash(socket, :error, gettext("Failed to restore post"))}
         end
     end
+  end
+
+  defp reload_current_view(socket) do
+    group_slug = socket.assigns.group_slug
+    mode = socket.assigns.post_view_mode
+
+    posts =
+      case mode do
+        "all" -> DBStorage.list_posts_with_metadata(group_slug)
+        status -> DBStorage.list_posts(group_slug, status)
+      end
+
+    assign(socket, :posts, posts)
   end
 
   def handle_event("refresh", _params, socket) do
