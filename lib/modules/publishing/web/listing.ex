@@ -521,7 +521,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
 
           [] ->
-            push_navigate(socket, to: Routes.path("/admin/settings/publishing"))
+            push_navigate(socket, to: Routes.path("/admin/publishing"))
         end
       else
         assign(socket, :groups, groups)
@@ -739,7 +739,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
 
       [] ->
-        push_navigate(socket, to: Routes.path("/admin/settings/publishing"))
+        push_navigate(socket, to: Routes.path("/admin/publishing"))
     end
   end
 

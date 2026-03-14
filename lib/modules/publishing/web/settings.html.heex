@@ -72,16 +72,6 @@
                 )}
               </p>
             </div>
-            <%= if @publishing == [] do %>
-              <.link
-                href={Routes.path("/admin/settings/publishing/new")}
-                class="btn btn-primary btn-sm whitespace-nowrap"
-              >
-                <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext(
-                  "Create Publishing Group"
-                )}
-              </.link>
-            <% end %>
           </div>
 
           <%= if @publishing == [] do %>

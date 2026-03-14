@@ -22,6 +22,9 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index_localized
 
+      live "/admin/publishing/new-group", PhoenixKit.Modules.Publishing.Web.New, :new,
+        as: :publishing_new_group_localized
+
       live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
         as: :publishing_group_localized
 
@@ -55,9 +58,6 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings_localized
 
-      live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
-        as: :publishing_new_localized
-
       live "/admin/settings/publishing/:group/edit",
            PhoenixKit.Modules.Publishing.Web.Edit,
            :edit,
@@ -72,6 +72,9 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
     quote do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index
+
+      live "/admin/publishing/new-group", PhoenixKit.Modules.Publishing.Web.New, :new,
+        as: :publishing_new_group
 
       live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
         as: :publishing_group
@@ -105,9 +108,6 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
 
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings
-
-      live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
-        as: :publishing_new
 
       live "/admin/settings/publishing/:group/edit",
            PhoenixKit.Modules.Publishing.Web.Edit,
