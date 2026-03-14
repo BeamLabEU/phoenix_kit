@@ -22,8 +22,14 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index_localized
 
+      # Literal path routes MUST come before :group param routes
       live "/admin/publishing/new-group", PhoenixKit.Modules.Publishing.Web.New, :new,
         as: :publishing_new_group_localized
+
+      live "/admin/publishing/edit-group/:group",
+           PhoenixKit.Modules.Publishing.Web.Edit,
+           :edit,
+           as: :publishing_edit_group_localized
 
       live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
         as: :publishing_group_localized
@@ -55,11 +61,6 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
            :preview_post,
            as: :publishing_post_preview_localized
 
-      live "/admin/publishing/edit-group/:group",
-           PhoenixKit.Modules.Publishing.Web.Edit,
-           :edit,
-           as: :publishing_edit_group_localized
-
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings_localized
     end
@@ -73,8 +74,14 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index
 
+      # Literal path routes MUST come before :group param routes
       live "/admin/publishing/new-group", PhoenixKit.Modules.Publishing.Web.New, :new,
         as: :publishing_new_group
+
+      live "/admin/publishing/edit-group/:group",
+           PhoenixKit.Modules.Publishing.Web.Edit,
+           :edit,
+           as: :publishing_edit_group
 
       live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
         as: :publishing_group
@@ -105,11 +112,6 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
            PhoenixKit.Modules.Publishing.Web.Preview,
            :preview_post,
            as: :publishing_post_preview
-
-      live "/admin/publishing/edit-group/:group",
-           PhoenixKit.Modules.Publishing.Web.Edit,
-           :edit,
-           as: :publishing_edit_group
 
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings
