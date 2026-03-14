@@ -15,8 +15,10 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
   # UUID Validation
   # ============================================================================
 
+  @uuid_regex ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
   @doc false
-  def uuid_format?(str) when is_binary(str), do: match?({:ok, _}, UUIDv7.cast(str))
+  def uuid_format?(str) when is_binary(str), do: Regex.match?(@uuid_regex, str)
   def uuid_format?(_), do: false
 
   # ============================================================================
