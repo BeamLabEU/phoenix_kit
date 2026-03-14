@@ -52,6 +52,15 @@ defmodule PhoenixKit.Modules.Publishing.PublishingAPITest do
                PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
              )
     end
+
+    test "Refactored submodules are defined" do
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.Groups)
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.Posts)
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.Versions)
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.TranslationManager)
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.StaleFixer)
+      assert Code.ensure_loaded?(PhoenixKit.Modules.Publishing.Shared)
+    end
   end
 
   # ============================================================================
