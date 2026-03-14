@@ -78,7 +78,11 @@ defmodule PhoenixKit.Settings.Setting do
     "oauth_github_client_id",
     "oauth_github_client_secret",
     "oauth_facebook_app_id",
-    "oauth_facebook_app_secret"
+    "oauth_facebook_app_secret",
+    # Auth Page Branding
+    "auth_logo_file_uuid",
+    "auth_background_image_file_uuid",
+    "auth_background_color"
   ]
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}

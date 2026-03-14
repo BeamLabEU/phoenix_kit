@@ -117,6 +117,114 @@
               </div>
             </div>
 
+            <%!-- Login Page Branding --%>
+            <div class="divider text-sm text-base-content/50">Login Page Branding</div>
+
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Logo Image</span>
+              </label>
+              <input
+                type="hidden"
+                name="settings[auth_logo_file_uuid]"
+                value={@settings["auth_logo_file_uuid"]}
+              />
+              <%= if @settings["auth_logo_file_uuid"] != "" do %>
+                <div class="flex items-center gap-3 p-2 bg-base-200 rounded-lg">
+                  <img
+                    src={signed_preview_url(@settings["auth_logo_file_uuid"], "medium")}
+                    alt="Logo preview"
+                    class="h-12 object-contain"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    phx-click="clear_branding_image"
+                    phx-value-target="logo"
+                  >
+                    Remove
+                  </button>
+                </div>
+              <% else %>
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm w-fit"
+                  phx-click="open_media_selector"
+                  phx-value-target="logo"
+                >
+                  Select Image
+                </button>
+              <% end %>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  Logo displayed on auth pages. Leave empty to show project title text.
+                </span>
+              </div>
+            </div>
+
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Background Image</span>
+              </label>
+              <input
+                type="hidden"
+                name="settings[auth_background_image_file_uuid]"
+                value={@settings["auth_background_image_file_uuid"]}
+              />
+              <%= if @settings["auth_background_image_file_uuid"] != "" do %>
+                <div class="flex items-center gap-3 p-2 bg-base-200 rounded-lg">
+                  <img
+                    src={
+                      signed_preview_url(@settings["auth_background_image_file_uuid"], "medium")
+                    }
+                    alt="Background preview"
+                    class="h-16 w-24 object-cover rounded"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    phx-click="clear_branding_image"
+                    phx-value-target="background"
+                  >
+                    Remove
+                  </button>
+                </div>
+              <% else %>
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm w-fit"
+                  phx-click="open_media_selector"
+                  phx-value-target="background"
+                >
+                  Select Image
+                </button>
+              <% end %>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  Background image for auth pages. Leave empty for default theme background.
+                </span>
+              </div>
+            </div>
+
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Background Color</span>
+              </label>
+              <input
+                name="settings[auth_background_color]"
+                type="text"
+                value={@settings["auth_background_color"]}
+                class="input input-bordered w-full focus:input-primary"
+                placeholder="#1a1a2e or linear-gradient(135deg, #667eea, #764ba2)"
+                phx-debounce="500"
+              />
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  CSS color or gradient for auth page background. Ignored if a background image is set.
+                </span>
+              </div>
+            </div>
+
             <%!-- Authentication Methods Setting --%>
             <div class="form-control w-full">
               <label class="label">
@@ -1126,4 +1234,13 @@
       </div>
     </div>
   </div>
+  <.live_component
+    :if={@show_media_selector}
+    module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+    id="settings-media-selector"
+    show={@show_media_selector}
+    mode={:single}
+    selected_uuids={[]}
+    phoenix_kit_current_user={assigns[:phoenix_kit_current_user]}
+  />
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
