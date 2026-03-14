@@ -1497,7 +1497,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       Process.cancel_timer(socket.assigns.autosave_timer)
     end
 
-    timer_ref = Process.send_after(self(), :autosave, 2000)
+    # Save quickly — DB writes are ~5ms, no reason to delay
+    timer_ref = Process.send_after(self(), :autosave, 500)
     assign(socket, :autosave_timer, timer_ref)
   end
 

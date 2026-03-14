@@ -15,26 +15,43 @@
       // Track unsaved changes state
       window.editorUnsavedChanges = false;
 
-      // Browser exit protection
+      // Save immediately when user switches tabs or minimizes
+      document.addEventListener("visibilitychange", function() {
+        if (document.hidden && window.editorUnsavedChanges) {
+          // Trigger LiveView save event via hidden button
+          const saveBtn = document.querySelector("[phx-click='save']");
+          if (saveBtn) saveBtn.click();
+        }
+      });
+
+      // Browser exit protection — save before leaving
       window.addEventListener("beforeunload", function(e) {
         if (window.editorUnsavedChanges) {
+          // Try to trigger save (may not complete before page unloads)
+          const saveBtn = document.querySelector("[phx-click='save']");
+          if (saveBtn) saveBtn.click();
           e.preventDefault();
           e.returnValue = "";
           return "";
         }
       });
 
-      // Intercept navigation links
+      // Intercept navigation links — save first, then navigate
       document.addEventListener("click", function(e) {
         if (window.editorUnsavedChanges) {
           const link = e.target.closest("a[href], a[data-phx-link]");
           if (link && !link.hasAttribute("data-confirm")) {
             const href = link.getAttribute("href") || link.getAttribute("data-phx-link");
-            // Don't block external links or hash links
             if (href && !href.startsWith("http") && !href.startsWith("#")) {
               e.preventDefault();
               e.stopPropagation();
-              document.getElementById("confirm-cancel-btn").click();
+              // Save first, then ask to confirm navigation
+              const saveBtn = document.querySelector("[phx-click='save']");
+              if (saveBtn) saveBtn.click();
+              // Small delay to let save complete, then confirm
+              setTimeout(function() {
+                document.getElementById("confirm-cancel-btn").click();
+              }, 100);
             }
           }
         }
