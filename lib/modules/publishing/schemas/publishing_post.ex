@@ -96,7 +96,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       :data
     ])
     |> validate_required([:group_uuid, :status, :mode, :primary_language])
-    |> validate_inclusion(:status, ["draft", "published", "archived", "scheduled"])
+    |> validate_inclusion(:status, ["draft", "published", "archived", "scheduled", "trashed"])
     |> validate_inclusion(:mode, ["timestamp", "slug"])
     |> maybe_require_slug()
     |> validate_length(:slug, max: 500)

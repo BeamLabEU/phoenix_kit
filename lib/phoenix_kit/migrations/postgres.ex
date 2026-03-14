@@ -529,7 +529,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V82 - Add metadata JSONB column to comments ⚡ LATEST
+  ### V83 - Add status to publishing groups ⚡ LATEST
+  - Adds `status` column (varchar(20), default 'active') to `phoenix_kit_publishing_groups`
+  - Supports soft-delete via "trashed" status
+  - Adds index on `(status)` for filtering
+
+  ### V82 - Add metadata JSONB column to comments
   - Adds `metadata` column (jsonb, default `'{}'`) to `phoenix_kit_comments`
   - Enables storing arbitrary extra data on comments without schema changes
 
@@ -640,7 +645,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 82
+  @current_version 83
   @default_prefix "public"
 
   @doc false

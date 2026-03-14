@@ -29,6 +29,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
           name: String.t(),
           slug: String.t(),
           mode: String.t(),
+          status: String.t(),
           position: integer(),
           data: map(),
           inserted_at: DateTime.t() | nil,
@@ -39,6 +40,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
     field :name, :string
     field :slug, :string
     field :mode, :string, default: "timestamp"
+    field :status, :string, default: "active"
     field :position, :integer, default: 0
     field :data, :map, default: %{}
 
@@ -52,9 +54,10 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
   """
   def changeset(group, attrs) do
     group
-    |> cast(attrs, [:name, :slug, :mode, :position, :data])
+    |> cast(attrs, [:name, :slug, :mode, :status, :position, :data])
     |> validate_required([:name, :slug, :mode])
     |> validate_inclusion(:mode, ["timestamp", "slug"])
+    |> validate_inclusion(:status, ["active", "trashed"])
     |> validate_length(:name, max: 255)
     |> validate_length(:slug, max: 255)
     |> unique_constraint(:slug, name: :idx_publishing_groups_slug)

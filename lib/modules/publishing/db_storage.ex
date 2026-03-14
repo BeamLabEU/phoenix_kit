@@ -46,11 +46,26 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     repo().get(PublishingGroup, uuid)
   end
 
-  @doc "Lists all groups ordered by position."
-  def list_groups do
-    PublishingGroup
-    |> order_by([g], asc: g.position, asc: g.name)
+  @doc "Lists groups ordered by position. Filters by status (default: active only)."
+  def list_groups(status \\ "active") do
+    query = from(g in PublishingGroup, order_by: [asc: g.position, asc: g.name])
+
+    if status do
+      where(query, [g], g.status == ^status)
+    else
+      query
+    end
     |> repo().all()
+  end
+
+  @doc "Trashes a group by setting status to 'trashed'."
+  def trash_group(%PublishingGroup{} = group) do
+    update_group(group, %{status: "trashed"})
+  end
+
+  @doc "Restores a trashed group by setting status to 'active'."
+  def restore_group(%PublishingGroup{} = group) do
+    update_group(group, %{status: "active"})
   end
 
   @doc "Upserts a group by slug."
@@ -149,7 +164,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> maybe_preload(preloads)
   end
 
-  @doc "Lists posts in a group, optionally filtered by status."
+  @doc "Lists posts in a group, optionally filtered by status. Excludes trashed by default."
   def list_posts(group_slug, status \\ nil) do
     query =
       from(p in PublishingPost,
@@ -162,7 +177,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
       if status do
         where(query, [p], p.status == ^status)
       else
-        query
+        where(query, [p], p.status != "trashed")
       end
 
     query
@@ -222,9 +237,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     get_post_by_datetime(group_slug, date, time)
   end
 
-  @doc "Soft-deletes a post by setting status to 'archived'."
-  def soft_delete_post(%PublishingPost{} = post) do
-    update_post(post, %{status: "archived"})
+  @doc "Trashes a post by setting status to 'trashed'."
+  def trash_post(%PublishingPost{} = post) do
+    update_post(post, %{status: "trashed"})
   end
 
   @doc "Hard-deletes a post and all its versions/contents (cascade)."

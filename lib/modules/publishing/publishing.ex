@@ -83,6 +83,8 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate get_group_mode(group_slug), to: Groups
   defdelegate preset_types(), to: Groups
   defdelegate valid_types(), to: Groups
+  defdelegate restore_group(slug), to: Groups
+  defdelegate list_trashed_groups(), to: Groups
 
   # ============================================================================
   # Post Delegates

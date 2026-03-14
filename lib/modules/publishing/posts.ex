@@ -187,7 +187,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
         {:error, :not_found}
 
       db_post ->
-        case DBStorage.soft_delete_post(db_post) do
+        case DBStorage.trash_post(db_post) do
           {:ok, _} ->
             broadcast_id = db_post.slug || db_post.uuid
             ListingCache.regenerate(group_slug)

@@ -210,11 +210,59 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   end
 
   @doc """
-  Removes a publishing group and all its posts.
+  Moves a publishing group to trash (soft-delete).
+
+  Sets the group status to "trashed". The group and its posts remain in the
+  database and can be restored. Trashed groups are hidden from list_groups/0.
   """
   @spec trash_group(String.t()) :: {:ok, String.t()} | {:error, any()}
   def trash_group(slug) when is_binary(slug) do
-    remove_group(slug)
+    case DBStorage.get_group_by_slug(slug) do
+      nil ->
+        {:error, :not_found}
+
+      db_group ->
+        case DBStorage.trash_group(db_group) do
+          {:ok, _} ->
+            ListingCache.invalidate(slug)
+            PublishingPubSub.broadcast_group_deleted(slug)
+            {:ok, slug}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
+  end
+
+  @doc """
+  Restores a trashed publishing group.
+  """
+  @spec restore_group(String.t()) :: {:ok, String.t()} | {:error, any()}
+  def restore_group(slug) when is_binary(slug) do
+    case DBStorage.get_group_by_slug(slug) do
+      nil ->
+        {:error, :not_found}
+
+      db_group ->
+        case DBStorage.restore_group(db_group) do
+          {:ok, _} ->
+            ListingCache.regenerate(slug)
+            PublishingPubSub.broadcast_group_created(%{"slug" => slug, "name" => db_group.name})
+            {:ok, slug}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
+  end
+
+  @doc """
+  Lists trashed publishing groups.
+  """
+  @spec list_trashed_groups() :: [map()]
+  def list_trashed_groups do
+    DBStorage.list_groups("trashed")
+    |> Enum.map(&db_group_to_map/1)
   end
 
   @doc """
