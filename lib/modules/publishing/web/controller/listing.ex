@@ -205,7 +205,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   end
 
   defp future_post?(post, today) do
-    post[:mode] == :timestamp and post[:date] != nil and Date.compare(post[:date], today) == :gt
+    post[:mode] in [:timestamp, "timestamp"] and post[:date] != nil and
+      Date.compare(post[:date], today) == :gt
   end
 
   @doc """

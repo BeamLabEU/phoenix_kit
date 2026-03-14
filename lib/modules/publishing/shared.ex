@@ -236,9 +236,9 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
     version = Map.get(metadata, :version) || Map.get(post, :version)
 
     cond do
-      mode == :timestamp -> true
+      mode in [:timestamp, "timestamp"] -> true
       is_nil(version) -> true
-      mode == :slug -> true
+      mode in [:slug, "slug"] -> true
       status == "published" -> true
       true -> false
     end

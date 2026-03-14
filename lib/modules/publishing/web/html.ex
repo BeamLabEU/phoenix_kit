@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
     language = language || "en"
 
     case post.mode do
-      :slug ->
+      mode when mode in [:slug, "slug"] ->
         # Use language-specific URL slug for SEO-friendly localized URLs
         url_slug = get_url_slug_for_language(post, language)
 
@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
         build_public_path(segments)
 
-      :timestamp ->
+      mode when mode in [:timestamp, "timestamp"] ->
         # For timestamp mode, use the date/time from the DB fields
         # (stored in post.date and post.time), not from metadata.published_at
         date = get_timestamp_date(post)
@@ -190,7 +190,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def has_publication_date?(post) do
     case post.mode do
-      :timestamp ->
+      mode when mode in [:timestamp, "timestamp"] ->
         # Timestamp mode always has a date (from DB fields)
         post[:date] != nil
 
@@ -206,7 +206,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def format_post_date(post, group_slug, date_counts \\ nil) do
     case post.mode do
-      :timestamp ->
+      mode when mode in [:timestamp, "timestamp"] ->
         # For timestamp mode, use date/time from DB fields
         date = get_timestamp_date(post)
         post_count = lookup_date_count(date_counts, group_slug, date)
@@ -413,7 +413,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def build_date_counts(posts) do
     posts
-    |> Enum.filter(&(&1.mode == :timestamp))
+    |> Enum.filter(&(&1.mode in [:timestamp, "timestamp"]))
     |> Enum.map(&get_timestamp_date/1)
     |> Enum.frequencies()
   end

@@ -427,7 +427,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   end
 
   defp future_post?(post) do
-    post[:mode] == :timestamp and post[:date] != nil and
+    post[:mode] in [:timestamp, "timestamp"] and post[:date] != nil and
       Date.compare(post[:date], Date.utc_today()) == :gt
   end
 end
