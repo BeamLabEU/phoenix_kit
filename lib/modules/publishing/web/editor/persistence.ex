@@ -378,7 +378,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     primary_status = socket.assigns.form["status"]
 
     if primary_status == "published" do
-      params
+      # When primary is published, auto-publish translations so they
+      # appear on the public site immediately after saving
+      Map.put(params, "status", "published")
     else
       Map.put(params, "status", primary_status)
     end
