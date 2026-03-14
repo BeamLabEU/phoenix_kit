@@ -119,6 +119,29 @@
           </div>
         </div>
 
+        <%!-- Active / Trashed Tabs --%>
+        <div class="flex items-center gap-1 border-b border-base-200">
+          <button
+            type="button"
+            phx-click="switch_view"
+            phx-value-mode="active"
+            class={"px-4 py-2 text-sm font-medium border-b-2 transition-colors #{if @view_mode == "active", do: "border-primary text-primary", else: "border-transparent text-base-content/60 hover:text-base-content"}"}
+          >
+            {gettext("Active")}
+          </button>
+          <button
+            type="button"
+            phx-click="switch_view"
+            phx-value-mode="trashed"
+            class={"px-4 py-2 text-sm font-medium border-b-2 transition-colors #{if @view_mode == "trashed", do: "border-error text-error", else: "border-transparent text-base-content/60 hover:text-base-content"}"}
+          >
+            {gettext("Trash")}
+            <%= if @trashed_count > 0 do %>
+              <span class="badge badge-error badge-xs ml-1">{@trashed_count}</span>
+            <% end %>
+          </button>
+        </div>
+
         <div class="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           <%= for insight <- @dashboard_insights do %>
             <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/60 transition h-full">
@@ -235,50 +258,91 @@
                 <% end %>
 
                 <div class="flex flex-wrap gap-2 mt-auto">
-                  <.link
-                    navigate={Routes.path("/admin/publishing/#{insight.slug}")}
-                    class="btn btn-outline btn-sm"
-                  >
-                    <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" />
-                    {gettext("Open")}
-                  </.link>
-                  <.link
-                    navigate={Routes.path("/admin/publishing/edit-group/#{insight.slug}")}
-                    class="btn btn-outline btn-sm"
-                  >
-                    <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
-                    {gettext("Settings")}
-                  </.link>
-                  <% group_slug = insight.slug %>
-                  <% url_prefix =
-                    PhoenixKit.Config.get_url_prefix()
-                    |> case do
-                      "/" -> ""
-                      prefix -> prefix
-                    end %>
-                  <%!-- Use first enabled language (default) for public URL, not UI locale --%>
-                  <% default_language = List.first(@enabled_languages) %>
-                  <% public_url =
-                    if length(@enabled_languages) == 1 do
-                      @endpoint_url <> url_prefix <> "/" <> group_slug
-                    else
-                      @endpoint_url <> url_prefix <> "/#{default_language}/" <> group_slug
-                    end %>
-                  <a
-                    href={public_url}
-                    target="_blank"
-                    rel="noopener"
-                    class="btn btn-outline btn-sm"
-                    aria-label={gettext("View public site")}
-                  >
-                    <.icon name="hero-eye" class="w-4 h-4 mr-1" />
-                    {gettext("View")}
-                  </a>
+                  <%= if @view_mode == "active" do %>
+                    <.link
+                      navigate={Routes.path("/admin/publishing/#{insight.slug}")}
+                      class="btn btn-outline btn-sm"
+                    >
+                      <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" />
+                      {gettext("Open")}
+                    </.link>
+                    <.link
+                      navigate={Routes.path("/admin/publishing/edit-group/#{insight.slug}")}
+                      class="btn btn-outline btn-sm"
+                    >
+                      <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
+                      {gettext("Settings")}
+                    </.link>
+                    <% group_slug = insight.slug %>
+                    <% url_prefix =
+                      PhoenixKit.Config.get_url_prefix()
+                      |> case do
+                        "/" -> ""
+                        prefix -> prefix
+                      end %>
+                    <% default_language = List.first(@enabled_languages) %>
+                    <% public_url =
+                      if length(@enabled_languages) == 1 do
+                        @endpoint_url <> url_prefix <> "/" <> group_slug
+                      else
+                        @endpoint_url <> url_prefix <> "/#{default_language}/" <> group_slug
+                      end %>
+                    <a
+                      href={public_url}
+                      target="_blank"
+                      rel="noopener"
+                      class="btn btn-outline btn-sm"
+                      aria-label={gettext("View public site")}
+                    >
+                      <.icon name="hero-eye" class="w-4 h-4 mr-1" />
+                      {gettext("View")}
+                    </a>
+                    <button
+                      type="button"
+                      phx-click="trash_group"
+                      phx-value-slug={insight.slug}
+                      class="btn btn-outline btn-sm text-error hover:bg-error hover:text-error-content"
+                      data-confirm={gettext("Move this group to trash?")}
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
+                  <% else %>
+                    <button
+                      type="button"
+                      phx-click="restore_group"
+                      phx-value-slug={insight.slug}
+                      class="btn btn-outline btn-sm text-success"
+                    >
+                      <.icon name="hero-arrow-uturn-left" class="w-4 h-4 mr-1" />
+                      {gettext("Restore")}
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="delete_group"
+                      phx-value-slug={insight.slug}
+                      class="btn btn-outline btn-sm text-error hover:bg-error hover:text-error-content"
+                      data-confirm={
+                        gettext(
+                          "Permanently delete this group and all its posts? This cannot be undone."
+                        )
+                      }
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4 mr-1" />
+                      {gettext("Delete Forever")}
+                    </button>
+                  <% end %>
                 </div>
               </div>
             </div>
           <% end %>
         </div>
+
+        <%= if @dashboard_insights == [] and @view_mode == "trashed" do %>
+          <div class="text-center py-8 text-base-content/60">
+            <.icon name="hero-trash" class="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p class="text-sm">{gettext("Trash is empty")}</p>
+          </div>
+        <% end %>
       <% end %>
     </div>
   </div>

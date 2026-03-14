@@ -64,6 +64,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:date_time_settings, date_time_settings)
       |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
       |> assign(:dashboard_refresh_timer, nil)
+      |> assign(:view_mode, "active")
+      |> assign(:trashed_count, length(DBStorage.list_groups("trashed")))
 
     {:ok, socket}
   end
@@ -154,6 +156,55 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       {:noreply, put_flash(socket, :error, gettext("Failed to update primary language"))}
   end
 
+  def handle_event("switch_view", %{"mode" => mode}, socket) when mode in ["active", "trashed"] do
+    {:noreply,
+     socket
+     |> assign(:view_mode, mode)
+     |> refresh_dashboard()}
+  end
+
+  def handle_event("trash_group", %{"slug" => slug}, socket) do
+    case Publishing.trash_group(slug) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(:info, gettext("Group moved to trash"))}
+
+      {:error, reason} ->
+        Logger.warning("[Publishing.Index] Trash group failed for #{slug}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to trash group"))}
+    end
+  end
+
+  def handle_event("restore_group", %{"slug" => slug}, socket) do
+    case Publishing.restore_group(slug) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(:info, gettext("Group restored"))}
+
+      {:error, reason} ->
+        Logger.warning("[Publishing.Index] Restore group failed for #{slug}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to restore group"))}
+    end
+  end
+
+  def handle_event("delete_group", %{"slug" => slug}, socket) do
+    case Publishing.remove_group(slug, force: true) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(:info, gettext("Group permanently deleted"))}
+
+      {:error, reason} ->
+        Logger.warning("[Publishing.Index] Delete group failed for #{slug}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to delete group"))}
+    end
+  end
+
   defp get_language_name(language_code) do
     case Publishing.get_language_info(language_code) do
       %{name: name} -> name
@@ -171,12 +222,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   defp refresh_dashboard(socket) do
+    view_mode = socket.assigns[:view_mode] || "active"
+
     {groups, insights, summary} =
       dashboard_snapshot(
         socket.assigns.current_locale_base,
         socket.assigns[:phoenix_kit_current_user],
-        socket.assigns.date_time_settings
+        socket.assigns.date_time_settings,
+        view_mode
       )
+
+    trashed_count = length(DBStorage.list_groups("trashed"))
 
     # Resubscribe to any new groups that may have been created
     Enum.each(groups, fn group ->
@@ -187,13 +243,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       groups: groups,
       dashboard_insights: insights,
       dashboard_summary: summary,
-      empty_state?: groups == []
+      empty_state?: groups == [] and view_mode == "active",
+      trashed_count: trashed_count
     )
   end
 
-  defp dashboard_snapshot(_locale, current_user, date_time_settings) do
+  defp dashboard_snapshot(_locale, current_user, date_time_settings, view_mode \\ "active") do
     # Admin side reads from database only
-    db_groups = DBStorage.list_groups()
+    db_groups = DBStorage.list_groups(view_mode)
 
     groups =
       Enum.map(db_groups, fn g ->
