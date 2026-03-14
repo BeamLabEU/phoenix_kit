@@ -636,13 +636,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   defp redirect_if_missing(%{assigns: %{current_group: nil}} = socket) do
-    case socket.assigns.groups do
-      [%{"slug" => slug} | _] ->
-        push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
-
-      [] ->
-        push_navigate(socket, to: Routes.path("/admin/publishing"))
-    end
+    push_navigate(socket, to: Routes.path("/admin/publishing"))
   end
 
   defp redirect_if_missing(socket), do: socket

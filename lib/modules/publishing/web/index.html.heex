@@ -70,17 +70,21 @@
 
         <div class="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           <%= for insight <- @dashboard_insights do %>
-            <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/60 transition h-full">
+            <div class={"card bg-base-100 shadow-sm border transition h-full #{if @view_mode == "trashed", do: "border-base-200 opacity-60", else: "border-base-200 hover:border-primary/60"}"}>
               <div class="card-body p-3 sm:p-6 space-y-1.5 sm:space-y-4 h-full flex flex-col">
                 <div class="flex flex-wrap items-center sm:items-start justify-between gap-1 sm:gap-3">
                   <div class="sm:space-y-2 min-w-0 flex-1">
                     <h3 class="text-lg sm:text-xl font-semibold text-base-content">
-                      <.link
-                        navigate={Routes.path("/admin/publishing/#{insight.slug}")}
-                        class="hover:text-primary transition-colors"
-                      >
+                      <%= if @view_mode == "active" do %>
+                        <.link
+                          navigate={Routes.path("/admin/publishing/#{insight.slug}")}
+                          class="hover:text-primary transition-colors"
+                        >
+                          {insight.name}
+                        </.link>
+                      <% else %>
                         {insight.name}
-                      </.link>
+                      <% end %>
                     </h3>
                     <p class="hidden sm:block text-xs text-base-content/60 truncate">
                       {gettext("Slug")}: <code class="font-mono">{insight.slug}</code>
