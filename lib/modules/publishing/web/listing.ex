@@ -46,6 +46,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:translating_posts, %{})
       |> assign(:pending_post_updates, %{})
       |> assign(:visible_count, 20)
+      |> assign(:post_view_mode, "active")
 
     # Groups, posts, current_group, and primary_language_status are loaded in
     # handle_params which always runs after mount — no need to load them twice.
@@ -67,11 +68,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         slug -> DBStorage.list_posts_with_metadata(slug)
       end
 
+    trashed_count =
+      case new_group_slug do
+        nil -> 0
+        slug -> DBStorage.list_posts(slug, "trashed") |> length()
+      end
+
     socket =
       socket
       |> assign(:groups, groups)
       |> assign(:current_group, current_group)
       |> assign(:posts, posts)
+      |> assign(:trashed_posts, [])
+      |> assign(:trashed_post_count, trashed_count)
+      |> assign(:post_view_mode, "active")
+      |> assign(:visible_count, 20)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
       |> assign(:primary_language_status, primary_language_status_from_posts(posts))
 
@@ -87,6 +98,68 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   # show all at once instead of making the user click "Load more" for just 3 posts.
   def handle_event("load_more", _params, socket) do
     {:noreply, assign(socket, :visible_count, socket.assigns.visible_count + 20)}
+  end
+
+  def handle_event("switch_post_view", %{"mode" => "trashed"}, socket) do
+    group_slug = socket.assigns.group_slug
+    trashed = DBStorage.list_posts(group_slug, "trashed")
+
+    {:noreply,
+     socket
+     |> assign(:post_view_mode, "trashed")
+     |> assign(:trashed_posts, trashed)
+     |> assign(:visible_count, 20)}
+  end
+
+  def handle_event("switch_post_view", %{"mode" => "active"}, socket) do
+    {:noreply,
+     socket
+     |> assign(:post_view_mode, "active")
+     |> assign(:visible_count, 20)}
+  end
+
+  def handle_event("trash_post", %{"uuid" => post_uuid}, socket) do
+    group_slug = socket.assigns.group_slug
+
+    case Publishing.trash_post(group_slug, post_uuid) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_posts()
+         |> assign(:trashed_post_count, (socket.assigns.trashed_post_count || 0) + 1)
+         |> put_flash(:info, gettext("Post moved to trash"))}
+
+      {:error, reason} ->
+        Logger.warning("[Publishing.Listing] Trash post failed: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to trash post"))}
+    end
+  end
+
+  def handle_event("restore_post", %{"uuid" => post_uuid}, socket) do
+    group_slug = socket.assigns.group_slug
+
+    case DBStorage.get_post_by_uuid(post_uuid) do
+      nil ->
+        {:noreply, put_flash(socket, :error, gettext("Post not found"))}
+
+      db_post ->
+        case DBStorage.update_post(db_post, %{status: "draft"}) do
+          {:ok, _} ->
+            ListingCache.regenerate(group_slug)
+            trashed = DBStorage.list_posts(group_slug, "trashed")
+
+            {:noreply,
+             socket
+             |> refresh_posts()
+             |> assign(:trashed_posts, trashed)
+             |> assign(:trashed_post_count, length(trashed))
+             |> put_flash(:info, gettext("Post restored as draft"))}
+
+          {:error, reason} ->
+            Logger.warning("[Publishing.Listing] Restore post failed: #{inspect(reason)}")
+            {:noreply, put_flash(socket, :error, gettext("Failed to restore post"))}
+        end
+    end
   end
 
   def handle_event("refresh", _params, socket) do
