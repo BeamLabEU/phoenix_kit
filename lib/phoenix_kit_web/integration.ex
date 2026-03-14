@@ -1359,6 +1359,10 @@ defmodule PhoenixKitWeb.Integration do
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
 
+      # Auto-discovered public routes from external modules MUST come before publishing/localized
+      # routes to prevent /:language/:group catch-alls from intercepting them (e.g., unsubscribe)
+      unquote_splicing(module_public_routes)
+
       # Generate module routes from separate files (improves compilation time)
       unquote(emails_routes)
       unquote(publishing_routes)
@@ -1375,9 +1379,6 @@ defmodule PhoenixKitWeb.Integration do
 
       # External route modules with public routes
       unquote_splicing(external_public_routes)
-
-      # Auto-discovered public routes from external modules (e.g., extracted newsletters unsubscribe)
-      unquote_splicing(module_public_routes)
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())
