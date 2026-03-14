@@ -86,10 +86,7 @@
 
     <div class="space-y-6">
       <div class="flex-1">
-        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
-          <span class="text-sm text-base-content/70">
-            {gettext("Showing %{count} posts", count: length(@posts))}
-          </span>
+        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-end mb-4">
           <div class="flex gap-2">
             <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
               <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
@@ -118,8 +115,9 @@
             </div>
           <% else %>
             <% date_counts = PublishingHTML.build_date_counts(@posts) %>
+            <% visible_posts = Enum.take(@posts, @visible_count) %>
             <div class="grid gap-4">
-              <%= for post <- @posts do %>
+              <%= for post <- visible_posts do %>
                 <% group_slug =
                   post.group || (@current_group && @current_group["slug"]) || @group_slug ||
                     "group" %>
@@ -283,6 +281,17 @@
                 </div>
               <% end %>
             </div>
+            <%= if length(@posts) > @visible_count do %>
+              <div class="flex justify-center mt-4">
+                <button
+                  type="button"
+                  phx-click="load_more"
+                  class="btn btn-outline btn-sm"
+                >
+                  {gettext("Load more")}
+                </button>
+              </div>
+            <% end %>
           <% end %>
         <% end %>
       </div>

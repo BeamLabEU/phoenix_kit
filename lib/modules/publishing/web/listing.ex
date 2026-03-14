@@ -45,6 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:active_editors, %{})
       |> assign(:translating_posts, %{})
       |> assign(:pending_post_updates, %{})
+      |> assign(:visible_count, 20)
 
     # Groups, posts, current_group, and primary_language_status are loaded in
     # handle_params which always runs after mount — no need to load them twice.
@@ -80,6 +81,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   @impl true
   def handle_event("create_post", _params, %{assigns: %{group_slug: group_slug}} = socket) do
     {:noreply, push_navigate(socket, to: Helpers.build_new_post_url(group_slug))}
+  end
+
+  def handle_event("load_more", _params, socket) do
+    {:noreply, assign(socket, :visible_count, socket.assigns.visible_count + 20)}
   end
 
   def handle_event("refresh", _params, socket) do
