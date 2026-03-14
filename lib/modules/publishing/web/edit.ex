@@ -5,6 +5,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias Phoenix.Component
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -101,8 +103,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
     end
   rescue
     e ->
-      require Logger
-      Logger.error("Group save failed: #{Exception.message(e)}")
+      Logger.error("[Publishing.Edit] Group save failed: #{Exception.message(e)}")
       {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
