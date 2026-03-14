@@ -9,31 +9,23 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
 
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    if Entities.enabled?() do
-      # Set locale for LiveView process
-      locale =
-        params["locale"] || socket.assigns[:current_locale]
+    # Set locale for LiveView process
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
 
-      project_title = Settings.get_project_title()
+    project_title = Settings.get_project_title()
 
-      socket =
-        socket
-        |> assign(:current_locale, locale)
-        |> assign(:page_title, gettext("Entities"))
-        |> assign(:project_title, project_title)
-        |> assign(:view_mode, "table")
-        |> assign(:entities, Entities.list_entities())
+    socket =
+      socket
+      |> assign(:current_locale, locale)
+      |> assign(:page_title, gettext("Entities"))
+      |> assign(:project_title, project_title)
+      |> assign(:view_mode, "table")
+      |> assign(:entities, Entities.list_entities())
 
-      {:ok, socket}
-    else
-      {:ok,
-       socket
-       |> put_flash(:error, "Entities module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/modules"))}
-    end
+    {:ok, socket}
   end
 
   def handle_params(params, _url, socket) do

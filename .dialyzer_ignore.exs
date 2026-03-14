@@ -67,7 +67,6 @@
 
   # False positive pattern match warnings (runtime behavior differs from static analysis)
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
-  {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :pattern_match_cov},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :pattern_match_cov},
   # ExAws library type definition issues (false positives from incomplete type specs)
   ~r/lib\/modules\/emails\/archiver\.ex:.*pattern_match/,
@@ -79,37 +78,16 @@
   # Legal module - dynamic dispatch to Blogging module
   # Dialyzer can't infer types through blogging_module() helper
   ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match/,
-  # Legal settings - read_post type inference false positives
-  ~r/lib\/modules\/legal\/web\/settings\.ex:.*pattern_match/,
 
   # ConsentLog schema - changeset type spec with empty struct
   ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*invalid_contract/,
   ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*no_return/,
   ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*call/,
 
-  # Publishing module - with-chain type inference false positives
-  # Dialyzer incorrectly infers read_post/update_post only return errors in certain contexts
-  # The actual functions return both {:ok, post} and {:error, reason} at runtime
-  ~r/lib\/modules\/publishing\/listing_cache\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/listing\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/listing\.ex:.*unused_fun/,
-  ~r/lib\/modules\/publishing\/web\/editor\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/preview\.ex:.*pattern_match/,
-
-  # Publishing Controller submodules - with-chain type inference false positives
-  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/controller\/.*\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/controller\/.*\.ex:.*unused_fun/,
-
   # Publishing Editor submodules - with-chain type inference false positives
   ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*pattern_match_cov/,
-  ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*unused_fun/,
 
-  # Publishing Workers - with-chain type inference false positives
-  # Dialyzer incorrectly infers read_post only returns errors in certain contexts
-  ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/workers\/translate_post_worker\.ex:.*unused_fun/,
   # Pages module - same type inference false positives as Publishing (copied codebase)
   ~r/lib\/modules\/pages\/listing_cache\.ex:.*pattern_match/,
   ~r/lib\/modules\/pages\/storage\/.*\.ex:.*pattern_match/,
@@ -150,15 +128,6 @@
   # Dialyzer proves previous clauses cover all actual call-site types but
   # catch-alls are kept intentionally for safety with dynamic form params
   {"lib/modules/entities/web/entity_form.ex", :pattern_match_cov},
-
-  # Entities enabled?/0 - Dialyzer infers Settings.get_boolean_setting always returns true
-  # Pre-existing false positive unrelated to UUID migration
-  {"lib/modules/entities/entities.ex", :pattern_match},
-
-  # ExUnit.CaseTemplate macro generates calls to internal ExUnit functions
-  # that Dialyzer cannot resolve (Erlang 27 only; resolved in Erlang 28)
-  {"test/support/conn_case.ex", :unknown_function},
-  {"test/support/data_case.ex", :unknown_function},
 
   # tab_callback_context/1 has a :user_dashboard_tabs clause for future use
   # but compile_module_admin_routes only passes :admin_tabs and :settings_tabs currently

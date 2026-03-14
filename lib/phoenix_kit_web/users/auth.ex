@@ -1043,15 +1043,36 @@ defmodule PhoenixKitWeb.Users.Auth do
         socket =
           Phoenix.Component.assign(socket, :phoenix_kit_current_module_key, module_key)
 
-        has_perm = Scope.has_module_access?(scope, module_key)
-        module_enabled = MapSet.member?(Permissions.enabled_module_keys(), module_key)
+        module_enabled = Permissions.feature_enabled?(module_key)
 
-        if has_perm and (Scope.system_role?(scope) or module_enabled) do
-          {:cont, socket}
-        else
-          deny_admin_access(socket, scope)
+        cond do
+          # Disabled modules are blocked for all roles (including Owner/Admin)
+          not module_enabled ->
+            deny_module_disabled(socket, module_key)
+
+          # System roles (Owner/Admin) bypass permission checks
+          Scope.system_role?(scope) ->
+            {:cont, socket}
+
+          # Custom roles need explicit permission
+          Scope.has_module_access?(scope, module_key) ->
+            {:cont, socket}
+
+          true ->
+            deny_admin_access(socket, scope)
         end
     end
+  end
+
+  defp deny_module_disabled(socket, module_key) do
+    label = Permissions.module_label(module_key)
+
+    socket =
+      socket
+      |> Phoenix.LiveView.put_flash(:error, "#{label} module is not enabled")
+      |> Phoenix.LiveView.redirect(to: Routes.path("/admin/modules"))
+
+    {:halt, socket}
   end
 
   defp deny_admin_access(socket, scope) do

@@ -12,7 +12,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  # Test comment for live reload
   @impl true
   def mount(_params, _session, socket) do
     config = Shop.get_config()
