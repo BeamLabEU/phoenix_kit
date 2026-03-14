@@ -634,16 +634,7 @@ defmodule PhoenixKit.Modules.Publishing do
           # Always write to new key
           with {:ok, _} <- settings_call(:update_json_setting, [@publishing_groups_key, payload]) do
             # Sync to DB table so create_post can find the group
-            DBStorage.upsert_group(%{
-              name: group["name"],
-              slug: group["slug"],
-              mode: group["mode"],
-              data: %{
-                "type" => group["type"],
-                "item_singular" => group["item_singular"],
-                "item_plural" => group["item_plural"]
-              }
-            })
+            DBStorage.upsert_group(build_group_attrs(group))
 
             PublishingPubSub.broadcast_group_created(group)
             {:ok, group}
@@ -1143,27 +1134,44 @@ defmodule PhoenixKit.Modules.Publishing do
   defp uuid_format?(str) when is_binary(str), do: match?({:ok, _}, UUIDv7.cast(str))
   defp uuid_format?(_), do: false
 
-  # Reads a post back from DB using the appropriate method for the group mode
+  # Reads a post back from DB using the appropriate method for the group mode.
+  # When db_post is nil and identifier is a UUID, fetches the post from DB first
+  # to get its slug, avoiding the bug where a UUID would be used as a slug lookup.
   defp read_back_post(group_slug, identifier, db_post, language, version_number) do
-    if db_post && db_post.mode == "timestamp" && db_post.post_date && db_post.post_time do
-      # Timestamp-mode: use date/time from the DB post
-      DBStorage.read_post_by_datetime(
-        group_slug,
-        db_post.post_date,
-        db_post.post_time,
-        language,
-        version_number
-      )
-    else
-      # Try parsing identifier as timestamp path, fall back to slug
-      case is_binary(identifier) && parse_timestamp_path(identifier) do
-        {:ok, date, time, _v, _l} ->
-          DBStorage.read_post_by_datetime(group_slug, date, time, language, version_number)
+    cond do
+      db_post && db_post.mode == "timestamp" && db_post.post_date && db_post.post_time ->
+        DBStorage.read_post_by_datetime(
+          group_slug,
+          db_post.post_date,
+          db_post.post_time,
+          language,
+          version_number
+        )
 
-        _ ->
-          slug = if db_post, do: db_post.slug, else: identifier
-          DBStorage.read_post(group_slug, slug, language, version_number)
-      end
+      match?({:ok, _, _, _, _}, is_binary(identifier) && parse_timestamp_path(identifier)) ->
+        {:ok, date, time, _v, _l} = parse_timestamp_path(identifier)
+        DBStorage.read_post_by_datetime(group_slug, date, time, language, version_number)
+
+      true ->
+        slug = resolve_slug(identifier, db_post)
+        DBStorage.read_post(group_slug, slug, language, version_number)
+    end
+  end
+
+  # Resolves the slug for read_back_post. When db_post is nil and the identifier
+  # is a UUID, looks up the post to get its actual slug.
+  defp resolve_slug(identifier, db_post) do
+    cond do
+      db_post -> db_post.slug
+      is_binary(identifier) && uuid_format?(identifier) -> uuid_to_slug(identifier)
+      true -> identifier
+    end
+  end
+
+  defp uuid_to_slug(uuid) do
+    case DBStorage.get_post_by_uuid(uuid, []) do
+      %{slug: slug} -> slug
+      _ -> uuid
     end
   end
 
@@ -1913,16 +1921,7 @@ defmodule PhoenixKit.Modules.Publishing do
   defp sync_group_to_db(group_slug) do
     case get_group(group_slug) do
       {:ok, group_data} ->
-        case DBStorage.upsert_group(%{
-               name: group_data["name"],
-               slug: group_data["slug"],
-               mode: group_data["mode"],
-               data: %{
-                 "type" => group_data["type"],
-                 "item_singular" => group_data["item_singular"],
-                 "item_plural" => group_data["item_plural"]
-               }
-             }) do
+        case DBStorage.upsert_group(build_group_attrs(group_data)) do
           {:ok, db_group} -> db_group
           _ -> nil
         end
@@ -1930,6 +1929,20 @@ defmodule PhoenixKit.Modules.Publishing do
       _ ->
         nil
     end
+  end
+
+  # Builds the attrs map for DBStorage.upsert_group from a group settings map.
+  defp build_group_attrs(group) do
+    %{
+      name: group["name"],
+      slug: group["slug"],
+      mode: group["mode"],
+      data: %{
+        "type" => group["type"],
+        "item_singular" => group["item_singular"],
+        "item_plural" => group["item_plural"]
+      }
+    }
   end
 
   # Normalize mode with default fallback

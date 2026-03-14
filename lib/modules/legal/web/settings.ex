@@ -284,15 +284,21 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   defp update_google_consent_mode(_), do: Legal.disable_google_consent_mode()
 
   defp publishing_module_languages do
-    Publishing.enabled_language_codes()
+    if Publishing.enabled?(), do: Publishing.enabled_language_codes(), else: ["en"]
   rescue
-    _ -> ["en"]
+    e ->
+      require Logger
+      Logger.warning("Failed to get enabled languages: #{inspect(e)}")
+      ["en"]
   end
 
   defp default_language do
-    Publishing.get_primary_language()
+    if Publishing.enabled?(), do: Publishing.get_primary_language(), else: "en"
   rescue
-    _ -> "en"
+    e ->
+      require Logger
+      Logger.warning("Failed to get primary language: #{inspect(e)}")
+      "en"
   end
 
   # Helper to get edit URL for a legal page

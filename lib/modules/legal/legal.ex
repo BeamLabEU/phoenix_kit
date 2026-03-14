@@ -967,8 +967,17 @@ defmodule PhoenixKit.Modules.Legal do
                language,
                existing_post[:version] || 1
              ) do
-          {:ok, p} -> p
-          _ -> existing_post
+          {:ok, p} ->
+            p
+
+          error ->
+            require Logger
+
+            Logger.warning(
+              "Failed to read language #{language} for #{page_config.slug}, falling back to base post: #{inspect(error)}"
+            )
+
+            existing_post
         end
       else
         # Language slot does not exist yet — create it via add_language_to_post
@@ -978,8 +987,17 @@ defmodule PhoenixKit.Modules.Legal do
                language,
                existing_post[:version] || 1
              ) do
-          {:ok, p} -> p
-          _ -> existing_post
+          {:ok, p} ->
+            p
+
+          error ->
+            require Logger
+
+            Logger.warning(
+              "Failed to add language #{language} to #{page_config.slug}, falling back to base post: #{inspect(error)}"
+            )
+
+            existing_post
         end
       end
 
