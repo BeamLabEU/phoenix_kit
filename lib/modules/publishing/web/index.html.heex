@@ -65,9 +65,6 @@
             class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors #{if @view_mode == "trashed", do: "border-error text-error", else: "border-transparent text-base-content/50 hover:text-base-content"}"}
           >
             {gettext("Trash")}
-            <%= if @trashed_count > 0 do %>
-              <span class="badge badge-error badge-xs ml-1">{@trashed_count}</span>
-            <% end %>
           </button>
         </div>
 
