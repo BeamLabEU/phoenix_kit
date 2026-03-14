@@ -78,28 +78,6 @@ defmodule PhoenixKitWeb.Live.Settings do
     end
   end
 
-  def handle_event("test_oauth", %{"provider" => provider}, socket) do
-    provider_atom = String.to_existing_atom(provider)
-
-    case OAuthConfig.test_connection(provider_atom) do
-      {:ok, message} ->
-        socket = put_flash(socket, :info, message)
-        {:noreply, socket}
-
-      {:error, message} ->
-        socket = put_flash(socket, :error, message)
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("reload_oauth_config", _params, socket) do
-    # Reload OAuth configuration from database
-    OAuthConfig.configure_providers()
-
-    socket = put_flash(socket, :info, "OAuth configuration reloaded from database")
-    {:noreply, socket}
-  end
-
   def handle_event("reset_to_defaults", _params, socket) do
     # Get default settings
     defaults = Settings.get_defaults()
@@ -213,13 +191,5 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   def get_current_time_example(format) do
     UtilsDate.format_time(Time.utc_now(), format)
-  end
-
-  # Helper function to generate OAuth callback URL
-  def get_oauth_callback_url(settings, provider) do
-    site_url = settings["site_url"] || "https://example.com"
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-
-    "#{site_url}#{url_prefix}/users/auth/#{provider}/callback"
   end
 end
