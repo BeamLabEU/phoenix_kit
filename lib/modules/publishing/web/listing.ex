@@ -96,19 +96,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   def handle_event("switch_post_view", %{"mode" => mode}, socket)
       when mode in @valid_post_views do
-    group_slug = socket.assigns.group_slug
-
-    posts =
-      case mode do
-        "all" -> DBStorage.list_posts_with_metadata(group_slug)
-        status -> DBStorage.list_posts(group_slug, status)
-      end
-
     {:noreply,
      socket
      |> assign(:post_view_mode, mode)
-     |> assign(:posts, posts)
-     |> assign(:visible_count, 20)}
+     |> assign(:visible_count, 20)
+     |> load_posts_for_view()}
   end
 
   def handle_event("trash_post", %{"uuid" => post_uuid}, socket) do
@@ -151,17 +143,55 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
-  defp reload_current_view(socket) do
+  defp reload_current_view(socket), do: load_posts_for_view(socket)
+
+  defp load_posts_for_view(socket) do
     group_slug = socket.assigns.group_slug
     mode = socket.assigns.post_view_mode
 
+    # Always load via list_posts_with_metadata to get mapper-converted maps,
+    # then filter by status. DBStorage.list_posts returns raw structs which
+    # the template can't handle (no Access behaviour).
+    all_posts =
+      case mode do
+        "trashed" ->
+          # Trashed posts are excluded by default, load them explicitly
+          DBStorage.list_posts(group_slug, "trashed")
+          |> Enum.map(&post_struct_to_map/1)
+
+        _ ->
+          DBStorage.list_posts_with_metadata(group_slug)
+      end
+
     posts =
       case mode do
-        "all" -> DBStorage.list_posts_with_metadata(group_slug)
-        status -> DBStorage.list_posts(group_slug, status)
+        "all" -> all_posts
+        "trashed" -> all_posts
+        status -> Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
       end
 
     assign(socket, :posts, posts)
+  end
+
+  # Minimal map conversion for trashed posts (no versions/content loaded)
+  defp post_struct_to_map(%{} = post) do
+    %{
+      uuid: post.uuid,
+      slug: post.slug,
+      group: post.group && post.group.slug,
+      mode: if(post.mode == "timestamp", do: :timestamp, else: :slug),
+      date: post.post_date,
+      time: post.post_time,
+      metadata: %{
+        title: nil,
+        status: post.status
+      },
+      available_languages: [],
+      language_statuses: %{},
+      available_versions: [],
+      version: nil,
+      primary_language: post.primary_language
+    }
   end
 
   def handle_event("refresh", _params, socket) do
