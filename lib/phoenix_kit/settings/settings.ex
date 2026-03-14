@@ -116,6 +116,7 @@ defmodule PhoenixKit.Settings do
       # Auth Page Branding
       "auth_logo_file_uuid" => "",
       "auth_background_image_file_uuid" => "",
+      "auth_background_image_mobile_file_uuid" => "",
       "auth_background_color" => "",
       # Email Settings
       "email_enabled" => "false",
