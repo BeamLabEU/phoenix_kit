@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
         {:ok,
          socket
          |> put_flash(:error, gettext("The requested group could not be found."))
-         |> push_navigate(to: Routes.path("/admin/settings/publishing"))}
+         |> push_navigate(to: Routes.path("/admin/publishing"))}
 
       group ->
         form =
@@ -29,7 +29,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
          |> assign(:page_title, gettext("Edit Group"))
          |> assign(
            :current_path,
-           Routes.path("/admin/settings/publishing/#{group_slug}/edit")
+           Routes.path("/admin/publishing/edit-group/#{group_slug}")
          )
          |> assign(:group, group)
          |> assign(:form, form)}
@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
          |> assign(:group, updated_group)
          |> assign(:form, updated_form)
          |> put_flash(:info, gettext("Group updated"))
-         |> push_navigate(to: Routes.path("/admin/settings/publishing"))}
+         |> push_navigate(to: Routes.path("/admin/publishing/#{updated_group["slug"]}"))}
 
       {:error, :already_exists} ->
         {:noreply,
@@ -107,7 +107,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
   end
 
   def handle_event("cancel", _params, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/settings/publishing"))}
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/publishing"))}
   end
 
   defp find_group(slug) do

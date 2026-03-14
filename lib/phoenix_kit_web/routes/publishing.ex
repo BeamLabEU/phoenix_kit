@@ -55,13 +55,13 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
            :preview_post,
            as: :publishing_post_preview_localized
 
-      live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
-        as: :publishing_settings_localized
-
-      live "/admin/settings/publishing/:group/edit",
+      live "/admin/publishing/edit-group/:group",
            PhoenixKit.Modules.Publishing.Web.Edit,
            :edit,
-           as: :publishing_edit_localized
+           as: :publishing_edit_group_localized
+
+      live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
+        as: :publishing_settings_localized
     end
   end
 
@@ -106,13 +106,13 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
            :preview_post,
            as: :publishing_post_preview
 
-      live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
-        as: :publishing_settings
-
-      live "/admin/settings/publishing/:group/edit",
+      live "/admin/publishing/edit-group/:group",
            PhoenixKit.Modules.Publishing.Web.Edit,
            :edit,
-           as: :publishing_edit
+           as: :publishing_edit_group
+
+      live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
+        as: :publishing_settings
     end
   end
 end
