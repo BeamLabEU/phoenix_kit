@@ -17,7 +17,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
   @valid_types ["blog", "faq", "legal", "custom"]
   @valid_group_modes ["timestamp", "slug"]
-  @valid_post_statuses ["draft", "published", "archived", "scheduled", "trashed"]
+  @valid_post_statuses ["draft", "published", "archived", "trashed"]
   @valid_version_statuses ["draft", "published", "archived"]
   @default_group_mode "timestamp"
   @default_group_type "blog"

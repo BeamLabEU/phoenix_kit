@@ -154,7 +154,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     end
 
     test "changeset accepts valid statuses" do
-      for status <- ["draft", "published", "archived", "scheduled"] do
+      for status <- ["draft", "published", "archived", "trashed"] do
         attrs = %{
           group_uuid: UUIDv7.generate(),
           slug: "test",
@@ -163,13 +163,6 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
           primary_language: "en"
         }
 
-        attrs =
-          if status == "scheduled" do
-            Map.put(attrs, :scheduled_at, DateTime.add(DateTime.utc_now(), 3600))
-          else
-            attrs
-          end
-
         changeset = PublishingPost.changeset(%PublishingPost{}, attrs)
 
         assert changeset.valid?,
@@ -177,24 +170,22 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
       end
     end
 
-    test "changeset requires scheduled_at when status is scheduled" do
+    test "changeset rejects invalid status" do
       changeset =
         PublishingPost.changeset(%PublishingPost{}, %{
           group_uuid: UUIDv7.generate(),
           slug: "test",
-          status: "scheduled",
+          status: "invalid",
           mode: "slug",
           primary_language: "en"
         })
 
       refute changeset.valid?
-      assert "must be set when status is scheduled" in errors_on(changeset, :scheduled_at)
     end
 
     test "status helpers" do
       published = %PublishingPost{status: "published"}
       draft = %PublishingPost{status: "draft"}
-      scheduled = %PublishingPost{status: "scheduled"}
       archived = %PublishingPost{status: "archived"}
 
       assert PublishingPost.published?(published)
@@ -202,9 +193,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
 
       assert PublishingPost.draft?(draft)
       refute PublishingPost.draft?(published)
-
-      assert PublishingPost.scheduled?(scheduled)
-      refute PublishingPost.scheduled?(archived)
+      refute PublishingPost.draft?(archived)
     end
 
     test "data JSONB accessors return defaults" do

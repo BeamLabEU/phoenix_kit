@@ -10,7 +10,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
   - `draft` - Not visible to public
   - `published` - Live and visible
   - `archived` - Hidden but preserved
-  - `scheduled` - Auto-publish at `scheduled_at`
 
   ## Data JSONB Keys
 
@@ -22,7 +21,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
 
   use Ecto.Schema
   import Ecto.Changeset
-  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
@@ -35,7 +33,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
           mode: String.t(),
           primary_language: String.t(),
           published_at: DateTime.t() | nil,
-          scheduled_at: DateTime.t() | nil,
           post_date: Date.t() | nil,
           post_time: Time.t() | nil,
           created_by_uuid: UUIDv7.t() | nil,
@@ -51,7 +48,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
     field :mode, :string, default: "timestamp"
     field :primary_language, :string, default: "en"
     field :published_at, :utc_datetime
-    field :scheduled_at, :utc_datetime
     field :post_date, :date
     field :post_time, :time
     field :data, :map, default: %{}
@@ -88,7 +84,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       :mode,
       :primary_language,
       :published_at,
-      :scheduled_at,
       :post_date,
       :post_time,
       :created_by_uuid,
@@ -96,12 +91,11 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       :data
     ])
     |> validate_required([:group_uuid, :status, :mode, :primary_language])
-    |> validate_inclusion(:status, ["draft", "published", "archived", "scheduled", "trashed"])
+    |> validate_inclusion(:status, ["draft", "published", "archived", "trashed"])
     |> validate_inclusion(:mode, ["timestamp", "slug"])
     |> maybe_require_slug()
     |> validate_length(:slug, max: 500)
     |> validate_length(:primary_language, max: 10)
-    |> validate_scheduled_at()
     |> maybe_require_timestamp_fields()
     |> unique_constraint([:group_uuid, :slug], name: :idx_publishing_posts_group_slug)
     |> unique_constraint([:group_uuid, :post_date, :post_time],
@@ -116,10 +110,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
   @doc "Check if post is published."
   def published?(%__MODULE__{status: "published"}), do: true
   def published?(_), do: false
-
-  @doc "Check if post is scheduled for future publishing."
-  def scheduled?(%__MODULE__{status: "scheduled"}), do: true
-  def scheduled?(_), do: false
 
   @doc "Check if post is a draft."
   def draft?(%__MODULE__{status: "draft"}), do: true
@@ -153,29 +143,6 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       validate_required(changeset, [:post_date, :post_time])
     else
       changeset
-    end
-  end
-
-  defp validate_scheduled_at(changeset) do
-    status = get_field(changeset, :status)
-    scheduled_at = get_field(changeset, :scheduled_at)
-    status_changed? = get_change(changeset, :status) != nil
-    scheduled_at_changed? = get_change(changeset, :scheduled_at) != nil
-
-    case {status, scheduled_at} do
-      {"scheduled", nil} ->
-        add_error(changeset, :scheduled_at, "must be set when status is scheduled")
-
-      {"scheduled", datetime} when not is_nil(datetime) ->
-        if (scheduled_at_changed? or status_changed?) and
-             DateTime.compare(datetime, UtilsDate.utc_now()) == :lt do
-          add_error(changeset, :scheduled_at, "must be in the future")
-        else
-          changeset
-        end
-
-      _ ->
-        changeset
     end
   end
 end

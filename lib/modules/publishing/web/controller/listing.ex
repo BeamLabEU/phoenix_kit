@@ -194,11 +194,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
 
   @doc """
   Filters posts to only include published ones.
+  Excludes timestamp-mode posts with a future post_date.
   """
   def filter_published(posts) do
+    today = Date.utc_today()
+
     Enum.filter(posts, fn post ->
-      post[:metadata] && post.metadata.status == "published"
+      post[:metadata] && post.metadata.status == "published" && not future_post?(post, today)
     end)
+  end
+
+  defp future_post?(post, today) do
+    post[:mode] == :timestamp and post[:date] != nil and Date.compare(post[:date], today) == :gt
   end
 
   @doc """

@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
@@ -92,7 +93,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, assign(socket, :visible_count, socket.assigns.visible_count + 20)}
   end
 
-  @valid_post_views ["all", "published", "draft", "archived", "scheduled", "trashed"]
+  def handle_event("refresh", _params, socket) do
+    {:noreply, reload_current_view(socket)}
+  end
+
+  @valid_post_views ["all", "published", "draft", "archived", "trashed"]
 
   def handle_event("switch_post_view", %{"mode" => mode}, socket)
       when mode in @valid_post_views do
@@ -141,65 +146,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply, put_flash(socket, :error, gettext("Failed to restore post"))}
         end
     end
-  end
-
-  defp reload_current_view(socket), do: load_posts_for_view(socket)
-
-  defp load_posts_for_view(socket) do
-    group_slug = socket.assigns.group_slug
-    mode = socket.assigns.post_view_mode
-
-    # Always load via list_posts_with_metadata to get mapper-converted maps,
-    # then filter by status. DBStorage.list_posts returns raw structs which
-    # the template can't handle (no Access behaviour).
-    all_posts =
-      case mode do
-        "trashed" ->
-          # Trashed posts are excluded by default, load them explicitly
-          DBStorage.list_posts(group_slug, "trashed")
-          |> Enum.map(&post_struct_to_map/1)
-
-        _ ->
-          DBStorage.list_posts_with_metadata(group_slug)
-      end
-
-    posts =
-      case mode do
-        "all" -> all_posts
-        "trashed" -> all_posts
-        status -> Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
-      end
-
-    assign(socket, :posts, posts)
-  end
-
-  # Minimal map conversion for trashed posts (no versions/content loaded)
-  defp post_struct_to_map(%{} = post) do
-    %{
-      uuid: post.uuid,
-      slug: post.slug,
-      group: post.group && post.group.slug,
-      mode: if(post.mode == "timestamp", do: :timestamp, else: :slug),
-      date: post.post_date,
-      time: post.post_time,
-      metadata: %{
-        title: nil,
-        status: post.status
-      },
-      available_languages: [],
-      language_statuses: %{},
-      available_versions: [],
-      version: nil,
-      primary_language: post.primary_language
-    }
-  end
-
-  def handle_event("refresh", _params, socket) do
-    group_slug = socket.assigns.group_slug
-
-    {:noreply,
-     socket
-     |> assign(:posts, DBStorage.list_posts_with_metadata(group_slug))}
   end
 
   def handle_event("add_language", params, socket) do
@@ -334,6 +280,56 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       )
 
       {:noreply, put_flash(socket, :error, gettext("Failed to update primary language"))}
+  end
+
+  # ============================================================================
+  # Post View Helpers
+  # ============================================================================
+
+  defp reload_current_view(socket), do: load_posts_for_view(socket)
+
+  defp load_posts_for_view(socket) do
+    group_slug = socket.assigns.group_slug
+    mode = socket.assigns.post_view_mode
+
+    all_posts =
+      case mode do
+        "trashed" ->
+          DBStorage.list_posts(group_slug, "trashed")
+          |> Enum.map(&post_struct_to_map/1)
+
+        _ ->
+          DBStorage.list_posts_with_metadata(group_slug)
+      end
+
+    posts =
+      case mode do
+        "all" -> all_posts
+        "trashed" -> all_posts
+        status -> Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
+      end
+
+    assign(socket, :posts, posts)
+  end
+
+  defp post_struct_to_map(%{} = post) do
+    %{
+      uuid: post.uuid,
+      slug: post.slug,
+      group: post.group && post.group.slug,
+      mode: if(post.mode == "timestamp", do: :timestamp, else: :slug),
+      date: post.post_date,
+      time: post.post_time,
+      metadata: %{
+        title: nil,
+        status: post.status
+      },
+      available_languages: [],
+      language_statuses: %{},
+      available_versions: [],
+      version: nil,
+      primary_language: post.primary_language
+    }
   end
 
   # PubSub handlers for live updates
