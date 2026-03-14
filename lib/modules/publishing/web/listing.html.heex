@@ -40,35 +40,8 @@
       </div>
     </.admin_page_header>
 
-    <%!-- Primary Language Migration Progress Banner --%>
-    <%= if @migration_in_progress do %>
-      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-primary/10 border border-info/30 mb-6">
-        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-primary text-white shadow-sm">
-          <span class="loading loading-spinner loading-sm"></span>
-        </div>
-        <div class="flex-1">
-          <span class="text-sm font-medium text-info">
-            {gettext("Migration in progress...")}
-          </span>
-          <%= if @migration_progress do %>
-            <div class="flex items-center gap-2 mt-1">
-              <progress
-                class="progress progress-info w-48"
-                value={@migration_progress.current}
-                max={@migration_progress.total}
-              >
-              </progress>
-              <span class="text-xs text-base-content/60">
-                {@migration_progress.current} / {@migration_progress.total}
-              </span>
-            </div>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
-
-    <%!-- Primary Language Migration Banner --%>
-    <%= if not @migration_in_progress and @primary_language_status && (@primary_language_status.needs_backfill > 0 or @primary_language_status.needs_migration > 0) do %>
+    <%!-- Primary Language Update Banner --%>
+    <%= if @primary_language_status && (@primary_language_status.needs_backfill > 0 or @primary_language_status.needs_migration > 0) do %>
       <% total_needing =
         @primary_language_status.needs_backfill + @primary_language_status.needs_migration %>
       <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-warning/10 to-amber-500/10 border border-warning/30 mb-6">
@@ -94,7 +67,12 @@
         <button
           type="button"
           class="btn btn-warning btn-sm"
-          phx-click="show_migration_modal"
+          phx-click="update_primary_language"
+          data-confirm={
+            gettext("Update %{count} posts to use the current primary language?",
+              count: total_needing
+            )
+          }
         >
           <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
           {gettext("Update All")}
