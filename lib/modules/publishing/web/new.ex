@@ -236,7 +236,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
   end
 
   def handle_event("cancel", _params, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/settings/publishing"))}
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/publishing"))}
   end
 
   # Helper to assign form state after an error
