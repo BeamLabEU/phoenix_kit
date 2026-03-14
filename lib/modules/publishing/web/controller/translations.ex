@@ -125,10 +125,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
         translation_published_exact?(group_slug, post, lang)
       end)
 
-    # Remove legacy base code files when dialect files exist
+    # Remove legacy base codes when dialect content exists
     # e.g., if both "en" and "en-CA" exist, remove "en" to avoid duplicates
     deduplicated =
-      deduplicate_base_and_dialect_files(available_and_published, enabled_languages)
+      deduplicate_base_and_dialect_codes(available_and_published, enabled_languages)
 
     # Order: primary first (if present), then enabled languages, then disabled ones
     languages = order_languages_for_public(deduplicated, enabled_languages, primary_language)
@@ -182,13 +182,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     primary ++ Enum.sort(other_enabled) ++ Enum.sort(disabled)
   end
 
-  # Remove legacy base code files when dialect files of the same language exist
+  # Remove legacy base codes when dialect content of the same language exists
   # This prevents showing both "en" and "en-CA" in the switcher
-  defp deduplicate_base_and_dialect_files(languages, _enabled_languages) do
+  defp deduplicate_base_and_dialect_codes(languages, _enabled_languages) do
     # Separate base codes and dialect codes
     {base_codes, dialect_codes} = Enum.split_with(languages, &Language.base_code?/1)
 
-    # For each base code, check if any dialect files exist for it
+    # For each base code, check if any dialect content exists for it
     # If so, exclude the base code
     filtered_base_codes =
       Enum.reject(base_codes, fn base ->
@@ -251,7 +251,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
   # Strict check for public display - only shows languages that are:
   # 1. Directly in the enabled languages list, OR
-  # 2. Base code files where any dialect of that base is enabled
+  # 2. Base codes where any dialect of that base is enabled
   # This prevents showing en-US, en-GB etc when only en-CA is enabled
   defp language_enabled_for_public?(language, enabled_languages) do
     cond do

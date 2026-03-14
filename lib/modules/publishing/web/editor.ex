@@ -82,7 +82,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     live_source =
       socket.id ||
-        "blog-editor-" <> Base.url_encode64(:crypto.strong_rand_bytes(6), padding: false)
+        "publishing-editor-" <> Base.url_encode64(:crypto.strong_rand_bytes(6), padding: false)
 
     socket =
       socket
@@ -172,7 +172,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_params(%{"preview_token" => token} = params, uri, socket) do
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
 
-    case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
+    case Phoenix.Token.verify(endpoint, "publishing-preview", token, max_age: 300) do
       {:ok, data} ->
         old_form_key = socket.assigns[:form_key]
         old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
@@ -205,7 +205,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
         {:noreply, socket}
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.warning(
+          "[Publishing.Editor] Preview token verification failed: #{inspect(reason)}"
+        )
+
         handle_params(Map.delete(params, "preview_token"), uri, socket)
     end
   end
@@ -1008,7 +1012,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("preview", _params, socket) do
     preview_payload = Preview.build_preview_payload(socket)
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
-    token = Phoenix.Token.sign(endpoint, "blog-preview", preview_payload, max_age: 300)
+    token = Phoenix.Token.sign(endpoint, "publishing-preview", preview_payload, max_age: 300)
 
     query_params = Preview.build_preview_query_params(preview_payload, token)
 
@@ -1065,6 +1069,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     else
       {:noreply, assign(socket, :autosave_timer, nil)}
     end
+  rescue
+    e ->
+      Logger.error("[Publishing.Editor] Autosave failed: #{Exception.message(e)}")
+
+      {:noreply,
+       socket
+       |> assign(:is_autosaving, false)
+       |> assign(:autosave_timer, nil)
+       |> push_event("autosave-status", %{saving: false})}
   end
 
   # ============================================================================
@@ -1489,16 +1502,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp re_read_post(socket) do
-    post = socket.assigns.post
-    Publishing.read_post_by_uuid(post.uuid)
+    case socket.assigns[:post] do
+      nil -> {:error, :no_post}
+      %{uuid: nil} -> {:error, :no_uuid}
+      post -> Publishing.read_post_by_uuid(post.uuid)
+    end
   end
 
   defp do_switch_language(socket, new_language) do
+    # Cancel any pending autosave before switching language context
+    if timer = socket.assigns[:autosave_timer] do
+      Process.cancel_timer(timer)
+    end
+
+    socket = assign(socket, :autosave_timer, nil)
     post = socket.assigns.post
     group_slug = socket.assigns.group_slug
-    file_exists = new_language in post.available_languages
+    content_exists = new_language in post.available_languages
 
-    if file_exists do
+    if content_exists do
       switch_to_existing_language(socket, group_slug, new_language)
     else
       switch_to_new_translation(socket, post, group_slug, new_language)

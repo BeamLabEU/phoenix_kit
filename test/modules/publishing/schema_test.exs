@@ -63,7 +63,7 @@ defmodule PhoenixKit.Modules.Publishing.SchemaTest do
     test "data JSONB accessors return defaults" do
       group = %PublishingGroup{data: %{}}
 
-      assert PublishingGroup.get_type(group) == "blogging"
+      assert PublishingGroup.get_type(group) == "blog"
       assert PublishingGroup.get_item_singular(group) == "Post"
       assert PublishingGroup.get_item_plural(group) == "Posts"
       assert PublishingGroup.get_description(group) == nil

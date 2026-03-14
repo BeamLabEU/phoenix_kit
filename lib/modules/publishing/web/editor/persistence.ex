@@ -259,7 +259,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
          Phoenix.LiveView.put_flash(
            socket,
            :error,
-           gettext("Failed to create translation file")
+           gettext("Failed to create translation")
          )}
     end
   end
@@ -540,7 +540,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      )}
   end
 
-  defp handle_post_in_place_error(socket, _reason) do
+  defp handle_post_in_place_error(socket, reason) do
+    post_id = socket.assigns[:post] && socket.assigns.post[:uuid]
+    Logger.warning("[Publishing.Editor] Save failed for post #{post_id}: #{inspect(reason)}")
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, gettext("Failed to save post"))}
   end
 
@@ -634,7 +636,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      )}
   end
 
-  defp handle_post_update_error(socket, _reason) do
+  defp handle_post_update_error(socket, reason) do
+    post_id = socket.assigns[:post] && socket.assigns.post[:uuid]
+    Logger.warning("[Publishing.Editor] Update failed for post #{post_id}: #{inspect(reason)}")
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, "Failed to save post")}
   end
 
@@ -658,7 +662,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      )}
   end
 
-  defp handle_post_creation_error(socket, _reason, fallback_message) do
+  defp handle_post_creation_error(socket, reason, fallback_message) do
+    group = socket.assigns[:group_slug]
+    Logger.warning("[Publishing.Editor] Post creation failed in #{group}: #{inspect(reason)}")
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, fallback_message)}
   end
 

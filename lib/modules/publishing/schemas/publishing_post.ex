@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
   ## Data JSONB Keys
 
   - `allow_version_access` - Whether older versions are publicly accessible
-  - `featured_image` - Featured image reference (file UUID or URL)
+  - `featured_image` - Featured image reference (media UUID or URL)
   - `tags` - List of tag strings
   - `seo` - SEO metadata map (og_title, og_description, og_image, etc.)
   """

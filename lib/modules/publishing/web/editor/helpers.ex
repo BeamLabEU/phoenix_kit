@@ -112,7 +112,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
 
     Enum.map(all_languages, fn lang_code ->
       lang_info = Publishing.get_language_info(lang_code)
-      file_exists = lang_code in (post.available_languages || [])
+      content_exists = lang_code in (post.available_languages || [])
       is_current = lang_code == current_language
       is_enabled = Publishing.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
@@ -127,7 +127,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
         name: if(lang_info, do: lang_info.name, else: lang_code),
         flag: if(lang_info, do: lang_info.flag, else: ""),
         status: status,
-        exists: file_exists,
+        exists: content_exists,
         is_current: is_current,
         enabled: is_enabled,
         known: is_known,
@@ -182,7 +182,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   end
 
   @doc """
-  Gets the URL for a file from storage.
+  Gets the URL for a media asset from storage.
   """
   def get_file_url(file_uuid) do
     URLSigner.signed_url(file_uuid, "original")

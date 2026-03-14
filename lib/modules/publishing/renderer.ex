@@ -18,13 +18,8 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   @cache_name :publishing_posts
   @cache_version "v1"
 
-  # New settings keys (write to these)
   @global_cache_key "publishing_render_cache_enabled"
   @per_group_cache_prefix "publishing_render_cache_enabled_"
-
-  # Legacy settings keys (read from these as fallback)
-  @legacy_global_cache_key "blogging_render_cache_enabled"
-  @legacy_per_group_cache_prefix "blogging_render_cache_enabled_"
 
   @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video|EntityForm)\s+([^>]*?)\/>/s
   @component_block_regex ~r/<(Hero|CTA|Headline|Subheadline|Video|EntityForm)\s*([^>]*)>(.*?)<\/\1>/s
@@ -65,7 +60,6 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
   Checks both the global setting and per-group setting.
   Both must be enabled (or default to enabled) for caching to work.
-  Checks new keys first, falls back to legacy keys.
   """
   @spec render_cache_enabled?(String.t()) :: boolean()
   def render_cache_enabled?(group_slug) do
@@ -77,30 +71,20 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
   @doc """
   Returns whether the global render cache is enabled.
-  Checks new key first, falls back to legacy key.
   """
   @spec global_render_cache_enabled?() :: boolean()
   def global_render_cache_enabled? do
-    case Settings.get_setting_cached(@global_cache_key, nil) do
-      nil -> Settings.get_setting_cached(@legacy_global_cache_key, "true") == "true"
-      value -> value == "true"
-    end
+    Settings.get_setting_cached(@global_cache_key, "true") == "true"
   end
 
   @doc """
   Returns whether render cache is enabled for a specific group.
   Does not check the global setting.
-  Checks new key first, falls back to legacy key.
   """
   @spec group_render_cache_enabled?(String.t()) :: boolean()
   def group_render_cache_enabled?(group_slug) do
-    new_key = @per_group_cache_prefix <> group_slug
-    legacy_key = @legacy_per_group_cache_prefix <> group_slug
-
-    case Settings.get_setting_cached(new_key, nil) do
-      nil -> Settings.get_setting_cached(legacy_key, "true") == "true"
-      value -> value == "true"
-    end
+    key = @per_group_cache_prefix <> group_slug
+    Settings.get_setting_cached(key, "true") == "true"
   end
 
   @doc """
@@ -109,15 +93,6 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   """
   @spec per_group_cache_key(String.t()) :: String.t()
   def per_group_cache_key(group_slug), do: @per_group_cache_prefix <> group_slug
-
-  # Deprecated shims for backward compatibility
-  @doc false
-  @deprecated "Use group_render_cache_enabled?/1 instead"
-  def blog_render_cache_enabled?(group_slug), do: group_render_cache_enabled?(group_slug)
-
-  @doc false
-  @deprecated "Use per_group_cache_key/1 instead"
-  def per_blog_cache_key(group_slug), do: per_group_cache_key(group_slug)
 
   @doc """
   Renders markdown or PHK content directly without caching.
@@ -396,7 +371,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   def invalidate_cache(group_slug, identifier, language) do
     # Build pattern to match all cache keys for this post
     # We don't know the content hash, so we invalidate by prefix
-    pattern = "#{@cache_version}:blog_post:#{group_slug}:#{identifier}:#{language}:"
+    pattern = "#{@cache_version}:publishing_post:#{group_slug}:#{identifier}:#{language}:"
 
     # Since PhoenixKit.Cache doesn't support pattern matching,
     # we'll just log this for now and rely on content hash changes
@@ -440,7 +415,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   """
   @spec clear_group_cache(String.t()) :: {:ok, non_neg_integer()} | {:error, any()}
   def clear_group_cache(group_slug) do
-    prefix = "#{@cache_version}:blog_post:#{group_slug}:"
+    prefix = "#{@cache_version}:publishing_post:#{group_slug}:"
 
     case PhoenixKit.Cache.clear_by_prefix(@cache_name, prefix) do
       {:ok, count} = result ->
@@ -455,10 +430,6 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
       Logger.warning("Group cache not available for clearing")
       {:ok, 0}
   end
-
-  @doc false
-  @deprecated "Use clear_group_cache/1 instead"
-  def clear_blog_cache(group_slug), do: clear_group_cache(group_slug)
 
   # Private Functions
 
@@ -482,7 +453,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
     identifier = post[:uuid] || post.slug
 
-    "#{@cache_version}:blog_post:#{post.group}:#{identifier}:#{post.language}:#{content_hash}"
+    "#{@cache_version}:publishing_post:#{post.group}:#{identifier}:#{post.language}:#{content_hash}"
   end
 
   defp get_cached(key) do

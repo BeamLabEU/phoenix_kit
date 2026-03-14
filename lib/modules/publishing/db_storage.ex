@@ -100,7 +100,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   Gets a timestamp-mode post by date and time.
 
   Truncates seconds from the input time since URLs use HH:MM format only,
-  and new posts are stored with seconds zeroed. For legacy posts with non-zero
+  and new posts are stored with seconds zeroed. For older posts with non-zero
   seconds, falls back to hour:minute matching.
   """
   def get_post_by_datetime(group_slug, %Date{} = date, %Time{} = time) do
@@ -119,7 +119,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     if result do
       result
     else
-      # Fallback for legacy posts stored with non-zero seconds
+      # Fallback for older posts stored with non-zero seconds
       hour = time.hour
       minute = time.minute
 
@@ -170,6 +170,16 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
+  @doc "Counts posts in a group."
+  def count_posts(group_slug) do
+    from(p in PublishingPost,
+      join: g in assoc(p, :group),
+      where: g.slug == ^group_slug,
+      select: count(p.uuid)
+    )
+    |> repo().one() || 0
+  end
+
   @doc "Lists posts in timestamp mode (ordered by date/time desc)."
   def list_posts_timestamp_mode(group_slug, status \\ nil) do
     query =
@@ -208,7 +218,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   @doc "Finds a post by date and time (timestamp mode, matches hour:minute only)."
   def find_post_by_date_time(group_slug, date, time) do
-    # Delegate to get_post_by_datetime which handles normalization and legacy fallback
+    # Delegate to get_post_by_datetime which handles normalization and fallback
     get_post_by_datetime(group_slug, date, time)
   end
 
@@ -239,7 +249,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   Counts primary language status from an already-loaded list of posts.
   Avoids re-querying when posts are already available.
 
-  Posts can be DB structs or legacy maps (with `:primary_language` key).
+  Posts can be DB structs or maps (with `:primary_language` key).
   """
   def count_primary_language_status_from_posts(posts, global_primary) do
     Enum.reduce(posts, %{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
@@ -329,12 +339,18 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
-  @doc "Gets the next version number for a post."
+  @doc """
+  Gets the next version number for a post.
+
+  Uses SELECT ... FOR UPDATE to lock the row and prevent concurrent reads
+  from getting the same number.
+  """
   def next_version_number(post_uuid) do
     result =
       from(v in PublishingVersion,
         where: v.post_uuid == ^post_uuid,
-        select: max(v.version_number)
+        select: max(v.version_number),
+        lock: "FOR UPDATE"
       )
       |> repo().one()
 
@@ -408,6 +424,12 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     content
     |> PublishingContent.changeset(attrs)
     |> repo().update()
+  end
+
+  @doc "Bulk-updates the status of all content rows for a version."
+  def update_content_status(version_uuid, new_status) do
+    from(c in PublishingContent, where: c.version_uuid == ^version_uuid)
+    |> repo().update_all(set: [status: new_status, updated_at: DateTime.utc_now()])
   end
 
   @doc "Bulk-updates the status of all content rows for a version, excluding a specific language."
@@ -512,15 +534,15 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     end
   end
 
-  @doc "Upserts content by version_id + language."
+  @doc "Upserts content by version_id + language using ON CONFLICT."
   def upsert_content(attrs) do
-    version_uuid = Map.get(attrs, :version_uuid) || Map.get(attrs, "version_uuid")
-    language = Map.get(attrs, :language) || Map.get(attrs, "language")
+    changeset = PublishingContent.changeset(%PublishingContent{}, attrs)
 
-    case get_content(version_uuid, language) do
-      nil -> create_content(attrs)
-      content -> update_content(content, attrs)
-    end
+    repo().insert(changeset,
+      on_conflict: {:replace, [:title, :content, :status, :url_slug, :data, :updated_at]},
+      conflict_target: [:version_uuid, :language],
+      returning: true
+    )
   end
 
   # ===========================================================================
@@ -530,7 +552,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc """
   Reads a full post with its latest version and content for a specific language.
 
-  Returns a map suitable for the legacy mapper or nil if not found.
+  Returns a post map or nil if not found.
   """
   def read_post(group_slug, post_slug, language \\ nil, version_number \\ nil) do
     with post when not is_nil(post) <- get_post(group_slug, post_slug),
@@ -539,7 +561,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
          content when not is_nil(content) <- resolve_content(contents, language, post) do
       all_versions = list_versions(post.uuid)
 
-      {:ok, Mapper.to_legacy_map(post, version, content, contents, all_versions)}
+      {:ok, Mapper.to_post_map(post, version, content, contents, all_versions)}
     else
       nil -> {:error, :not_found}
     end
@@ -555,7 +577,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
          content when not is_nil(content) <- resolve_content(contents, language, post) do
       all_versions = list_versions(post.uuid)
 
-      {:ok, Mapper.to_legacy_map(post, version, content, contents, all_versions)}
+      {:ok, Mapper.to_post_map(post, version, content, contents, all_versions)}
     else
       nil -> {:error, :not_found}
     end
@@ -564,7 +586,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc """
   Lists all posts in a group with their latest version metadata.
 
-  Returns a list of legacy-format maps suitable for listing pages.
+  Returns a list of post maps suitable for listing pages.
   """
   def list_posts_with_metadata(group_slug) do
     posts = list_posts(group_slug)
@@ -614,7 +636,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         primary_content = resolve_content(contents, nil, post)
 
         if primary_content do
-          Mapper.to_legacy_map(post, version, primary_content, contents, all_versions,
+          Mapper.to_post_map(post, version, primary_content, contents, all_versions,
             published_language_statuses: published_statuses
           )
         else

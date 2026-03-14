@@ -255,17 +255,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   defp lang_exists?(%{"status" => status}) when is_binary(status), do: true
   defp lang_exists?(_), do: false
 
-  # Check if language is enabled in the Languages module (default: true for backwards compat)
   defp lang_enabled?(%{enabled: enabled}) when is_boolean(enabled), do: enabled
   defp lang_enabled?(%{"enabled" => enabled}) when is_boolean(enabled), do: enabled
   defp lang_enabled?(_), do: true
 
-  # Check if language code is a recognized/known language (default: true for backwards compat)
   defp lang_known?(%{known: known}) when is_boolean(known), do: known
   defp lang_known?(%{"known" => known}) when is_boolean(known), do: known
   defp lang_known?(_), do: true
 
-  # Check if language is the primary language (default: false for backwards compat)
   defp lang_is_primary?(%{is_primary: is_primary}) when is_boolean(is_primary), do: is_primary
   defp lang_is_primary?(%{"is_primary" => is_primary}) when is_boolean(is_primary), do: is_primary
   defp lang_is_primary?(_), do: false
@@ -419,7 +416,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   # Build title for admin mode with status indicators
   defp build_admin_title(name, exists, status, enabled, known) do
     cond do
-      !known and exists -> gettext("%{language} (Unknown language file)", language: name)
+      !known and exists -> gettext("%{language} (Unknown language)", language: name)
       !enabled and exists -> build_disabled_title(name, status)
       !exists -> gettext("Add %{language} translation", language: name)
       true -> build_status_title(name, status)

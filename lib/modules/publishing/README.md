@@ -52,7 +52,7 @@ The publishing module includes public-facing routes for displaying published pos
 - **Flexible Fallbacks** - Missing language versions redirect to available alternatives
 - **Pagination** - Configurable posts per page (default: 20)
 - **SEO Ready** - Clean URLs, breadcrumbs, responsive design
-- **Performance** - Content-hash-based caching with versioned keys (`v1:blog_post:...`)
+- **Performance** - Content-hash-based caching with versioned keys (`v1:publishing_post:...`)
 
 ### Language Detection
 
@@ -114,8 +114,6 @@ PhoenixKit.Settings.update_setting("publishing_posts_per_page", "20")
 
 `publishing_public_enabled` gates the entire `PhoenixKit.Modules.Publishing.Web.Controller` – set it to `"false"` to return a 404 for every public content route. `publishing_posts_per_page` drives listing pagination.
 
-**Note:** Legacy `blogging_*` settings keys are still supported for backward compatibility. The module checks `publishing_*` keys first, then falls back to `blogging_*`.
-
 **Note:** These settings are currently only configurable via code. There is no admin UI for these options yet; expose them in your app if customers need runtime control.
 
 ### Templates
@@ -146,7 +144,7 @@ PhoenixKit ships two cache layers:
    `publishing_render_cache_enabled` toggle, and per-group overrides (`publishing_render_cache_enabled_<slug>`)
    plus UI buttons to clear stats or individual group caches.
 
-Example render cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
+Example render cache key: `v1:publishing_post:docs:getting-started:en:a1b2c3d4`
 
 Manual cache operations remain available when scripting:
 
@@ -174,7 +172,7 @@ Renderer.clear_all_cache()
 
 - **PhoenixKit.Modules.Publishing** – Main context module with mode-aware routing (all writes are DB-only)
 - **PhoenixKit.Modules.Publishing.DBStorage** – Database CRUD layer for groups, posts, versions, and contents
-- **PhoenixKit.Modules.Publishing.DBStorage.Mapper** – Converts DB records to the legacy map format consumed by web layer
+- **PhoenixKit.Modules.Publishing.DBStorage.Mapper** – Converts DB records to the post map format consumed by web layer
 - **PhoenixKit.Modules.Publishing.Metadata** – Metadata parsing and serialization
 
 **Schemas (V59 migration):**
@@ -326,7 +324,7 @@ iex> Publishing.enable_system()
 
 - `Publishing` is available anywhere via the alias above.
 - `Scope` is optional but lets you stamp `created_by_*` / `updated_by_*` metadata.
-- Module settings live in `PhoenixKit.Settings` (with legacy `blogging_settings_module` fallback).
+- Module settings live in `PhoenixKit.Settings`.
 
 ### Managing publishing groups
 
@@ -665,12 +663,12 @@ versions = DBStorage.list_versions(post_uuid)
 contents = DBStorage.list_contents(version_uuid)
 ```
 
-The `Mapper` module converts DB records to the legacy map format that the web layer and templates consume:
+The `Mapper` module converts DB records to the post map format that the web layer and templates consume:
 
 ```elixir
 alias PhoenixKit.Modules.Publishing.DBStorage.Mapper
 
-post_map = Mapper.to_legacy_map(group, post, version, content, available_languages)
+post_map = Mapper.to_post_map(group, post, version, content, available_languages)
 listing_map = Mapper.to_listing_map(group, post, version, primary_content)
 ```
 
@@ -795,7 +793,7 @@ publishing_contents table:
 4. Fill in translated content and save
 5. All translations share same post/version, each with its own `url_slug`
 
-**Post Map Fields (Legacy Format):**
+**Post Map Fields:**
 
 The `Mapper` module converts DB records into this map format consumed by templates and the web layer:
 
@@ -1023,7 +1021,7 @@ Admin chooses mode at creation time:
 |------|-------|----------|
 | `test/modules/publishing/schema_test.exs` | 28 | All 4 schema changesets, JSONB accessors, defaults |
 | `test/modules/publishing/metadata_test.exs` | 26 | parse/serialize round-trip, title extraction, legacy XML |
-| `test/modules/publishing/mapper_test.exs` | 26 | `to_legacy_map`, `to_listing_map`, field mapping, edge cases |
+| `test/modules/publishing/mapper_test.exs` | 26 | `to_post_map`, `to_listing_map`, field mapping, edge cases |
 | `test/modules/publishing/pubsub_test.exs` | 13 | Topic generation, form key generation |
 | `test/modules/publishing/publishing_api_test.exs` | 20 | Module loading, slugify, valid_slug?, db_post?, extract helpers |
 | `test/modules/publishing/storage_utils_test.exs` | 9 | content_changed?, status_change_only?, should_create_new_version? |
@@ -1052,19 +1050,16 @@ Publishing.enable_system()
 Publishing.disable_system()
 Publishing.enabled?()  # => true/false
 
-# Publishing groups stored as JSON setting
-# Key: "publishing_groups" (with legacy "blogging_blogs" fallback)
-# Value: %{"blogs" => [%{"name" => "...", "slug" => "...", "mode" => "...", "type" => "..."}]}
-# Note: The inner "blogs" key is a legacy JSON key preserved for backward compatibility
+# Publishing groups are stored in the database (publishing_groups table)
 
-# Cache toggles (with legacy blogging_* fallback)
+# Cache toggles
 PhoenixKit.Settings.update_setting("publishing_memory_cache_enabled", "true")
 
-# Render cache (global + per group, with legacy fallback)
+# Render cache (global + per group)
 PhoenixKit.Settings.update_setting("publishing_render_cache_enabled", "true")
 PhoenixKit.Settings.update_setting("publishing_render_cache_enabled_docs", "false")
 
-# Custom settings backend (optional, with legacy blogging_settings_module fallback)
+# Custom settings backend (optional)
 config :phoenix_kit, publishing_settings_module: MyApp.CustomSettings
 ```
 

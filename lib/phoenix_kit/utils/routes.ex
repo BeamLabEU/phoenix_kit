@@ -27,7 +27,7 @@ defmodule PhoenixKit.Utils.Routes do
   @spec url_prefix() :: String.t()
   def url_prefix, do: Config.get_url_prefix()
 
-  # NOTE: Locale override logic below exists for the temporary blogging component system integration.
+  # NOTE: Locale override logic below exists for the publishing component system integration.
   # Switch to the upcoming media/storage helpers once they land.
   def path(url_path, opts \\ [])
 

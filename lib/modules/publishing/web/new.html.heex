@@ -124,7 +124,7 @@
                       <p class="font-medium text-base-content">{preset.label}</p>
                       <p class="text-sm text-base-content/70">
                         <%= case preset.type do %>
-                          <% "blogging" -> %>
+                          <% "blog" -> %>
                             {gettext(
                               "Posts, news articles, and updates. Items called \"%{plural}\".",
                               plural: preset.item_plural
@@ -152,7 +152,7 @@
                     name={@form[:type].name}
                     value="custom"
                     class="radio radio-primary mt-1"
-                    checked={@form[:type].value not in ["blogging", "faq", "legal"]}
+                    checked={@form[:type].value not in ["blog", "faq", "legal"]}
                     phx-click="type_changed"
                     phx-value-type="custom"
                   />
@@ -161,7 +161,7 @@
                     <p class="text-sm text-base-content/70">
                       {gettext("Define your own content type and item names.")}
                     </p>
-                    <%= if @form[:type].value not in ["blogging", "faq", "legal"] do %>
+                    <%= if @form[:type].value not in ["blog", "faq", "legal"] do %>
                       <div class="mt-2">
                         <input
                           type="text"
@@ -169,7 +169,7 @@
                           class="input input-bordered input-sm w-full max-w-xs"
                           placeholder={gettext("e.g. tutorials, recipes")}
                           value={
-                            if @form[:type].value not in ["blogging", "faq", "legal", "custom"],
+                            if @form[:type].value not in ["blog", "faq", "legal", "custom"],
                               do: @form[:type].value,
                               else: ""
                           }

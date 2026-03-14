@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
 
   ## Data JSONB Keys
 
-  - `type` - Group type: "blogging", "faq", "legal", or custom string
+  - `type` - Group type: "blog", "faq", "legal", or "custom"
   - `item_singular` - Display name for single item (e.g., "Post", "Article")
   - `item_plural` - Display name for multiple items (e.g., "Posts", "Articles")
   - `description` - Group description
@@ -63,8 +63,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
 
   # Data JSONB accessors
 
-  @doc "Returns the group type from data (blogging/faq/legal/custom)."
-  def get_type(%__MODULE__{data: data}), do: Map.get(data, "type", "blogging")
+  @doc "Returns the group type from data (blog/faq/legal/custom)."
+  def get_type(%__MODULE__{data: data}), do: Map.get(data, "type", "blog")
 
   @doc "Returns the singular item name (e.g., 'Post')."
   def get_item_singular(%__MODULE__{data: data}), do: Map.get(data, "item_singular", "Post")

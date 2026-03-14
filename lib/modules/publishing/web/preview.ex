@@ -55,8 +55,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
   defp handle_preview_token(%{"preview_token" => token} = params, socket) do
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
 
-    case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
+    case Phoenix.Token.verify(endpoint, "publishing-preview", token, max_age: 300) do
       {:ok, data} ->
+        # Validate token belongs to the requested group
+        token_group = data[:group_slug]
+        url_group = socket.assigns.group_slug
+
+        if token_group && url_group && token_group != url_group do
+          Logger.warning(
+            "[Publishing.Preview] Token group mismatch: token=#{token_group}, url=#{url_group}"
+          )
+        end
+
         post =
           build_preview_post(data, socket.assigns.group_slug, socket.assigns.current_locale_base)
 
@@ -86,7 +96,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
              |> assign(:preview_source, :unsaved)}
         end
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.warning(
+          "[Publishing.Preview] Token verification failed for group #{socket.assigns.group_slug}: #{inspect(reason)}"
+        )
+
         params
         |> Map.delete("preview_token")
         |> handle_saved_preview(socket)
@@ -126,7 +140,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
              |> assign(:preview_source, :saved)}
         end
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.warning(
+          "[Publishing.Preview] UUID preview failed for #{post_uuid}: #{inspect(reason)}"
+        )
+
         {:noreply,
          socket
          |> put_flash(:error, gettext("Post not found"))
@@ -161,7 +179,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
              |> assign(:preview_source, :saved)}
         end
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.warning(
+          "[Publishing.Preview] Saved preview failed for #{group_slug}/#{path}: #{inspect(reason)}"
+        )
+
         {:noreply,
          socket
          |> put_flash(:error, gettext("Post not found"))

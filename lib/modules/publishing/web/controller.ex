@@ -274,13 +274,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # ============================================================================
 
   defp public_enabled? do
-    # Check new key first, fallback to legacy
-    case Settings.get_setting("publishing_public_enabled") do
-      nil -> Settings.get_boolean_setting("blogging_public_enabled", true)
-      "true" -> true
-      "false" -> false
-      _ -> true
-    end
+    Settings.get_boolean_setting("publishing_public_enabled", true)
   end
 
   defp set_gettext_locale(language) do

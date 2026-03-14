@@ -28,7 +28,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   Build form for a post, handling new translations appropriately.
 
   For new translations (no content in DB yet), inherits status from the primary language.
-  For existing files, uses the file's own status to avoid confusion between
+  For existing content, uses the record's own status to avoid confusion between
   what the dropdown shows and what the language switcher shows.
   """
   def post_form_with_primary_status(_group_slug, post, version) do

@@ -298,8 +298,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Translation do
     warnings =
       if source_content_blank?(socket) do
         [
-          {:warning,
-           gettext("The source content is empty. This will create empty translation files.")}
+          {:warning, gettext("The source content is empty. This will create empty translations.")}
           | warnings
         ]
       else

@@ -3,7 +3,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   Language detection and resolution for the publishing controller.
 
   Handles detecting whether URL parameters represent language codes,
-  resolving language codes to file languages, and determining
+  resolving language codes to content languages, and determining
   canonical URL language codes.
   """
 
@@ -209,7 +209,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
 
   @doc """
   Gets the canonical URL language code for a post's language.
-  This uses the actual file language (e.g., "en-US") to determine the canonical URL code.
+  This uses the actual content language (e.g., "en-US") to determine the canonical URL code.
   """
   def get_canonical_url_language_for_post(post_language) do
     enabled_languages = get_enabled_languages()

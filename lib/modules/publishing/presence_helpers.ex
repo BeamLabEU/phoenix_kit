@@ -124,7 +124,7 @@ defmodule PhoenixKit.Modules.Publishing.PresenceHelpers do
         Enum.filter(metas, fn meta ->
           case Map.get(meta, :pid) do
             pid when is_pid(pid) -> Process.alive?(pid)
-            # Keep metas without PID for backward compatibility
+            # Keep metas without PID
             _ -> true
           end
         end)

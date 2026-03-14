@@ -6,6 +6,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
@@ -70,6 +72,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:migration_modal_count, 0)
       |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
       |> assign(:migrations_in_progress, %{})
+      |> assign(:dashboard_refresh_timer, nil)
 
     {:ok, socket}
   end
@@ -79,30 +82,42 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     {:noreply, assign(socket, :endpoint_url, extract_endpoint_url(uri))}
   end
 
-  # PubSub handlers for live updates
+  # PubSub handlers for live updates — debounced to prevent rapid re-renders
+  @dashboard_debounce_ms 500
+
   @impl true
-  def handle_info({:post_created, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
-  def handle_info({:post_updated, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:post_created, _post}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
+
+  def handle_info({:post_updated, _post}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:post_status_changed, _post}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:post_deleted, _post_identifier}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
-  def handle_info({:group_created, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:group_created, _group}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:group_deleted, _group_slug}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
-  def handle_info({:group_updated, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
-  def handle_info({:version_created, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:group_updated, _group}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
+
+  def handle_info({:version_created, _post}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:version_live_changed, _uuid, _version}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:version_deleted, _slug, _version}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
+
+  def handle_info(:debounced_dashboard_refresh, socket),
+    do: {:noreply, socket |> assign(:dashboard_refresh_timer, nil) |> refresh_dashboard()}
 
   # Primary language migration progress handlers
   def handle_info({:primary_language_migration_started, _group_slug, _total_count}, socket) do
@@ -181,7 +196,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
      |> assign(:show_migration_modal, true)
      |> assign(:migration_modal_slug, group_slug)
      |> assign(:migration_modal_name, group_name)
-     |> assign(:migration_modal_count, String.to_integer(count))}
+     |> assign(:migration_modal_count, parse_integer(count, 0))}
   end
 
   def handle_event("close_migration_modal", _params, socket) do
@@ -226,6 +241,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
            )}
 
         {:error, reason} ->
+          Logger.error(
+            "[Publishing] Failed to enqueue migration for #{group_slug}: #{inspect(reason)}"
+          )
+
           {:noreply,
            socket
            |> assign(:show_migration_modal, false)
@@ -253,6 +272,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
          )
        )}
     end
+  rescue
+    e ->
+      Logger.error("[Publishing.Index] Migration failed: #{Exception.message(e)}")
+
+      {:noreply,
+       socket
+       |> assign(:show_migration_modal, false)
+       |> put_flash(:error, gettext("Failed to update primary language"))}
   end
 
   defp get_language_name(language_code) do
@@ -261,6 +288,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       _ -> String.upcase(language_code)
     end
   end
+
+  defp schedule_dashboard_refresh(socket) do
+    if timer = socket.assigns[:dashboard_refresh_timer] do
+      Process.cancel_timer(timer)
+    end
+
+    timer = Process.send_after(self(), :debounced_dashboard_refresh, @dashboard_debounce_ms)
+    assign(socket, :dashboard_refresh_timer, timer)
+  end
+
+  defp parse_integer(val, default) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, _} -> n
+      :error -> default
+    end
+  end
+
+  defp parse_integer(val, _default) when is_integer(val), do: val
+  defp parse_integer(_, default), do: default
 
   defp refresh_dashboard(socket) do
     {groups, insights, summary} =

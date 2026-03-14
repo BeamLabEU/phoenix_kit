@@ -79,7 +79,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             {:ok,
              %{
-               page_title: post.metadata.title,
+               page_title: post.metadata.title || "Untitled",
                group_slug: group_slug,
                post: post,
                html_content: html_content,
@@ -143,7 +143,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             {:ok,
              %{
-               page_title: post.metadata.title,
+               page_title: post.metadata.title || "Untitled",
                group_slug: group_slug,
                post: post,
                html_content: html_content,
@@ -231,10 +231,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
     # The cache stores the live version with all version metadata
     {allow_access, live_version} = get_cached_version_info(group_slug, post)
 
-    version_statuses = Map.get(post, :version_statuses, %{})
+    version_statuses = Map.get(post, :version_statuses) || %{}
     current_version = Map.get(post, :version, 1)
 
-    if allow_access and map_size(version_statuses) > 0 do
+    if allow_access and version_statuses != %{} do
       # Filter to only published versions
       published_versions =
         version_statuses

@@ -16,6 +16,8 @@ defmodule PhoenixKit.Modules.Publishing do
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
+  alias PhoenixKit.Modules.Publishing.PublishingGroup
+  alias PhoenixKit.Modules.Publishing.PublishingPost
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.SlugHelpers
   alias PhoenixKit.Users.Auth.Scope
@@ -64,7 +66,12 @@ defmodule PhoenixKit.Modules.Publishing do
       post -> post.primary_language || LanguageHelpers.get_primary_language()
     end
   rescue
-    _ -> LanguageHelpers.get_primary_language()
+    e ->
+      Logger.warning(
+        "[Publishing] get_post_primary_language failed for #{group_slug}/#{post_slug}: #{inspect(e)}"
+      )
+
+      LanguageHelpers.get_primary_language()
   end
 
   @doc "Checks the primary language migration status for a post."
@@ -85,7 +92,12 @@ defmodule PhoenixKit.Modules.Publishing do
         {:needs_migration, stored}
     end
   rescue
-    _ -> {:needs_backfill, nil}
+    e ->
+      Logger.warning(
+        "[Publishing] check_primary_language_status failed for #{group_slug}/#{post_slug}: #{inspect(e)}"
+      )
+
+      {:needs_backfill, nil}
   end
 
   @doc "Lists version numbers for a post."
@@ -100,7 +112,12 @@ defmodule PhoenixKit.Modules.Publishing do
         |> Enum.map(& &1.version_number)
     end
   rescue
-    _ -> []
+    e ->
+      Logger.warning(
+        "[Publishing] list_versions failed for #{group_slug}/#{post_slug}: #{inspect(e)}"
+      )
+
+      []
   end
 
   @doc "Gets the published version number for a post."
@@ -119,7 +136,12 @@ defmodule PhoenixKit.Modules.Publishing do
         end
     end
   rescue
-    _ -> {:error, :not_found}
+    e ->
+      Logger.warning(
+        "[Publishing] get_published_version failed for #{group_slug}/#{post_slug}: #{inspect(e)}"
+      )
+
+      {:error, :not_found}
   end
 
   @doc "Gets the status of a specific version/language."
@@ -133,7 +155,12 @@ defmodule PhoenixKit.Modules.Publishing do
       _ -> "draft"
     end
   rescue
-    _ -> "draft"
+    e ->
+      Logger.warning(
+        "[Publishing] get_version_status failed for #{group_slug}/#{post_slug}/v#{version_number}/#{language}: #{inspect(e)}"
+      )
+
+      "draft"
   end
 
   @doc "Counts posts on a specific date for a group."
@@ -148,13 +175,18 @@ defmodule PhoenixKit.Modules.Publishing do
     date = if is_binary(date), do: Date.from_iso8601!(date), else: date
 
     group_slug
-    |> DBStorage.list_posts_timestamp_mode()
+    |> DBStorage.list_posts_timestamp_mode("published")
     |> Enum.filter(&(&1.post_date == date))
     |> Enum.map(&(Time.to_string(&1.post_time) |> String.slice(0, 5)))
     |> Enum.uniq()
     |> Enum.sort()
   rescue
-    _ -> []
+    e ->
+      Logger.warning(
+        "[Publishing] list_times_on_date failed for #{group_slug}/#{date}: #{inspect(e)}"
+      )
+
+      []
   end
 
   @doc """
@@ -253,7 +285,12 @@ defmodule PhoenixKit.Modules.Publishing do
       _ -> nil
     end
   rescue
-    _ -> nil
+    e ->
+      Logger.warning(
+        "[Publishing] get_version_metadata failed for #{group_slug}/#{post_slug}/v#{version_number}: #{inspect(e)}"
+      )
+
+      nil
   end
 
   # Delegate cache operations to ListingCache
@@ -274,7 +311,7 @@ defmodule PhoenixKit.Modules.Publishing do
   def find_by_url_slug(group_slug, language, url_slug) do
     case DBStorage.find_by_url_slug(group_slug, language, url_slug) do
       nil -> {:error, :not_found}
-      content -> {:ok, db_content_to_legacy_post(content)}
+      content -> {:ok, db_content_to_post_map(content)}
     end
   end
 
@@ -286,12 +323,12 @@ defmodule PhoenixKit.Modules.Publishing do
   def find_by_previous_url_slug(group_slug, language, url_slug) do
     case DBStorage.find_by_previous_url_slug(group_slug, language, url_slug) do
       nil -> {:error, :not_found}
-      content -> {:ok, db_content_to_legacy_post(content)}
+      content -> {:ok, db_content_to_post_map(content)}
     end
   end
 
-  # Converts a DBStorage content record (with preloaded version/post/group) to a legacy post map
-  defp db_content_to_legacy_post(content) do
+  # Converts a DBStorage content record (with preloaded version/post/group) to a post map
+  defp db_content_to_post_map(content) do
     version = content.version
     post = version.post
 
@@ -307,31 +344,17 @@ defmodule PhoenixKit.Modules.Publishing do
     }
   end
 
-  @doc "Always returns false — DB-only mode has no legacy groups."
-  def legacy_group?(_group_slug), do: false
-
-  @doc "Always returns false — DB-only mode has no legacy groups."
-  def has_legacy_groups?, do: false
-
-  # New settings keys (write to these)
   @publishing_enabled_key "publishing_enabled"
-  @publishing_groups_key "publishing_groups"
-
-  # Legacy settings keys (read from these as fallback)
-  @legacy_enabled_key "blogging_enabled"
-  @legacy_blogs_key "blogging_blogs"
-  @legacy_categories_key "blogging_categories"
 
   @default_group_mode "timestamp"
-  @default_group_type "blogging"
-  @preset_types ["blogging", "faq", "legal"]
+  @default_group_type "blog"
+  @preset_types ["blog", "faq", "legal"]
+  @valid_types ["blog", "faq", "legal", "custom"]
   @slug_regex ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
   @type_regex ~r/^[a-z][a-z0-9-]{0,31}$/
 
-  # Default item names for preset types (singular, plural)
-  # Note: "blogging" type value kept for backward compatibility
   @type_item_names %{
-    "blogging" => {"post", "posts"},
+    "blog" => {"post", "posts"},
     "faq" => {"question", "questions"},
     "legal" => {"document", "documents"}
   }
@@ -343,14 +366,10 @@ defmodule PhoenixKit.Modules.Publishing do
   @impl PhoenixKit.Module
   @doc """
   Returns true when the publishing module is enabled.
-  Checks new key first, falls back to legacy key.
   """
   @spec enabled?() :: boolean()
   def enabled? do
-    # Check new key first, then fall back to legacy key
-    # Uses get_boolean_setting (cached) to avoid DB queries on every sidebar render
-    settings_call(:get_boolean_setting, [@publishing_enabled_key, false]) or
-      settings_call(:get_boolean_setting, [@legacy_enabled_key, false])
+    settings_call(:get_boolean_setting, [@publishing_enabled_key, false])
   end
 
   @impl PhoenixKit.Module
@@ -452,15 +471,15 @@ defmodule PhoenixKit.Modules.Publishing do
       }
     end)
   rescue
-    _ -> []
+    e ->
+      Logger.warning("[Publishing] dashboard_tabs failed: #{inspect(e)}")
+      []
   end
 
   defp load_publishing_groups_for_tabs do
     alias PhoenixKit.Settings
 
-    publishing_enabled =
-      Settings.get_boolean_setting("publishing_enabled", false) or
-        Settings.get_boolean_setting("blogging_enabled", false)
+    publishing_enabled = Settings.get_boolean_setting("publishing_enabled", false)
 
     if publishing_enabled do
       alias PhoenixKit.Modules.Publishing.DBStorage
@@ -471,7 +490,9 @@ defmodule PhoenixKit.Modules.Publishing do
       []
     end
   rescue
-    _ -> []
+    e ->
+      Logger.warning("[Publishing] load_publishing_groups_for_tabs failed: #{inspect(e)}")
+      []
   end
 
   @impl PhoenixKit.Module
@@ -497,44 +518,12 @@ defmodule PhoenixKit.Modules.Publishing do
   def route_module, do: PhoenixKitWeb.Routes.PublishingRoutes
 
   @doc """
-  Returns all configured publishing groups.
-  Checks new key first, falls back to legacy keys.
+  Returns all publishing groups from the database.
   """
   @spec list_groups() :: [group()]
   def list_groups do
-    # Try new key first
-    case settings_call(:get_json_setting_cached, [@publishing_groups_key, nil]) do
-      %{"publishing_groups" => groups} when is_list(groups) ->
-        normalize_groups(groups)
-
-      %{"blogs" => groups} when is_list(groups) ->
-        # Handle if someone wrote with old structure to new key
-        normalize_groups(groups)
-
-      list when is_list(list) ->
-        normalize_groups(list)
-
-      _ ->
-        # Fall back to legacy blogging_blogs key
-        case settings_call(:get_json_setting_cached, [@legacy_blogs_key, nil]) do
-          %{"blogs" => groups} when is_list(groups) ->
-            normalize_groups(groups)
-
-          list when is_list(list) ->
-            normalize_groups(list)
-
-          _ ->
-            # Fall back to oldest legacy key (blogging_categories)
-            legacy =
-              case settings_call(:get_json_setting_cached, [@legacy_categories_key, nil]) do
-                %{"types" => types} when is_list(types) -> types
-                other when is_list(other) -> other
-                _ -> []
-              end
-
-            normalize_groups(legacy)
-        end
-    end
+    DBStorage.list_groups()
+    |> Enum.map(fn group -> group |> fix_stale_group() |> db_group_to_map() end)
   end
 
   @doc """
@@ -565,14 +554,14 @@ defmodule PhoenixKit.Modules.Publishing do
     * `opts` - Keyword list or map with options:
       * `:mode` - Post mode: "timestamp" or "slug" (default: "timestamp")
       * `:slug` - Optional custom slug, auto-generated from name if nil
-      * `:type` - Content type: "blogging", "faq", "legal", or custom (default: "blogging")
+      * `:type` - Content type: "blog", "faq", "legal", or custom (default: "blog")
       * `:item_singular` - Singular name for items (default: based on type, e.g., "post")
       * `:item_plural` - Plural name for items (default: based on type, e.g., "posts")
 
   ## Examples
 
       iex> Publishing.add_group("News")
-      {:ok, %{"name" => "News", "slug" => "news", "mode" => "timestamp", "type" => "blogging", ...}}
+      {:ok, %{"name" => "News", "slug" => "news", "mode" => "timestamp", "type" => "blog", ...}}
 
       iex> Publishing.add_group("FAQ", type: "faq", mode: "slug")
       {:ok, %{"name" => "FAQ", "slug" => "faq", "mode" => "slug", "type" => "faq", "item_singular" => "question", ...}}
@@ -606,7 +595,6 @@ defmodule PhoenixKit.Modules.Publishing do
              :ok <- check_slug_availability(requested_slug, groups, preferred_slug) do
           slug = ensure_unique_slug(requested_slug, groups)
 
-          # Get item names - use provided values or defaults based on type
           {default_singular, default_plural} = default_item_names(normalized_type)
 
           item_singular =
@@ -619,37 +607,28 @@ defmodule PhoenixKit.Modules.Publishing do
             |> fetch_option(:item_plural)
             |> normalize_item_name(default_plural)
 
-          group = %{
-            "name" => trimmed,
-            "slug" => slug,
-            "mode" => mode,
-            "type" => normalized_type,
-            "item_singular" => item_singular,
-            "item_plural" => item_plural
+          db_attrs = %{
+            name: trimmed,
+            slug: slug,
+            mode: mode,
+            data: %{
+              "type" => normalized_type,
+              "item_singular" => item_singular,
+              "item_plural" => item_plural
+            }
           }
 
-          updated = groups ++ [group]
-          payload = %{"publishing_groups" => updated}
+          case DBStorage.create_group(db_attrs) do
+            {:ok, db_group} ->
+              group = db_group_to_map(db_group)
+              PublishingPubSub.broadcast_group_created(group)
+              {:ok, group}
 
-          # Always write to new key
-          with {:ok, _} <- settings_call(:update_json_setting, [@publishing_groups_key, payload]) do
-            # Sync to DB table so create_post can find the group
-            DBStorage.upsert_group(build_group_attrs(group))
-
-            PublishingPubSub.broadcast_group_created(group)
-            {:ok, group}
+            {:error, _changeset} ->
+              {:error, :already_exists}
           end
         end
     end
-  end
-
-  # Legacy 4-arity version for backward compatibility
-  @doc false
-  @spec add_group(String.t(), String.t(), String.t() | nil, String.t() | nil) ::
-          {:ok, group()} | {:error, atom()}
-  def add_group(name, mode, preferred_slug, type)
-      when is_binary(name) and is_binary(mode) do
-    add_group(name, mode: mode, slug: preferred_slug, type: type)
   end
 
   @doc """
@@ -657,22 +636,39 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec remove_group(String.t()) :: {:ok, any()} | {:error, any()}
   def remove_group(slug) when is_binary(slug) do
-    updated =
-      list_groups()
-      |> Enum.reject(&(&1["slug"] == slug))
+    remove_group(slug, force: false)
+  end
 
-    result =
-      settings_call(:update_json_setting, [
-        @publishing_groups_key,
-        %{"publishing_groups" => updated}
-      ])
+  @doc """
+  Removes a publishing group by slug.
 
-    # Broadcast after successful deletion
-    if match?({:ok, _}, result) do
-      PublishingPubSub.broadcast_group_deleted(slug)
+  By default, refuses to delete groups that contain posts.
+  Pass `force: true` to cascade-delete the group and all its posts.
+  """
+  def remove_group(slug, opts) when is_binary(slug) do
+    force = Keyword.get(opts, :force, false)
+
+    case DBStorage.get_group_by_slug(slug) do
+      nil ->
+        {:error, :not_found}
+
+      db_group ->
+        post_count = DBStorage.count_posts(db_group.slug)
+
+        if post_count > 0 and not force do
+          {:error, {:has_posts, post_count}}
+        else
+          case DBStorage.delete_group(db_group) do
+            {:ok, _} ->
+              ListingCache.invalidate(slug)
+              PublishingPubSub.broadcast_group_deleted(slug)
+              {:ok, slug}
+
+            error ->
+              error
+          end
+        end
     end
-
-    result
   end
 
   @doc """
@@ -680,44 +676,47 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec update_group(String.t(), map() | keyword()) :: {:ok, group()} | {:error, atom()}
   def update_group(slug, params) when is_binary(slug) do
-    groups = list_groups()
+    case DBStorage.get_group_by_slug(slug) do
+      nil ->
+        {:error, :not_found}
 
-    case Enum.find(groups, &(&1["slug"] == slug)) do
-      nil -> {:error, :not_found}
-      group -> process_group_update(group, groups, params)
+      db_group ->
+        with {:ok, name} <- extract_and_validate_name(db_group, params),
+             {:ok, sanitized_slug} <- extract_and_validate_slug(db_group, params, name) do
+          case DBStorage.update_group(db_group, %{name: name, slug: sanitized_slug}) do
+            {:ok, updated} ->
+              group = db_group_to_map(updated)
+              PublishingPubSub.broadcast_group_updated(group)
+              {:ok, group}
+
+            {:error, _} = error ->
+              error
+          end
+        end
     end
   end
 
-  defp process_group_update(group, groups, params) do
-    with {:ok, name} <- extract_and_validate_name(group, params),
-         {:ok, sanitized_slug} <- extract_and_validate_slug(group, params, name),
-         :ok <- check_slug_uniqueness(group, groups, sanitized_slug) do
-      apply_group_update(group, groups, name, sanitized_slug)
-    end
-  end
-
-  defp extract_and_validate_name(group, params) do
+  defp extract_and_validate_name(db_group, params) do
     name =
       params
       |> fetch_option(:name)
       |> case do
-        nil -> group["name"]
+        nil -> db_group.name
         value -> String.trim(to_string(value || ""))
       end
 
     if name == "", do: {:error, :invalid_name}, else: {:ok, name}
   end
 
-  defp extract_and_validate_slug(group, params, name) do
+  defp extract_and_validate_slug(db_group, params, name) do
     desired_slug =
       params
       |> fetch_option(:slug)
       |> case do
-        nil -> group["slug"]
+        nil -> db_group.slug
         value -> String.trim(to_string(value || ""))
       end
 
-    # If slug is empty, auto-generate from name; otherwise validate as-is
     cond do
       desired_slug == "" ->
         auto_slug = slugify(name)
@@ -731,35 +730,12 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  defp check_slug_uniqueness(group, groups, sanitized_slug) do
-    if sanitized_slug != group["slug"] and Enum.any?(groups, &(&1["slug"] == sanitized_slug)) do
-      {:error, :already_exists}
-    else
-      :ok
-    end
-  end
-
-  defp apply_group_update(group, groups, name, sanitized_slug) do
-    updated_group =
-      group
-      |> Map.put("name", name)
-      |> Map.put("slug", sanitized_slug)
-
-    with {:ok, _} <- persist_group_update(groups, group["slug"], updated_group) do
-      PublishingPubSub.broadcast_group_updated(updated_group)
-      {:ok, updated_group}
-    end
-  end
-
   @doc """
-  Removes a publishing group. The group is removed from the active groups list
-  and soft-deleted in the database.
+  Removes a publishing group and all its posts.
   """
   @spec trash_group(String.t()) :: {:ok, String.t()} | {:error, any()}
   def trash_group(slug) when is_binary(slug) do
-    with {:ok, _} <- remove_group(slug) do
-      {:ok, slug}
-    end
+    remove_group(slug)
   end
 
   @doc """
@@ -780,6 +756,327 @@ defmodule PhoenixKit.Modules.Publishing do
     list_groups()
     |> Enum.find(%{}, &(&1["slug"] == group_slug))
     |> Map.get("mode", @default_group_mode)
+  end
+
+  # ===========================================================================
+  # Stale Value Correction
+  # ===========================================================================
+
+  @valid_group_modes ["timestamp", "slug"]
+  @valid_post_statuses ["draft", "published", "archived", "scheduled"]
+  @valid_version_statuses ["draft", "published", "archived"]
+
+  @doc """
+  Fixes stale or invalid values on a publishing group record.
+
+  Checks and corrects:
+  - `mode` — must be "timestamp" or "slug" (defaults to "timestamp")
+  - `data.type` — must be in valid_types (defaults to "custom")
+  - `data.item_singular` — must be a non-empty string (defaults based on type)
+  - `data.item_plural` — must be a non-empty string (defaults based on type)
+
+  Can be called explicitly or runs lazily when groups are loaded in the admin.
+  Returns the group unchanged if no fixes are needed.
+  """
+  @spec fix_stale_group(PublishingGroup.t()) :: PublishingGroup.t()
+  def fix_stale_group(%PublishingGroup{} = group) do
+    attrs = build_group_fixes(group)
+    apply_stale_fix(group, attrs, &DBStorage.update_group/2)
+  end
+
+  defp build_group_fixes(group) do
+    data = group.data || %{}
+    type = Map.get(data, "type", @default_group_type)
+    fixed_type = if type in @valid_types, do: type, else: "custom"
+    fixed_mode = if group.mode in @valid_group_modes, do: group.mode, else: @default_group_mode
+
+    {default_singular, default_plural} = default_item_names(fixed_type)
+    item_singular = Map.get(data, "item_singular")
+    item_plural = Map.get(data, "item_plural")
+
+    fixed_singular = valid_string_or_default(item_singular, default_singular)
+    fixed_plural = valid_string_or_default(item_plural, default_plural)
+
+    data_changes =
+      data
+      |> maybe_update("type", type, fixed_type)
+      |> maybe_update("item_singular", item_singular, fixed_singular)
+      |> maybe_update("item_plural", item_plural, fixed_plural)
+
+    attrs = if data_changes != data, do: %{data: data_changes}, else: %{}
+    if fixed_mode != group.mode, do: Map.put(attrs, :mode, fixed_mode), else: attrs
+  end
+
+  defp valid_string_or_default(val, default) do
+    if is_binary(val) and val != "", do: val, else: default
+  end
+
+  @doc """
+  Fixes stale or invalid values on a publishing post record.
+
+  Checks and corrects:
+  - `primary_language` — must be a recognized language code. Resolution order:
+    1. Tries to resolve a dialect (e.g., "en" → "en-US")
+    2. Falls back to the first available language on the post
+    3. Falls back to the system primary language
+  - `status` — must be a valid post status (defaults to "draft")
+  - `mode` — must be "timestamp" or "slug" (defaults to "timestamp")
+  - `post_date`/`post_time` — must be present for timestamp mode posts
+
+  Only fixes languages not in the master predefined list — languages that were
+  added, used, then removed from enabled are left untouched.
+  """
+  @spec fix_stale_post(PublishingPost.t()) :: PublishingPost.t()
+  def fix_stale_post(%PublishingPost{} = post) do
+    attrs = build_post_fixes(post)
+    apply_stale_fix(post, attrs, &DBStorage.update_post/2)
+  end
+
+  defp build_post_fixes(post) do
+    %{}
+    |> maybe_fix_post_language(post)
+    |> maybe_fix_post_status(post)
+    |> maybe_fix_post_mode(post)
+    |> maybe_fix_post_timestamp(post)
+  end
+
+  defp maybe_fix_post_language(attrs, post) do
+    case fix_stale_language(post) do
+      nil -> attrs
+      fixed_lang -> Map.put(attrs, :primary_language, fixed_lang)
+    end
+  end
+
+  defp maybe_fix_post_status(attrs, post) do
+    if post.status in @valid_post_statuses, do: attrs, else: Map.put(attrs, :status, "draft")
+  end
+
+  defp maybe_fix_post_mode(attrs, post) do
+    fixed_mode = if post.mode in @valid_group_modes, do: post.mode, else: @default_group_mode
+    if fixed_mode != post.mode, do: Map.put(attrs, :mode, fixed_mode), else: attrs
+  end
+
+  defp maybe_fix_post_timestamp(attrs, post) do
+    if (attrs[:mode] || post.mode) == "timestamp" do
+      now = DateTime.utc_now()
+
+      attrs
+      |> then(fn a ->
+        if is_nil(post.post_date), do: Map.put(a, :post_date, DateTime.to_date(now)), else: a
+      end)
+      |> then(fn a ->
+        if is_nil(post.post_time),
+          do: Map.put(a, :post_time, Time.new!(now.hour, now.minute, 0)),
+          else: a
+      end)
+    else
+      attrs
+    end
+  end
+
+  # Returns the fixed language or nil if no fix needed.
+  defp fix_stale_language(post) do
+    lang = post.primary_language
+
+    if lang && Languages.get_predefined_language(lang) do
+      nil
+    else
+      fixed = resolve_stale_language(lang, post)
+      if fixed != lang, do: fixed, else: nil
+    end
+  end
+
+  defp resolve_stale_language(lang, post) do
+    dialect = if lang, do: Languages.DialectMapper.base_to_dialect(lang), else: nil
+
+    if dialect && Languages.get_predefined_language(dialect) do
+      dialect
+    else
+      available = post_available_languages(post)
+
+      if available != [] do
+        Enum.find(available, hd(available), fn code ->
+          Languages.get_predefined_language(code) != nil
+        end)
+      else
+        LanguageHelpers.get_primary_language()
+      end
+    end
+  end
+
+  defp post_available_languages(post) do
+    case DBStorage.list_versions(post.uuid) do
+      [] -> []
+      versions -> DBStorage.list_languages(hd(versions).uuid)
+    end
+  end
+
+  defp apply_stale_fix(record, attrs, _update_fn) when attrs == %{}, do: record
+
+  defp apply_stale_fix(record, attrs, update_fn) do
+    identifier = Map.get(record, :uuid) || Map.get(record, :slug) || "unknown"
+
+    Logger.info(
+      "[Publishing] Fixing stale values for #{record.__struct__} #{identifier}: #{inspect(attrs)}"
+    )
+
+    case update_fn.(record, attrs) do
+      {:ok, updated} ->
+        updated
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Publishing] Failed to fix stale values for #{identifier}: #{inspect(reason)}"
+        )
+
+        record
+    end
+  end
+
+  defp maybe_update(data, key, old_val, new_val) do
+    if old_val != new_val, do: Map.put(data, key, new_val), else: data
+  end
+
+  @doc """
+  Fixes stale values across all groups, posts, versions, and content.
+  Also reconciles status consistency between posts, versions, and content.
+  Callable via internal API or IEx.
+  """
+  @spec fix_all_stale_values() :: :ok
+  def fix_all_stale_values do
+    groups = DBStorage.list_groups()
+    Enum.each(groups, &fix_stale_group/1)
+
+    for group <- groups do
+      posts = DBStorage.list_posts(group.slug)
+      Enum.each(posts, &fix_stale_post/1)
+
+      # Fix versions, content, and status consistency for each post
+      for post <- posts do
+        versions = DBStorage.list_versions(post.uuid)
+
+        for version <- versions do
+          fix_stale_version(version)
+
+          contents = DBStorage.list_contents(version.uuid)
+          Enum.each(contents, &fix_stale_content/1)
+        end
+
+        # Reconcile status consistency after individual fixes
+        reconcile_post_status(post)
+      end
+    end
+
+    :ok
+  end
+
+  @doc false
+  def fix_stale_version(version) do
+    if version.status not in @valid_version_statuses do
+      Logger.info(
+        "[Publishing] Fixing stale version #{version.uuid}: status #{inspect(version.status)} → \"draft\""
+      )
+
+      DBStorage.update_version(version, %{status: "draft"})
+    end
+  end
+
+  @doc false
+  def fix_stale_content(content) do
+    attrs =
+      %{}
+      |> maybe_fix_content_status(content)
+      |> maybe_fix_content_language(content)
+
+    if attrs != %{} do
+      Logger.info(
+        "[Publishing] Fixing stale content #{content.uuid} (#{content.language}): #{inspect(attrs)}"
+      )
+
+      DBStorage.update_content(content, attrs)
+    end
+  end
+
+  defp maybe_fix_content_status(attrs, content) do
+    if content.status in @valid_version_statuses,
+      do: attrs,
+      else: Map.put(attrs, :status, "draft")
+  end
+
+  defp maybe_fix_content_language(attrs, content) do
+    if is_binary(content.language) and content.language != "" do
+      attrs
+    else
+      Map.put(attrs, :language, LanguageHelpers.get_primary_language())
+    end
+  end
+
+  # Reconciles status consistency between a post, its versions, and content.
+  #
+  # Rules enforced:
+  # 1. Post "published" requires at least one "published" version → else demote to "draft"
+  # 2. Version "published" requires its post to be "published" → else archive the version
+  # 3. Content "published" requires its version to be "published" → else demote to "draft"
+  # 4. Non-published versions cannot have "published" content → demote content to "draft"
+  #
+  # Note: individual translations CAN be "draft" while the version is "published" —
+  # this is the normal state for untranslated languages. We only fix content that
+  # claims to be "published" when it shouldn't be.
+  @doc false
+  def reconcile_post_status(%PublishingPost{} = post) do
+    # Re-read to get current state after individual fixes
+    post = DBStorage.get_post_by_uuid(post.uuid) || post
+    versions = DBStorage.list_versions(post.uuid)
+
+    published_versions = Enum.filter(versions, &(&1.status == "published"))
+
+    cond do
+      # Post says published but no version backs it up
+      post.status == "published" and published_versions == [] ->
+        Logger.info(
+          "[Publishing] Reconcile: post #{post.uuid} is published but has no published versions, demoting to draft"
+        )
+
+        DBStorage.update_post(post, %{status: "draft"})
+
+      # Post is not published but a version claims to be — archive the version
+      post.status in ["draft", "archived"] and published_versions != [] ->
+        Logger.info(
+          "[Publishing] Reconcile: post #{post.uuid} is #{inspect(post.status)} but has #{length(published_versions)} published versions, archiving"
+        )
+
+        for v <- published_versions do
+          DBStorage.update_version(v, %{status: "archived"})
+          demote_published_content(v.uuid)
+        end
+
+      true ->
+        :ok
+    end
+
+    # For ALL non-published versions, no content should be "published"
+    non_published_versions = Enum.reject(versions, &(&1.status == "published"))
+
+    for v <- non_published_versions do
+      demote_published_content(v.uuid)
+    end
+  end
+
+  # Demotes any "published" content rows to "draft" within a version.
+  # Leaves "draft" and "archived" content untouched.
+  defp demote_published_content(version_uuid) do
+    contents = DBStorage.list_contents(version_uuid)
+    published = Enum.filter(contents, &(&1.status == "published"))
+
+    if published != [] do
+      Logger.info(
+        "[Publishing] Demoting #{length(published)} published content row(s) to \"draft\" in version #{version_uuid}"
+      )
+
+      for content <- published do
+        DBStorage.update_content(content, %{status: "draft"})
+      end
+    end
   end
 
   @doc """
@@ -855,24 +1152,35 @@ defmodule PhoenixKit.Modules.Publishing do
           post_attrs
         end
 
-      with {:ok, db_post} <- DBStorage.create_post(post_attrs),
-           {:ok, db_version} <-
-             DBStorage.create_version(%{
-               post_uuid: db_post.uuid,
-               version_number: 1,
-               status: "draft",
-               created_by_uuid: created_by_uuid
-             }),
-           {:ok, _content} <-
-             DBStorage.create_content(%{
-               version_uuid: db_version.uuid,
-               language: primary_language,
-               title: fetch_option(opts, :title) || "",
-               content: fetch_option(opts, :content) || "",
-               status: "draft",
-               url_slug: post_slug
-             }) do
-        # Read back via mapper to get a proper legacy map with UUID
+      repo = PhoenixKit.RepoHelper.repo()
+
+      tx_result =
+        repo.transaction(fn ->
+          with {:ok, db_post} <- DBStorage.create_post(post_attrs),
+               {:ok, db_version} <-
+                 DBStorage.create_version(%{
+                   post_uuid: db_post.uuid,
+                   version_number: 1,
+                   status: "draft",
+                   created_by_uuid: created_by_uuid
+                 }),
+               {:ok, _content} <-
+                 DBStorage.create_content(%{
+                   version_uuid: db_version.uuid,
+                   language: primary_language,
+                   title: fetch_option(opts, :title) || "",
+                   content: fetch_option(opts, :content) || "",
+                   status: "draft",
+                   url_slug: post_slug
+                 }) do
+            db_post
+          else
+            {:error, reason} -> repo.rollback(reason)
+          end
+        end)
+
+      with {:ok, db_post} <- tx_result do
+        # Read back via mapper to get a proper post map with UUID
         read_result =
           if mode == "timestamp" do
             DBStorage.read_post_by_datetime(
@@ -898,7 +1206,9 @@ defmodule PhoenixKit.Modules.Publishing do
       end
     end
   catch
-    {:error, reason} -> {:error, reason}
+    {:error, reason} ->
+      Logger.warning("[Publishing] create_post failed for #{group_slug}: #{inspect(reason)}")
+      {:error, reason}
   end
 
   defp resolve_scope_user_uuids(nil), do: nil
@@ -919,6 +1229,7 @@ defmodule PhoenixKit.Modules.Publishing do
         {:error, :not_found}
 
       db_post ->
+        db_post = fix_stale_post(db_post)
         group_slug = db_post.group.slug
         version_number = if version, do: normalize_version_number(version), else: nil
 
@@ -935,8 +1246,9 @@ defmodule PhoenixKit.Modules.Publishing do
         end
     end
   rescue
-    Ecto.QueryError -> {:error, :not_found}
-    DBConnection.ConnectionError -> {:error, :not_found}
+    e in [Ecto.QueryError, DBConnection.ConnectionError] ->
+      Logger.warning("[Publishing] read_post_by_uuid failed for #{post_uuid}: #{inspect(e)}")
+      {:error, :not_found}
   end
 
   @doc """
@@ -1002,12 +1314,13 @@ defmodule PhoenixKit.Modules.Publishing do
 
   defp normalize_version_number(nil), do: nil
 
-  defp normalize_version_number(v) when is_integer(v), do: v
+  defp normalize_version_number(v) when is_integer(v) and v > 0, do: v
+  defp normalize_version_number(v) when is_integer(v), do: nil
 
   defp normalize_version_number(v) do
     case Integer.parse("#{v}") do
-      {n, _} -> n
-      :error -> nil
+      {n, _} when n > 0 -> n
+      _ -> nil
     end
   end
 
@@ -1072,7 +1385,7 @@ defmodule PhoenixKit.Modules.Publishing do
             |> case do
               nil -> nil
               "" -> nil
-              lang_file -> lang_file
+              lang_code -> lang_code
             end
 
           {:ok, date, time, version, lang}
@@ -1094,7 +1407,7 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   # Adds a language to a post.
-  # Creates a new content row in the database and returns the legacy map.
+  # Creates a new content row in the database and returns the post map.
   @doc false
   def add_language_to_db(group_slug, post_uuid, language_code, version_number) do
     with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
@@ -1113,7 +1426,7 @@ defmodule PhoenixKit.Modules.Publishing do
              content: "",
              status: "draft"
            }) do
-      # Read the post back from DB to return a proper legacy map
+      # Read the post back from DB to return a proper post map
       read_back_post(group_slug, post_uuid, db_post, language_code, version.version_number)
     else
       nil ->
@@ -1127,8 +1440,12 @@ defmodule PhoenixKit.Modules.Publishing do
         {:error, reason}
     end
   rescue
-    Ecto.QueryError -> {:error, :not_found}
-    DBConnection.ConnectionError -> {:error, :not_found}
+    e in [Ecto.QueryError, DBConnection.ConnectionError] ->
+      Logger.warning(
+        "[Publishing] add_language_to_db failed for #{group_slug}/#{post_uuid}/#{language_code}: #{inspect(e)}"
+      )
+
+      {:error, :not_found}
   end
 
   defp uuid_format?(str) when is_binary(str), do: match?({:ok, _}, UUIDv7.cast(str))
@@ -1176,7 +1493,7 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   # Updates a post in the database.
-  # Writes directly to the database and returns the updated legacy map.
+  # Writes directly to the database and returns the updated post map.
   defp update_post_in_db(group_slug, post, params, _audit_meta) do
     db_post = find_db_post_for_update(group_slug, post)
 
@@ -1236,8 +1553,16 @@ defmodule PhoenixKit.Modules.Publishing do
          {:ok, _} <- DBStorage.update_post(db_post, %{slug: valid_slug}) do
       {:ok, valid_slug}
     else
-      true -> {:error, :slug_already_exists}
-      {:error, reason} -> {:error, reason}
+      true ->
+        {:error, :slug_already_exists}
+
+      {:error, %Ecto.Changeset{errors: errors}} ->
+        if Keyword.has_key?(errors, :slug),
+          do: {:error, :slug_already_exists},
+          else: {:error, :db_update_failed}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -1247,7 +1572,8 @@ defmodule PhoenixKit.Modules.Publishing do
 
     if version do
       language = post[:language] || db_post.primary_language
-      new_status = Map.get(params, "status", post[:metadata][:status] || "draft")
+      post_metadata = post[:metadata] || %{}
+      new_status = Map.get(params, "status", post_metadata[:status] || "draft")
       content = Map.get(params, "content", post[:content] || "")
       new_title = resolve_post_title(params, post, content)
 
@@ -1279,15 +1605,18 @@ defmodule PhoenixKit.Modules.Publishing do
       {:error, :not_found}
     end
   catch
-    {:post_update_failed, reason} -> {:error, reason}
+    {:post_update_failed, reason} ->
+      Logger.warning("[Publishing] update_post failed for #{group_slug}: #{inspect(reason)}")
+      {:error, reason}
   end
 
   defp resolve_post_title(params, post, content) do
     extracted_title = Metadata.extract_title_from_content(content)
+    post_metadata = post[:metadata] || %{}
 
     Map.get(params, "title") ||
       if(extracted_title != "Untitled", do: extracted_title) ||
-      post[:metadata][:title] ||
+      post_metadata[:title] ||
       "Untitled"
   end
 
@@ -1312,15 +1641,18 @@ defmodule PhoenixKit.Modules.Publishing do
         :error -> existing_url_slug
       end
 
-    DBStorage.upsert_content(%{
-      version_uuid: version.uuid,
-      language: language,
-      title: new_title,
-      content: content,
-      status: new_status,
-      url_slug: resolved_url_slug,
-      data: build_content_data(params, post, existing_data)
-    })
+    case DBStorage.upsert_content(%{
+           version_uuid: version.uuid,
+           language: language,
+           title: new_title,
+           content: content,
+           status: new_status,
+           url_slug: resolved_url_slug,
+           data: build_content_data(params, post, existing_data)
+         }) do
+      {:ok, _} -> :ok
+      {:error, reason} -> throw({:post_update_failed, reason})
+    end
   end
 
   defp maybe_propagate_status(version, language, db_post, new_status, old_db_status) do
@@ -1344,7 +1676,12 @@ defmodule PhoenixKit.Modules.Publishing do
         end
     end
   rescue
-    _ -> {:error, :post_not_found}
+    e ->
+      Logger.warning(
+        "[Publishing] update_primary_language_in_db failed for #{post_uuid}: #{inspect(e)}"
+      )
+
+      {:error, :post_not_found}
   end
 
   defp resolve_db_version(db_post, nil), do: DBStorage.get_latest_version(db_post.uuid)
@@ -1385,7 +1722,9 @@ defmodule PhoenixKit.Modules.Publishing do
         id -> Map.put(data, "featured_image_uuid", id)
       end
 
-    case Map.get(params, "description", post[:metadata][:description]) do
+    post_metadata = post[:metadata] || %{}
+
+    case Map.get(params, "description", post_metadata[:description]) do
       nil -> data
       desc -> Map.put(data, "description", desc)
     end
@@ -1437,9 +1776,9 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Publishes a version, making it the only published version.
 
-  - All files in the target version (primary and translations) → `status: "published"`
-  - All files in other versions that were "published" → `status: "archived"`
-  - Draft/archived files in other versions keep their current status
+  - All content in the target version (primary and translations) → `status: "published"`
+  - All content in other versions that were "published" → `status: "archived"`
+  - Draft/archived content in other versions keeps its current status
 
   ## Options
 
@@ -1462,39 +1801,82 @@ defmodule PhoenixKit.Modules.Publishing do
     db_post = DBStorage.get_post_by_uuid(post_uuid, [:group])
     unless db_post, do: throw({:error, :not_found})
 
-    # Set target version to published, archive previously-published versions
-    for v <- DBStorage.list_versions(db_post.uuid) do
+    # Wrap the entire publish operation in a transaction for atomicity
+    repo = PhoenixKit.RepoHelper.repo()
+
+    tx_result =
+      repo.transaction(fn ->
+        # Validate target version exists
+        versions = DBStorage.list_versions(db_post.uuid)
+
+        unless Enum.any?(versions, &(&1.version_number == version)) do
+          repo.rollback(:version_not_found)
+        end
+
+        # Set target version to published, archive previously-published versions
+        # Also update content status to match so public rendering works correctly
+        update_version_statuses!(repo, versions, version)
+
+        # Update post status and published_at
+        update_post_published!(repo, db_post)
+      end)
+
+    case tx_result do
+      {:ok, _} ->
+        source_id = Keyword.get(opts, :source_id)
+        broadcast_id = db_post.slug || db_post.uuid
+        ListingCache.regenerate(group_slug)
+        PublishingPubSub.broadcast_version_live_changed(group_slug, broadcast_id, version)
+
+        PublishingPubSub.broadcast_post_version_published(
+          group_slug,
+          broadcast_id,
+          version,
+          source_id
+        )
+
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  catch
+    {:error, reason} = err ->
+      Logger.warning(
+        "[Publishing] publish_version failed for #{group_slug}/#{post_uuid}/v#{version}: #{inspect(reason)}"
+      )
+
+      err
+  end
+
+  defp update_version_statuses!(repo, versions, target_version) do
+    for v <- versions do
       new_status =
         cond do
-          v.version_number == version -> "published"
+          v.version_number == target_version -> "published"
           v.status == "published" -> "archived"
           true -> v.status
         end
 
-      if new_status != v.status, do: DBStorage.update_version(v, %{status: new_status})
+      if new_status != v.status do
+        case DBStorage.update_version(v, %{status: new_status}) do
+          {:ok, _} -> :ok
+          {:error, reason} -> repo.rollback(reason)
+        end
+
+        DBStorage.update_content_status(v.uuid, new_status)
+      end
     end
+  end
 
-    # Update post status and published_at
-    DBStorage.update_post(db_post, %{
-      status: "published",
-      published_at: db_post.published_at || UtilsDate.utc_now()
-    })
-
-    source_id = Keyword.get(opts, :source_id)
-    broadcast_id = db_post.slug || db_post.uuid
-    ListingCache.regenerate(group_slug)
-    PublishingPubSub.broadcast_version_live_changed(group_slug, broadcast_id, version)
-
-    PublishingPubSub.broadcast_post_version_published(
-      group_slug,
-      broadcast_id,
-      version,
-      source_id
-    )
-
-    :ok
-  catch
-    {:error, _} = err -> err
+  defp update_post_published!(repo, db_post) do
+    case DBStorage.update_post(db_post, %{
+           status: "published",
+           published_at: db_post.published_at || UtilsDate.utc_now()
+         }) do
+      {:ok, _} -> :ok
+      {:error, reason} -> repo.rollback(reason)
+    end
   end
 
   @doc """
@@ -1569,7 +1951,12 @@ defmodule PhoenixKit.Modules.Publishing do
       end
     end
   catch
-    {:error, reason} -> {:error, reason}
+    {:error, reason} ->
+      Logger.warning(
+        "[Publishing] create_version failed for #{group_slug}/#{post_uuid}: #{inspect(reason)}"
+      )
+
+      {:error, reason}
   end
 
   @doc false
@@ -1599,7 +1986,8 @@ defmodule PhoenixKit.Modules.Publishing do
   """
   @spec set_translation_status(String.t(), String.t(), integer(), String.t(), String.t()) ::
           :ok | {:error, any()}
-  def set_translation_status(group_slug, post_identifier, version, language, status) do
+  def set_translation_status(group_slug, post_identifier, version, language, status)
+      when status in ["draft", "published", "archived"] do
     db_post =
       if uuid_format?(post_identifier) do
         DBStorage.get_post_by_uuid(post_identifier)
@@ -1623,11 +2011,8 @@ defmodule PhoenixKit.Modules.Publishing do
     end
   end
 
-  @doc false
-  @deprecated "Use publish_version/3 instead"
-  @spec set_version_live(String.t(), String.t(), integer()) :: :ok | {:error, any()}
-  def set_version_live(group_slug, post_slug, version) do
-    publish_version(group_slug, post_slug, version)
+  def set_translation_status(_group_slug, _post_identifier, _version, _language, _status) do
+    {:error, :invalid_status}
   end
 
   @doc """
@@ -1684,8 +2069,8 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Deletes a specific language translation from a post.
 
-  For versioned posts, specify the version. For legacy posts, version is ignored.
-  Refuses to delete the last remaining language file.
+  For versioned posts, specify the version. For unversioned posts, version is ignored.
+  Refuses to delete the last remaining language content.
 
   Returns :ok on success or {:error, reason} on failure.
   """
@@ -1716,7 +2101,12 @@ defmodule PhoenixKit.Modules.Publishing do
       nil -> {:error, :not_found}
     end
   catch
-    {:error, _} = err -> err
+    {:error, reason} = err ->
+      Logger.warning(
+        "[Publishing] delete_language failed for #{group_slug}/#{post_uuid}/#{language_code}: #{inspect(reason)}"
+      )
+
+      err
   end
 
   @doc """
@@ -1755,21 +2145,13 @@ defmodule PhoenixKit.Modules.Publishing do
       nil -> {:error, :not_found}
     end
   catch
-    {:error, _} = err -> err
+    {:error, reason} = err ->
+      Logger.warning(
+        "[Publishing] delete_version failed for #{group_slug}/#{post_uuid}/v#{version}: #{inspect(reason)}"
+      )
+
+      err
   end
-
-  # Legacy wrappers (deprecated)
-  def list_entries(group_slug, preferred_language \\ nil),
-    do: list_posts(group_slug, preferred_language)
-
-  def create_entry(group_slug), do: create_post(group_slug)
-
-  def read_entry(group_slug, relative_path), do: read_post(group_slug, relative_path)
-
-  def update_entry(group_slug, post, params), do: update_post(group_slug, post, params)
-
-  def add_language_to_entry(group_slug, post_path, language_code),
-    do: add_language_to_post(group_slug, post_path, language_code)
 
   @doc """
   Generates a slug from a user-provided group name.
@@ -1804,7 +2186,12 @@ defmodule PhoenixKit.Modules.Publishing do
       try do
         Languages.get_language_codes()
       rescue
-        _ -> []
+        e ->
+          Logger.debug(
+            "[Publishing] reserved_language_code? check failed, assuming no reserved codes: #{inspect(e)}"
+          )
+
+          []
       end
 
     slug in language_codes
@@ -1812,7 +2199,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   # Determines if a post update should trigger cache regeneration.
   # For versioned posts (slug mode with version info), only regenerate if the post is published.
-  # For non-versioned posts (timestamp mode or legacy), always regenerate.
+  # For non-versioned posts (timestamp mode), always regenerate.
   defp should_regenerate_cache?(post) do
     mode = Map.get(post, :mode)
     metadata = Map.get(post, :metadata, %{})
@@ -1822,7 +2209,7 @@ defmodule PhoenixKit.Modules.Publishing do
     cond do
       # Timestamp mode posts always regenerate (no versioning)
       mode == :timestamp -> true
-      # Slug mode posts without version info (legacy) always regenerate
+      # Slug mode posts without version info always regenerate
       is_nil(version) -> true
       # Slug mode posts: always regenerate to keep language_slugs current
       # The cache stores url_slugs for ALL translations, so any edit
@@ -1836,9 +2223,8 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   defp settings_module do
-    # Check new key first, fall back to legacy key for backward compatibility
     case PhoenixKit.Config.get(:publishing_settings_module) do
-      :not_found -> PhoenixKit.Config.get(:blogging_settings_module, PhoenixKit.Settings)
+      :not_found -> PhoenixKit.Settings
       {:ok, module} -> module
     end
   end
@@ -1859,49 +2245,6 @@ defmodule PhoenixKit.Modules.Publishing do
         apply(module, fun, args)
     end
   end
-
-  defp normalize_groups(groups) do
-    groups
-    |> Enum.map(&normalize_group_keys/1)
-    |> Enum.map(fn group ->
-      group
-      |> ensure_mode()
-      |> ensure_type()
-    end)
-  end
-
-  defp ensure_mode(%{"mode" => mode} = group) when mode in ["timestamp", "slug"], do: group
-  defp ensure_mode(group), do: Map.put(group, "mode", @default_group_mode)
-
-  # Ensure type field exists, defaulting to "blogging" for backward compatibility
-  # Also ensures item_singular and item_plural are set based on the type
-  defp ensure_type(group) do
-    type = Map.get(group, "type")
-    type = if is_binary(type) and type != "", do: type, else: @default_group_type
-
-    {default_singular, default_plural} =
-      Map.get(@type_item_names, type, {@default_item_singular, @default_item_plural})
-
-    group
-    |> Map.put("type", type)
-    |> Map.put_new("item_singular", default_singular)
-    |> Map.put_new("item_plural", default_plural)
-  end
-
-  defp normalize_group_keys(group) when is_map(group) do
-    Enum.reduce(group, %{}, fn
-      {key, value}, acc when is_binary(key) ->
-        Map.put(acc, key, value)
-
-      {key, value}, acc when is_atom(key) ->
-        Map.put(acc, Atom.to_string(key), value)
-
-      {key, value}, acc ->
-        Map.put(acc, to_string(key), value)
-    end)
-  end
-
-  defp normalize_group_keys(other), do: other
 
   defp normalize_mode(mode) when is_binary(mode) do
     mode
@@ -2005,25 +2348,21 @@ defmodule PhoenixKit.Modules.Publishing do
 
   @doc """
   Returns the preset content types with their default item names.
-
-  ## Examples
-
-      iex> Publishing.preset_types()
-      [
-        %{type: "blogging", label: "Blog", item_singular: "post", item_plural: "posts"},
-        %{type: "faq", label: "FAQ", item_singular: "question", item_plural: "questions"},
-        %{type: "legal", label: "Legal", item_singular: "document", item_plural: "documents"}
-      ]
   """
   @spec preset_types() :: [map()]
   def preset_types do
     [
-      # Note: type value "blogging" kept for backward compatibility, label is "Blog"
-      %{type: "blogging", label: "Blog", item_singular: "post", item_plural: "posts"},
+      %{type: "blog", label: "Blog", item_singular: "post", item_plural: "posts"},
       %{type: "faq", label: "FAQ", item_singular: "question", item_plural: "questions"},
       %{type: "legal", label: "Legal", item_singular: "document", item_plural: "documents"}
     ]
   end
+
+  @doc """
+  Returns the list of valid group type values.
+  """
+  @spec valid_types() :: [String.t()]
+  def valid_types, do: @valid_types
 
   @doc false
   def fetch_option(opts, key) when is_map(opts) do
@@ -2081,17 +2420,15 @@ defmodule PhoenixKit.Modules.Publishing do
   defp maybe_put_audit(map, _key, nil), do: map
   defp maybe_put_audit(map, key, value), do: Map.put(map, key, value)
 
-  defp persist_group_update(groups, slug, updated_group) do
-    updated =
-      Enum.map(groups, fn
-        %{"slug" => ^slug} -> updated_group
-        other -> other
-      end)
-
-    settings_call(:update_json_setting, [
-      @publishing_groups_key,
-      %{"publishing_groups" => updated}
-    ])
+  defp db_group_to_map(%{name: name, slug: slug, mode: mode, data: data}) do
+    %{
+      "name" => name,
+      "slug" => slug,
+      "mode" => mode || @default_group_mode,
+      "type" => Map.get(data, "type", @default_group_type),
+      "item_singular" => Map.get(data, "item_singular", @default_item_singular),
+      "item_plural" => Map.get(data, "item_plural", @default_item_plural)
+    }
   end
 
   defp derive_requested_slug(nil, fallback_name) do
@@ -2178,7 +2515,7 @@ defmodule PhoenixKit.Modules.Publishing do
           |> case do
             nil -> nil
             <<>> -> nil
-            lang_file -> lang_file
+            lang_code -> lang_code
           end
 
         {slug, version, language}
@@ -2223,7 +2560,7 @@ defmodule PhoenixKit.Modules.Publishing do
   This creates a background job that will:
   1. Read the source post in the primary language
   2. Translate the content to each target language using the AI module
-  3. Create or update translation files for each language
+  3. Create or update translation content for each language
 
   ## Options
 
@@ -2266,49 +2603,4 @@ defmodule PhoenixKit.Modules.Publishing do
   def translate_post_to_all_languages(group_slug, post_uuid, opts \\ []) do
     TranslatePostWorker.enqueue(group_slug, post_uuid, opts)
   end
-
-  # ============================================================================
-  # Backward compatibility aliases (deprecated)
-  # These functions delegate to the new "group" terminology functions
-  # ============================================================================
-
-  @doc false
-  @deprecated "Use list_groups/0 instead"
-  def list_blogs, do: list_groups()
-
-  @doc false
-  @deprecated "Use get_group/1 instead"
-  def get_blog(slug), do: get_group(slug)
-
-  @doc false
-  @deprecated "Use add_group/2 instead"
-  def add_blog(name, opts \\ []), do: add_group(name, opts)
-
-  @doc false
-  @deprecated "Use remove_group/1 instead"
-  def remove_blog(slug), do: remove_group(slug)
-
-  @doc false
-  @deprecated "Use update_group/2 instead"
-  def update_blog(slug, params), do: update_group(slug, params)
-
-  @doc false
-  @deprecated "Use trash_group/1 instead"
-  def trash_blog(slug), do: trash_group(slug)
-
-  @doc false
-  @deprecated "Use group_name/1 instead"
-  def blog_name(slug), do: group_name(slug)
-
-  @doc false
-  @deprecated "Use get_group_mode/1 instead"
-  def get_blog_mode(group_slug), do: get_group_mode(group_slug)
-
-  @doc false
-  @deprecated "Use legacy_group?/1 instead"
-  def legacy_blog?(group_slug), do: legacy_group?(group_slug)
-
-  @doc false
-  @deprecated "Use has_legacy_groups?/0 instead"
-  def has_legacy_blogs?, do: has_legacy_groups?()
 end

@@ -6,7 +6,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -115,7 +114,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
       if custom_type != "" do
         custom_type
       else
-        params |> Map.get("type", "blogging")
+        params |> Map.get("type", "blog")
       end
 
     item_singular = params |> Map.get("item_singular", "") |> String.trim()
@@ -141,9 +140,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
 
     case Publishing.add_group(name, opts) do
       {:ok, group} ->
-        # Broadcast group created for live dashboard updates
-        PublishingPubSub.broadcast_group_created(group)
-
         {:noreply,
          socket
          |> put_flash(:info, gettext("Publishing group \"%{name}\" created", name: group["name"]))
@@ -208,17 +204,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
              "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-group-name)"
            )
          )}
-
-      {:error, _reason} ->
-        {:noreply,
-         socket
-         |> assign_form_state(
-           normalized_params,
-           auto_slug?,
-           last_generated_slug,
-           auto_item_names?
-         )
-         |> put_flash(:error, gettext("Failed to create publishing group"))}
     end
   end
 
@@ -273,7 +258,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
       "name" => "",
       "slug" => "",
       "mode" => "timestamp",
-      "type" => "blogging",
+      "type" => "blog",
       "item_singular" => "post",
       "item_plural" => "posts"
     }
@@ -336,7 +321,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.New do
       String.downcase(custom_type)
     else
       params
-      |> Map.get("type", "blogging")
+      |> Map.get("type", "blog")
       |> to_string()
       |> String.downcase()
     end

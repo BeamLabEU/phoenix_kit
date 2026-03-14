@@ -62,31 +62,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
     Manager.broadcast(groups_topic(), {:group_updated, group})
   end
 
-  # Backward compatibility aliases
-  @doc false
-  @deprecated "Use groups_topic/0 instead"
-  def blogs_topic, do: groups_topic()
-
-  @doc false
-  @deprecated "Use subscribe_to_groups/0 instead"
-  def subscribe_to_blogs, do: subscribe_to_groups()
-
-  @doc false
-  @deprecated "Use unsubscribe_from_groups/0 instead"
-  def unsubscribe_from_blogs, do: unsubscribe_from_groups()
-
-  @doc false
-  @deprecated "Use broadcast_group_created/1 instead"
-  def broadcast_blog_created(group), do: broadcast_group_created(group)
-
-  @doc false
-  @deprecated "Use broadcast_group_deleted/1 instead"
-  def broadcast_blog_deleted(group_slug), do: broadcast_group_deleted(group_slug)
-
-  @doc false
-  @deprecated "Use broadcast_group_updated/1 instead"
-  def broadcast_blog_updated(group), do: broadcast_group_updated(group)
-
   # ============================================================================
   # Post List Updates (simple refresh)
   # ============================================================================
@@ -490,19 +465,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
       {:editor_left, post_slug, user_info}
     )
   end
-
-  # Deprecated shims for backward compatibility
-  @doc false
-  @deprecated "Use group_editors_topic/1 instead"
-  def blog_editors_topic(group_slug), do: group_editors_topic(group_slug)
-
-  @doc false
-  @deprecated "Use subscribe_to_group_editors/1 instead"
-  def subscribe_to_blog_editors(group_slug), do: subscribe_to_group_editors(group_slug)
-
-  @doc false
-  @deprecated "Use unsubscribe_from_group_editors/1 instead"
-  def unsubscribe_from_blog_editors(group_slug), do: unsubscribe_from_group_editors(group_slug)
 
   # ============================================================================
   # Bulk Operations Progress

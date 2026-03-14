@@ -45,6 +45,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   - If multiple posts exist on the date, includes time (e.g., /group/2025-12-09/16:26)
   """
   def build_post_url(group_slug, post, language, date_counts \\ nil) do
+    language = language || "en"
+
     case post.mode do
       :slug ->
         # Use language-specific URL slug for SEO-friendly localized URLs
@@ -99,7 +101,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   # Priority:
   # 1. Direct url_slug field on post (set by controller for specific language)
   # 2. language_slugs map (from cache, contains all languages)
-  # 3. metadata.url_slug (from file, current language only)
+  # 3. metadata.url_slug (from content record, current language only)
   # 4. post.slug (directory name fallback)
   defp get_url_slug_for_language(post, language) do
     cond do

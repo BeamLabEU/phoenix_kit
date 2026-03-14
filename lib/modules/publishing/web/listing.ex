@@ -215,60 +215,65 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     group_slug = socket.assigns.group_slug
     primary_language = Publishing.get_primary_language()
     status = socket.assigns.primary_language_status
-    total_count = status.needs_backfill + status.needs_migration
 
-    # Use background job for large migrations
-    if total_count > @migration_async_threshold do
-      case MigratePrimaryLanguageWorker.enqueue(group_slug, primary_language) do
-        {:ok, _job} ->
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> assign(:migration_in_progress, true)
-           |> assign(:migration_progress, %{current: 0, total: total_count})
-           |> put_flash(
-             :info,
-             gettext("Migration started for %{count} posts. You can continue working.",
-               count: total_count
-             )
-           )}
-
-        {:error, reason} ->
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> put_flash(
-             :error,
-             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
-           )}
-      end
+    if is_nil(status) do
+      {:noreply, put_flash(socket, :error, gettext("No posts to migrate"))}
     else
-      # Synchronous migration for small counts
-      case Publishing.migrate_posts_to_current_primary_language(group_slug) do
-        {:ok, count} ->
-          posts = DBStorage.list_posts_with_metadata(group_slug)
+      total_count = Map.get(status, :needs_backfill, 0) + Map.get(status, :needs_migration, 0)
 
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> assign(:posts, posts)
-           |> assign(:primary_language_status, primary_language_status_from_posts(posts))
-           |> put_flash(
-             :info,
-             gettext("Updated %{count} posts to primary language: %{lang}",
-               count: count,
-               lang: get_language_name(primary_language)
-             )
-           )}
+      # Use background job for large migrations
+      if total_count > @migration_async_threshold do
+        case MigratePrimaryLanguageWorker.enqueue(group_slug, primary_language) do
+          {:ok, _job} ->
+            {:noreply,
+             socket
+             |> assign(:show_migration_modal, false)
+             |> assign(:migration_in_progress, true)
+             |> assign(:migration_progress, %{current: 0, total: total_count})
+             |> put_flash(
+               :info,
+               gettext("Migration started for %{count} posts. You can continue working.",
+                 count: total_count
+               )
+             )}
 
-        {:error, reason} ->
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> put_flash(
-             :error,
-             gettext("Failed to migrate: %{reason}", reason: inspect(reason))
-           )}
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> assign(:show_migration_modal, false)
+             |> put_flash(
+               :error,
+               gettext("Failed to start migration: %{reason}", reason: inspect(reason))
+             )}
+        end
+      else
+        # Synchronous migration for small counts
+        case Publishing.migrate_posts_to_current_primary_language(group_slug) do
+          {:ok, count} ->
+            posts = DBStorage.list_posts_with_metadata(group_slug)
+
+            {:noreply,
+             socket
+             |> assign(:show_migration_modal, false)
+             |> assign(:posts, posts)
+             |> assign(:primary_language_status, primary_language_status_from_posts(posts))
+             |> put_flash(
+               :info,
+               gettext("Updated %{count} posts to primary language: %{lang}",
+                 count: count,
+                 lang: get_language_name(primary_language)
+               )
+             )}
+
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> assign(:show_migration_modal, false)
+             |> put_flash(
+               :error,
+               gettext("Failed to migrate: %{reason}", reason: inspect(reason))
+             )}
+        end
       end
     end
   end
@@ -564,6 +569,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     end
   end
 
+  @impl true
+  def terminate(_reason, socket) do
+    pending = socket.assigns[:pending_post_updates] || %{}
+
+    for {_slug, timer_ref} <- pending do
+      Process.cancel_timer(timer_ref)
+    end
+
+    :ok
+  end
+
   # Execute debounced update when timer fires
   defp do_debounced_update(socket, post_slug) do
     # Clear the timer from pending
@@ -598,8 +614,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       {:ok, fresh_post} ->
         replace_post_in_list(socket, post_slug, fresh_post)
 
-      {:error, _} ->
-        # Post may have been deleted or unreadable - full refresh
+      {:error, reason} ->
+        Logger.warning(
+          "[Publishing.Listing] fetch_and_update_post failed for #{post_slug}: #{inspect(reason)}, doing full refresh"
+        )
+
         refresh_posts(socket)
     end
   end
@@ -636,10 +655,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       group_slug ->
         case Publishing.read_post(group_slug, post_slug, socket.assigns.current_locale_base, nil) do
           {:ok, fresh_post} ->
-            update_post_in_list(socket, fresh_post)
+            # Replace directly — data is already fresh from DB, no need to re-read
+            replace_post_in_list(socket, post_slug, fresh_post)
 
-          {:error, _} ->
-            # Post might have been deleted - refresh all
+          {:error, reason} ->
+            Logger.warning(
+              "[Publishing.Listing] Post #{post_slug} not found during refresh: #{inspect(reason)}, doing full refresh"
+            )
+
             refresh_posts(socket)
         end
     end
@@ -671,6 +694,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         PublishingPubSub.subscribe_to_posts(new_slug)
         PublishingPubSub.subscribe_to_cache(new_slug)
         PublishingPubSub.subscribe_to_group_editors(new_slug)
+      end
+
+      # Cancel any pending debounce timers before switching groups
+      pending = socket.assigns[:pending_post_updates] || %{}
+
+      for {_slug, timer_ref} <- pending do
+        Process.cancel_timer(timer_ref)
       end
 
       socket
@@ -842,13 +872,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     Enum.map(all_languages, fn lang_code ->
       lang_info = Publishing.get_language_info(lang_code)
-      file_exists = lang_code in available_languages
+      content_exists = lang_code in available_languages
       is_enabled = Publishing.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
       is_primary = lang_code == primary_lang
 
       # Status matches the version's status
-      lang_status = if file_exists, do: status, else: nil
+      lang_status = if content_exists, do: status, else: nil
 
       # Get display code (base or full dialect depending on enabled languages)
       display_code = Publishing.get_display_code(lang_code, enabled_languages)
@@ -859,7 +889,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         name: if(lang_info, do: lang_info.name, else: lang_code),
         flag: if(lang_info, do: lang_info.flag, else: ""),
         status: lang_status,
-        exists: file_exists,
+        exists: content_exists,
         enabled: is_enabled,
         known: is_known,
         is_primary: is_primary,
@@ -922,7 +952,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp build_language_entry(lang_code, post, enabled_languages, primary_lang) do
     lang_info = Publishing.get_language_info(lang_code)
     available = post.available_languages || []
-    file_exists = lang_code in available
+    content_exists = lang_code in available
     language_statuses = Map.get(post, :language_statuses) || %{}
 
     %{
@@ -931,7 +961,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       name: if(lang_info, do: lang_info.name, else: lang_code),
       flag: if(lang_info, do: lang_info.flag, else: ""),
       status: Map.get(language_statuses, lang_code),
-      exists: file_exists,
+      exists: content_exists,
       enabled: Publishing.language_enabled?(lang_code, enabled_languages),
       known: lang_info != nil,
       is_primary: lang_code == primary_lang,

@@ -127,13 +127,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   """
   def render_group_index(_conn, ctx, all_posts) do
     total_count = length(all_posts)
+    per_page = max(ctx.per_page, 1)
+    total_pages = if total_count > 0, do: ceil(total_count / per_page), else: 0
+    page = min(ctx.page, max(total_pages, 1))
 
     posts =
       all_posts
-      |> paginate(ctx.page, ctx.per_page)
+      |> paginate(page, per_page)
       |> resolve_posts_for_language(ctx.canonical_language)
 
-    breadcrumbs = [%{label: ctx.group["name"], url: nil}]
+    breadcrumbs = [%{label: ctx.group["name"] || ctx.group_slug, url: nil}]
 
     translations =
       Translations.build_listing_translations(
@@ -144,15 +147,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
 
     {:ok,
      %{
-       page_title: ctx.group["name"],
+       page_title: ctx.group["name"] || ctx.group_slug,
        group: ctx.group,
        posts: posts,
        current_language: ctx.canonical_language,
        translations: translations,
-       page: ctx.page,
-       per_page: ctx.per_page,
+       page: page,
+       per_page: per_page,
        total_count: total_count,
-       total_pages: ceil(total_count / ctx.per_page),
+       total_pages: total_pages,
        breadcrumbs: breadcrumbs
      }}
   end
@@ -173,12 +176,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   defp resolve_post_for_language(post, language) do
     lang_titles = post[:language_titles] || %{}
     lang_excerpts = post[:language_excerpts] || %{}
+    metadata = post[:metadata] || %{}
 
-    title = Map.get(lang_titles, language, post.metadata.title)
+    title = Map.get(lang_titles, language, metadata[:title] || "Untitled")
     excerpt = Map.get(lang_excerpts, language)
 
     post
-    |> put_in([:metadata, :title], title)
+    |> Map.update(:metadata, %{title: title}, &Map.put(&1, :title, title))
     |> then(fn p ->
       if excerpt, do: Map.put(p, :content, excerpt), else: p
     end)
@@ -193,23 +197,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   """
   def filter_published(posts) do
     Enum.filter(posts, fn post ->
-      post.metadata.status == "published"
+      post[:metadata] && post.metadata.status == "published"
     end)
   end
 
   @doc """
-  Filter posts to only include those that have a matching language file.
+  Filter posts to only include those that have matching language content.
   Handles both exact matches and base code matches (e.g., "en" matches "en-US").
-  Uses preloaded language_statuses to avoid redundant file reads.
+  Uses preloaded language_statuses to avoid redundant queries.
   """
   def filter_by_exact_language(posts, _group_slug, language) do
     Enum.filter(posts, fn post ->
-      # Find the matching language file (exact or base code match)
-      matching_language = find_matching_language(language, post.available_languages)
+      available = post[:available_languages] || []
+      statuses = post[:language_statuses] || %{}
+      matching_language = find_matching_language(language, available)
 
-      # Use preloaded status from language_statuses map
-      matching_language != nil and
-        Map.get(post.language_statuses, matching_language) == "published"
+      matching_language != nil and Map.get(statuses, matching_language) == "published"
     end)
   end
 
@@ -218,8 +221,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   """
   def filter_by_exact_language_strict(posts, language) do
     Enum.filter(posts, fn post ->
-      language in post.available_languages and
-        Map.get(post.language_statuses, language) == "published"
+      available = post[:available_languages] || []
+      statuses = post[:language_statuses] || %{}
+
+      language in available and Map.get(statuses, language) == "published"
     end)
   end
 
@@ -296,12 +301,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   Gets the posts per page setting.
   """
   def get_per_page_setting do
-    # Check new key first, fallback to legacy
-    value =
-      case Settings.get_setting_cached("publishing_posts_per_page") do
-        nil -> Settings.get_setting_cached("blogging_posts_per_page")
-        v -> v
-      end
+    value = Settings.get_setting_cached("publishing_posts_per_page")
 
     case value do
       nil ->

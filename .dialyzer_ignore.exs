@@ -5,8 +5,6 @@
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.gen.admin_page.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.gen.dashboard_tab.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :unknown_function},
   # Conditional compilation pattern match in update.ex (Code.ensure_loaded?)
   {"lib/mix/tasks/phoenix_kit.update.ex", :pattern_match, 1},
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :unknown_function},
@@ -61,13 +59,10 @@
   {"lib/mix/tasks/phoenix_kit.sync_email_status.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :callback_info_missing, 1},
 
   # False positive pattern match warnings (runtime behavior differs from static analysis)
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
-  {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :pattern_match_cov},
   # ExAws library type definition issues (false positives from incomplete type specs)
   ~r/lib\/modules\/emails\/archiver\.ex:.*pattern_match/,
   ~r/lib\/modules\/emails\/archiver\.ex:.*unused_fun/,
@@ -75,8 +70,8 @@
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
-  # Legal module - dynamic dispatch to Blogging module
-  # Dialyzer can't infer types through blogging_module() helper
+  # Legal module - dynamic dispatch to Publishing module
+  # Dialyzer can't infer types through publishing_module() helper
   ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match/,
 
   # ConsentLog schema - changeset type spec with empty struct

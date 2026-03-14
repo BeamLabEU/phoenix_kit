@@ -18,10 +18,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   @memory_cache_key "publishing_memory_cache_enabled"
   @render_cache_key "publishing_render_cache_enabled"
 
-  # Legacy settings keys (read from these as fallback)
-  @legacy_memory_cache_key "blogging_memory_cache_enabled"
-  @legacy_render_cache_key "blogging_render_cache_enabled"
-
   def mount(_params, _session, socket) do
     # Subscribe to group changes for live updates
     if connected?(socket) do
@@ -48,11 +44,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       |> assign(:global_primary_language, Publishing.get_primary_language())
       |> assign(
         :memory_cache_enabled,
-        get_cache_setting(@memory_cache_key, @legacy_memory_cache_key)
+        Settings.get_setting(@memory_cache_key, "true") == "true"
       )
       |> assign(
         :render_cache_enabled,
-        get_cache_setting(@render_cache_key, @legacy_render_cache_key)
+        Settings.get_setting(@render_cache_key, "true") == "true"
       )
       |> assign(:cache_status, build_cache_status(cache_groups))
       |> assign(:render_cache_stats, get_render_cache_stats())
@@ -64,31 +60,29 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   def handle_event("remove_group", %{"slug" => slug}, socket) do
-    case Publishing.trash_group(slug) do
-      {:ok, trashed_name} ->
-        # The `Publishing.trash_group` call triggers `remove_group`, which handles
-        # the broadcast. This LiveView will catch the event and update its state.
+    case Publishing.remove_group(slug) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_groups()
+         |> put_flash(:info, gettext("Group removed"))}
+
+      {:error, {:has_posts, count}} ->
         {:noreply,
          put_flash(
            socket,
-           :info,
-           gettext("Group moved to trash as: %{name}", name: trashed_name)
+           :error,
+           gettext(
+             "Cannot remove group with %{count} posts. Delete all posts first or use force remove.",
+             count: count
+           )
          )}
 
       {:error, :not_found} ->
-        # Group not found in DB, just remove from config
-        case Publishing.remove_group(slug) do
-          {:ok, _} ->
-            # The `Publishing.remove_group` call handles the broadcast. This
-            # LiveView will catch the event and update its state.
-            {:noreply, put_flash(socket, :info, gettext("Group removed from configuration"))}
-
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to remove group"))}
-        end
+        {:noreply, put_flash(socket, :error, gettext("Group not found"))}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to move group to trash"))}
+        {:noreply, put_flash(socket, :error, gettext("Failed to remove group"))}
     end
   end
 
@@ -128,6 +122,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
          lang: primary_lang
        )
      )}
+  rescue
+    _ ->
+      {:noreply, put_flash(socket, :error, gettext("Failed to migrate primary language"))}
   end
 
   def handle_event("regenerate_all_caches", _params, socket) do
@@ -261,14 +258,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     end)
   end
 
-  # Helper for dual-key cache setting reads
-  defp get_cache_setting(new_key, legacy_key) do
-    case Settings.get_setting(new_key, nil) do
-      nil -> Settings.get_setting(legacy_key, "true") == "true"
-      value -> value == "true"
-    end
-  end
-
   defp cache_toggle_message(cache_type, enabled) do
     if enabled do
       gettext("%{type} enabled", type: cache_type)
@@ -304,7 +293,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
     %{
       exists: in_memory,
-      file_size: 0,
+      content_size: 0,
       modified_at: nil,
       post_count: post_count,
       in_memory: in_memory
