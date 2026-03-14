@@ -199,30 +199,32 @@
                       <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
                       {gettext("Settings")}
                     </.link>
-                    <% group_slug = insight.slug %>
-                    <% url_prefix =
-                      PhoenixKit.Config.get_url_prefix()
-                      |> case do
-                        "/" -> ""
-                        prefix -> prefix
-                      end %>
-                    <% default_language = List.first(@enabled_languages) %>
-                    <% public_url =
-                      if length(@enabled_languages) == 1 do
-                        @endpoint_url <> url_prefix <> "/" <> group_slug
-                      else
-                        @endpoint_url <> url_prefix <> "/#{default_language}/" <> group_slug
-                      end %>
-                    <a
-                      href={public_url}
-                      target="_blank"
-                      rel="noopener"
-                      class="btn btn-outline btn-sm"
-                      aria-label={gettext("View public site")}
-                    >
-                      <.icon name="hero-eye" class="w-4 h-4 mr-1" />
-                      {gettext("View")}
-                    </a>
+                    <%= if insight.published_count > 0 do %>
+                      <% group_slug = insight.slug %>
+                      <% url_prefix =
+                        PhoenixKit.Config.get_url_prefix()
+                        |> case do
+                          "/" -> ""
+                          prefix -> prefix
+                        end %>
+                      <% default_language = List.first(@enabled_languages) %>
+                      <% public_url =
+                        if length(@enabled_languages) == 1 do
+                          @endpoint_url <> url_prefix <> "/" <> group_slug
+                        else
+                          @endpoint_url <> url_prefix <> "/#{default_language}/" <> group_slug
+                        end %>
+                      <a
+                        href={public_url}
+                        target="_blank"
+                        rel="noopener"
+                        class="btn btn-outline btn-sm"
+                        aria-label={gettext("View public site")}
+                      >
+                        <.icon name="hero-eye" class="w-4 h-4 mr-1" />
+                        {gettext("View")}
+                      </a>
+                    <% end %>
                     <button
                       type="button"
                       phx-click="trash_group"

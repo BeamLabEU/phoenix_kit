@@ -26,18 +26,22 @@
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
         {(@current_group && @current_group["name"]) || @group_slug || gettext("Group")}
       </h1>
-      <div class="text-sm text-base-content/60 mt-0.5">
-        <p>
-          <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-          <a
-            href={public_url}
-            target="_blank"
-            class="link link-hover font-mono break-all text-xs"
-          >
-            {public_url}
-          </a>
-        </p>
-      </div>
+      <% has_published =
+        Enum.any?(@posts, fn p -> p[:metadata] && p.metadata.status == "published" end) %>
+      <%= if has_published do %>
+        <div class="text-sm text-base-content/60 mt-0.5">
+          <p>
+            <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+            <a
+              href={public_url}
+              target="_blank"
+              class="link link-hover font-mono break-all text-xs"
+            >
+              {public_url}
+            </a>
+          </p>
+        </div>
+      <% end %>
     </.admin_page_header>
 
     <%!-- Primary Language Update Banner --%>
@@ -166,18 +170,20 @@
                           {post.metadata.title || gettext("Untitled post")}
                         </.link>
                       </h3>
-                      <p class="text-xs text-base-content/50">
-                        <span class="font-medium text-base-content">
-                          {gettext("Public URL")}:
-                        </span>
-                        <a
-                          href={full_public_url}
-                          target="_blank"
-                          class="link link-hover font-mono break-all text-xs"
-                        >
-                          {full_public_url}
-                        </a>
-                      </p>
+                      <%= if post.metadata.status == "published" do %>
+                        <p class="text-xs text-base-content/50">
+                          <span class="font-medium text-base-content">
+                            {gettext("Public URL")}:
+                          </span>
+                          <a
+                            href={full_public_url}
+                            target="_blank"
+                            class="link link-hover font-mono break-all text-xs"
+                          >
+                            {full_public_url}
+                          </a>
+                        </p>
+                      <% end %>
                     </div>
                     <%!-- Languages section --%>
                     <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
