@@ -695,11 +695,13 @@ defmodule PhoenixKit.Modules.Legal do
   """
   @spec generate_page(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def generate_page(page_type, opts \\ []) do
-    language = Keyword.get(opts, :language, "en")
+    default_language = publishing_module().get_primary_language()
+    language = Keyword.get(opts, :language, default_language)
     scope = Keyword.get(opts, :scope, nil)
 
-    with {:ok, page_config} <- get_page_config(page_type),
-         {:ok, content} <- render_template(page_config.template) do
+    with {:ok, _} <- ensure_legal_blog(),
+         {:ok, page_config} <- get_page_config(page_type),
+         {:ok, content} <- render_template(page_config.template, language) do
       create_or_update_legal_post(page_config, content, language, scope)
     end
   end
@@ -785,7 +787,10 @@ defmodule PhoenixKit.Modules.Legal do
           slug: post.slug,
           title: get_in(post, [:metadata, :title]) || post.slug,
           status: get_in(post, [:metadata, :status]) || "draft",
-          published_at: get_in(post, [:metadata, :published_at])
+          published_at: get_in(post, [:metadata, :published_at]),
+          updated_at: get_in(post, [:metadata, :updated_at]),
+          language_statuses: post[:language_statuses] || %{},
+          available_languages: post[:available_languages] || []
         }
       end)
     else
@@ -871,9 +876,9 @@ defmodule PhoenixKit.Modules.Legal do
     end
   end
 
-  defp render_template(template_name) do
+  defp render_template(template_name, language) do
     context = build_template_context()
-    TemplateGenerator.render(template_name, context)
+    TemplateGenerator.render(template_name, context, language)
   end
 
   defp build_template_context do
@@ -927,49 +932,108 @@ defmodule PhoenixKit.Modules.Legal do
     end
   end
 
-  defp create_or_update_legal_post(page_config, content, _language, scope) do
-    # Build the full markdown content with title
+  defp create_or_update_legal_post(page_config, content, language, scope) do
     full_content = "# #{page_config.title}\n\n#{content}"
 
-    # Check if post already exists
     case publishing_module().read_post(@legal_blog_slug, page_config.slug) do
       {:ok, existing_post} ->
-        # Update existing post (keep current status)
-        publishing_module().update_post(
-          @legal_blog_slug,
-          existing_post,
-          %{
-            "content" => full_content
-          },
-          scope: scope
-        )
+        update_existing_legal_post(existing_post, page_config, full_content, language, scope)
 
       {:error, :not_found} ->
-        # Create new post as draft (user must publish manually)
-        publishing_module().create_post(@legal_blog_slug, %{
-          title: page_config.title,
-          slug: page_config.slug,
-          scope: scope
-        })
-        |> case do
-          {:ok, post} ->
-            # Update with content (stays as draft)
-            publishing_module().update_post(
-              @legal_blog_slug,
-              post,
-              %{"content" => full_content, "status" => "draft"},
-              scope: scope
-            )
-
-          error ->
-            error
-        end
+        create_new_legal_post(page_config, full_content, language, scope)
 
       error ->
         error
     end
   rescue
     e -> {:error, e}
+  end
+
+  # Handles updating a legal post that already exists.
+  # If the language already exists on the post, reads the language-specific version directly.
+  # If the language does not exist, calls add_language_to_post to create the slot.
+  # Note: add_language_to_post must NOT be called for an already-existing language — it falls into
+  # a code path in Publishing that uses read_back_post with db_post=nil, causing it to look up a
+  # UUID as a slug and return {:error, :not_found}.
+  defp update_existing_legal_post(existing_post, page_config, full_content, language, scope) do
+    available = existing_post[:available_languages] || []
+
+    lang_post =
+      if language in available do
+        # Language slot already exists — read the language-specific post directly
+        case publishing_module().read_post(
+               @legal_blog_slug,
+               page_config.slug,
+               language,
+               existing_post[:version] || 1
+             ) do
+          {:ok, p} -> p
+          _ -> existing_post
+        end
+      else
+        # Language slot does not exist yet — create it via add_language_to_post
+        case publishing_module().add_language_to_post(
+               @legal_blog_slug,
+               existing_post[:uuid],
+               language,
+               existing_post[:version] || 1
+             ) do
+          {:ok, p} -> p
+          _ -> existing_post
+        end
+      end
+
+    publishing_module().update_post(
+      @legal_blog_slug,
+      lang_post,
+      %{"content" => full_content, "title" => page_config.title},
+      scope: scope
+    )
+  end
+
+  # Handles creating a new legal post from scratch.
+  # If the requested language is not the primary language, adds the language slot after creation.
+  defp create_new_legal_post(page_config, full_content, language, scope) do
+    case publishing_module().create_post(@legal_blog_slug, %{
+           title: page_config.title,
+           slug: page_config.slug,
+           scope: scope
+         }) do
+      {:ok, post} ->
+        primary_language = publishing_module().get_primary_language()
+
+        if language != primary_language do
+          # Use case instead of = to avoid MatchError when Publishing's read_back_post
+          # returns {:error, :not_found} (bug: tries to look up UUID as a slug)
+          case publishing_module().add_language_to_post(
+                 @legal_blog_slug,
+                 post[:uuid],
+                 language,
+                 post[:version] || 1
+               ) do
+            {:ok, lang_post} ->
+              publishing_module().update_post(
+                @legal_blog_slug,
+                lang_post,
+                %{"content" => full_content, "title" => page_config.title, "status" => "draft"},
+                scope: scope
+              )
+
+            error ->
+              error
+          end
+        else
+          publishing_module().update_post(
+            @legal_blog_slug,
+            post,
+            %{"content" => full_content, "status" => "draft"},
+            scope: scope
+          )
+        end
+
+      error ->
+        error
+    end
   end
 
   defp stringify_keys(map) when is_map(map) do

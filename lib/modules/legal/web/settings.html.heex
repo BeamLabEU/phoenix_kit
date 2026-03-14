@@ -308,16 +308,32 @@
                   {gettext("Generate legal pages based on selected frameworks.")}
                 </p>
               </div>
-              <button
-                phx-click="generate_all_pages"
-                class="btn btn-primary"
-                disabled={@generating or Enum.empty?(@selected_frameworks)}
-              >
-                <%= if @generating do %>
-                  <span class="loading loading-spinner loading-sm"></span>
+              <div class="flex items-center gap-2">
+                <%= if length(@enabled_languages) > 1 do %>
+                  <select
+                    class="select select-bordered select-sm"
+                    phx-change="select_generation_language"
+                    name="language"
+                  >
+                    <%= for lang <- @enabled_languages do %>
+                      <option value={lang} selected={lang == @selected_generation_language}>
+                        {String.upcase(lang)}
+                      </option>
+                    <% end %>
+                  </select>
                 <% end %>
-                {gettext("Generate All Required Pages")}
-              </button>
+                <button
+                  phx-click="generate_all_pages"
+                  phx-value-language={@selected_generation_language}
+                  class="btn btn-primary"
+                  disabled={@generating or Enum.empty?(@selected_frameworks)}
+                >
+                  <%= if @generating do %>
+                    <span class="loading loading-spinner loading-sm"></span>
+                  <% end %>
+                  {gettext("Generate All Required Pages")}
+                </button>
+              </div>
             </div>
 
             <div class="divider"></div>
@@ -381,9 +397,19 @@
                           <td>
                             <%= if page_generated?(page_type, @generated_pages) do %>
                               <% status = get_page_status(page_type, @generated_pages) %>
-                              <span class={"badge #{if status == "published", do: "badge-success", else: "badge-warning"}"}>
-                                {status}
-                              </span>
+                              <div class="flex flex-wrap gap-1">
+                                <span class={"badge #{if status == "published", do: "badge-success", else: "badge-warning"}"}>
+                                  {status}
+                                </span>
+                                <%= for {lang, lang_status} <- get_language_statuses(page_type, @generated_pages) do %>
+                                  <span
+                                    class={"badge badge-xs #{if lang_status == "published", do: "badge-success", else: "badge-warning"}"}
+                                    title={"#{String.upcase(lang)}: #{lang_status}"}
+                                  >
+                                    {String.upcase(lang)}
+                                  </span>
+                                <% end %>
+                              </div>
                             <% else %>
                               <span class="badge badge-ghost">{gettext("Not generated")}</span>
                             <% end %>
@@ -410,6 +436,7 @@
                               <button
                                 phx-click="generate_page"
                                 phx-value-page_type={page_type}
+                                phx-value-language={@selected_generation_language}
                                 class="btn btn-sm btn-outline"
                                 disabled={@generating}
                               >
