@@ -633,6 +633,18 @@ defmodule PhoenixKit.Modules.Publishing do
 
           # Always write to new key
           with {:ok, _} <- settings_call(:update_json_setting, [@publishing_groups_key, payload]) do
+            # Sync to DB table so create_post can find the group
+            DBStorage.upsert_group(%{
+              name: group["name"],
+              slug: group["slug"],
+              mode: group["mode"],
+              data: %{
+                "type" => group["type"],
+                "item_singular" => group["item_singular"],
+                "item_plural" => group["item_plural"]
+              }
+            })
+
             PublishingPubSub.broadcast_group_created(group)
             {:ok, group}
           end
@@ -800,7 +812,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   defp create_post_in_db(group_slug, opts) do
     scope = fetch_option(opts, :scope)
-    group = DBStorage.get_group_by_slug(group_slug)
+    group = DBStorage.get_group_by_slug(group_slug) || sync_group_to_db(group_slug)
     unless group, do: throw({:error, :group_not_found})
 
     mode = get_group_mode(group_slug)
@@ -1895,6 +1907,30 @@ defmodule PhoenixKit.Modules.Publishing do
 
   defp normalize_mode(mode) when is_atom(mode), do: normalize_mode(Atom.to_string(mode))
   defp normalize_mode(_), do: nil
+
+  # Syncs a group from Settings JSON to the DB table.
+  # Returns the DB group struct or nil if the group doesn't exist in Settings.
+  defp sync_group_to_db(group_slug) do
+    case get_group(group_slug) do
+      {:ok, group_data} ->
+        case DBStorage.upsert_group(%{
+               name: group_data["name"],
+               slug: group_data["slug"],
+               mode: group_data["mode"],
+               data: %{
+                 "type" => group_data["type"],
+                 "item_singular" => group_data["item_singular"],
+                 "item_plural" => group_data["item_plural"]
+               }
+             }) do
+          {:ok, db_group} -> db_group
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
 
   # Normalize mode with default fallback
   defp normalize_mode_with_default(nil), do: @default_group_mode

@@ -16,6 +16,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Legal
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -61,6 +62,8 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
       |> assign(:google_consent_mode, widget_config.google_consent_mode)
       |> assign(:show_consent_icon, widget_config.show_icon)
       |> assign(:unpublished_pages, Legal.get_unpublished_required_pages())
+      |> assign(:enabled_languages, publishing_module_languages())
+      |> assign(:selected_generation_language, default_language())
 
     {:ok, socket}
   end
@@ -144,10 +147,14 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   end
 
   @impl true
-  def handle_event("generate_page", %{"page_type" => page_type}, socket) do
+  def handle_event("generate_page", %{"page_type" => page_type} = params, socket) do
+    language = params["language"] || socket.assigns.selected_generation_language
     socket = assign(socket, :generating, true)
 
-    case Legal.generate_page(page_type, scope: socket.assigns[:current_scope]) do
+    case Legal.generate_page(page_type,
+           language: language,
+           scope: socket.assigns[:current_scope]
+         ) do
       {:ok, _post} ->
         {:noreply,
          socket
@@ -188,10 +195,12 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   end
 
   @impl true
-  def handle_event("generate_all_pages", _params, socket) do
+  def handle_event("generate_all_pages", params, socket) do
+    language = params["language"] || socket.assigns.selected_generation_language
     socket = assign(socket, :generating, true)
 
-    {:ok, results} = Legal.generate_all_pages(scope: socket.assigns[:current_scope])
+    {:ok, results} =
+      Legal.generate_all_pages(language: language, scope: socket.assigns[:current_scope])
 
     success_count =
       results
@@ -203,6 +212,11 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
      |> assign(:generated_pages, Legal.list_generated_pages())
      |> assign(:unpublished_pages, Legal.get_unpublished_required_pages())
      |> put_flash(:info, gettext("Generated %{count} pages", count: success_count))}
+  end
+
+  @impl true
+  def handle_event("select_generation_language", %{"language" => language}, socket) do
+    {:noreply, assign(socket, :selected_generation_language, language)}
   end
 
   # ===================================
@@ -269,6 +283,18 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   defp update_google_consent_mode("true"), do: Legal.enable_google_consent_mode()
   defp update_google_consent_mode(_), do: Legal.disable_google_consent_mode()
 
+  defp publishing_module_languages do
+    Publishing.enabled_language_codes()
+  rescue
+    _ -> ["en"]
+  end
+
+  defp default_language do
+    Publishing.get_primary_language()
+  rescue
+    _ -> "en"
+  end
+
   # Helper to get edit URL for a legal page
   defp get_edit_url(page_slug, generated_pages) do
     case Enum.find(generated_pages, fn p -> p.slug == page_slug end) do
@@ -290,6 +316,18 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
     case Enum.find(generated_pages, fn p -> p.slug == page_slug end) do
       nil -> nil
       page -> page.status
+    end
+  end
+
+  # Helper to get per-language statuses for a page (sorted, excluding primary status duplicate)
+  defp get_language_statuses(page_slug, generated_pages) do
+    case Enum.find(generated_pages, fn p -> p.slug == page_slug end) do
+      nil ->
+        []
+
+      page ->
+        (page[:language_statuses] || %{})
+        |> Enum.sort_by(fn {lang, _} -> lang end)
     end
   end
 
