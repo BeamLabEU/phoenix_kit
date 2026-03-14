@@ -408,18 +408,29 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   end
 
   defp copy_contents_to_version(source_version_uuid, target_version_uuid) do
-    for content <- list_contents(source_version_uuid) do
-      case create_content(%{
-             version_uuid: target_version_uuid,
-             language: content.language,
-             title: content.title,
-             content: content.content,
-             status: "draft",
-             url_slug: content.url_slug,
-             data: content.data
-           }) do
-        {:ok, _} -> :ok
-        {:error, reason} -> repo().rollback(reason)
+    now = DateTime.utc_now()
+
+    rows =
+      list_contents(source_version_uuid)
+      |> Enum.map(fn content ->
+        %{
+          uuid: UUIDv7.generate(),
+          version_uuid: target_version_uuid,
+          language: content.language,
+          title: content.title || "",
+          content: content.content || "",
+          status: "draft",
+          url_slug: content.url_slug,
+          data: content.data || %{},
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+
+    if rows != [] do
+      case repo().insert_all(PublishingContent, rows, on_conflict: :nothing) do
+        {count, _} when count >= 0 -> :ok
+        _ -> repo().rollback(:content_copy_failed)
       end
     end
   end
@@ -533,7 +544,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         []
 
       db_post ->
-        # Find all content rows across all versions with this url_slug
+        # Find affected languages, then bulk-clear url_slugs
         contents =
           from(c in PublishingContent,
             join: v in assoc(c, :version),
@@ -542,9 +553,12 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
           )
           |> repo().all()
 
-        Enum.each(contents, fn {content, _lang} ->
-          update_content(content, %{url_slug: nil})
-        end)
+        # Bulk clear in one query
+        from(c in PublishingContent,
+          join: v in assoc(c, :version),
+          where: v.post_uuid == ^db_post.uuid and c.url_slug == ^url_slug_to_clear
+        )
+        |> repo().update_all(set: [url_slug: nil, updated_at: DateTime.utc_now()])
 
         Enum.map(contents, fn {_content, lang} -> lang end) |> Enum.uniq()
     end

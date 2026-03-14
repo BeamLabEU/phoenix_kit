@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
       end
 
     # Validate url_slug before saving (for translations)
-    # For directory slug conflicts, we auto-clear and show a notice instead of blocking
+    # For post slug conflicts, we auto-clear and show a notice instead of blocking
     case validate_url_slug_for_save(socket, params) do
       {:ok, validated_params} ->
         do_perform_save(socket, validated_params)
@@ -80,13 +80,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
           notice =
             if length(cleared_languages) > 1 do
               gettext(
-                "Custom URL slug '%{slug}' was cleared from %{count} translations because it conflicts with another post's directory name",
+                "Custom URL slug '%{slug}' was cleared from %{count} translations because it conflicts with another post's post slug",
                 slug: url_slug,
                 count: length(cleared_languages)
               )
             else
               gettext(
-                "Custom URL slug '%{slug}' for %{language} was cleared because it conflicts with another post's directory name",
+                "Custom URL slug '%{slug}' for %{language} was cleared because it conflicts with another post's post slug",
                 slug: url_slug,
                 language: language
               )
