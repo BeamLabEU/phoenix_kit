@@ -8,7 +8,6 @@ defmodule PhoenixKitWeb.Live.Settings do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Config.EndpointUrlSync
-  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Users.OAuthConfig
@@ -46,8 +45,6 @@ defmodule PhoenixKitWeb.Live.Settings do
         :project_title,
         merged_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
       )
-      |> assign(:show_media_selector, false)
-      |> assign(:media_selection_target, nil)
 
     {:ok, socket}
   end
@@ -79,28 +76,6 @@ defmodule PhoenixKitWeb.Live.Settings do
       {:error, errors} ->
         handle_settings_error(socket, errors)
     end
-  end
-
-  def handle_event("test_oauth", %{"provider" => provider}, socket) do
-    provider_atom = String.to_existing_atom(provider)
-
-    case OAuthConfig.test_connection(provider_atom) do
-      {:ok, message} ->
-        socket = put_flash(socket, :info, message)
-        {:noreply, socket}
-
-      {:error, message} ->
-        socket = put_flash(socket, :error, message)
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("reload_oauth_config", _params, socket) do
-    # Reload OAuth configuration from database
-    OAuthConfig.configure_providers()
-
-    socket = put_flash(socket, :info, "OAuth configuration reloaded from database")
-    {:noreply, socket}
   end
 
   def handle_event("reset_to_defaults", _params, socket) do
@@ -139,52 +114,6 @@ defmodule PhoenixKitWeb.Live.Settings do
 
         {:noreply, socket}
     end
-  end
-
-  def handle_event("open_media_selector", %{"target" => target}, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_media_selector, true)
-     |> assign(:media_selection_target, String.to_existing_atom(target))}
-  end
-
-  def handle_event("clear_branding_image", %{"target" => target}, socket) do
-    key =
-      case target do
-        "logo" -> "auth_logo_file_uuid"
-        "background" -> "auth_background_image_file_uuid"
-      end
-
-    settings = Map.put(socket.assigns.settings, key, "")
-
-    {:noreply, assign(socket, :settings, settings)}
-  end
-
-  ## Media selector callbacks
-
-  def handle_info({:media_selected, file_uuids}, socket) do
-    file_uuid = List.first(file_uuids) || ""
-
-    key =
-      case socket.assigns.media_selection_target do
-        :logo -> "auth_logo_file_uuid"
-        :background -> "auth_background_image_file_uuid"
-      end
-
-    settings = Map.put(socket.assigns.settings, key, file_uuid)
-
-    {:noreply,
-     socket
-     |> assign(:settings, settings)
-     |> assign(:show_media_selector, false)
-     |> assign(:media_selection_target, nil)}
-  end
-
-  def handle_info({:media_selector_closed}, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_media_selector, false)
-     |> assign(:media_selection_target, nil)}
   end
 
   ## Live updates - handle broadcasts from other admins
@@ -262,17 +191,5 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   def get_current_time_example(format) do
     UtilsDate.format_time(Time.utc_now(), format)
-  end
-
-  def signed_preview_url(file_uuid, variant) do
-    URLSigner.signed_url(file_uuid, variant)
-  end
-
-  # Helper function to generate OAuth callback URL
-  def get_oauth_callback_url(settings, provider) do
-    site_url = settings["site_url"] || "https://example.com"
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-
-    "#{site_url}#{url_prefix}/users/auth/#{provider}/callback"
   end
 end

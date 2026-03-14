@@ -223,11 +223,20 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         match: :exact
       ),
       admin_subtab(
+        :admin_settings_authorization,
+        "Authorization",
+        "hero-lock-closed",
+        "authorization",
+        912,
+        :admin_settings,
+        "settings"
+      ),
+      admin_subtab(
         :admin_settings_organization,
         "Organization",
         "hero-building-office",
         "organization",
-        912,
+        913,
         :admin_settings,
         "settings"
       ),
@@ -236,7 +245,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         "Users",
         "hero-users",
         "users",
-        913,
+        914,
         :admin_settings,
         "settings"
       ),
