@@ -13,6 +13,22 @@
       subtitle="Manage modules"
     />
 
+    <%!-- Dependency warnings --%>
+    <div :if={@dep_warnings != []} class="mb-4 space-y-2">
+      <div
+        :for={w <- @dep_warnings}
+        class="alert alert-warning flex items-center gap-2 py-2 text-sm"
+      >
+        <.icon name="hero-exclamation-triangle" class="w-4 h-4 shrink-0" />
+        <span>
+          <strong>{w.module_name}</strong>
+          requires the <strong>{w.requires_key}</strong>
+          module to be enabled.
+          Some features may not work correctly.
+        </span>
+      </div>
+    </div>
+
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <%!-- Storage Module --%>
       <%= if "storage" in @accessible_modules do %>
