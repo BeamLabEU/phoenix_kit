@@ -1074,6 +1074,44 @@ defmodule PhoenixKitWeb.Integration do
     end)
   end
 
+  # Auto-discover public (non-admin) routes from external PhoenixKit modules.
+  # For each external module that implements route_module/0, calls generate(url_prefix)
+  # on the returned route module. This replaces hardcoded safe_route_call() lines when
+  # internal modules are extracted to separate packages.
+  defp compile_module_public_routes(url_prefix) do
+    PhoenixKit.ModuleDiscovery.discover_external_modules()
+    |> Enum.flat_map(fn mod ->
+      case Code.ensure_compiled(mod) do
+        {:module, _} ->
+          if function_exported?(mod, :route_module, 0) do
+            route_mod = mod.route_module()
+            compile_route_module_generate(route_mod, url_prefix)
+          else
+            []
+          end
+
+        _ ->
+          []
+      end
+    end)
+  end
+
+  defp compile_route_module_generate(nil, _url_prefix), do: []
+
+  defp compile_route_module_generate(route_mod, url_prefix) do
+    case Code.ensure_compiled(route_mod) do
+      {:module, _} ->
+        if function_exported?(route_mod, :generate, 1) do
+          normalize_routes(route_mod.generate(url_prefix))
+        else
+          []
+        end
+
+      _ ->
+        []
+    end
+  end
+
   defp collect_module_tabs(mod, callback) do
     alias PhoenixKit.Dashboard.Tab
     context = tab_callback_context(callback)
@@ -1315,6 +1353,9 @@ defmodule PhoenixKitWeb.Integration do
     # External route modules with public/non-admin routes
     external_public_routes = compile_external_public_routes(url_prefix)
 
+    # Auto-discovered public routes from external PhoenixKit modules
+    module_public_routes = compile_module_public_routes(url_prefix)
+
     quote do
       # Generate pipeline definitions
       unquote(generate_pipelines())
@@ -1339,6 +1380,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # External route modules with public routes
       unquote_splicing(external_public_routes)
+
+      # Auto-discovered public routes from external modules (e.g., extracted newsletters unsubscribe)
+      unquote_splicing(module_public_routes)
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())
