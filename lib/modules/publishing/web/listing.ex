@@ -413,23 +413,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   def handle_info({:group_deleted, deleted_slug}, socket) do
-    groups = load_db_groups()
-
-    socket =
-      if socket.assigns.group_slug == deleted_slug do
-        # Current group was deleted - redirect to first available
-        case groups do
-          [%{"slug" => slug} | _] ->
-            push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
-
-          [] ->
-            push_navigate(socket, to: Routes.path("/admin/publishing"))
-        end
-      else
-        assign(socket, :groups, groups)
-      end
-
-    {:noreply, socket}
+    if socket.assigns.group_slug == deleted_slug do
+      # Current group was trashed/deleted — redirect to publishing index
+      {:noreply, push_navigate(socket, to: Routes.path("/admin/publishing"))}
+    else
+      {:noreply, assign(socket, :groups, load_db_groups())}
+    end
   end
 
   defp refresh_posts(socket) do
