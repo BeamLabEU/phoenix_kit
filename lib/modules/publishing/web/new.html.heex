@@ -11,11 +11,6 @@
     <.admin_page_header
       back={Routes.path("/admin/publishing")}
       title={gettext("Create a New Publishing Group")}
-      subtitle={
-        gettext(
-          "Spin up a dedicated workspace for your content team. Choose the content type that fits your publishing needs."
-        )
-      }
     />
 
     <div class="max-w-2xl mx-auto space-y-6">
@@ -311,19 +306,6 @@
               </button>
             </div>
           </.form>
-        </div>
-      </div>
-
-      <div class="card bg-base-100 shadow-xl border border-base-200">
-        <div class="card-body space-y-3">
-          <h3 class="text-lg font-semibold text-base-content">
-            {gettext("What happens next")}
-          </h3>
-          <ul class="text-sm text-base-content/70 space-y-2">
-            <li>• {gettext("We create a publishing group in the database.")}</li>
-            <li>• {gettext("You'll see the new group in the navigation immediately.")}</li>
-            <li>• {gettext("Editors can jump right in and start creating content.")}</li>
-          </ul>
         </div>
       </div>
     </div>
