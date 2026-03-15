@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   require Logger
-  alias Phoenix.HTML
+
   alias PhoenixKit.Modules.Publishing
   # alias PhoenixKit.Modules.Publishing.PageBuilder  # COMMENTED OUT: Component system
   alias PhoenixKit.Modules.Publishing.Renderer
@@ -220,7 +220,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
   defp render_markdown_content(content) when is_binary(content) do
     content
     |> Renderer.render_markdown()
-    |> HTML.raw()
     |> then(&{:ok, &1})
   rescue
     error ->
