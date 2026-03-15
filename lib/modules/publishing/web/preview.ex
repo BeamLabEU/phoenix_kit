@@ -30,84 +30,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
       )
       |> assign(:rendered_content, nil)
       |> assign(:error, nil)
-      |> assign(:preview_source, :saved)
 
     {:ok, socket}
   end
 
   @impl true
-  def handle_params(params, _uri, socket) do
-    cond do
-      Map.has_key?(params, "preview_token") ->
-        handle_preview_token(params, socket)
-
-      Map.has_key?(params, "post_uuid") ->
-        handle_uuid_preview(params, socket)
-
-      Map.has_key?(params, "path") ->
-        handle_saved_preview(params, socket)
-
-      true ->
-        {:noreply, socket}
-    end
-  end
-
-  defp handle_preview_token(%{"preview_token" => token} = params, socket) do
-    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
-
-    case Phoenix.Token.verify(endpoint, "publishing-preview", token, max_age: 300) do
-      {:ok, data} ->
-        # Validate token belongs to the requested group
-        token_group = data[:group_slug]
-        url_group = socket.assigns.group_slug
-
-        if token_group && url_group && token_group != url_group do
-          Logger.warning(
-            "[Publishing.Preview] Token group mismatch: token=#{token_group}, url=#{url_group}"
-          )
-        end
-
-        post =
-          build_preview_post(data, socket.assigns.group_slug, socket.assigns.current_locale_base)
-
-        case render_markdown_content(data[:content] || "") do
-          {:ok, rendered_html} ->
-            {:noreply,
-             socket
-             |> assign(:post, post)
-             |> assign(:group_slug, post.group)
-             |> assign(:group_name, Publishing.group_name(post.group) || post.group)
-             |> assign(:rendered_content, rendered_html)
-             |> assign(:preview_token, token)
-             |> assign(:preview_data, data)
-             |> assign(:error, nil)
-             |> assign(:preview_source, :unsaved)}
-
-          {:error, error_message} ->
-            {:noreply,
-             socket
-             |> assign(:post, post)
-             |> assign(:group_slug, post.group)
-             |> assign(:group_name, Publishing.group_name(post.group) || post.group)
-             |> assign(:rendered_content, nil)
-             |> assign(:preview_token, token)
-             |> assign(:preview_data, data)
-             |> assign(:error, error_message)
-             |> assign(:preview_source, :unsaved)}
-        end
-
-      {:error, reason} ->
-        Logger.warning(
-          "[Publishing.Preview] Token verification failed for group #{socket.assigns.group_slug}: #{inspect(reason)}"
-        )
-
-        params
-        |> Map.delete("preview_token")
-        |> handle_saved_preview(socket)
-    end
-  end
-
-  defp handle_uuid_preview(%{"post_uuid" => post_uuid} = params, socket) do
+  def handle_params(%{"post_uuid" => post_uuid} = params, _uri, socket) do
     group_slug = socket.assigns.group_slug
     language = params["lang"]
     version = params["v"]
@@ -122,10 +50,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
              |> assign(:group_slug, post.group)
              |> assign(:group_name, Publishing.group_name(post.group) || post.group)
              |> assign(:rendered_content, rendered_html)
-             |> assign(:preview_token, nil)
-             |> assign(:preview_data, nil)
-             |> assign(:error, nil)
-             |> assign(:preview_source, :saved)}
+             |> assign(:error, nil)}
 
           {:error, error_message} ->
             {:noreply,
@@ -134,16 +59,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
              |> assign(:group_slug, post.group)
              |> assign(:group_name, Publishing.group_name(post.group) || post.group)
              |> assign(:rendered_content, nil)
-             |> assign(:preview_token, nil)
-             |> assign(:preview_data, nil)
-             |> assign(:error, error_message)
-             |> assign(:preview_source, :saved)}
+             |> assign(:error, error_message)}
         end
 
       {:error, reason} ->
-        Logger.warning(
-          "[Publishing.Preview] UUID preview failed for #{post_uuid}: #{inspect(reason)}"
-        )
+        Logger.warning("[Publishing.Preview] Preview failed for #{post_uuid}: #{inspect(reason)}")
 
         {:noreply,
          socket
@@ -152,70 +72,30 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     end
   end
 
-  defp handle_saved_preview(%{"path" => path}, socket) do
-    group_slug = socket.assigns.group_slug
-
-    case Publishing.read_post(group_slug, path) do
-      {:ok, post} ->
-        case render_markdown_content(post.content) do
-          {:ok, rendered_html} ->
-            {:noreply,
-             socket
-             |> assign(:post, post)
-             |> assign(:rendered_content, rendered_html)
-             |> assign(:preview_token, nil)
-             |> assign(:preview_data, nil)
-             |> assign(:error, nil)
-             |> assign(:preview_source, :saved)}
-
-          {:error, error_message} ->
-            {:noreply,
-             socket
-             |> assign(:post, post)
-             |> assign(:rendered_content, nil)
-             |> assign(:preview_token, nil)
-             |> assign(:preview_data, nil)
-             |> assign(:error, error_message)
-             |> assign(:preview_source, :saved)}
-        end
-
-      {:error, reason} ->
-        Logger.warning(
-          "[Publishing.Preview] Saved preview failed for #{group_slug}/#{path}: #{inspect(reason)}"
-        )
-
-        {:noreply,
-         socket
-         |> put_flash(:error, gettext("Post not found"))
-         |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
-    end
+  def handle_params(_params, _uri, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:error, gettext("No post specified"))
+     |> push_navigate(to: Routes.path("/admin/publishing/#{socket.assigns.group_slug}"))}
   end
 
-  defp handle_saved_preview(_params, socket), do: {:noreply, socket}
   @impl true
   def handle_event("back_to_editor", _params, socket) do
     post = socket.assigns[:post]
+    group_slug = socket.assigns.group_slug
 
     destination =
       if post && post[:uuid] do
-        Helpers.build_edit_url(socket.assigns.group_slug, post,
+        Helpers.build_edit_url(group_slug, post,
           lang: post[:language],
           version: post[:version]
         )
       else
-        query = socket |> preview_return_params() |> encode_query()
-        Routes.path("/admin/publishing/#{socket.assigns.group_slug}/edit#{query}")
+        Routes.path("/admin/publishing/#{group_slug}")
       end
 
     {:noreply, push_navigate(socket, to: destination)}
   end
-
-  # ============================================================================
-  # COMMENTED OUT: Component-based rendering system - Preview assigns builder
-  # ============================================================================
-  # This was used to build sample data for the component rendering system.
-  # Related to: lib/modules/publishing/page_builder.ex
-  # ============================================================================
 
   defp render_markdown_content(content) when is_binary(content) do
     content
@@ -223,75 +103,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     |> then(&{:ok, &1})
   rescue
     error ->
-      Logger.error("Preview markdown rendering failed", error: inspect(error))
-      {:error, gettext("Failed to render markdown preview.")}
-  end
-
-  defp build_preview_post(data, fallback_group_slug, fallback_locale) do
-    group_slug = data[:group_slug] || fallback_group_slug
-    language = data[:language] || fallback_locale
-    mode = data[:mode] || :timestamp
-    metadata = extract_preview_metadata(data[:metadata] || %{})
-
-    available_languages = data[:available_languages] || []
-
-    available_languages =
-      [language | available_languages] |> Enum.reject(&is_nil/1) |> Enum.uniq()
-
-    %{
-      group: group_slug,
-      slug: metadata[:slug],
-      date: nil,
-      time: nil,
-      metadata: metadata,
-      content: data[:content] || "",
-      language: language,
-      available_languages: available_languages,
-      mode: mode
-    }
-  end
-
-  defp extract_preview_metadata(raw_metadata) do
-    Enum.reduce(raw_metadata, %{title: "", status: "draft", published_at: nil, slug: nil}, fn
-      {key, value}, acc when key in [:title, :status, :published_at, :slug] ->
-        Map.put(acc, key, value)
-
-      {"title", value}, acc ->
-        Map.put(acc, :title, value)
-
-      {"status", value}, acc ->
-        Map.put(acc, :status, value)
-
-      {"published_at", value}, acc ->
-        Map.put(acc, :published_at, value)
-
-      {"slug", value}, acc ->
-        Map.put(acc, :slug, value)
-
-      _, acc ->
-        acc
-    end)
-  end
-
-  defp preview_return_params(socket) do
-    %{}
-    |> maybe_put_preview_token(socket.assigns[:preview_token])
-    |> maybe_put_new_flag(socket.assigns[:preview_data])
-  end
-
-  defp maybe_put_preview_token(params, token) when is_binary(token) and token != "" do
-    Map.put(params, "preview_token", token)
-  end
-
-  defp maybe_put_preview_token(params, _), do: params
-
-  defp maybe_put_new_flag(params, %{is_new_post: true}), do: Map.put(params, "new", "true")
-  defp maybe_put_new_flag(params, _), do: params
-
-  defp encode_query(params) do
-    case URI.encode_query(params) do
-      "" -> ""
-      encoded -> "?" <> encoded
-    end
+      Logger.error("[Publishing.Preview] Markdown rendering failed: #{inspect(error)}")
+      {:error, gettext("Failed to render preview.")}
   end
 end

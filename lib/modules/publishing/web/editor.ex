@@ -38,7 +38,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Modules.Publishing.Web.Editor.Persistence
-  alias PhoenixKit.Modules.Publishing.Web.Editor.Preview
   alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
   alias PhoenixKit.Modules.Publishing.Web.Editor.Versions
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -169,50 +168,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   @impl true
-  def handle_params(%{"preview_token" => token} = params, uri, socket) do
-    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
-
-    case Phoenix.Token.verify(endpoint, "publishing-preview", token, max_age: 300) do
-      {:ok, data} ->
-        old_form_key = socket.assigns[:form_key]
-        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
-
-        socket =
-          socket
-          |> Preview.apply_preview_payload(data)
-          |> assign(:preview_token, token)
-          |> assign(:current_path, Preview.preview_editor_path(socket, data, token, params))
-
-        form_key =
-          PublishingPubSub.generate_form_key(
-            socket.assigns.group_slug,
-            socket.assigns.post,
-            if(socket.assigns.is_new_post, do: :new, else: :edit)
-          )
-
-        socket = assign(socket, :form_key, form_key)
-
-        socket =
-          Collaborative.setup_collaborative_editing(socket, form_key,
-            old_form_key: old_form_key,
-            old_post_slug: old_post_slug
-          )
-
-        socket =
-          push_event(socket, "changes-status", %{
-            has_changes: socket.assigns.has_pending_changes
-          })
-
-        {:noreply, socket}
-
-      {:error, reason} ->
-        Logger.warning(
-          "[Publishing.Editor] Preview token verification failed: #{inspect(reason)}"
-        )
-
-        handle_params(Map.delete(params, "preview_token"), uri, socket)
-    end
-  end
 
   # Match both /admin/publishing/:group/new route AND legacy ?new=true
   def handle_params(params, _uri, %{assigns: %{live_action: :new}} = socket)
@@ -1010,21 +965,30 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   def handle_event("preview", _params, socket) do
-    preview_payload = Preview.build_preview_payload(socket)
-    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
-    token = Phoenix.Token.sign(endpoint, "publishing-preview", preview_payload, max_age: 300)
-
-    query_params = Preview.build_preview_query_params(preview_payload, token)
-
-    query_string =
-      case URI.encode_query(query_params) do
-        "" -> ""
-        encoded -> "?" <> encoded
+    # Save first if there are pending changes (autosave is 500ms but user might click fast)
+    socket =
+      if socket.assigns.has_pending_changes do
+        {:noreply, saved} = Persistence.perform_save(socket)
+        saved
+      else
+        socket
       end
+
+    group_slug = socket.assigns.group_slug
+    post = socket.assigns.post
+    language = socket.assigns.current_language
+    version = socket.assigns[:current_version]
+
+    query =
+      URI.encode_query(%{
+        "post_uuid" => post[:uuid],
+        "lang" => language,
+        "v" => version
+      })
 
     {:noreply,
      push_navigate(socket,
-       to: Routes.path("/admin/publishing/#{socket.assigns.group_slug}/preview#{query_string}")
+       to: Routes.path("/admin/publishing/#{group_slug}/preview?#{query}")
      )}
   end
 
