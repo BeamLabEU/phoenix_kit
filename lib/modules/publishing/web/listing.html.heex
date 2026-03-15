@@ -112,7 +112,7 @@
                 type="button"
                 phx-click="switch_post_view"
                 phx-value-mode={mode}
-                class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap #{cond do
+                class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer #{cond do
                   @post_view_mode == mode and color == "error" -> "border-error text-error"
                   @post_view_mode == mode -> "border-primary text-primary"
                   true -> "border-transparent text-base-content/50 hover:text-base-content"
@@ -212,18 +212,22 @@
                         <% end %>
                       </div>
                       <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                        <.link
-                          href={
-                            PhoenixKit.Utils.Routes.path(
-                              "/admin/publishing/#{group_slug}/#{post.uuid}/edit?lang=#{post_primary_lang}"
-                            )
-                          }
-                          class="hover:text-primary transition-colors"
-                        >
+                        <%= if @post_view_mode == "trashed" do %>
                           {post.metadata.title || gettext("Untitled post")}
-                        </.link>
+                        <% else %>
+                          <.link
+                            href={
+                              PhoenixKit.Utils.Routes.path(
+                                "/admin/publishing/#{group_slug}/#{post.uuid}/edit?lang=#{post_primary_lang}"
+                              )
+                            }
+                            class="hover:text-primary transition-colors"
+                          >
+                            {post.metadata.title || gettext("Untitled post")}
+                          </.link>
+                        <% end %>
                       </h3>
-                      <%= if post_status == "published" do %>
+                      <%= if post_status == "published" and @post_view_mode != "trashed" do %>
                         <p class="text-xs text-base-content/50">
                           <span class="font-medium text-base-content">
                             {gettext("Public URL")}:
@@ -254,42 +258,67 @@
                       <%!-- Primary language + status control --%>
                       <%= if primary_lang do %>
                         <div class="flex items-center gap-2">
-                          <button
-                            type="button"
-                            phx-click="language_action"
-                            phx-value-language={primary_lang.code}
-                            phx-value-uuid={post[:uuid]}
-                            phx-value-status={primary_lang.status}
-                            class="inline-flex items-center gap-2 px-2.5 h-[2.5em] rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors"
-                            title={primary_lang.name}
-                          >
-                            <span class="text-xs text-primary/70 font-medium">
-                              {gettext("Primary")}
+                          <%= if @post_view_mode == "trashed" do %>
+                            <span
+                              class="inline-flex items-center gap-2 px-2.5 h-[2.5em] rounded-lg bg-base-200/60 border border-base-300 opacity-60"
+                              title={primary_lang.name}
+                            >
+                              <span class="text-xs text-base-content/50 font-medium">
+                                {gettext("Primary")}
+                              </span>
+                              <span class={[
+                                "rounded-full inline-block w-2.5 h-2.5",
+                                cond do
+                                  not primary_lang.exists -> "bg-base-content/20"
+                                  post_status == "published" -> "bg-success"
+                                  post_status == "draft" -> "bg-warning"
+                                  post_status == "archived" -> "bg-base-content/40"
+                                  true -> "bg-base-content/20"
+                                end
+                              ]}>
+                              </span>
+                              <span class="text-sm font-bold uppercase text-base-content/40">
+                                {String.upcase(primary_lang.display_code)}
+                              </span>
                             </span>
-                            <span class={[
-                              "rounded-full inline-block w-2.5 h-2.5",
-                              cond do
-                                not primary_lang.exists -> "bg-base-content/20"
-                                post_status == "published" -> "bg-success"
-                                post_status == "draft" -> "bg-warning"
-                                post_status == "archived" -> "bg-base-content/40"
-                                true -> "bg-base-content/20"
-                              end
-                            ]}>
-                            </span>
-                            <span class={[
-                              "text-sm font-bold uppercase",
-                              cond do
-                                not primary_lang.exists -> "text-base-content/20"
-                                post_status == "published" -> "text-success"
-                                post_status == "draft" -> "text-warning"
-                                post_status == "archived" -> "text-base-content/40"
-                                true -> "text-base-content/20"
-                              end
-                            ]}>
-                              {String.upcase(primary_lang.display_code)}
-                            </span>
-                          </button>
+                          <% else %>
+                            <button
+                              type="button"
+                              phx-click="language_action"
+                              phx-value-language={primary_lang.code}
+                              phx-value-uuid={post[:uuid]}
+                              phx-value-status={primary_lang.status}
+                              class="inline-flex items-center gap-2 px-2.5 h-[2.5em] rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors"
+                              title={primary_lang.name}
+                            >
+                              <span class="text-xs text-primary/70 font-medium">
+                                {gettext("Primary")}
+                              </span>
+                              <span class={[
+                                "rounded-full inline-block w-2.5 h-2.5",
+                                cond do
+                                  not primary_lang.exists -> "bg-base-content/20"
+                                  post_status == "published" -> "bg-success"
+                                  post_status == "draft" -> "bg-warning"
+                                  post_status == "archived" -> "bg-base-content/40"
+                                  true -> "bg-base-content/20"
+                                end
+                              ]}>
+                              </span>
+                              <span class={[
+                                "text-sm font-bold uppercase",
+                                cond do
+                                  not primary_lang.exists -> "text-base-content/20"
+                                  post_status == "published" -> "text-success"
+                                  post_status == "draft" -> "text-warning"
+                                  post_status == "archived" -> "text-base-content/40"
+                                  true -> "text-base-content/20"
+                                end
+                              ]}>
+                                {String.upcase(primary_lang.display_code)}
+                              </span>
+                            </button>
+                          <% end %>
                           <%= if @post_view_mode != "trashed" do %>
                             <form
                               id={"status-#{post[:uuid]}-#{post_status}"}
@@ -327,27 +356,51 @@
                               </div>
                             </form>
                           <% end %>
-                          <button
-                            type="button"
-                            phx-click="trash_post"
-                            phx-value-uuid={post[:uuid]}
-                            class="inline-flex items-center gap-1.5 px-2.5 h-[2.5em] rounded-lg border border-error/20 bg-error/5 hover:bg-error/15 text-error/60 hover:text-error transition-colors cursor-pointer"
-                            data-confirm={gettext("Move this post to trash?")}
-                            title={gettext("Move to trash")}
-                          >
-                            <.icon name="hero-trash" class="w-3.5 h-3.5" />
-                          </button>
+                          <%= if @post_view_mode != "trashed" do %>
+                            <button
+                              type="button"
+                              phx-click="trash_post"
+                              phx-value-uuid={post[:uuid]}
+                              class="inline-flex items-center gap-1.5 px-2.5 h-[2.5em] rounded-lg border border-error/20 bg-error/5 hover:bg-error/15 text-error/60 hover:text-error transition-colors cursor-pointer"
+                              data-confirm={gettext("Move this post to trash?")}
+                              title={gettext("Move to trash")}
+                            >
+                              <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                            </button>
+                          <% else %>
+                            <button
+                              type="button"
+                              phx-click="restore_post"
+                              phx-value-uuid={post[:uuid]}
+                              class="inline-flex items-center gap-1.5 px-2.5 h-[2.5em] rounded-lg border border-success/30 bg-success/10 hover:bg-success/20 text-success font-medium transition-colors cursor-pointer"
+                              title={gettext("Restore")}
+                            >
+                              <.icon name="hero-arrow-uturn-left" class="w-3.5 h-3.5" />
+                              <span class="text-xs font-medium">{gettext("Restore")}</span>
+                            </button>
+                          <% end %>
                         </div>
                       <% end %>
 
                       <%!-- Other translations (excluding primary) --%>
-                      <.publishing_language_switcher
-                        languages={other_languages}
-                        show_status={true}
-                        show_add={true}
-                        on_click="language_action"
-                        size={:sm}
-                      />
+                      <%= if @post_view_mode == "trashed" do %>
+                        <div class="opacity-60 pointer-events-none">
+                          <.publishing_language_switcher
+                            languages={other_languages}
+                            show_status={true}
+                            show_add={false}
+                            size={:sm}
+                          />
+                        </div>
+                      <% else %>
+                        <.publishing_language_switcher
+                          languages={other_languages}
+                          show_status={true}
+                          show_add={true}
+                          on_click="language_action"
+                          size={:sm}
+                        />
+                      <% end %>
                     </div>
                     <%!-- Translation Progress Bar --%>
                     <%= if translation_status = Map.get(@translating_posts, post.slug) do %>
@@ -379,20 +432,6 @@
                             )}
                           </div>
                         <% end %>
-                      </div>
-                    <% end %>
-                    <%!-- Restore button (trash view only) --%>
-                    <%= if @post_view_mode == "trashed" do %>
-                      <div class="border-t border-base-200 pt-2 mt-2 flex justify-end">
-                        <button
-                          type="button"
-                          phx-click="restore_post"
-                          phx-value-uuid={post[:uuid]}
-                          class="btn btn-ghost btn-xs text-success hover:bg-success/10"
-                        >
-                          <.icon name="hero-arrow-uturn-left" class="w-3.5 h-3.5 mr-1" />
-                          {gettext("Restore")}
-                        </button>
                       </div>
                     <% end %>
                   </div>

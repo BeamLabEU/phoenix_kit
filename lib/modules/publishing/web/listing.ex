@@ -59,8 +59,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     filtered_posts =
       case default_mode do
         "trashed" ->
-          DBStorage.list_posts(group_slug, "trashed")
-          |> Enum.map(&post_struct_to_map/1)
+          DBStorage.list_posts_with_metadata(group_slug, "trashed")
 
         status ->
           Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
@@ -150,8 +149,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         filtered_posts =
           case default_mode do
             "trashed" ->
-              DBStorage.list_posts(new_group_slug, "trashed")
-              |> Enum.map(&post_struct_to_map/1)
+              DBStorage.list_posts_with_metadata(new_group_slug, "trashed")
 
             status ->
               Enum.filter(posts, fn p -> p[:metadata] && p.metadata.status == status end)
@@ -392,8 +390,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     posts =
       case mode do
         "trashed" ->
-          DBStorage.list_posts(group_slug, "trashed")
-          |> Enum.map(&post_struct_to_map/1)
+          DBStorage.list_posts_with_metadata(group_slug, "trashed")
 
         status ->
           Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
@@ -413,26 +410,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       end)
 
     Map.put(counts, "trashed", trashed_count)
-  end
-
-  defp post_struct_to_map(%{} = post) do
-    %{
-      uuid: post.uuid,
-      slug: post.slug,
-      group: post.group && post.group.slug,
-      mode: if(post.mode == "timestamp", do: :timestamp, else: :slug),
-      date: post.post_date,
-      time: post.post_time,
-      metadata: %{
-        title: nil,
-        status: post.status
-      },
-      available_languages: [],
-      language_statuses: %{},
-      available_versions: [],
-      version: nil,
-      primary_language: post.primary_language
-    }
   end
 
   @impl true
@@ -648,8 +625,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         filtered_posts =
           case mode do
             "trashed" ->
-              DBStorage.list_posts(group_slug, "trashed")
-              |> Enum.map(&post_struct_to_map/1)
+              DBStorage.list_posts_with_metadata(group_slug, "trashed")
 
             status ->
               Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)

@@ -635,8 +635,8 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   Returns a list of post maps suitable for listing pages.
   """
-  def list_posts_with_metadata(group_slug) do
-    posts = list_posts(group_slug)
+  def list_posts_with_metadata(group_slug, status \\ nil) do
+    posts = if status, do: list_posts(group_slug, status), else: list_posts(group_slug)
     post_uuids = Enum.map(posts, & &1.uuid)
 
     # Batch-load ALL versions for all posts in one query
