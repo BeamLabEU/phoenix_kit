@@ -107,6 +107,9 @@ defmodule PhoenixKit.MixProject do
       {:floki, ">= 0.30.0", only: :test},
       {:hackney, "~> 1.9"},
 
+      # Content editor
+      {:leaf, "~> 0.1.0"},
+
       # Utilities
       {:jason, "~> 1.4"},
       {:earmark, "~> 1.4"},

@@ -110,7 +110,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   @impl true
   def handle_event("save", %{"post" => post_params}, socket) do
     # Merge content from assigns (stored separately from form)
-    content = socket.assigns.content
+    content = socket.assigns[:live_content] || socket.assigns.content
     post_params = Map.put(post_params, "content", content)
 
     # Parse tags from content if auto-tagging is enabled
@@ -215,14 +215,13 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     end
   end
 
-  # Handle content changes from MarkdownEditor component
+  # Handle content changes from MarkdownEditor/Leaf component
   @impl true
   def handle_info(
-        {:editor_content_changed, %{content: content, editor_id: "post-content-editor"}},
+        {:editor_content_changed, %{content: content, editor_id: "post-content-editor" <> _}},
         socket
       ) do
-    # Store content as a separate assign (like Publishing editor does)
-    {:noreply, assign(socket, :content, content)}
+    {:noreply, assign(socket, :live_content, content)}
   end
 
   # Handle image/video insert from MarkdownEditor toolbar
@@ -323,6 +322,17 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
      |> assign(:inserting_media_type, nil)
      |> assign(:selecting_featured_image, false)}
   end
+
+  # Handle Leaf editor messages
+  def handle_info({:leaf_changed, %{markdown: content}}, socket) do
+    {:noreply, assign(socket, :live_content, content)}
+  end
+
+  def handle_info({:leaf_insert_request, %{type: type}}, socket) do
+    handle_info({:editor_insert_component, %{type: type}}, socket)
+  end
+
+  def handle_info({:leaf_mode_changed, _}, socket), do: {:noreply, socket}
 
   # Catch-all for other editor events
   def handle_info({:editor_insert_component, _}, socket), do: {:noreply, socket}
