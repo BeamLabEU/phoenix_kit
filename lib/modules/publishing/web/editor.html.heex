@@ -1047,6 +1047,23 @@
                       {gettext("Not visible — publish the primary language first")}
                     </div>
                   <% end %>
+                  <%!-- Clear translation button --%>
+                  <%= if has_content do %>
+                    <button
+                      type="button"
+                      phx-click="clear_translation"
+                      class="btn btn-outline btn-error btn-sm w-full gap-2 mt-2"
+                      data-confirm={
+                        gettext(
+                          "Clear the %{language} translation content? You can always add a new translation for this language later.",
+                          language: @current_language_name
+                        )
+                      }
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                      {gettext("Clear translation")}
+                    </button>
+                  <% end %>
                 <% end %>
 
                 <%!-- Publication date: only editable by primary language --%>

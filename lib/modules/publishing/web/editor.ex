@@ -655,6 +655,70 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
 
+  def handle_event("clear_translation", _params, socket) do
+    alias PhoenixKit.Modules.Publishing.DBStorage
+    alias PhoenixKit.Modules.Publishing.ListingCache
+    alias PhoenixKit.Modules.Publishing.Shared
+
+    group_slug = socket.assigns.group_slug
+    post = socket.assigns.post
+    language = socket.assigns.current_language
+    post_uuid = post[:uuid]
+
+    result =
+      with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
+           db_version when not is_nil(db_version) <- Shared.resolve_db_version(db_post, nil),
+           content when not is_nil(content) <-
+             DBStorage.get_content(db_version.uuid, language) do
+        # Don't delete the last language
+        remaining =
+          DBStorage.list_contents(db_version.uuid)
+          |> Enum.reject(&(&1.language == language))
+
+        if remaining == [] do
+          {:error, :last_language}
+        else
+          repo = PhoenixKit.RepoHelper.repo()
+
+          case repo.delete(content) do
+            {:ok, _} ->
+              ListingCache.regenerate(group_slug)
+
+              PublishingPubSub.broadcast_translation_deleted(
+                group_slug,
+                db_post.slug || db_post.uuid,
+                language
+              )
+
+              :ok
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+        end
+      else
+        nil -> {:error, :not_found}
+      end
+
+    case result do
+      :ok ->
+        primary_lang = post[:primary_language] || Publishing.get_primary_language()
+        url = Helpers.build_edit_url(group_slug, post, lang: primary_lang)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Translation cleared"))
+         |> push_navigate(to: url)}
+
+      {:error, :last_language} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Cannot remove the last language from a post"))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to clear translation"))}
+    end
+  end
+
   # ============================================================================
   # Handle Events - Media
   # ============================================================================
