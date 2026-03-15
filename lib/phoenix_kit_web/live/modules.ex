@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     external_modules = load_external_modules(module_configs)
     dep_warnings = ModuleRegistry.dependency_warnings()
+    not_installed = ModuleRegistry.not_installed_packages()
 
     socket =
       socket
@@ -40,6 +41,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:module_configs, module_configs)
       |> assign(:external_modules, external_modules)
       |> assign(:dep_warnings, dep_warnings)
+      |> assign(:not_installed_packages, not_installed)
 
     {:ok, socket}
   end
