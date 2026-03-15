@@ -1027,9 +1027,9 @@
                     </p>
                   </div>
                 <% else %>
-                  <% has_content = (@content || "") != "" %>
+                  <% translation_exists = @current_language in (@post[:available_languages] || []) %>
                   <%= if @form["status"] == "published" do %>
-                    <%= if has_content do %>
+                    <%= if (@content || "") != "" do %>
                       <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-sm text-success">
                         <.icon name="hero-globe-alt" class="w-4 h-4 shrink-0" />
                         {gettext("Visible to the public")}
@@ -1047,7 +1047,7 @@
                     </div>
                   <% end %>
                   <%!-- Clear translation button --%>
-                  <%= if has_content do %>
+                  <%= if translation_exists do %>
                     <button
                       type="button"
                       phx-click="clear_translation"
