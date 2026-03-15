@@ -18,6 +18,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   @valid_types ["blog", "faq", "legal", "custom"]
   @valid_group_modes ["timestamp", "slug"]
   @valid_post_statuses ["draft", "published", "archived", "trashed"]
+  @valid_group_statuses ["active", "trashed"]
   @valid_version_statuses ["draft", "published", "archived"]
   @default_group_mode "timestamp"
   @default_group_type "blog"
@@ -53,6 +54,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
     type = Map.get(data, "type", @default_group_type)
     fixed_type = if type in @valid_types, do: type, else: "custom"
     fixed_mode = if group.mode in @valid_group_modes, do: group.mode, else: @default_group_mode
+    fixed_status = if group.status in @valid_group_statuses, do: group.status, else: "active"
 
     {default_singular, default_plural} = default_item_names(fixed_type)
     item_singular = Map.get(data, "item_singular")
@@ -68,7 +70,8 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
       |> maybe_update("item_plural", item_plural, fixed_plural)
 
     attrs = if data_changes != data, do: %{data: data_changes}, else: %{}
-    if fixed_mode != group.mode, do: Map.put(attrs, :mode, fixed_mode), else: attrs
+    attrs = if fixed_mode != group.mode, do: Map.put(attrs, :mode, fixed_mode), else: attrs
+    if fixed_status != group.status, do: Map.put(attrs, :status, fixed_status), else: attrs
   end
 
   defp valid_string_or_default(val, default) do
@@ -112,7 +115,12 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   end
 
   defp maybe_fix_post_status(attrs, post) do
-    if post.status in @valid_post_statuses, do: attrs, else: Map.put(attrs, :status, "draft")
+    cond do
+      post.status in @valid_post_statuses -> attrs
+      # Convert removed "scheduled" status to "draft"
+      post.status == "scheduled" -> Map.put(attrs, :status, "draft")
+      true -> Map.put(attrs, :status, "draft")
+    end
   end
 
   defp maybe_fix_post_mode(attrs, post) do
@@ -208,7 +216,8 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   """
   @spec fix_all_stale_values() :: :ok
   def fix_all_stale_values do
-    groups = DBStorage.list_groups()
+    # Scan ALL groups (including trashed) — pass nil to skip status filter
+    groups = DBStorage.list_groups(nil)
     Enum.each(groups, &fix_stale_group/1)
 
     for group <- groups do
@@ -304,7 +313,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
         DBStorage.update_post(post, %{status: "draft"})
 
       # Post is not published but a version claims to be — archive the version
-      post.status in ["draft", "archived"] and published_versions != [] ->
+      post.status in ["draft", "archived", "trashed"] and published_versions != [] ->
         Logger.info(
           "[Publishing] Reconcile: post #{post.uuid} is #{inspect(post.status)} but has #{length(published_versions)} published versions, archiving"
         )
