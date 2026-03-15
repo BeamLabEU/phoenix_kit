@@ -114,6 +114,12 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   end
 
   defp empty_post?(post) do
+    # Only consider draft/trashed posts for auto-deletion — published/archived
+    # posts should never be silently removed even if they appear empty
+    post.status in ["draft", "trashed"] and all_versions_empty?(post)
+  end
+
+  defp all_versions_empty?(post) do
     versions = DBStorage.list_versions(post.uuid)
 
     if versions == [] do

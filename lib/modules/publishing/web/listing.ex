@@ -196,40 +196,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   def handle_event("change_status", %{"uuid" => post_uuid, "status" => new_status}, socket) do
-    scope = socket.assigns[:phoenix_kit_current_scope]
-
-    case Publishing.read_post_by_uuid(post_uuid) do
-      {:ok, post} ->
-        # Determine if this is the primary language for status propagation
-        primary_language = post[:primary_language] || Publishing.get_primary_language()
-        is_primary_language = post.language == primary_language
-
-        case Publishing.update_post(socket.assigns.group_slug, post, %{"status" => new_status}, %{
-               scope: scope,
-               is_primary_language: is_primary_language
-             }) do
-          {:ok, updated_post} ->
-            # Invalidate cache for this post
-            invalidate_post_cache(socket.assigns.group_slug, updated_post)
-
-            # Broadcast status change to other connected clients
-            PublishingPubSub.broadcast_post_status_changed(
-              socket.assigns.group_slug,
-              updated_post
-            )
-
-            {:noreply,
-             socket
-             |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> reload_current_view()}
-
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
-        end
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Post not found"))}
-    end
+    do_update_post_status(socket, post_uuid, new_status)
   end
 
   def handle_event(
@@ -237,8 +204,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         %{"uuid" => post_uuid, "current-status" => current_status},
         socket
       ) do
-    scope = socket.assigns[:phoenix_kit_current_scope]
-
     new_status =
       case current_status do
         "draft" -> "published"
@@ -247,35 +212,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         _ -> "draft"
       end
 
-    case Publishing.read_post_by_uuid(post_uuid) do
-      {:ok, post} ->
-        # Determine if this is the primary language for status propagation
-        primary_language = post[:primary_language] || Publishing.get_primary_language()
-        is_primary_language = post.language == primary_language
-
-        case Publishing.update_post(socket.assigns.group_slug, post, %{"status" => new_status}, %{
-               scope: scope,
-               is_primary_language: is_primary_language
-             }) do
-          {:ok, updated_post} ->
-            # Broadcast status change to other connected clients
-            PublishingPubSub.broadcast_post_status_changed(
-              socket.assigns.group_slug,
-              updated_post
-            )
-
-            {:noreply,
-             socket
-             |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> reload_current_view()}
-
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
-        end
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Post not found"))}
-    end
+    do_update_post_status(socket, post_uuid, new_status)
   end
 
   def handle_event("update_primary_language", _params, socket) do
@@ -976,6 +913,38 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   defp extract_endpoint_url(_), do: ""
+
+  defp do_update_post_status(socket, post_uuid, new_status) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    group_slug = socket.assigns.group_slug
+
+    case Publishing.read_post_by_uuid(post_uuid) do
+      {:ok, post} ->
+        primary_language = post[:primary_language] || Publishing.get_primary_language()
+        is_primary_language = post.language == primary_language
+
+        case Publishing.update_post(group_slug, post, %{"status" => new_status}, %{
+               scope: scope,
+               is_primary_language: is_primary_language
+             }) do
+          {:ok, updated_post} ->
+            invalidate_post_cache(group_slug, updated_post)
+
+            PublishingPubSub.broadcast_post_status_changed(group_slug, updated_post)
+
+            {:noreply,
+             socket
+             |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
+             |> reload_current_view()}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
+        end
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Post not found"))}
+    end
+  end
 
   defp invalidate_post_cache(group_slug, post) do
     identifier = post[:uuid] || post.slug

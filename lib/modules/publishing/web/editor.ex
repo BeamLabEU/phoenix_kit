@@ -28,8 +28,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
+  alias PhoenixKit.Modules.Publishing.Shared
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -661,10 +664,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("noop", _params, socket), do: {:noreply, socket}
 
   def handle_event("clear_translation", _params, socket) do
-    alias PhoenixKit.Modules.Publishing.DBStorage
-    alias PhoenixKit.Modules.Publishing.ListingCache
-    alias PhoenixKit.Modules.Publishing.Shared
-
     group_slug = socket.assigns.group_slug
     post = socket.assigns.post
     language = socket.assigns.current_language
