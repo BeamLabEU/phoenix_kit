@@ -25,30 +25,19 @@ Also: module dependency system (`required_modules/0` callback, `dependency_warni
 
 ## Concerns
 
-### Medium: Dynamic `Module.concat/2` for Broadcast schema
+### ~~Medium: Dynamic `Module.concat/2` for Broadcast schema~~ — FIXED
 
-```elixir
-# sqs_processor.ex
-broadcast_mod = newsletters_mod |> Module.concat("Broadcast")
-```
+~~This assumes the external package will always name its broadcast schema `Newsletters.Broadcast`.~~
 
-This assumes the external package will always name its broadcast schema `Newsletters.Broadcast`. If the package renames or restructures, this breaks silently at runtime. Consider adding a `broadcast_schema/0` callback to the newsletters module interface.
+**Fixed in `494041e0`:** Replaced `Module.concat("Broadcast")` + direct Ecto query with a clean `newsletters_mod.increment_broadcast_counter(broadcast_uuid, field_name)` call guarded by `function_exported?/3`. The newsletters external package just needs to export `increment_broadcast_counter/2`. Also removed the now-unused `import Ecto.Query`.
 
-### Medium: No interface contract for external modules
+### Low: No interface contract for external modules
 
-The SQS processor checks `function_exported?(newsletters_mod, :find_delivery_by_message_id, 1)` at runtime, but there's no behaviour or protocol defining what external modules must export. A `@callback` definition would catch API drift at compile time rather than silently skipping functionality.
+The SQS processor checks `function_exported?` at runtime, but there's no behaviour or protocol defining what external modules must export. A `@callback` definition would catch API drift at compile time rather than silently skipping functionality. Worth doing when more modules are extracted.
 
-### Low: Duplicated permission check in roles template
+### ~~Low: Duplicated permission check in roles template~~ — FIXED
 
-The roles template (`roles.html.heex`) has the same long conditional for module access duplicated between `card_actions` and the table cell:
-
-```elixir
-assigns[:phoenix_kit_current_scope] &&
-  PhoenixKit.Users.Auth.Scope.has_module_access?(...) &&
-  !MapSet.member?(...)
-```
-
-Consider extracting to a helper or `assign` computed in `mount`/`handle_params`.
+**Fixed in `494041e0`:** Extracted the duplicated `assigns[:phoenix_kit_current_scope] && Scope.has_module_access?(...)` check into a `@can_manage_permissions` assign computed in `load_roles/1`. Both card and table views now use `@can_manage_permissions && !MapSet.member?(@uneditable_role_uuids, ...)`.
 
 ### Low: Route ordering fragility
 
@@ -61,13 +50,13 @@ Auto-discovered external module routes must be placed before publishing catch-al
 | `module.ex` | New `required_modules/0` callback — clean optional behaviour extension |
 | `module_registry.ex` | `dependency_warnings/0` and compile-time validation — solid |
 | `integration.ex` | Route auto-discovery via `ModuleDiscovery` — verify ordering remains correct |
-| `sqs_processor.ex` | Dynamic dispatch pattern is good; `Module.concat` is fragile |
+| `sqs_processor.ex` | Dynamic dispatch pattern is good; `Module.concat` replaced with function call (fixed) |
 | `table_row_menu.ex` | Well-structured component with variants, dividers, accessibility |
 | `phoenix_kit.js` | RowMenu hook: proper cleanup in `destroyed()`, good viewport logic |
 | `users.html.heex` | Clean migration to table_row_menu |
 | `sessions.html.heex` | Good simplification via toggleable table |
 | `live_sessions.html.heex` | Same pattern, consistent |
-| `roles.html.heex` | Works, but duplicated permission logic |
+| `roles.html.heex` | Duplicated permission logic extracted to assign (fixed) |
 | `seed_templates.ex` | `System.halt` → `raise` — correct fix |
 | Tests | Counts adjusted for removed module — correct |
 
