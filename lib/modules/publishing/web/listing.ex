@@ -100,11 +100,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     socket = handle_subscription_change(socket, old_group_slug, new_group_slug)
 
-    # Run stale fixer for this group's posts on first connected load
+    # Run stale fixer for this group's posts on first connected load.
+    # Includes trashed posts so empty ones get hard-deleted instead of
+    # sitting in trash with no recoverable content.
     if connected?(socket) and new_group_slug do
       Task.start(fn ->
-        DBStorage.list_posts(new_group_slug)
-        |> Enum.each(&StaleFixer.fix_stale_post/1)
+        active = DBStorage.list_posts(new_group_slug)
+        trashed = DBStorage.list_posts(new_group_slug, "trashed")
+        Enum.each(active ++ trashed, &StaleFixer.fix_stale_post/1)
       end)
     end
 

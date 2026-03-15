@@ -95,11 +95,13 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   """
   @spec fix_stale_post(PublishingPost.t()) :: PublishingPost.t()
   def fix_stale_post(%PublishingPost{} = post) do
-    # Trash empty posts (no content rows at all across any version)
+    # Hard-delete empty posts (no content in any version) — they're abandoned
+    # drafts with no recoverable content, so trashing them just creates a
+    # restore → auto-trash loop.
     if empty_post?(post) do
-      Logger.info("[Publishing] Trashing empty post #{post.uuid} (no content in any version)")
-      DBStorage.update_post(post, %{status: "trashed"})
-      DBStorage.get_post_by_uuid(post.uuid, [:group]) || post
+      Logger.info("[Publishing] Deleting empty post #{post.uuid} (no content in any version)")
+      DBStorage.delete_post(post)
+      post
     else
       post = apply_stale_fix(post, build_post_fixes(post), &DBStorage.update_post/2)
 
