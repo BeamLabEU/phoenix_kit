@@ -230,7 +230,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
   # Check if it looks like a locale code
   defp looks_like_locale?(locale) do
-    String.length(locale) <= 6 and String.match?(locale, ~r/^[a-z]{2}(-[A-Z]{2})?$/)
+    String.length(locale) <= 8 and String.match?(locale, ~r/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/)
   end
 
   # Legacy helper - kept for backward compatibility

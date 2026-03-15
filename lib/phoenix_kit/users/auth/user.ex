@@ -338,7 +338,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
   ## Validation
 
-  - Format: Must match ~r/^[a-z]{2}(-[A-Z]{2})?$/
+  - Format: Must match ~r/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/
   - Existence: Must exist in predefined language list
   - NULL/empty allowed: Indicates "use system default"
 
@@ -396,7 +396,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
   def validate_locale_value(locale) when is_binary(locale) do
     cond do
-      !Regex.match?(~r/^[a-z]{2}(-[A-Z]{2})?$/, locale) ->
+      !Regex.match?(~r/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, locale) ->
         {:error, "must be a valid locale format (e.g., en-US, es-MX)"}
 
       !Languages.get_predefined_language(locale) ->
