@@ -149,6 +149,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       db_post ->
         case DBStorage.update_post(db_post, %{status: "draft"}) do
           {:ok, _} ->
+            # Reconcile version/content statuses immediately (don't wait for stale fixer)
+            StaleFixer.reconcile_post_status(db_post)
             ListingCache.regenerate(group_slug)
 
             {:noreply,

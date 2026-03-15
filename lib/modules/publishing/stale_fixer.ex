@@ -135,6 +135,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
     |> maybe_fix_post_language(post)
     |> maybe_fix_post_status(post)
     |> maybe_fix_post_mode(post)
+    |> maybe_fix_post_slug(post)
     |> maybe_fix_post_timestamp(post)
   end
 
@@ -170,6 +171,61 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
       end
 
     if fixed_mode != post.mode, do: Map.put(attrs, :mode, fixed_mode), else: attrs
+  end
+
+  defp maybe_fix_post_slug(attrs, post) do
+    effective_mode = attrs[:mode] || post.mode
+
+    if effective_mode == "slug" and (is_nil(post.slug) or post.slug == "") do
+      # Post switched to slug mode but has no slug — generate from title or date
+      slug = generate_slug_for_post(post)
+
+      if slug && slug != "" do
+        Logger.info(
+          "[Publishing] Generating slug for post #{post.uuid}: #{inspect(slug)} (mode changed to slug)"
+        )
+
+        Map.put(attrs, :slug, slug)
+      else
+        attrs
+      end
+    else
+      attrs
+    end
+  end
+
+  defp generate_slug_for_post(post) do
+    # Try to get title from the latest version's primary content
+    title =
+      case DBStorage.list_versions(post.uuid) do
+        [] ->
+          nil
+
+        versions ->
+          latest = List.last(versions)
+
+          case DBStorage.get_content(latest.uuid, post.primary_language) do
+            nil -> nil
+            content -> content.title
+          end
+      end
+
+    base =
+      cond do
+        is_binary(title) and title not in ["", "Untitled"] ->
+          title
+
+        post.post_date ->
+          Date.to_iso8601(post.post_date)
+
+        true ->
+          "post-#{String.slice(post.uuid || "", 0, 8)}"
+      end
+
+    base
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.trim("-")
   end
 
   defp maybe_fix_post_timestamp(attrs, post) do
