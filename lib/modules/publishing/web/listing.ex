@@ -289,7 +289,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
             {:noreply,
              socket
-             |> assign(:post_view_mode, new_status)
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
              |> reload_current_view()}
 
@@ -336,7 +335,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
             {:noreply,
              socket
-             |> assign(:post_view_mode, new_status)
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
              |> reload_current_view()}
 
