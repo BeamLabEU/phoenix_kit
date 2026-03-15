@@ -198,21 +198,21 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
   def extract_version_from_parts([]), do: {nil, []}
 
   def extract_version_from_parts([first | rest] = parts) do
-    case parse_version_directory(first) do
+    case parse_version_segment(first) do
       {:ok, version} -> {version, rest}
       :error -> {nil, parts}
     end
   end
 
   @doc false
-  def parse_version_directory(segment) when is_binary(segment) do
+  def parse_version_segment(segment) when is_binary(segment) do
     case Regex.run(~r/^v(\d+)$/, segment) do
       [_, num_str] -> {:ok, String.to_integer(num_str)}
       nil -> :error
     end
   end
 
-  def parse_version_directory(_), do: :error
+  def parse_version_segment(_), do: :error
 
   # ============================================================================
   # Version Resolution

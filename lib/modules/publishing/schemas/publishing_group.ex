@@ -91,8 +91,13 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
   def views_enabled?(%__MODULE__{data: data}), do: Map.get(data, "views_enabled", false)
 
   defp maybe_generate_slug(changeset) do
+    # Only auto-generate slug for new records (no existing slug).
+    # On updates, Ecto won't register the slug as a "change" if it's the same,
+    # and we must NOT regenerate from the (potentially changed) name.
+    existing_slug = get_field(changeset, :slug)
+
     case get_change(changeset, :slug) do
-      nil ->
+      nil when is_nil(existing_slug) or existing_slug == "" ->
         name = get_field(changeset, :name)
 
         if name do
@@ -108,7 +113,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
           changeset
         end
 
-      _slug ->
+      _ ->
         changeset
     end
   end

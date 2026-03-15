@@ -157,26 +157,26 @@ defmodule PhoenixKit.Modules.Publishing.SharedTest do
   end
 
   # ============================================================================
-  # parse_version_directory/1
+  # parse_version_segment/1
   # ============================================================================
 
-  describe "parse_version_directory/1" do
+  describe "parse_version_segment/1" do
     test "parses v-prefixed version numbers" do
-      assert {:ok, 1} = Shared.parse_version_directory("v1")
-      assert {:ok, 10} = Shared.parse_version_directory("v10")
-      assert {:ok, 999} = Shared.parse_version_directory("v999")
+      assert {:ok, 1} = Shared.parse_version_segment("v1")
+      assert {:ok, 10} = Shared.parse_version_segment("v10")
+      assert {:ok, 999} = Shared.parse_version_segment("v999")
     end
 
     test "returns error for non-version strings" do
-      assert :error = Shared.parse_version_directory("en")
-      assert :error = Shared.parse_version_directory("version1")
-      assert :error = Shared.parse_version_directory("v")
-      assert :error = Shared.parse_version_directory("")
+      assert :error = Shared.parse_version_segment("en")
+      assert :error = Shared.parse_version_segment("version1")
+      assert :error = Shared.parse_version_segment("v")
+      assert :error = Shared.parse_version_segment("")
     end
 
     test "returns error for non-string" do
-      assert :error = Shared.parse_version_directory(nil)
-      assert :error = Shared.parse_version_directory(123)
+      assert :error = Shared.parse_version_segment(nil)
+      assert :error = Shared.parse_version_segment(123)
     end
   end
 

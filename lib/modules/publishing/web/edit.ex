@@ -89,7 +89,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
       {:error, :destination_exists} ->
         {:noreply,
          socket
-         |> put_flash(:error, gettext("A directory already exists for that slug."))
+         |> put_flash(:error, gettext("Another group already uses that slug."))
          |> assign(:form, Component.to_form(params, as: :group))}
 
       {:error, reason} ->

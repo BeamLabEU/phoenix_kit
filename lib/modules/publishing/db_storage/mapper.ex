@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
 
   The web layer expects maps with these keys:
   - `:group` - group slug
-  - `:slug` - post directory slug
+  - `:slug` - post slug identifier
   - `:url_slug` - per-language URL slug
   - `:date` - Date struct (timestamp mode)
   - `:time` - Time struct (timestamp mode)

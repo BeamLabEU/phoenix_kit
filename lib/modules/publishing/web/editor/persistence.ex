@@ -72,7 +72,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         {:ok, _} ->
           {:ok, params}
 
-        {:error, :conflicts_with_directory_slug} ->
+        {:error, :conflicts_with_post_slug} ->
           # Auto-clear the url_slug from ALL translations of this post
           cleared_params = Map.put(params, "url_slug", "")
           cleared_languages = DBStorage.clear_url_slug_from_post(group_slug, post_slug, url_slug)

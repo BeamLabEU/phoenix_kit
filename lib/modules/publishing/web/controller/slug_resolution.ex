@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
   def resolve_url_slug(_group_slug, _identifier, _language), do: :passthrough
 
   @doc """
-  Resolves a URL slug to the internal directory slug.
+  Resolves a URL slug to the internal post slug.
   Used by versioned URL handler and other places that need the internal slug.
   """
   def resolve_url_slug_to_internal(group_slug, url_slug, language) do
