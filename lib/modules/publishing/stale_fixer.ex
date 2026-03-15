@@ -184,7 +184,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
       # Post switched to slug mode but has no slug — generate from title or date
       slug = generate_slug_for_post(post)
 
-      if slug && slug != "" do
+      if slug != "" do
         Logger.info(
           "[Publishing] Generating slug for post #{post.uuid}: #{inspect(slug)} (mode changed to slug)"
         )
