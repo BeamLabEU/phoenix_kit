@@ -95,30 +95,35 @@
           </button>
         </div>
 
-        <%!-- Status Tabs --%>
-        <% tabs = [
-          {"all", gettext("All"), nil},
+        <%!-- Status Tabs — only show tabs that have posts, hide if only 1 tab --%>
+        <% all_tabs = [
           {"published", gettext("Published"), nil},
           {"draft", gettext("Draft"), nil},
           {"archived", gettext("Archived"), nil},
           {"trashed", gettext("Trash"), "error"}
         ] %>
-        <div class="flex items-center gap-0.5 border-b border-base-200 mb-3 overflow-x-auto">
-          <%= for {mode, label, color} <- tabs do %>
-            <button
-              type="button"
-              phx-click="switch_post_view"
-              phx-value-mode={mode}
-              class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap #{cond do
-                @post_view_mode == mode and color == "error" -> "border-error text-error"
-                @post_view_mode == mode -> "border-primary text-primary"
-                true -> "border-transparent text-base-content/50 hover:text-base-content"
-              end}"}
-            >
-              {label}
-            </button>
-          <% end %>
-        </div>
+        <% visible_tabs =
+          Enum.filter(all_tabs, fn {mode, _label, _color} ->
+            Map.get(@post_status_counts, mode, 0) > 0 or @post_view_mode == mode
+          end) %>
+        <%= if length(visible_tabs) > 1 do %>
+          <div class="flex items-center gap-0.5 border-b border-base-200 mb-3 overflow-x-auto">
+            <%= for {mode, label, color} <- visible_tabs do %>
+              <button
+                type="button"
+                phx-click="switch_post_view"
+                phx-value-mode={mode}
+                class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap #{cond do
+                  @post_view_mode == mode and color == "error" -> "border-error text-error"
+                  @post_view_mode == mode -> "border-primary text-primary"
+                  true -> "border-transparent text-base-content/50 hover:text-base-content"
+                end}"}
+              >
+                {label}
+              </button>
+            <% end %>
+          </div>
+        <% end %>
 
         <%= if @loading do %>
           <div class="flex justify-center items-center py-12">

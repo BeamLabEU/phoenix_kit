@@ -48,25 +48,27 @@
           </div>
         </div>
       <% else %>
-        <%!-- Active / Trashed Tabs --%>
-        <div class="flex items-center gap-0.5 border-b border-base-200">
-          <button
-            type="button"
-            phx-click="switch_view"
-            phx-value-mode="active"
-            class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors #{if @view_mode == "active", do: "border-primary text-primary", else: "border-transparent text-base-content/50 hover:text-base-content"}"}
-          >
-            {gettext("Active")}
-          </button>
-          <button
-            type="button"
-            phx-click="switch_view"
-            phx-value-mode="trashed"
-            class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors #{if @view_mode == "trashed", do: "border-error text-error", else: "border-transparent text-base-content/50 hover:text-base-content"}"}
-          >
-            {gettext("Trash")}
-          </button>
-        </div>
+        <%!-- Active / Trashed Tabs — only show if there are trashed groups --%>
+        <%= if @trashed_count > 0 or @view_mode == "trashed" do %>
+          <div class="flex items-center gap-0.5 border-b border-base-200">
+            <button
+              type="button"
+              phx-click="switch_view"
+              phx-value-mode="active"
+              class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors #{if @view_mode == "active", do: "border-primary text-primary", else: "border-transparent text-base-content/50 hover:text-base-content"}"}
+            >
+              {gettext("Active")}
+            </button>
+            <button
+              type="button"
+              phx-click="switch_view"
+              phx-value-mode="trashed"
+              class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors #{if @view_mode == "trashed", do: "border-error text-error", else: "border-transparent text-base-content/50 hover:text-base-content"}"}
+            >
+              {gettext("Trash")}
+            </button>
+          </div>
+        <% end %>
 
         <div class="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           <%= for insight <- @dashboard_insights do %>

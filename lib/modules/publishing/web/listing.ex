@@ -69,15 +69,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         slug -> DBStorage.list_posts_with_metadata(slug)
       end
 
+    trashed_count =
+      case new_group_slug do
+        nil -> 0
+        slug -> length(DBStorage.list_posts(slug, "trashed"))
+      end
+
     socket =
       socket
       |> assign(:groups, groups)
       |> assign(:current_group, current_group)
       |> assign(:posts, posts)
-      |> assign(:post_view_mode, "all")
+      |> assign(:post_view_mode, "published")
       |> assign(:visible_count, 20)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
       |> assign(:primary_language_status, primary_language_status_from_posts(posts))
+      |> assign(:post_status_counts, build_status_counts(posts, trashed_count))
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -97,7 +104,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, reload_current_view(socket)}
   end
 
-  @valid_post_views ["all", "published", "draft", "archived", "trashed"]
+  @valid_post_views ["published", "draft", "archived", "trashed"]
 
   def handle_event("switch_post_view", %{"mode" => mode}, socket)
       when mode in @valid_post_views do
@@ -292,24 +299,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     group_slug = socket.assigns.group_slug
     mode = socket.assigns.post_view_mode
 
-    all_posts =
+    # Always load all non-trashed posts for counting
+    all_posts = DBStorage.list_posts_with_metadata(group_slug)
+    trashed_count = length(DBStorage.list_posts(group_slug, "trashed"))
+
+    posts =
       case mode do
         "trashed" ->
           DBStorage.list_posts(group_slug, "trashed")
           |> Enum.map(&post_struct_to_map/1)
 
-        _ ->
-          DBStorage.list_posts_with_metadata(group_slug)
+        status ->
+          Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
       end
 
-    posts =
-      case mode do
-        "all" -> all_posts
-        "trashed" -> all_posts
-        status -> Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
-      end
+    socket
+    |> assign(:posts, posts)
+    |> assign(:post_status_counts, build_status_counts(all_posts, trashed_count))
+  end
 
-    assign(socket, :posts, posts)
+  defp build_status_counts(posts, trashed_count) do
+    counts =
+      Enum.reduce(posts, %{}, fn post, acc ->
+        status = post[:metadata] && post.metadata.status
+        if status, do: Map.update(acc, status, 1, &(&1 + 1)), else: acc
+      end)
+
+    Map.put(counts, "trashed", trashed_count)
   end
 
   defp post_struct_to_map(%{} = post) do
