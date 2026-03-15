@@ -1023,6 +1023,9 @@
                         </option>
                       <% end %>
                     </select>
+                    <p class="text-xs text-base-content/50 mt-1">
+                      {gettext("Translations with content will share this status.")}
+                    </p>
                   </div>
                 <% else %>
                   <% has_content = (@content || "") != "" %>
