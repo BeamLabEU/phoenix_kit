@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
+  alias PhoenixKit.Modules.Publishing.StaleFixer
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Settings
@@ -62,6 +63,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     socket = handle_subscription_change(socket, old_group_slug, new_group_slug)
 
     {groups, current_group} = load_groups_and_current(new_group_slug)
+
+    # Run stale fixer for this group's posts on first connected load
+    if connected?(socket) and new_group_slug do
+      Task.start(fn ->
+        DBStorage.list_posts(new_group_slug)
+        |> Enum.each(&StaleFixer.fix_stale_post/1)
+      end)
+    end
 
     posts =
       case new_group_slug do
