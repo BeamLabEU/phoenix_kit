@@ -204,8 +204,10 @@
         <% other_languages = Enum.reject(all_languages, & &1.is_primary) %>
 
         <%!-- Other translations --%>
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
+        <div class="flex items-start gap-2 flex-wrap">
+          <span class="text-xs font-medium text-base-content/60 shrink-0 pt-1">
+            {gettext("Language:")}
+          </span>
           <.publishing_language_switcher
             languages={other_languages}
             current_language={@current_language}
