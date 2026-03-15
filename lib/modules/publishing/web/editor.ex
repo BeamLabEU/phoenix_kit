@@ -976,19 +976,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     group_slug = socket.assigns.group_slug
     post = socket.assigns.post
+    post_uuid = post[:uuid]
     language = socket.assigns.current_language
-    version = socket.assigns[:current_version]
 
-    query =
-      URI.encode_query(%{
-        "post_uuid" => post[:uuid],
-        "lang" => language,
-        "v" => version
-      })
+    query = URI.encode_query(%{"lang" => language})
 
     {:noreply,
      push_navigate(socket,
-       to: Routes.path("/admin/publishing/#{group_slug}/preview?#{query}")
+       to: Routes.path("/admin/publishing/#{group_slug}/#{post_uuid}/preview?#{query}")
      )}
   end
 
