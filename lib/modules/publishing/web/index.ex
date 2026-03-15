@@ -65,6 +65,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
       |> assign(:dashboard_refresh_timer, nil)
       |> assign(:view_mode, "active")
+      |> assign(:loading, false)
       |> assign(:trashed_count, length(DBStorage.list_groups("trashed")))
 
     {:ok, socket}
@@ -79,6 +80,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   @dashboard_debounce_ms 500
 
   @impl true
+  def handle_info({:deferred_view_switch, _mode}, socket) do
+    {:noreply,
+     socket
+     |> refresh_dashboard()
+     |> assign(:loading, false)}
+  end
+
   def handle_info({:post_created, _post}, socket),
     do: {:noreply, schedule_dashboard_refresh(socket)}
 
@@ -157,10 +165,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   def handle_event("switch_view", %{"mode" => mode}, socket) when mode in ["active", "trashed"] do
+    send(self(), {:deferred_view_switch, mode})
+
     {:noreply,
      socket
      |> assign(:view_mode, mode)
-     |> refresh_dashboard()}
+     |> assign(:dashboard_insights, [])
+     |> assign(:empty_state?, false)
+     |> assign(:loading, true)}
   end
 
   def handle_event("trash_group", %{"slug" => slug}, socket) do

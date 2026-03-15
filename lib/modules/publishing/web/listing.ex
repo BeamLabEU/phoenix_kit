@@ -188,11 +188,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   def handle_event("switch_post_view", %{"mode" => mode}, socket)
       when mode in @valid_post_views do
+    send(self(), {:deferred_tab_switch, mode})
+
     {:noreply,
      socket
      |> assign(:post_view_mode, mode)
+     |> assign(:posts, [])
      |> assign(:visible_count, 20)
-     |> load_posts_for_view()}
+     |> assign(:loading, true)}
   end
 
   def handle_event("trash_post", %{"uuid" => post_uuid}, socket) do
@@ -398,6 +401,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     socket
     |> assign(:posts, posts)
     |> assign(:post_status_counts, build_status_counts(all_posts, trashed_count))
+    |> assign(:loading, false)
   end
 
   defp build_status_counts(posts, trashed_count) do
@@ -428,6 +432,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       version: nil,
       primary_language: post.primary_language
     }
+  end
+
+  @impl true
+  def handle_info({:deferred_tab_switch, _mode}, socket) do
+    {:noreply, load_posts_for_view(socket)}
   end
 
   # PubSub handlers for live updates
