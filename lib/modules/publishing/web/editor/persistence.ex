@@ -570,9 +570,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
         form = Forms.post_form(updated_post)
 
+        language = updated_post.language || socket.assigns[:current_language]
+        public_url = Helpers.build_public_url(updated_post, language)
+
         socket =
           socket
           |> Phoenix.Component.assign(:post, updated_post)
+          |> Phoenix.Component.assign(:public_url, public_url)
           |> Forms.assign_form_with_tracking(form)
           |> Phoenix.Component.assign(:content, updated_post.content)
           |> Phoenix.Component.assign(:available_languages, updated_post.available_languages)
