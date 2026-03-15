@@ -73,9 +73,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # sitting in trash with no recoverable content.
     if connected?(socket) and new_group_slug do
       Task.start(fn ->
-        active = DBStorage.list_posts(new_group_slug)
-        trashed = DBStorage.list_posts(new_group_slug, "trashed")
-        Enum.each(active ++ trashed, &StaleFixer.fix_stale_post/1)
+        try do
+          active = DBStorage.list_posts(new_group_slug)
+          trashed = DBStorage.list_posts(new_group_slug, "trashed")
+          Enum.each(active ++ trashed, &StaleFixer.fix_stale_post/1)
+        rescue
+          e ->
+            Logger.error(
+              "[Publishing] Stale fixer task crashed for #{new_group_slug}: #{Exception.message(e)}"
+            )
+        end
       end)
     end
 

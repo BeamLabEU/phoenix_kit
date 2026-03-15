@@ -1142,7 +1142,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
        socket
        |> assign(:is_autosaving, false)
        |> assign(:autosave_timer, nil)
-       |> push_event("autosave-status", %{saving: false})}
+       |> push_event("autosave-status", %{saving: false})
+       |> put_flash(:error, gettext("Autosave failed — click Save to retry"))}
   end
 
   # ============================================================================

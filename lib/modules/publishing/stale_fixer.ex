@@ -187,6 +187,10 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
         Map.put(attrs, :slug, slug)
       else
+        Logger.warning(
+          "[Publishing] Failed to generate slug for post #{post.uuid} — post will be unreachable in slug mode"
+        )
+
         attrs
       end
     else
