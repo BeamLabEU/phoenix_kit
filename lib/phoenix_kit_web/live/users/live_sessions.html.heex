@@ -147,139 +147,181 @@
       </div>
     </div>
 
-    <%!-- Sessions Table --%>
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body p-0">
-        <.table_default variant="zebra">
-          <.table_default_header>
-            <.table_default_row>
-              <.table_default_header_cell>
-                <button
-                  phx-click="sort_by"
-                  phx-value-field="type"
-                  class="flex items-center gap-1 cursor-pointer"
-                >
-                  Type
-                  <%= if @sort_by == :type do %>
-                    <%= if @sort_order == :asc do %>
-                      <.icon name="hero-chevron-up" class="w-4 h-4" />
-                    <% else %>
-                      <.icon name="hero-chevron-down" class="w-4 h-4" />
-                    <% end %>
-                  <% end %>
-                </button>
-              </.table_default_header_cell>
-              <.table_default_header_cell>User/Session</.table_default_header_cell>
-              <.table_default_header_cell>IP Address</.table_default_header_cell>
-              <.table_default_header_cell>Current Page</.table_default_header_cell>
-              <.table_default_header_cell>
-                <button
-                  phx-click="sort_by"
-                  phx-value-field="connected_at"
-                  class="flex items-center gap-1 cursor-pointer"
-                >
-                  Connected
-                  <%= if @sort_by == :connected_at do %>
-                    <%= if @sort_order == :asc do %>
-                      <.icon name="hero-chevron-up" class="w-4 h-4" />
-                    <% else %>
-                      <.icon name="hero-chevron-down" class="w-4 h-4" />
-                    <% end %>
-                  <% end %>
-                </button>
-              </.table_default_header_cell>
-              <.table_default_header_cell>Status</.table_default_header_cell>
-            </.table_default_row>
-          </.table_default_header>
-          <.table_default_body>
-            <%= if Enum.empty?(@sessions) do %>
-              <.table_default_row>
-                <.table_default_cell class="text-center py-12" colspan={6}>
-                  <div class="text-base-content/50 mb-4">
-                    <.icon name="hero-inbox" class="w-16 h-16 mx-auto" />
-                  </div>
-                  <h3 class="text-lg font-medium text-base-content mb-2">No active sessions</h3>
-                  <p class="text-base-content/70">
-                    There are currently no active sessions to display.
-                  </p>
-                </.table_default_cell>
-              </.table_default_row>
-            <% else %>
-              <%= for session <- @sessions do %>
-                <.table_default_row>
-                  <.table_default_cell>
-                    <div class="flex items-center gap-2">
-                      <%= if session.type == :authenticated do %>
-                        <div class="badge badge-success badge-sm h-auto">
-                          <.icon name="hero-shield-check" class="w-3 h-3 mr-1" /> Auth
-                        </div>
-                      <% else %>
-                        <div class="badge badge-warning badge-sm h-auto">
-                          <.icon name="hero-user" class="w-3 h-3 mr-1" /> Anon
-                        </div>
-                      <% end %>
-                    </div>
-                  </.table_default_cell>
-                  <.table_default_cell>
-                    <%= if session.type == :authenticated do %>
-                      <% user = Map.get(@users_map, session.user_uuid) %>
-                      <div class="flex items-center gap-2">
-                        <.user_avatar user={user || %{email: session.user_email}} size="sm" />
-                        <div>
-                          <div class="font-medium text-sm">
-                            {session.user_email}
-                          </div>
-                          <div class="text-xs text-base-content/70">
-                            ID: {session.user_uuid}
-                          </div>
-                        </div>
-                      </div>
-                    <% else %>
-                      <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 bg-warning rounded-full flex items-center justify-center text-warning-content text-xs font-bold">
-                          ?
-                        </div>
-                        <div>
-                          <div class="font-medium text-sm">
-                            Anonymous User
-                          </div>
-                          <div class="text-xs text-base-content/70 font-mono">
-                            {session.session_id}
-                          </div>
-                        </div>
-                      </div>
-                    <% end %>
-                  </.table_default_cell>
-                  <.table_default_cell>
-                    <code class="text-xs bg-base-200 px-2 py-1 rounded">
-                      {session.ip_address || "Unknown"}
-                    </code>
-                  </.table_default_cell>
-                  <.table_default_cell>
-                    <%= if session.current_page do %>
-                      <code class="text-xs bg-base-200 px-2 py-1 rounded">
-                        {session.current_page}
-                      </code>
-                    <% else %>
-                      <span class="text-base-content/50">—</span>
-                    <% end %>
-                  </.table_default_cell>
-                  <.table_default_cell>
-                    <.time_ago datetime={session.connected_at} />
-                  </.table_default_cell>
-                  <.table_default_cell>
-                    <div class="flex items-center gap-1">
-                      <div class="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                      <span class="text-xs text-success">Active</span>
-                    </div>
-                  </.table_default_cell>
-                </.table_default_row>
+    <%!-- Sessions Table / Cards --%>
+    <.table_default
+      id="live-sessions-table"
+      variant="zebra"
+      toggleable={true}
+      items={@sessions}
+      card_fields={
+        fn session ->
+          [
+            %{label: "IP Address", value: session.ip_address || "Unknown"},
+            %{label: "Current Page", value: session.current_page || "—"},
+            %{
+              label: "Connected",
+              value: Calendar.strftime(session.connected_at, "%H:%M:%S %d/%m/%Y")
+            },
+            %{label: "Status", value: "● Active"}
+          ]
+        end
+      }
+    >
+      <:card_header :let={session}>
+        <div class="flex items-start justify-between gap-2">
+          <%= if session.type == :authenticated do %>
+            <% user = Map.get(@users_map, session.user_uuid) %>
+            <div class="flex items-center gap-2 min-w-0">
+              <.user_avatar user={user || %{email: session.user_email}} size="sm" />
+              <div class="min-w-0">
+                <div class="font-medium text-sm truncate">{session.user_email}</div>
+                <div class="text-xs text-base-content/70 font-mono truncate">
+                  {session.user_uuid}
+                </div>
+              </div>
+            </div>
+            <div class="badge badge-success badge-sm h-auto shrink-0">
+              <.icon name="hero-shield-check" class="w-3 h-3 mr-1" /> Auth
+            </div>
+          <% else %>
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-8 h-8 bg-warning rounded-full flex shrink-0 items-center justify-center text-warning-content text-xs font-bold">
+                ?
+              </div>
+              <div class="min-w-0">
+                <div class="font-medium text-sm">Anonymous User</div>
+                <div class="text-xs text-base-content/70 font-mono truncate">
+                  {session.session_id}
+                </div>
+              </div>
+            </div>
+            <div class="badge badge-warning badge-sm h-auto shrink-0">
+              <.icon name="hero-user" class="w-3 h-3 mr-1" /> Anon
+            </div>
+          <% end %>
+        </div>
+      </:card_header>
+      <.table_default_header>
+        <.table_default_row>
+          <.table_default_header_cell>
+            <button
+              phx-click="sort_by"
+              phx-value-field="type"
+              class="flex items-center gap-1 cursor-pointer"
+            >
+              Type
+              <%= if @sort_by == :type do %>
+                <%= if @sort_order == :asc do %>
+                  <.icon name="hero-chevron-up" class="w-4 h-4" />
+                <% else %>
+                  <.icon name="hero-chevron-down" class="w-4 h-4" />
+                <% end %>
               <% end %>
-            <% end %>
-          </.table_default_body>
-        </.table_default>
-      </div>
-    </div>
+            </button>
+          </.table_default_header_cell>
+          <.table_default_header_cell>User/Session</.table_default_header_cell>
+          <.table_default_header_cell>IP Address</.table_default_header_cell>
+          <.table_default_header_cell>Current Page</.table_default_header_cell>
+          <.table_default_header_cell>
+            <button
+              phx-click="sort_by"
+              phx-value-field="connected_at"
+              class="flex items-center gap-1 cursor-pointer"
+            >
+              Connected
+              <%= if @sort_by == :connected_at do %>
+                <%= if @sort_order == :asc do %>
+                  <.icon name="hero-chevron-up" class="w-4 h-4" />
+                <% else %>
+                  <.icon name="hero-chevron-down" class="w-4 h-4" />
+                <% end %>
+              <% end %>
+            </button>
+          </.table_default_header_cell>
+          <.table_default_header_cell>Status</.table_default_header_cell>
+        </.table_default_row>
+      </.table_default_header>
+      <.table_default_body>
+        <%= if Enum.empty?(@sessions) do %>
+          <.table_default_row>
+            <.table_default_cell class="text-center py-12" colspan={6}>
+              <div class="text-base-content/50 mb-4">
+                <.icon name="hero-inbox" class="w-16 h-16 mx-auto" />
+              </div>
+              <h3 class="text-lg font-medium text-base-content mb-2">No active sessions</h3>
+              <p class="text-base-content/70">
+                There are currently no active sessions to display.
+              </p>
+            </.table_default_cell>
+          </.table_default_row>
+        <% else %>
+          <%= for session <- @sessions do %>
+            <.table_default_row>
+              <.table_default_cell>
+                <div class="flex items-center gap-2">
+                  <%= if session.type == :authenticated do %>
+                    <div class="badge badge-success badge-sm h-auto">
+                      <.icon name="hero-shield-check" class="w-3 h-3 mr-1" /> Auth
+                    </div>
+                  <% else %>
+                    <div class="badge badge-warning badge-sm h-auto">
+                      <.icon name="hero-user" class="w-3 h-3 mr-1" /> Anon
+                    </div>
+                  <% end %>
+                </div>
+              </.table_default_cell>
+              <.table_default_cell>
+                <%= if session.type == :authenticated do %>
+                  <% user = Map.get(@users_map, session.user_uuid) %>
+                  <div class="flex items-center gap-2">
+                    <.user_avatar user={user || %{email: session.user_email}} size="sm" />
+                    <div>
+                      <div class="font-medium text-sm">{session.user_email}</div>
+                      <div class="text-xs text-base-content/70">ID: {session.user_uuid}</div>
+                    </div>
+                  </div>
+                <% else %>
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-warning rounded-full flex items-center justify-center text-warning-content text-xs font-bold">
+                      ?
+                    </div>
+                    <div>
+                      <div class="font-medium text-sm">Anonymous User</div>
+                      <div class="text-xs text-base-content/70 font-mono">
+                        {session.session_id}
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </.table_default_cell>
+              <.table_default_cell>
+                <code class="text-xs bg-base-200 px-2 py-1 rounded">
+                  {session.ip_address || "Unknown"}
+                </code>
+              </.table_default_cell>
+              <.table_default_cell>
+                <%= if session.current_page do %>
+                  <code class="text-xs bg-base-200 px-2 py-1 rounded">
+                    {session.current_page}
+                  </code>
+                <% else %>
+                  <span class="text-base-content/50">—</span>
+                <% end %>
+              </.table_default_cell>
+              <.table_default_cell>
+                <.time_ago datetime={session.connected_at} />
+              </.table_default_cell>
+              <.table_default_cell>
+                <div class="flex items-center gap-1">
+                  <div class="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                  <span class="text-xs text-success">Active</span>
+                </div>
+              </.table_default_cell>
+            </.table_default_row>
+          <% end %>
+        <% end %>
+      </.table_default_body>
+    </.table_default>
 
     <%!-- Pagination --%>
     <%= if @total_pages > 1 do %>

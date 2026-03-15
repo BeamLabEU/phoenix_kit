@@ -107,6 +107,7 @@ defmodule PhoenixKit.Module do
   @callback route_module() :: module() | nil
   @callback version() :: String.t()
   @callback migration_module() :: module() | nil
+  @callback required_modules() :: [String.t()]
 
   @optional_callbacks [
     get_config: 0,
@@ -117,7 +118,8 @@ defmodule PhoenixKit.Module do
     children: 0,
     route_module: 0,
     version: 0,
-    migration_module: 0
+    migration_module: 0,
+    required_modules: 0
   ]
 
   defmacro __using__(_opts) do
@@ -157,6 +159,9 @@ defmodule PhoenixKit.Module do
       @impl PhoenixKit.Module
       def migration_module, do: nil
 
+      @impl PhoenixKit.Module
+      def required_modules, do: []
+
       defoverridable get_config: 0,
                      permission_metadata: 0,
                      admin_tabs: 0,
@@ -165,7 +170,8 @@ defmodule PhoenixKit.Module do
                      children: 0,
                      route_module: 0,
                      version: 0,
-                     migration_module: 0
+                     migration_module: 0,
+                     required_modules: 0
     end
   end
 end

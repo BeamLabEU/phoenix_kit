@@ -30,6 +30,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     accessible = if scope, do: Scope.accessible_modules(scope), else: MapSet.new()
 
     external_modules = load_external_modules(module_configs)
+    dep_warnings = ModuleRegistry.dependency_warnings()
 
     socket =
       socket
@@ -38,6 +39,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:accessible_modules, accessible)
       |> assign(:module_configs, module_configs)
       |> assign(:external_modules, external_modules)
+      |> assign(:dep_warnings, dep_warnings)
 
     {:ok, socket}
   end
@@ -59,11 +61,21 @@ defmodule PhoenixKitWeb.Live.Modules do
   # ============================================================================
 
   def handle_info({:module_enabled, module_key}, socket) do
-    {:noreply, reload_module_config(socket, module_key)}
+    socket =
+      socket
+      |> reload_module_config(module_key)
+      |> assign(:dep_warnings, ModuleRegistry.dependency_warnings())
+
+    {:noreply, socket}
   end
 
   def handle_info({:module_disabled, module_key}, socket) do
-    {:noreply, reload_module_config(socket, module_key)}
+    socket =
+      socket
+      |> reload_module_config(module_key)
+      |> assign(:dep_warnings, ModuleRegistry.dependency_warnings())
+
+    {:noreply, socket}
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}

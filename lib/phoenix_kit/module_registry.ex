@@ -181,6 +181,38 @@ defmodule PhoenixKit.ModuleRegistry do
     end)
   end
 
+  @doc """
+  Returns dependency warnings for the Modules page.
+
+  Each warning is a map:
+    %{module: module(), module_name: String.t(), requires_key: String.t()}
+
+  Called on Modules page render — computes live (not hot path).
+  """
+  @spec dependency_warnings() :: [map()]
+  def dependency_warnings do
+    enabled_keys =
+      enabled_modules()
+      |> Enum.map(&safe_call(&1, :module_key, nil))
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    all_modules()
+    |> Enum.filter(&safe_enabled?/1)
+    |> Enum.flat_map(fn mod ->
+      required = safe_call(mod, :required_modules, [])
+      missing = Enum.reject(required, &MapSet.member?(enabled_keys, &1))
+
+      Enum.map(missing, fn req_key ->
+        %{
+          module: mod,
+          module_name: safe_call(mod, :module_name, inspect(mod)),
+          requires_key: req_key
+        }
+      end)
+    end)
+  end
+
   @doc "Returns all feature module key strings from registered modules."
   @spec all_feature_keys() :: [String.t()]
   def all_feature_keys do
@@ -293,6 +325,7 @@ defmodule PhoenixKit.ModuleRegistry do
     all_tabs = Enum.flat_map(modules, &safe_call(&1, :admin_tabs, []))
     warn_duplicate_tab_ids(all_tabs)
     warn_tabs_missing_permission(modules)
+    validate_module_dependencies(modules)
   end
 
   # Validate a single module being registered at runtime.
@@ -362,7 +395,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
       PhoenixKit.Modules.Emails,
-      PhoenixKit.Modules.Newsletters,
       PhoenixKit.Modules.Entities,
       PhoenixKit.Modules.Languages,
       PhoenixKit.Modules.Legal,
@@ -410,6 +442,25 @@ defmodule PhoenixKit.ModuleRegistry do
           "Custom roles will see the tab but get denied on click. " <>
           "Add permission: #{inspect(perm_meta.key)} to the tab definition."
       )
+    end
+  end
+
+  defp validate_module_dependencies(modules) do
+    all_keys =
+      modules
+      |> Enum.map(&safe_call(&1, :module_key, nil))
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    for mod <- modules do
+      required = safe_call(mod, :required_modules, [])
+
+      for req_key <- required, not MapSet.member?(all_keys, req_key) do
+        Logger.warning(
+          "[ModuleRegistry] #{inspect(mod)} requires module #{inspect(req_key)} " <>
+            "which is not registered. This module may not function correctly."
+        )
+      end
     end
   end
 

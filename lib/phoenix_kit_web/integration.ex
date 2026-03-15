@@ -102,7 +102,6 @@ defmodule PhoenixKitWeb.Integration do
   alias PhoenixKitWeb.Routes.BlogRoutes
   alias PhoenixKitWeb.Routes.CustomerServiceRoutes
   alias PhoenixKitWeb.Routes.EmailsRoutes
-  alias PhoenixKitWeb.Routes.NewslettersRoutes
   alias PhoenixKitWeb.Routes.PublishingRoutes
   alias PhoenixKitWeb.Routes.ReferralsRoutes
   alias PhoenixKitWeb.Routes.ShopRoutes
@@ -429,7 +428,6 @@ defmodule PhoenixKitWeb.Integration do
 
     # Get external route module AST outside quote to avoid require/alias inside quote
     emails_admin = safe_route_call(EmailsRoutes, :admin_routes, [])
-    newsletters_admin = safe_route_call(NewslettersRoutes, :admin_routes, [])
 
     {tickets_admin, publishing_admin, referrals_admin} =
       if suffix == :_locale do
@@ -754,7 +752,6 @@ defmodule PhoenixKitWeb.Integration do
 
           # Routes from external route modules
           unquote(emails_admin)
-          unquote(newsletters_admin)
           unquote(tickets_admin)
           unquote(publishing_admin)
           unquote(referrals_admin)
@@ -1075,6 +1072,44 @@ defmodule PhoenixKitWeb.Integration do
     end)
   end
 
+  # Auto-discover public (non-admin) routes from external PhoenixKit modules.
+  # For each external module that implements route_module/0, calls generate(url_prefix)
+  # on the returned route module. This replaces hardcoded safe_route_call() lines when
+  # internal modules are extracted to separate packages.
+  defp compile_module_public_routes(url_prefix) do
+    PhoenixKit.ModuleDiscovery.discover_external_modules()
+    |> Enum.flat_map(fn mod ->
+      case Code.ensure_compiled(mod) do
+        {:module, _} ->
+          if function_exported?(mod, :route_module, 0) do
+            route_mod = mod.route_module()
+            compile_route_module_generate(route_mod, url_prefix)
+          else
+            []
+          end
+
+        _ ->
+          []
+      end
+    end)
+  end
+
+  defp compile_route_module_generate(nil, _url_prefix), do: []
+
+  defp compile_route_module_generate(route_mod, url_prefix) do
+    case Code.ensure_compiled(route_mod) do
+      {:module, _} ->
+        if function_exported?(route_mod, :generate, 1) do
+          normalize_routes(route_mod.generate(url_prefix))
+        else
+          []
+        end
+
+      _ ->
+        []
+    end
+  end
+
   defp collect_module_tabs(mod, callback) do
     alias PhoenixKit.Dashboard.Tab
     context = tab_callback_context(callback)
@@ -1308,13 +1343,15 @@ defmodule PhoenixKitWeb.Integration do
     # Call route generators BEFORE quote block (aliases work in this context)
     # Uses safe_route_call/3 so modules can be safely extracted to separate packages
     emails_routes = safe_route_call(EmailsRoutes, :generate, [url_prefix])
-    newsletters_routes = safe_route_call(NewslettersRoutes, :generate, [url_prefix])
     publishing_routes = safe_route_call(PublishingRoutes, :generate, [url_prefix])
     customer_service_routes = safe_route_call(CustomerServiceRoutes, :generate, [url_prefix])
     blog_routes = safe_route_call(BlogRoutes, :generate, [url_prefix])
 
     # External route modules with public/non-admin routes
     external_public_routes = compile_external_public_routes(url_prefix)
+
+    # Auto-discovered public routes from external PhoenixKit modules
+    module_public_routes = compile_module_public_routes(url_prefix)
 
     quote do
       # Generate pipeline definitions
@@ -1323,9 +1360,12 @@ defmodule PhoenixKitWeb.Integration do
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
 
+      # Auto-discovered public routes from external modules MUST come before publishing/localized
+      # routes to prevent /:language/:group catch-alls from intercepting them (e.g., unsubscribe)
+      unquote_splicing(module_public_routes)
+
       # Generate module routes from separate files (improves compilation time)
       unquote(emails_routes)
-      unquote(newsletters_routes)
       unquote(publishing_routes)
       unquote(customer_service_routes)
 

@@ -1487,7 +1487,119 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
-  // 5. EMAIL CHARTS HOOK
+  // 5. ROW MENU HOOK
+  // ============================================================================
+  //
+  // Positions table row action dropdown menus using position: fixed to escape
+  // the overflow-x-auto overflow-y-clip table container — a common DaisyUI
+  // issue where dropdowns nested inside tables get clipped.
+  //
+  // The menu opens below the trigger by default, flips above if out of space,
+  // and aligns to the right edge (shifting left if that would clip off-screen).
+  // Closes on outside click, Escape key, and LiveView navigation.
+  //
+  // Usage in HEEX (via table_row_menu component):
+  //   <.table_row_menu id={"row-menu-\#{item.uuid}"}>
+  //     <.table_row_menu_link navigate={...} icon="hero-eye" label="View" />
+  //     <.table_row_menu_button phx-click="delete" icon="hero-trash" label="Delete" variant="error" />
+  //   </.table_row_menu>
+  //
+  window.PhoenixKitHooks.RowMenu = {
+    mounted() {
+      this.trigger = this.el.querySelector("[data-row-menu-trigger]");
+      this.menu = this.el.querySelector("[data-row-menu-content]");
+      this.isOpen = false;
+
+      this._onTriggerClick = (e) => {
+        e.stopPropagation();
+        this.isOpen ? this._close() : this._open();
+      };
+
+      this._onOutsideClick = (e) => {
+        if (!this.el.contains(e.target)) this._close();
+      };
+
+      this._onKeydown = (e) => {
+        if (e.key === "Escape") {
+          this._close();
+          this.trigger.focus();
+        }
+        // Arrow key navigation inside menu
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          var items = Array.from(this.menu.querySelectorAll("[role='menuitem']:not([disabled])"));
+          if (items.length === 0) return;
+          var idx = items.indexOf(document.activeElement);
+          var next = e.key === "ArrowDown"
+            ? (idx + 1) % items.length
+            : (idx - 1 + items.length) % items.length;
+          items[next].focus();
+        }
+      };
+
+      // Close when any item is clicked
+      this._onMenuClick = () => { this._close(); };
+
+      this.trigger.addEventListener("click", this._onTriggerClick);
+      this.menu.addEventListener("click", this._onMenuClick);
+    },
+
+    _open() {
+      var triggerRect = this.trigger.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var gap = 4;
+
+      // Show briefly to measure dimensions
+      this.menu.classList.remove("hidden");
+      var menuWidth = this.menu.offsetWidth || 160;
+      var menuHeight = this.menu.offsetHeight || 200;
+
+      // Horizontal: align right edge of menu with right edge of trigger
+      var left = triggerRect.right - menuWidth;
+      if (left < 8) left = triggerRect.left;
+      left = Math.max(8, Math.min(left, vw - menuWidth - 8));
+
+      // Vertical: prefer below, flip above if not enough space
+      var top = triggerRect.bottom + gap;
+      if (top + menuHeight > vh - 8 && triggerRect.top - menuHeight - gap > 8) {
+        top = triggerRect.top - menuHeight - gap;
+      }
+      top = Math.max(8, Math.min(top, vh - menuHeight - 8));
+
+      this.menu.style.top = top + "px";
+      this.menu.style.left = left + "px";
+
+      this.isOpen = true;
+      this.trigger.setAttribute("aria-expanded", "true");
+
+      document.addEventListener("click", this._onOutsideClick, true);
+      document.addEventListener("keydown", this._onKeydown);
+
+      // Focus first item for keyboard navigation
+      var first = this.menu.querySelector("[role='menuitem']");
+      if (first) first.focus();
+    },
+
+    _close() {
+      if (!this.isOpen) return;
+      this.menu.classList.add("hidden");
+      this.isOpen = false;
+      this.trigger.setAttribute("aria-expanded", "false");
+      document.removeEventListener("click", this._onOutsideClick, true);
+      document.removeEventListener("keydown", this._onKeydown);
+    },
+
+    destroyed() {
+      this._close();
+      this.trigger.removeEventListener("click", this._onTriggerClick);
+      this.menu.removeEventListener("click", this._onMenuClick);
+    }
+  };
+
+
+  // ============================================================================
+  // 6. EMAIL CHARTS HOOK
   // ============================================================================
   //
   // Initializes Chart.js delivery trend and engagement charts on the email

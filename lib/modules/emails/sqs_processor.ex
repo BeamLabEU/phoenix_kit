@@ -45,8 +45,6 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Emails.Event
   alias PhoenixKit.Modules.Emails.Log
-  alias PhoenixKit.Modules.Newsletters
-  alias PhoenixKit.Modules.Newsletters.Broadcast, as: NewslettersBroadcast
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   import Ecto.Query
@@ -1396,15 +1394,21 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
     end
   end
 
-  # Updates newsletters delivery record when a matching SES event arrives
+  # Updates newsletters delivery record when a matching SES event arrives.
+  # Uses ModuleRegistry lookup so it works when Newsletters is an external package.
   defp maybe_update_newsletters_delivery(message_id, event_type, timestamp) do
-    case Newsletters.find_delivery_by_message_id(message_id) do
-      nil -> :ok
-      delivery -> apply_delivery_event(delivery, event_type, timestamp)
+    newsletters_mod = PhoenixKit.ModuleRegistry.get_by_key("newsletters")
+
+    if newsletters_mod && Code.ensure_loaded?(newsletters_mod) &&
+         function_exported?(newsletters_mod, :find_delivery_by_message_id, 1) do
+      case newsletters_mod.find_delivery_by_message_id(message_id) do
+        nil -> :ok
+        delivery -> apply_delivery_event(newsletters_mod, delivery, event_type, timestamp)
+      end
     end
   end
 
-  defp apply_delivery_event(delivery, event_type, timestamp) do
+  defp apply_delivery_event(newsletters_mod, delivery, event_type, timestamp) do
     {status, attrs} =
       case event_type do
         "Delivery" -> {"delivered", %{delivered_at: timestamp}}
@@ -1414,12 +1418,12 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
       end
 
     if status do
-      Newsletters.update_delivery_status(delivery, status, attrs)
-      increment_broadcast_counter(delivery.broadcast_uuid, event_type)
+      newsletters_mod.update_delivery_status(delivery, status, attrs)
+      increment_broadcast_counter(newsletters_mod, delivery.broadcast_uuid, event_type)
     end
   end
 
-  defp increment_broadcast_counter(broadcast_uuid, event_type) do
+  defp increment_broadcast_counter(newsletters_mod, broadcast_uuid, event_type) do
     field_name =
       case event_type do
         "Delivery" -> :delivered_count
@@ -1429,9 +1433,13 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
       end
 
     if field_name do
-      NewslettersBroadcast
-      |> where([b], b.uuid == ^broadcast_uuid)
-      |> PhoenixKit.RepoHelper.repo().update_all(inc: [{field_name, 1}])
+      broadcast_mod = newsletters_mod |> Module.concat("Broadcast")
+
+      if Code.ensure_loaded?(broadcast_mod) do
+        broadcast_mod
+        |> where([b], b.uuid == ^broadcast_uuid)
+        |> PhoenixKit.RepoHelper.repo().update_all(inc: [{field_name, 1}])
+      end
     end
   end
 
