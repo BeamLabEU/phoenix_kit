@@ -191,7 +191,7 @@
     </div>
 
     <%!-- Language and Version Switchers --%>
-    <div class="flex flex-wrap items-center gap-4">
+    <div class="flex flex-col gap-2">
       <%!-- Language Switcher --%>
       <%= if length(@all_enabled_languages) > 1 or not @current_language_enabled or not @current_language_known do %>
         <% all_languages =
@@ -203,80 +203,78 @@
         <% primary_lang = Enum.find(all_languages, & &1.is_primary) %>
         <% other_languages = Enum.reject(all_languages, & &1.is_primary) %>
 
-        <div class="flex flex-col gap-2">
-          <%!-- Other translations --%>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
-            <.publishing_language_switcher
-              languages={other_languages}
-              current_language={@current_language}
-              show_status={true}
-              show_add={true}
-              on_click_js={&switch_lang_js(&1, @current_language)}
-              size={:sm}
-            />
-          </div>
-
-          <%!-- Primary language (on its own line, prominent) --%>
-          <%= if primary_lang do %>
-            <div class="flex items-center gap-2">
-              <span
-                class="text-xs font-medium text-base-content/60 tooltip tooltip-bottom cursor-help z-50"
-                data-tip={
-                  gettext(
-                    "Other languages inherit publication status and defaults from this version."
-                  )
-                }
-              >
-                {gettext("Primary:")}
-              </span>
-              <button
-                type="button"
-                phx-click={switch_lang_js(primary_lang.code, @current_language)}
-                class={[
-                  "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors",
-                  if(primary_lang.is_current,
-                    do: "bg-primary/20 border border-primary/40 ring-2 ring-primary/30",
-                    else: "hover:bg-base-200"
-                  )
-                ]}
-                title={primary_lang.name}
-              >
-                <span class={[
-                  "rounded-full inline-block w-2.5 h-2.5",
-                  cond do
-                    not primary_lang.exists -> "bg-base-content/20"
-                    primary_lang.status == "published" -> "bg-success"
-                    primary_lang.status == "draft" -> "bg-warning"
-                    primary_lang.status == "archived" -> "bg-base-content/40"
-                    true -> "bg-base-content/20"
-                  end
-                ]}>
-                </span>
-                <span class={[
-                  "text-sm font-bold uppercase",
-                  cond do
-                    not primary_lang.exists -> "text-base-content/20"
-                    primary_lang.status == "published" -> "text-success"
-                    primary_lang.status == "draft" -> "text-warning"
-                    primary_lang.status == "archived" -> "text-base-content/40"
-                    true -> "text-base-content/20"
-                  end
-                ]}>
-                  {String.upcase(primary_lang.display_code)}
-                </span>
-                <span class="text-sm text-base-content/70">
-                  {primary_lang.name}
-                </span>
-              </button>
-            </div>
-          <% end %>
+        <%!-- Other translations --%>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
+          <.publishing_language_switcher
+            languages={other_languages}
+            current_language={@current_language}
+            show_status={true}
+            show_add={true}
+            on_click_js={&switch_lang_js(&1, @current_language)}
+            size={:sm}
+          />
         </div>
+
+        <%!-- Primary language --%>
+        <%= if primary_lang do %>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span
+              class="text-xs font-medium text-base-content/60 tooltip tooltip-bottom cursor-help z-50"
+              data-tip={
+                gettext(
+                  "Other languages inherit publication status and defaults from this version."
+                )
+              }
+            >
+              {gettext("Primary:")}
+            </span>
+            <button
+              type="button"
+              phx-click={switch_lang_js(primary_lang.code, @current_language)}
+              class={[
+                "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors",
+                if(primary_lang.is_current,
+                  do: "bg-primary/20 border border-primary/40 ring-2 ring-primary/30",
+                  else: "hover:bg-base-200"
+                )
+              ]}
+              title={primary_lang.name}
+            >
+              <span class={[
+                "rounded-full inline-block w-2.5 h-2.5",
+                cond do
+                  not primary_lang.exists -> "bg-base-content/20"
+                  primary_lang.status == "published" -> "bg-success"
+                  primary_lang.status == "draft" -> "bg-warning"
+                  primary_lang.status == "archived" -> "bg-base-content/40"
+                  true -> "bg-base-content/20"
+                end
+              ]}>
+              </span>
+              <span class={[
+                "text-sm font-bold uppercase",
+                cond do
+                  not primary_lang.exists -> "text-base-content/20"
+                  primary_lang.status == "published" -> "text-success"
+                  primary_lang.status == "draft" -> "text-warning"
+                  primary_lang.status == "archived" -> "text-base-content/40"
+                  true -> "text-base-content/20"
+                end
+              ]}>
+                {String.upcase(primary_lang.display_code)}
+              </span>
+              <span class="text-sm text-base-content/70">
+                {primary_lang.name}
+              </span>
+            </button>
+          </div>
+        <% end %>
       <% end %>
 
       <%!-- Version Switcher (for versioned posts in both slug and timestamp modes) --%>
       <%= if !@is_new_post && @post do %>
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
           <%= if length(@available_versions) > 1 do %>
             <span class="text-xs font-medium text-base-content/60">{gettext("Version:")}</span>
             <.publishing_version_switcher
