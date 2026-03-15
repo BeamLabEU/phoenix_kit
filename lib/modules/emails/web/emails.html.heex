@@ -287,13 +287,14 @@
             }
           >
             <:card_actions :let={log}>
-              <button
-                phx-click="view_details"
-                phx-value-uuid={log.uuid}
-                class="btn btn-xs btn-outline btn-primary"
-              >
-                <.icon name="hero-eye" class="w-3 h-3 mr-1" />{gettext("View")}
-              </button>
+              <.table_row_menu id={"email-card-menu-#{log.uuid}"} label={gettext("Email actions")}>
+                <.table_row_menu_button
+                  phx-click="view_details"
+                  phx-value-uuid={log.uuid}
+                  icon="hero-eye"
+                  label={gettext("View")}
+                />
+              </.table_row_menu>
             </:card_actions>
             <.table_default_header>
               <.table_default_row>
@@ -444,13 +445,17 @@
                             <% end %>
                           </div>
                         <% "actions" -> %>
-                          <button
-                            phx-click="view_details"
-                            phx-value-uuid={log.uuid}
-                            class="btn btn-xs btn-outline btn-primary"
+                          <.table_row_menu
+                            id={"email-menu-#{log.uuid}"}
+                            label={gettext("Email actions")}
                           >
-                            <.icon name="hero-eye" class="w-3 h-3 mr-1" /> View
-                          </button>
+                            <.table_row_menu_button
+                              phx-click="view_details"
+                              phx-value-uuid={log.uuid}
+                              icon="hero-eye"
+                              label={gettext("View")}
+                            />
+                          </.table_row_menu>
                         <% _ -> %>
                           <span class="text-xs text-base-content/50">—</span>
                       <% end %>

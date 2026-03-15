@@ -94,7 +94,70 @@
     <%!-- Roles List --%>
     <div class="bg-base-100">
       <%= if length(@roles) > 0 do %>
-        <.table_default variant="zebra">
+        <.table_default
+          id="roles-table"
+          variant="zebra"
+          toggleable={true}
+          items={@roles}
+          card_fields={
+            fn role ->
+              [
+                %{
+                  label: gettext("Type"),
+                  value: if(role.is_system_role, do: gettext("System"), else: gettext("Custom"))
+                },
+                %{label: gettext("Users"), value: Map.get(@role_stats, role.name, 0)},
+                %{label: gettext("Description"), value: role.description || gettext("—")}
+              ]
+            end
+          }
+        >
+          <:card_header :let={role}>
+            <div class="flex items-center gap-2">
+              <.role_badge role={role} />
+              <%= if role.is_system_role do %>
+                <span class="badge badge-outline badge-sm h-auto">{gettext("System")}</span>
+              <% else %>
+                <span class="badge badge-success badge-sm h-auto">{gettext("Custom")}</span>
+              <% end %>
+            </div>
+          </:card_header>
+          <:card_actions :let={role}>
+            <.table_row_menu id={"role-card-menu-#{role.uuid}"} label={gettext("Role actions")}>
+              <%= if !role.is_system_role do %>
+                <.table_row_menu_button
+                  phx-click="show_edit_role"
+                  phx-value-role_uuid={role.uuid}
+                  icon="hero-pencil"
+                  label={gettext("Edit")}
+                  variant="primary"
+                />
+                <.table_row_menu_divider />
+                <.table_row_menu_button
+                  phx-click="request_delete_role"
+                  phx-value-role_uuid={role.uuid}
+                  phx-value-role_name={role.name}
+                  icon="hero-trash"
+                  label={gettext("Delete")}
+                  variant="error"
+                />
+              <% else %>
+                <li class="px-3 py-2 text-xs text-base-content/50 italic select-none">
+                  {gettext("Protected")}
+                </li>
+              <% end %>
+              <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.has_module_access?(assigns[:phoenix_kit_current_scope], "users") && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+                <.table_row_menu_divider />
+                <.table_row_menu_button
+                  phx-click="show_permissions_editor"
+                  phx-value-role_uuid={role.uuid}
+                  icon="hero-key"
+                  label={gettext("Permissions")}
+                  variant="secondary"
+                />
+              <% end %>
+            </.table_row_menu>
+          </:card_actions>
           <.table_default_header>
             <.table_default_row>
               <.table_default_header_cell>{gettext("Role")}</.table_default_header_cell>
@@ -139,49 +202,40 @@
                   </div>
                 </.table_default_cell>
                 <.table_default_cell>
-                  <div class="flex flex-wrap items-center gap-1">
+                  <.table_row_menu id={"role-menu-#{role.uuid}"} label={gettext("Role actions")}>
                     <%= if !role.is_system_role do %>
-                      <%!-- Edit Button --%>
-                      <button
-                        class="btn btn-xs btn-outline btn-primary tooltip tooltip-bottom"
-                        data-tip={gettext("Edit")}
+                      <.table_row_menu_button
                         phx-click="show_edit_role"
                         phx-value-role_uuid={role.uuid}
-                      >
-                        <.icon name="hero-pencil" class="h-3 w-3 hidden sm:inline" />
-                        <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
-                      </button>
-
-                      <%!-- Delete Button --%>
-                      <button
-                        class="btn btn-xs btn-outline btn-error tooltip tooltip-bottom"
-                        data-tip={gettext("Delete")}
+                        icon="hero-pencil"
+                        label={gettext("Edit")}
+                        variant="primary"
+                      />
+                      <.table_row_menu_divider />
+                      <.table_row_menu_button
                         phx-click="request_delete_role"
                         phx-value-role_uuid={role.uuid}
                         phx-value-role_name={role.name}
-                      >
-                        <.icon name="hero-trash" class="h-3 w-3 hidden sm:inline" />
-                        <span class="sm:hidden whitespace-nowrap">{gettext("Delete")}</span>
-                      </button>
+                        icon="hero-trash"
+                        label={gettext("Delete")}
+                        variant="error"
+                      />
                     <% else %>
-                      <span class="badge badge-ghost badge-sm h-auto">
+                      <li class="px-3 py-2 text-xs text-base-content/50 italic select-none">
                         {gettext("Protected")}
-                      </span>
+                      </li>
                     <% end %>
-
-                    <%!-- Permissions Button (users permission required, editable roles only) --%>
                     <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.has_module_access?(assigns[:phoenix_kit_current_scope], "users") && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
-                      <button
-                        class="btn btn-xs btn-outline btn-secondary tooltip tooltip-bottom"
-                        data-tip={gettext("Permissions")}
+                      <.table_row_menu_divider />
+                      <.table_row_menu_button
                         phx-click="show_permissions_editor"
                         phx-value-role_uuid={role.uuid}
-                      >
-                        <.icon name="hero-key" class="h-3 w-3 hidden sm:inline" />
-                        <span class="sm:hidden whitespace-nowrap">{gettext("Permissions")}</span>
-                      </button>
+                        icon="hero-key"
+                        label={gettext("Permissions")}
+                        variant="secondary"
+                      />
                     <% end %>
-                  </div>
+                  </.table_row_menu>
                 </.table_default_cell>
               </.table_default_row>
             <% end %>
