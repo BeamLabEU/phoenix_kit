@@ -25,12 +25,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   use PhoenixKitWeb, :controller
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  # Disable Phoenix's automatic app layout — LayoutWrapper in the templates
-  # handles layout wrapping. Without this, controller templates get double-wrapped:
-  # once by LayoutWrapper (inside the template) and once by Phoenix's layout system,
-  # causing blank pages when the parent layout checks inner_block ([] is truthy).
-  plug :put_layout, html: false
-
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Web.Controller.Fallback
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
