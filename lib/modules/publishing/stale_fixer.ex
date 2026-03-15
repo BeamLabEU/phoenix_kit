@@ -155,7 +155,20 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   end
 
   defp maybe_fix_post_mode(attrs, post) do
+    # First ensure the mode is a valid value
     fixed_mode = if post.mode in @valid_group_modes, do: post.mode, else: @default_group_mode
+
+    # Then sync with the group's mode if they differ (e.g., group switched from
+    # timestamp to slug but existing posts were never updated)
+    group = if post.group, do: post.group, else: DBStorage.get_group(post.group_uuid)
+
+    fixed_mode =
+      if group && group.mode in @valid_group_modes do
+        group.mode
+      else
+        fixed_mode
+      end
+
     if fixed_mode != post.mode, do: Map.put(attrs, :mode, fixed_mode), else: attrs
   end
 
