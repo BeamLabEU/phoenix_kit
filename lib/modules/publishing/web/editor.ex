@@ -1059,8 +1059,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     post = socket.assigns.post
     post_uuid = post[:uuid]
     language = socket.assigns.current_language
+    version = socket.assigns[:current_version]
 
-    query = URI.encode_query(%{"lang" => language})
+    query_params = %{"lang" => language}
+    query_params = if version, do: Map.put(query_params, "v", version), else: query_params
+    query = URI.encode_query(query_params)
 
     {:noreply,
      push_navigate(socket,
