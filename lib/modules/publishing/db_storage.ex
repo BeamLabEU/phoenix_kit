@@ -187,11 +187,11 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
-  @doc "Counts posts in a group."
+  @doc "Counts non-trashed posts in a group."
   def count_posts(group_slug) do
     from(p in PublishingPost,
       join: g in assoc(p, :group),
-      where: g.slug == ^group_slug,
+      where: g.slug == ^group_slug and p.status != "trashed",
       select: count(p.uuid)
     )
     |> repo().one() || 0

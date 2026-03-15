@@ -143,6 +143,7 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
   def publish_version(group_slug, post_uuid, version, opts \\ []) do
     db_post = DBStorage.get_post_by_uuid(post_uuid, [:group])
     unless db_post, do: throw({:error, :not_found})
+    if db_post.status == "trashed", do: throw({:error, :post_trashed})
 
     # Wrap the entire publish operation in a transaction for atomicity
     repo = PhoenixKit.RepoHelper.repo()

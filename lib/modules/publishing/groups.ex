@@ -244,14 +244,28 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
         {:error, :not_found}
 
       db_group ->
-        case DBStorage.restore_group(db_group) do
-          {:ok, _} ->
-            ListingCache.regenerate(slug)
-            PublishingPubSub.broadcast_group_created(%{"slug" => slug, "name" => db_group.name})
-            {:ok, slug}
+        # Check if an active group already uses this slug (created while this was trashed)
+        active_conflict =
+          DBStorage.list_groups("active")
+          |> Enum.any?(fn g -> g.slug == slug and g.uuid != db_group.uuid end)
 
-          {:error, reason} ->
-            {:error, reason}
+        if active_conflict do
+          {:error, :slug_taken}
+        else
+          case DBStorage.restore_group(db_group) do
+            {:ok, _} ->
+              ListingCache.regenerate(slug)
+
+              PublishingPubSub.broadcast_group_created(%{
+                "slug" => slug,
+                "name" => db_group.name
+              })
+
+              {:ok, slug}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
         end
     end
   end
