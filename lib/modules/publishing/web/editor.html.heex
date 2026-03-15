@@ -988,26 +988,20 @@
                   </details>
                 </div>
 
-                <%!-- Status: editable for primary language, read-only indicator for translations --%>
-                <div>
-                  <label class="label">
-                    <span class="label-text text-sm font-semibold text-base-content">
-                      {gettext("Status")}
-                      <%= if not @is_primary_language do %>
-                        <span class="text-xs font-normal text-base-content/60 ml-2">
-                          {gettext("(follows primary language)")}
-                        </span>
-                      <% end %>
-                    </span>
-                  </label>
-                  <%= if @is_primary_language do %>
+                <%!-- Status: editable for primary language, visibility info for translations --%>
+                <%= if @is_primary_language do %>
+                  <div>
+                    <label class="label">
+                      <span class="label-text text-sm font-semibold text-base-content">
+                        {gettext("Status")}
+                      </span>
+                    </label>
                     <select
                       class={"select select-bordered w-full #{if edit_disabled?, do: "select-disabled bg-base-200"}"}
                       name="status"
                       disabled={edit_disabled?}
                     >
                       <%= if @viewing_older_version do %>
-                        <%!-- Older versions can only be published or archived, not draft --%>
                         <option
                           value="published"
                           selected={@form["status"] in ["draft", "published"]}
@@ -1029,12 +1023,22 @@
                         </option>
                       <% end %>
                     </select>
+                  </div>
+                <% else %>
+                  <%= if @form["status"] == "published" do %>
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-sm text-success">
+                      <.icon name="hero-globe-alt" class="w-4 h-4 shrink-0" />
+                      {gettext(
+                        "Visible to the public — adding content here will make this translation available."
+                      )}
+                    </div>
                   <% else %>
-                    <div class="input input-bordered w-full input-disabled bg-base-200 flex items-center text-base-content/50 text-sm">
-                      {gettext("Follows primary language")}
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-base-200 border border-base-300 text-sm text-base-content/60">
+                      <.icon name="hero-eye-slash" class="w-4 h-4 shrink-0" />
+                      {gettext("Not visible — the primary language must be published first.")}
                     </div>
                   <% end %>
-                </div>
+                <% end %>
 
                 <%!-- Publication date: only editable by primary language --%>
                 <%= if @is_primary_language do %>
