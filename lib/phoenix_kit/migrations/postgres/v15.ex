@@ -24,7 +24,7 @@ defmodule PhoenixKit.Migrations.Postgres.V15 do
   """
   use Ecto.Migration
 
-  alias PhoenixKit.Modules.Emails.Templates
+  alias Mix.Tasks.PhoenixKit.SeedTemplates
 
   @doc """
   Run the V15 migration to add email templates system.
@@ -130,10 +130,10 @@ defmodule PhoenixKit.Migrations.Postgres.V15 do
 
   # Private function to seed system email templates
   defp seed_system_templates do
-    case Code.ensure_loaded(Templates) do
+    case Code.ensure_loaded(SeedTemplates) do
       {:module, _} ->
         try do
-          Templates.seed_system_templates()
+          SeedTemplates.run(["--quiet"])
         rescue
           error ->
             # Log the error but don't fail the migration
@@ -142,7 +142,9 @@ defmodule PhoenixKit.Migrations.Postgres.V15 do
         end
 
       {:error, _} ->
-        # Templates module not available - skipping template seeding
+        # Mix tasks may not be available in production builds
+        IO.puts("Info: SeedTemplates not available - skipping template seeding")
+
         :ok
     end
   end
