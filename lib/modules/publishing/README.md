@@ -184,8 +184,10 @@ Renderer.clear_all_cache()
 
 **Admin Interfaces:**
 
+- **PhoenixKit.Modules.Publishing.Web.Index** – Publishing groups overview with skeleton loading on tab switch
+- **PhoenixKit.Modules.Publishing.Web.Listing** – Post listing with inline status controls, skeleton loading, and trash management
 - **PhoenixKit.Modules.Publishing.Web.Settings** – Admin interface for group configuration
-- **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave and featured images (DB-only, gated by migration)
+- **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave, featured images, skeleton loading on language switch, and clear translation button
 - **PhoenixKit.Modules.Publishing.Web.Preview** – Live preview for posts
 
 **Public Display:**
@@ -218,6 +220,41 @@ Renderer.clear_all_cache()
 - **Markdown Content** – Full Markdown support with syntax highlighting
 - **JSONB Metadata** – Flexible metadata via `data` JSONB columns on all four schemas
 - **Backward Compatibility** – Legacy groups without mode field default to "timestamp"
+
+## Admin UI Features
+
+### Inline Status Control
+
+Posts on the listing page have a status dropdown (Draft/Published/Archived) next to the
+primary language badge. Changing status keeps you in the current tab — the post updates
+in place with the new status color. Status tab counts update automatically.
+
+### Skeleton Loading
+
+All tab switches and language switches show animated skeleton placeholders while loading:
+- **Index page**: Group card skeletons when switching Active/Trash tabs
+- **Listing page**: Post card skeletons when switching status tabs
+- **Editor**: Content area skeleton when switching between language translations
+
+Skeletons use `bg-base-200` with `animate-pulse` (not DaisyUI's `skeleton` class, which
+depends on `--color-base-300` that resolves to white in some PhoenixKit themes).
+
+### Trash Management
+
+- **Trashing**: Posts are soft-deleted (status set to "trashed"). Trashed posts are excluded
+  from all public-facing queries (URL slugs, timestamp lookups, listing cache).
+- **Empty posts**: Posts with no content across any version are automatically hard-deleted
+  by the stale fixer (prevents the restore → auto-trash loop).
+- **Trash tab**: Shows trashed posts with full metadata (titles, languages) but all elements
+  are non-interactive (dimmed languages, no clickable titles, no public URL).
+- **Restore**: Button next to primary language badge. Restores post as "draft" status.
+
+### Clear Translation
+
+Non-primary language translations can be cleared via a button in the editor sidebar.
+This hard-deletes the content row from the database (not a soft-delete/archive).
+The language disappears from the post and can be re-added later. The button appears
+whenever a content row exists in the DB, regardless of whether it has body text.
 
 ## URL Modes
 
@@ -391,7 +428,8 @@ iex> {:ok, _} = Publishing.trash_post("docs", "getting-started")
 ```
 
 - Listing cache uses `:persistent_term` for sub-microsecond reads.
-- `trash_post/2` performs a DB soft-delete (sets `deleted_at` timestamp). Trashed posts can be restored via DB if needed.
+- `trash_post/2` performs a DB soft-delete (sets `status` to `"trashed"`). Trashed posts can be restored from the admin trash tab.
+- Empty posts (no content in any version) are automatically hard-deleted by the stale fixer on the next listing page load.
 
 ### Group Management
 
@@ -488,24 +526,29 @@ posts = Publishing.list_posts("docs", "es")  # With language preference
 
 ### Delete Operations
 
-Delete operations use DB soft-deletes (setting `status` to `"archived"` or `deleted_at` timestamp):
+Posts use soft-delete (setting `status` to `"trashed"`). Trashed posts are excluded from
+public access and can be restored from the admin trash tab. Empty posts (no content in any
+version) are automatically hard-deleted by the stale fixer.
+
+Translations are hard-deleted (the content row is removed from the DB), so the language
+disappears from the post entirely. A new translation can be added later.
 
 ```elixir
-# Soft-delete post (sets deleted_at, all versions and languages)
+# Trash post (soft-delete — sets status to "trashed")
 {:ok, _} = Publishing.trash_post("docs", "getting-started")
 
-# For timestamp mode, use the date/time path
-{:ok, _} = Publishing.trash_post("news", "2025-01-15/14:30")
+# For timestamp mode, use the post UUID
+{:ok, _} = Publishing.trash_post("news", post_uuid)
 
-# Archive a specific translation (refuses if last active language)
-:ok = Publishing.delete_language("docs", "getting-started", "es")
-:ok = Publishing.delete_language("docs", "getting-started", "es", 2)  # specific version
-{:error, :last_language} = Publishing.delete_language("docs", "post", "en")
+# Clear a translation (hard-deletes the content row, refuses if last language)
+:ok = Publishing.delete_language("docs", post_uuid, "es")
+:ok = Publishing.delete_language("docs", post_uuid, "es", 2)  # specific version
+{:error, :last_language} = Publishing.delete_language("docs", post_uuid, "en")
 
 # Archive a version (refuses if live or last active version)
-:ok = Publishing.delete_version("docs", "getting-started", 1)
-{:error, :cannot_delete_live} = Publishing.delete_version("docs", "post", 2)
-{:error, :last_version} = Publishing.delete_version("docs", "post", 1)
+:ok = Publishing.delete_version("docs", post_uuid, 1)
+{:error, :cannot_delete_live} = Publishing.delete_version("docs", post_uuid, 2)
+{:error, :last_version} = Publishing.delete_version("docs", post_uuid, 1)
 ```
 
 ### Versioning Operations
@@ -647,10 +690,11 @@ All create/update/delete operations go through `DBStorage`:
 alias PhoenixKit.Modules.Publishing.DBStorage
 
 # Posts
-{:ok, post} = DBStorage.create_post(group_uuid, %{slug: "hello", status: "draft", mode: "slug"})
-{:ok, post} = DBStorage.get_post("docs", "hello")
+{:ok, post} = DBStorage.create_post(%{group_uuid: group_uuid, slug: "hello", status: "draft", mode: "slug"})
+post = DBStorage.get_post("docs", "hello")           # excludes trashed posts
 {:ok, updated} = DBStorage.update_post(post, %{status: "published"})
-{:ok, deleted} = DBStorage.soft_delete_post(post)
+{:ok, _} = DBStorage.trash_post(post)                # soft-delete (status → "trashed")
+{:ok, _} = DBStorage.delete_post(post)               # hard-delete (cascade removes versions/contents)
 
 # Versions
 {:ok, version} = DBStorage.create_version(post_uuid, %{version_number: 1, status: "draft"})
