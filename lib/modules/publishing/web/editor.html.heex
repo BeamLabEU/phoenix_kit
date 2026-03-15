@@ -152,26 +152,27 @@
   </button>
 
   <div class="container mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <button type="button" class="btn btn-ghost btn-sm" phx-click="back_to_list">
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to %{group}",
           group: @group_name || gettext("Group")
         )}
       </button>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <button
           type="button"
-          class="btn btn-outline btn-sm shadow-none"
+          class="btn btn-outline btn-xs sm:btn-sm shadow-none"
           phx-click="preview"
         >
-          <.icon name="hero-eye" class="w-4 h-4 mr-1" /> {gettext("Preview")}
+          <.icon name="hero-eye" class="w-4 h-4 sm:mr-1" />
+          <span class="hidden sm:inline">{gettext("Preview")}</span>
         </button>
         <%= if @form["status"] == "published" && @public_url do %>
           <a
             href={if @has_pending_changes, do: "#", else: @public_url}
             target="_blank"
             class={[
-              "btn btn-outline btn-sm shadow-none",
+              "btn btn-outline btn-xs sm:btn-sm shadow-none",
               !@has_pending_changes && "btn-success",
               @has_pending_changes && "btn-disabled pointer-events-none opacity-60"
             ]}
@@ -184,7 +185,8 @@
               )
             }
           >
-            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> View Public
+            <.icon name="hero-globe-alt" class="w-4 h-4 sm:mr-1" />
+            <span class="hidden sm:inline">View Public</span>
           </a>
         <% end %>
       </div>

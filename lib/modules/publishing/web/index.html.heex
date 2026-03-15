@@ -208,21 +208,21 @@
                     </div>
                   <% end %>
 
-                  <div class="flex flex-wrap gap-2 mt-auto">
+                  <div class="flex gap-1.5 sm:gap-2 mt-auto">
                     <%= if @view_mode == "active" do %>
                       <.link
                         navigate={Routes.path("/admin/publishing/#{insight.slug}")}
-                        class="btn btn-outline btn-sm"
+                        class="btn btn-outline btn-sm btn-xs sm:btn-sm flex-1 sm:flex-none min-w-0"
                       >
-                        <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" />
-                        {gettext("Open")}
+                        <.icon name="hero-arrow-right" class="w-4 h-4 sm:mr-1" />
+                        <span class="hidden sm:inline">{gettext("Open")}</span>
                       </.link>
                       <.link
                         navigate={Routes.path("/admin/publishing/edit-group/#{insight.slug}")}
-                        class="btn btn-outline btn-sm"
+                        class="btn btn-outline btn-sm btn-xs sm:btn-sm flex-1 sm:flex-none min-w-0"
                       >
-                        <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
-                        {gettext("Settings")}
+                        <.icon name="hero-cog-6-tooth" class="w-4 h-4 sm:mr-1" />
+                        <span class="hidden sm:inline">{gettext("Settings")}</span>
                       </.link>
                       <%= if insight.published_count > 0 do %>
                         <% group_slug = insight.slug %>
@@ -243,18 +243,18 @@
                           href={public_url}
                           target="_blank"
                           rel="noopener"
-                          class="btn btn-outline btn-sm"
+                          class="btn btn-outline btn-sm btn-xs sm:btn-sm flex-1 sm:flex-none min-w-0"
                           aria-label={gettext("View public site")}
                         >
-                          <.icon name="hero-eye" class="w-4 h-4 mr-1" />
-                          {gettext("Public")}
+                          <.icon name="hero-eye" class="w-4 h-4 sm:mr-1" />
+                          <span class="hidden sm:inline">{gettext("Public")}</span>
                         </a>
                       <% end %>
                       <button
                         type="button"
                         phx-click="trash_group"
                         phx-value-slug={insight.slug}
-                        class="btn btn-outline btn-sm text-error hover:bg-error hover:text-error-content"
+                        class="btn btn-outline btn-sm btn-xs sm:btn-sm min-w-0 text-error hover:bg-error hover:text-error-content"
                         data-confirm={gettext("Move this group to trash?")}
                       >
                         <.icon name="hero-trash" class="w-4 h-4" />
@@ -264,24 +264,24 @@
                         type="button"
                         phx-click="restore_group"
                         phx-value-slug={insight.slug}
-                        class="btn btn-outline btn-sm text-success"
+                        class="btn btn-outline btn-sm btn-xs sm:btn-sm flex-1 sm:flex-none min-w-0 text-success"
                       >
-                        <.icon name="hero-arrow-uturn-left" class="w-4 h-4 mr-1" />
-                        {gettext("Restore")}
+                        <.icon name="hero-arrow-uturn-left" class="w-4 h-4 sm:mr-1" />
+                        <span class="hidden sm:inline">{gettext("Restore")}</span>
                       </button>
                       <button
                         type="button"
                         phx-click="delete_group"
                         phx-value-slug={insight.slug}
-                        class="btn btn-outline btn-sm text-error hover:bg-error hover:text-error-content"
+                        class="btn btn-outline btn-sm btn-xs sm:btn-sm flex-1 sm:flex-none min-w-0 text-error hover:bg-error hover:text-error-content"
                         data-confirm={
                           gettext(
                             "Permanently delete this group and all its posts? This cannot be undone."
                           )
                         }
                       >
-                        <.icon name="hero-trash" class="w-4 h-4 mr-1" />
-                        {gettext("Delete Forever")}
+                        <.icon name="hero-trash" class="w-4 h-4 sm:mr-1" />
+                        <span class="hidden sm:inline">{gettext("Delete Forever")}</span>
                       </button>
                     <% end %>
                   </div>
