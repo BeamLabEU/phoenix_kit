@@ -527,10 +527,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       current_language_statuses = Map.get(socket.assigns.post, :language_statuses, %{})
       updated_language_statuses = Map.put(current_language_statuses, language, new_status)
 
+      # Update post with current form values for accurate public URL
+      form_slug = new_form["slug"]
+      form_url_slug = new_form["url_slug"]
+
       updated_post =
         socket.assigns.post
         |> Map.put(:metadata, Map.merge(socket.assigns.post.metadata, %{status: new_status}))
         |> Map.put(:language_statuses, updated_language_statuses)
+        |> then(fn p ->
+          if form_slug && form_slug != "", do: Map.put(p, :slug, form_slug), else: p
+        end)
+        |> then(fn p ->
+          if form_url_slug && form_url_slug != "",
+            do: Map.put(p, :url_slug, form_url_slug),
+            else: p
+        end)
 
       public_url = Helpers.build_public_url(updated_post, language)
 
