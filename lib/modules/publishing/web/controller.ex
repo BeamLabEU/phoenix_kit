@@ -148,6 +148,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
     end
   end
 
+  # Suppress dialyzer warning — catch-all is defensive fallback for unexpected route formats
+  @dialyzer {:nowarn_function, extract_group_slug: 1}
   defp extract_group_slug({_, group_slug}), do: group_slug
   defp extract_group_slug({_, group_slug, _}), do: group_slug
   defp extract_group_slug({_, group_slug, _, _}), do: group_slug

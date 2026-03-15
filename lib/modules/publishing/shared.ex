@@ -69,6 +69,7 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
     |> maybe_put_audit(:updated_by_email, user_email)
   end
 
+  @dialyzer {:nowarn_function, normalize_audit_value: 1}
   defp normalize_audit_value(nil), do: nil
   defp normalize_audit_value(value) when is_binary(value), do: String.trim(value)
   defp normalize_audit_value(value), do: to_string(value)

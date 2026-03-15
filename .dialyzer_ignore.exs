@@ -63,6 +63,12 @@
 
   # False positive pattern match warnings (runtime behavior differs from static analysis)
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
+
+  # Publishing module defensive fallbacks and settings_call dynamic dispatch
+  {"lib/modules/publishing/publishing.ex", :guard_fail},
+  {"lib/modules/publishing/publishing.ex", :pattern_match_cov},
+  {"lib/modules/publishing/publishing.ex", :pattern_match},
+  {"lib/modules/publishing/shared.ex", :guard_fail},
   # ExAws library type definition issues (false positives from incomplete type specs)
   ~r/lib\/modules\/emails\/archiver\.ex:.*pattern_match/,
   ~r/lib\/modules\/emails\/archiver\.ex:.*unused_fun/,

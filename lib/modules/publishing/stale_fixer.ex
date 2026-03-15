@@ -329,66 +329,76 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   """
   def fix_missing_primary_content(%PublishingPost{} = post) do
     primary_lang = post.primary_language
-    versions = DBStorage.list_versions(post.uuid)
 
-    for version <- versions do
+    for version <- DBStorage.list_versions(post.uuid) do
       contents = DBStorage.list_contents(version.uuid)
       primary_content = Enum.find(contents, &(&1.language == primary_lang))
 
-      primary_missing? =
-        is_nil(primary_content) or
-          (primary_content.content in [nil, ""] and primary_content.title in [nil, "", "Untitled"])
-
-      if primary_missing? and contents != [] do
-        # Find the best translation — prefer published, then any with content
-        source =
-          Enum.find(contents, fn c ->
-            c.language != primary_lang and c.status == "published" and
-              c.content not in [nil, ""]
-          end) ||
-            Enum.find(contents, fn c ->
-              c.language != primary_lang and c.content not in [nil, ""]
-            end)
-
-        if source do
-          Logger.info(
-            "[Publishing] Fixing missing primary content for post #{post.uuid}/v#{version.version_number}: " <>
-              "copying from #{source.language} to #{primary_lang}"
-          )
-
-          if primary_content do
-            # Update existing empty primary content
-            DBStorage.update_content(primary_content, %{
-              title: source.title,
-              content: source.content,
-              status: source.status,
-              url_slug: primary_content.url_slug || source.url_slug
-            })
-          else
-            # Create primary content from translation
-            DBStorage.create_content(%{
-              version_uuid: version.uuid,
-              language: primary_lang,
-              title: source.title,
-              content: source.content,
-              status: source.status,
-              url_slug: source.url_slug
-            })
-          end
-
-          # If source was published, make sure post status matches
-          if source.status == "published" and post.status != "published" do
-            Logger.info(
-              "[Publishing] Promoting post #{post.uuid} to published (primary content now has published content)"
-            )
-
-            DBStorage.update_post(post, %{
-              status: "published",
-              published_at: post.published_at || DateTime.utc_now()
-            })
-          end
-        end
+      if primary_content_missing?(primary_content) and contents != [] do
+        fix_version_primary_content(post, version, primary_lang, primary_content, contents)
       end
+    end
+  end
+
+  defp primary_content_missing?(nil), do: true
+
+  defp primary_content_missing?(content) do
+    content.content in [nil, ""] and content.title in [nil, "", "Untitled"]
+  end
+
+  defp fix_version_primary_content(post, version, primary_lang, primary_content, contents) do
+    source = find_best_translation(contents, primary_lang)
+
+    if source do
+      Logger.info(
+        "[Publishing] Fixing missing primary content for post #{post.uuid}/v#{version.version_number}: " <>
+          "copying from #{source.language} to #{primary_lang}"
+      )
+
+      copy_translation_to_primary(version, primary_lang, primary_content, source)
+      maybe_promote_post_to_published(post, source)
+    end
+  end
+
+  defp find_best_translation(contents, primary_lang) do
+    Enum.find(contents, fn c ->
+      c.language != primary_lang and c.status == "published" and c.content not in [nil, ""]
+    end) ||
+      Enum.find(contents, fn c ->
+        c.language != primary_lang and c.content not in [nil, ""]
+      end)
+  end
+
+  defp copy_translation_to_primary(version, primary_lang, nil, source) do
+    DBStorage.create_content(%{
+      version_uuid: version.uuid,
+      language: primary_lang,
+      title: source.title,
+      content: source.content,
+      status: source.status,
+      url_slug: source.url_slug
+    })
+  end
+
+  defp copy_translation_to_primary(_version, _primary_lang, primary_content, source) do
+    DBStorage.update_content(primary_content, %{
+      title: source.title,
+      content: source.content,
+      status: source.status,
+      url_slug: primary_content.url_slug || source.url_slug
+    })
+  end
+
+  defp maybe_promote_post_to_published(post, source) do
+    if source.status == "published" and post.status != "published" do
+      Logger.info(
+        "[Publishing] Promoting post #{post.uuid} to published (primary content now has published content)"
+      )
+
+      DBStorage.update_post(post, %{
+        status: "published",
+        published_at: post.published_at || DateTime.utc_now()
+      })
     end
   end
 

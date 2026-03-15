@@ -31,39 +31,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # Load initial data in mount so the connected render's join reply matches
     # the dead render output, preventing the visual flash caused by morphdom
     # patching empty assigns before handle_params fills them.
-    {groups, current_group} = load_groups_and_current(group_slug)
-
-    all_posts =
-      case group_slug do
-        nil -> []
-        slug -> DBStorage.list_posts_with_metadata(slug)
-      end
-
-    trashed_count =
-      case group_slug do
-        nil -> 0
-        slug -> length(DBStorage.list_posts(slug, "trashed"))
-      end
-
-    status_counts = build_status_counts(all_posts, trashed_count)
-
-    default_mode =
-      cond do
-        Map.get(status_counts, "published", 0) > 0 -> "published"
-        Map.get(status_counts, "draft", 0) > 0 -> "draft"
-        Map.get(status_counts, "archived", 0) > 0 -> "archived"
-        Map.get(status_counts, "trashed", 0) > 0 -> "trashed"
-        true -> "published"
-      end
-
-    filtered_posts =
-      case default_mode do
-        "trashed" ->
-          DBStorage.list_posts_with_metadata(group_slug, "trashed")
-
-        status ->
-          Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
-      end
+    {groups, current_group, filtered_posts, default_mode, status_counts, all_posts} =
+      load_initial_data(group_slug)
 
     socket =
       socket
@@ -121,50 +90,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         |> assign(:endpoint_url, extract_endpoint_url(uri))
         |> assign(:mount_group_slug, nil)
       else
-        {groups, current_group} = load_groups_and_current(new_group_slug)
-
-        posts =
-          case new_group_slug do
-            nil -> []
-            slug -> DBStorage.list_posts_with_metadata(slug)
-          end
-
-        trashed_count =
-          case new_group_slug do
-            nil -> 0
-            slug -> length(DBStorage.list_posts(slug, "trashed"))
-          end
-
-        status_counts = build_status_counts(posts, trashed_count)
-
-        default_mode =
-          cond do
-            Map.get(status_counts, "published", 0) > 0 -> "published"
-            Map.get(status_counts, "draft", 0) > 0 -> "draft"
-            Map.get(status_counts, "archived", 0) > 0 -> "archived"
-            Map.get(status_counts, "trashed", 0) > 0 -> "trashed"
-            true -> "published"
-          end
-
-        filtered_posts =
-          case default_mode do
-            "trashed" ->
-              DBStorage.list_posts_with_metadata(new_group_slug, "trashed")
-
-            status ->
-              Enum.filter(posts, fn p -> p[:metadata] && p.metadata.status == status end)
-          end
-
-        socket
-        |> assign(:groups, groups)
-        |> assign(:current_group, current_group)
-        |> assign(:posts, filtered_posts)
-        |> assign(:post_view_mode, default_mode)
-        |> assign(:visible_count, 20)
-        |> assign(:endpoint_url, extract_endpoint_url(uri))
-        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
-        |> assign(:post_status_counts, status_counts)
-        |> assign(:loading, false)
+        apply_full_reload(socket, new_group_slug, uri)
       end
 
     {:noreply, redirect_if_missing(socket)}
@@ -804,6 +730,64 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     groups = load_db_groups()
     current_group = Enum.find(groups, fn group -> group["slug"] == group_slug end)
     {groups, current_group}
+  end
+
+  defp load_initial_data(group_slug) do
+    {groups, current_group} = load_groups_and_current(group_slug)
+
+    all_posts =
+      case group_slug do
+        nil -> []
+        slug -> DBStorage.list_posts_with_metadata(slug)
+      end
+
+    trashed_count =
+      case group_slug do
+        nil -> 0
+        slug -> length(DBStorage.list_posts(slug, "trashed"))
+      end
+
+    status_counts = build_status_counts(all_posts, trashed_count)
+    default_mode = default_tab_mode(status_counts)
+    filtered_posts = filter_posts_for_mode(group_slug, default_mode, all_posts)
+
+    {groups, current_group, filtered_posts, default_mode, status_counts, all_posts}
+  end
+
+  defp apply_full_reload(socket, group_slug, uri) do
+    {groups, current_group, filtered_posts, default_mode, status_counts, all_posts} =
+      load_initial_data(group_slug)
+
+    socket
+    |> assign(:groups, groups)
+    |> assign(:current_group, current_group)
+    |> assign(:posts, filtered_posts)
+    |> assign(:post_view_mode, default_mode)
+    |> assign(:visible_count, 20)
+    |> assign(:endpoint_url, extract_endpoint_url(uri))
+    |> assign(:primary_language_status, primary_language_status_from_posts(all_posts))
+    |> assign(:post_status_counts, status_counts)
+    |> assign(:loading, false)
+  end
+
+  defp default_tab_mode(status_counts) do
+    cond do
+      Map.get(status_counts, "published", 0) > 0 -> "published"
+      Map.get(status_counts, "draft", 0) > 0 -> "draft"
+      Map.get(status_counts, "archived", 0) > 0 -> "archived"
+      Map.get(status_counts, "trashed", 0) > 0 -> "trashed"
+      true -> "published"
+    end
+  end
+
+  defp filter_posts_for_mode(group_slug, mode, all_posts) do
+    case mode do
+      "trashed" ->
+        DBStorage.list_posts_with_metadata(group_slug, "trashed")
+
+      status ->
+        Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
+    end
   end
 
   defp load_db_groups do
