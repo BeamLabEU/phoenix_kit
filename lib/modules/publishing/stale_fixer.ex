@@ -95,8 +95,15 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   """
   @spec fix_stale_post(PublishingPost.t()) :: PublishingPost.t()
   def fix_stale_post(%PublishingPost{} = post) do
-    attrs = build_post_fixes(post)
-    apply_stale_fix(post, attrs, &DBStorage.update_post/2)
+    post = apply_stale_fix(post, build_post_fixes(post), &DBStorage.update_post/2)
+
+    # Also fix content-level issues lazily
+    fix_missing_primary_content(post)
+    fix_multiple_published_versions(post)
+    fix_translation_status_consistency(post)
+
+    # Re-read to return current state
+    DBStorage.get_post_by_uuid(post.uuid) || post
   end
 
   defp build_post_fixes(post) do
@@ -211,7 +218,8 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
   @doc """
   Fixes stale values across all groups, posts, versions, and content.
-  Also reconciles status consistency between posts, versions, and content.
+  Also reconciles status consistency between posts, versions, and content,
+  fixes missing primary language content, and ensures single published version.
   Callable via internal API or IEx.
   """
   @spec fix_all_stale_values() :: :ok
@@ -224,7 +232,6 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
       posts = DBStorage.list_posts(group.slug)
       Enum.each(posts, &fix_stale_post/1)
 
-      # Fix versions, content, and status consistency for each post
       for post <- posts do
         versions = DBStorage.list_versions(post.uuid)
 
@@ -235,7 +242,12 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
           Enum.each(contents, &fix_stale_content/1)
         end
 
-        # Reconcile status consistency after individual fixes
+        # Fix content-level issues
+        fix_missing_primary_content(post)
+        fix_multiple_published_versions(post)
+        fix_translation_status_consistency(post)
+
+        # Reconcile status consistency after all fixes
         reconcile_post_status(post)
       end
     end
@@ -281,6 +293,138 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
       attrs
     else
       Map.put(attrs, :language, LanguageHelpers.get_primary_language())
+    end
+  end
+
+  @doc """
+  Fixes missing primary language content.
+
+  If the primary language has no content (or empty content) but a translation
+  exists with content, copies the best translation to the primary language
+  and inherits its status.
+  """
+  def fix_missing_primary_content(%PublishingPost{} = post) do
+    primary_lang = post.primary_language
+    versions = DBStorage.list_versions(post.uuid)
+
+    for version <- versions do
+      contents = DBStorage.list_contents(version.uuid)
+      primary_content = Enum.find(contents, &(&1.language == primary_lang))
+
+      primary_missing? =
+        is_nil(primary_content) or
+          (primary_content.content in [nil, ""] and primary_content.title in [nil, "", "Untitled"])
+
+      if primary_missing? and contents != [] do
+        # Find the best translation — prefer published, then any with content
+        source =
+          Enum.find(contents, fn c ->
+            c.language != primary_lang and c.status == "published" and
+              c.content not in [nil, ""]
+          end) ||
+            Enum.find(contents, fn c ->
+              c.language != primary_lang and c.content not in [nil, ""]
+            end)
+
+        if source do
+          Logger.info(
+            "[Publishing] Fixing missing primary content for post #{post.uuid}/v#{version.version_number}: " <>
+              "copying from #{source.language} to #{primary_lang}"
+          )
+
+          if primary_content do
+            # Update existing empty primary content
+            DBStorage.update_content(primary_content, %{
+              title: source.title,
+              content: source.content,
+              status: source.status,
+              url_slug: primary_content.url_slug || source.url_slug
+            })
+          else
+            # Create primary content from translation
+            DBStorage.create_content(%{
+              version_uuid: version.uuid,
+              language: primary_lang,
+              title: source.title,
+              content: source.content,
+              status: source.status,
+              url_slug: source.url_slug
+            })
+          end
+
+          # If source was published, make sure post status matches
+          if source.status == "published" and post.status != "published" do
+            Logger.info(
+              "[Publishing] Promoting post #{post.uuid} to published (primary content now has published content)"
+            )
+
+            DBStorage.update_post(post, %{
+              status: "published",
+              published_at: post.published_at || DateTime.utc_now()
+            })
+          end
+        end
+      end
+    end
+  end
+
+  @doc """
+  Ensures only one version is published per post.
+
+  If multiple versions have status "published", keeps the highest version
+  number as published and archives the rest.
+  """
+  def fix_multiple_published_versions(%PublishingPost{} = post) do
+    versions = DBStorage.list_versions(post.uuid)
+    published = Enum.filter(versions, &(&1.status == "published"))
+
+    if length(published) > 1 do
+      # Keep the highest version number, archive the rest
+      sorted = Enum.sort_by(published, & &1.version_number, :desc)
+      [keep | demote] = sorted
+
+      Logger.info(
+        "[Publishing] Post #{post.uuid} has #{length(published)} published versions, " <>
+          "keeping v#{keep.version_number}, archiving #{length(demote)} others"
+      )
+
+      for v <- demote do
+        DBStorage.update_version(v, %{status: "archived"})
+        DBStorage.update_content_status(v.uuid, "archived")
+      end
+    end
+  end
+
+  @doc """
+  Ensures translation statuses follow the primary language's status.
+
+  If the primary language content is not published (draft/archived/trashed)
+  but a translation is published, demotes the translation to match the
+  primary's status. Translations should never be published when the primary isn't.
+  """
+  def fix_translation_status_consistency(%PublishingPost{} = post) do
+    primary_lang = post.primary_language
+    versions = DBStorage.list_versions(post.uuid)
+
+    for version <- versions do
+      contents = DBStorage.list_contents(version.uuid)
+      primary_content = Enum.find(contents, &(&1.language == primary_lang))
+
+      primary_status = if primary_content, do: primary_content.status, else: post.status
+
+      if primary_status != "published" do
+        # Demote any translations that are published when primary isn't
+        for content <- contents,
+            content.language != primary_lang,
+            content.status == "published" do
+          Logger.info(
+            "[Publishing] Demoting translation #{content.language} from published to #{primary_status} " <>
+              "for post #{post.uuid}/v#{version.version_number} (primary is #{primary_status})"
+          )
+
+          DBStorage.update_content(content, %{status: primary_status})
+        end
+      end
     end
   end
 
