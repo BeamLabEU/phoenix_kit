@@ -1422,21 +1422,43 @@
       <% end %>
     </div>
 
-    <%!-- Future Modules Section --%>
-    <div class="mt-8">
-      <div class="card bg-base-100 shadow-xl border-2 border-dashed border-base-300">
-        <div class="card-body text-center py-8">
-          <div class="text-4xl mb-4 opacity-50">📦</div>
-          <h3 class="text-xl font-semibold text-base-content/60 mb-2">
-            More Modules Coming Soon
-          </h3>
-          <p class="text-base-content/50">
-            Additional system modules and extensions will be available here as they're developed.
-            Each module will have its own dedicated configuration page for scalable management.
-          </p>
+    <%!-- Available Packages (known but not installed) --%>
+    <%= if @not_installed_packages != [] do %>
+      <div class="mt-8">
+        <h2 class="text-lg font-semibold mb-3 text-base-content/70">Available Packages</h2>
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <%= for pkg <- @not_installed_packages do %>
+            <div class="card bg-base-100 shadow border-2 border-dashed border-base-300">
+              <div class="card-body">
+                <div class="flex items-center gap-3">
+                  <div class="text-3xl opacity-60">{pkg.icon}</div>
+                  <div class="flex-1">
+                    <h3 class="card-title text-base-content/70">{pkg.name}</h3>
+                    <p class="text-sm text-base-content/50">{pkg.description}</p>
+                  </div>
+                </div>
+
+                <div class="divider my-2"></div>
+
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="badge badge-ghost badge-outline">Not installed</span>
+                  <a href={pkg.hex_url} target="_blank" class="btn btn-xs btn-outline">
+                    <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" /> Hex.pm
+                  </a>
+                </div>
+
+                <div class="mt-2">
+                  <p class="text-xs text-base-content/40 mb-1">Add to mix.exs:</p>
+                  <code class="block text-xs bg-base-200 rounded p-2 font-mono">
+                    {~s|{:#{pkg.hex_package}, "~> 0.1"}|}
+                  </code>
+                </div>
+              </div>
+            </div>
+          <% end %>
         </div>
       </div>
-    </div>
+    <% end %>
 
     <%!-- Module Management Help --%>
     <div class="alert alert-info mt-6">

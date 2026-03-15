@@ -213,6 +213,18 @@ defmodule PhoenixKit.ModuleRegistry do
     end)
   end
 
+  @doc """
+  Returns known external PhoenixKit packages that are not currently installed.
+
+  Used by the admin Modules page to inform users about available packages
+  they can add as dependencies.
+  """
+  @spec not_installed_packages() :: [map()]
+  def not_installed_packages do
+    known_external_packages()
+    |> Enum.reject(fn pkg -> Code.ensure_loaded?(pkg.module) end)
+  end
+
   @doc "Returns all feature module key strings from registered modules."
   @spec all_feature_keys() :: [String.t()]
   def all_feature_keys do
@@ -410,6 +422,22 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Sync,
       PhoenixKit.Modules.CustomerService,
       PhoenixKit.Jobs
+    ]
+  end
+
+  # Known external PhoenixKit packages. Listed here so the admin Modules page
+  # can show "not installed" cards for packages the user hasn't added yet.
+  defp known_external_packages do
+    [
+      %{
+        module: PhoenixKit.Modules.Newsletters,
+        hex_package: "phoenix_kit_newsletters",
+        name: "Newsletters",
+        description:
+          "Email newsletter management with list subscriptions, broadcast campaigns, and delivery tracking.",
+        icon: "📧",
+        hex_url: "https://hex.pm/packages/phoenix_kit_newsletters"
+      }
     ]
   end
 
