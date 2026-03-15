@@ -102,8 +102,8 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
     fix_multiple_published_versions(post)
     fix_translation_status_consistency(post)
 
-    # Re-read to return current state
-    DBStorage.get_post_by_uuid(post.uuid) || post
+    # Re-read with group preloaded to return current state
+    DBStorage.get_post_by_uuid(post.uuid, [:group]) || post
   end
 
   defp build_post_fixes(post) do
