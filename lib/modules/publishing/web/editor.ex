@@ -59,15 +59,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defdelegate build_editor_languages(post, enabled_languages, current_language),
     to: Helpers
 
-  # JS command for language switching: instantly shows skeleton, hides fields
+  # JS command for language switching. Skeleton visibility is controlled
+  # server-side via @editor_loading assign — the switch_language handler sets
+  # it to true (showing skeleton, hiding fields), and handle_params sets it
+  # back to false when the new language data is ready.
   defp switch_lang_js(lang_code, current_lang) do
     if lang_code == current_lang do
-      # Already on this language — no-op to prevent skeleton ghosts
       %JS{}
     else
       JS.push("switch_language", value: %{language: lang_code})
-      |> JS.add_class("hidden", to: "[data-translatable=fields]")
-      |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
     end
   end
 
@@ -122,6 +122,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, false)
       |> assign(:is_new_translation, false)
+      |> assign(:editor_loading, false)
       |> assign(:public_url, nil)
       |> assign(:current_version, nil)
       |> assign(:available_versions, [])
@@ -237,12 +238,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             old_post_slug: old_post_slug
           )
           |> Translation.maybe_restore_translation_status()
+          |> assign(:editor_loading, false)
 
         {:noreply, socket}
 
       {:error, _reason} ->
         {:noreply,
          socket
+         |> assign(:editor_loading, false)
          |> put_flash(:error, gettext("Post not found"))
          |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
     end
@@ -288,12 +291,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             old_post_slug: old_post_slug
           )
           |> Translation.maybe_restore_translation_status()
+          |> assign(:editor_loading, false)
 
         {:noreply, socket}
 
       {:error, _reason} ->
         {:noreply,
          socket
+         |> assign(:editor_loading, false)
          |> put_flash(:error, gettext("Post not found"))
          |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
     end
@@ -1087,6 +1092,28 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   @impl true
+  def handle_info({:deferred_language_switch, group_slug, target_language}, socket) do
+    old_form_key = socket.assigns[:form_key]
+
+    if old_form_key && connected?(socket) do
+      alias PhoenixKit.Modules.Publishing.PresenceHelpers
+      PresenceHelpers.untrack_editing_session(old_form_key, socket)
+      PresenceHelpers.unsubscribe_from_editing(old_form_key)
+      PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
+    end
+
+    post = socket.assigns.post
+
+    url =
+      Helpers.build_edit_url(group_slug, post,
+        lang: target_language,
+        version: socket.assigns[:current_version]
+      )
+
+    {:noreply, push_patch(socket, to: url)}
+  end
+
+  @impl true
   def handle_info(:autosave, socket) do
     if socket.assigns.has_pending_changes and not socket.assigns.translation_locked? do
       socket =
@@ -1564,24 +1591,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp switch_to_existing_language(socket, group_slug, target_language) do
-    old_form_key = socket.assigns[:form_key]
+    # Set loading state first, then defer the actual patch so LiveView
+    # sends the skeleton-visible diff before starting the patch round-trip.
+    send(self(), {:deferred_language_switch, group_slug, target_language})
 
-    if old_form_key && connected?(socket) do
-      alias PhoenixKit.Modules.Publishing.PresenceHelpers
-      PresenceHelpers.untrack_editing_session(old_form_key, socket)
-      PresenceHelpers.unsubscribe_from_editing(old_form_key)
-      PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
-    end
-
-    post = socket.assigns.post
-
-    url =
-      Helpers.build_edit_url(group_slug, post,
-        lang: target_language,
-        version: socket.assigns[:current_version]
-      )
-
-    {:noreply, push_patch(socket, to: url)}
+    {:noreply, assign(socket, :editor_loading, true)}
   end
 
   defp switch_to_new_translation(socket, post, group_slug, new_language) do
@@ -1620,7 +1634,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     url =
       Helpers.build_edit_url(group_slug, post, lang: new_language, version: current_version)
 
-    {:noreply, push_patch(socket, to: url, replace: true)}
+    {:noreply,
+     socket
+     |> assign(:editor_loading, true)
+     |> push_patch(to: url, replace: true)}
   end
 
   defp handle_media_selected(socket, file_ids) do
