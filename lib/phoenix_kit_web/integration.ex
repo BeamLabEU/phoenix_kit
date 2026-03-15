@@ -465,6 +465,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/media/selector", Live.Users.MediaSelector, :index
         live "/admin/settings", Live.Settings, :index
         live "/admin/settings/users", Live.Settings.Users, :index
+        live "/admin/settings/authorization", Live.Settings.Authorization, :index
         live "/admin/settings/organization", Live.Settings.Organization, :index
         live "/admin/modules", Live.Modules, :index
 

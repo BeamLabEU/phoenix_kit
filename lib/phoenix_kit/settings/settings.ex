@@ -113,6 +113,11 @@ defmodule PhoenixKit.Settings do
       "time_format" => "H:i",
       "track_registration_geolocation" => "false",
       "registration_show_username" => "true",
+      # Auth Page Branding
+      "auth_logo_file_uuid" => "",
+      "auth_background_image_file_uuid" => "",
+      "auth_background_image_mobile_file_uuid" => "",
+      "auth_background_color" => "",
       # Email Settings
       "email_enabled" => "false",
       "email_save_body" => "false",
