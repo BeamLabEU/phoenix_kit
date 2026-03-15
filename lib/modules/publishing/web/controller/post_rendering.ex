@@ -53,10 +53,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   def render_resolved_post(conn, group_slug, identifier, language) do
     case PostFetching.fetch_post(group_slug, identifier, language) do
       {:ok, post} ->
-        # Check if published, primary language is published, and not future-dated
-        primary_published? = primary_language_published?(post)
-
-        if post.metadata.status == "published" and primary_published? and not future_post?(post) do
+        # Check if post is published and not future-dated
+        if post.metadata.status == "published" and not future_post?(post) do
           # Check if we need to redirect to canonical URL
           # The canonical URL uses the display_code (base or full dialect depending on enabled languages)
           canonical_language = Language.get_canonical_url_language_for_post(post.language)
@@ -431,15 +429,5 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   defp future_post?(post) do
     post[:mode] in [:timestamp, "timestamp"] and post[:date] != nil and
       Date.compare(post[:date], Date.utc_today()) == :gt
-  end
-
-  defp primary_language_published?(post) do
-    primary_lang = post[:primary_language]
-    statuses = post[:language_statuses] || %{}
-
-    case primary_lang do
-      nil -> true
-      lang -> Map.get(statuses, lang) == "published"
-    end
   end
 end

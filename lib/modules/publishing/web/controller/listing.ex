@@ -212,15 +212,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   @doc """
   Filter posts to only include those that have matching language content.
   Handles both exact matches and base code matches (e.g., "en" matches "en-US").
-  Uses preloaded language_statuses to avoid redundant queries.
+  Translation visibility is based on existence only — status comes from the post level.
   """
   def filter_by_exact_language(posts, _group_slug, language) do
     Enum.filter(posts, fn post ->
       available = post[:available_languages] || []
-      statuses = post[:language_statuses] || %{}
-      matching_language = find_matching_language(language, available)
-
-      matching_language != nil and Map.get(statuses, matching_language) == "published"
+      find_matching_language(language, available) != nil
     end)
   end
 
@@ -230,9 +227,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   def filter_by_exact_language_strict(posts, language) do
     Enum.filter(posts, fn post ->
       available = post[:available_languages] || []
-      statuses = post[:language_statuses] || %{}
-
-      language in available and Map.get(statuses, language) == "published"
+      language in available
     end)
   end
 

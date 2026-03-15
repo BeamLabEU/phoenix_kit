@@ -965,14 +965,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     lang_info = Publishing.get_language_info(lang_code)
     available = post.available_languages || []
     content_exists = lang_code in available
-    language_statuses = Map.get(post, :language_statuses) || %{}
+
+    # Status comes from the post level (primary language), not per-translation
+    post_status = post[:metadata] && post.metadata.status
 
     %{
       code: lang_code,
       display_code: Publishing.get_display_code(lang_code, enabled_languages),
       name: if(lang_info, do: lang_info.name, else: lang_code),
       flag: if(lang_info, do: lang_info.flag, else: ""),
-      status: Map.get(language_statuses, lang_code),
+      status: if(content_exists, do: post_status, else: nil),
       exists: content_exists,
       enabled: Publishing.language_enabled?(lang_code, enabled_languages),
       known: lang_info != nil,

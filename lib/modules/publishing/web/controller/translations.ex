@@ -272,10 +272,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     end
   end
 
-  # Checks if the exact language translation exists and is published
-  # Uses preloaded language_statuses map to avoid redundant DB reads
+  # Translation is visible if it exists — status comes from the post level
   defp translation_published_exact?(_group_slug, post, language) do
-    language in (post.available_languages || []) and
-      Map.get(post.language_statuses, language) == "published"
+    language in (post.available_languages || [])
   end
 end
