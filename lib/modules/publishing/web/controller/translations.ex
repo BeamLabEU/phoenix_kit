@@ -108,8 +108,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     # Extract base code from current language for comparison
     current_base = DialectMapper.extract_base(current_language)
 
-    # Get the primary/default language
-    primary_language = List.first(enabled_languages) || "en"
+    # Use the post's primary language so it appears first in the switcher
+    primary_language = post[:primary_language] || List.first(enabled_languages) || "en"
 
     # Fetch language_slugs from cache for per-language URL slugs
     # Falls back to using post.slug for all languages if cache miss
