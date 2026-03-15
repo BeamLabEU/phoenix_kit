@@ -98,7 +98,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
     assigns = assign(assigns, :filtered_languages, languages)
 
     ~H"""
-    <div class={["flex items-center flex-wrap", size_gap_class(@size), @class]}>
+    <div class={["inline-flex items-center flex-wrap", size_gap_class(@size), @class]}>
       <%= for {lang, index} <- Enum.with_index(@filtered_languages) do %>
         <%= if index > 0 do %>
           <span class={["text-base-content/30", size_separator_class(@size)]}>|</span>
