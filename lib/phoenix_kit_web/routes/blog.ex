@@ -23,13 +23,13 @@ defmodule PhoenixKitWeb.Routes.BlogRoutes do
         get "/:group", PhoenixKit.Modules.Publishing.Web.Controller, :show,
           constraints: %{
             "group" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
-            "language" => ~r/^[a-z]{2}$/
+            "language" => ~r/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/
           }
 
         get "/:group/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
           constraints: %{
             "group" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
-            "language" => ~r/^[a-z]{2}$/
+            "language" => ~r/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/
           }
       end
 

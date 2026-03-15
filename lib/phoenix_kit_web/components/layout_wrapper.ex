@@ -204,7 +204,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   end
 
   defp strip_locale_prefix(path) do
-    case Regex.run(~r/^\/[a-z]{2}(-[A-Z]{2})?(\/.*)?$/, path) do
+    case Regex.run(~r/^\/[a-z]{2,3}(-[A-Za-z]{2,4})?(\/.*)?$/, path) do
       [_, _locale, rest] when is_binary(rest) -> rest
       [_, _locale] -> "/"
       _ -> path
