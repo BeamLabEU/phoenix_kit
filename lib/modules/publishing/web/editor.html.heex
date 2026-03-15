@@ -1025,17 +1025,23 @@
                     </select>
                   </div>
                 <% else %>
+                  <% has_content = (@content || "") != "" %>
                   <%= if @form["status"] == "published" do %>
-                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-sm text-success">
-                      <.icon name="hero-globe-alt" class="w-4 h-4 shrink-0" />
-                      {gettext(
-                        "Visible to the public — adding content here will make this translation available."
-                      )}
-                    </div>
+                    <%= if has_content do %>
+                      <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-sm text-success">
+                        <.icon name="hero-globe-alt" class="w-4 h-4 shrink-0" />
+                        {gettext("Visible to the public")}
+                      </div>
+                    <% else %>
+                      <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20 text-sm text-info">
+                        <.icon name="hero-pencil" class="w-4 h-4 shrink-0" />
+                        {gettext("Add content to make this translation visible to the public")}
+                      </div>
+                    <% end %>
                   <% else %>
                     <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-base-200 border border-base-300 text-sm text-base-content/60">
                       <.icon name="hero-eye-slash" class="w-4 h-4 shrink-0" />
-                      {gettext("Not visible — the primary language must be published first.")}
+                      {gettext("Not visible — publish the primary language first")}
                     </div>
                   <% end %>
                 <% end %>
