@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
   require Logger
 
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
@@ -113,6 +114,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
       db_post ->
         db_post = StaleFixer.fix_stale_post(db_post)
         group_slug = db_post.group.slug
+        resolved_language = resolve_language_to_dialect(language)
         version_number = if version, do: normalize_version_number(version), else: nil
 
         if db_post.post_date && db_post.post_time do
@@ -120,11 +122,11 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
             group_slug,
             db_post.post_date,
             db_post.post_time,
-            language,
+            resolved_language,
             version_number
           )
         else
-          DBStorage.read_post(group_slug, db_post.slug, language, version_number)
+          DBStorage.read_post(group_slug, db_post.slug, resolved_language, version_number)
         end
     end
   rescue
@@ -401,7 +403,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
   defp read_post_from_db_timestamp(group_slug, identifier, language, version) do
     case Shared.parse_timestamp_path(identifier) do
       {:ok, date, time, inferred_version, inferred_language} ->
-        final_language = language || inferred_language
+        final_language = resolve_language_to_dialect(language || inferred_language)
         final_version = version || inferred_version
         version_number = normalize_version_number(final_version)
 
@@ -423,7 +425,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     {post_slug, inferred_version, inferred_language} =
       extract_slug_version_and_language(group_slug, identifier)
 
-    final_language = language || inferred_language
+    final_language = resolve_language_to_dialect(language || inferred_language)
     final_version = version || inferred_version
     version_number = normalize_version_number(final_version)
 
@@ -439,6 +441,20 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     case Integer.parse("#{v}") do
       {n, _} when n > 0 -> n
       _ -> nil
+    end
+  end
+
+  # Resolves base language codes (de, en) to stored BCP-47 dialect codes (de-DE, en-US).
+  # Content rows store full dialect codes, but URL paths use base codes.
+  defp resolve_language_to_dialect(nil), do: nil
+
+  defp resolve_language_to_dialect(language) do
+    base = DialectMapper.extract_base(language)
+
+    if base == language do
+      DialectMapper.base_to_dialect(language)
+    else
+      language
     end
   end
 
