@@ -84,19 +84,38 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         slug -> length(DBStorage.list_posts(slug, "trashed"))
       end
 
-    published_posts =
-      Enum.filter(posts, fn p -> p[:metadata] && p.metadata.status == "published" end)
+    status_counts = build_status_counts(posts, trashed_count)
+
+    # Default to the first tab that has posts: published > draft > archived > trashed
+    default_mode =
+      cond do
+        Map.get(status_counts, "published", 0) > 0 -> "published"
+        Map.get(status_counts, "draft", 0) > 0 -> "draft"
+        Map.get(status_counts, "archived", 0) > 0 -> "archived"
+        Map.get(status_counts, "trashed", 0) > 0 -> "trashed"
+        true -> "published"
+      end
+
+    filtered_posts =
+      case default_mode do
+        "trashed" ->
+          DBStorage.list_posts(new_group_slug, "trashed")
+          |> Enum.map(&post_struct_to_map/1)
+
+        status ->
+          Enum.filter(posts, fn p -> p[:metadata] && p.metadata.status == status end)
+      end
 
     socket =
       socket
       |> assign(:groups, groups)
       |> assign(:current_group, current_group)
-      |> assign(:posts, published_posts)
-      |> assign(:post_view_mode, "published")
+      |> assign(:posts, filtered_posts)
+      |> assign(:post_view_mode, default_mode)
       |> assign(:visible_count, 20)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
       |> assign(:primary_language_status, primary_language_status_from_posts(posts))
-      |> assign(:post_status_counts, build_status_counts(posts, trashed_count))
+      |> assign(:post_status_counts, status_counts)
 
     {:noreply, redirect_if_missing(socket)}
   end
