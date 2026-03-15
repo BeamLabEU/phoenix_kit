@@ -101,11 +101,11 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().update()
   end
 
-  @doc "Gets a post by group slug and post slug."
+  @doc "Gets a post by group slug and post slug. Excludes trashed posts."
   def get_post(group_slug, post_slug) do
     from(p in PublishingPost,
       join: g in assoc(p, :group),
-      where: g.slug == ^group_slug and p.slug == ^post_slug,
+      where: g.slug == ^group_slug and p.slug == ^post_slug and p.status != "trashed",
       preload: [group: g]
     )
     |> repo().one()
@@ -126,7 +126,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     result =
       from(p in PublishingPost,
         join: g in assoc(p, :group),
-        where: g.slug == ^group_slug and p.post_date == ^date and p.post_time == ^normalized_time,
+        where:
+          g.slug == ^group_slug and p.post_date == ^date and p.post_time == ^normalized_time and
+            p.status != "trashed",
         preload: [group: g]
       )
       |> repo().one()
@@ -141,7 +143,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
       from(p in PublishingPost,
         join: g in assoc(p, :group),
         where:
-          g.slug == ^group_slug and p.post_date == ^date and
+          g.slug == ^group_slug and p.post_date == ^date and p.status != "trashed" and
             fragment(
               "EXTRACT(HOUR FROM ?)::integer = ? AND EXTRACT(MINUTE FROM ?)::integer = ?",
               p.post_time,

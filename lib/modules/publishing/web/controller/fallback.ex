@@ -56,15 +56,24 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   # Fallback Case Handlers
   # ============================================================================
 
+  # Post not found (trashed/deleted) — go straight to group listing, don't try other posts
+  defp handle_fallback_case(:not_found, [group_slug | _], language) do
+    if group_exists?(group_slug) do
+      {:ok, PublishingHTML.group_listing_path(language, group_slug)}
+    else
+      fallback_to_default_group(language)
+    end
+  end
+
   # Slug mode posts (2-element path) - try other languages, then group listing
   defp handle_fallback_case(reason, [group_slug, post_slug], language)
-       when reason in [:post_not_found, :unpublished, :not_found, :version_access_disabled] do
+       when reason in [:post_not_found, :unpublished, :version_access_disabled] do
     fallback_to_default_language(group_slug, post_slug, language)
   end
 
   # Timestamp mode posts (3-element path) - try other languages, then group listing
   defp handle_fallback_case(reason, [group_slug, date, time], language)
-       when reason in [:post_not_found, :unpublished, :not_found, :version_access_disabled] do
+       when reason in [:post_not_found, :unpublished, :version_access_disabled] do
     fallback_timestamp_to_other_language(group_slug, date, time, language)
   end
 

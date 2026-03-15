@@ -327,6 +327,16 @@
                               </div>
                             </form>
                           <% end %>
+                          <button
+                            type="button"
+                            phx-click="trash_post"
+                            phx-value-uuid={post[:uuid]}
+                            class="inline-flex items-center gap-1.5 px-2.5 h-[2.5em] rounded-lg border border-error/20 bg-error/5 hover:bg-error/15 text-error/60 hover:text-error transition-colors cursor-pointer"
+                            data-confirm={gettext("Move this post to trash?")}
+                            title={gettext("Move to trash")}
+                          >
+                            <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       <% end %>
 
@@ -371,32 +381,20 @@
                         <% end %>
                       </div>
                     <% end %>
-                    <%!-- Post actions --%>
-                    <div class="border-t border-base-200 pt-2 mt-2 flex justify-end gap-1">
-                      <div class="flex items-center gap-1">
-                        <%= if @post_view_mode == "trashed" do %>
-                          <button
-                            type="button"
-                            phx-click="restore_post"
-                            phx-value-uuid={post[:uuid]}
-                            class="btn btn-ghost btn-xs text-success hover:bg-success/10"
-                          >
-                            <.icon name="hero-arrow-uturn-left" class="w-3.5 h-3.5 mr-1" />
-                            {gettext("Restore")}
-                          </button>
-                        <% else %>
-                          <button
-                            type="button"
-                            phx-click="trash_post"
-                            phx-value-uuid={post[:uuid]}
-                            class="btn btn-ghost btn-xs text-error/60 hover:text-error hover:bg-error/10"
-                            data-confirm={gettext("Move this post to trash?")}
-                          >
-                            <.icon name="hero-trash" class="w-3.5 h-3.5" />
-                          </button>
-                        <% end %>
+                    <%!-- Restore button (trash view only) --%>
+                    <%= if @post_view_mode == "trashed" do %>
+                      <div class="border-t border-base-200 pt-2 mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          phx-click="restore_post"
+                          phx-value-uuid={post[:uuid]}
+                          class="btn btn-ghost btn-xs text-success hover:bg-success/10"
+                        >
+                          <.icon name="hero-arrow-uturn-left" class="w-3.5 h-3.5 mr-1" />
+                          {gettext("Restore")}
+                        </button>
                       </div>
-                    </div>
+                    <% end %>
                   </div>
                 </div>
               <% end %>
