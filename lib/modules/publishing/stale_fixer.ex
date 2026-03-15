@@ -95,15 +95,37 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   """
   @spec fix_stale_post(PublishingPost.t()) :: PublishingPost.t()
   def fix_stale_post(%PublishingPost{} = post) do
-    post = apply_stale_fix(post, build_post_fixes(post), &DBStorage.update_post/2)
+    # Trash empty posts (no content rows at all across any version)
+    if empty_post?(post) do
+      Logger.info("[Publishing] Trashing empty post #{post.uuid} (no content in any version)")
+      DBStorage.update_post(post, %{status: "trashed"})
+      DBStorage.get_post_by_uuid(post.uuid, [:group]) || post
+    else
+      post = apply_stale_fix(post, build_post_fixes(post), &DBStorage.update_post/2)
 
-    # Also fix content-level issues lazily
-    fix_missing_primary_content(post)
-    fix_multiple_published_versions(post)
-    fix_translation_status_consistency(post)
+      fix_missing_primary_content(post)
+      fix_multiple_published_versions(post)
+      fix_translation_status_consistency(post)
 
-    # Re-read with group preloaded to return current state
-    DBStorage.get_post_by_uuid(post.uuid, [:group]) || post
+      DBStorage.get_post_by_uuid(post.uuid, [:group]) || post
+    end
+  end
+
+  defp empty_post?(post) do
+    versions = DBStorage.list_versions(post.uuid)
+
+    if versions == [] do
+      true
+    else
+      Enum.all?(versions, fn version ->
+        contents = DBStorage.list_contents(version.uuid)
+
+        contents == [] or
+          Enum.all?(contents, fn c ->
+            (c.content || "") == "" and (c.title || "") in ["", "Untitled"]
+          end)
+      end)
+    end
   end
 
   defp build_post_fixes(post) do
