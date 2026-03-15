@@ -75,7 +75,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   Resolves posts for the requested language, handling exact match vs fallback.
   """
   def resolve_listing_posts_for_language(conn, ctx) do
-    exact_language_posts = filter_by_exact_language_strict(ctx.published_posts, ctx.language)
+    exact_language_posts =
+      filter_by_exact_language(ctx.published_posts, ctx.group_slug, ctx.language)
 
     case resolve_language_posts(
            exact_language_posts,
