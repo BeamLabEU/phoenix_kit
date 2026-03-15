@@ -749,10 +749,18 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   defp get_layout_config do
     case Config.get(:phoenix_version_strategy, nil) do
       :modern ->
-        # Phoenix v1.8+ - get layouts_module and assume :app function
-        case Config.get(:layouts_module, nil) do
-          nil -> nil
-          module -> {module, :app}
+        # Phoenix v1.8+ - respect explicit layout: config first, then fall back
+        # to {layouts_module, :app}. The layout: config allows parent apps to
+        # specify a different layout function (e.g., :full_width instead of :app).
+        case Config.get(:layout, nil) do
+          {module, function} when is_atom(module) and is_atom(function) ->
+            {module, function}
+
+          _ ->
+            case Config.get(:layouts_module, nil) do
+              nil -> nil
+              module -> {module, :app}
+            end
         end
 
       :legacy ->
