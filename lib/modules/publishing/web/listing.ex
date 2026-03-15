@@ -101,8 +101,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, push_navigate(socket, to: Helpers.build_new_post_url(group_slug))}
   end
 
-  # TODO: Smart mode — if total posts is only slightly over the limit (e.g., 23 out of 20),
-  # show all at once instead of making the user click "Load more" for just 3 posts.
   def handle_event("load_more", _params, socket) do
     {:noreply, assign(socket, :visible_count, socket.assigns.visible_count + 20)}
   end
