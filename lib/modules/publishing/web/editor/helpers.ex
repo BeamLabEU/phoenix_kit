@@ -155,10 +155,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   defp build_url_for_mode(post, language) do
     group_slug = post.group || "group"
 
-    case Map.get(post, :mode) do
-      :slug -> build_slug_mode_url(group_slug, post, language)
-      :timestamp -> build_timestamp_mode_url(group_slug, post, language)
-      _ -> nil
+    mode = Map.get(post, :mode)
+
+    cond do
+      mode in [:slug, "slug"] -> build_slug_mode_url(group_slug, post, language)
+      mode in [:timestamp, "timestamp"] -> build_timestamp_mode_url(group_slug, post, language)
+      true -> nil
     end
   end
 

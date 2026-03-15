@@ -301,23 +301,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
   # Find cached post using appropriate method based on post mode
   defp find_cached_post(group_slug, post) do
-    case Map.get(post, :mode) do
-      :timestamp ->
-        # For timestamp mode, use date/time lookup
-        date = post[:date]
-        time = post[:time]
+    mode = Map.get(post, :mode)
 
-        if date && time do
-          date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
-          time_str = format_time_for_cache(time)
-          ListingCache.find_post_by_path(group_slug, date_str, time_str)
-        else
-          {:error, :not_found}
-        end
+    if mode in [:timestamp, "timestamp"] do
+      # For timestamp mode, use date/time lookup
+      date = post[:date]
+      time = post[:time]
 
-      _ ->
-        # For slug mode, use slug lookup
-        ListingCache.find_post(group_slug, post.slug)
+      if date && time do
+        date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
+        time_str = format_time_for_cache(time)
+        ListingCache.find_post_by_path(group_slug, date_str, time_str)
+      else
+        {:error, :not_found}
+      end
+    else
+      # For slug mode, use slug lookup
+      ListingCache.find_post(group_slug, post.slug)
     end
   end
 
