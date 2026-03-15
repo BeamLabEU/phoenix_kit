@@ -1030,8 +1030,8 @@
                       <% end %>
                     </select>
                   <% else %>
-                    <div class="input input-bordered w-full input-disabled bg-base-200 flex items-center">
-                      {String.capitalize(@form["status"] || "draft")}
+                    <div class="input input-bordered w-full input-disabled bg-base-200 flex items-center text-base-content/50 text-sm">
+                      {gettext("Follows primary language")}
                     </div>
                   <% end %>
                 </div>
