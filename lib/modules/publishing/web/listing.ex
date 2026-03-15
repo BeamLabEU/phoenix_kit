@@ -28,65 +28,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     if connected?(socket), do: subscribe_to_pubsub(group_slug)
 
-    socket =
-      socket
-      |> assign(:project_title, Settings.get_project_title())
-      |> assign(:page_title, "Publishing")
-      |> assign(:current_path, Routes.path("/admin/publishing/#{group_slug}"))
-      |> assign(:groups, [])
-      |> assign(:current_group, nil)
-      |> assign(:group_slug, group_slug)
-      |> assign(:enabled_languages, Publishing.enabled_language_codes())
-      |> assign(:primary_language, Publishing.get_primary_language())
-      |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
-      |> assign(:posts, [])
-      |> assign(:loading, false)
-      |> assign(:endpoint_url, "")
-      |> assign(:date_time_settings, load_date_time_settings())
-      |> assign(:primary_language_status, nil)
-      |> assign(:active_editors, %{})
-      |> assign(:translating_posts, %{})
-      |> assign(:pending_post_updates, %{})
-      |> assign(:visible_count, 20)
-      |> assign(:post_view_mode, "active")
+    # Load initial data in mount so the connected render's join reply matches
+    # the dead render output, preventing the visual flash caused by morphdom
+    # patching empty assigns before handle_params fills them.
+    {groups, current_group} = load_groups_and_current(group_slug)
 
-    # Groups, posts, current_group, and primary_language_status are loaded in
-    # handle_params which always runs after mount — no need to load them twice.
-    {:ok, socket}
-  end
-
-  @impl true
-  def handle_params(params, uri, socket) do
-    new_group_slug = params["group"] || params["category"] || params["type"]
-    old_group_slug = socket.assigns[:group_slug]
-
-    socket = handle_subscription_change(socket, old_group_slug, new_group_slug)
-
-    {groups, current_group} = load_groups_and_current(new_group_slug)
-
-    # Run stale fixer for this group's posts on first connected load
-    if connected?(socket) and new_group_slug do
-      Task.start(fn ->
-        DBStorage.list_posts(new_group_slug)
-        |> Enum.each(&StaleFixer.fix_stale_post/1)
-      end)
-    end
-
-    posts =
-      case new_group_slug do
+    all_posts =
+      case group_slug do
         nil -> []
         slug -> DBStorage.list_posts_with_metadata(slug)
       end
 
     trashed_count =
-      case new_group_slug do
+      case group_slug do
         nil -> 0
         slug -> length(DBStorage.list_posts(slug, "trashed"))
       end
 
-    status_counts = build_status_counts(posts, trashed_count)
+    status_counts = build_status_counts(all_posts, trashed_count)
 
-    # Default to the first tab that has posts: published > draft > archived > trashed
     default_mode =
       cond do
         Map.get(status_counts, "published", 0) > 0 -> "published"
@@ -99,23 +59,112 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     filtered_posts =
       case default_mode do
         "trashed" ->
-          DBStorage.list_posts(new_group_slug, "trashed")
+          DBStorage.list_posts(group_slug, "trashed")
           |> Enum.map(&post_struct_to_map/1)
 
         status ->
-          Enum.filter(posts, fn p -> p[:metadata] && p.metadata.status == status end)
+          Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
       end
 
     socket =
       socket
+      |> assign(:project_title, Settings.get_project_title())
+      |> assign(:page_title, "Publishing")
+      |> assign(:current_path, Routes.path("/admin/publishing/#{group_slug}"))
       |> assign(:groups, groups)
       |> assign(:current_group, current_group)
+      |> assign(:group_slug, group_slug)
+      |> assign(:enabled_languages, Publishing.enabled_language_codes())
+      |> assign(:primary_language, Publishing.get_primary_language())
+      |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
       |> assign(:posts, filtered_posts)
-      |> assign(:post_view_mode, default_mode)
+      |> assign(:loading, false)
+      |> assign(:endpoint_url, "")
+      |> assign(:date_time_settings, load_date_time_settings())
+      |> assign(:primary_language_status, primary_language_status_from_posts(all_posts))
+      |> assign(:active_editors, %{})
+      |> assign(:translating_posts, %{})
+      |> assign(:pending_post_updates, %{})
       |> assign(:visible_count, 20)
-      |> assign(:endpoint_url, extract_endpoint_url(uri))
-      |> assign(:primary_language_status, primary_language_status_from_posts(posts))
+      |> assign(:post_view_mode, default_mode)
       |> assign(:post_status_counts, status_counts)
+      |> assign(:mount_group_slug, group_slug)
+
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_params(params, uri, socket) do
+    new_group_slug = params["group"] || params["category"] || params["type"]
+    old_group_slug = socket.assigns[:group_slug]
+
+    socket = handle_subscription_change(socket, old_group_slug, new_group_slug)
+
+    # Run stale fixer for this group's posts on first connected load
+    if connected?(socket) and new_group_slug do
+      Task.start(fn ->
+        DBStorage.list_posts(new_group_slug)
+        |> Enum.each(&StaleFixer.fix_stale_post/1)
+      end)
+    end
+
+    # Skip full reload if mount already loaded data for this group.
+    # This prevents the visual flash on hard refresh (dead render → connected render).
+    # On live navigation to a different group, mount_group_slug won't match so we reload.
+    skip_reload? = socket.assigns[:mount_group_slug] == new_group_slug
+
+    socket =
+      if skip_reload? do
+        socket
+        |> assign(:endpoint_url, extract_endpoint_url(uri))
+        |> assign(:mount_group_slug, nil)
+      else
+        {groups, current_group} = load_groups_and_current(new_group_slug)
+
+        posts =
+          case new_group_slug do
+            nil -> []
+            slug -> DBStorage.list_posts_with_metadata(slug)
+          end
+
+        trashed_count =
+          case new_group_slug do
+            nil -> 0
+            slug -> length(DBStorage.list_posts(slug, "trashed"))
+          end
+
+        status_counts = build_status_counts(posts, trashed_count)
+
+        default_mode =
+          cond do
+            Map.get(status_counts, "published", 0) > 0 -> "published"
+            Map.get(status_counts, "draft", 0) > 0 -> "draft"
+            Map.get(status_counts, "archived", 0) > 0 -> "archived"
+            Map.get(status_counts, "trashed", 0) > 0 -> "trashed"
+            true -> "published"
+          end
+
+        filtered_posts =
+          case default_mode do
+            "trashed" ->
+              DBStorage.list_posts(new_group_slug, "trashed")
+              |> Enum.map(&post_struct_to_map/1)
+
+            status ->
+              Enum.filter(posts, fn p -> p[:metadata] && p.metadata.status == status end)
+          end
+
+        socket
+        |> assign(:groups, groups)
+        |> assign(:current_group, current_group)
+        |> assign(:posts, filtered_posts)
+        |> assign(:post_view_mode, default_mode)
+        |> assign(:visible_count, 20)
+        |> assign(:endpoint_url, extract_endpoint_url(uri))
+        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
+        |> assign(:post_status_counts, status_counts)
+        |> assign(:loading, false)
+      end
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -235,7 +284,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> replace_post_in_list(updated_post[:slug], updated_post)}
+             |> reload_current_view()}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
@@ -281,7 +330,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> replace_post_in_list(updated_post[:slug], updated_post)}
+             |> reload_current_view()}
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
@@ -406,10 +455,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     {:noreply, socket}
   end
 
-  def handle_info({:post_deleted, post_identifier}, socket) do
-    # Remove the deleted post from the list (identifier may be slug or UUID)
-    socket = remove_post_from_list(socket, post_identifier)
-    {:noreply, socket}
+  def handle_info({:post_deleted, _post_identifier}, socket) do
+    {:noreply, reload_current_view(socket)}
   end
 
   def handle_info({:version_created, updated_post}, socket) do
@@ -582,11 +629,24 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         socket
 
       group_slug ->
-        posts = DBStorage.list_posts_with_metadata(group_slug)
+        all_posts = DBStorage.list_posts_with_metadata(group_slug)
+        trashed_count = length(DBStorage.list_posts(group_slug, "trashed"))
+        mode = socket.assigns.post_view_mode
+
+        filtered_posts =
+          case mode do
+            "trashed" ->
+              DBStorage.list_posts(group_slug, "trashed")
+              |> Enum.map(&post_struct_to_map/1)
+
+            status ->
+              Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
+          end
 
         socket
-        |> assign(:posts, posts)
-        |> assign(:primary_language_status, primary_language_status_from_posts(posts))
+        |> assign(:posts, filtered_posts)
+        |> assign(:primary_language_status, primary_language_status_from_posts(all_posts))
+        |> assign(:post_status_counts, build_status_counts(all_posts, trashed_count))
     end
   end
 
@@ -676,20 +736,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       end)
 
     assign(socket, :posts, updated_posts)
-  end
-
-  # Remove a post from the list by slug or UUID
-  defp remove_post_from_list(socket, post_identifier) do
-    if socket.assigns[:posts] do
-      updated_posts =
-        Enum.reject(socket.assigns.posts, fn post ->
-          post[:slug] == post_identifier or post[:uuid] == post_identifier
-        end)
-
-      assign(socket, :posts, updated_posts)
-    else
-      socket
-    end
   end
 
   # Refresh a single post by slug (used when we need fresh data from the database)

@@ -26,8 +26,7 @@
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
         {(@current_group && @current_group["name"]) || @group_slug || gettext("Group")}
       </h1>
-      <% has_published =
-        Enum.any?(@posts, fn p -> p[:metadata] && p.metadata.status == "published" end) %>
+      <% has_published = Map.get(@post_status_counts, "published", 0) > 0 %>
       <%= if has_published do %>
         <div class="text-sm text-base-content/60 mt-0.5">
           <p>
