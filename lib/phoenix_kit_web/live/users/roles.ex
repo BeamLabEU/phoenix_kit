@@ -47,6 +47,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       |> assign(:page_title, gettext("Roles"))
       |> assign(:role_stats, role_stats)
       |> assign(:project_title, project_title)
+      |> assign(:can_manage_permissions, false)
       |> load_roles()
 
     {:ok, socket}
@@ -374,6 +375,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     socket
     |> assign(:roles, roles)
     |> assign(:uneditable_role_uuids, uneditable_role_uuids)
+    |> assign(:can_manage_permissions, can_manage_permissions?(socket))
   end
 
   # Load role statistics: count of users per role name
