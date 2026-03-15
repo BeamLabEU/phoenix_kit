@@ -87,7 +87,7 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
 
       {:error, :seed_failed} ->
         IO.puts("❌ Failed to seed some system templates. Check the logs for details.")
-        System.halt(1)
+        raise "Failed to seed some system templates"
     end
   end
 
