@@ -75,11 +75,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         slug -> length(DBStorage.list_posts(slug, "trashed"))
       end
 
+    published_posts =
+      Enum.filter(posts, fn p -> p[:metadata] && p.metadata.status == "published" end)
+
     socket =
       socket
       |> assign(:groups, groups)
       |> assign(:current_group, current_group)
-      |> assign(:posts, posts)
+      |> assign(:posts, published_posts)
       |> assign(:post_view_mode, "published")
       |> assign(:visible_count, 20)
       |> assign(:endpoint_url, extract_endpoint_url(uri))
