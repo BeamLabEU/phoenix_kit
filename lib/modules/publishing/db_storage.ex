@@ -511,7 +511,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
-  @doc "Finds content by URL slug across all versions in a group."
+  @doc "Finds content by URL slug across all versions in a group. Excludes trashed posts."
   def find_by_url_slug(group_slug, language, url_slug) do
     # Try matching by content url_slug first
     result =
@@ -519,7 +519,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         join: v in assoc(c, :version),
         join: p in assoc(v, :post),
         join: g in assoc(p, :group),
-        where: g.slug == ^group_slug and c.language == ^language and c.url_slug == ^url_slug,
+        where:
+          g.slug == ^group_slug and c.language == ^language and c.url_slug == ^url_slug and
+            p.status != "trashed",
         preload: [version: {v, post: {p, group: g}}]
       )
       |> repo().one()
@@ -533,13 +535,14 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         join: g in assoc(p, :group),
         where:
           g.slug == ^group_slug and c.language == ^language and p.slug == ^url_slug and
+            p.status != "trashed" and
             (is_nil(c.url_slug) or c.url_slug == ""),
         preload: [version: {v, post: {p, group: g}}]
       )
       |> repo().one()
   end
 
-  @doc "Finds content by a previous URL slug (stored in data.previous_url_slugs JSONB array)."
+  @doc "Finds content by a previous URL slug (stored in data.previous_url_slugs JSONB array). Excludes trashed posts."
   def find_by_previous_url_slug(group_slug, language, url_slug) do
     from(c in PublishingContent,
       join: v in assoc(c, :version),
@@ -548,6 +551,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
       where:
         g.slug == ^group_slug and
           c.language == ^language and
+          p.status != "trashed" and
           fragment("? @> ?", c.data, ^%{"previous_url_slugs" => [url_slug]}),
       preload: [version: {v, post: {p, group: g}}]
     )
