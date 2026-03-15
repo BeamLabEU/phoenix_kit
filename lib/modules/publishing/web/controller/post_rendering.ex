@@ -182,8 +182,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
         case times do
           [] ->
-            # No posts on this date
-            {:error, :post_not_found}
+            # No timestamp posts on this date — try as a slug in case
+            # a slug-mode post happens to look like a date (e.g., "2026-03-13")
+            render_post(conn, group_slug, {:slug, date}, language)
 
           [single_time] ->
             # Only one post - render it directly
