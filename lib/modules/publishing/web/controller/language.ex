@@ -170,15 +170,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   end
 
   @doc """
-  Find a dialect in available languages that matches the given base code.
+  Find a dialect in a list of languages that matches the given base code.
   """
-  def find_dialect_for_base_in_languages(base_code, available_languages) do
-    base_lower = String.downcase(base_code)
-
-    Enum.find(available_languages, fn lang ->
-      DialectMapper.extract_base(lang) == base_lower
-    end)
-  end
+  def find_dialect_for_base_in_languages(base_code, languages),
+    do: find_dialect_for_base(base_code, languages)
 
   # ============================================================================
   # Canonical URL Language

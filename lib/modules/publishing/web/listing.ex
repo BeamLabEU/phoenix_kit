@@ -44,7 +44,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:group_slug, group_slug)
       |> assign(:enabled_languages, Publishing.enabled_language_codes())
       |> assign(:primary_language, Publishing.get_primary_language())
-      |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
+      |> assign(
+        :primary_language_name,
+        Helpers.get_language_name(Publishing.get_primary_language())
+      )
       |> assign(:posts, filtered_posts)
       |> assign(:loading, false)
       |> assign(:endpoint_url, "")
@@ -230,7 +233,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
            :info,
            gettext("Updated %{count} posts to primary language: %{lang}",
              count: count,
-             lang: get_language_name(Publishing.get_primary_language())
+             lang: Helpers.get_language_name(Publishing.get_primary_language())
            )
          )}
     end
@@ -448,7 +451,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
          :info,
          gettext("Updated %{count} posts to primary language: %{lang}",
            count: count,
-           lang: get_language_name(primary_language)
+           lang: Helpers.get_language_name(primary_language)
          )
        )}
     else
@@ -1010,12 +1013,5 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp primary_language_status_from_posts(posts) do
     global_primary = Publishing.get_primary_language()
     DBStorage.count_primary_language_status_from_posts(posts, global_primary)
-  end
-
-  defp get_language_name(language_code) do
-    case Publishing.get_language_info(language_code) do
-      %{name: name} -> name
-      _ -> String.upcase(language_code)
-    end
   end
 end

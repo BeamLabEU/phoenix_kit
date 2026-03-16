@@ -82,7 +82,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             {:ok,
              %{
-               page_title: post.metadata.title || "Untitled",
+               page_title: post.metadata.title || Constants.default_title(),
                group_slug: group_slug,
                post: post,
                html_content: html_content,
@@ -146,7 +146,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             {:ok,
              %{
-               page_title: post.metadata.title || "Untitled",
+               page_title: post.metadata.title || Constants.default_title(),
                group_slug: group_slug,
                post: post,
                html_content: html_content,

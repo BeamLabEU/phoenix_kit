@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   """
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Slug
@@ -65,7 +66,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   defp get_title_for_form(post) do
     title = Map.get(post.metadata, :title) || Map.get(post.metadata, "title") || ""
-    if title == "Untitled", do: "", else: title
+    if title == Constants.default_title(), do: "", else: title
   end
 
   defp get_published_at(post) do
@@ -114,26 +115,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   Normalizes a form map to ensure consistent values.
   """
   def normalize_form(form) when is_map(form) do
-    # Normalize title: trim only (preserve case)
-    title =
-      form
-      |> Map.get("title", "")
-      |> to_string()
-      |> String.trim()
-
-    featured_image_uuid =
-      form
-      |> Map.get("featured_image_uuid", "")
-      |> to_string()
-      |> String.trim()
-
-    # Normalize url_slug: trim and downcase, empty string if nil
-    url_slug =
-      form
-      |> Map.get("url_slug", "")
-      |> to_string()
-      |> String.trim()
-      |> String.downcase()
+    title = normalize_string(form, "title")
+    featured_image_uuid = normalize_string(form, "featured_image_uuid")
+    url_slug = normalize_slug(form, "url_slug")
 
     base =
       %{
@@ -146,9 +130,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
     case Map.fetch(form, "slug") do
       {:ok, slug} ->
-        # Normalize slug: trim and downcase to match validation requirements
-        normalized_slug = slug |> to_string() |> String.trim() |> String.downcase()
-        Map.put(base, "slug", normalized_slug)
+        Map.put(base, "slug", slug |> to_string() |> String.trim() |> String.downcase())
 
       :error ->
         base
@@ -424,7 +406,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
       {socket, socket.assigns.form, []}
     else
       extracted = Metadata.extract_title_from_content(content)
-      new_title = if extracted == "Untitled", do: "", else: extracted
+      new_title = if extracted == Constants.default_title(), do: "", else: extracted
       current_title = Map.get(socket.assigns.form, "title", "")
 
       if new_title != "" and new_title != current_title do
@@ -490,7 +472,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   """
   def revert_title_to_auto(form, socket) do
     extracted = Metadata.extract_title_from_content(socket.assigns.content || "")
-    auto_title = if extracted == "Untitled", do: "", else: extracted
+    auto_title = if extracted == Constants.default_title(), do: "", else: extracted
 
     if auto_title != "" do
       {Map.put(form, "title", auto_title), false}
@@ -569,5 +551,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   """
   def update_form_with_media(form, file_uuid) do
     Map.put(form, "featured_image_uuid", file_uuid)
+  end
+
+  # ============================================================================
+  # String Normalization
+  # ============================================================================
+
+  defp normalize_string(form, key) do
+    form |> Map.get(key, "") |> to_string() |> String.trim()
+  end
+
+  defp normalize_slug(form, key) do
+    form |> Map.get(key, "") |> to_string() |> String.trim() |> String.downcase()
   end
 end

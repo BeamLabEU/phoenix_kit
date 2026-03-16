@@ -66,9 +66,9 @@ defmodule PhoenixKit.Modules.Publishing.PublishingContent do
     |> default_if_nil(:content, "")
     |> normalize_empty_to_nil(:url_slug)
     |> validate_inclusion(:status, Publishing.Constants.content_statuses())
-    |> validate_length(:language, max: 10)
-    |> validate_length(:title, max: 500)
-    |> validate_length(:url_slug, max: 500)
+    |> validate_length(:language, max: Publishing.Constants.max_language_code_length())
+    |> validate_length(:title, max: Publishing.Constants.max_title_length())
+    |> validate_length(:url_slug, max: Publishing.Constants.max_slug_length())
     |> unique_constraint([:version_uuid, :language],
       name: :idx_publishing_contents_version_language
     )

@@ -10,6 +10,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
 
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.PostFetching
   alias PhoenixKit.Modules.Publishing.Web.Controller.Translations
@@ -179,7 +182,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
     lang_excerpts = post[:language_excerpts] || %{}
     metadata = post[:metadata] || %{}
 
-    title = Map.get(lang_titles, language, metadata[:title] || "Untitled")
+    title = Map.get(lang_titles, language, metadata[:title] || Constants.default_title())
     excerpt = Map.get(lang_excerpts, language)
 
     post
@@ -206,7 +209,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   end
 
   defp future_post?(post, today) do
-    post[:mode] in [:timestamp, "timestamp"] and post[:date] != nil and
+    post[:mode] in @timestamp_modes and post[:date] != nil and
       Date.compare(post[:date], today) == :gt
   end
 

@@ -152,7 +152,7 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
            DBStorage.create_content(%{
              version_uuid: version.uuid,
              language: language_code,
-             title: "Untitled",
+             title: Constants.default_title(),
              content: "",
              status: "draft"
            }) do

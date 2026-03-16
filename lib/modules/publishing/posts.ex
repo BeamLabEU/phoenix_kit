@@ -579,7 +579,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
       # Title is required for primary language when publishing (drafts can be untitled)
       if language == db_post.primary_language and new_status == "published" and
-           new_title in ["", "Untitled"] do
+           new_title in ["", Constants.default_title()] do
         throw({:post_update_failed, :title_required})
       end
 
@@ -615,9 +615,9 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     post_metadata = post[:metadata] || %{}
 
     Map.get(params, "title") ||
-      if(extracted_title != "Untitled", do: extracted_title) ||
+      if(extracted_title != Constants.default_title(), do: extracted_title) ||
       post_metadata[:title] ||
-      "Untitled"
+      Constants.default_title()
   end
 
   defp update_post_level_fields!(db_post, new_status, params) do

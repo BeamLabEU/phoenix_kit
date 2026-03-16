@@ -130,7 +130,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
         contents == [] or
           Enum.all?(contents, fn c ->
-            (c.content || "") == "" and (c.title || "") in ["", "Untitled"]
+            (c.content || "") == "" and (c.title || "") in ["", Constants.default_title()]
           end)
       end)
     end
@@ -222,7 +222,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
     base =
       cond do
-        is_binary(title) and title not in ["", "Untitled"] ->
+        is_binary(title) and title not in ["", Constants.default_title()] ->
           title
 
         post.post_date ->
@@ -422,7 +422,7 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   defp primary_content_missing?(nil), do: true
 
   defp primary_content_missing?(content) do
-    content.content in [nil, ""] and content.title in [nil, "", "Untitled"]
+    content.content in [nil, ""] and content.title in [nil, "", Constants.default_title()]
   end
 
   defp fix_version_primary_content(post, version, primary_lang, primary_content, contents) do

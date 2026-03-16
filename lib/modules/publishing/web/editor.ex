@@ -28,6 +28,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
@@ -442,7 +443,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     # Seed auto-title from existing content for manual-set detection
     extracted_title = Metadata.extract_title_from_content(post.content || "")
-    auto_title = if extracted_title == "Untitled", do: "", else: extracted_title
+    auto_title = if extracted_title == Constants.default_title(), do: "", else: extracted_title
     form_title = Map.get(form, "title", "")
     title_manually_set = form_title != "" and auto_title != "" and form_title != auto_title
 
@@ -1528,7 +1529,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:ok, post} ->
         form = Forms.post_form(post)
         extracted_title = Metadata.extract_title_from_content(post.content || "")
-        auto_title = if extracted_title == "Untitled", do: "", else: extracted_title
+
+        auto_title =
+          if extracted_title == Constants.default_title(), do: "", else: extracted_title
 
         socket
         |> assign(:post, %{post | group: socket.assigns.group_slug})

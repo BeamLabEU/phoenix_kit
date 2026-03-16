@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
   @group_statuses Constants.group_statuses()
   alias PhoenixKit.Modules.Publishing.ListingCache
@@ -65,7 +66,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:enabled_languages, Publishing.enabled_language_codes())
       |> assign(:endpoint_url, nil)
       |> assign(:date_time_settings, date_time_settings)
-      |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
+      |> assign(
+        :primary_language_name,
+        Helpers.get_language_name(Publishing.get_primary_language())
+      )
       |> assign(:dashboard_refresh_timer, nil)
       |> assign(:view_mode, "active")
       |> assign(:loading, false)
@@ -135,7 +139,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
        :info,
        gettext("Updated %{count} posts to primary language: %{lang}",
          count: count,
-         lang: get_language_name(primary_language)
+         lang: Helpers.get_language_name(primary_language)
        )
      )}
   end
@@ -157,7 +161,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
            :info,
            gettext("Updated %{count} posts to primary language: %{lang}",
              count: count,
-             lang: get_language_name(Publishing.get_primary_language())
+             lang: Helpers.get_language_name(Publishing.get_primary_language())
            )
          )}
     end
@@ -217,13 +221,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       {:error, reason} ->
         Logger.warning("[Publishing.Index] Delete group failed for #{slug}: #{inspect(reason)}")
         {:noreply, put_flash(socket, :error, gettext("Failed to delete group"))}
-    end
-  end
-
-  defp get_language_name(language_code) do
-    case Publishing.get_language_info(language_code) do
-      %{name: name} -> name
-      _ -> String.upcase(language_code)
     end
   end
 

@@ -96,8 +96,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
     |> validate_inclusion(:status, Publishing.Constants.post_statuses())
     |> validate_inclusion(:mode, Publishing.Constants.valid_modes())
     |> maybe_require_slug()
-    |> validate_length(:slug, max: 500)
-    |> validate_length(:primary_language, max: 10)
+    |> validate_length(:slug, max: Publishing.Constants.max_slug_length())
+    |> validate_length(:primary_language, max: Publishing.Constants.max_language_code_length())
     |> maybe_require_timestamp_fields()
     |> unique_constraint([:group_uuid, :slug], name: :idx_publishing_posts_group_slug)
     |> unique_constraint([:group_uuid, :post_date, :post_time],

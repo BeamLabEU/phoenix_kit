@@ -73,10 +73,39 @@ defmodule PhoenixKit.Modules.Publishing.Constants do
 
   @default_mode "timestamp"
   @default_type "blog"
+  @default_title "Untitled"
 
   @doc "Default group mode."
   def default_mode, do: @default_mode
 
   @doc "Default group type."
   def default_type, do: @default_type
+
+  @doc "Default title for posts without a title."
+  def default_title, do: @default_title
+
+  # ---------------------------------------------------------------------------
+  # Schema limits
+  # ---------------------------------------------------------------------------
+
+  @max_slug_length 500
+  @max_title_length 500
+  @max_language_code_length 10
+  @max_group_name_length 255
+  @max_group_slug_length 255
+
+  @doc "Max length for post/content slugs."
+  def max_slug_length, do: @max_slug_length
+
+  @doc "Max length for content titles."
+  def max_title_length, do: @max_title_length
+
+  @doc "Max length for language codes."
+  def max_language_code_length, do: @max_language_code_length
+
+  @doc "Max length for group names."
+  def max_group_name_length, do: @max_group_name_length
+
+  @doc "Max length for group slugs."
+  def max_group_slug_length, do: @max_group_slug_length
 end

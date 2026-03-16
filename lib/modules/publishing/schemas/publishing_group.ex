@@ -60,8 +60,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
     |> validate_required([:name, :slug, :mode])
     |> validate_inclusion(:mode, Publishing.Constants.valid_modes())
     |> validate_inclusion(:status, Publishing.Constants.group_statuses())
-    |> validate_length(:name, max: 255)
-    |> validate_length(:slug, max: 255)
+    |> validate_length(:name, max: Publishing.Constants.max_group_name_length())
+    |> validate_length(:slug, max: Publishing.Constants.max_group_slug_length())
     |> unique_constraint(:slug, name: :idx_publishing_groups_slug)
     |> maybe_generate_slug()
   end
