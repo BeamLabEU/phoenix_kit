@@ -56,24 +56,44 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   # Fallback Case Handlers
   # ============================================================================
 
-  # Slug mode posts (2-element path) - try other languages before group listing
+  # Post not found (trashed/deleted) — go straight to group listing, don't try other posts
+  defp handle_fallback_case(:not_found, [group_slug | _], language) do
+    if group_exists?(group_slug) do
+      {:ok, PublishingHTML.group_listing_path(language, group_slug)}
+    else
+      fallback_to_default_group(language)
+    end
+  end
+
+  # Slug mode posts (2-element path) - try other languages, then group listing
   defp handle_fallback_case(reason, [group_slug, post_slug], language)
-       when reason in [:post_not_found, :unpublished] do
+       when reason in [:post_not_found, :unpublished, :version_access_disabled] do
     fallback_to_default_language(group_slug, post_slug, language)
   end
 
-  # Timestamp mode posts (3-element path) - try other languages before group listing
+  # Timestamp mode posts (3-element path) - try other languages, then group listing
   defp handle_fallback_case(reason, [group_slug, date, time], language)
-       when reason in [:post_not_found, :unpublished] do
+       when reason in [:post_not_found, :unpublished, :version_access_disabled] do
     fallback_timestamp_to_other_language(group_slug, date, time, language)
   end
 
-  defp handle_fallback_case(:group_not_found, [_group_slug], language) do
+  # Group not found with a path - try default group
+  defp handle_fallback_case(:group_not_found, [_group_slug | _], language) do
     fallback_to_default_group(language)
   end
 
   defp handle_fallback_case(:group_not_found, [], language) do
     fallback_to_default_group(language)
+  end
+
+  # Any post-level error with a 2+ segment path — fall back to group listing
+  # Catches errors like :invalid_version, unknown reasons from read_post, etc.
+  defp handle_fallback_case(_reason, [group_slug | _rest], language) do
+    if group_exists?(group_slug) do
+      {:ok, PublishingHTML.group_listing_path(language, group_slug)}
+    else
+      fallback_to_default_group(language)
+    end
   end
 
   defp handle_fallback_case(_reason, _path, _language), do: :no_fallback
@@ -86,7 +106,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
     if group_exists?(group_slug) do
       find_any_available_language_version(group_slug, post_slug, requested_language)
     else
-      :no_fallback
+      fallback_to_default_group(requested_language)
     end
   end
 
@@ -135,6 +155,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   end
 
   # Tries other languages when requested language has no published versions
+  # Cap on how many languages to try in fallback chain to prevent excessive DB queries
+  @max_fallback_languages 5
+
   defp try_other_languages(group_slug, post_slug, post, requested_language, default_lang) do
     available = post.available_languages || []
 
@@ -142,6 +165,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
     languages_to_try =
       ([default_lang | available] -- [requested_language])
       |> Enum.uniq()
+      |> Enum.take(@max_fallback_languages)
 
     find_first_published_version(group_slug, post_slug, post, languages_to_try, default_lang)
   end
@@ -196,7 +220,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
       # Use DB to get available languages for this timestamp post
       available = get_available_languages_for_timestamp(group_slug, date, time)
 
-      # Time exists with language files - try other languages
+      # Time exists with language content - try other languages
       if available != [] do
         languages_to_try =
           ([default_lang | available] -- [requested_language])
@@ -215,7 +239,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
         fallback_to_other_time_on_date(group_slug, date, time, default_lang)
       end
     else
-      :no_fallback
+      fallback_to_default_group(requested_language)
     end
   end
 
@@ -311,12 +335,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
   # Gets available languages for a timestamp post from the DB
   defp get_available_languages_for_timestamp(group_slug, date, time) do
-    identifier = "#{date}/#{time}"
     posts = Publishing.list_posts(group_slug, nil)
 
-    case Enum.find(posts, fn p -> "#{p.date}/#{p.time}" == identifier or p.slug == identifier end) do
+    case Enum.find(posts, fn p -> format_date(p.date) == date and format_time(p.time) == time end) do
       nil -> []
       post -> post.available_languages || []
     end
   end
+
+  defp format_date(%Date{} = d), do: Date.to_iso8601(d)
+  defp format_date(d) when is_binary(d), do: d
+  defp format_date(_), do: ""
+
+  defp format_time(%Time{} = t), do: t |> Time.to_string() |> String.slice(0, 5)
+  defp format_time(t) when is_binary(t), do: String.slice(t, 0, 5)
+  defp format_time(_), do: ""
 end

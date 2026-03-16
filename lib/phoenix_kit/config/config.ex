@@ -151,7 +151,6 @@ defmodule PhoenixKit.Config do
     # Module-specific settings
     users_module: PhoenixKit.Users.Auth.User,
     publishing_settings_module: PhoenixKit.Settings,
-    blogging_settings_module: PhoenixKit.Settings,
     # Dashboard settings
     user_dashboard_enabled: true,
     # User dashboard tabs - list of tab configs for the user dashboard sidebar

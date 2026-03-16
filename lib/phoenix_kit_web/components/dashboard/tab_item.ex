@@ -316,7 +316,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   """
   def path_has_locale_prefix?(path) when is_binary(path) do
     # Matches: /uk/, /en/, /zh-Hans/, /pt-BR/ etc.
-    String.match?(path, ~r/^\/[a-z]{2}(-[A-Z][a-z]{2,3})?\//u)
+    String.match?(path, ~r/^\/[a-z]{2,3}(-[A-Za-z]{2,4})?\//u)
   end
 
   def path_has_locale_prefix?(_), do: false

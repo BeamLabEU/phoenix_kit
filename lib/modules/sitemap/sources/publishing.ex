@@ -8,16 +8,16 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
   ## URL Structure
 
   Uses PhoenixKit URL prefix from config:
-  - Blog listing: `/{prefix}/{blog_slug}` (default language)
-  - Blog listing: `/{prefix}/{lang}/{blog_slug}` (non-default language)
+  - Group listing: `/{prefix}/{group_slug}` (default language)
+  - Group listing: `/{prefix}/{lang}/{group_slug}` (non-default language)
 
   For slug mode posts:
-  - `/{prefix}/{blog_slug}/{post_slug}` (default language)
-  - `/{prefix}/{lang}/{blog_slug}/{post_slug}` (non-default language)
+  - `/{prefix}/{group_slug}/{post_slug}` (default language)
+  - `/{prefix}/{lang}/{group_slug}/{post_slug}` (non-default language)
 
   For timestamp mode posts:
-  - Single post on date: `/{prefix}/{blog_slug}/{date}` (e.g., /blog/2025-12-09)
-  - Multiple posts on date: `/{prefix}/{blog_slug}/{date}/{time}` (e.g., /blog/2025-12-09/16:26)
+  - Single post on date: `/{prefix}/{group_slug}/{date}` (e.g., /blog/2025-12-09)
+  - Multiple posts on date: `/{prefix}/{group_slug}/{date}/{time}` (e.g., /blog/2025-12-09/16:26)
 
   ## Exclusion
 
@@ -25,15 +25,15 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
   ## Sitemap Properties
 
-  - Blog listings:
+  - Group listings:
     - Priority: 0.7
     - Change frequency: daily
-    - Category: Blog name
+    - Category: Group name
 
   - Individual posts:
     - Priority: 0.8
     - Change frequency: weekly
-    - Category: Blog name
+    - Category: Group name
     - Last modified: Post's date_updated or timestamp
   """
 
@@ -57,7 +57,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
   def sitemap_filename, do: "sitemap-publishing"
 
   @doc """
-  When `sitemap_publishing_split_by_group` is enabled, returns per-blog sub-sitemaps.
+  When `sitemap_publishing_split_by_group` is enabled, returns per-group sub-sitemaps.
   Otherwise returns nil (single file).
   """
   @impl true
@@ -67,17 +67,17 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       language = Keyword.get(opts, :language)
       is_default = Keyword.get(opts, :is_default_language, true)
 
-      blogs = Publishing.list_groups()
-      included_blogs = Enum.reject(blogs, &blog_excluded?/1)
+      groups = Publishing.list_groups()
+      included_groups = Enum.reject(groups, &group_excluded?/1)
 
       sub_maps =
-        included_blogs
-        |> Enum.map(fn blog ->
-          slug = blog["slug"]
+        included_groups
+        |> Enum.map(fn group ->
+          slug = group["slug"]
 
           entries =
-            collect_blog_listings([blog], language, is_default, base_url) ++
-              collect_blog_posts(blog, language, is_default, base_url)
+            collect_group_listings([group], language, is_default, base_url) ++
+              collect_group_posts(group, language, is_default, base_url)
 
           {slug, entries}
         end)
@@ -111,19 +111,19 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       language = Keyword.get(opts, :language)
       is_default = Keyword.get(opts, :is_default_language, true)
 
-      blogs = Publishing.list_groups()
+      groups = Publishing.list_groups()
 
-      # Filter out blogs with sitemap_exclude setting
-      included_blogs = Enum.reject(blogs, &blog_excluded?/1)
+      # Filter out groups with sitemap_exclude setting
+      included_groups = Enum.reject(groups, &group_excluded?/1)
 
-      blog_listings = collect_blog_listings(included_blogs, language, is_default, base_url)
+      group_listings = collect_group_listings(included_groups, language, is_default, base_url)
 
-      blog_posts =
-        Enum.flat_map(included_blogs, fn blog ->
-          collect_blog_posts(blog, language, is_default, base_url)
+      group_posts =
+        Enum.flat_map(included_groups, fn group ->
+          collect_group_posts(group, language, is_default, base_url)
         end)
 
-      blog_listings ++ blog_posts
+      group_listings ++ group_posts
     else
       []
     end
@@ -134,9 +134,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       []
   end
 
-  # Check if blog is excluded from sitemap via settings
-  defp blog_excluded?(blog) do
-    case blog do
+  # Check if group is excluded from sitemap via settings
+  defp group_excluded?(group) do
+    case group do
       %{"sitemap_exclude" => true} -> true
       %{"sitemap_exclude" => "true"} -> true
       %{"settings" => %{"sitemap_exclude" => true}} -> true
@@ -145,15 +145,15 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     end
   end
 
-  defp collect_blog_listings(blogs, language, is_default, base_url) do
-    blogs
-    |> Enum.filter(fn blog -> blog_has_posts_for_language?(blog, language) end)
-    |> Enum.map(fn blog ->
-      slug = blog["slug"]
-      name = blog["name"]
+  defp collect_group_listings(groups, language, is_default, base_url) do
+    groups
+    |> Enum.filter(fn group -> group_has_posts_for_language?(group, language) end)
+    |> Enum.map(fn group ->
+      slug = group["slug"]
+      name = group["name"]
       # Canonical path without language prefix (for hreflang grouping)
-      canonical_path = build_blog_path([slug], nil, true)
-      path = build_blog_path([slug], language, is_default)
+      canonical_path = build_group_path([slug], nil, true)
+      path = build_group_path([slug], language, is_default)
       url = build_url(path, base_url)
 
       UrlEntry.new(%{
@@ -161,7 +161,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
         lastmod: nil,
         changefreq: "daily",
         priority: 0.7,
-        title: "#{name} - Blog",
+        title: name,
         category: name,
         source: :publishing,
         canonical_path: canonical_path
@@ -169,14 +169,14 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     end)
   rescue
     error ->
-      Logger.warning("Failed to collect blog listings: #{inspect(error)}")
+      Logger.warning("Failed to collect group listings: #{inspect(error)}")
 
       []
   end
 
-  # Check if a blog has at least one published post for the given language
-  defp blog_has_posts_for_language?(blog, language) do
-    slug = blog["slug"]
+  # Check if a group has at least one published post for the given language
+  defp group_has_posts_for_language?(group, language) do
+    slug = group["slug"]
     post_language = language || get_default_language()
 
     Publishing.list_posts(slug, post_language)
@@ -187,9 +187,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     _ -> false
   end
 
-  defp collect_blog_posts(blog, language, is_default, base_url) do
-    slug = blog["slug"]
-    name = blog["name"]
+  defp collect_group_posts(group, language, is_default, base_url) do
+    slug = group["slug"]
+    name = group["name"]
     post_language = language || get_default_language()
 
     posts =
@@ -199,7 +199,6 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       |> Enum.filter(fn post -> has_translation?(post, language) end)
 
     # Optimization: Pre-compute date counts for timestamp mode posts
-    # This avoids N filesystem reads (one per post) by doing one pass
     date_counts = build_date_counts_cache(posts)
 
     Enum.map(posts, fn post ->
@@ -208,14 +207,13 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
   rescue
     error ->
       Logger.warning(
-        "Failed to collect posts for blog #{inspect(blog["slug"])}: #{inspect(error)}"
+        "Failed to collect posts for group #{inspect(group["slug"])}: #{inspect(error)}"
       )
 
       []
   end
 
   # Build a map of date -> post count for timestamp mode posts
-  # This replaces N calls to Storage.count_posts_on_date with O(n) in-memory operation
   defp build_date_counts_cache(posts) do
     posts
     |> Enum.filter(fn post -> post.mode == :timestamp end)
@@ -256,10 +254,10 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     end)
   end
 
-  defp build_post_entry(post, blog_slug, blog_name, language, is_default, base_url, date_counts) do
+  defp build_post_entry(post, group_slug, group_name, language, is_default, base_url, date_counts) do
     # Canonical path without language prefix (for hreflang grouping)
-    canonical_path = build_post_path(post, blog_slug, nil, true, date_counts)
-    path = build_post_path(post, blog_slug, language, is_default, date_counts)
+    canonical_path = build_post_path(post, group_slug, nil, true, date_counts)
+    path = build_post_path(post, group_slug, language, is_default, date_counts)
     url = build_url(path, base_url)
 
     title = get_post_title(post)
@@ -271,40 +269,39 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       changefreq: "weekly",
       priority: 0.8,
       title: title,
-      category: blog_name,
+      category: group_name,
       source: :publishing,
       canonical_path: canonical_path
     })
   end
 
   # Build post path based on mode (slug vs timestamp)
-  # Uses pre-computed date_counts cache instead of Storage.count_posts_on_date
-  defp build_post_path(post, blog_slug, language, is_default, date_counts) do
+  # Uses pre-computed date_counts cache instead of per-post queries
+  defp build_post_path(post, group_slug, language, is_default, date_counts) do
     case post.mode do
       :timestamp ->
         # For timestamp mode, use date (and time if multiple posts on same date)
         date = extract_date_for_url(post)
-        # Use cached count instead of filesystem read
         post_count = Map.get(date_counts, date, 1)
 
         if post_count > 1 do
           # Multiple posts on this date - include time
           time = extract_time_for_url(post)
-          build_blog_path([blog_slug, date, time], language, is_default)
+          build_group_path([group_slug, date, time], language, is_default)
         else
           # Single post on this date - date only
-          build_blog_path([blog_slug, date], language, is_default)
+          build_group_path([group_slug, date], language, is_default)
         end
 
       :slug ->
         # For slug mode, use the post slug
         post_slug = post.slug || extract_slug_from_path(post.path)
-        build_blog_path([blog_slug, post_slug], language, is_default)
+        build_group_path([group_slug, post_slug], language, is_default)
 
       _ ->
         # Fallback to slug mode behavior
         post_slug = post.slug || extract_slug_from_path(post.path)
-        build_blog_path([blog_slug, post_slug], language, is_default)
+        build_group_path([group_slug, post_slug], language, is_default)
     end
   end
 
@@ -383,7 +380,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       %{metadata: %{title: title}} when is_binary(title) -> title
       %{metadata: %{"title" => title}} when is_binary(title) -> title
       %{slug: slug} when is_binary(slug) -> format_slug(slug)
-      _ -> "Blog Post"
+      _ -> "Post"
     end
   end
 
@@ -459,11 +456,11 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     |> Enum.map_join(" ", &String.capitalize/1)
   end
 
-  # Build blog path with PhoenixKit prefix and optional language
+  # Build group path with PhoenixKit prefix and optional language
   # Format: /{prefix}/{lang?}/{segments...}
   # When in single language mode, no language prefix is added for anyone
   # When in multi-language mode, ALL languages get prefix (including default)
-  defp build_blog_path(segments, language, _is_default) do
+  defp build_group_path(segments, language, _is_default) do
     prefix_parts = url_prefix_segments()
 
     # Add language prefix when:
@@ -521,7 +518,6 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
   # Get the display code for a language, matching the controller's canonical URL logic.
   # Returns base code ("en") when only one dialect is enabled,
   # or full code ("en-US") when multiple dialects of same language are enabled.
-  # This mirrors Storage.get_display_code/2 to ensure sitemap URLs match canonical URLs.
   defp get_display_code(language_code) do
     base_code = Languages.DialectMapper.extract_base(language_code)
     enabled_languages = Languages.get_enabled_languages()

@@ -12,7 +12,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   require Logger
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.ListingCache
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.Listing
@@ -53,8 +56,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   def render_resolved_post(conn, group_slug, identifier, language) do
     case PostFetching.fetch_post(group_slug, identifier, language) do
       {:ok, post} ->
-        # Check if published
-        if post.metadata.status == "published" do
+        # Check if post is published and not future-dated
+        if post.metadata.status == "published" and not future_post?(post) do
           # Check if we need to redirect to canonical URL
           # The canonical URL uses the display_code (base or full dialect depending on enabled languages)
           canonical_language = Language.get_canonical_url_language_for_post(post.language)
@@ -79,7 +82,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             {:ok,
              %{
-               page_title: post.metadata.title,
+               page_title: post.metadata.title || Constants.default_title(),
                group_slug: group_slug,
                post: post,
                html_content: html_content,
@@ -143,7 +146,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
             {:ok,
              %{
-               page_title: post.metadata.title,
+               page_title: post.metadata.title || Constants.default_title(),
                group_slug: group_slug,
                post: post,
                html_content: html_content,
@@ -182,8 +185,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
         case times do
           [] ->
-            # No posts on this date
-            {:error, :post_not_found}
+            # No timestamp posts on this date — try as a slug in case
+            # a slug-mode post happens to look like a date (e.g., "2026-03-13")
+            render_post(conn, group_slug, {:slug, date}, language)
 
           [single_time] ->
             # Only one post - render it directly
@@ -231,10 +235,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
     # The cache stores the live version with all version metadata
     {allow_access, live_version} = get_cached_version_info(group_slug, post)
 
-    version_statuses = Map.get(post, :version_statuses, %{})
+    version_statuses = Map.get(post, :version_statuses) || %{}
     current_version = Map.get(post, :version, 1)
 
-    if allow_access and map_size(version_statuses) > 0 do
+    if allow_access and version_statuses != %{} do
       # Filter to only published versions
       published_versions =
         version_statuses
@@ -300,23 +304,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
 
   # Find cached post using appropriate method based on post mode
   defp find_cached_post(group_slug, post) do
-    case Map.get(post, :mode) do
-      :timestamp ->
-        # For timestamp mode, use date/time lookup
-        date = post[:date]
-        time = post[:time]
+    mode = Map.get(post, :mode)
 
-        if date && time do
-          date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
-          time_str = format_time_for_cache(time)
-          ListingCache.find_post_by_path(group_slug, date_str, time_str)
-        else
-          {:error, :not_found}
-        end
+    if mode in @timestamp_modes do
+      # For timestamp mode, use date/time lookup
+      date = post[:date]
+      time = post[:time]
 
-      _ ->
-        # For slug mode, use slug lookup
-        ListingCache.find_post(group_slug, post.slug)
+      if date && time do
+        date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
+        time_str = format_time_for_cache(time)
+        ListingCache.find_post_by_path(group_slug, date_str, time_str)
+      else
+        {:error, :not_found}
+      end
+    else
+      # For slug mode, use slug lookup
+      ListingCache.find_post(group_slug, post.slug)
     end
   end
 
@@ -424,5 +428,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
       user_agent: Plug.Conn.get_req_header(conn, "user-agent") |> List.first(),
       path: conn.request_path
     )
+  end
+
+  defp future_post?(post) do
+    post[:mode] in @timestamp_modes and post[:date] != nil and
+      Date.compare(post[:date], Date.utc_today()) == :gt
   end
 end

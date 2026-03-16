@@ -20,6 +20,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Publishing
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
@@ -68,7 +70,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingVersion do
       :data
     ])
     |> validate_required([:post_uuid, :version_number, :status])
-    |> validate_inclusion(:status, ["draft", "published", "archived"])
+    |> validate_inclusion(:status, Publishing.Constants.content_statuses())
     |> validate_number(:version_number, greater_than: 0)
     |> unique_constraint([:post_uuid, :version_number],
       name: :idx_publishing_versions_post_number

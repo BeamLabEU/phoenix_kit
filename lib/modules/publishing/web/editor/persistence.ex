@@ -45,7 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
       end
 
     # Validate url_slug before saving (for translations)
-    # For directory slug conflicts, we auto-clear and show a notice instead of blocking
+    # For post slug conflicts, we auto-clear and show a notice instead of blocking
     case validate_url_slug_for_save(socket, params) do
       {:ok, validated_params} ->
         do_perform_save(socket, validated_params)
@@ -72,7 +72,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         {:ok, _} ->
           {:ok, params}
 
-        {:error, :conflicts_with_directory_slug} ->
+        {:error, :conflicts_with_post_slug} ->
           # Auto-clear the url_slug from ALL translations of this post
           cleared_params = Map.put(params, "url_slug", "")
           cleared_languages = DBStorage.clear_url_slug_from_post(group_slug, post_slug, url_slug)
@@ -80,13 +80,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
           notice =
             if length(cleared_languages) > 1 do
               gettext(
-                "Custom URL slug '%{slug}' was cleared from %{count} translations because it conflicts with another post's directory name",
+                "Custom URL slug '%{slug}' was cleared from %{count} translations because it conflicts with another post's post slug",
                 slug: url_slug,
                 count: length(cleared_languages)
               )
             else
               gettext(
-                "Custom URL slug '%{slug}' for %{language} was cleared because it conflicts with another post's directory name",
+                "Custom URL slug '%{slug}' for %{language} was cleared because it conflicts with another post's post slug",
                 slug: url_slug,
                 language: language
               )
@@ -259,7 +259,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
          Phoenix.LiveView.put_flash(
            socket,
            :error,
-           gettext("Failed to create translation file")
+           gettext("Failed to create translation")
          )}
     end
   end
@@ -378,7 +378,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     primary_status = socket.assigns.form["status"]
 
     if primary_status == "published" do
-      params
+      # When primary is published, auto-publish translations so they
+      # appear on the public site immediately after saving
+      Map.put(params, "status", "published")
     else
       Map.put(params, "status", primary_status)
     end
@@ -540,7 +542,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      )}
   end
 
-  defp handle_post_in_place_error(socket, _reason) do
+  defp handle_post_in_place_error(socket, reason) do
+    post_id = socket.assigns[:post] && socket.assigns.post[:uuid]
+    Logger.warning("[Publishing.Editor] Save failed for post #{post_id}: #{inspect(reason)}")
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, gettext("Failed to save post"))}
   end
 
@@ -566,9 +570,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
         form = Forms.post_form(updated_post)
 
+        language = updated_post.language || socket.assigns[:current_language]
+        public_url = Helpers.build_public_url(updated_post, language)
+
         socket =
           socket
           |> Phoenix.Component.assign(:post, updated_post)
+          |> Phoenix.Component.assign(:public_url, public_url)
           |> Forms.assign_form_with_tracking(form)
           |> Phoenix.Component.assign(:content, updated_post.content)
           |> Phoenix.Component.assign(:available_languages, updated_post.available_languages)
@@ -634,7 +642,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      )}
   end
 
-  defp handle_post_update_error(socket, _reason) do
+  defp handle_post_update_error(socket, reason) do
+    post_id = socket.assigns[:post] && socket.assigns.post[:uuid]
+    Logger.warning("[Publishing.Editor] Update failed for post #{post_id}: #{inspect(reason)}")
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, "Failed to save post")}
   end
 
@@ -658,7 +668,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      )}
   end
 
-  defp handle_post_creation_error(socket, _reason, fallback_message) do
+  defp handle_post_creation_error(socket, reason, fallback_message) do
+    group = socket.assigns[:group_slug]
+    Logger.warning("[Publishing.Editor] Post creation failed in #{group}: #{inspect(reason)}")
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, fallback_message)}
   end
 

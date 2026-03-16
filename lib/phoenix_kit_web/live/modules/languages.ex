@@ -101,8 +101,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
     case result do
       {:ok, _} ->
-        # Regenerate all blog caches since language availability changed
-        regenerate_all_blog_caches()
+        # Regenerate all publishing group caches since language availability changed
+        regenerate_all_group_caches()
 
         # Reload configuration to get fresh data
         socket =
@@ -178,8 +178,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
     case result do
       {:ok, _config} ->
-        # Regenerate all blog caches since language availability changed
-        regenerate_all_blog_caches()
+        # Regenerate all publishing group caches since language availability changed
+        regenerate_all_group_caches()
 
         predefined_lang = Languages.get_predefined_language(code)
         language_name = (predefined_lang && predefined_lang.name) || code
@@ -409,12 +409,12 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     |> Enum.sort_by(fn {country, _} -> country end)
   end
 
-  # Regenerate listing caches for all blogs when language settings change
-  defp regenerate_all_blog_caches do
+  # Regenerate listing caches for all publishing groups when language settings change
+  defp regenerate_all_group_caches do
     if Publishing.enabled?() do
       Publishing.list_groups()
-      |> Enum.each(fn blog ->
-        ListingCache.regenerate(blog["slug"])
+      |> Enum.each(fn group ->
+        ListingCache.regenerate(group["slug"])
       end)
     end
   end

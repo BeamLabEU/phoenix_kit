@@ -119,25 +119,48 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   # Dispatches to appropriate handler based on parsed path
+  # Checks group exists and is active before serving content
   defp handle_parsed_path(conn, parsed_path, language) do
-    case parsed_path do
-      {:listing, group_slug} ->
-        handle_group_listing(conn, group_slug, language)
+    group_slug = extract_group_slug(parsed_path)
 
-      {:slug_post, group_slug, post_slug} ->
-        handle_post(conn, group_slug, {:slug, post_slug}, language)
+    if group_slug && group_trashed?(group_slug) do
+      handle_not_found(conn, :group_not_found)
+    else
+      case parsed_path do
+        {:listing, group_slug} ->
+          handle_group_listing(conn, group_slug, language)
 
-      {:timestamp_post, group_slug, date, time} ->
-        handle_post(conn, group_slug, {:timestamp, date, time}, language)
+        {:slug_post, group_slug, post_slug} ->
+          handle_post(conn, group_slug, {:slug, post_slug}, language)
 
-      {:date_only_post, group_slug, date} ->
-        handle_date_only_url(conn, group_slug, date, language)
+        {:timestamp_post, group_slug, date, time} ->
+          handle_post(conn, group_slug, {:timestamp, date, time}, language)
 
-      {:versioned_post, group_slug, post_slug, version} ->
-        handle_versioned_post(conn, group_slug, post_slug, version, language)
+        {:date_only_post, group_slug, date} ->
+          handle_date_only_url(conn, group_slug, date, language)
 
-      {:error, reason} ->
-        handle_not_found(conn, reason)
+        {:versioned_post, group_slug, post_slug, version} ->
+          handle_versioned_post(conn, group_slug, post_slug, version, language)
+
+        {:error, reason} ->
+          handle_not_found(conn, reason)
+      end
+    end
+  end
+
+  # Suppress dialyzer warning — catch-all is defensive fallback for unexpected route formats
+  @dialyzer {:nowarn_function, extract_group_slug: 1}
+  defp extract_group_slug({_, group_slug}), do: group_slug
+  defp extract_group_slug({_, group_slug, _}), do: group_slug
+  defp extract_group_slug({_, group_slug, _, _}), do: group_slug
+  defp extract_group_slug(_), do: nil
+
+  defp group_trashed?(group_slug) do
+    alias PhoenixKit.Modules.Publishing.DBStorage
+
+    case DBStorage.get_group_by_slug(group_slug) do
+      nil -> false
+      group -> group.status == "trashed"
     end
   end
 
@@ -274,13 +297,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # ============================================================================
 
   defp public_enabled? do
-    # Check new key first, fallback to legacy
-    case Settings.get_setting("publishing_public_enabled") do
-      nil -> Settings.get_boolean_setting("blogging_public_enabled", true)
-      "true" -> true
-      "false" -> false
-      _ -> true
-    end
+    Settings.get_boolean_setting("publishing_public_enabled", true)
   end
 
   defp set_gettext_locale(language) do

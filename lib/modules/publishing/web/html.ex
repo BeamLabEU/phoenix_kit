@@ -7,8 +7,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Storage
+
+  @timestamp_modes Constants.timestamp_modes()
+  @slug_modes Constants.slug_modes()
 
   # Import publishing-specific components for templates
   import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
@@ -45,8 +49,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   - If multiple posts exist on the date, includes time (e.g., /group/2025-12-09/16:26)
   """
   def build_post_url(group_slug, post, language, date_counts \\ nil) do
+    language = language || "en"
+
     case post.mode do
-      :slug ->
+      mode when mode in @slug_modes ->
         # Use language-specific URL slug for SEO-friendly localized URLs
         url_slug = get_url_slug_for_language(post, language)
 
@@ -57,8 +63,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
         build_public_path(segments)
 
-      :timestamp ->
-        # For timestamp mode, use the date/time from the directory structure
+      mode when mode in @timestamp_modes ->
+        # For timestamp mode, use the date/time from the DB fields
         # (stored in post.date and post.time), not from metadata.published_at
         date = get_timestamp_date(post)
 
@@ -99,8 +105,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   # Priority:
   # 1. Direct url_slug field on post (set by controller for specific language)
   # 2. language_slugs map (from cache, contains all languages)
-  # 3. metadata.url_slug (from file, current language only)
-  # 4. post.slug (directory name fallback)
+  # 3. metadata.url_slug (from content record, current language only)
+  # 4. post.slug (post slug fallback)
   defp get_url_slug_for_language(post, language) do
     cond do
       # Direct url_slug on post (highest priority, set by controller)
@@ -115,7 +121,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
       is_map(Map.get(post, :metadata)) and Map.get(post.metadata, :url_slug) not in [nil, ""] ->
         post.metadata.url_slug
 
-      # Default to directory slug
+      # Default to post slug
       true ->
         post.slug
     end
@@ -183,13 +189,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
   @doc """
   Checks if a post has a publication date to display.
-  For timestamp mode, the date comes from the directory structure.
+  For timestamp mode, the date comes from the DB fields.
   For slug mode, it comes from metadata.published_at.
   """
   def has_publication_date?(post) do
     case post.mode do
-      :timestamp ->
-        # Timestamp mode always has a date (from directory structure)
+      mode when mode in @timestamp_modes ->
+        # Timestamp mode always has a date (from DB fields)
         post[:date] != nil
 
       _ ->
@@ -204,8 +210,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def format_post_date(post, group_slug, date_counts \\ nil) do
     case post.mode do
-      :timestamp ->
-        # For timestamp mode, use date/time from directory structure
+      mode when mode in @timestamp_modes ->
+        # For timestamp mode, use date/time from DB fields
         date = get_timestamp_date(post)
         post_count = lookup_date_count(date_counts, group_slug, date)
 
@@ -341,11 +347,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
     gettext("%{date} at %{time}", date: date_str, time: time_str)
   end
 
-  # Gets the date for a timestamp-mode post from post.date field (directory structure)
+  # Gets the date for a timestamp-mode post from post.date field (DB fields)
   # Falls back to metadata.published_at if post.date not available
   defp get_timestamp_date(post) do
     cond do
-      # Use post.date from directory structure (e.g., Date struct or "2025-12-31")
+      # Use post.date from DB fields (e.g., Date struct or "2025-12-31")
       is_struct(post[:date], Date) ->
         Date.to_iso8601(post.date)
 
@@ -358,11 +364,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
     end
   end
 
-  # Gets the time for a timestamp-mode post from post.time field (directory structure)
+  # Gets the time for a timestamp-mode post from post.time field (DB fields)
   # Falls back to metadata.published_at if post.time not available
   defp get_timestamp_time(post) do
     cond do
-      # Use post.time from directory structure (e.g., "03:42" or ~T[03:42:00])
+      # Use post.time from DB fields (e.g., "03:42" or ~T[03:42:00])
       is_struct(post[:time], Time) ->
         post.time |> Time.to_string() |> String.slice(0..4)
 
@@ -411,7 +417,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def build_date_counts(posts) do
     posts
-    |> Enum.filter(&(&1.mode == :timestamp))
+    |> Enum.filter(&(&1.mode in @timestamp_modes))
     |> Enum.map(&get_timestamp_date/1)
     |> Enum.frequencies()
   end

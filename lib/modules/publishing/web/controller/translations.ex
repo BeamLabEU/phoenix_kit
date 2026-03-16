@@ -10,6 +10,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.PostRendering
@@ -108,8 +111,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     # Extract base code from current language for comparison
     current_base = DialectMapper.extract_base(current_language)
 
-    # Get the primary/default language
-    primary_language = List.first(enabled_languages) || "en"
+    # Use the post's primary language so it appears first in the switcher
+    primary_language = post[:primary_language] || List.first(enabled_languages) || "en"
 
     # Fetch language_slugs from cache for per-language URL slugs
     # Falls back to using post.slug for all languages if cache miss
@@ -125,10 +128,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
         translation_published_exact?(group_slug, post, lang)
       end)
 
-    # Remove legacy base code files when dialect files exist
+    # Remove legacy base codes when dialect content exists
     # e.g., if both "en" and "en-CA" exist, remove "en" to avoid duplicates
     deduplicated =
-      deduplicate_base_and_dialect_files(available_and_published, enabled_languages)
+      deduplicate_base_and_dialect_codes(available_and_published, enabled_languages)
 
     # Order: primary first (if present), then enabled languages, then disabled ones
     languages = order_languages_for_public(deduplicated, enabled_languages, primary_language)
@@ -182,13 +185,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     primary ++ Enum.sort(other_enabled) ++ Enum.sort(disabled)
   end
 
-  # Remove legacy base code files when dialect files of the same language exist
+  # Remove legacy base codes when dialect content of the same language exists
   # This prevents showing both "en" and "en-CA" in the switcher
-  defp deduplicate_base_and_dialect_files(languages, _enabled_languages) do
+  defp deduplicate_base_and_dialect_codes(languages, _enabled_languages) do
     # Separate base codes and dialect codes
     {base_codes, dialect_codes} = Enum.split_with(languages, &Language.base_code?/1)
 
-    # For each base code, check if any dialect files exist for it
+    # For each base code, check if any dialect content exists for it
     # If so, exclude the base code
     filtered_base_codes =
       Enum.reject(base_codes, fn base ->
@@ -219,23 +222,23 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
   # Find cached post using appropriate method based on post mode
   defp find_cached_post(group_slug, post) do
-    case Map.get(post, :mode) do
-      :timestamp ->
-        # For timestamp mode, use date/time lookup
-        date = post[:date]
-        time = post[:time]
+    mode = Map.get(post, :mode)
 
-        if date && time do
-          date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
-          time_str = format_time_for_cache(time)
-          ListingCache.find_post_by_path(group_slug, date_str, time_str)
-        else
-          {:error, :not_found}
-        end
+    if mode in @timestamp_modes do
+      # For timestamp mode, use date/time lookup
+      date = post[:date]
+      time = post[:time]
 
-      _ ->
-        # For slug mode, use slug lookup
-        ListingCache.find_post(group_slug, post.slug)
+      if date && time do
+        date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
+        time_str = format_time_for_cache(time)
+        ListingCache.find_post_by_path(group_slug, date_str, time_str)
+      else
+        {:error, :not_found}
+      end
+    else
+      # For slug mode, use slug lookup
+      ListingCache.find_post(group_slug, post.slug)
     end
   end
 
@@ -251,7 +254,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
 
   # Strict check for public display - only shows languages that are:
   # 1. Directly in the enabled languages list, OR
-  # 2. Base code files where any dialect of that base is enabled
+  # 2. Base codes where any dialect of that base is enabled
   # This prevents showing en-US, en-GB etc when only en-CA is enabled
   defp language_enabled_for_public?(language, enabled_languages) do
     cond do
@@ -272,10 +275,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
     end
   end
 
-  # Checks if the exact language translation exists and is published
-  # Uses preloaded language_statuses map to avoid redundant DB reads
+  # Translation is visible if it exists — status comes from the post level
   defp translation_published_exact?(_group_slug, post, language) do
-    language in (post.available_languages || []) and
-      Map.get(post.language_statuses, language) == "published"
+    language in (post.available_languages || [])
   end
 end

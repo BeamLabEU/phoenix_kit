@@ -70,6 +70,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
@@ -354,7 +355,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     case Regex.run(~r/^#\s+(.+)$/m, content) do
       [_, title] -> String.trim(title)
-      nil -> Map.get(post.metadata || %{}, :title, "Untitled")
+      nil -> Map.get(post.metadata || %{}, :title, Constants.default_title())
     end
   end
 

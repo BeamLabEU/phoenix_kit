@@ -26,49 +26,25 @@
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">
         {(@current_group && @current_group["name"]) || @group_slug || gettext("Group")}
       </h1>
-      <div class="text-sm text-base-content/60 mt-0.5">
-        <p>
-          <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-          <a
-            href={public_url}
-            target="_blank"
-            class="link link-hover font-mono break-all text-xs"
-          >
-            {public_url}
-          </a>
-        </p>
-      </div>
+      <% has_published = Map.get(@post_status_counts, "published", 0) > 0 %>
+      <%= if has_published do %>
+        <div class="text-sm text-base-content/60 mt-0.5">
+          <p>
+            <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+            <a
+              href={public_url}
+              target="_blank"
+              class="link link-hover font-mono break-all text-xs"
+            >
+              {public_url}
+            </a>
+          </p>
+        </div>
+      <% end %>
     </.admin_page_header>
 
-    <%!-- Primary Language Migration Progress Banner --%>
-    <%= if @migration_in_progress do %>
-      <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-info/10 to-primary/10 border border-info/30 mb-6">
-        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-info to-primary text-white shadow-sm">
-          <span class="loading loading-spinner loading-sm"></span>
-        </div>
-        <div class="flex-1">
-          <span class="text-sm font-medium text-info">
-            {gettext("Migration in progress...")}
-          </span>
-          <%= if @migration_progress do %>
-            <div class="flex items-center gap-2 mt-1">
-              <progress
-                class="progress progress-info w-48"
-                value={@migration_progress.current}
-                max={@migration_progress.total}
-              >
-              </progress>
-              <span class="text-xs text-base-content/60">
-                {@migration_progress.current} / {@migration_progress.total}
-              </span>
-            </div>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
-
-    <%!-- Primary Language Migration Banner --%>
-    <%= if not @migration_in_progress and @primary_language_status && (@primary_language_status.needs_backfill > 0 or @primary_language_status.needs_migration > 0) do %>
+    <%!-- Primary Language Update Banner --%>
+    <%= if @primary_language_status && (@primary_language_status.needs_backfill > 0 or @primary_language_status.needs_migration > 0) do %>
       <% total_needing =
         @primary_language_status.needs_backfill + @primary_language_status.needs_migration %>
       <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-warning/10 to-amber-500/10 border border-warning/30 mb-6">
@@ -94,7 +70,12 @@
         <button
           type="button"
           class="btn btn-warning btn-sm"
-          phx-click="show_migration_modal"
+          phx-click="update_primary_language"
+          data-confirm={
+            gettext("Update %{count} posts to use the current primary language?",
+              count: total_needing
+            )
+          }
         >
           <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
           {gettext("Update All")}
@@ -102,42 +83,89 @@
       </div>
     <% end %>
 
-    <div class="space-y-6">
+    <div class="space-y-4">
       <div class="flex-1">
-        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
-          <span class="text-sm text-base-content/70">
-            {gettext("Showing %{count} posts", count: length(@posts))}
-          </span>
-          <div class="flex gap-2">
-            <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
-              <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
-            </button>
-            <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
-              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Post")}
-            </button>
-          </div>
+        <div class="flex flex-wrap gap-2 items-center justify-end mb-2">
+          <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
+            <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Post")}
+          </button>
         </div>
 
+        <%!-- Status Tabs — only show tabs that have posts, hide if only 1 tab --%>
+        <% all_tabs = [
+          {"published", gettext("Published"), nil},
+          {"draft", gettext("Draft"), nil},
+          {"archived", gettext("Archived"), nil},
+          {"trashed", gettext("Trash"), "error"}
+        ] %>
+        <% visible_tabs =
+          Enum.filter(all_tabs, fn {mode, _label, _color} ->
+            Map.get(@post_status_counts, mode, 0) > 0 or @post_view_mode == mode
+          end) %>
+        <%= if length(visible_tabs) > 1 do %>
+          <div class="flex items-center gap-0.5 border-b border-base-200 mb-3 overflow-x-auto">
+            <%= for {mode, label, color} <- visible_tabs do %>
+              <button
+                type="button"
+                phx-click="switch_post_view"
+                phx-value-mode={mode}
+                class={"px-3 py-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer #{cond do
+                  @post_view_mode == mode and color == "error" -> "border-error text-error"
+                  @post_view_mode == mode -> "border-primary text-primary"
+                  true -> "border-transparent text-base-content/50 hover:text-base-content"
+                end}"}
+              >
+                {label}
+              </button>
+            <% end %>
+          </div>
+        <% end %>
+
         <%= if @loading do %>
-          <div class="flex justify-center items-center py-12">
-            <span class="loading loading-spinner loading-lg text-primary"></span>
+          <%!-- Skeleton placeholders matching post card layout.
+               Uses bg-base-200 instead of DaisyUI skeleton class because
+               skeleton depends on --color-base-300 which is white in some themes. --%>
+          <div class="grid gap-4 animate-pulse">
+            <%= for _i <- 1..3 do %>
+              <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+                <div class="card-body p-4 md:p-5 min-w-0 space-y-3">
+                  <div class="flex items-center gap-2">
+                    <div class="bg-base-200 h-3 w-32 rounded"></div>
+                    <div class="bg-base-200 h-4 w-16 rounded-full"></div>
+                  </div>
+                  <div class="bg-base-200 h-6 w-3/4 rounded"></div>
+                  <div class="border-t border-base-200 pt-3 mt-1">
+                    <div class="flex items-center gap-2">
+                      <div class="bg-base-200 h-8 w-28 rounded-lg"></div>
+                      <div class="bg-base-200 h-8 w-24 rounded-lg"></div>
+                    </div>
+                  </div>
+                  <div class="border-t border-base-200 pt-2 flex justify-end">
+                    <div class="bg-base-200 h-6 w-6 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
           </div>
         <% else %>
           <%= if @posts == [] do %>
-            <div class="card bg-base-100 shadow-sm border border-base-200">
-              <div class="card-body">
-                <h3 class="text-lg font-semibold text-base-content">
-                  {gettext("No posts yet")}
-                </h3>
-                <p class="text-sm text-base-content/70">
-                  {gettext("Create your first post to start sharing content.")}
-                </p>
-              </div>
+            <div class="text-center py-8 text-base-content/60">
+              <%= if @post_view_mode == "trashed" do %>
+                <.icon name="hero-trash" class="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p class="text-sm">{gettext("Trash is empty")}</p>
+              <% else %>
+                <.icon name="hero-document-text" class="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p class="text-sm">{gettext("No posts found")}</p>
+              <% end %>
             </div>
           <% else %>
             <% date_counts = PublishingHTML.build_date_counts(@posts) %>
+            <% visible_posts = Enum.take(@posts, @visible_count) %>
             <div class="grid gap-4">
-              <%= for post <- @posts do %>
+              <%= for post <- visible_posts do %>
                 <% group_slug =
                   post.group || (@current_group && @current_group["slug"]) || @group_slug ||
                     "group" %>
@@ -145,11 +173,17 @@
                 <% post_primary_lang = post[:primary_language] || @primary_language %>
                 <%!-- Use post's primary language for the public URL --%>
                 <% public_url =
-                  PublishingHTML.build_post_url(group_slug, post, post_primary_lang, date_counts) %>
+                  PublishingHTML.build_post_url(
+                    group_slug,
+                    post,
+                    post_primary_lang,
+                    date_counts
+                  ) %>
                 <% full_public_url = @endpoint_url <> public_url %>
                 <%!-- Version info (only for slug-mode posts) --%>
                 <% version_count = length(Map.get(post, :available_versions) || []) %>
-                <% is_versioned = post.mode == :slug %>
+                <% is_versioned = PhoenixKit.Modules.Publishing.Constants.slug_mode?(post.mode) %>
+                <% post_status = post.metadata.status %>
                 <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
                   <div class="card-body p-4 md:p-5 min-w-0">
                     <%!-- Post info section --%>
@@ -160,7 +194,8 @@
                         </span>
                         <%!-- Version info (show published version and count) --%>
                         <%= if is_versioned do %>
-                          <% {display_version, display_status, _label} = get_display_version(post) %>
+                          <% {display_version, display_status, _label} =
+                            get_display_version(post) %>
                           <span class={[
                             "badge badge-xs gap-1",
                             display_status == "published" && "badge-success",
@@ -177,29 +212,35 @@
                         <% end %>
                       </div>
                       <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                        <.link
-                          href={
-                            PhoenixKit.Utils.Routes.path(
-                              "/admin/publishing/#{group_slug}/#{post.uuid}/edit?lang=#{post_primary_lang}"
-                            )
-                          }
-                          class="hover:text-primary transition-colors"
-                        >
+                        <%= if @post_view_mode == "trashed" do %>
                           {post.metadata.title || gettext("Untitled post")}
-                        </.link>
+                        <% else %>
+                          <.link
+                            href={
+                              PhoenixKit.Utils.Routes.path(
+                                "/admin/publishing/#{group_slug}/#{post.uuid}/edit?lang=#{post_primary_lang}"
+                              )
+                            }
+                            class="hover:text-primary transition-colors"
+                          >
+                            {post.metadata.title || gettext("Untitled post")}
+                          </.link>
+                        <% end %>
                       </h3>
-                      <p class="text-xs text-base-content/50">
-                        <span class="font-medium text-base-content">
-                          {gettext("Public URL")}:
-                        </span>
-                        <a
-                          href={full_public_url}
-                          target="_blank"
-                          class="link link-hover font-mono break-all text-xs"
-                        >
-                          {full_public_url}
-                        </a>
-                      </p>
+                      <%= if post_status == "published" and @post_view_mode != "trashed" do %>
+                        <p class="text-xs text-base-content/50">
+                          <span class="font-medium text-base-content">
+                            {gettext("Public URL")}:
+                          </span>
+                          <a
+                            href={full_public_url}
+                            target="_blank"
+                            class="link link-hover font-mono break-all text-xs"
+                          >
+                            {full_public_url}
+                          </a>
+                        </p>
+                      <% end %>
                     </div>
                     <%!-- Languages section --%>
                     <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
@@ -214,54 +255,152 @@
                       <% primary_lang = Enum.find(all_languages, & &1.is_primary) %>
                       <% other_languages = Enum.reject(all_languages, & &1.is_primary) %>
 
-                      <%!-- Primary language (clickable, prominent) --%>
+                      <%!-- Primary language + status control --%>
                       <%= if primary_lang do %>
-                        <button
-                          type="button"
-                          phx-click="language_action"
-                          phx-value-language={primary_lang.code}
-                          phx-value-uuid={post[:uuid]}
-                          phx-value-status={primary_lang.status}
-                          class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors"
-                          title={primary_lang.name}
-                        >
-                          <span class="text-xs text-primary/70 font-medium">
-                            {gettext("Primary")}
-                          </span>
-                          <span class={[
-                            "rounded-full inline-block w-2.5 h-2.5",
-                            cond do
-                              not primary_lang.exists -> "bg-base-content/20"
-                              primary_lang.status == "published" -> "bg-success"
-                              primary_lang.status == "draft" -> "bg-warning"
-                              primary_lang.status == "archived" -> "bg-base-content/40"
-                              true -> "bg-base-content/20"
-                            end
-                          ]}>
-                          </span>
-                          <span class={[
-                            "text-sm font-bold uppercase",
-                            cond do
-                              not primary_lang.exists -> "text-base-content/20"
-                              primary_lang.status == "published" -> "text-success"
-                              primary_lang.status == "draft" -> "text-warning"
-                              primary_lang.status == "archived" -> "text-base-content/40"
-                              true -> "text-base-content/20"
-                            end
-                          ]}>
-                            {String.upcase(primary_lang.display_code)}
-                          </span>
-                        </button>
+                        <div class="flex items-center gap-2">
+                          <%= if @post_view_mode == "trashed" do %>
+                            <span
+                              class="inline-flex items-center gap-2 px-2.5 h-[2.5em] rounded-lg bg-base-200/60 border border-base-300 opacity-60"
+                              title={primary_lang.name}
+                            >
+                              <span class="text-xs text-base-content/50 font-medium">
+                                {gettext("Primary")}
+                              </span>
+                              <span class={[
+                                "rounded-full inline-block w-2.5 h-2.5",
+                                cond do
+                                  not primary_lang.exists -> "bg-base-content/20"
+                                  post_status == "published" -> "bg-success"
+                                  post_status == "draft" -> "bg-warning"
+                                  post_status == "archived" -> "bg-base-content/40"
+                                  true -> "bg-base-content/20"
+                                end
+                              ]}>
+                              </span>
+                              <span class="text-sm font-bold uppercase text-base-content/40">
+                                {String.upcase(primary_lang.display_code)}
+                              </span>
+                            </span>
+                          <% else %>
+                            <button
+                              type="button"
+                              phx-click="language_action"
+                              phx-value-language={primary_lang.code}
+                              phx-value-uuid={post[:uuid]}
+                              phx-value-status={primary_lang.status}
+                              class="inline-flex items-center gap-2 px-2.5 h-[2.5em] rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors"
+                              title={primary_lang.name}
+                            >
+                              <span class="text-xs text-primary/70 font-medium">
+                                {gettext("Primary")}
+                              </span>
+                              <span class={[
+                                "rounded-full inline-block w-2.5 h-2.5",
+                                cond do
+                                  not primary_lang.exists -> "bg-base-content/20"
+                                  post_status == "published" -> "bg-success"
+                                  post_status == "draft" -> "bg-warning"
+                                  post_status == "archived" -> "bg-base-content/40"
+                                  true -> "bg-base-content/20"
+                                end
+                              ]}>
+                              </span>
+                              <span class={[
+                                "text-sm font-bold uppercase",
+                                cond do
+                                  not primary_lang.exists -> "text-base-content/20"
+                                  post_status == "published" -> "text-success"
+                                  post_status == "draft" -> "text-warning"
+                                  post_status == "archived" -> "text-base-content/40"
+                                  true -> "text-base-content/20"
+                                end
+                              ]}>
+                                {String.upcase(primary_lang.display_code)}
+                              </span>
+                            </button>
+                          <% end %>
+                          <%= if @post_view_mode != "trashed" do %>
+                            <form
+                              id={"status-#{post[:uuid]}-#{post_status}"}
+                              phx-change="change_status"
+                            >
+                              <input type="hidden" name="uuid" value={post[:uuid]} />
+                              <div class={[
+                                "inline-flex items-center h-[2.5em] rounded-lg border transition-colors",
+                                post_status == "published" &&
+                                  "bg-success/10 border-success/20 hover:bg-success/20",
+                                post_status == "draft" &&
+                                  "bg-warning/10 border-warning/20 hover:bg-warning/20",
+                                post_status == "archived" &&
+                                  "bg-base-200/60 border-base-300 hover:bg-base-200"
+                              ]}>
+                                <select
+                                  name="status"
+                                  class={[
+                                    "select text-xs font-medium min-h-0 h-full pl-2.5 pr-7 bg-transparent border-none focus:outline-none cursor-pointer w-auto",
+                                    post_status == "published" && "text-success",
+                                    post_status == "draft" && "text-warning",
+                                    post_status == "archived" && "text-base-content/60"
+                                  ]}
+                                >
+                                  <option value="draft" selected={post_status == "draft"}>
+                                    {gettext("Draft")}
+                                  </option>
+                                  <option value="published" selected={post_status == "published"}>
+                                    {gettext("Published")}
+                                  </option>
+                                  <option value="archived" selected={post_status == "archived"}>
+                                    {gettext("Archived")}
+                                  </option>
+                                </select>
+                              </div>
+                            </form>
+                          <% end %>
+                          <%= if @post_view_mode != "trashed" do %>
+                            <button
+                              type="button"
+                              phx-click="trash_post"
+                              phx-value-uuid={post[:uuid]}
+                              class="inline-flex items-center gap-1.5 px-2.5 h-[2.5em] rounded-lg border border-error/20 bg-error/5 hover:bg-error/15 text-error/60 hover:text-error transition-colors cursor-pointer"
+                              data-confirm={gettext("Move this post to trash?")}
+                              title={gettext("Move to trash")}
+                            >
+                              <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                            </button>
+                          <% else %>
+                            <button
+                              type="button"
+                              phx-click="restore_post"
+                              phx-value-uuid={post[:uuid]}
+                              class="inline-flex items-center gap-1.5 px-2.5 h-[2.5em] rounded-lg border border-success/30 bg-success/10 hover:bg-success/20 text-success font-medium transition-colors cursor-pointer"
+                              title={gettext("Restore")}
+                            >
+                              <.icon name="hero-arrow-uturn-left" class="w-3.5 h-3.5" />
+                              <span class="text-xs font-medium">{gettext("Restore")}</span>
+                            </button>
+                          <% end %>
+                        </div>
                       <% end %>
 
                       <%!-- Other translations (excluding primary) --%>
-                      <.publishing_language_switcher
-                        languages={other_languages}
-                        show_status={true}
-                        show_add={true}
-                        on_click="language_action"
-                        size={:sm}
-                      />
+                      <%= if @post_view_mode == "trashed" do %>
+                        <div class="opacity-60 pointer-events-none">
+                          <.publishing_language_switcher
+                            languages={other_languages}
+                            show_status={true}
+                            show_add={false}
+                            size={:sm}
+                          />
+                        </div>
+                      <% else %>
+                        <.publishing_language_switcher
+                          languages={other_languages}
+                          show_status={true}
+                          show_add={true}
+                          on_click="language_action"
+                          size={:sm}
+                        />
+                      <% end %>
                     </div>
                     <%!-- Translation Progress Bar --%>
                     <%= if translation_status = Map.get(@translating_posts, post.slug) do %>
@@ -299,84 +438,20 @@
                 </div>
               <% end %>
             </div>
+            <%= if length(@posts) > @visible_count do %>
+              <div class="flex justify-center mt-4">
+                <button
+                  type="button"
+                  phx-click="load_more"
+                  class="btn btn-outline btn-sm"
+                >
+                  {gettext("Load more")}
+                </button>
+              </div>
+            <% end %>
           <% end %>
         <% end %>
       </div>
     </div>
   </div>
-
-  <%!-- Primary Language Migration Confirmation Modal --%>
-  <%= if @show_migration_modal do %>
-    <% total_needing =
-      @primary_language_status.needs_backfill + @primary_language_status.needs_migration %>
-    <div class="modal modal-open">
-      <div class="modal-box" phx-click-away="close_migration_modal">
-        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
-          <.icon name="hero-language" class="w-5 h-5 text-warning" />
-          {gettext("Update Primary Language")}
-        </h3>
-
-        <div class="space-y-4">
-          <p class="text-base-content/80">
-            {ngettext(
-              "This will update the primary language setting for %{count} post in this publishing group.",
-              "This will update the primary language setting for %{count} posts in this publishing group.",
-              total_needing,
-              count: total_needing
-            )}
-          </p>
-
-          <div class="bg-base-200 rounded-lg p-4 space-y-2">
-            <div class="flex justify-between text-sm">
-              <span class="text-base-content/70">{gettext("New Primary Language")}</span>
-              <span class="font-medium">{@primary_language_name}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-base-content/70">{gettext("Posts to Update")}</span>
-              <span class="font-medium">{total_needing}</span>
-            </div>
-          </div>
-
-          <div class="text-sm text-base-content/70 space-y-2">
-            <p>
-              <strong>{gettext("What this does:")}</strong>
-            </p>
-            <ul class="list-disc list-inside space-y-1 pl-2">
-              <li>{gettext("Saves the current primary language to each post's metadata")}</li>
-              <li>{gettext("Keeps posts accessible if the global language changes")}</li>
-              <li>{gettext("Does not modify post content or translations")}</li>
-            </ul>
-          </div>
-
-          <%= if total_needing > 20 do %>
-            <div class="flex items-start gap-2 p-3 rounded-lg bg-info/10 border border-info/20">
-              <.icon name="hero-information-circle" class="w-4 h-4 text-info shrink-0 mt-0.5" />
-              <p class="text-xs text-info">
-                {gettext(
-                  "This migration will run in the background. You can continue working while posts are updated."
-                )}
-              </p>
-            </div>
-          <% end %>
-        </div>
-
-        <div class="modal-action">
-          <button type="button" class="btn" phx-click="close_migration_modal">
-            {gettext("Cancel")}
-          </button>
-          <button
-            type="button"
-            class="btn btn-warning"
-            phx-click="confirm_migrate_primary_language"
-            phx-disable-with={gettext("Updating...")}
-          >
-            <.icon name="hero-arrow-path" class="w-4 h-4" />
-            {ngettext("Update %{count} Post", "Update %{count} Posts", total_needing,
-              count: total_needing
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

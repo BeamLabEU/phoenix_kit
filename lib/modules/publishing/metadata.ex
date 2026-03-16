@@ -5,6 +5,8 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
   Provides title extraction from markdown/component content.
   """
 
+  @default_title PhoenixKit.Modules.Publishing.Constants.default_title()
+
   @doc """
   Extracts title from markdown content.
   Looks for the first H1 heading (# Title) within the first few lines.
@@ -17,23 +19,23 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
     |> do_extract_title()
   end
 
-  def extract_title_from_content(_), do: "Untitled"
+  def extract_title_from_content(_), do: @default_title
 
-  defp do_extract_title(""), do: "Untitled"
+  defp do_extract_title(""), do: @default_title
 
   defp do_extract_title(content) do
     content
     |> extract_title_from_lines()
     |> case do
-      "Untitled" ->
-        extract_title_from_components(content) || "Untitled"
+      @default_title ->
+        extract_title_from_components(content) || @default_title
 
       title ->
         title
     end
   end
 
-  defp extract_title_from_lines(""), do: "Untitled"
+  defp extract_title_from_lines(""), do: @default_title
 
   defp extract_title_from_lines(content) do
     lines =
@@ -58,7 +60,7 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
         |> String.slice(0, 100)
 
       true ->
-        "Untitled"
+        @default_title
     end
   end
 

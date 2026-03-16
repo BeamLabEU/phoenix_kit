@@ -548,7 +548,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         entry.loc
       end
 
-    case Regex.run(~r/^\/([a-z]{2})(?:\/|$)/, path) do
+    case Regex.run(~r/^\/([a-z]{2,3}(?:-[A-Za-z]{2,4})?)(?:\/|$)/, path) do
       [_, lang] -> lang
       _ -> Routes.get_default_admin_locale()
     end

@@ -5,6 +5,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias Phoenix.Component
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -17,7 +19,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
         {:ok,
          socket
          |> put_flash(:error, gettext("The requested group could not be found."))
-         |> push_navigate(to: Routes.path("/admin/settings/publishing"))}
+         |> push_navigate(to: Routes.path("/admin/publishing"))}
 
       group ->
         form =
@@ -29,7 +31,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
          |> assign(:page_title, gettext("Edit Group"))
          |> assign(
            :current_path,
-           Routes.path("/admin/settings/publishing/#{group_slug}/edit")
+           Routes.path("/admin/publishing/edit-group/#{group_slug}")
          )
          |> assign(:group, group)
          |> assign(:form, form)}
@@ -59,7 +61,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
          |> assign(:group, updated_group)
          |> assign(:form, updated_form)
          |> put_flash(:info, gettext("Group updated"))
-         |> push_navigate(to: Routes.path("/admin/settings/publishing"))}
+         |> push_navigate(to: Routes.path("/admin/publishing/#{updated_group["slug"]}"))}
 
       {:error, :already_exists} ->
         {:noreply,
@@ -87,7 +89,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
       {:error, :destination_exists} ->
         {:noreply,
          socket
-         |> put_flash(:error, gettext("A directory already exists for that slug."))
+         |> put_flash(:error, gettext("Another group already uses that slug."))
          |> assign(:form, Component.to_form(params, as: :group))}
 
       {:error, reason} ->
@@ -101,13 +103,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
     end
   rescue
     e ->
-      require Logger
-      Logger.error("Group save failed: #{Exception.message(e)}")
+      Logger.error("[Publishing.Edit] Group save failed: #{Exception.message(e)}")
       {:noreply, put_flash(socket, :error, gettext("Something went wrong. Please try again."))}
   end
 
   def handle_event("cancel", _params, socket) do
-    {:noreply, push_navigate(socket, to: Routes.path("/admin/settings/publishing"))}
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/publishing"))}
   end
 
   defp find_group(slug) do
