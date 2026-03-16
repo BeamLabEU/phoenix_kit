@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   @spec list_groups(String.t()) :: [group()]
   def list_groups(status) do
     DBStorage.list_groups(status)
-    |> Enum.map(&db_group_to_map/1)
+    |> Enum.map(fn group -> group |> StaleFixer.fix_stale_group() |> db_group_to_map() end)
   end
 
   @doc """

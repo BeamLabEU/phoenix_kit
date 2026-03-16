@@ -192,7 +192,10 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
     with {:ok, updated_post} <- result do
       ListingCache.regenerate(group_slug)
-      PublishingPubSub.broadcast_post_updated(group_slug, updated_post)
+
+      unless Map.get(opts_map, :skip_broadcast, false) do
+        PublishingPubSub.broadcast_post_updated(group_slug, updated_post)
+      end
     end
 
     result
@@ -216,7 +219,8 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
         case update_post(group_slug, post, %{"status" => new_status},
                scope: opts[:scope],
-               is_primary_language: is_primary_language
+               is_primary_language: is_primary_language,
+               skip_broadcast: true
              ) do
           {:ok, updated_post} ->
             identifier = updated_post[:uuid] || updated_post.slug
