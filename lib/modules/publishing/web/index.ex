@@ -300,7 +300,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       Publishing.count_primary_language_status(posts, global_primary)
 
     lang_migration_count =
-      primary_lang_status.needs_backfill + primary_lang_status.needs_migration
+      if primary_lang_status,
+        do: primary_lang_status.needs_backfill + primary_lang_status.needs_migration,
+        else: 0
 
     %{
       name: db_group["name"],
