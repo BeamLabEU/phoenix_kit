@@ -6,7 +6,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
@@ -184,14 +183,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   end
 
   defp db_groups_to_maps do
-    DBStorage.list_groups()
-    |> Enum.map(fn g ->
-      %{
-        "name" => g.name,
-        "slug" => g.slug,
-        "mode" => g.mode
-      }
-    end)
+    Publishing.list_groups()
   end
 
   defp cache_toggle_message(cache_type, enabled) do
@@ -223,7 +215,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
     post_count =
       case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
-        :not_found -> length(DBStorage.list_posts(group_slug))
+        :not_found -> length(Publishing.list_posts(group_slug))
         posts -> length(posts)
       end
 

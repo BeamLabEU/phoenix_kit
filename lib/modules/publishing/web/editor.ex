@@ -29,11 +29,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
-  alias PhoenixKit.Modules.Publishing.DBStorage
-  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Shared
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -670,40 +667,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     language = socket.assigns.current_language
     post_uuid = post[:uuid]
 
-    result =
-      with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
-           db_version when not is_nil(db_version) <- Shared.resolve_db_version(db_post, nil),
-           content when not is_nil(content) <-
-             DBStorage.get_content(db_version.uuid, language) do
-        # Don't delete the last language
-        remaining =
-          DBStorage.list_contents(db_version.uuid)
-          |> Enum.reject(&(&1.language == language))
-
-        if remaining == [] do
-          {:error, :last_language}
-        else
-          repo = PhoenixKit.RepoHelper.repo()
-
-          case repo.delete(content) do
-            {:ok, _} ->
-              ListingCache.regenerate(group_slug)
-
-              PublishingPubSub.broadcast_translation_deleted(
-                group_slug,
-                db_post.slug || db_post.uuid,
-                language
-              )
-
-              :ok
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-        end
-      else
-        nil -> {:error, :not_found}
-      end
+    result = Publishing.clear_translation(group_slug, post_uuid, language)
 
     case result do
       :ok ->

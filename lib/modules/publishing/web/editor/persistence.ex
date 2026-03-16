@@ -9,7 +9,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
@@ -75,7 +74,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         {:error, :conflicts_with_post_slug} ->
           # Auto-clear the url_slug from ALL translations of this post
           cleared_params = Map.put(params, "url_slug", "")
-          cleared_languages = DBStorage.clear_url_slug_from_post(group_slug, post_slug, url_slug)
+          cleared_languages = Publishing.clear_url_slug_from_post(group_slug, post_slug, url_slug)
 
           notice =
             if length(cleared_languages) > 1 do
@@ -97,7 +96,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
         {:error, :slug_already_exists} ->
           # Auto-clear the url_slug from ALL translations of this post
           cleared_params = Map.put(params, "url_slug", "")
-          cleared_languages = DBStorage.clear_url_slug_from_post(group_slug, post_slug, url_slug)
+          cleared_languages = Publishing.clear_url_slug_from_post(group_slug, post_slug, url_slug)
 
           notice =
             if length(cleared_languages) > 1 do

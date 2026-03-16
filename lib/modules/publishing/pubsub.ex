@@ -353,16 +353,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
     Manager.broadcast(cache_topic(group_slug), {:cache_changed, group_slug})
   end
 
-  @doc """
-  Broadcasts detailed cache operation info.
-  """
-  def broadcast_cache_operation(group_slug, operation, metadata \\ %{}) do
-    Manager.broadcast(
-      cache_topic(group_slug),
-      {:cache_operation, group_slug, operation, metadata}
-    )
-  end
-
   # ============================================================================
   # AI Translation Progress
   # ============================================================================
@@ -467,50 +457,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   end
 
   # ============================================================================
-  # Bulk Operations Progress
-  # ============================================================================
-
-  @doc """
-  Returns the topic for bulk operation progress.
-  """
-  def bulk_operation_topic(group_slug) do
-    "#{@topic_prefix}:#{group_slug}:bulk_operations"
-  end
-
-  @doc """
-  Subscribes to bulk operation progress for a group.
-  """
-  def subscribe_to_bulk_operations(group_slug) do
-    Manager.subscribe(bulk_operation_topic(group_slug))
-  end
-
-  @doc """
-  Broadcasts bulk operation progress.
-  """
-  def broadcast_bulk_operation_progress(
-        group_slug,
-        operation_id,
-        operation_type,
-        completed,
-        total
-      ) do
-    Manager.broadcast(
-      bulk_operation_topic(group_slug),
-      {:bulk_operation_progress, operation_id, operation_type, completed, total}
-    )
-  end
-
-  @doc """
-  Broadcasts bulk operation completion.
-  """
-  def broadcast_bulk_operation_completed(group_slug, operation_id, operation_type, results) do
-    Manager.broadcast(
-      bulk_operation_topic(group_slug),
-      {:bulk_operation_completed, operation_id, operation_type, results}
-    )
-  end
-
-  # ============================================================================
   # Form Key Helpers
   # ============================================================================
 
@@ -570,26 +516,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   # ============================================================================
   # Primary Language Migration Progress
   # ============================================================================
-
-  @doc """
-  Broadcasts that primary language migration has started.
-  """
-  def broadcast_primary_language_migration_started(group_slug, total_count) do
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:primary_language_migration_started, group_slug, total_count}
-    )
-  end
-
-  @doc """
-  Broadcasts primary language migration progress.
-  """
-  def broadcast_primary_language_migration_progress(group_slug, current, total) do
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:primary_language_migration_progress, group_slug, current, total}
-    )
-  end
 
   @doc """
   Broadcasts that primary language migration has completed.

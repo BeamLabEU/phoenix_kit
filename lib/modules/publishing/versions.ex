@@ -142,30 +142,31 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
   """
   @spec publish_version(String.t(), String.t(), integer(), keyword()) :: :ok | {:error, any()}
   def publish_version(group_slug, post_uuid, version, opts \\ []) do
-    db_post = DBStorage.get_post_by_uuid(post_uuid, [:group])
-    unless db_post, do: throw({:error, :not_found})
-    if db_post.status == "trashed", do: throw({:error, :post_trashed})
+    case DBStorage.get_post_by_uuid(post_uuid, [:group]) do
+      nil ->
+        {:error, :not_found}
 
-    # Wrap the entire publish operation in a transaction for atomicity
+      %{status: "trashed"} ->
+        {:error, :post_trashed}
+
+      db_post ->
+        do_publish_version(group_slug, db_post, version, opts)
+    end
+  end
+
+  defp do_publish_version(group_slug, db_post, version, opts) do
     repo = PhoenixKit.RepoHelper.repo()
 
     tx_result =
       repo.transaction(fn ->
-        # Validate target version exists
         versions = DBStorage.list_versions(db_post.uuid)
 
         unless Enum.any?(versions, &(&1.version_number == version)) do
           repo.rollback(:version_not_found)
         end
 
-        # Validate primary language content has a title before publishing
         validate_primary_title!(repo, db_post, version)
-
-        # Set target version to published, archive previously-published versions
-        # Also update content status to match so public rendering works correctly
         update_version_statuses!(repo, versions, version)
-
-        # Update post status and published_at
         update_post_published!(repo, db_post)
       end)
 
@@ -188,13 +189,6 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
       {:error, reason} ->
         {:error, reason}
     end
-  catch
-    {:error, reason} = err ->
-      Logger.warning(
-        "[Publishing] publish_version failed for #{group_slug}/#{post_uuid}/v#{version}: #{inspect(reason)}"
-      )
-
-      err
   end
 
   @doc """
@@ -235,15 +229,8 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
   @spec delete_version(String.t(), String.t(), integer()) :: :ok | {:error, term()}
   def delete_version(group_slug, post_uuid, version) do
     with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
-         db_version when not is_nil(db_version) <- DBStorage.get_version(db_post.uuid, version) do
-      if db_version.status == "published", do: throw({:error, :cannot_delete_live})
-
-      active =
-        DBStorage.list_versions(db_post.uuid)
-        |> Enum.reject(&(&1.status == "archived"))
-
-      if length(active) <= 1, do: throw({:error, :last_version})
-
+         db_version when not is_nil(db_version) <- DBStorage.get_version(db_post.uuid, version),
+         :ok <- validate_version_deletable(db_post, db_version) do
       broadcast_id = db_post.slug || db_post.uuid
 
       case DBStorage.update_version(db_version, %{status: "archived"}) do
@@ -258,14 +245,21 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
       end
     else
       nil -> {:error, :not_found}
+      {:error, _} = err -> err
     end
-  catch
-    {:error, reason} = err ->
-      Logger.warning(
-        "[Publishing] delete_version failed for #{group_slug}/#{post_uuid}/v#{version}: #{inspect(reason)}"
-      )
+  end
 
-      err
+  defp validate_version_deletable(db_post, db_version) do
+    cond do
+      db_version.status == "published" ->
+        {:error, :cannot_delete_live}
+
+      length(Enum.reject(DBStorage.list_versions(db_post.uuid), &(&1.status == "archived"))) <= 1 ->
+        {:error, :last_version}
+
+      true ->
+        :ok
+    end
   end
 
   @doc false
@@ -285,9 +279,13 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
   # ===========================================================================
 
   defp create_version_in_db(group_slug, post_uuid, source_version, _params, opts) do
-    db_post = DBStorage.get_post_by_uuid(post_uuid, [:group])
-    unless db_post, do: throw({:error, :post_not_found})
+    case DBStorage.get_post_by_uuid(post_uuid, [:group]) do
+      nil -> {:error, :post_not_found}
+      db_post -> do_create_version(group_slug, post_uuid, db_post, source_version, opts)
+    end
+  end
 
+  defp do_create_version(group_slug, post_uuid, db_post, source_version, opts) do
     scope = Shared.fetch_option(opts, :scope)
     created_by_uuid = Shared.resolve_scope_user_uuids(scope)
 
@@ -321,6 +319,7 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
       case Shared.read_back_post(group_slug, post_uuid, db_post, nil, db_version.version_number) do
         {:ok, post} ->
           broadcast_id = db_post.slug || db_post.uuid
+          ListingCache.regenerate(group_slug)
           broadcast_version_created(group_slug, broadcast_id, post)
           {:ok, post}
 
@@ -328,13 +327,6 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
           err
       end
     end
-  catch
-    {:error, reason} ->
-      Logger.warning(
-        "[Publishing] create_version failed for #{group_slug}/#{post_uuid}: #{inspect(reason)}"
-      )
-
-      {:error, reason}
   end
 
   defp update_version_statuses!(repo, versions, target_version) do

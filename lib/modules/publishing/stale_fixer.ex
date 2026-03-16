@@ -9,6 +9,8 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
   require Logger
 
+  import Ecto.Query, only: [from: 2]
+
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
@@ -209,9 +211,12 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
     if effective_mode == "slug" and (is_nil(post.slug) or post.slug == "") do
       # Post switched to slug mode but has no slug — generate from title or date
-      slug = generate_slug_for_post(post, ctx)
+      base_slug = generate_slug_for_post(post, ctx)
 
-      if slug != "" do
+      if base_slug != "" do
+        # Ensure uniqueness by checking if slug exists in the group
+        slug = ensure_unique_slug(post.group_uuid, base_slug, post.uuid)
+
         Logger.info(
           "[Publishing] Generating slug for post #{post.uuid}: #{inspect(slug)} (mode changed to slug)"
         )
@@ -226,6 +231,24 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
       end
     else
       attrs
+    end
+  end
+
+  # Ensures a slug is unique within a group by appending a UUID suffix if needed
+  defp ensure_unique_slug(group_uuid, slug, post_uuid) do
+    conflict =
+      from(p in PublishingPost,
+        where: p.group_uuid == ^group_uuid and p.slug == ^slug and p.uuid != ^post_uuid,
+        select: p.uuid,
+        limit: 1
+      )
+      |> PhoenixKit.RepoHelper.repo().one()
+
+    if conflict do
+      suffix = String.slice(post_uuid || "", 0, 8)
+      "#{slug}-#{suffix}"
+    else
+      slug
     end
   end
 

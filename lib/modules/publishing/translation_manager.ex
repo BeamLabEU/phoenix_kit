@@ -189,6 +189,45 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
   end
 
   @doc """
+  Hard-deletes a language's content row from a post.
+
+  Unlike `delete_language` (which archives), this permanently removes the content.
+  Refuses to delete the last remaining language.
+  """
+  @spec clear_translation(String.t(), String.t(), String.t()) :: :ok | {:error, term()}
+  def clear_translation(group_slug, post_uuid, language_code) do
+    with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
+         db_version when not is_nil(db_version) <- Shared.resolve_db_version(db_post, nil),
+         content when not is_nil(content) <-
+           DBStorage.get_content(db_version.uuid, language_code),
+         :ok <- validate_not_last_content(db_version, language_code) do
+      repo = PhoenixKit.RepoHelper.repo()
+
+      case repo.delete(content) do
+        {:ok, _} ->
+          broadcast_id = db_post.slug || db_post.uuid
+          ListingCache.regenerate(group_slug)
+          PublishingPubSub.broadcast_translation_deleted(group_slug, broadcast_id, language_code)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      nil -> {:error, :not_found}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp validate_not_last_content(db_version, language_code) do
+    remaining =
+      DBStorage.list_contents(db_version.uuid)
+      |> Enum.reject(&(&1.language == language_code))
+
+    if remaining == [], do: {:error, :last_language}, else: :ok
+  end
+
+  @doc """
   Deletes a specific language translation from a post.
 
   For versioned posts, specify the version. For unversioned posts, version is ignored.
@@ -201,14 +240,9 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
   def delete_language(group_slug, post_uuid, language_code, version \\ nil) do
     with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
          db_version when not is_nil(db_version) <- Shared.resolve_db_version(db_post, version),
-         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language_code) do
-      # Don't delete the last active language
-      active =
-        DBStorage.list_contents(db_version.uuid)
-        |> Enum.reject(&(&1.status == "archived"))
-
-      if length(active) <= 1, do: throw({:error, :last_language})
-
+         content when not is_nil(content) <-
+           DBStorage.get_content(db_version.uuid, language_code),
+         :ok <- validate_not_last_language(db_version) do
       case DBStorage.update_content(content, %{status: "archived"}) do
         {:ok, _} ->
           broadcast_id = db_post.slug || db_post.uuid
@@ -221,14 +255,16 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
       end
     else
       nil -> {:error, :not_found}
+      {:error, _} = err -> err
     end
-  catch
-    {:error, reason} = err ->
-      Logger.warning(
-        "[Publishing] delete_language failed for #{group_slug}/#{post_uuid}/#{language_code}: #{inspect(reason)}"
-      )
+  end
 
-      err
+  defp validate_not_last_language(db_version) do
+    active =
+      DBStorage.list_contents(db_version.uuid)
+      |> Enum.reject(&(&1.status == "archived"))
+
+    if length(active) <= 1, do: {:error, :last_language}, else: :ok
   end
 
   @doc """
@@ -257,10 +293,13 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
 
     with db_post when not is_nil(db_post) <- db_post,
          db_version when not is_nil(db_version) <- DBStorage.get_version(db_post.uuid, version),
-         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language) do
+         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language),
+         :ok <- validate_translation_status_change(db_post, db_version, language, status) do
       case DBStorage.update_content(content, %{status: status}) do
         {:ok, _} ->
-          if status == "published", do: ListingCache.regenerate(group_slug)
+          ListingCache.regenerate(group_slug)
+          broadcast_id = db_post.slug || db_post.uuid
+          PublishingPubSub.broadcast_post_updated(group_slug, %{slug: broadcast_id})
           :ok
 
         {:error, reason} ->
@@ -268,11 +307,33 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
       end
     else
       nil -> {:error, :not_found}
+      {:error, _} = error -> error
     end
   end
 
   def set_translation_status(_group_slug, _post_identifier, _version, _language, _status) do
     {:error, :invalid_status}
+  end
+
+  # Prevents publishing a translation when the primary language content isn't published.
+  # This avoids the contradiction where set_translation_status allows publishing but
+  # fix_translation_status_consistency (stale fixer) silently reverts it.
+  defp validate_translation_status_change(_db_post, _db_version, _language, status)
+       when status != "published",
+       do: :ok
+
+  defp validate_translation_status_change(db_post, db_version, language, "published") do
+    if language == db_post.primary_language do
+      :ok
+    else
+      case DBStorage.get_content(db_version.uuid, db_post.primary_language) do
+        nil ->
+          {:error, :primary_not_published}
+
+        primary ->
+          if primary.status == "published", do: :ok, else: {:error, :primary_not_published}
+      end
+    end
   end
 
   @doc """

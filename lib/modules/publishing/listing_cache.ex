@@ -36,7 +36,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   - On invalidate: clears :persistent_term entry (next read triggers regeneration)
   """
 
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
@@ -554,7 +557,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   def find_post_by_mode(group_slug, post) do
     mode = Map.get(post, :mode)
 
-    if mode in ["timestamp", :timestamp] do
+    if mode in @timestamp_modes do
       date = post[:date]
       time = post[:time]
 

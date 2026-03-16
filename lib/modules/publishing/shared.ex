@@ -224,11 +224,4 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
 
   def resolve_db_version(db_post, version_number),
     do: DBStorage.get_version(db_post.uuid, version_number)
-
-  # ============================================================================
-  # Cache Regeneration Check
-  # ============================================================================
-
-  @doc false
-  def should_regenerate_cache?(_), do: true
 end

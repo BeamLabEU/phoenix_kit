@@ -260,7 +260,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   @doc "Trashes a post by setting status to 'trashed'."
   def trash_post(%PublishingPost{} = post) do
-    update_post(post, %{status: "trashed"})
+    post
+    |> Ecto.Changeset.change(status: "trashed")
+    |> repo().update()
   end
 
   @doc "Hard-deletes a post and all its versions/contents (cascade)."
