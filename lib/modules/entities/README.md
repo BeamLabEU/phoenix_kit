@@ -36,6 +36,25 @@ All templates follow Phoenix 1.8 layout conventions (`<Layouts.app ...>` with `@
 - Enabling flag: `PhoenixKit.Settings.get_setting("entities_enabled", "false")`.
 - Router: available under `{prefix}/admin/entities/*` via `phoenix_kit_routes()`.
 
+## Customizing the Data View
+
+The admin route `/admin/entities/:entity_slug/data/:id` is handled by
+`PhoenixKit.Modules.Entities.Web.DataView`. To replace it with your own LiveView,
+declare a route at the same path **before** `phoenix_kit_routes()` in your router:
+
+```elixir
+# In your app's router.ex — MUST be declared before phoenix_kit_routes()
+scope "/phoenix_kit", MyAppWeb do
+  pipe_through [:browser, :phoenix_kit_authenticated]
+  live "/admin/entities/:entity_slug/data/:id", MyCustomDataView, :show
+end
+
+phoenix_kit_routes()
+```
+
+Phoenix matches routes in declaration order, so the custom route wins and
+`DataView` is never reached.
+
 ## Additional Reading
 
 - Overview: `OVERVIEW.md` (in this directory)

@@ -103,6 +103,10 @@ defmodule PhoenixKit.Users.Auth.User do
       using this changeset for validations on a LiveView form before
       submitting the form), this option can be set to `false`.
       Defaults to `true`.
+
+  An optional `:custom_fields` map may be included in `attrs` to persist
+  arbitrary key-value metadata alongside the user record in a single atomic
+  insert. If omitted, `custom_fields` defaults to `%{}`.
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
@@ -115,13 +119,15 @@ defmodule PhoenixKit.Users.Auth.User do
       :registration_ip,
       :registration_country,
       :registration_region,
-      :registration_city
+      :registration_city,
+      :custom_fields
     ])
     |> validate_email(opts)
     |> validate_username(opts)
     |> validate_password(opts)
     |> validate_names()
     |> validate_registration_fields()
+    |> validate_custom_fields()
     |> maybe_generate_username_from_email()
     |> set_default_active_status()
   end
