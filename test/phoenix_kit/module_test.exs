@@ -24,7 +24,6 @@ defmodule PhoenixKit.ModuleTest do
     PhoenixKit.Modules.Storage,
     PhoenixKit.Modules.Sync,
     PhoenixKit.Modules.CustomerService,
-    PhoenixKit.Modules.Newsletters,
     PhoenixKit.Jobs
   ]
 
@@ -35,7 +34,7 @@ defmodule PhoenixKit.ModuleTest do
     :ok
   end
 
-  describe "all 21 modules implement PhoenixKit.Module behaviour" do
+  describe "all 20 modules implement PhoenixKit.Module behaviour" do
     test "all modules are loadable" do
       for mod <- @all_internal_modules do
         assert Code.ensure_loaded?(mod), "#{inspect(mod)} should be loadable"

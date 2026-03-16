@@ -78,6 +78,7 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
     if newsletters_mod && Code.ensure_loaded?(newsletters_mod) &&
          function_exported?(newsletters_mod, :enabled?, 0) &&
+         function_exported?(newsletters_mod, :process_scheduled_broadcasts, 0) &&
          newsletters_mod.enabled?() do
       {:ok, newsletters_count} = newsletters_mod.process_scheduled_broadcasts()
 
