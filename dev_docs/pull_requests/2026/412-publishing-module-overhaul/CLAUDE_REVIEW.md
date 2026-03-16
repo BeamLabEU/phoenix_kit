@@ -63,15 +63,11 @@ The timestamp uniqueness check (`get_post_by_datetime`) runs OUTSIDE the transac
 
 In the template, `@endpoint_url <> url_prefix <> "/"` will crash with `ArgumentError` if a group has published posts during the dead render (before `handle_params` sets the URL from the URI). The `nil <> string` concatenation is invalid.
 
-### 5. XSS risk in media URL insertion
+### 5. ~~XSS risk in media URL insertion~~ (already fixed)
 
 **File:** `lib/modules/publishing/web/editor.ex:~1659`
 
-```elixir
-js_code = "window.publishingEditorInsertMedia && window.publishingEditorInsertMedia('#{file_url}', 'image')"
-```
-
-`file_url` is interpolated directly into JavaScript without escaping. If the URL contains a single quote, it breaks the JS string and could enable XSS. Should use `Phoenix.HTML.javascript_escape/1` or JSON encoding.
+~~`file_url` was interpolated directly into JavaScript without escaping.~~ Now uses `Jason.encode!` which properly escapes the URL. No action needed.
 
 ---
 

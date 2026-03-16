@@ -55,6 +55,7 @@ Calling `handle_info` recursively works but bypasses LiveView's message dispatch
 
 ## Follow-up
 
-- [ ] Fix XSS in `postsEditorInsertMedia` visual mode — use DOM APIs instead of string concatenation
-- [ ] Add `@impl true` to the three Leaf `handle_info` clauses
-- [ ] Consider replacing recursive `handle_info` with extracted private function
+- [x] Fix XSS in `postsEditorInsertMedia` visual mode — use DOM APIs instead of string concatenation *(bd744b28)*
+- [x] Fix XSS in server-side JS string — use `Jason.encode!` for file URLs *(bd744b28)*
+- [x] Add `@impl true` to the three Leaf `handle_info` clauses *(bd744b28)*
+- [x] Replace recursive `handle_info` with extracted `do_insert_component/2` *(bd744b28)*
