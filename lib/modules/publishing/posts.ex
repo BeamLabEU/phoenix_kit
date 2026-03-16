@@ -250,6 +250,8 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
           {:ok, _} ->
             StaleFixer.reconcile_post_status(db_post)
             ListingCache.regenerate(group_slug)
+            broadcast_id = db_post.slug || db_post.uuid
+            PublishingPubSub.broadcast_post_updated(group_slug, %{slug: broadcast_id})
             {:ok, post_uuid}
 
           {:error, reason} ->

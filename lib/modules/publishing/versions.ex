@@ -319,6 +319,7 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
       case Shared.read_back_post(group_slug, post_uuid, db_post, nil, db_version.version_number) do
         {:ok, post} ->
           broadcast_id = db_post.slug || db_post.uuid
+          ListingCache.regenerate(group_slug)
           broadcast_version_created(group_slug, broadcast_id, post)
           {:ok, post}
 

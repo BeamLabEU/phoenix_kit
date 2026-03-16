@@ -297,7 +297,9 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
          :ok <- validate_translation_status_change(db_post, db_version, language, status) do
       case DBStorage.update_content(content, %{status: status}) do
         {:ok, _} ->
-          if status == "published", do: ListingCache.regenerate(group_slug)
+          ListingCache.regenerate(group_slug)
+          broadcast_id = db_post.slug || db_post.uuid
+          PublishingPubSub.broadcast_post_updated(group_slug, %{slug: broadcast_id})
           :ok
 
         {:error, reason} ->
