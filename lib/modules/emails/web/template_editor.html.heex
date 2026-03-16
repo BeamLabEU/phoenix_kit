@@ -51,8 +51,9 @@
                     class="input input-bordered"
                     disabled={(@mode == :edit and @template) && @template.is_system}
                   />
-                  <%= if error = Keyword.get(@changeset.errors, :name) do %>
-                    <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                  <% err = @changeset.action && Keyword.get(@changeset.errors, :name) %>
+                  <%= if err do %>
+                    <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                   <% end %>
                 </div>
 
@@ -85,8 +86,9 @@
                     placeholder="Welcome Email"
                     class="input input-bordered"
                   />
-                  <%= if error = Keyword.get(@changeset.errors, :display_name) do %>
-                    <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                  <% err = @changeset.action && Keyword.get(@changeset.errors, :display_name) %>
+                  <%= if err do %>
+                    <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                   <% end %>
                 </div>
               </div>
@@ -103,8 +105,9 @@
                   class="input input-bordered"
                   disabled={(@mode == :edit and @template) && @template.is_system}
                 />
-                <%= if error = Keyword.get(@changeset.errors, :slug) do %>
-                  <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                <% err = @changeset.action && Keyword.get(@changeset.errors, :slug) %>
+                <%= if err do %>
+                  <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                 <% end %>
                 <label class="label">
                   <span class="label-text-alt">
@@ -156,8 +159,9 @@
                       {gettext("Newsletters")}
                     </option>
                   </select>
-                  <%= if error = Keyword.get(@changeset.errors, :category) do %>
-                    <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                  <% err = @changeset.action && Keyword.get(@changeset.errors, :category) %>
+                  <%= if err do %>
+                    <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                   <% end %>
                 </div>
 
@@ -222,8 +226,9 @@
                       {gettext("Archived")}
                     </option>
                   </select>
-                  <%= if error = Keyword.get(@changeset.errors, :status) do %>
-                    <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                  <% err = @changeset.action && Keyword.get(@changeset.errors, :status) %>
+                  <%= if err do %>
+                    <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                   <% end %>
                 </div>
               </div>
@@ -242,8 +247,9 @@
                   class="textarea textarea-bordered"
                   rows="2"
                 ><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :description) || %{}, @current_editor_locale) %></textarea>
-                <%= if error = Keyword.get(@changeset.errors, :description) do %>
-                  <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                <% err = @changeset.action && Keyword.get(@changeset.errors, :description) %>
+                <%= if err do %>
+                  <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                 <% end %>
               </div>
             </div>
@@ -300,8 +306,9 @@
                   placeholder={"Welcome to {{app_name}}! (#{String.upcase(@current_editor_locale)})"}
                   class="input input-bordered"
                 />
-                <%= if error = Keyword.get(@changeset.errors, :subject) do %>
-                  <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                <% err = @changeset.action && Keyword.get(@changeset.errors, :subject) %>
+                <%= if err do %>
+                  <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                 <% end %>
                 <label class="label">
                   <span class="label-text-alt">
@@ -324,8 +331,9 @@
                   rows="12"
                   placeholder={"<h1>Welcome {{user_name}}!</h1> (#{String.upcase(@current_editor_locale)})"}
                 ><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :html_body) || %{}, @current_editor_locale) %></textarea>
-                <%= if error = Keyword.get(@changeset.errors, :html_body) do %>
-                  <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                <% err = @changeset.action && Keyword.get(@changeset.errors, :html_body) %>
+                <%= if err do %>
+                  <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                 <% end %>
               </div>
 
@@ -343,8 +351,9 @@
                   rows="8"
                   placeholder={"Welcome {{user_name}}! (#{String.upcase(@current_editor_locale)})"}
                 ><%= PhoenixKit.Modules.Emails.Template.get_translation(Ecto.Changeset.get_field(@changeset, :text_body) || %{}, @current_editor_locale) %></textarea>
-                <%= if error = Keyword.get(@changeset.errors, :text_body) do %>
-                  <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
+                <% err = @changeset.action && Keyword.get(@changeset.errors, :text_body) %>
+                <%= if err do %>
+                  <div class="text-sm text-error mt-1">{elem(err, 0)}</div>
                 <% end %>
               </div>
             </div>
@@ -422,8 +431,8 @@
           </div>
 
           <%!-- Action Buttons --%>
-          <div class="flex justify-between">
-            <div class="flex gap-2">
+          <div class="flex flex-wrap justify-between gap-2">
+            <div class="flex flex-wrap gap-2">
               <%!-- Test Send button (available in both new and edit modes) --%>
               <button
                 type="button"
@@ -446,7 +455,7 @@
               <% end %>
             </div>
 
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
               <.link
                 navigate={Routes.path("/admin/emails/templates")}
                 class="btn btn-ghost"
@@ -573,7 +582,7 @@
       class="modal modal-open"
       phx-click-away="hide_test_modal"
     >
-      <div class="modal-box max-w-4xl">
+      <div class="modal-box w-full max-w-2xl">
         <h3 class="font-bold text-lg mb-4">{gettext("Send Test Email")}</h3>
 
         <.form

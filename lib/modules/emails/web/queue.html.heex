@@ -89,9 +89,9 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <%!-- Global Rate Limit --%>
-          <div class="stat bg-base-200 rounded-lg">
+          <div class="stat bg-base-200 rounded-lg min-w-0 overflow-hidden">
             <div class="stat-title">{gettext("Global Hourly Limit")}</div>
-            <div class="stat-value text-sm">
+            <div class="stat-value text-sm break-all">
               {UtilsNumber.format(@rate_limit_status[:global][:count] || 0)} / {UtilsNumber.format(
                 @rate_limit_status[:global][:limit] || 0
               )}
@@ -117,7 +117,7 @@
           </div>
 
           <%!-- Recipients --%>
-          <div class="stat bg-base-200 rounded-lg">
+          <div class="stat bg-base-200 rounded-lg min-w-0 overflow-hidden">
             <div class="stat-title">{gettext("Recipient Limits")}</div>
             <div class="stat-value text-sm">
               {@rate_limit_status[:recipients][:active_limits] || 0}
@@ -130,7 +130,7 @@
           </div>
 
           <%!-- Senders --%>
-          <div class="stat bg-base-200 rounded-lg">
+          <div class="stat bg-base-200 rounded-lg min-w-0 overflow-hidden">
             <div class="stat-title">{gettext("Sender Limits")}</div>
             <div class="stat-value text-sm">
               {@rate_limit_status[:senders][:active_limits] || 0}
@@ -143,7 +143,7 @@
           </div>
 
           <%!-- Blocklist --%>
-          <div class="stat bg-base-200 rounded-lg">
+          <div class="stat bg-base-200 rounded-lg min-w-0 overflow-hidden">
             <div class="stat-title">{gettext("Blocklist")}</div>
             <div class="stat-value text-sm">
               {@rate_limit_status[:blocklist][:active_blocks] || 0}

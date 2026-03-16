@@ -256,7 +256,7 @@
             <h2 class="card-title text-lg mb-4">{gettext("Provider Performance")}</h2>
             <%= if @metrics.by_provider && length(Map.keys(@metrics.by_provider)) > 0 do %>
               <div class="overflow-x-auto">
-                <.table_default size="sm">
+                <.table_default size="sm" class="w-full">
                   <.table_default_header>
                     <.table_default_row>
                       <.table_default_header_cell>
