@@ -75,7 +75,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # Includes trashed posts so empty ones get hard-deleted instead of
     # sitting in trash with no recoverable content.
     if connected?(socket) and new_group_slug do
-      Task.start(fn ->
+      Task.Supervisor.start_child(PhoenixKit.TaskSupervisor, fn ->
         try do
           active = DBStorage.list_posts(new_group_slug)
           trashed = DBStorage.list_posts(new_group_slug, "trashed")

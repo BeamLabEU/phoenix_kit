@@ -307,19 +307,17 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
         status: "draft",
         mode: mode,
         primary_language: primary_language,
-        published_at: now,
+        published_at: nil,
         created_by_uuid: created_by_uuid,
         updated_by_uuid: created_by_uuid
       }
 
-      # Add date/time for timestamp mode (truncate seconds since URLs use HH:MM only)
+      # Add initial date/time for timestamp mode (truncate seconds since URLs use HH:MM only)
+      # The actual available timestamp is resolved inside the transaction to avoid races.
       post_attrs =
         if mode == "timestamp" do
           date = DateTime.to_date(now)
           time = %Time{hour: now.hour, minute: now.minute, second: 0, microsecond: {0, 0}}
-
-          # Find next available minute if this one is taken
-          {date, time} = find_available_timestamp(group_slug, date, time)
 
           Map.merge(post_attrs, %{
             post_date: date,
@@ -333,7 +331,18 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
       tx_result =
         repo.transaction(fn ->
-          with {:ok, db_post} <- DBStorage.create_post(post_attrs),
+          # Find available timestamp INSIDE the transaction to prevent race conditions
+          final_attrs =
+            if mode == "timestamp" do
+              {date, time} =
+                find_available_timestamp(group_slug, post_attrs.post_date, post_attrs.post_time)
+
+              %{post_attrs | post_date: date, post_time: time}
+            else
+              post_attrs
+            end
+
+          with {:ok, db_post} <- DBStorage.create_post(final_attrs),
                {:ok, db_version} <-
                  DBStorage.create_version(%{
                    post_uuid: db_post.uuid,
@@ -494,20 +503,20 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
   # Updates a post in the database.
   # Writes directly to the database and returns the updated post map.
-  defp update_post_in_db(group_slug, post, params, _audit_meta) do
+  defp update_post_in_db(group_slug, post, params, audit_meta) do
     db_post = find_db_post_for_update(group_slug, post)
 
     if db_post do
       if post[:mode] in @timestamp_modes || db_post.mode == "timestamp" do
         # Timestamp-mode posts don't have slugs — skip slug validation
-        do_update_post_in_db(db_post, post, params, group_slug, nil)
+        do_update_post_in_db(db_post, post, params, group_slug, nil, audit_meta)
       else
         # Handle slug changes
         desired_slug = Map.get(params, "slug", post.slug)
 
         case maybe_update_db_slug(db_post, desired_slug, group_slug) do
           {:ok, final_slug} ->
-            do_update_post_in_db(db_post, post, params, group_slug, final_slug)
+            do_update_post_in_db(db_post, post, params, group_slug, final_slug, audit_meta)
 
           {:error, _reason} = error ->
             error
@@ -566,7 +575,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     end
   end
 
-  defp do_update_post_in_db(db_post, post, params, group_slug, final_slug) do
+  defp do_update_post_in_db(db_post, post, params, group_slug, final_slug, audit_meta) do
     version_number = post[:version] || 1
     version = DBStorage.get_version(db_post.uuid, version_number)
 
@@ -586,7 +595,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
       # Capture old status from DB before updating (editor assigns may already reflect new status)
       old_db_status = db_post.status
 
-      update_post_level_fields!(db_post, new_status, params)
+      update_post_level_fields!(db_post, new_status, params, audit_meta)
       upsert_post_content(version, language, new_title, content, new_status, params, post)
       maybe_propagate_status(version, language, db_post, new_status, old_db_status)
 
@@ -620,15 +629,23 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
       Constants.default_title()
   end
 
-  defp update_post_level_fields!(db_post, new_status, params) do
-    case DBStorage.update_post(db_post, %{
-           status: new_status,
-           published_at: parse_published_at(params, db_post)
-         }) do
+  defp update_post_level_fields!(db_post, new_status, params, audit_meta) do
+    update_attrs =
+      %{
+        status: new_status,
+        published_at: parse_published_at(params, db_post)
+      }
+      |> maybe_put(:updated_by_uuid, audit_meta[:updated_by_uuid])
+      |> maybe_put(:updated_by_email, audit_meta[:updated_by_email])
+
+    case DBStorage.update_post(db_post, update_attrs) do
       {:ok, _} -> :ok
       {:error, reason} -> throw({:post_update_failed, reason})
     end
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp upsert_post_content(version, language, new_title, content, new_status, params, post) do
     existing_content = DBStorage.get_content(version.uuid, language)

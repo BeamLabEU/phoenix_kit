@@ -607,7 +607,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      Phoenix.LiveView.put_flash(
        socket,
        :error,
-       "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       gettext(
+         "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       )
      )}
   end
 
@@ -616,7 +618,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      Phoenix.LiveView.put_flash(
        socket,
        :error,
-       "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+       gettext(
+         "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+       )
      )}
   end
 
@@ -625,12 +629,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      Phoenix.LiveView.put_flash(
        socket,
        :error,
-       "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       gettext(
+         "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       )
      )}
   end
 
   defp handle_post_update_error(socket, :slug_already_exists) do
-    {:noreply, Phoenix.LiveView.put_flash(socket, :error, "A post with that slug already exists")}
+    {:noreply,
+     Phoenix.LiveView.put_flash(
+       socket,
+       :error,
+       gettext("A post with that slug already exists")
+     )}
   end
 
   defp handle_post_update_error(socket, :title_required) do
@@ -645,7 +656,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   defp handle_post_update_error(socket, reason) do
     post_id = socket.assigns[:post] && socket.assigns.post[:uuid]
     Logger.warning("[Publishing.Editor] Update failed for post #{post_id}: #{inspect(reason)}")
-    {:noreply, Phoenix.LiveView.put_flash(socket, :error, "Failed to save post")}
+    {:noreply, Phoenix.LiveView.put_flash(socket, :error, gettext("Failed to save post"))}
   end
 
   defp handle_post_creation_error(socket, :invalid_slug, _fallback_message) do

@@ -17,6 +17,9 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
   alias PhoenixKit.Modules.Publishing.Constants
 
+  # Posts younger than this are skipped by the stale fixer's empty-post deletion
+  @grace_period_seconds 300
+
   @valid_types Constants.valid_types()
   @valid_group_modes Constants.valid_modes()
   @valid_post_statuses Constants.post_statuses()
@@ -99,8 +102,9 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   def fix_stale_post(%PublishingPost{} = post) do
     # Hard-delete empty posts (no content in any version) — they're abandoned
     # drafts with no recoverable content, so trashing them just creates a
-    # restore → auto-trash loop.
-    if empty_post?(post) do
+    # restore → auto-trash loop. Skip recently created posts to avoid killing
+    # posts before the editor has had a chance to autosave.
+    if empty_post?(post) and past_grace_period?(post) do
       Logger.info("[Publishing] Deleting empty post #{post.uuid} (no content in any version)")
       DBStorage.delete_post(post)
       post
@@ -117,6 +121,13 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
 
   defp empty_post?(post) do
     all_versions_empty?(post)
+  end
+
+  defp past_grace_period?(post) do
+    case post.inserted_at do
+      nil -> true
+      inserted_at -> DateTime.diff(DateTime.utc_now(), inserted_at) >= @grace_period_seconds
+    end
   end
 
   defp all_versions_empty?(post) do
@@ -344,14 +355,6 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
           contents = DBStorage.list_contents(version.uuid)
           Enum.each(contents, &fix_stale_content/1)
         end
-
-        # Fix content-level issues
-        fix_missing_primary_content(post)
-        fix_multiple_published_versions(post)
-        fix_translation_status_consistency(post)
-
-        # Reconcile status consistency after all fixes
-        reconcile_post_status(post)
       end
     end
 

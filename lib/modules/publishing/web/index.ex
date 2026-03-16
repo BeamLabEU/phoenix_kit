@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:dashboard_summary, summary)
       |> assign(:empty_state?, groups == [])
       |> assign(:enabled_languages, Publishing.enabled_language_codes())
-      |> assign(:endpoint_url, nil)
+      |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
       |> assign(
         :primary_language_name,
