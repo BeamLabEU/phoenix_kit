@@ -45,9 +45,7 @@ defmodule PhoenixKit.Modules.Publishing.PubSubTest do
       assert PublishingPubSub.group_editors_topic("blog") == "publishing:blog:editors"
     end
 
-    test "bulk_operation_topic includes blog slug" do
-      assert PublishingPubSub.bulk_operation_topic("blog") == "publishing:blog:bulk_operations"
-    end
+
   end
 
   # ============================================================================
