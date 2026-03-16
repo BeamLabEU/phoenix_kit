@@ -14,10 +14,12 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.StaleFixer
 
-  @default_group_mode "timestamp"
-  @default_group_type "blog"
-  @preset_types ["blog", "faq", "legal"]
-  @valid_types ["blog", "faq", "legal", "custom"]
+  alias PhoenixKit.Modules.Publishing.Constants
+
+  @default_group_mode Constants.default_mode()
+  @default_group_type Constants.default_type()
+  @preset_types Constants.preset_types()
+  @valid_types Constants.valid_types()
   @type_regex ~r/^[a-z][a-z0-9-]{0,31}$/
 
   @type_item_names %{

@@ -8,7 +8,10 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
 
   require Logger
 
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
+
+  @content_statuses Constants.content_statuses()
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -246,7 +249,7 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
   @spec set_translation_status(String.t(), String.t(), integer(), String.t(), String.t()) ::
           :ok | {:error, any()}
   def set_translation_status(group_slug, post_identifier, version, language, status)
-      when status in ["draft", "published", "archived"] do
+      when status in @content_statuses do
     db_post =
       if Shared.uuid_format?(post_identifier) do
         DBStorage.get_post_by_uuid(post_identifier)

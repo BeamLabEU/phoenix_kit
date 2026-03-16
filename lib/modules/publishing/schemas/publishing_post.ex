@@ -22,6 +22,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Publishing
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
@@ -91,8 +93,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingPost do
       :data
     ])
     |> validate_required([:group_uuid, :status, :mode, :primary_language])
-    |> validate_inclusion(:status, ["draft", "published", "archived", "trashed"])
-    |> validate_inclusion(:mode, ["timestamp", "slug"])
+    |> validate_inclusion(:status, Publishing.Constants.post_statuses())
+    |> validate_inclusion(:mode, Publishing.Constants.valid_modes())
     |> maybe_require_slug()
     |> validate_length(:slug, max: 500)
     |> validate_length(:primary_language, max: 10)

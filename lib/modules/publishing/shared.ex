@@ -8,8 +8,12 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
 
   require Logger
 
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Users.Auth.Scope
+
+  @timestamp_modes Constants.timestamp_modes()
+  @slug_modes Constants.slug_modes()
 
   # ============================================================================
   # UUID Validation
@@ -237,9 +241,9 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
     version = Map.get(metadata, :version) || Map.get(post, :version)
 
     cond do
-      mode in [:timestamp, "timestamp"] -> true
+      mode in @timestamp_modes -> true
       is_nil(version) -> true
-      mode in [:slug, "slug"] -> true
+      mode in @slug_modes -> true
       status == "published" -> true
       true -> false
     end

@@ -15,13 +15,15 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   alias PhoenixKit.Modules.Publishing.PublishingGroup
   alias PhoenixKit.Modules.Publishing.PublishingPost
 
-  @valid_types ["blog", "faq", "legal", "custom"]
-  @valid_group_modes ["timestamp", "slug"]
-  @valid_post_statuses ["draft", "published", "archived", "trashed"]
-  @valid_group_statuses ["active", "trashed"]
-  @valid_version_statuses ["draft", "published", "archived"]
-  @default_group_mode "timestamp"
-  @default_group_type "blog"
+  alias PhoenixKit.Modules.Publishing.Constants
+
+  @valid_types Constants.valid_types()
+  @valid_group_modes Constants.valid_modes()
+  @valid_post_statuses Constants.post_statuses()
+  @valid_group_statuses Constants.group_statuses()
+  @valid_version_statuses Constants.content_statuses()
+  @default_group_mode Constants.default_mode()
+  @default_group_type Constants.default_type()
 
   @type_item_names %{
     "blog" => {"post", "posts"},

@@ -12,7 +12,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   require Logger
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.ListingCache
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.Listing
@@ -303,7 +306,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   defp find_cached_post(group_slug, post) do
     mode = Map.get(post, :mode)
 
-    if mode in [:timestamp, "timestamp"] do
+    if mode in @timestamp_modes do
       # For timestamp mode, use date/time lookup
       date = post[:date]
       time = post[:time]
@@ -428,7 +431,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   end
 
   defp future_post?(post) do
-    post[:mode] in [:timestamp, "timestamp"] and post[:date] != nil and
+    post[:mode] in @timestamp_modes and post[:date] != nil and
       Date.compare(post[:date], Date.utc_today()) == :gt
   end
 end

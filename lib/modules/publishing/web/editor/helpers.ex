@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
   """
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Modules.Storage.URLSigner
@@ -158,8 +159,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Helpers do
     mode = Map.get(post, :mode)
 
     cond do
-      mode in [:slug, "slug"] -> build_slug_mode_url(group_slug, post, language)
-      mode in [:timestamp, "timestamp"] -> build_timestamp_mode_url(group_slug, post, language)
+      Constants.slug_mode?(mode) -> build_slug_mode_url(group_slug, post, language)
+      Constants.timestamp_mode?(mode) -> build_timestamp_mode_url(group_slug, post, language)
       true -> nil
     end
   end

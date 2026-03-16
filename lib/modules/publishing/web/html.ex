@@ -7,8 +7,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Storage
+
+  @timestamp_modes Constants.timestamp_modes()
+  @slug_modes Constants.slug_modes()
 
   # Import publishing-specific components for templates
   import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
@@ -48,7 +52,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
     language = language || "en"
 
     case post.mode do
-      mode when mode in [:slug, "slug"] ->
+      mode when mode in @slug_modes ->
         # Use language-specific URL slug for SEO-friendly localized URLs
         url_slug = get_url_slug_for_language(post, language)
 
@@ -59,7 +63,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
         build_public_path(segments)
 
-      mode when mode in [:timestamp, "timestamp"] ->
+      mode when mode in @timestamp_modes ->
         # For timestamp mode, use the date/time from the DB fields
         # (stored in post.date and post.time), not from metadata.published_at
         date = get_timestamp_date(post)
@@ -190,7 +194,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def has_publication_date?(post) do
     case post.mode do
-      mode when mode in [:timestamp, "timestamp"] ->
+      mode when mode in @timestamp_modes ->
         # Timestamp mode always has a date (from DB fields)
         post[:date] != nil
 
@@ -206,7 +210,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def format_post_date(post, group_slug, date_counts \\ nil) do
     case post.mode do
-      mode when mode in [:timestamp, "timestamp"] ->
+      mode when mode in @timestamp_modes ->
         # For timestamp mode, use date/time from DB fields
         date = get_timestamp_date(post)
         post_count = lookup_date_count(date_counts, group_slug, date)
@@ -413,7 +417,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   """
   def build_date_counts(posts) do
     posts
-    |> Enum.filter(&(&1.mode in [:timestamp, "timestamp"]))
+    |> Enum.filter(&(&1.mode in @timestamp_modes))
     |> Enum.map(&get_timestamp_date/1)
     |> Enum.frequencies()
   end

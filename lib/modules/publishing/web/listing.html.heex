@@ -182,7 +182,7 @@
                 <% full_public_url = @endpoint_url <> public_url %>
                 <%!-- Version info (only for slug-mode posts) --%>
                 <% version_count = length(Map.get(post, :available_versions) || []) %>
-                <% is_versioned = post.mode in [:slug, "slug"] %>
+                <% is_versioned = PhoenixKit.Modules.Publishing.Constants.slug_mode?(post.mode) %>
                 <% post_status = post.metadata.status %>
                 <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
                   <div class="card-body p-4 md:p-5 min-w-0">

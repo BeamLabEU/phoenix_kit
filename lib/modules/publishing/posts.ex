@@ -10,6 +10,9 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.ListingCache
@@ -495,7 +498,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     db_post = find_db_post_for_update(group_slug, post)
 
     if db_post do
-      if post[:mode] in [:timestamp, "timestamp"] || db_post.mode == "timestamp" do
+      if post[:mode] in @timestamp_modes || db_post.mode == "timestamp" do
         # Timestamp-mode posts don't have slugs — skip slug validation
         do_update_post_in_db(db_post, post, params, group_slug, nil)
       else
@@ -527,7 +530,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
         DBStorage.get_post_by_uuid(post[:uuid], [:group])
 
       # Timestamp-mode: use date/time
-      post[:mode] in [:timestamp, "timestamp"] && post[:date] && post[:time] ->
+      post[:mode] in @timestamp_modes && post[:date] && post[:time] ->
         DBStorage.get_post_by_datetime(group_slug, post[:date], post[:time])
 
       # Slug-mode: use slug

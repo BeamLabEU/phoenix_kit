@@ -147,7 +147,9 @@
                     name={@form[:type].name}
                     value="custom"
                     class="radio radio-primary mt-1"
-                    checked={@form[:type].value not in ["blog", "faq", "legal"]}
+                    checked={
+                      @form[:type].value not in PhoenixKit.Modules.Publishing.Constants.preset_types()
+                    }
                     phx-click="type_changed"
                     phx-value-type="custom"
                   />
@@ -156,7 +158,7 @@
                     <p class="text-sm text-base-content/70">
                       {gettext("Define your own content type and item names.")}
                     </p>
-                    <%= if @form[:type].value not in ["blog", "faq", "legal"] do %>
+                    <%= if @form[:type].value not in PhoenixKit.Modules.Publishing.Constants.preset_types() do %>
                       <div class="mt-2">
                         <input
                           type="text"
@@ -164,7 +166,7 @@
                           class="input input-bordered input-sm w-full max-w-xs"
                           placeholder={gettext("e.g. tutorials, recipes")}
                           value={
-                            if @form[:type].value not in ["blog", "faq", "legal", "custom"],
+                            if @form[:type].value not in PhoenixKit.Modules.Publishing.Constants.valid_types(),
                               do: @form[:type].value,
                               else: ""
                           }

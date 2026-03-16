@@ -21,6 +21,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Publishing
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
@@ -56,8 +58,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
     group
     |> cast(attrs, [:name, :slug, :mode, :status, :position, :data])
     |> validate_required([:name, :slug, :mode])
-    |> validate_inclusion(:mode, ["timestamp", "slug"])
-    |> validate_inclusion(:status, ["active", "trashed"])
+    |> validate_inclusion(:mode, Publishing.Constants.valid_modes())
+    |> validate_inclusion(:status, Publishing.Constants.group_statuses())
     |> validate_length(:name, max: 255)
     |> validate_length(:slug, max: 255)
     |> unique_constraint(:slug, name: :idx_publishing_groups_slug)

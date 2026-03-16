@@ -10,6 +10,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.PostRendering
@@ -221,7 +224,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Translations do
   defp find_cached_post(group_slug, post) do
     mode = Map.get(post, :mode)
 
-    if mode in [:timestamp, "timestamp"] do
+    if mode in @timestamp_modes do
       # For timestamp mode, use date/time lookup
       date = post[:date]
       time = post[:time]

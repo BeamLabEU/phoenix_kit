@@ -9,7 +9,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   require Logger
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
+
+  @group_statuses Constants.group_statuses()
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
@@ -164,7 +167,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       {:noreply, put_flash(socket, :error, gettext("Failed to update primary language"))}
   end
 
-  def handle_event("switch_view", %{"mode" => mode}, socket) when mode in ["active", "trashed"] do
+  def handle_event("switch_view", %{"mode" => mode}, socket) when mode in @group_statuses do
     send(self(), {:deferred_view_switch, mode})
 
     {:noreply,
