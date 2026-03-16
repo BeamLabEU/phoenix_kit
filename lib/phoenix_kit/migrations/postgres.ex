@@ -529,7 +529,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V83 - Add status to publishing groups ⚡ LATEST
+  ### V84 - Rename mailing tables to newsletters ⚡ LATEST
+  - Idempotently renames `phoenix_kit_mailing_*` tables to `phoenix_kit_newsletters_*`
+  - Fixes databases that ran the old V79 (which created `mailing_*` tables)
+  - Safe to run multiple times — uses IF EXISTS guards
+
+  ### V83 - Add status to publishing groups
   - Adds `status` column (varchar(20), default 'active') to `phoenix_kit_publishing_groups`
   - Supports soft-delete via "trashed" status
   - Adds index on `(status)` for filtering
@@ -645,7 +650,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 83
+  @current_version 84
   @default_prefix "public"
 
   @doc false

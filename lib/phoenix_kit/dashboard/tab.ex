@@ -236,7 +236,7 @@ defmodule PhoenixKit.Dashboard.Tab do
       redirect_to_first_subtab: get_attr(attrs, :redirect_to_first_subtab) || false,
       highlight_with_subtabs: get_attr(attrs, :highlight_with_subtabs) || false,
       match: parse_match(get_attr(attrs, :match) || :prefix),
-      visible: get_attr(attrs, :visible) || true,
+      visible: if(is_nil(get_attr(attrs, :visible)), do: true, else: get_attr(attrs, :visible)),
       badge: badge,
       tooltip: get_attr(attrs, :tooltip),
       external: get_attr(attrs, :external) || false,
@@ -248,7 +248,13 @@ defmodule PhoenixKit.Dashboard.Tab do
     }
   end
 
-  defp get_attr(attrs, key), do: attrs[key] || attrs[Atom.to_string(key)]
+  defp get_attr(attrs, key) do
+    cond do
+      Map.has_key?(attrs, key) -> Map.get(attrs, key)
+      Map.has_key?(attrs, Atom.to_string(key)) -> Map.get(attrs, Atom.to_string(key))
+      true -> nil
+    end
+  end
 
   @doc """
   Creates a new Tab struct, raising on error.
@@ -288,7 +294,7 @@ defmodule PhoenixKit.Dashboard.Tab do
       priority: opts[:priority] || 500,
       group: opts[:group],
       match: :exact,
-      visible: opts[:visible] || true,
+      visible: if(is_nil(opts[:visible]), do: true, else: opts[:visible]),
       metadata: %{type: :divider}
     }
   end
