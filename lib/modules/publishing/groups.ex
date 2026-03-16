@@ -42,6 +42,13 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
     |> Enum.map(fn group -> group |> StaleFixer.fix_stale_group() |> db_group_to_map() end)
   end
 
+  @doc "Lists groups filtered by status (e.g. 'active', 'trashed')."
+  @spec list_groups(String.t()) :: [group()]
+  def list_groups(status) do
+    DBStorage.list_groups(status)
+    |> Enum.map(&db_group_to_map/1)
+  end
+
   @doc """
   Gets a publishing group by slug.
 

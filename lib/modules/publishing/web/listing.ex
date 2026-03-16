@@ -8,7 +8,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   require Logger
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.StaleFixer
@@ -76,8 +75,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     if connected?(socket) and new_group_slug do
       Task.Supervisor.start_child(PhoenixKit.TaskSupervisor, fn ->
         try do
-          active = DBStorage.list_posts(new_group_slug)
-          trashed = DBStorage.list_posts(new_group_slug, "trashed")
+          active = Publishing.list_raw_posts(new_group_slug)
+          trashed = Publishing.list_raw_posts(new_group_slug, "trashed")
           Enum.each(active ++ trashed, &StaleFixer.fix_stale_post/1)
         rescue
           e ->
@@ -249,13 +248,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     mode = socket.assigns.post_view_mode
 
     # Always load all non-trashed posts for counting
-    all_posts = DBStorage.list_posts_with_metadata(group_slug)
-    trashed_count = length(DBStorage.list_posts(group_slug, "trashed"))
+    all_posts = Publishing.list_posts(group_slug)
+    trashed_count = length(Publishing.list_raw_posts(group_slug, "trashed"))
 
     posts =
       case mode do
         "trashed" ->
-          DBStorage.list_posts_with_metadata(group_slug, "trashed")
+          Publishing.list_posts_by_status(group_slug, "trashed")
 
         status ->
           Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
@@ -483,14 +482,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         socket
 
       group_slug ->
-        all_posts = DBStorage.list_posts_with_metadata(group_slug)
-        trashed_count = length(DBStorage.list_posts(group_slug, "trashed"))
+        all_posts = Publishing.list_posts(group_slug)
+        trashed_count = length(Publishing.list_raw_posts(group_slug, "trashed"))
         mode = socket.assigns.post_view_mode
 
         filtered_posts =
           case mode do
             "trashed" ->
-              DBStorage.list_posts_with_metadata(group_slug, "trashed")
+              Publishing.list_posts_by_status(group_slug, "trashed")
 
             status ->
               Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
@@ -677,13 +676,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     all_posts =
       case group_slug do
         nil -> []
-        slug -> DBStorage.list_posts_with_metadata(slug)
+        slug -> Publishing.list_posts(slug)
       end
 
     trashed_count =
       case group_slug do
         nil -> 0
-        slug -> length(DBStorage.list_posts(slug, "trashed"))
+        slug -> length(Publishing.list_raw_posts(slug, "trashed"))
       end
 
     status_counts = build_status_counts(all_posts, trashed_count)
@@ -722,7 +721,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp filter_posts_for_mode(group_slug, mode, all_posts) do
     case mode do
       "trashed" ->
-        DBStorage.list_posts_with_metadata(group_slug, "trashed")
+        Publishing.list_posts_by_status(group_slug, "trashed")
 
       status ->
         Enum.filter(all_posts, fn p -> p[:metadata] && p.metadata.status == status end)
@@ -730,7 +729,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   defp load_db_groups do
-    DBStorage.list_groups()
+    Publishing.list_groups()
     |> Enum.map(fn g ->
       %{"name" => g.name, "slug" => g.slug, "mode" => g.mode, "position" => g.position}
     end)
@@ -947,6 +946,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   defp primary_language_status_from_posts(posts) do
     global_primary = Publishing.get_primary_language()
-    DBStorage.count_primary_language_status_from_posts(posts, global_primary)
+    Publishing.count_primary_language_status(posts, global_primary)
   end
 end

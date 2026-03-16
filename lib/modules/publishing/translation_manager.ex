@@ -189,6 +189,45 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
   end
 
   @doc """
+  Hard-deletes a language's content row from a post.
+
+  Unlike `delete_language` (which archives), this permanently removes the content.
+  Refuses to delete the last remaining language.
+  """
+  @spec clear_translation(String.t(), String.t(), String.t()) :: :ok | {:error, term()}
+  def clear_translation(group_slug, post_uuid, language_code) do
+    with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
+         db_version when not is_nil(db_version) <- Shared.resolve_db_version(db_post, nil),
+         content when not is_nil(content) <-
+           DBStorage.get_content(db_version.uuid, language_code),
+         :ok <- validate_not_last_content(db_version, language_code) do
+      repo = PhoenixKit.RepoHelper.repo()
+
+      case repo.delete(content) do
+        {:ok, _} ->
+          broadcast_id = db_post.slug || db_post.uuid
+          ListingCache.regenerate(group_slug)
+          PublishingPubSub.broadcast_translation_deleted(group_slug, broadcast_id, language_code)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      nil -> {:error, :not_found}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp validate_not_last_content(db_version, language_code) do
+    remaining =
+      DBStorage.list_contents(db_version.uuid)
+      |> Enum.reject(&(&1.language == language_code))
+
+    if remaining == [], do: {:error, :last_language}, else: :ok
+  end
+
+  @doc """
   Deletes a specific language translation from a post.
 
   For versioned posts, specify the version. For unversioned posts, version is ignored.

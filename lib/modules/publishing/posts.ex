@@ -94,6 +94,28 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     DBStorage.list_posts_with_metadata(group_slug)
   end
 
+  @doc "Lists posts filtered by status (e.g. 'trashed', 'published')."
+  @spec list_posts_by_status(String.t(), String.t()) :: [map()]
+  def list_posts_by_status(group_slug, status) do
+    DBStorage.list_posts_with_metadata(group_slug, status)
+  end
+
+  @doc "Lists raw DB post records for a group, optionally filtered by status."
+  @spec list_raw_posts(String.t(), String.t() | nil) :: [struct()]
+  def list_raw_posts(group_slug, status \\ nil) do
+    if status,
+      do: DBStorage.list_posts(group_slug, status),
+      else: DBStorage.list_posts(group_slug)
+  end
+
+  @doc "Counts primary language migration status from a list of posts."
+  @spec count_primary_language_status(list(), String.t()) :: map() | nil
+  def count_primary_language_status([], _primary), do: nil
+
+  def count_primary_language_status(posts, primary_language) do
+    DBStorage.count_primary_language_status_from_posts(posts, primary_language)
+  end
+
   @doc """
   Creates a new post for the given publishing group using the current timestamp.
   """
