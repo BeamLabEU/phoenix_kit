@@ -227,11 +227,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   # Handle image/video insert from MarkdownEditor toolbar
   def handle_info({:editor_insert_component, %{type: type}}, socket)
       when type in [:image, :video] do
-    {:noreply,
-     socket
-     |> assign(:show_media_selector, true)
-     |> assign(:inserting_media_type, type)
-     |> assign(:media_selector_mode, :multiple)}
+    do_insert_component(socket, type)
   end
 
   # Handle media selection from MediaSelectorModal
@@ -298,8 +294,9 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
             file_uuids
             |> Enum.map_join("; ", fn fid ->
               file_url = get_file_url(fid)
+              encoded_url = Jason.encode!(file_url || "")
 
-              "window.postsEditorInsertMedia && window.postsEditorInsertMedia('#{file_url}', '#{media_type}')"
+              "window.postsEditorInsertMedia && window.postsEditorInsertMedia(#{encoded_url}, '#{media_type}')"
             end)
 
           socket
@@ -324,19 +321,32 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   end
 
   # Handle Leaf editor messages
+  @impl true
   def handle_info({:leaf_changed, %{markdown: content}}, socket) do
     {:noreply, assign(socket, :live_content, content)}
   end
 
+  @impl true
   def handle_info({:leaf_insert_request, %{type: type}}, socket) do
-    handle_info({:editor_insert_component, %{type: type}}, socket)
+    do_insert_component(socket, type)
   end
 
+  @impl true
   def handle_info({:leaf_mode_changed, _}, socket), do: {:noreply, socket}
 
   # Catch-all for other editor events
   def handle_info({:editor_insert_component, _}, socket), do: {:noreply, socket}
   def handle_info({:editor_save_requested, _}, socket), do: {:noreply, socket}
+
+  defp do_insert_component(socket, type) when type in [:image, :video] do
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, true)
+     |> assign(:inserting_media_type, type)
+     |> assign(:media_selector_mode, :multiple)}
+  end
+
+  defp do_insert_component(socket, _type), do: {:noreply, socket}
 
   ## --- Private Helper Functions ---
 
