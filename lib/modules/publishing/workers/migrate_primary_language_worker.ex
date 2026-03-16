@@ -38,9 +38,6 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
 
-  # Batch size for progress updates (broadcast every N posts)
-  @progress_batch_size 5
-
   @impl Oban.Worker
   def perform(%Oban.Job{args: args}) do
     group_slug = Map.fetch!(args, "group_slug")
@@ -58,14 +55,10 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
       Logger.info("[MigratePrimaryLanguageWorker] No posts need migration for #{group_slug}")
       :ok
     else
-      # Broadcast start
-      PublishingPubSub.broadcast_primary_language_migration_started(group_slug, total)
-
-      # Process posts with progress updates
+      # Process posts
       {success_count, error_count} =
         posts
-        |> Enum.with_index(1)
-        |> Enum.reduce({0, 0}, fn {post, index}, {successes, errors} ->
+        |> Enum.reduce({0, 0}, fn post, {successes, errors} ->
           post_uuid = post[:uuid]
 
           result =
@@ -74,15 +67,6 @@ defmodule PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker do
             else
               {:error, :no_uuid}
             end
-
-          # Broadcast progress every batch
-          if rem(index, @progress_batch_size) == 0 or index == total do
-            PublishingPubSub.broadcast_primary_language_migration_progress(
-              group_slug,
-              index,
-              total
-            )
-          end
 
           case result do
             :ok -> {successes + 1, errors}

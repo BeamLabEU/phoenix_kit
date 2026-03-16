@@ -143,15 +143,14 @@
                     </span>
                   </label>
                   <.live_component
-                    module={PhoenixKitWeb.Components.Core.MarkdownEditor}
+                    module={Leaf}
                     id="post-content-editor"
                     content={@content}
+                    mode={:visual}
                     placeholder="Write your post content here... Use #hashtags for auto-tagging"
                     height="400px"
                     debounce={400}
                     toolbar={[:image, :video]}
-                    protect_navigation={false}
-                    script_nonce={assigns[:csp_nonce] || ""}
                   />
                   <label class="label">
                     <span class="label-text-alt text-base-content/70">
@@ -471,12 +470,33 @@
   />
 
   <script>
-    // Function to insert standard markdown media syntax at cursor position
+    // Function to insert media into Leaf editor at cursor position
     window.postsEditorInsertMedia = function(fileUrl, mediaType) {
-      const textarea = document.getElementById('post-content-editor-textarea');
+      // Try visual mode first (contenteditable div)
+      const visualEl = document.getElementById('post-content-editor-visual');
+      if (visualEl) {
+        visualEl.focus();
+        const img = document.createElement('img');
+        img.src = fileUrl;
+        img.alt = mediaType === 'image' ? 'Image description' : 'Video';
+        const sel = window.getSelection();
+        if (sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(img);
+          range.collapse(false);
+        } else {
+          visualEl.appendChild(img);
+        }
+        // Trigger input event so Leaf picks up the change
+        visualEl.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+
+      // Markdown mode fallback
+      const textarea = document.getElementById('post-content-editor-markdown-textarea');
       if (!textarea) return;
 
-      // Build standard markdown syntax: ![alt](url)
       const altText = mediaType === 'image' ? 'Image description' : 'Video';
       const template = '![' + altText + '](' + fileUrl + ')';
 
@@ -487,13 +507,11 @@
       const newValue = currentValue.substring(0, start) + template + currentValue.substring(end);
       textarea.value = newValue;
 
-      // Move cursor after inserted text
       const newPos = start + template.length;
       textarea.selectionStart = textarea.selectionEnd = newPos;
       textarea.focus();
 
-      // Trigger keyup event to update LiveView
-      textarea.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
     };
 
     // Handle exec-js event from server

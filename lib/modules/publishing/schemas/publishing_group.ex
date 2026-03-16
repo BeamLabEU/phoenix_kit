@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
 
   ## Data JSONB Keys
 
-  - `type` - Group type: "blogging", "faq", "legal", or custom string
+  - `type` - Group type: "blog", "faq", "legal", or "custom"
   - `item_singular` - Display name for single item (e.g., "Post", "Article")
   - `item_plural` - Display name for multiple items (e.g., "Posts", "Articles")
   - `description` - Group description
@@ -21,6 +21,8 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Publishing
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
@@ -29,6 +31,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
           name: String.t(),
           slug: String.t(),
           mode: String.t(),
+          status: String.t(),
           position: integer(),
           data: map(),
           inserted_at: DateTime.t() | nil,
@@ -39,6 +42,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
     field :name, :string
     field :slug, :string
     field :mode, :string, default: "timestamp"
+    field :status, :string, default: "active"
     field :position, :integer, default: 0
     field :data, :map, default: %{}
 
@@ -52,19 +56,20 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
   """
   def changeset(group, attrs) do
     group
-    |> cast(attrs, [:name, :slug, :mode, :position, :data])
+    |> cast(attrs, [:name, :slug, :mode, :status, :position, :data])
     |> validate_required([:name, :slug, :mode])
-    |> validate_inclusion(:mode, ["timestamp", "slug"])
-    |> validate_length(:name, max: 255)
-    |> validate_length(:slug, max: 255)
+    |> validate_inclusion(:mode, Publishing.Constants.valid_modes())
+    |> validate_inclusion(:status, Publishing.Constants.group_statuses())
+    |> validate_length(:name, max: Publishing.Constants.max_group_name_length())
+    |> validate_length(:slug, max: Publishing.Constants.max_group_slug_length())
     |> unique_constraint(:slug, name: :idx_publishing_groups_slug)
     |> maybe_generate_slug()
   end
 
   # Data JSONB accessors
 
-  @doc "Returns the group type from data (blogging/faq/legal/custom)."
-  def get_type(%__MODULE__{data: data}), do: Map.get(data, "type", "blogging")
+  @doc "Returns the group type from data (blog/faq/legal/custom)."
+  def get_type(%__MODULE__{data: data}), do: Map.get(data, "type", "blog")
 
   @doc "Returns the singular item name (e.g., 'Post')."
   def get_item_singular(%__MODULE__{data: data}), do: Map.get(data, "item_singular", "Post")
@@ -88,8 +93,13 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
   def views_enabled?(%__MODULE__{data: data}), do: Map.get(data, "views_enabled", false)
 
   defp maybe_generate_slug(changeset) do
+    # Only auto-generate slug for new records (no existing slug).
+    # On updates, Ecto won't register the slug as a "change" if it's the same,
+    # and we must NOT regenerate from the (potentially changed) name.
+    existing_slug = get_field(changeset, :slug)
+
     case get_change(changeset, :slug) do
-      nil ->
+      nil when is_nil(existing_slug) or existing_slug == "" ->
         name = get_field(changeset, :name)
 
         if name do
@@ -105,7 +115,7 @@ defmodule PhoenixKit.Modules.Publishing.PublishingGroup do
           changeset
         end
 
-      _slug ->
+      _ ->
         changeset
     end
   end

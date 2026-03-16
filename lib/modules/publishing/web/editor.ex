@@ -28,6 +28,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
@@ -38,7 +39,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias PhoenixKit.Modules.Publishing.Web.Editor.Forms
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Modules.Publishing.Web.Editor.Persistence
-  alias PhoenixKit.Modules.Publishing.Web.Editor.Preview
   alias PhoenixKit.Modules.Publishing.Web.Editor.Translation
   alias PhoenixKit.Modules.Publishing.Web.Editor.Versions
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -60,15 +60,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defdelegate build_editor_languages(post, enabled_languages, current_language),
     to: Helpers
 
-  # JS command for language switching: instantly shows skeleton, hides fields
+  # JS command for language switching. Skeleton visibility is controlled
+  # server-side via @editor_loading assign — the switch_language handler sets
+  # it to true (showing skeleton, hiding fields), and handle_params sets it
+  # back to false when the new language data is ready.
   defp switch_lang_js(lang_code, current_lang) do
     if lang_code == current_lang do
-      # Already on this language — no-op to prevent skeleton ghosts
       %JS{}
     else
       JS.push("switch_language", value: %{language: lang_code})
-      |> JS.add_class("hidden", to: "[data-translatable=fields]")
-      |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
     end
   end
 
@@ -82,7 +82,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     live_source =
       socket.id ||
-        "blog-editor-" <> Base.url_encode64(:crypto.strong_rand_bytes(6), padding: false)
+        "publishing-editor-" <> Base.url_encode64(:crypto.strong_rand_bytes(6), padding: false)
 
     socket =
       socket
@@ -123,6 +123,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, false)
       |> assign(:is_new_translation, false)
+      |> assign(:editor_loading, false)
       |> assign(:public_url, nil)
       |> assign(:current_version, nil)
       |> assign(:available_versions, [])
@@ -169,46 +170,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   @impl true
-  def handle_params(%{"preview_token" => token} = params, uri, socket) do
-    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
-
-    case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
-      {:ok, data} ->
-        old_form_key = socket.assigns[:form_key]
-        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
-
-        socket =
-          socket
-          |> Preview.apply_preview_payload(data)
-          |> assign(:preview_token, token)
-          |> assign(:current_path, Preview.preview_editor_path(socket, data, token, params))
-
-        form_key =
-          PublishingPubSub.generate_form_key(
-            socket.assigns.group_slug,
-            socket.assigns.post,
-            if(socket.assigns.is_new_post, do: :new, else: :edit)
-          )
-
-        socket = assign(socket, :form_key, form_key)
-
-        socket =
-          Collaborative.setup_collaborative_editing(socket, form_key,
-            old_form_key: old_form_key,
-            old_post_slug: old_post_slug
-          )
-
-        socket =
-          push_event(socket, "changes-status", %{
-            has_changes: socket.assigns.has_pending_changes
-          })
-
-        {:noreply, socket}
-
-      {:error, _reason} ->
-        handle_params(Map.delete(params, "preview_token"), uri, socket)
-    end
-  end
 
   # Match both /admin/publishing/:group/new route AND legacy ?new=true
   def handle_params(params, _uri, %{assigns: %{live_action: :new}} = socket)
@@ -278,12 +239,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             old_post_slug: old_post_slug
           )
           |> Translation.maybe_restore_translation_status()
+          |> assign(:editor_loading, false)
 
         {:noreply, socket}
 
       {:error, _reason} ->
         {:noreply,
          socket
+         |> assign(:editor_loading, false)
          |> put_flash(:error, gettext("Post not found"))
          |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
     end
@@ -329,12 +292,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             old_post_slug: old_post_slug
           )
           |> Translation.maybe_restore_translation_status()
+          |> assign(:editor_loading, false)
 
         {:noreply, socket}
 
       {:error, _reason} ->
         {:noreply,
          socket
+         |> assign(:editor_loading, false)
          |> put_flash(:error, gettext("Post not found"))
          |> push_navigate(to: Routes.path("/admin/publishing/#{group_slug}"))}
     end
@@ -475,7 +440,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     # Seed auto-title from existing content for manual-set detection
     extracted_title = Metadata.extract_title_from_content(post.content || "")
-    auto_title = if extracted_title == "Untitled", do: "", else: extracted_title
+    auto_title = if extracted_title == Constants.default_title(), do: "", else: extracted_title
     form_title = Map.get(form, "title", "")
     title_manually_set = form_title != "" and auto_title != "" and form_title != auto_title
 
@@ -568,10 +533,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       current_language_statuses = Map.get(socket.assigns.post, :language_statuses, %{})
       updated_language_statuses = Map.put(current_language_statuses, language, new_status)
 
+      # Update post with current form values for accurate public URL
+      form_slug = new_form["slug"]
+      form_url_slug = new_form["url_slug"]
+
       updated_post =
         socket.assigns.post
         |> Map.put(:metadata, Map.merge(socket.assigns.post.metadata, %{status: new_status}))
         |> Map.put(:language_statuses, updated_language_statuses)
+        |> then(fn p ->
+          if form_slug && form_slug != "", do: Map.put(p, :slug, form_slug), else: p
+        end)
+        |> then(fn p ->
+          if form_url_slug && form_url_slug != "",
+            do: Map.put(p, :url_slug, form_url_slug),
+            else: p
+        end)
 
       public_url = Helpers.build_public_url(updated_post, language)
 
@@ -683,6 +660,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
+
+  def handle_event("clear_translation", _params, socket) do
+    group_slug = socket.assigns.group_slug
+    post = socket.assigns.post
+    language = socket.assigns.current_language
+    post_uuid = post[:uuid]
+
+    result = Publishing.clear_translation(group_slug, post_uuid, language)
+
+    case result do
+      :ok ->
+        primary_lang = post[:primary_language] || Publishing.get_primary_language()
+        url = Helpers.build_edit_url(group_slug, post, lang: primary_lang)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Translation cleared"))
+         |> push_navigate(to: url)}
+
+      {:error, :last_language} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Cannot remove the last language from a post"))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to clear translation"))}
+    end
+  end
 
   # ============================================================================
   # Handle Events - Media
@@ -1006,21 +1010,28 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   def handle_event("preview", _params, socket) do
-    preview_payload = Preview.build_preview_payload(socket)
-    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
-    token = Phoenix.Token.sign(endpoint, "blog-preview", preview_payload, max_age: 300)
-
-    query_params = Preview.build_preview_query_params(preview_payload, token)
-
-    query_string =
-      case URI.encode_query(query_params) do
-        "" -> ""
-        encoded -> "?" <> encoded
+    # Save first if there are pending changes (autosave is 500ms but user might click fast)
+    socket =
+      if socket.assigns.has_pending_changes do
+        {:noreply, saved} = Persistence.perform_save(socket)
+        saved
+      else
+        socket
       end
+
+    group_slug = socket.assigns.group_slug
+    post = socket.assigns.post
+    post_uuid = post[:uuid]
+    language = socket.assigns.current_language
+    version = socket.assigns[:current_version]
+
+    query_params = %{"lang" => language}
+    query_params = if version, do: Map.put(query_params, "v", version), else: query_params
+    query = URI.encode_query(query_params)
 
     {:noreply,
      push_navigate(socket,
-       to: Routes.path("/admin/publishing/#{socket.assigns.group_slug}/preview#{query_string}")
+       to: Routes.path("/admin/publishing/#{group_slug}/#{post_uuid}/preview?#{query}")
      )}
   end
 
@@ -1048,6 +1059,28 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   @impl true
+  def handle_info({:deferred_language_switch, group_slug, target_language}, socket) do
+    old_form_key = socket.assigns[:form_key]
+
+    if old_form_key && connected?(socket) do
+      alias PhoenixKit.Modules.Publishing.PresenceHelpers
+      PresenceHelpers.untrack_editing_session(old_form_key, socket)
+      PresenceHelpers.unsubscribe_from_editing(old_form_key)
+      PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
+    end
+
+    post = socket.assigns.post
+
+    url =
+      Helpers.build_edit_url(group_slug, post,
+        lang: target_language,
+        version: socket.assigns[:current_version]
+      )
+
+    {:noreply, push_patch(socket, to: url)}
+  end
+
+  @impl true
   def handle_info(:autosave, socket) do
     if socket.assigns.has_pending_changes and not socket.assigns.translation_locked? do
       socket =
@@ -1065,6 +1098,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     else
       {:noreply, assign(socket, :autosave_timer, nil)}
     end
+  rescue
+    e ->
+      Logger.error("[Publishing.Editor] Autosave failed: #{Exception.message(e)}")
+
+      {:noreply,
+       socket
+       |> assign(:is_autosaving, false)
+       |> assign(:autosave_timer, nil)
+       |> push_event("autosave-status", %{saving: false})
+       |> put_flash(:error, gettext("Autosave failed — click Save to retry"))}
   end
 
   # ============================================================================
@@ -1450,7 +1493,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:ok, post} ->
         form = Forms.post_form(post)
         extracted_title = Metadata.extract_title_from_content(post.content || "")
-        auto_title = if extracted_title == "Untitled", do: "", else: extracted_title
+
+        auto_title =
+          if extracted_title == Constants.default_title(), do: "", else: extracted_title
 
         socket
         |> assign(:post, %{post | group: socket.assigns.group_slug})
@@ -1484,21 +1529,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       Process.cancel_timer(socket.assigns.autosave_timer)
     end
 
-    timer_ref = Process.send_after(self(), :autosave, 2000)
+    # Save quickly — DB writes are ~5ms, no reason to delay
+    timer_ref = Process.send_after(self(), :autosave, 500)
     assign(socket, :autosave_timer, timer_ref)
   end
 
   defp re_read_post(socket) do
-    post = socket.assigns.post
-    Publishing.read_post_by_uuid(post.uuid)
+    case socket.assigns[:post] do
+      nil -> {:error, :no_post}
+      %{uuid: nil} -> {:error, :no_uuid}
+      post -> Publishing.read_post_by_uuid(post.uuid)
+    end
   end
 
   defp do_switch_language(socket, new_language) do
+    # Cancel any pending autosave before switching language context
+    if timer = socket.assigns[:autosave_timer] do
+      Process.cancel_timer(timer)
+    end
+
+    socket = assign(socket, :autosave_timer, nil)
     post = socket.assigns.post
     group_slug = socket.assigns.group_slug
-    file_exists = new_language in post.available_languages
+    content_exists = new_language in post.available_languages
 
-    if file_exists do
+    if content_exists do
       switch_to_existing_language(socket, group_slug, new_language)
     else
       switch_to_new_translation(socket, post, group_slug, new_language)
@@ -1506,24 +1561,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp switch_to_existing_language(socket, group_slug, target_language) do
-    old_form_key = socket.assigns[:form_key]
+    # Set loading state first, then defer the actual patch so LiveView
+    # sends the skeleton-visible diff before starting the patch round-trip.
+    send(self(), {:deferred_language_switch, group_slug, target_language})
 
-    if old_form_key && connected?(socket) do
-      alias PhoenixKit.Modules.Publishing.PresenceHelpers
-      PresenceHelpers.untrack_editing_session(old_form_key, socket)
-      PresenceHelpers.unsubscribe_from_editing(old_form_key)
-      PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
-    end
-
-    post = socket.assigns.post
-
-    url =
-      Helpers.build_edit_url(group_slug, post,
-        lang: target_language,
-        version: socket.assigns[:current_version]
-      )
-
-    {:noreply, push_patch(socket, to: url)}
+    {:noreply, assign(socket, :editor_loading, true)}
   end
 
   defp switch_to_new_translation(socket, post, group_slug, new_language) do
@@ -1562,7 +1604,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     url =
       Helpers.build_edit_url(group_slug, post, lang: new_language, version: current_version)
 
-    {:noreply, push_patch(socket, to: url, replace: true)}
+    {:noreply,
+     socket
+     |> assign(:editor_loading, true)
+     |> push_patch(to: url, replace: true)}
   end
 
   defp handle_media_selected(socket, file_ids) do
@@ -1575,7 +1620,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           file_url = Helpers.get_file_url(file_uuid)
 
           js_code =
-            "window.publishingEditorInsertMedia && window.publishingEditorInsertMedia('#{file_url}', 'image')"
+            "window.publishingEditorInsertMedia && window.publishingEditorInsertMedia(#{Jason.encode!(file_url)}, 'image')"
 
           {
             socket

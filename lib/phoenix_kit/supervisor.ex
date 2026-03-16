@@ -58,6 +58,8 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Dashboard.Registry,
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,
+      # Task supervisor for fire-and-forget background work (e.g. stale fixer)
+      {Task.Supervisor, name: PhoenixKit.TaskSupervisor},
       # OAuth config loader - now guaranteed to have critical settings in cache
       PhoenixKit.Workers.OAuthConfigLoader
     ] ++

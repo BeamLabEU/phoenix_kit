@@ -5,9 +5,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
@@ -18,41 +16,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   @memory_cache_key "publishing_memory_cache_enabled"
   @render_cache_key "publishing_render_cache_enabled"
 
-  # Legacy settings keys (read from these as fallback)
-  @legacy_memory_cache_key "blogging_memory_cache_enabled"
-  @legacy_render_cache_key "blogging_render_cache_enabled"
-
   def mount(_params, _session, socket) do
     # Subscribe to group changes for live updates
     if connected?(socket) do
       PublishingPubSub.subscribe_to_groups()
     end
 
-    # Admin side reads from database only
-    groups = db_groups_to_maps()
-    cache_groups = groups
-    languages_enabled = Languages.enabled?()
+    cache_groups = db_groups_to_maps()
 
     socket =
       socket
       |> assign(:project_title, Settings.get_project_title())
-      |> assign(:page_title, gettext("Manage Publishing"))
+      |> assign(:page_title, gettext("Publishing Settings"))
       |> assign(
         :current_path,
         Routes.path("/admin/settings/publishing")
       )
       |> assign(:module_enabled, Publishing.enabled?())
-      |> assign(:publishing, groups)
       |> assign(:cache_groups, cache_groups)
-      |> assign(:languages_enabled, languages_enabled)
-      |> assign(:global_primary_language, Publishing.get_primary_language())
       |> assign(
         :memory_cache_enabled,
-        get_cache_setting(@memory_cache_key, @legacy_memory_cache_key)
+        Settings.get_setting(@memory_cache_key, "true") == "true"
       )
       |> assign(
         :render_cache_enabled,
-        get_cache_setting(@render_cache_key, @legacy_render_cache_key)
+        Settings.get_setting(@render_cache_key, "true") == "true"
       )
       |> assign(:cache_status, build_cache_status(cache_groups))
       |> assign(:render_cache_stats, get_render_cache_stats())
@@ -62,35 +50,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   end
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
-
-  def handle_event("remove_group", %{"slug" => slug}, socket) do
-    case Publishing.trash_group(slug) do
-      {:ok, trashed_name} ->
-        # The `Publishing.trash_group` call triggers `remove_group`, which handles
-        # the broadcast. This LiveView will catch the event and update its state.
-        {:noreply,
-         put_flash(
-           socket,
-           :info,
-           gettext("Group moved to trash as: %{name}", name: trashed_name)
-         )}
-
-      {:error, :not_found} ->
-        # Group not found in DB, just remove from config
-        case Publishing.remove_group(slug) do
-          {:ok, _} ->
-            # The `Publishing.remove_group` call handles the broadcast. This
-            # LiveView will catch the event and update its state.
-            {:noreply, put_flash(socket, :info, gettext("Group removed from configuration"))}
-
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to remove group"))}
-        end
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to move group to trash"))}
-    end
-  end
 
   def handle_event("regenerate_cache", %{"slug" => slug}, socket) do
     case ListingCache.regenerate(slug) do
@@ -112,22 +71,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
      socket
      |> assign(:cache_status, build_cache_status(socket.assigns.cache_groups))
      |> put_flash(:info, gettext("Cache cleared for %{group}", group: slug))}
-  end
-
-  def handle_event("migrate_primary_language", %{"slug" => slug}, socket) do
-    primary_lang = socket.assigns.global_primary_language
-    {:ok, count} = DBStorage.migrate_primary_language(slug, primary_lang)
-
-    {:noreply,
-     socket
-     |> refresh_groups()
-     |> put_flash(
-       :info,
-       gettext("Updated %{count} posts to use primary language: %{lang}",
-         count: count,
-         lang: primary_lang
-       )
-     )}
   end
 
   def handle_event("regenerate_all_caches", _params, socket) do
@@ -234,39 +177,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
     groups = db_groups_to_maps()
 
     socket
-    |> assign(:publishing, groups)
     |> assign(:cache_groups, groups)
     |> assign(:cache_status, build_cache_status(groups))
     |> assign(:render_cache_per_group, build_render_cache_per_group(groups))
   end
 
   defp db_groups_to_maps do
-    global_primary = Publishing.get_primary_language()
-
-    DBStorage.list_groups()
-    |> Enum.map(fn g ->
-      primary_lang_status = DBStorage.count_primary_language_status(g.slug, global_primary)
-
-      needs_lang_migration =
-        primary_lang_status.needs_backfill + primary_lang_status.needs_migration > 0
-
-      %{
-        "name" => g.name,
-        "slug" => g.slug,
-        "mode" => g.mode,
-        "position" => g.position,
-        "needs_primary_lang_migration" => needs_lang_migration,
-        "primary_language_status" => primary_lang_status
-      }
-    end)
-  end
-
-  # Helper for dual-key cache setting reads
-  defp get_cache_setting(new_key, legacy_key) do
-    case Settings.get_setting(new_key, nil) do
-      nil -> Settings.get_setting(legacy_key, "true") == "true"
-      value -> value == "true"
-    end
+    Publishing.list_groups()
   end
 
   defp cache_toggle_message(cache_type, enabled) do
@@ -298,13 +215,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
     post_count =
       case :persistent_term.get(ListingCache.persistent_term_key(group_slug), :not_found) do
-        :not_found -> length(DBStorage.list_posts(group_slug))
+        :not_found -> length(Publishing.list_posts(group_slug))
         posts -> length(posts)
       end
 
     %{
       exists: in_memory,
-      file_size: 0,
+      content_size: 0,
       modified_at: nil,
       post_count: post_count,
       in_memory: in_memory

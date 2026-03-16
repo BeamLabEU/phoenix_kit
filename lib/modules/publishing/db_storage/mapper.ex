@@ -7,7 +7,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
 
   The web layer expects maps with these keys:
   - `:group` - group slug
-  - `:slug` - post directory slug
+  - `:slug` - post slug identifier
   - `:url_slug` - per-language URL slug
   - `:date` - Date struct (timestamp mode)
   - `:time` - Time struct (timestamp mode)
@@ -30,9 +30,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
 
   @doc """
   Converts a full post read (post + version + content + all contents + all versions)
-  into the legacy map format expected by the web layer.
+  into the map format expected by the web layer.
   """
-  def to_legacy_map(
+  def to_post_map(
         %PublishingPost{} = post,
         %PublishingVersion{} = version,
         %PublishingContent{} = content,
@@ -65,7 +65,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       url_slug: presence(content.url_slug) || post.slug,
       date: post.post_date,
       time: post.post_time,
-      mode: String.to_existing_atom(post.mode),
+      mode: safe_mode_atom(post.mode),
       language: content.language,
       available_languages: available_languages,
       language_statuses: language_statuses,
@@ -116,7 +116,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       url_slug: presence(primary_content && primary_content.url_slug) || post.slug,
       date: post.post_date,
       time: post.post_time,
-      mode: String.to_existing_atom(post.mode),
+      mode: safe_mode_atom(post.mode),
       language: post.primary_language,
       available_languages: available_languages,
       language_statuses: language_statuses,
@@ -241,6 +241,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       if published == "published", do: "published", else: latest
     end)
   end
+
+  defp safe_mode_atom("timestamp"), do: :timestamp
+  defp safe_mode_atom("slug"), do: :slug
+  defp safe_mode_atom(_), do: :timestamp
 
   # Returns nil for nil and empty string, otherwise the value
   defp presence(nil), do: nil

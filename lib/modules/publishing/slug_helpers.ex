@@ -63,8 +63,8 @@ defmodule PhoenixKit.Modules.Publishing.SlugHelpers do
       url_slug in @reserved_route_words ->
         {:error, :reserved_route_word}
 
-      conflicts_with_directory_slug?(group_slug, url_slug, exclude_post_slug) ->
-        {:error, :conflicts_with_directory_slug}
+      conflicts_with_post_slug?(group_slug, url_slug, exclude_post_slug) ->
+        {:error, :conflicts_with_post_slug}
 
       url_slug_exists?(group_slug, url_slug, language, exclude_post_slug) ->
         {:error, :slug_already_exists}
@@ -88,15 +88,15 @@ defmodule PhoenixKit.Modules.Publishing.SlugHelpers do
   end
 
   @doc """
-  Clears custom url_slugs that conflict with a given directory slug.
+  Clears custom url_slugs that conflict with a given post slug.
   """
   @spec clear_conflicting_url_slugs(String.t(), String.t()) :: [{String.t(), String.t()}]
-  def clear_conflicting_url_slugs(group_slug, directory_slug) do
+  def clear_conflicting_url_slugs(group_slug, post_slug) do
     case ListingCache.read(group_slug) do
       {:ok, posts} ->
-        conflicts = find_conflicting_url_slugs(posts, directory_slug)
-        clear_url_slugs_for_conflicts(group_slug, directory_slug, conflicts)
-        log_cleared_conflicts(conflicts, directory_slug)
+        conflicts = find_conflicting_url_slugs(posts, post_slug)
+        clear_url_slugs_for_conflicts(group_slug, post_slug, conflicts)
+        log_cleared_conflicts(conflicts, post_slug)
         conflicts
 
       {:error, _} ->
@@ -160,7 +160,7 @@ defmodule PhoenixKit.Modules.Publishing.SlugHelpers do
   # Private Helpers
   # ===========================================================================
 
-  defp conflicts_with_directory_slug?(group_slug, url_slug, exclude_post_slug) do
+  defp conflicts_with_post_slug?(group_slug, url_slug, exclude_post_slug) do
     if url_slug == exclude_post_slug do
       false
     else
@@ -200,29 +200,29 @@ defmodule PhoenixKit.Modules.Publishing.SlugHelpers do
     slug_exists?(group_slug, candidate)
   end
 
-  defp find_conflicting_url_slugs(posts, directory_slug) do
+  defp find_conflicting_url_slugs(posts, post_slug) do
     Enum.flat_map(posts, fn post ->
-      if post.slug == directory_slug do
+      if post.slug == post_slug do
         []
       else
         (post.language_slugs || %{})
-        |> Enum.filter(fn {_lang, url_slug} -> url_slug == directory_slug end)
+        |> Enum.filter(fn {_lang, url_slug} -> url_slug == post_slug end)
         |> Enum.map(fn {lang, _} -> {post.slug, lang} end)
       end
     end)
   end
 
-  defp clear_url_slugs_for_conflicts(group_slug, directory_slug, conflicts) do
-    Enum.each(conflicts, fn {post_slug, _language} ->
-      DBStorage.clear_url_slug_from_post(group_slug, post_slug, directory_slug)
+  defp clear_url_slugs_for_conflicts(group_slug, slug_to_clear, conflicts) do
+    Enum.each(conflicts, fn {conflicting_post_slug, _language} ->
+      DBStorage.clear_url_slug_from_post(group_slug, conflicting_post_slug, slug_to_clear)
     end)
   end
 
-  defp log_cleared_conflicts([], _directory_slug), do: :ok
+  defp log_cleared_conflicts([], _post_slug), do: :ok
 
-  defp log_cleared_conflicts(conflicts, directory_slug) do
+  defp log_cleared_conflicts(conflicts, post_slug) do
     Logger.warning(
-      "[Slugs] Cleared conflicting url_slugs for directory slug '#{directory_slug}': #{inspect(conflicts)}"
+      "[Slugs] Cleared conflicting url_slugs for post slug '#{post_slug}': #{inspect(conflicts)}"
     )
   end
 end

@@ -56,24 +56,44 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   # Fallback Case Handlers
   # ============================================================================
 
-  # Slug mode posts (2-element path) - try other languages before group listing
+  # Post not found (trashed/deleted) — go straight to group listing, don't try other posts
+  defp handle_fallback_case(:not_found, [group_slug | _], language) do
+    if group_exists?(group_slug) do
+      {:ok, PublishingHTML.group_listing_path(language, group_slug)}
+    else
+      fallback_to_default_group(language)
+    end
+  end
+
+  # Slug mode posts (2-element path) - try other languages, then group listing
   defp handle_fallback_case(reason, [group_slug, post_slug], language)
-       when reason in [:post_not_found, :unpublished] do
+       when reason in [:post_not_found, :unpublished, :version_access_disabled] do
     fallback_to_default_language(group_slug, post_slug, language)
   end
 
-  # Timestamp mode posts (3-element path) - try other languages before group listing
+  # Timestamp mode posts (3-element path) - try other languages, then group listing
   defp handle_fallback_case(reason, [group_slug, date, time], language)
-       when reason in [:post_not_found, :unpublished] do
+       when reason in [:post_not_found, :unpublished, :version_access_disabled] do
     fallback_timestamp_to_other_language(group_slug, date, time, language)
   end
 
-  defp handle_fallback_case(:group_not_found, [_group_slug], language) do
+  # Group not found with a path - try default group
+  defp handle_fallback_case(:group_not_found, [_group_slug | _], language) do
     fallback_to_default_group(language)
   end
 
   defp handle_fallback_case(:group_not_found, [], language) do
     fallback_to_default_group(language)
+  end
+
+  # Any post-level error with a 2+ segment path — fall back to group listing
+  # Catches errors like :invalid_version, unknown reasons from read_post, etc.
+  defp handle_fallback_case(_reason, [group_slug | _rest], language) do
+    if group_exists?(group_slug) do
+      {:ok, PublishingHTML.group_listing_path(language, group_slug)}
+    else
+      fallback_to_default_group(language)
+    end
   end
 
   defp handle_fallback_case(_reason, _path, _language), do: :no_fallback
@@ -86,7 +106,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
     if group_exists?(group_slug) do
       find_any_available_language_version(group_slug, post_slug, requested_language)
     else
-      :no_fallback
+      fallback_to_default_group(requested_language)
     end
   end
 
@@ -135,24 +155,26 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   end
 
   # Tries other languages when requested language has no published versions
+  # Cap on how many languages to try in fallback chain to prevent excessive DB queries
+  @max_fallback_languages 5
+
   defp try_other_languages(group_slug, post_slug, post, requested_language, default_lang) do
-    available = post.available_languages || []
+    available = post.available_languages
 
     # Build priority list: default first, then others (excluding already-tried language)
     languages_to_try =
       ([default_lang | available] -- [requested_language])
       |> Enum.uniq()
+      |> Enum.take(@max_fallback_languages)
 
     find_first_published_version(group_slug, post_slug, post, languages_to_try, default_lang)
   end
 
-  # Finds a post by its slug from the group's post list
+  # Finds a post by its slug using a direct DB query
   defp find_post_by_slug(group_slug, post_slug) do
-    posts = Publishing.list_posts(group_slug, nil)
-
-    case Enum.find(posts, fn p -> p.slug == post_slug end) do
-      nil -> :not_found
-      post -> {:ok, post}
+    case Publishing.read_post(group_slug, post_slug) do
+      {:ok, post} -> {:ok, post}
+      {:error, _} -> :not_found
     end
   end
 
@@ -196,7 +218,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
       # Use DB to get available languages for this timestamp post
       available = get_available_languages_for_timestamp(group_slug, date, time)
 
-      # Time exists with language files - try other languages
+      # Time exists with language content - try other languages
       if available != [] do
         languages_to_try =
           ([default_lang | available] -- [requested_language])
@@ -215,7 +237,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
         fallback_to_other_time_on_date(group_slug, date, time, default_lang)
       end
     else
-      :no_fallback
+      fallback_to_default_group(requested_language)
     end
   end
 
@@ -309,14 +331,51 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
     PublishingHTML.build_public_path_with_time(language, group_slug, date, time)
   end
 
-  # Gets available languages for a timestamp post from the DB
+  # Gets available languages for a timestamp post using a direct DB query
   defp get_available_languages_for_timestamp(group_slug, date, time) do
-    identifier = "#{date}/#{time}"
-    posts = Publishing.list_posts(group_slug, nil)
+    parsed_date = parse_date(date)
+    parsed_time = parse_time(time)
 
-    case Enum.find(posts, fn p -> "#{p.date}/#{p.time}" == identifier or p.slug == identifier end) do
-      nil -> []
-      post -> post.available_languages || []
+    if parsed_date && parsed_time do
+      case Publishing.read_post_by_datetime(group_slug, parsed_date, parsed_time) do
+        {:ok, post} -> post.available_languages
+        {:error, _} -> []
+      end
+    else
+      []
     end
   end
+
+  defp parse_date(%Date{} = d), do: d
+
+  defp parse_date(d) when is_binary(d) do
+    case Date.from_iso8601(d) do
+      {:ok, date} -> date
+      _ -> nil
+    end
+  end
+
+  defp parse_date(_), do: nil
+
+  defp parse_time(%Time{} = t), do: t
+
+  defp parse_time(t) when is_binary(t) do
+    case String.split(t, ":") do
+      [h, m | _] ->
+        with {hour, ""} <- Integer.parse(h),
+             {minute, ""} <- Integer.parse(m) do
+          case Time.new(hour, minute, 0) do
+            {:ok, time} -> time
+            _ -> nil
+          end
+        else
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp parse_time(_), do: nil
 end

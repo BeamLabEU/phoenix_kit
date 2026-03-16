@@ -146,7 +146,7 @@
                   {gettext("Protected")}
                 </li>
               <% end %>
-              <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.has_module_access?(assigns[:phoenix_kit_current_scope], "users") && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+              <%= if @can_manage_permissions && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
                 <.table_row_menu_divider />
                 <.table_row_menu_button
                   phx-click="show_permissions_editor"
@@ -225,7 +225,7 @@
                         {gettext("Protected")}
                       </li>
                     <% end %>
-                    <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.has_module_access?(assigns[:phoenix_kit_current_scope], "users") && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+                    <%= if @can_manage_permissions && !MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
                       <.table_row_menu_divider />
                       <.table_row_menu_button
                         phx-click="show_permissions_editor"

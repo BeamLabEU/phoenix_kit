@@ -15,26 +15,43 @@
       // Track unsaved changes state
       window.editorUnsavedChanges = false;
 
-      // Browser exit protection
+      // Save immediately when user switches tabs or minimizes
+      document.addEventListener("visibilitychange", function() {
+        if (document.hidden && window.editorUnsavedChanges) {
+          // Trigger LiveView save event via hidden button
+          const saveBtn = document.querySelector("[phx-click='save']");
+          if (saveBtn) saveBtn.click();
+        }
+      });
+
+      // Browser exit protection — save before leaving
       window.addEventListener("beforeunload", function(e) {
         if (window.editorUnsavedChanges) {
+          // Try to trigger save (may not complete before page unloads)
+          const saveBtn = document.querySelector("[phx-click='save']");
+          if (saveBtn) saveBtn.click();
           e.preventDefault();
           e.returnValue = "";
           return "";
         }
       });
 
-      // Intercept navigation links
+      // Intercept navigation links — save first, then navigate
       document.addEventListener("click", function(e) {
         if (window.editorUnsavedChanges) {
           const link = e.target.closest("a[href], a[data-phx-link]");
           if (link && !link.hasAttribute("data-confirm")) {
             const href = link.getAttribute("href") || link.getAttribute("data-phx-link");
-            // Don't block external links or hash links
             if (href && !href.startsWith("http") && !href.startsWith("#")) {
               e.preventDefault();
               e.stopPropagation();
-              document.getElementById("confirm-cancel-btn").click();
+              // Save first, then ask to confirm navigation
+              const saveBtn = document.querySelector("[phx-click='save']");
+              if (saveBtn) saveBtn.click();
+              // Small delay to let save complete, then confirm
+              setTimeout(function() {
+                document.getElementById("confirm-cancel-btn").click();
+              }, 100);
             }
           }
         }
@@ -135,26 +152,27 @@
   </button>
 
   <div class="container mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <button type="button" class="btn btn-ghost btn-sm" phx-click="back_to_list">
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to %{group}",
           group: @group_name || gettext("Group")
         )}
       </button>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <button
           type="button"
-          class="btn btn-outline btn-sm shadow-none"
+          class="btn btn-outline btn-xs sm:btn-sm shadow-none"
           phx-click="preview"
         >
-          <.icon name="hero-eye" class="w-4 h-4 mr-1" /> {gettext("Preview")}
+          <.icon name="hero-eye" class="w-4 h-4 sm:mr-1" />
+          <span class="hidden sm:inline">{gettext("Preview")}</span>
         </button>
         <%= if @form["status"] == "published" && @public_url do %>
           <a
             href={if @has_pending_changes, do: "#", else: @public_url}
             target="_blank"
             class={[
-              "btn btn-outline btn-sm shadow-none",
+              "btn btn-outline btn-xs sm:btn-sm shadow-none",
               !@has_pending_changes && "btn-success",
               @has_pending_changes && "btn-disabled pointer-events-none opacity-60"
             ]}
@@ -167,14 +185,15 @@
               )
             }
           >
-            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> View Public
+            <.icon name="hero-globe-alt" class="w-4 h-4 sm:mr-1" />
+            <span class="hidden sm:inline">View Public</span>
           </a>
         <% end %>
       </div>
     </div>
 
     <%!-- Language and Version Switchers --%>
-    <div class="flex flex-wrap items-center gap-4">
+    <div class="flex flex-col gap-2">
       <%!-- Language Switcher --%>
       <%= if length(@all_enabled_languages) > 1 or not @current_language_enabled or not @current_language_known do %>
         <% all_languages =
@@ -186,80 +205,85 @@
         <% primary_lang = Enum.find(all_languages, & &1.is_primary) %>
         <% other_languages = Enum.reject(all_languages, & &1.is_primary) %>
 
-        <div class="flex flex-col gap-2">
-          <%!-- Other translations --%>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
-            <.publishing_language_switcher
-              languages={other_languages}
-              current_language={@current_language}
-              show_status={true}
-              show_add={true}
-              on_click_js={&switch_lang_js(&1, @current_language)}
-              size={:sm}
-            />
-          </div>
-
-          <%!-- Primary language (on its own line, prominent) --%>
-          <%= if primary_lang do %>
-            <div class="flex items-center gap-2">
-              <span
-                class="text-xs font-medium text-base-content/60 tooltip tooltip-bottom cursor-help z-50"
-                data-tip={
-                  gettext(
-                    "Other languages inherit publication status and defaults from this version."
-                  )
-                }
-              >
-                {gettext("Primary:")}
-              </span>
-              <button
-                type="button"
-                phx-click={switch_lang_js(primary_lang.code, @current_language)}
-                class={[
-                  "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors",
-                  if(primary_lang.is_current,
-                    do: "bg-primary/20 border border-primary/40 ring-2 ring-primary/30",
-                    else: "hover:bg-base-200"
-                  )
-                ]}
-                title={primary_lang.name}
-              >
-                <span class={[
-                  "rounded-full inline-block w-2.5 h-2.5",
-                  cond do
-                    not primary_lang.exists -> "bg-base-content/20"
-                    primary_lang.status == "published" -> "bg-success"
-                    primary_lang.status == "draft" -> "bg-warning"
-                    primary_lang.status == "archived" -> "bg-base-content/40"
-                    true -> "bg-base-content/20"
-                  end
-                ]}>
-                </span>
-                <span class={[
-                  "text-sm font-bold uppercase",
-                  cond do
-                    not primary_lang.exists -> "text-base-content/20"
-                    primary_lang.status == "published" -> "text-success"
-                    primary_lang.status == "draft" -> "text-warning"
-                    primary_lang.status == "archived" -> "text-base-content/40"
-                    true -> "text-base-content/20"
-                  end
-                ]}>
-                  {String.upcase(primary_lang.display_code)}
-                </span>
-                <span class="text-sm text-base-content/70">
-                  {primary_lang.name}
-                </span>
-              </button>
-            </div>
-          <% end %>
+        <%!-- Other translations --%>
+        <div class="flex items-start gap-2">
+          <span class="text-xs font-medium text-base-content/60 shrink-0 pt-1">
+            {gettext("Language:")}
+          </span>
+          <.publishing_language_switcher
+            languages={other_languages}
+            current_language={@current_language}
+            show_status={true}
+            show_add={true}
+            on_click_js={&switch_lang_js(&1, @current_language)}
+            size={:sm}
+          />
         </div>
+
+        <%!-- Primary language --%>
+        <%= if primary_lang do %>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span
+              class="text-xs font-medium text-base-content/60 tooltip tooltip-bottom cursor-help z-50"
+              data-tip={
+                gettext(
+                  "Other languages inherit publication status and defaults from this version."
+                )
+              }
+            >
+              {gettext("Primary:")}
+            </span>
+            <button
+              type="button"
+              phx-click={
+                switch_lang_js(
+                  primary_lang.code,
+                  @current_language
+                )
+              }
+              class={[
+                "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors",
+                if(primary_lang.is_current,
+                  do: "bg-primary/20 border border-primary/40 ring-2 ring-primary/30",
+                  else: "hover:bg-base-200"
+                )
+              ]}
+              title={primary_lang.name}
+            >
+              <span class={[
+                "rounded-full inline-block w-2.5 h-2.5",
+                cond do
+                  not primary_lang.exists -> "bg-base-content/20"
+                  primary_lang.status == "published" -> "bg-success"
+                  primary_lang.status == "draft" -> "bg-warning"
+                  primary_lang.status == "archived" -> "bg-base-content/40"
+                  true -> "bg-base-content/20"
+                end
+              ]}>
+              </span>
+              <span class={[
+                "text-sm font-bold uppercase",
+                cond do
+                  not primary_lang.exists -> "text-base-content/20"
+                  primary_lang.status == "published" -> "text-success"
+                  primary_lang.status == "draft" -> "text-warning"
+                  primary_lang.status == "archived" -> "text-base-content/40"
+                  true -> "text-base-content/20"
+                end
+              ]}>
+                {String.upcase(primary_lang.display_code)}
+              </span>
+              <span class="text-sm text-base-content/70">
+                {primary_lang.name}
+              </span>
+            </button>
+          </div>
+        <% end %>
       <% end %>
 
       <%!-- Version Switcher (for versioned posts in both slug and timestamp modes) --%>
       <%= if !@is_new_post && @post do %>
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
           <%= if length(@available_versions) > 1 do %>
             <span class="text-xs font-medium text-base-content/60">{gettext("Version:")}</span>
             <.publishing_version_switcher
@@ -614,51 +638,44 @@
       </dialog>
     <% end %>
 
-    <%!-- Skeleton placeholders (shown instantly on language switch via JS).
-         IDs MUST include @current_language so morphdom treats them as new
-         elements on language switch. Static IDs would preserve JS-modified classes
-         across LiveView patches, causing skeletons to stick. --%>
+    <%!-- Skeleton placeholders for language switching.
+         NOT hidden by default — the fields div hides them on mount via phx-mounted.
+         IDs include @current_language so morphdom treats them as new elements,
+         ensuring a fresh visible skeleton appears during each language switch.
+         Uses bg-base-content/10 instead of DaisyUI skeleton class because
+         the skeleton class depends on --color-base-300 which resolves to white
+         in some PhoenixKit themes. --%>
     <div
       id={"editor-skeletons-#{@current_language}"}
       data-translatable="skeletons"
-      class="hidden"
-      aria-busy="true"
-      aria-label={gettext("Loading language content")}
+      class={unless @editor_loading, do: "hidden"}
     >
-      <div class="flex flex-col lg:flex-row gap-6">
-        <div class="flex-1 space-y-4">
-          <div class="card bg-base-100 shadow-xl border border-base-200">
-            <div class="card-body space-y-4">
-              <div class="skeleton h-12 w-full rounded-lg"></div>
-              <div class="flex items-center justify-between">
-                <div class="skeleton h-6 w-32"></div>
-                <div class="skeleton h-6 w-24"></div>
-              </div>
-              <div class="skeleton h-[480px] w-full rounded-lg"></div>
-            </div>
+      <div class="flex flex-col lg:flex-row gap-6 animate-pulse">
+        <div class="flex-1 space-y-4 p-6">
+          <div class="bg-base-200 h-12 w-full rounded-lg"></div>
+          <div class="flex items-center justify-between">
+            <div class="bg-base-200 h-6 w-32 rounded"></div>
+            <div class="bg-base-200 h-6 w-24 rounded"></div>
           </div>
+          <div class="bg-base-200 h-[480px] w-full rounded-lg"></div>
         </div>
-        <div class="lg:w-80 space-y-4">
-          <div class="card bg-base-100 shadow-xl border border-base-200">
-            <div class="card-body space-y-4">
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-20"></div>
-                <div class="skeleton h-10 w-full rounded-lg"></div>
-                <div class="skeleton h-3 w-48"></div>
-              </div>
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-32"></div>
-                <div class="skeleton h-40 w-full rounded-lg"></div>
-              </div>
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-16"></div>
-                <div class="skeleton h-10 w-full rounded-lg"></div>
-              </div>
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-40"></div>
-                <div class="skeleton h-10 w-full rounded-lg"></div>
-              </div>
-            </div>
+        <div class="lg:w-80 space-y-4 p-6">
+          <div class="space-y-2">
+            <div class="bg-base-200 h-4 w-20 rounded"></div>
+            <div class="bg-base-200 h-10 w-full rounded-lg"></div>
+            <div class="bg-base-200 h-3 w-48 rounded"></div>
+          </div>
+          <div class="space-y-2">
+            <div class="bg-base-200 h-4 w-32 rounded"></div>
+            <div class="bg-base-200 h-40 w-full rounded-lg"></div>
+          </div>
+          <div class="space-y-2">
+            <div class="bg-base-200 h-4 w-16 rounded"></div>
+            <div class="bg-base-200 h-10 w-full rounded-lg"></div>
+          </div>
+          <div class="space-y-2">
+            <div class="bg-base-200 h-4 w-40 rounded"></div>
+            <div class="bg-base-200 h-10 w-full rounded-lg"></div>
           </div>
         </div>
       </div>
@@ -667,6 +684,7 @@
     <div
       id={"editor-fields-#{@current_language}"}
       data-translatable="fields"
+      class={if @editor_loading, do: "hidden"}
     >
       <.form for={@form} id="publishing-meta" phx-change="update_meta" phx-submit="noop">
         <div class="flex flex-col lg:flex-row gap-6">
@@ -778,7 +796,7 @@
               <div class="card-body space-y-4">
                 <%= if @group_mode == "slug" do %>
                   <%= if @is_primary_language do %>
-                    <%!-- Primary language: editable slug that sets the directory name --%>
+                    <%!-- Primary language: editable slug used in the post URL --%>
                     <div>
                       <label class="label">
                         <span class="label-text text-sm font-semibold text-base-content">
@@ -951,7 +969,7 @@
                           class="w-3 h-3 transition-transform [[open]>&]:rotate-90"
                         />
                         <span class="text-xs font-medium text-base-content/70">
-                          {gettext("Advanced: Manual File ID")}
+                          {gettext("Advanced: Manual Media ID")}
                         </span>
                       </div>
                     </summary>
@@ -971,26 +989,20 @@
                   </details>
                 </div>
 
-                <%!-- Status: editable for primary language, read-only indicator for translations --%>
-                <div>
-                  <label class="label">
-                    <span class="label-text text-sm font-semibold text-base-content">
-                      {gettext("Status")}
-                      <%= if not @is_primary_language do %>
-                        <span class="text-xs font-normal text-base-content/60 ml-2">
-                          {gettext("(follows primary language)")}
-                        </span>
-                      <% end %>
-                    </span>
-                  </label>
-                  <%= if @is_primary_language do %>
+                <%!-- Status: editable for primary language, visibility info for translations --%>
+                <%= if @is_primary_language do %>
+                  <div>
+                    <label class="label">
+                      <span class="label-text text-sm font-semibold text-base-content">
+                        {gettext("Status")}
+                      </span>
+                    </label>
                     <select
                       class={"select select-bordered w-full #{if edit_disabled?, do: "select-disabled bg-base-200"}"}
                       name="status"
                       disabled={edit_disabled?}
                     >
                       <%= if @viewing_older_version do %>
-                        <%!-- Older versions can only be published or archived, not draft --%>
                         <option
                           value="published"
                           selected={@form["status"] in ["draft", "published"]}
@@ -1012,12 +1024,48 @@
                         </option>
                       <% end %>
                     </select>
+                    <p class="text-xs text-base-content/50 mt-1">
+                      {gettext("Translations with content will share this status.")}
+                    </p>
+                  </div>
+                <% else %>
+                  <% translation_exists = @current_language in (@post[:available_languages] || []) %>
+                  <%= if @form["status"] == "published" do %>
+                    <%= if (@content || "") != "" do %>
+                      <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-sm text-success">
+                        <.icon name="hero-globe-alt" class="w-4 h-4 shrink-0" />
+                        {gettext("Visible to the public")}
+                      </div>
+                    <% else %>
+                      <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20 text-sm text-info">
+                        <.icon name="hero-pencil" class="w-4 h-4 shrink-0" />
+                        {gettext("Add content to make this translation visible to the public")}
+                      </div>
+                    <% end %>
                   <% else %>
-                    <div class="input input-bordered w-full input-disabled bg-base-200 flex items-center">
-                      {String.capitalize(@form["status"] || "draft")}
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-base-200 border border-base-300 text-sm text-base-content/60">
+                      <.icon name="hero-eye-slash" class="w-4 h-4 shrink-0" />
+                      {gettext("Not visible — publish the primary language first")}
                     </div>
                   <% end %>
-                </div>
+                  <%!-- Clear translation button --%>
+                  <%= if translation_exists do %>
+                    <button
+                      type="button"
+                      phx-click="clear_translation"
+                      class="btn btn-outline btn-error btn-sm w-full gap-2 mt-2"
+                      data-confirm={
+                        gettext(
+                          "Clear the %{language} translation content? You can always add a new translation for this language later.",
+                          language: @current_language_name
+                        )
+                      }
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                      {gettext("Clear translation")}
+                    </button>
+                  <% end %>
+                <% end %>
 
                 <%!-- Publication date: only editable by primary language --%>
                 <%= if @is_primary_language do %>
@@ -1036,7 +1084,7 @@
                     />
                     <p class="text-xs text-base-content/60 mt-1">
                       {gettext(
-                        "Updating the publication time moves the file to the matching folder."
+                        "Updating the publication time changes the post URL to match the new date."
                       )}
                     </p>
                   </div>

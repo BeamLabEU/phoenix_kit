@@ -47,8 +47,6 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
   alias PhoenixKit.Modules.Emails.Log
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  import Ecto.Query
-
   ## --- Public API ---
 
   @doc """
@@ -1432,14 +1430,9 @@ defmodule PhoenixKit.Modules.Emails.SQSProcessor do
         _ -> nil
       end
 
-    if field_name do
-      broadcast_mod = newsletters_mod |> Module.concat("Broadcast")
-
-      if Code.ensure_loaded?(broadcast_mod) do
-        broadcast_mod
-        |> where([b], b.uuid == ^broadcast_uuid)
-        |> PhoenixKit.RepoHelper.repo().update_all(inc: [{field_name, 1}])
-      end
+    if field_name &&
+         function_exported?(newsletters_mod, :increment_broadcast_counter, 2) do
+      newsletters_mod.increment_broadcast_counter(broadcast_uuid, field_name)
     end
   end
 

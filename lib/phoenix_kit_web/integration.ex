@@ -152,7 +152,7 @@ defmodule PhoenixKitWeb.Integration do
       # This ensures backward compatibility with old URLs while enforcing base code standard
       scope "#{unquote(url_prefix)}/:locale",
             PhoenixKitWeb,
-            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
+            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         unquote(block)
@@ -1338,7 +1338,7 @@ defmodule PhoenixKitWeb.Integration do
     # Use a generic locale pattern that accepts any valid language code format
     # This allows switching to any of the 80+ predefined languages
     # Actual validation of whether the locale is supported happens in the validation plug
-    pattern = "[a-z]{2}(?:-[A-Za-z0-9]{2,})?"
+    pattern = "[a-z]{2,3}(?:-[A-Za-z]{2,4})?"
 
     # Call route generators BEFORE quote block (aliases work in this context)
     # Uses safe_route_call/3 so modules can be safely extracted to separate packages

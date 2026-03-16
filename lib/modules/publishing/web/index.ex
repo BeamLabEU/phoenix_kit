@@ -6,17 +6,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Modules.Publishing.Constants
+  alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
+
+  @group_statuses Constants.group_statuses()
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Workers.MigratePrimaryLanguageWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
-
-  # Threshold for using background job vs synchronous migration
-  @migration_async_threshold 20
 
   @impl true
   def mount(_params, _session, socket) do
@@ -62,14 +63,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:dashboard_summary, summary)
       |> assign(:empty_state?, groups == [])
       |> assign(:enabled_languages, Publishing.enabled_language_codes())
-      |> assign(:endpoint_url, nil)
+      |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
-      |> assign(:show_migration_modal, false)
-      |> assign(:migration_modal_slug, nil)
-      |> assign(:migration_modal_name, nil)
-      |> assign(:migration_modal_count, 0)
-      |> assign(:primary_language_name, get_language_name(Publishing.get_primary_language()))
-      |> assign(:migrations_in_progress, %{})
+      |> assign(
+        :primary_language_name,
+        Helpers.get_language_name(Publishing.get_primary_language())
+      )
+      |> assign(:dashboard_refresh_timer, nil)
+      |> assign(:view_mode, "active")
+      |> assign(:loading, false)
+      |> assign(:trashed_count, length(Publishing.list_groups("trashed")))
 
     {:ok, socket}
   end
@@ -79,196 +82,168 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     {:noreply, assign(socket, :endpoint_url, extract_endpoint_url(uri))}
   end
 
-  # PubSub handlers for live updates
+  # PubSub handlers for live updates — debounced to prevent rapid re-renders
+  @dashboard_debounce_ms 500
+
   @impl true
-  def handle_info({:post_created, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
-  def handle_info({:post_updated, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:deferred_view_switch, _mode}, socket) do
+    {:noreply,
+     socket
+     |> refresh_dashboard()
+     |> assign(:loading, false)}
+  end
+
+  def handle_info({:post_created, _post}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
+
+  def handle_info({:post_updated, _post}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:post_status_changed, _post}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:post_deleted, _post_identifier}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
-  def handle_info({:group_created, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:group_created, _group}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:group_deleted, _group_slug}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
-  def handle_info({:group_updated, _group}, socket), do: {:noreply, refresh_dashboard(socket)}
-  def handle_info({:version_created, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:group_updated, _group}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
+
+  def handle_info({:version_created, _post}, socket),
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:version_live_changed, _uuid, _version}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
   def handle_info({:version_deleted, _slug, _version}, socket),
-    do: {:noreply, refresh_dashboard(socket)}
+    do: {:noreply, schedule_dashboard_refresh(socket)}
 
-  # Primary language migration progress handlers
-  def handle_info({:primary_language_migration_started, _group_slug, _total_count}, socket) do
-    # Already tracked in migrations_in_progress when job was enqueued
-    {:noreply, socket}
-  end
+  def handle_info(:debounced_dashboard_refresh, socket),
+    do: {:noreply, socket |> assign(:dashboard_refresh_timer, nil) |> refresh_dashboard()}
 
-  def handle_info({:primary_language_migration_progress, group_slug, current, total}, socket) do
-    # Update progress for the specific group
-    migrations =
-      if Map.has_key?(socket.assigns.migrations_in_progress, group_slug) do
-        put_in(
-          socket.assigns.migrations_in_progress,
-          [group_slug],
-          %{current: current, total: total}
-        )
-      else
-        # Migration started elsewhere, add it
-        Map.put(socket.assigns.migrations_in_progress, group_slug, %{
-          current: current,
-          total: total
-        })
-      end
-
-    {:noreply, assign(socket, :migrations_in_progress, migrations)}
-  end
-
+  # Primary language update completed (from this page or elsewhere)
   def handle_info(
-        {:primary_language_migration_completed, group_slug, success_count, error_count,
-         primary_language},
+        {:primary_language_migration_completed, _group_slug, count, _errors, primary_language},
         socket
       ) do
-    # Remove the completed migration from in-progress
-    migrations = Map.delete(socket.assigns.migrations_in_progress, group_slug)
-
-    socket =
-      socket
-      |> assign(:migrations_in_progress, migrations)
-      |> refresh_dashboard()
-
-    socket =
-      if error_count > 0 do
-        put_flash(
-          socket,
-          :warning,
-          gettext("Migration completed: %{success} succeeded, %{errors} failed",
-            success: success_count,
-            errors: error_count
-          )
-        )
-      else
-        put_flash(
-          socket,
-          :info,
-          gettext("Updated %{count} posts to primary language: %{lang}",
-            count: success_count,
-            lang: get_language_name(primary_language)
-          )
-        )
-      end
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> refresh_dashboard()
+     |> put_flash(
+       :info,
+       gettext("Updated %{count} posts to primary language: %{lang}",
+         count: count,
+         lang: Helpers.get_language_name(primary_language)
+       )
+     )}
   end
 
   # Catch-all for other PubSub messages (translation progress, cache changes, etc.)
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
-  def handle_event(
-        "show_migration_modal",
-        %{"slug" => group_slug, "name" => group_name, "count" => count},
-        socket
-      ) do
-    {:noreply,
-     socket
-     |> assign(:show_migration_modal, true)
-     |> assign(:migration_modal_slug, group_slug)
-     |> assign(:migration_modal_name, group_name)
-     |> assign(:migration_modal_count, String.to_integer(count))}
+  def handle_event("update_primary_language", %{"slug" => group_slug}, socket) do
+    case Publishing.update_posts_primary_language(group_slug) do
+      {:ok, 0} ->
+        {:noreply, put_flash(socket, :info, gettext("All posts already up to date"))}
+
+      {:ok, count} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(
+           :info,
+           gettext("Updated %{count} posts to primary language: %{lang}",
+             count: count,
+             lang: Helpers.get_language_name(Publishing.get_primary_language())
+           )
+         )}
+    end
+  rescue
+    e ->
+      Logger.error("[Publishing.Index] Primary language update failed: #{Exception.message(e)}")
+      {:noreply, put_flash(socket, :error, gettext("Failed to update primary language"))}
   end
 
-  def handle_event("close_migration_modal", _params, socket) do
+  def handle_event("switch_view", %{"mode" => mode}, socket) when mode in @group_statuses do
+    send(self(), {:deferred_view_switch, mode})
+
     {:noreply,
      socket
-     |> assign(:show_migration_modal, false)
-     |> assign(:migration_modal_slug, nil)
-     |> assign(:migration_modal_name, nil)
-     |> assign(:migration_modal_count, 0)}
+     |> assign(:view_mode, mode)
+     |> assign(:dashboard_insights, [])
+     |> assign(:empty_state?, false)
+     |> assign(:loading, true)}
   end
 
-  def handle_event("confirm_migrate_primary_language", _params, socket) do
-    group_slug = socket.assigns.migration_modal_slug
-    primary_language = Publishing.get_primary_language()
-    total_count = socket.assigns.migration_modal_count
+  def handle_event("trash_group", %{"slug" => slug}, socket) do
+    case Publishing.trash_group(slug) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(:info, gettext("Group moved to trash"))}
 
-    # Use background job for large migrations
-    if total_count > @migration_async_threshold do
-      # Subscribe to this group's posts for progress updates
-      PublishingPubSub.subscribe_to_posts(group_slug)
-
-      case MigratePrimaryLanguageWorker.enqueue(group_slug, primary_language) do
-        {:ok, _job} ->
-          migrations =
-            Map.put(socket.assigns.migrations_in_progress, group_slug, %{
-              current: 0,
-              total: total_count
-            })
-
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> assign(:migration_modal_slug, nil)
-           |> assign(:migration_modal_name, nil)
-           |> assign(:migration_modal_count, 0)
-           |> assign(:migrations_in_progress, migrations)
-           |> put_flash(
-             :info,
-             gettext("Migration started for %{count} posts. You can continue working.",
-               count: total_count
-             )
-           )}
-
-        {:error, reason} ->
-          {:noreply,
-           socket
-           |> assign(:show_migration_modal, false)
-           |> put_flash(
-             :error,
-             gettext("Failed to start migration: %{reason}", reason: inspect(reason))
-           )}
-      end
-    else
-      # Synchronous migration — update DB records directly
-      {:ok, count} = DBStorage.migrate_primary_language(group_slug, primary_language)
-
-      {:noreply,
-       socket
-       |> assign(:show_migration_modal, false)
-       |> assign(:migration_modal_slug, nil)
-       |> assign(:migration_modal_name, nil)
-       |> assign(:migration_modal_count, 0)
-       |> refresh_dashboard()
-       |> put_flash(
-         :info,
-         gettext("Updated %{count} posts to primary language: %{lang}",
-           count: count,
-           lang: get_language_name(primary_language)
-         )
-       )}
+      {:error, reason} ->
+        Logger.warning("[Publishing.Index] Trash group failed for #{slug}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to trash group"))}
     end
   end
 
-  defp get_language_name(language_code) do
-    case Publishing.get_language_info(language_code) do
-      %{name: name} -> name
-      _ -> String.upcase(language_code)
+  def handle_event("restore_group", %{"slug" => slug}, socket) do
+    case Publishing.restore_group(slug) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(:info, gettext("Group restored"))}
+
+      {:error, reason} ->
+        Logger.warning("[Publishing.Index] Restore group failed for #{slug}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to restore group"))}
     end
+  end
+
+  def handle_event("delete_group", %{"slug" => slug}, socket) do
+    case Publishing.remove_group(slug, force: true) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> refresh_dashboard()
+         |> put_flash(:info, gettext("Group permanently deleted"))}
+
+      {:error, reason} ->
+        Logger.warning("[Publishing.Index] Delete group failed for #{slug}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to delete group"))}
+    end
+  end
+
+  defp schedule_dashboard_refresh(socket) do
+    if timer = socket.assigns[:dashboard_refresh_timer] do
+      Process.cancel_timer(timer)
+    end
+
+    timer = Process.send_after(self(), :debounced_dashboard_refresh, @dashboard_debounce_ms)
+    assign(socket, :dashboard_refresh_timer, timer)
   end
 
   defp refresh_dashboard(socket) do
+    view_mode = socket.assigns[:view_mode] || "active"
+
     {groups, insights, summary} =
       dashboard_snapshot(
         socket.assigns.current_locale_base,
         socket.assigns[:phoenix_kit_current_user],
-        socket.assigns.date_time_settings
+        socket.assigns.date_time_settings,
+        view_mode
       )
+
+    trashed_count = length(Publishing.list_groups("trashed"))
 
     # Resubscribe to any new groups that may have been created
     Enum.each(groups, fn group ->
@@ -279,23 +254,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       groups: groups,
       dashboard_insights: insights,
       dashboard_summary: summary,
-      empty_state?: groups == []
+      empty_state?: groups == [] and view_mode == "active",
+      trashed_count: trashed_count
     )
   end
 
-  defp dashboard_snapshot(_locale, current_user, date_time_settings) do
+  defp dashboard_snapshot(_locale, current_user, date_time_settings, view_mode \\ "active") do
     # Admin side reads from database only
-    db_groups = DBStorage.list_groups()
+    db_groups = Publishing.list_groups(view_mode)
 
-    groups =
-      Enum.map(db_groups, fn g ->
-        %{
-          "name" => g.name,
-          "slug" => g.slug,
-          "mode" => g.mode,
-          "position" => g.position
-        }
-      end)
+    groups = db_groups
 
     insights =
       Enum.map(db_groups, &build_group_insight(&1, current_user, date_time_settings))
@@ -306,11 +274,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   defp build_group_insight(db_group, current_user, date_time_settings) do
+    group_slug = db_group["slug"]
+
     # Use ListingCache when available (sub-microsecond), fall back to DB
     posts =
-      case ListingCache.read(db_group.slug) do
+      case ListingCache.read(group_slug) do
         {:ok, cached_posts} -> cached_posts
-        {:error, _} -> DBStorage.list_posts_with_metadata(db_group.slug)
+        {:error, _} -> Publishing.list_posts(group_slug)
       end
 
     status_counts = Enum.frequencies_by(posts, &Map.get(&1[:metadata] || %{}, :status, "draft"))
@@ -327,15 +297,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     global_primary = Publishing.get_primary_language()
 
     primary_lang_status =
-      DBStorage.count_primary_language_status_from_posts(posts, global_primary)
+      Publishing.count_primary_language_status(posts, global_primary)
 
     lang_migration_count =
-      primary_lang_status.needs_backfill + primary_lang_status.needs_migration
+      if primary_lang_status,
+        do: primary_lang_status.needs_backfill + primary_lang_status.needs_migration,
+        else: 0
 
     %{
-      name: db_group.name,
-      slug: db_group.slug,
-      mode: db_group.mode,
+      name: db_group["name"],
+      slug: group_slug,
+      mode: db_group["mode"],
       posts_count: length(posts),
       published_count: Map.get(status_counts, "published", 0),
       draft_count: Map.get(status_counts, "draft", 0),

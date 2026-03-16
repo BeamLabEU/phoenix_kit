@@ -62,31 +62,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
     Manager.broadcast(groups_topic(), {:group_updated, group})
   end
 
-  # Backward compatibility aliases
-  @doc false
-  @deprecated "Use groups_topic/0 instead"
-  def blogs_topic, do: groups_topic()
-
-  @doc false
-  @deprecated "Use subscribe_to_groups/0 instead"
-  def subscribe_to_blogs, do: subscribe_to_groups()
-
-  @doc false
-  @deprecated "Use unsubscribe_from_groups/0 instead"
-  def unsubscribe_from_blogs, do: unsubscribe_from_groups()
-
-  @doc false
-  @deprecated "Use broadcast_group_created/1 instead"
-  def broadcast_blog_created(group), do: broadcast_group_created(group)
-
-  @doc false
-  @deprecated "Use broadcast_group_deleted/1 instead"
-  def broadcast_blog_deleted(group_slug), do: broadcast_group_deleted(group_slug)
-
-  @doc false
-  @deprecated "Use broadcast_group_updated/1 instead"
-  def broadcast_blog_updated(group), do: broadcast_group_updated(group)
-
   # ============================================================================
   # Post List Updates (simple refresh)
   # ============================================================================
@@ -378,16 +353,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
     Manager.broadcast(cache_topic(group_slug), {:cache_changed, group_slug})
   end
 
-  @doc """
-  Broadcasts detailed cache operation info.
-  """
-  def broadcast_cache_operation(group_slug, operation, metadata \\ %{}) do
-    Manager.broadcast(
-      cache_topic(group_slug),
-      {:cache_operation, group_slug, operation, metadata}
-    )
-  end
-
   # ============================================================================
   # AI Translation Progress
   # ============================================================================
@@ -491,63 +456,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
     )
   end
 
-  # Deprecated shims for backward compatibility
-  @doc false
-  @deprecated "Use group_editors_topic/1 instead"
-  def blog_editors_topic(group_slug), do: group_editors_topic(group_slug)
-
-  @doc false
-  @deprecated "Use subscribe_to_group_editors/1 instead"
-  def subscribe_to_blog_editors(group_slug), do: subscribe_to_group_editors(group_slug)
-
-  @doc false
-  @deprecated "Use unsubscribe_from_group_editors/1 instead"
-  def unsubscribe_from_blog_editors(group_slug), do: unsubscribe_from_group_editors(group_slug)
-
-  # ============================================================================
-  # Bulk Operations Progress
-  # ============================================================================
-
-  @doc """
-  Returns the topic for bulk operation progress.
-  """
-  def bulk_operation_topic(group_slug) do
-    "#{@topic_prefix}:#{group_slug}:bulk_operations"
-  end
-
-  @doc """
-  Subscribes to bulk operation progress for a group.
-  """
-  def subscribe_to_bulk_operations(group_slug) do
-    Manager.subscribe(bulk_operation_topic(group_slug))
-  end
-
-  @doc """
-  Broadcasts bulk operation progress.
-  """
-  def broadcast_bulk_operation_progress(
-        group_slug,
-        operation_id,
-        operation_type,
-        completed,
-        total
-      ) do
-    Manager.broadcast(
-      bulk_operation_topic(group_slug),
-      {:bulk_operation_progress, operation_id, operation_type, completed, total}
-    )
-  end
-
-  @doc """
-  Broadcasts bulk operation completion.
-  """
-  def broadcast_bulk_operation_completed(group_slug, operation_id, operation_type, results) do
-    Manager.broadcast(
-      bulk_operation_topic(group_slug),
-      {:bulk_operation_completed, operation_id, operation_type, results}
-    )
-  end
-
   # ============================================================================
   # Form Key Helpers
   # ============================================================================
@@ -608,26 +516,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   # ============================================================================
   # Primary Language Migration Progress
   # ============================================================================
-
-  @doc """
-  Broadcasts that primary language migration has started.
-  """
-  def broadcast_primary_language_migration_started(group_slug, total_count) do
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:primary_language_migration_started, group_slug, total_count}
-    )
-  end
-
-  @doc """
-  Broadcasts primary language migration progress.
-  """
-  def broadcast_primary_language_migration_progress(group_slug, current, total) do
-    Manager.broadcast(
-      posts_topic(group_slug),
-      {:primary_language_migration_progress, group_slug, current, total}
-    )
-  end
 
   @doc """
   Broadcasts that primary language migration has completed.

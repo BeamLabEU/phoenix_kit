@@ -9,13 +9,8 @@
   <div class="container flex flex-col mx-auto px-4 py-6">
     <%!-- Header Section --%>
     <.admin_page_header
-      back={Routes.path("/admin/settings/publishing")}
+      back={Routes.path("/admin/publishing")}
       title={gettext("Edit Group")}
-      subtitle={
-        gettext(
-          "Update the group's display name and slug. The slug controls the folder structure used for storing posts, so changing it will rename the underlying directory."
-        )
-      }
     />
 
     <div class="max-w-2xl mx-auto space-y-6">
@@ -46,9 +41,7 @@
               />
               <div class="space-y-1">
                 <p class="text-xs text-base-content/60">
-                  {gettext(
-                    "Controls the folder structure for storing posts. Changing this will rename the directory."
-                  )}
+                  {gettext("The slug is used in URLs for this group's public pages.")}
                 </p>
                 <p class="text-xs font-medium text-base-content/70">
                   <span class="font-semibold">{gettext("Format")}:</span>
@@ -83,7 +76,7 @@
                     )}
                   <% _ -> %>
                     {gettext("Timestamp-based")} · {gettext(
-                      "Chronological folders ideal for news and updates."
+                      "Chronological URLs ideal for news and updates."
                     )}
                 <% end %>
               </p>

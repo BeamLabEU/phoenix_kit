@@ -1759,6 +1759,63 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
+  // LEAF EDITOR (loaded from CDN)
+  //
+  // Auto-loads Leaf editor JS from CDN when the hook mounts.
+  // The Elixir LiveComponent comes from the {:leaf, "~> 0.1.0"} hex dependency.
+  // ============================================================================
+
+  (function() {
+    var LEAF_CDN = "https://cdn.jsdelivr.net/gh/alexdont/leaf@v0.1.0/priv/static/assets/leaf.js";
+    var leafLoading = false;
+    var leafCallbacks = [];
+
+    function loadLeafJS(callback) {
+      if (window.LeafHooks && window.LeafHooks.Leaf) {
+        callback();
+        return;
+      }
+
+      leafCallbacks.push(callback);
+
+      if (leafLoading) return;
+      leafLoading = true;
+
+      var script = document.createElement("script");
+      script.src = LEAF_CDN;
+      script.onload = function() {
+        leafCallbacks.forEach(function(cb) { cb(); });
+        leafCallbacks = [];
+      };
+      script.onerror = function() {
+        console.error("[PhoenixKit:Leaf] Failed to load Leaf editor from CDN");
+      };
+      document.head.appendChild(script);
+    }
+
+    // Wrapper hook that lazy-loads Leaf JS then delegates to the real hook
+    window.PhoenixKitHooks.Leaf = {
+      mounted: function() {
+        var self = this;
+        loadLeafJS(function() {
+          var realHook = window.LeafHooks && window.LeafHooks.Leaf;
+          if (realHook) {
+            // Copy real hook methods onto this instance
+            Object.keys(realHook).forEach(function(key) {
+              if (key !== "mounted") {
+                self[key] = realHook[key];
+              }
+            });
+            // Call the real mounted
+            realHook.mounted.call(self);
+          }
+        });
+      }
+    };
+  })();
+
+
+  // ============================================================================
   // INITIALIZATION COMPLETE
   // ============================================================================
 

@@ -2,40 +2,15 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
   @moduledoc """
   Publishing module routes.
 
-  Provides route definitions for blog/content management including
-  both new publishing routes and legacy blogging redirects.
+  Provides route definitions for content management (publishing groups and posts).
   """
 
   @doc """
-  Returns quoted code for publishing non-LiveView routes (legacy redirects).
+  Returns quoted code for publishing non-LiveView routes.
+  Currently a no-op — reserved for future non-LiveView routes.
   """
-  def generate(url_prefix) do
+  def generate(_url_prefix) do
     quote do
-      # Legacy blogging redirects (localized)
-      alias PhoenixKitWeb.Controllers.Redirects.PublishingRedirectController
-
-      scope "#{unquote(url_prefix)}/:locale" do
-        pipe_through [:browser]
-        get "/admin/blogging", PublishingRedirectController, :index
-        get "/admin/blogging/:blog", PublishingRedirectController, :blog
-        get "/admin/blogging/:blog/edit", PublishingRedirectController, :edit
-        get "/admin/blogging/:blog/preview", PublishingRedirectController, :preview
-        get "/admin/settings/blogging", PublishingRedirectController, :settings
-        get "/admin/settings/blogging/new", PublishingRedirectController, :new
-        get "/admin/settings/blogging/:blog/edit", PublishingRedirectController, :settings_edit
-      end
-
-      # Legacy blogging redirects (non-localized)
-      scope unquote(url_prefix) do
-        pipe_through [:browser]
-        get "/admin/blogging", PublishingRedirectController, :index
-        get "/admin/blogging/:blog", PublishingRedirectController, :blog
-        get "/admin/blogging/:blog/edit", PublishingRedirectController, :edit
-        get "/admin/blogging/:blog/preview", PublishingRedirectController, :preview
-        get "/admin/settings/blogging", PublishingRedirectController, :settings
-        get "/admin/settings/blogging/new", PublishingRedirectController, :new
-        get "/admin/settings/blogging/:blog/edit", PublishingRedirectController, :settings_edit
-      end
     end
   end
 
@@ -46,6 +21,15 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
     quote do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index_localized
+
+      # Literal path routes MUST come before :group param routes
+      live "/admin/publishing/new-group", PhoenixKit.Modules.Publishing.Web.New, :new,
+        as: :publishing_new_group_localized
+
+      live "/admin/publishing/edit-group/:group",
+           PhoenixKit.Modules.Publishing.Web.Edit,
+           :edit,
+           as: :publishing_edit_group_localized
 
       live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
         as: :publishing_group_localized
@@ -79,14 +63,6 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
 
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings_localized
-
-      live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
-        as: :publishing_new_localized
-
-      live "/admin/settings/publishing/:group/edit",
-           PhoenixKit.Modules.Publishing.Web.Edit,
-           :edit,
-           as: :publishing_edit_localized
     end
   end
 
@@ -97,6 +73,15 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
     quote do
       live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
         as: :publishing_index
+
+      # Literal path routes MUST come before :group param routes
+      live "/admin/publishing/new-group", PhoenixKit.Modules.Publishing.Web.New, :new,
+        as: :publishing_new_group
+
+      live "/admin/publishing/edit-group/:group",
+           PhoenixKit.Modules.Publishing.Web.Edit,
+           :edit,
+           as: :publishing_edit_group
 
       live "/admin/publishing/:group", PhoenixKit.Modules.Publishing.Web.Listing, :group,
         as: :publishing_group
@@ -130,14 +115,6 @@ defmodule PhoenixKitWeb.Routes.PublishingRoutes do
 
       live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
         as: :publishing_settings
-
-      live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
-        as: :publishing_new
-
-      live "/admin/settings/publishing/:group/edit",
-           PhoenixKit.Modules.Publishing.Web.Edit,
-           :edit,
-           as: :publishing_edit
     end
   end
 end

@@ -204,7 +204,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   end
 
   defp strip_locale_prefix(path) do
-    case Regex.run(~r/^\/[a-z]{2}(-[A-Z]{2})?(\/.*)?$/, path) do
+    case Regex.run(~r/^\/[a-z]{2,3}(-[A-Za-z]{2,4})?(\/.*)?$/, path) do
       [_, _locale, rest] when is_binary(rest) -> rest
       [_, _locale] -> "/"
       _ -> path
@@ -749,10 +749,18 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   defp get_layout_config do
     case Config.get(:phoenix_version_strategy, nil) do
       :modern ->
-        # Phoenix v1.8+ - get layouts_module and assume :app function
-        case Config.get(:layouts_module, nil) do
-          nil -> nil
-          module -> {module, :app}
+        # Phoenix v1.8+ - respect explicit layout: config first, then fall back
+        # to {layouts_module, :app}. The layout: config allows parent apps to
+        # specify a different layout function (e.g., :full_width instead of :app).
+        case Config.get(:layout, nil) do
+          {module, function} when is_atom(module) and is_atom(function) ->
+            {module, function}
+
+          _ ->
+            case Config.get(:layouts_module, nil) do
+              nil -> nil
+              module -> {module, :app}
+            end
         end
 
       :legacy ->

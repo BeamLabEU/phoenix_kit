@@ -52,7 +52,7 @@ The publishing module includes public-facing routes for displaying published pos
 - **Flexible Fallbacks** - Missing language versions redirect to available alternatives
 - **Pagination** - Configurable posts per page (default: 20)
 - **SEO Ready** - Clean URLs, breadcrumbs, responsive design
-- **Performance** - Content-hash-based caching with versioned keys (`v1:blog_post:...`)
+- **Performance** - Content-hash-based caching with versioned keys (`v1:publishing_post:...`)
 
 ### Language Detection
 
@@ -114,8 +114,6 @@ PhoenixKit.Settings.update_setting("publishing_posts_per_page", "20")
 
 `publishing_public_enabled` gates the entire `PhoenixKit.Modules.Publishing.Web.Controller` – set it to `"false"` to return a 404 for every public content route. `publishing_posts_per_page` drives listing pagination.
 
-**Note:** Legacy `blogging_*` settings keys are still supported for backward compatibility. The module checks `publishing_*` keys first, then falls back to `blogging_*`.
-
 **Note:** These settings are currently only configurable via code. There is no admin UI for these options yet; expose them in your app if customers need runtime control.
 
 ### Templates
@@ -146,7 +144,7 @@ PhoenixKit ships two cache layers:
    `publishing_render_cache_enabled` toggle, and per-group overrides (`publishing_render_cache_enabled_<slug>`)
    plus UI buttons to clear stats or individual group caches.
 
-Example render cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
+Example render cache key: `v1:publishing_post:docs:getting-started:en:a1b2c3d4`
 
 Manual cache operations remain available when scripting:
 
@@ -174,7 +172,7 @@ Renderer.clear_all_cache()
 
 - **PhoenixKit.Modules.Publishing** – Main context module with mode-aware routing (all writes are DB-only)
 - **PhoenixKit.Modules.Publishing.DBStorage** – Database CRUD layer for groups, posts, versions, and contents
-- **PhoenixKit.Modules.Publishing.DBStorage.Mapper** – Converts DB records to the legacy map format consumed by web layer
+- **PhoenixKit.Modules.Publishing.DBStorage.Mapper** – Converts DB records to the post map format consumed by web layer
 - **PhoenixKit.Modules.Publishing.Metadata** – Metadata parsing and serialization
 
 **Schemas (V59 migration):**
@@ -186,8 +184,10 @@ Renderer.clear_all_cache()
 
 **Admin Interfaces:**
 
+- **PhoenixKit.Modules.Publishing.Web.Index** – Publishing groups overview with skeleton loading on tab switch
+- **PhoenixKit.Modules.Publishing.Web.Listing** – Post listing with inline status controls, skeleton loading, and trash management
 - **PhoenixKit.Modules.Publishing.Web.Settings** – Admin interface for group configuration
-- **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave and featured images (DB-only, gated by migration)
+- **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave, featured images, skeleton loading on language switch, and clear translation button
 - **PhoenixKit.Modules.Publishing.Web.Preview** – Live preview for posts
 
 **Public Display:**
@@ -220,6 +220,41 @@ Renderer.clear_all_cache()
 - **Markdown Content** – Full Markdown support with syntax highlighting
 - **JSONB Metadata** – Flexible metadata via `data` JSONB columns on all four schemas
 - **Backward Compatibility** – Legacy groups without mode field default to "timestamp"
+
+## Admin UI Features
+
+### Inline Status Control
+
+Posts on the listing page have a status dropdown (Draft/Published/Archived) next to the
+primary language badge. Changing status keeps you in the current tab — the post updates
+in place with the new status color. Status tab counts update automatically.
+
+### Skeleton Loading
+
+All tab switches and language switches show animated skeleton placeholders while loading:
+- **Index page**: Group card skeletons when switching Active/Trash tabs
+- **Listing page**: Post card skeletons when switching status tabs
+- **Editor**: Content area skeleton when switching between language translations
+
+Skeletons use `bg-base-200` with `animate-pulse` (not DaisyUI's `skeleton` class, which
+depends on `--color-base-300` that resolves to white in some PhoenixKit themes).
+
+### Trash Management
+
+- **Trashing**: Posts are soft-deleted (status set to "trashed"). Trashed posts are excluded
+  from all public-facing queries (URL slugs, timestamp lookups, listing cache).
+- **Empty posts**: Posts with no content across any version are automatically hard-deleted
+  by the stale fixer (prevents the restore → auto-trash loop).
+- **Trash tab**: Shows trashed posts with full metadata (titles, languages) but all elements
+  are non-interactive (dimmed languages, no clickable titles, no public URL).
+- **Restore**: Button next to primary language badge. Restores post as "draft" status.
+
+### Clear Translation
+
+Non-primary language translations can be cleared via a button in the editor sidebar.
+This hard-deletes the content row from the database (not a soft-delete/archive).
+The language disappears from the post and can be re-added later. The button appears
+whenever a content row exists in the DB, regardless of whether it has body text.
 
 ## URL Modes
 
@@ -326,7 +361,7 @@ iex> Publishing.enable_system()
 
 - `Publishing` is available anywhere via the alias above.
 - `Scope` is optional but lets you stamp `created_by_*` / `updated_by_*` metadata.
-- Module settings live in `PhoenixKit.Settings` (with legacy `blogging_settings_module` fallback).
+- Module settings live in `PhoenixKit.Settings`.
 
 ### Managing publishing groups
 
@@ -393,7 +428,8 @@ iex> {:ok, _} = Publishing.trash_post("docs", "getting-started")
 ```
 
 - Listing cache uses `:persistent_term` for sub-microsecond reads.
-- `trash_post/2` performs a DB soft-delete (sets `deleted_at` timestamp). Trashed posts can be restored via DB if needed.
+- `trash_post/2` performs a DB soft-delete (sets `status` to `"trashed"`). Trashed posts can be restored from the admin trash tab.
+- Empty posts (no content in any version) are automatically hard-deleted by the stale fixer on the next listing page load.
 
 ### Group Management
 
@@ -490,24 +526,29 @@ posts = Publishing.list_posts("docs", "es")  # With language preference
 
 ### Delete Operations
 
-Delete operations use DB soft-deletes (setting `status` to `"archived"` or `deleted_at` timestamp):
+Posts use soft-delete (setting `status` to `"trashed"`). Trashed posts are excluded from
+public access and can be restored from the admin trash tab. Empty posts (no content in any
+version) are automatically hard-deleted by the stale fixer.
+
+Translations are hard-deleted (the content row is removed from the DB), so the language
+disappears from the post entirely. A new translation can be added later.
 
 ```elixir
-# Soft-delete post (sets deleted_at, all versions and languages)
+# Trash post (soft-delete — sets status to "trashed")
 {:ok, _} = Publishing.trash_post("docs", "getting-started")
 
-# For timestamp mode, use the date/time path
-{:ok, _} = Publishing.trash_post("news", "2025-01-15/14:30")
+# For timestamp mode, use the post UUID
+{:ok, _} = Publishing.trash_post("news", post_uuid)
 
-# Archive a specific translation (refuses if last active language)
-:ok = Publishing.delete_language("docs", "getting-started", "es")
-:ok = Publishing.delete_language("docs", "getting-started", "es", 2)  # specific version
-{:error, :last_language} = Publishing.delete_language("docs", "post", "en")
+# Clear a translation (hard-deletes the content row, refuses if last language)
+:ok = Publishing.delete_language("docs", post_uuid, "es")
+:ok = Publishing.delete_language("docs", post_uuid, "es", 2)  # specific version
+{:error, :last_language} = Publishing.delete_language("docs", post_uuid, "en")
 
 # Archive a version (refuses if live or last active version)
-:ok = Publishing.delete_version("docs", "getting-started", 1)
-{:error, :cannot_delete_live} = Publishing.delete_version("docs", "post", 2)
-{:error, :last_version} = Publishing.delete_version("docs", "post", 1)
+:ok = Publishing.delete_version("docs", post_uuid, 1)
+{:error, :cannot_delete_live} = Publishing.delete_version("docs", post_uuid, 2)
+{:error, :last_version} = Publishing.delete_version("docs", post_uuid, 1)
 ```
 
 ### Versioning Operations
@@ -649,10 +690,11 @@ All create/update/delete operations go through `DBStorage`:
 alias PhoenixKit.Modules.Publishing.DBStorage
 
 # Posts
-{:ok, post} = DBStorage.create_post(group_uuid, %{slug: "hello", status: "draft", mode: "slug"})
-{:ok, post} = DBStorage.get_post("docs", "hello")
+{:ok, post} = DBStorage.create_post(%{group_uuid: group_uuid, slug: "hello", status: "draft", mode: "slug"})
+post = DBStorage.get_post("docs", "hello")           # excludes trashed posts
 {:ok, updated} = DBStorage.update_post(post, %{status: "published"})
-{:ok, deleted} = DBStorage.soft_delete_post(post)
+{:ok, _} = DBStorage.trash_post(post)                # soft-delete (status → "trashed")
+{:ok, _} = DBStorage.delete_post(post)               # hard-delete (cascade removes versions/contents)
 
 # Versions
 {:ok, version} = DBStorage.create_version(post_uuid, %{version_number: 1, status: "draft"})
@@ -665,12 +707,12 @@ versions = DBStorage.list_versions(post_uuid)
 contents = DBStorage.list_contents(version_uuid)
 ```
 
-The `Mapper` module converts DB records to the legacy map format that the web layer and templates consume:
+The `Mapper` module converts DB records to the post map format that the web layer and templates consume:
 
 ```elixir
 alias PhoenixKit.Modules.Publishing.DBStorage.Mapper
 
-post_map = Mapper.to_legacy_map(group, post, version, content, available_languages)
+post_map = Mapper.to_post_map(group, post, version, content, available_languages)
 listing_map = Mapper.to_listing_map(group, post, version, primary_content)
 ```
 
@@ -795,7 +837,7 @@ publishing_contents table:
 4. Fill in translated content and save
 5. All translations share same post/version, each with its own `url_slug`
 
-**Post Map Fields (Legacy Format):**
+**Post Map Fields:**
 
 The `Mapper` module converts DB records into this map format consumed by templates and the web layer:
 
@@ -1023,7 +1065,7 @@ Admin chooses mode at creation time:
 |------|-------|----------|
 | `test/modules/publishing/schema_test.exs` | 28 | All 4 schema changesets, JSONB accessors, defaults |
 | `test/modules/publishing/metadata_test.exs` | 26 | parse/serialize round-trip, title extraction, legacy XML |
-| `test/modules/publishing/mapper_test.exs` | 26 | `to_legacy_map`, `to_listing_map`, field mapping, edge cases |
+| `test/modules/publishing/mapper_test.exs` | 26 | `to_post_map`, `to_listing_map`, field mapping, edge cases |
 | `test/modules/publishing/pubsub_test.exs` | 13 | Topic generation, form key generation |
 | `test/modules/publishing/publishing_api_test.exs` | 20 | Module loading, slugify, valid_slug?, db_post?, extract helpers |
 | `test/modules/publishing/storage_utils_test.exs` | 9 | content_changed?, status_change_only?, should_create_new_version? |
@@ -1052,19 +1094,16 @@ Publishing.enable_system()
 Publishing.disable_system()
 Publishing.enabled?()  # => true/false
 
-# Publishing groups stored as JSON setting
-# Key: "publishing_groups" (with legacy "blogging_blogs" fallback)
-# Value: %{"blogs" => [%{"name" => "...", "slug" => "...", "mode" => "...", "type" => "..."}]}
-# Note: The inner "blogs" key is a legacy JSON key preserved for backward compatibility
+# Publishing groups are stored in the database (publishing_groups table)
 
-# Cache toggles (with legacy blogging_* fallback)
+# Cache toggles
 PhoenixKit.Settings.update_setting("publishing_memory_cache_enabled", "true")
 
-# Render cache (global + per group, with legacy fallback)
+# Render cache (global + per group)
 PhoenixKit.Settings.update_setting("publishing_render_cache_enabled", "true")
 PhoenixKit.Settings.update_setting("publishing_render_cache_enabled_docs", "false")
 
-# Custom settings backend (optional, with legacy blogging_settings_module fallback)
+# Custom settings backend (optional)
 config :phoenix_kit, publishing_settings_module: MyApp.CustomSettings
 ```
 

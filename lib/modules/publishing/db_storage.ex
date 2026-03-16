@@ -46,11 +46,26 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     repo().get(PublishingGroup, uuid)
   end
 
-  @doc "Lists all groups ordered by position."
-  def list_groups do
-    PublishingGroup
-    |> order_by([g], asc: g.position, asc: g.name)
+  @doc "Lists groups ordered by position. Filters by status (default: active only)."
+  def list_groups(status \\ "active") do
+    query = from(g in PublishingGroup, order_by: [asc: g.position, asc: g.name])
+
+    if status do
+      where(query, [g], g.status == ^status)
+    else
+      query
+    end
     |> repo().all()
+  end
+
+  @doc "Trashes a group by setting status to 'trashed'."
+  def trash_group(%PublishingGroup{} = group) do
+    update_group(group, %{status: "trashed"})
+  end
+
+  @doc "Restores a trashed group by setting status to 'active'."
+  def restore_group(%PublishingGroup{} = group) do
+    update_group(group, %{status: "active"})
   end
 
   @doc "Upserts a group by slug."
@@ -86,11 +101,11 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().update()
   end
 
-  @doc "Gets a post by group slug and post slug."
+  @doc "Gets a post by group slug and post slug. Excludes trashed posts."
   def get_post(group_slug, post_slug) do
     from(p in PublishingPost,
       join: g in assoc(p, :group),
-      where: g.slug == ^group_slug and p.slug == ^post_slug,
+      where: g.slug == ^group_slug and p.slug == ^post_slug and p.status != "trashed",
       preload: [group: g]
     )
     |> repo().one()
@@ -100,7 +115,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   Gets a timestamp-mode post by date and time.
 
   Truncates seconds from the input time since URLs use HH:MM format only,
-  and new posts are stored with seconds zeroed. For legacy posts with non-zero
+  and new posts are stored with seconds zeroed. For older posts with non-zero
   seconds, falls back to hour:minute matching.
   """
   def get_post_by_datetime(group_slug, %Date{} = date, %Time{} = time) do
@@ -111,7 +126,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     result =
       from(p in PublishingPost,
         join: g in assoc(p, :group),
-        where: g.slug == ^group_slug and p.post_date == ^date and p.post_time == ^normalized_time,
+        where:
+          g.slug == ^group_slug and p.post_date == ^date and p.post_time == ^normalized_time and
+            p.status != "trashed",
         preload: [group: g]
       )
       |> repo().one()
@@ -119,14 +136,14 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     if result do
       result
     else
-      # Fallback for legacy posts stored with non-zero seconds
+      # Fallback for older posts stored with non-zero seconds
       hour = time.hour
       minute = time.minute
 
       from(p in PublishingPost,
         join: g in assoc(p, :group),
         where:
-          g.slug == ^group_slug and p.post_date == ^date and
+          g.slug == ^group_slug and p.post_date == ^date and p.status != "trashed" and
             fragment(
               "EXTRACT(HOUR FROM ?)::integer = ? AND EXTRACT(MINUTE FROM ?)::integer = ?",
               p.post_time,
@@ -149,7 +166,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> maybe_preload(preloads)
   end
 
-  @doc "Lists posts in a group, optionally filtered by status."
+  @doc "Lists posts in a group, optionally filtered by status. Excludes trashed by default."
   def list_posts(group_slug, status \\ nil) do
     query =
       from(p in PublishingPost,
@@ -162,7 +179,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
       if status do
         where(query, [p], p.status == ^status)
       else
-        query
+        where(query, [p], p.status != "trashed")
       end
 
     query
@@ -170,8 +187,23 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
-  @doc "Lists posts in timestamp mode (ordered by date/time desc)."
-  def list_posts_timestamp_mode(group_slug, status \\ nil) do
+  @doc "Counts non-trashed posts in a group."
+  def count_posts(group_slug) do
+    from(p in PublishingPost,
+      join: g in assoc(p, :group),
+      where: g.slug == ^group_slug and p.status != "trashed",
+      select: count(p.uuid)
+    )
+    |> repo().one() || 0
+  end
+
+  @doc """
+  Lists posts in timestamp mode (ordered by date/time desc).
+
+  Options:
+    * `:date` - Filter to a specific date (Date struct or ISO 8601 string)
+  """
+  def list_posts_timestamp_mode(group_slug, status \\ nil, opts \\ []) do
     query =
       from(p in PublishingPost,
         join: g in assoc(p, :group),
@@ -180,12 +212,26 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         preload: [group: g]
       )
 
-    if status do
-      where(query, [p], p.status == ^status)
-    else
-      query
-    end
-    |> repo().all()
+    query =
+      if status do
+        where(query, [p], p.status == ^status)
+      else
+        query
+      end
+
+    query =
+      case Keyword.get(opts, :date) do
+        nil ->
+          query
+
+        %Date{} = date ->
+          where(query, [p], p.post_date == ^date)
+
+        date_string when is_binary(date_string) ->
+          where(query, [p], p.post_date == ^Date.from_iso8601!(date_string))
+      end
+
+    repo().all(query)
   end
 
   @doc "Lists posts in slug mode (ordered by slug asc)."
@@ -208,13 +254,15 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   @doc "Finds a post by date and time (timestamp mode, matches hour:minute only)."
   def find_post_by_date_time(group_slug, date, time) do
-    # Delegate to get_post_by_datetime which handles normalization and legacy fallback
+    # Delegate to get_post_by_datetime which handles normalization and fallback
     get_post_by_datetime(group_slug, date, time)
   end
 
-  @doc "Soft-deletes a post by setting status to 'archived'."
-  def soft_delete_post(%PublishingPost{} = post) do
-    update_post(post, %{status: "archived"})
+  @doc "Trashes a post by setting status to 'trashed'."
+  def trash_post(%PublishingPost{} = post) do
+    post
+    |> Ecto.Changeset.change(status: "trashed")
+    |> repo().update()
   end
 
   @doc "Hard-deletes a post and all its versions/contents (cascade)."
@@ -239,7 +287,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   Counts primary language status from an already-loaded list of posts.
   Avoids re-querying when posts are already available.
 
-  Posts can be DB structs or legacy maps (with `:primary_language` key).
+  Posts can be DB structs or maps (with `:primary_language` key).
   """
   def count_primary_language_status_from_posts(posts, global_primary) do
     Enum.reduce(posts, %{current: 0, needs_migration: 0, needs_backfill: 0}, fn post, acc ->
@@ -263,25 +311,41 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
 
   Returns `{:ok, count}` with the number of updated posts.
   """
-  def migrate_primary_language(group_slug, primary_language) do
-    posts =
+  def update_primary_language(group_slug, primary_language) do
+    group = get_group_by_slug(group_slug)
+
+    if group do
+      {count, _} =
+        from(p in PublishingPost,
+          where:
+            p.group_uuid == ^group.uuid and
+              (is_nil(p.primary_language) or p.primary_language != ^primary_language)
+        )
+        |> repo().update_all(
+          set: [primary_language: primary_language, updated_at: DateTime.utc_now()]
+        )
+
+      {:ok, count}
+    else
+      {:ok, 0}
+    end
+  end
+
+  @doc "Counts posts needing primary language update in a group."
+  def count_posts_needing_language_update(group_slug, primary_language) do
+    group = get_group_by_slug(group_slug)
+
+    if group do
       from(p in PublishingPost,
-        join: g in assoc(p, :group),
         where:
-          g.slug == ^group_slug and
-            (is_nil(p.primary_language) or p.primary_language != ^primary_language)
+          p.group_uuid == ^group.uuid and
+            (is_nil(p.primary_language) or p.primary_language != ^primary_language),
+        select: count(p.uuid)
       )
-      |> repo().all()
-
-    count =
-      Enum.count(posts, fn post ->
-        case update_post(post, %{primary_language: primary_language}) do
-          {:ok, _} -> true
-          {:error, _} -> false
-        end
-      end)
-
-    {:ok, count}
+      |> repo().one() || 0
+    else
+      0
+    end
   end
 
   # ===========================================================================
@@ -329,12 +393,18 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
-  @doc "Gets the next version number for a post."
+  @doc """
+  Gets the next version number for a post.
+
+  Uses SELECT ... FOR UPDATE to lock the row and prevent concurrent reads
+  from getting the same number.
+  """
   def next_version_number(post_uuid) do
     result =
       from(v in PublishingVersion,
         where: v.post_uuid == ^post_uuid,
-        select: max(v.version_number)
+        select: max(v.version_number),
+        lock: "FOR UPDATE"
       )
       |> repo().one()
 
@@ -376,18 +446,29 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   end
 
   defp copy_contents_to_version(source_version_uuid, target_version_uuid) do
-    for content <- list_contents(source_version_uuid) do
-      case create_content(%{
-             version_uuid: target_version_uuid,
-             language: content.language,
-             title: content.title,
-             content: content.content,
-             status: "draft",
-             url_slug: content.url_slug,
-             data: content.data
-           }) do
-        {:ok, _} -> :ok
-        {:error, reason} -> repo().rollback(reason)
+    now = DateTime.utc_now()
+
+    rows =
+      list_contents(source_version_uuid)
+      |> Enum.map(fn content ->
+        %{
+          uuid: UUIDv7.generate(),
+          version_uuid: target_version_uuid,
+          language: content.language,
+          title: content.title || "",
+          content: content.content || "",
+          status: "draft",
+          url_slug: content.url_slug,
+          data: content.data || %{},
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+
+    if rows != [] do
+      case repo().insert_all(PublishingContent, rows, on_conflict: :nothing) do
+        {count, _} when count >= 0 -> :ok
+        _ -> repo().rollback(:content_copy_failed)
       end
     end
   end
@@ -408,6 +489,12 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     content
     |> PublishingContent.changeset(attrs)
     |> repo().update()
+  end
+
+  @doc "Bulk-updates the status of all content rows for a version."
+  def update_content_status(version_uuid, new_status) do
+    from(c in PublishingContent, where: c.version_uuid == ^version_uuid)
+    |> repo().update_all(set: [status: new_status, updated_at: DateTime.utc_now()])
   end
 
   @doc "Bulk-updates the status of all content rows for a version, excluding a specific language."
@@ -445,7 +532,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().all()
   end
 
-  @doc "Finds content by URL slug across all versions in a group."
+  @doc "Finds content by URL slug across all versions in a group. Excludes trashed posts."
   def find_by_url_slug(group_slug, language, url_slug) do
     # Try matching by content url_slug first
     result =
@@ -453,7 +540,9 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         join: v in assoc(c, :version),
         join: p in assoc(v, :post),
         join: g in assoc(p, :group),
-        where: g.slug == ^group_slug and c.language == ^language and c.url_slug == ^url_slug,
+        where:
+          g.slug == ^group_slug and c.language == ^language and c.url_slug == ^url_slug and
+            p.status != "trashed",
         preload: [version: {v, post: {p, group: g}}]
       )
       |> repo().one()
@@ -467,13 +556,14 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         join: g in assoc(p, :group),
         where:
           g.slug == ^group_slug and c.language == ^language and p.slug == ^url_slug and
+            p.status != "trashed" and
             (is_nil(c.url_slug) or c.url_slug == ""),
         preload: [version: {v, post: {p, group: g}}]
       )
       |> repo().one()
   end
 
-  @doc "Finds content by a previous URL slug (stored in data.previous_url_slugs JSONB array)."
+  @doc "Finds content by a previous URL slug (stored in data.previous_url_slugs JSONB array). Excludes trashed posts."
   def find_by_previous_url_slug(group_slug, language, url_slug) do
     from(c in PublishingContent,
       join: v in assoc(c, :version),
@@ -482,6 +572,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
       where:
         g.slug == ^group_slug and
           c.language == ^language and
+          p.status != "trashed" and
           fragment("? @> ?", c.data, ^%{"previous_url_slugs" => [url_slug]}),
       preload: [version: {v, post: {p, group: g}}]
     )
@@ -495,7 +586,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         []
 
       db_post ->
-        # Find all content rows across all versions with this url_slug
+        # Find affected languages, then bulk-clear url_slugs
         contents =
           from(c in PublishingContent,
             join: v in assoc(c, :version),
@@ -504,23 +595,26 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
           )
           |> repo().all()
 
-        Enum.each(contents, fn {content, _lang} ->
-          update_content(content, %{url_slug: nil})
-        end)
+        # Bulk clear in one query
+        from(c in PublishingContent,
+          join: v in assoc(c, :version),
+          where: v.post_uuid == ^db_post.uuid and c.url_slug == ^url_slug_to_clear
+        )
+        |> repo().update_all(set: [url_slug: nil, updated_at: DateTime.utc_now()])
 
         Enum.map(contents, fn {_content, lang} -> lang end) |> Enum.uniq()
     end
   end
 
-  @doc "Upserts content by version_id + language."
+  @doc "Upserts content by version_id + language using ON CONFLICT."
   def upsert_content(attrs) do
-    version_uuid = Map.get(attrs, :version_uuid) || Map.get(attrs, "version_uuid")
-    language = Map.get(attrs, :language) || Map.get(attrs, "language")
+    changeset = PublishingContent.changeset(%PublishingContent{}, attrs)
 
-    case get_content(version_uuid, language) do
-      nil -> create_content(attrs)
-      content -> update_content(content, attrs)
-    end
+    repo().insert(changeset,
+      on_conflict: {:replace, [:title, :content, :status, :url_slug, :data, :updated_at]},
+      conflict_target: [:version_uuid, :language],
+      returning: true
+    )
   end
 
   # ===========================================================================
@@ -530,7 +624,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc """
   Reads a full post with its latest version and content for a specific language.
 
-  Returns a map suitable for the legacy mapper or nil if not found.
+  Returns a post map or nil if not found.
   """
   def read_post(group_slug, post_slug, language \\ nil, version_number \\ nil) do
     with post when not is_nil(post) <- get_post(group_slug, post_slug),
@@ -539,7 +633,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
          content when not is_nil(content) <- resolve_content(contents, language, post) do
       all_versions = list_versions(post.uuid)
 
-      {:ok, Mapper.to_legacy_map(post, version, content, contents, all_versions)}
+      {:ok, Mapper.to_post_map(post, version, content, contents, all_versions)}
     else
       nil -> {:error, :not_found}
     end
@@ -555,7 +649,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
          content when not is_nil(content) <- resolve_content(contents, language, post) do
       all_versions = list_versions(post.uuid)
 
-      {:ok, Mapper.to_legacy_map(post, version, content, contents, all_versions)}
+      {:ok, Mapper.to_post_map(post, version, content, contents, all_versions)}
     else
       nil -> {:error, :not_found}
     end
@@ -564,10 +658,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   @doc """
   Lists all posts in a group with their latest version metadata.
 
-  Returns a list of legacy-format maps suitable for listing pages.
+  Returns a list of post maps suitable for listing pages.
   """
-  def list_posts_with_metadata(group_slug) do
-    posts = list_posts(group_slug)
+  def list_posts_with_metadata(group_slug, status \\ nil) do
+    posts = if status, do: list_posts(group_slug, status), else: list_posts(group_slug)
     post_uuids = Enum.map(posts, & &1.uuid)
 
     # Batch-load ALL versions for all posts in one query
@@ -614,7 +708,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         primary_content = resolve_content(contents, nil, post)
 
         if primary_content do
-          Mapper.to_legacy_map(post, version, primary_content, contents, all_versions,
+          Mapper.to_post_map(post, version, primary_content, contents, all_versions,
             published_language_statuses: published_statuses
           )
         else
@@ -720,11 +814,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     order_by(query, [p], desc: p.published_at, desc: p.inserted_at)
   end
 
-  # Batch-loads all versions for a list of post UUIDs in a single query.
-  # Returns %{post_uuid => [versions sorted by version_number asc]}
-  defp batch_load_versions([]), do: %{}
+  @doc false
+  def batch_load_versions([]), do: %{}
 
-  defp batch_load_versions(post_uuids) do
+  def batch_load_versions(post_uuids) do
     from(v in PublishingVersion,
       where: v.post_uuid in ^post_uuids,
       order_by: [asc: v.version_number]
@@ -733,11 +826,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> Enum.group_by(& &1.post_uuid)
   end
 
-  # Batch-loads all contents for a list of version UUIDs in a single query.
-  # Returns %{version_uuid => [contents sorted by language]}
-  defp batch_load_contents([]), do: %{}
+  @doc false
+  def batch_load_contents([]), do: %{}
 
-  defp batch_load_contents(version_uuids) do
+  def batch_load_contents(version_uuids) do
     from(c in PublishingContent,
       where: c.version_uuid in ^version_uuids,
       order_by: [asc: c.language]

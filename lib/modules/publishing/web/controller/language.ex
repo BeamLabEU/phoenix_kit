@@ -3,7 +3,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   Language detection and resolution for the publishing controller.
 
   Handles detecting whether URL parameters represent language codes,
-  resolving language codes to file languages, and determining
+  resolving language codes to content languages, and determining
   canonical URL language codes.
   """
 
@@ -105,7 +105,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
         true
 
       # Base code that maps to an enabled dialect
-      String.length(code) == 2 and not String.contains?(code, "-") ->
+      base_code?(code) ->
         dialect = DialectMapper.base_to_dialect(code)
 
         if Languages.language_enabled?(dialect) do
@@ -139,10 +139,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   Matches: 2-letter codes (en, fr), or dialect codes (en-US, pt-BR)
   """
   def looks_like_language_code?(code) when is_binary(code) do
-    # 2-letter base code
-    # Dialect code pattern (xx-XX or xx-XXX)
-    (String.length(code) == 2 and String.match?(code, ~r/^[a-z]{2}$/i)) or
-      String.match?(code, ~r/^[a-z]{2,3}-[A-Za-z]{2,4}$/i)
+    # 2-3 letter base code or dialect code pattern (xx-XX, xxx-XXXX)
+    String.match?(code, ~r/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/i)
   end
 
   # ============================================================================
@@ -172,15 +170,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   end
 
   @doc """
-  Find a dialect in available languages that matches the given base code.
+  Find a dialect in a list of languages that matches the given base code.
   """
-  def find_dialect_for_base_in_languages(base_code, available_languages) do
-    base_lower = String.downcase(base_code)
-
-    Enum.find(available_languages, fn lang ->
-      DialectMapper.extract_base(lang) == base_lower
-    end)
-  end
+  def find_dialect_for_base_in_languages(base_code, languages),
+    do: find_dialect_for_base(base_code, languages)
 
   # ============================================================================
   # Canonical URL Language
@@ -209,7 +202,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
 
   @doc """
   Gets the canonical URL language code for a post's language.
-  This uses the actual file language (e.g., "en-US") to determine the canonical URL code.
+  This uses the actual content language (e.g., "en-US") to determine the canonical URL code.
   """
   def get_canonical_url_language_for_post(post_language) do
     enabled_languages = get_enabled_languages()
@@ -230,10 +223,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Language do
   end
 
   @doc """
-  Checks if a code is a base (2-letter) language code.
+  Checks if a code is a base language code (2-3 letters, no dialect suffix).
   """
   def base_code?(code) when is_binary(code) do
-    String.length(code) == 2 and not String.contains?(code, "-")
+    String.length(code) in [2, 3] and not String.contains?(code, "-")
   end
 
   def base_code?(_), do: false

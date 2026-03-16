@@ -76,8 +76,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostFetching do
 
             # Read from freshly populated cache
             case ListingCache.read(group_slug) do
-              {:ok, posts} -> posts
-              {:error, _} -> Publishing.list_posts(group_slug, nil)
+              {:ok, posts} ->
+                posts
+
+              {:error, reason} ->
+                Logger.warning(
+                  "[PublishingController] Cache read failed after regeneration for #{group_slug}: #{inspect(reason)}"
+                )
+
+                Publishing.list_posts(group_slug, nil)
             end
 
           :already_in_progress ->

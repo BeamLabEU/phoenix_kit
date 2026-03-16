@@ -36,7 +36,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   - On invalidate: clears :persistent_term entry (next read triggers regeneration)
   """
 
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
+
+  @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
@@ -51,11 +54,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   # ETS table for regeneration locks (provides atomic test-and-set via insert_new)
   @lock_table :phoenix_kit_listing_cache_locks
 
-  # Settings keys for memory cache toggle
+  # Settings key for memory cache toggle
   @memory_cache_key "publishing_memory_cache_enabled"
-
-  # Legacy settings key (read as fallback)
-  @legacy_memory_cache_key "blogging_memory_cache_enabled"
 
   @doc """
   Reads the cached listing for a publishing group.
@@ -63,8 +63,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Returns `{:ok, posts}` if cache exists and is valid.
   Returns `{:error, :cache_miss}` if cache doesn't exist or caching is disabled.
 
-  Respects the `publishing_memory_cache_enabled` setting
-  (with fallback to legacy `blogging_memory_cache_enabled` key).
+  Respects the `publishing_memory_cache_enabled` setting.
   """
   @spec read(String.t()) :: {:ok, [map()]} | {:error, :cache_miss}
   def read(group_slug) do
@@ -125,11 +124,27 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       {:error, {:regenerate_failed, error}}
   end
 
+  # Maximum number of posts to cache in :persistent_term per group.
+  # Groups exceeding this will still work but only cache the most recent posts.
+  @max_cached_posts 5000
+
   defp do_regenerate(group_slug) do
     start_time = System.monotonic_time(:millisecond)
 
     # Posts from to_listing_map are already atom-key maps with excerpts
-    posts = DBStorage.list_posts_for_listing(group_slug)
+    all_posts = DBStorage.list_posts_for_listing(group_slug)
+
+    posts =
+      if length(all_posts) > @max_cached_posts do
+        Logger.warning(
+          "[ListingCache] Group #{group_slug} has #{length(all_posts)} posts, caching most recent #{@max_cached_posts}"
+        )
+
+        Enum.take(all_posts, @max_cached_posts)
+      else
+        all_posts
+      end
+
     generated_at = UtilsDate.utc_now() |> DateTime.to_iso8601()
 
     safe_persistent_term_put(persistent_term_key(group_slug), posts)
@@ -496,14 +511,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   defp find_post_by_url_slug(posts, language, url_slug) do
-    # Search by language_slugs map first
-    by_language_slug =
-      Enum.find(posts, &(Map.get(&1.language_slugs || %{}, language) == url_slug))
-
-    # Fallback: match by directory slug (backward compatibility)
-    by_directory_slug = Enum.find(posts, &(&1.slug == url_slug))
-
-    case by_language_slug || by_directory_slug do
+    case Enum.find(posts, &(Map.get(&1.language_slugs || %{}, language) == url_slug)) do
       nil -> {:error, :not_found}
       post -> {:ok, post}
     end
@@ -537,15 +545,40 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   defp post_has_previous_slug?(post, language, url_slug) do
-    # Check the per-language previous slugs map first
     lang_previous_slugs = Map.get(post, :language_previous_slugs) || %{}
     previous_for_lang = Map.get(lang_previous_slugs, language) || []
 
-    # Fallback: check metadata.previous_url_slugs for backward compatibility
-    metadata_previous = Map.get(post.metadata || %{}, :previous_url_slugs) || []
-
-    url_slug in previous_for_lang or url_slug in metadata_previous
+    url_slug in previous_for_lang
   end
+
+  @doc """
+  Finds a cached post by mode — uses date/time lookup for timestamp mode, slug for others.
+  """
+  def find_post_by_mode(group_slug, post) do
+    mode = Map.get(post, :mode)
+
+    if mode in @timestamp_modes do
+      date = post[:date]
+      time = post[:time]
+
+      if date && time do
+        date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
+        time_str = format_time_for_cache(time)
+        find_post_by_path(group_slug, date_str, time_str)
+      else
+        {:error, :not_found}
+      end
+    else
+      find_post(group_slug, post.slug)
+    end
+  end
+
+  defp format_time_for_cache(%Time{} = time) do
+    time |> Time.to_string() |> String.slice(0, 5)
+  end
+
+  defp format_time_for_cache(time) when is_binary(time), do: String.slice(time, 0, 5)
+  defp format_time_for_cache(_), do: ""
 
   @doc """
   Returns the :persistent_term key for a publishing group's cache.
@@ -596,14 +629,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   @doc """
   Returns whether memory caching (:persistent_term) is enabled.
   Uses cached settings to avoid database queries on every call.
-  Checks new key first, falls back to legacy key.
   """
   @spec memory_cache_enabled?() :: boolean()
   def memory_cache_enabled? do
-    case Settings.get_setting_cached(@memory_cache_key, nil) do
-      nil -> Settings.get_setting_cached(@legacy_memory_cache_key, "true") == "true"
-      value -> value == "true"
-    end
+    Settings.get_setting_cached(@memory_cache_key, "true") == "true"
   end
 
   @doc """
@@ -647,7 +676,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   Returns `%{current: n, needs_migration: n, needs_backfill: n}` where:
   - `current` - posts with primary_language matching global setting
   - `needs_migration` - posts with different primary_language (were created under old setting)
-  - `needs_backfill` - posts with no primary_language stored (legacy posts)
+  - `needs_backfill` - posts with no primary_language stored
   """
   @spec count_primary_language_status(String.t()) :: map()
   def count_primary_language_status(group_slug) do
