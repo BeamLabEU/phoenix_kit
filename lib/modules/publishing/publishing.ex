@@ -144,6 +144,7 @@ defmodule PhoenixKit.Modules.Publishing do
               to: Versions
 
   defdelegate delete_version(group_slug, post_uuid, version), to: Versions
+  @doc false
   defdelegate broadcast_version_created(group_slug, broadcast_id, new_version), to: Versions
 
   # ============================================================================
@@ -166,6 +167,7 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate add_language_to_post(group_slug, post_uuid, language_code, version \\ nil),
     to: TranslationManager
 
+  @doc false
   defdelegate add_language_to_db(group_slug, post_uuid, language_code, version_number),
     to: TranslationManager
 

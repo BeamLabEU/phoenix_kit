@@ -1,3 +1,10 @@
+## 1.7.74 - 2026-03-16
+
+### Fixed
+- Remove dead `should_regenerate_cache?/1` from Shared module (uncalled function returning `true` in every branch)
+- Remove obsolete `bulk_operation_topic` test referencing deleted PubSub function
+- Fix missing trailing newline in `shared.ex`
+
 ## 1.7.73 - 2026-03-13
 
 ### Changed

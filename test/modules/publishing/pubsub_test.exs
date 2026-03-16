@@ -44,8 +44,6 @@ defmodule PhoenixKit.Modules.Publishing.PubSubTest do
     test "group_editors_topic includes group slug" do
       assert PublishingPubSub.group_editors_topic("blog") == "publishing:blog:editors"
     end
-
-
   end
 
   # ============================================================================

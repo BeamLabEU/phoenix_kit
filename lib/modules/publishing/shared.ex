@@ -216,27 +216,6 @@ defmodule PhoenixKit.Modules.Publishing.Shared do
   def parse_version_segment(_), do: :error
 
   # ============================================================================
-  # Cache Regeneration Logic
-  # ============================================================================
-
-  @doc false
-  def should_regenerate_cache?(post_map) do
-    # Always regenerate cache for timestamp mode posts
-    case post_map[:mode] do
-      :timestamp ->
-        true
-      
-      :slug ->
-        # For slug mode, always regenerate cache (version is ignored in this logic)
-        true
-      
-      _ ->
-        # Unknown mode - always regenerate to be safe
-        true
-    end
-  end
-
-  # ============================================================================
   # Version Resolution
   # ============================================================================
 
