@@ -46,8 +46,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     date = if is_binary(date), do: Date.from_iso8601!(date), else: date
 
     group_slug
-    |> DBStorage.list_posts_timestamp_mode("published")
-    |> Enum.filter(&(&1.post_date == date))
+    |> DBStorage.list_posts_timestamp_mode("published", date: date)
     |> Enum.map(&(Time.to_string(&1.post_time) |> String.slice(0, 5)))
     |> Enum.uniq()
     |> Enum.sort()
@@ -178,6 +177,31 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     end
 
     result
+  end
+
+  @doc """
+  Restores a trashed post by UUID, setting its status back to "draft".
+
+  Reconciles version/content statuses and regenerates the group cache.
+  Returns {:ok, post_uuid} on success or {:error, reason} on failure.
+  """
+  @spec restore_post(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
+  def restore_post(group_slug, post_uuid) do
+    case DBStorage.get_post_by_uuid(post_uuid) do
+      nil ->
+        {:error, :not_found}
+
+      db_post ->
+        case DBStorage.update_post(db_post, %{status: "draft"}) do
+          {:ok, _} ->
+            StaleFixer.reconcile_post_status(db_post)
+            ListingCache.regenerate(group_slug)
+            {:ok, post_uuid}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
   end
 
   @doc """

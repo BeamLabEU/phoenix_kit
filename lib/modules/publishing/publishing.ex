@@ -22,8 +22,6 @@ defmodule PhoenixKit.Modules.Publishing do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.SlugHelpers
-  alias PhoenixKit.Users.Auth.Scope
-
   # ============================================================================
   # Language Utility Delegates
   # ============================================================================
@@ -98,6 +96,7 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate read_post_by_uuid(post_uuid, language \\ nil, version \\ nil), to: Posts
   defdelegate update_post(group_slug, post, params, opts \\ %{}), to: Posts
   defdelegate trash_post(group_slug, post_uuid), to: Posts
+  defdelegate restore_post(group_slug, post_uuid), to: Posts
   defdelegate count_posts_on_date(group_slug, date), to: Posts
   defdelegate list_times_on_date(group_slug, date), to: Posts
   defdelegate find_by_url_slug(group_slug, language, url_slug), to: Posts
@@ -109,7 +108,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   @doc "Returns true when the given post is a DB-backed post (has a UUID)."
   @spec db_post?(map()) :: boolean()
-  def db_post?(post), do: not is_nil(post[:uuid])
+  defdelegate db_post?(post), to: Posts
 
   # ============================================================================
   # Version Delegates
@@ -327,6 +326,8 @@ defmodule PhoenixKit.Modules.Publishing do
   # Shared Helpers (used across submodules)
   # ============================================================================
 
+  alias PhoenixKit.Modules.Publishing.Shared
+
   @slug_regex ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
   @doc false
@@ -367,58 +368,10 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc false
-  def fetch_option(opts, key) when is_map(opts) do
-    Map.get(opts, key) || Map.get(opts, Atom.to_string(key))
-  end
+  defdelegate fetch_option(opts, key), to: Shared
 
   @doc false
-  def fetch_option(opts, key) when is_list(opts) do
-    Keyword.get(opts, key) ||
-      (is_atom(key) && Keyword.get(opts, key)) ||
-      nil
-  end
-
-  @doc false
-  def fetch_option(_, _), do: nil
-
-  @doc false
-  def audit_metadata(nil, _action), do: %{}
-
-  @doc false
-  def audit_metadata(scope, action) do
-    user_uuid =
-      scope
-      |> Scope.user_uuid()
-      |> normalize_audit_value()
-
-    user_email =
-      scope
-      |> Scope.user_email()
-      |> normalize_audit_value()
-
-    base =
-      case action do
-        :create ->
-          %{
-            created_by_uuid: user_uuid,
-            created_by_email: user_email
-          }
-
-        _ ->
-          %{}
-      end
-
-    base
-    |> maybe_put_audit(:updated_by_uuid, user_uuid)
-    |> maybe_put_audit(:updated_by_email, user_email)
-  end
-
-  defp normalize_audit_value(nil), do: nil
-  defp normalize_audit_value(value) when is_binary(value), do: String.trim(value)
-  defp normalize_audit_value(value), do: to_string(value)
-
-  defp maybe_put_audit(map, _key, nil), do: map
-  defp maybe_put_audit(map, key, value), do: Map.put(map, key, value)
+  defdelegate audit_metadata(scope, action), to: Shared
 
   # ============================================================================
   # Settings Helpers (private)

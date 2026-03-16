@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.Listing
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
@@ -170,13 +171,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
     find_first_published_version(group_slug, post_slug, post, languages_to_try, default_lang)
   end
 
-  # Finds a post by its slug from the group's post list
+  # Finds a post by its slug using a direct DB query
   defp find_post_by_slug(group_slug, post_slug) do
-    posts = Publishing.list_posts(group_slug, nil)
-
-    case Enum.find(posts, fn p -> p.slug == post_slug end) do
-      nil -> :not_found
-      post -> {:ok, post}
+    case DBStorage.read_post(group_slug, post_slug) do
+      {:ok, post} -> {:ok, post}
+      {:error, _} -> :not_found
     end
   end
 
@@ -333,21 +332,51 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
     PublishingHTML.build_public_path_with_time(language, group_slug, date, time)
   end
 
-  # Gets available languages for a timestamp post from the DB
+  # Gets available languages for a timestamp post using a direct DB query
   defp get_available_languages_for_timestamp(group_slug, date, time) do
-    posts = Publishing.list_posts(group_slug, nil)
+    parsed_date = parse_date(date)
+    parsed_time = parse_time(time)
 
-    case Enum.find(posts, fn p -> format_date(p.date) == date and format_time(p.time) == time end) do
-      nil -> []
-      post -> post.available_languages || []
+    if parsed_date && parsed_time do
+      case DBStorage.read_post_by_datetime(group_slug, parsed_date, parsed_time) do
+        {:ok, post} -> post.available_languages || []
+        {:error, _} -> []
+      end
+    else
+      []
     end
   end
 
-  defp format_date(%Date{} = d), do: Date.to_iso8601(d)
-  defp format_date(d) when is_binary(d), do: d
-  defp format_date(_), do: ""
+  defp parse_date(%Date{} = d), do: d
 
-  defp format_time(%Time{} = t), do: t |> Time.to_string() |> String.slice(0, 5)
-  defp format_time(t) when is_binary(t), do: String.slice(t, 0, 5)
-  defp format_time(_), do: ""
+  defp parse_date(d) when is_binary(d) do
+    case Date.from_iso8601(d) do
+      {:ok, date} -> date
+      _ -> nil
+    end
+  end
+
+  defp parse_date(_), do: nil
+
+  defp parse_time(%Time{} = t), do: t
+
+  defp parse_time(t) when is_binary(t) do
+    case String.split(t, ":") do
+      [h, m | _] ->
+        with {hour, ""} <- Integer.parse(h),
+             {minute, ""} <- Integer.parse(m) do
+          case Time.new(hour, minute, 0) do
+            {:ok, time} -> time
+            _ -> nil
+          end
+        else
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp parse_time(_), do: nil
 end

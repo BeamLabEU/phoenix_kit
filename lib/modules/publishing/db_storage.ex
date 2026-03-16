@@ -197,8 +197,13 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().one() || 0
   end
 
-  @doc "Lists posts in timestamp mode (ordered by date/time desc)."
-  def list_posts_timestamp_mode(group_slug, status \\ nil) do
+  @doc """
+  Lists posts in timestamp mode (ordered by date/time desc).
+
+  Options:
+    * `:date` - Filter to a specific date (Date struct or ISO 8601 string)
+  """
+  def list_posts_timestamp_mode(group_slug, status \\ nil, opts \\ []) do
     query =
       from(p in PublishingPost,
         join: g in assoc(p, :group),
@@ -207,12 +212,26 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         preload: [group: g]
       )
 
-    if status do
-      where(query, [p], p.status == ^status)
-    else
-      query
-    end
-    |> repo().all()
+    query =
+      if status do
+        where(query, [p], p.status == ^status)
+      else
+        query
+      end
+
+    query =
+      case Keyword.get(opts, :date) do
+        nil ->
+          query
+
+        %Date{} = date ->
+          where(query, [p], p.post_date == ^date)
+
+        date_string when is_binary(date_string) ->
+          where(query, [p], p.post_date == ^Date.from_iso8601!(date_string))
+      end
+
+    repo().all(query)
   end
 
   @doc "Lists posts in slug mode (ordered by slug asc)."
