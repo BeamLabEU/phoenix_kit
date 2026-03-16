@@ -122,9 +122,7 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
     result = add_language_to_db(group_slug, post_uuid, language_code, version)
 
     with {:ok, new_post} <- result do
-      if Shared.should_regenerate_cache?(new_post) do
-        ListingCache.regenerate(group_slug)
-      end
+      ListingCache.regenerate(group_slug)
 
       broadcast_id = new_post.slug || new_post.uuid
 

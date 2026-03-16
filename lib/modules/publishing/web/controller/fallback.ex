@@ -160,7 +160,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   @max_fallback_languages 5
 
   defp try_other_languages(group_slug, post_slug, post, requested_language, default_lang) do
-    available = post.available_languages || []
+    available = post.available_languages
 
     # Build priority list: default first, then others (excluding already-tried language)
     languages_to_try =
@@ -339,7 +339,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
     if parsed_date && parsed_time do
       case DBStorage.read_post_by_datetime(group_slug, parsed_date, parsed_time) do
-        {:ok, post} -> post.available_languages || []
+        {:ok, post} -> post.available_languages
         {:error, _} -> []
       end
     else

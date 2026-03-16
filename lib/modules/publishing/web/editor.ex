@@ -1656,7 +1656,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           file_url = Helpers.get_file_url(file_uuid)
 
           js_code =
-            "window.publishingEditorInsertMedia && window.publishingEditorInsertMedia(#{Jason.encode!(file_url || "")}, 'image')"
+            "window.publishingEditorInsertMedia && window.publishingEditorInsertMedia(#{Jason.encode!(file_url)}, 'image')"
 
           {
             socket

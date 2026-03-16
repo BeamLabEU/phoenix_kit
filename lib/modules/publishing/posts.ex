@@ -169,9 +169,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     result = update_post_in_db(group_slug, post, params, audit_meta)
 
     with {:ok, updated_post} <- result do
-      if Shared.should_regenerate_cache?(updated_post) do
-        ListingCache.regenerate(group_slug)
-      end
+      ListingCache.regenerate(group_slug)
 
       PublishingPubSub.broadcast_post_updated(group_slug, updated_post)
     end
