@@ -102,21 +102,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.SlugResolution do
     PublishingHTML.build_post_url(group_slug, post, language)
   end
 
-  @doc """
-  Builds redirect URL when we only have slug data (no full post struct).
-  """
-  def build_redirect_url_from_slugs(group_slug, internal_slug, language, current_url_slug) do
-    # Build minimal post struct for URL generation
-    post = %{
-      slug: internal_slug,
-      url_slug: current_url_slug,
-      mode: :slug,
-      language_slugs: %{language => current_url_slug}
-    }
-
-    PublishingHTML.build_post_url(group_slug, post, language)
-  end
-
   # ============================================================================
   # Language Resolution
   # ============================================================================

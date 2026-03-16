@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
 
   require Logger
 
+  alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -156,6 +157,9 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
         unless Enum.any?(versions, &(&1.version_number == version)) do
           repo.rollback(:version_not_found)
         end
+
+        # Validate primary language content has a title before publishing
+        validate_primary_title!(repo, db_post, version)
 
         # Set target version to published, archive previously-published versions
         # Also update content status to match so public rendering works correctly
@@ -350,6 +354,17 @@ defmodule PhoenixKit.Modules.Publishing.Versions do
 
         DBStorage.update_content_status(v.uuid, new_status)
       end
+    end
+  end
+
+  defp validate_primary_title!(repo, db_post, version_number) do
+    version =
+      Enum.find(DBStorage.list_versions(db_post.uuid), &(&1.version_number == version_number))
+
+    content = version && DBStorage.get_content(version.uuid, db_post.primary_language)
+
+    if is_nil(content) or content.title in ["", nil, Constants.default_title()] do
+      repo.rollback(:title_required)
     end
   end
 

@@ -476,9 +476,18 @@
       const visualEl = document.getElementById('post-content-editor-visual');
       if (visualEl) {
         visualEl.focus();
-        const altText = mediaType === 'image' ? 'Image description' : 'Video';
-        const html = '<img src="' + fileUrl + '" alt="' + altText + '" />';
-        document.execCommand('insertHTML', false, html);
+        const img = document.createElement('img');
+        img.src = fileUrl;
+        img.alt = mediaType === 'image' ? 'Image description' : 'Video';
+        const sel = window.getSelection();
+        if (sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(img);
+          range.collapse(false);
+        } else {
+          visualEl.appendChild(img);
+        }
         // Trigger input event so Leaf picks up the change
         visualEl.dispatchEvent(new Event('input', { bubbles: true }));
         return;

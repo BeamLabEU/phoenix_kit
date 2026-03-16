@@ -278,7 +278,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
   """
   def get_cached_version_info(group_slug, current_post) do
     # Use appropriate cache lookup based on post mode
-    cache_result = find_cached_post(group_slug, current_post)
+    cache_result = ListingCache.find_post_by_mode(group_slug, current_post)
 
     case cache_result do
       {:ok, cached_post} ->
@@ -301,35 +301,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.PostRendering do
         {allow_access, live_version}
     end
   end
-
-  # Find cached post using appropriate method based on post mode
-  defp find_cached_post(group_slug, post) do
-    mode = Map.get(post, :mode)
-
-    if mode in @timestamp_modes do
-      # For timestamp mode, use date/time lookup
-      date = post[:date]
-      time = post[:time]
-
-      if date && time do
-        date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
-        time_str = format_time_for_cache(time)
-        ListingCache.find_post_by_path(group_slug, date_str, time_str)
-      else
-        {:error, :not_found}
-      end
-    else
-      # For slug mode, use slug lookup
-      ListingCache.find_post(group_slug, post.slug)
-    end
-  end
-
-  defp format_time_for_cache(%Time{} = time) do
-    time |> Time.to_string() |> String.slice(0, 5)
-  end
-
-  defp format_time_for_cache(time) when is_binary(time), do: String.slice(time, 0, 5)
-  defp format_time_for_cache(_), do: ""
 
   defp get_post_identifier(post) do
     post[:uuid] || post.slug

@@ -197,8 +197,13 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> repo().one() || 0
   end
 
-  @doc "Lists posts in timestamp mode (ordered by date/time desc)."
-  def list_posts_timestamp_mode(group_slug, status \\ nil) do
+  @doc """
+  Lists posts in timestamp mode (ordered by date/time desc).
+
+  Options:
+    * `:date` - Filter to a specific date (Date struct or ISO 8601 string)
+  """
+  def list_posts_timestamp_mode(group_slug, status \\ nil, opts \\ []) do
     query =
       from(p in PublishingPost,
         join: g in assoc(p, :group),
@@ -207,12 +212,26 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
         preload: [group: g]
       )
 
-    if status do
-      where(query, [p], p.status == ^status)
-    else
-      query
-    end
-    |> repo().all()
+    query =
+      if status do
+        where(query, [p], p.status == ^status)
+      else
+        query
+      end
+
+    query =
+      case Keyword.get(opts, :date) do
+        nil ->
+          query
+
+        %Date{} = date ->
+          where(query, [p], p.post_date == ^date)
+
+        date_string when is_binary(date_string) ->
+          where(query, [p], p.post_date == ^Date.from_iso8601!(date_string))
+      end
+
+    repo().all(query)
   end
 
   @doc "Lists posts in slug mode (ordered by slug asc)."
@@ -793,11 +812,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     order_by(query, [p], desc: p.published_at, desc: p.inserted_at)
   end
 
-  # Batch-loads all versions for a list of post UUIDs in a single query.
-  # Returns %{post_uuid => [versions sorted by version_number asc]}
-  defp batch_load_versions([]), do: %{}
+  @doc false
+  def batch_load_versions([]), do: %{}
 
-  defp batch_load_versions(post_uuids) do
+  def batch_load_versions(post_uuids) do
     from(v in PublishingVersion,
       where: v.post_uuid in ^post_uuids,
       order_by: [asc: v.version_number]
@@ -806,11 +824,10 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
     |> Enum.group_by(& &1.post_uuid)
   end
 
-  # Batch-loads all contents for a list of version UUIDs in a single query.
-  # Returns %{version_uuid => [contents sorted by language]}
-  defp batch_load_contents([]), do: %{}
+  @doc false
+  def batch_load_contents([]), do: %{}
 
-  defp batch_load_contents(version_uuids) do
+  def batch_load_contents(version_uuids) do
     from(c in PublishingContent,
       where: c.version_uuid in ^version_uuids,
       order_by: [asc: c.language]

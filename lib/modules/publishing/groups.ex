@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
+  alias PhoenixKit.Modules.Publishing.Shared
   alias PhoenixKit.Modules.Publishing.StaleFixer
 
   alias PhoenixKit.Modules.Publishing.Constants
@@ -54,9 +55,9 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   """
   @spec get_group(String.t()) :: {:ok, group()} | {:error, :not_found}
   def get_group(slug) when is_binary(slug) do
-    case Enum.find(list_groups(), &(&1["slug"] == slug)) do
+    case DBStorage.get_group_by_slug(slug) do
       nil -> {:error, :not_found}
-      group -> {:ok, group}
+      db_group -> {:ok, db_group |> StaleFixer.fix_stale_group() |> db_group_to_map()}
     end
   end
 
@@ -286,9 +287,10 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   """
   @spec group_name(String.t()) :: String.t() | nil
   def group_name(slug) do
-    Enum.find_value(list_groups(), fn group ->
-      if group["slug"] == slug, do: group["name"]
-    end)
+    case DBStorage.get_group_by_slug(slug) do
+      nil -> nil
+      db_group -> db_group.name
+    end
   end
 
   @doc """
@@ -296,9 +298,10 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   """
   @spec get_group_mode(String.t()) :: String.t()
   def get_group_mode(group_slug) do
-    list_groups()
-    |> Enum.find(%{}, &(&1["slug"] == group_slug))
-    |> Map.get("mode", @default_group_mode)
+    case DBStorage.get_group_by_slug(group_slug) do
+      nil -> @default_group_mode
+      db_group -> db_group.mode || @default_group_mode
+    end
   end
 
   @doc """
@@ -490,19 +493,5 @@ defmodule PhoenixKit.Modules.Publishing.Groups do
   defp normalize_item_name(_, default), do: default
 
   @doc false
-  def fetch_option(opts, key) when is_map(opts) do
-    Map.get(opts, key) || Map.get(opts, Atom.to_string(key))
-  end
-
-  @doc false
-  def fetch_option(opts, key) when is_list(opts) do
-    if Keyword.keyword?(opts) do
-      Keyword.get(opts, key)
-    else
-      nil
-    end
-  end
-
-  @doc false
-  def fetch_option(_, _), do: nil
+  defdelegate fetch_option(opts, key), to: Shared
 end

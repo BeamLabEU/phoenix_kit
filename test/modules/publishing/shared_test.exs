@@ -209,8 +209,8 @@ defmodule PhoenixKit.Modules.Publishing.SharedTest do
       assert Shared.should_regenerate_cache?(%{mode: :slug, metadata: %{status: "draft"}})
     end
 
-    test "returns false for unknown mode with non-published status" do
-      refute Shared.should_regenerate_cache?(%{
+    test "returns true for unknown mode with non-published status" do
+      assert Shared.should_regenerate_cache?(%{
                mode: :other,
                metadata: %{status: "archived"},
                version: 1

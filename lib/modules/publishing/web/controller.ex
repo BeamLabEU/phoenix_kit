@@ -78,14 +78,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
           # First segment was a language code with content - use localized logic
           conn = assign(conn, :current_language, language)
           set_gettext_locale(language)
-          handle_localized_request(conn, language, adjusted_params)
+          handle_request(conn, language, adjusted_params)
 
         :not_a_language ->
           # First segment is a group slug - use default language
           language = Language.get_default_language()
           conn = assign(conn, :current_language, language)
           set_gettext_locale(language)
-          handle_non_localized_request(conn, language, params)
+          handle_request(conn, language, params)
       end
     else
       handle_not_found(conn, :module_disabled)
@@ -96,19 +96,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   # Request Handlers
   # ============================================================================
 
-  # Handles request after language has been detected
-  defp handle_localized_request(conn, language, params) do
-    case Routing.build_segments(params) do
-      [] ->
-        handle_not_found(conn, :invalid_path)
-
-      segments ->
-        handle_parsed_path(conn, Routing.parse_path(segments), language)
-    end
-  end
-
-  # Handles non-localized request with default language
-  defp handle_non_localized_request(conn, language, params) do
+  # Handles request after language has been resolved (localized or default)
+  defp handle_request(conn, language, params) do
     case Routing.build_segments(params) do
       [] ->
         handle_not_found(conn, :invalid_path)

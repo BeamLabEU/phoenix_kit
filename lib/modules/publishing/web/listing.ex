@@ -9,7 +9,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
-  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.StaleFixer
@@ -75,7 +74,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # Includes trashed posts so empty ones get hard-deleted instead of
     # sitting in trash with no recoverable content.
     if connected?(socket) and new_group_slug do
-      Task.start(fn ->
+      Task.Supervisor.start_child(PhoenixKit.TaskSupervisor, fn ->
         try do
           active = DBStorage.list_posts(new_group_slug)
           trashed = DBStorage.list_posts(new_group_slug, "trashed")
@@ -152,26 +151,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   def handle_event("restore_post", %{"uuid" => post_uuid}, socket) do
     group_slug = socket.assigns.group_slug
 
-    case DBStorage.get_post_by_uuid(post_uuid) do
-      nil ->
+    case Publishing.restore_post(group_slug, post_uuid) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> reload_current_view()
+         |> put_flash(:info, gettext("Post restored as draft"))}
+
+      {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, gettext("Post not found"))}
 
-      db_post ->
-        case DBStorage.update_post(db_post, %{status: "draft"}) do
-          {:ok, _} ->
-            # Reconcile version/content statuses immediately (don't wait for stale fixer)
-            StaleFixer.reconcile_post_status(db_post)
-            ListingCache.regenerate(group_slug)
-
-            {:noreply,
-             socket
-             |> reload_current_view()
-             |> put_flash(:info, gettext("Post restored as draft"))}
-
-          {:error, reason} ->
-            Logger.warning("[Publishing.Listing] Restore post failed: #{inspect(reason)}")
-            {:noreply, put_flash(socket, :error, gettext("Failed to restore post"))}
-        end
+      {:error, reason} ->
+        Logger.warning("[Publishing.Listing] Restore post failed: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, gettext("Failed to restore post"))}
     end
   end
 
