@@ -12,7 +12,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
   alias PhoenixKit.Modules.Publishing.Web.Controller.Listing
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
@@ -160,7 +159,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
   @max_fallback_languages 5
 
   defp try_other_languages(group_slug, post_slug, post, requested_language, default_lang) do
-    available = post.available_languages || []
+    available = post.available_languages
 
     # Build priority list: default first, then others (excluding already-tried language)
     languages_to_try =
@@ -173,7 +172,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
 
   # Finds a post by its slug using a direct DB query
   defp find_post_by_slug(group_slug, post_slug) do
-    case DBStorage.read_post(group_slug, post_slug) do
+    case Publishing.read_post(group_slug, post_slug) do
       {:ok, post} -> {:ok, post}
       {:error, _} -> :not_found
     end
@@ -338,8 +337,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Fallback do
     parsed_time = parse_time(time)
 
     if parsed_date && parsed_time do
-      case DBStorage.read_post_by_datetime(group_slug, parsed_date, parsed_time) do
-        {:ok, post} -> post.available_languages || []
+      case Publishing.read_post_by_datetime(group_slug, parsed_date, parsed_time) do
+        {:ok, post} -> post.available_languages
         {:error, _} -> []
       end
     else

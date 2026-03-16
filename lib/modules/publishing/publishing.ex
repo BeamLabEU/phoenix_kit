@@ -20,6 +20,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.SlugHelpers
   # ============================================================================
@@ -48,6 +49,7 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate generate_unique_slug(group_slug, title, preferred_slug), to: SlugHelpers
   defdelegate generate_unique_slug(group_slug, title, preferred_slug, opts), to: SlugHelpers
   defdelegate validate_url_slug(group_slug, url_slug, language, exclude), to: SlugHelpers
+  defdelegate clear_url_slug_from_post(group_slug, post_slug, url_slug), to: DBStorage
 
   # ============================================================================
   # Cache Delegates
@@ -71,6 +73,7 @@ defmodule PhoenixKit.Modules.Publishing do
   alias PhoenixKit.Modules.Publishing.Groups
 
   defdelegate list_groups(), to: Groups
+  defdelegate list_groups(status), to: Groups
   defdelegate get_group(slug), to: Groups
   defdelegate add_group(name, opts \\ []), to: Groups
   defdelegate remove_group(slug), to: Groups
@@ -91,14 +94,19 @@ defmodule PhoenixKit.Modules.Publishing do
   alias PhoenixKit.Modules.Publishing.Posts
 
   defdelegate list_posts(group_slug, preferred_language \\ nil), to: Posts
+  defdelegate list_posts_by_status(group_slug, status), to: Posts
+  defdelegate list_raw_posts(group_slug, status \\ nil), to: Posts
+  defdelegate count_primary_language_status(posts, primary_language), to: Posts
   defdelegate create_post(group_slug, opts \\ %{}), to: Posts
   defdelegate read_post(group_slug, identifier, language \\ nil, version \\ nil), to: Posts
   defdelegate read_post_by_uuid(post_uuid, language \\ nil, version \\ nil), to: Posts
   defdelegate update_post(group_slug, post, params, opts \\ %{}), to: Posts
+  defdelegate change_post_status(group_slug, post_uuid, new_status, opts \\ []), to: Posts
   defdelegate trash_post(group_slug, post_uuid), to: Posts
   defdelegate restore_post(group_slug, post_uuid), to: Posts
   defdelegate count_posts_on_date(group_slug, date), to: Posts
   defdelegate list_times_on_date(group_slug, date), to: Posts
+  defdelegate read_post_by_datetime(group_slug, date, time), to: DBStorage
   defdelegate find_by_url_slug(group_slug, language, url_slug), to: Posts
   defdelegate find_by_previous_url_slug(group_slug, language, url_slug), to: Posts
   defdelegate extract_slug_version_and_language(group_slug, identifier), to: Posts
@@ -163,6 +171,8 @@ defmodule PhoenixKit.Modules.Publishing do
 
   defdelegate delete_language(group_slug, post_uuid, language_code, version \\ nil),
     to: TranslationManager
+
+  defdelegate clear_translation(group_slug, post_uuid, language_code), to: TranslationManager
 
   defdelegate set_translation_status(group_slug, post_identifier, version, language, status),
     to: TranslationManager

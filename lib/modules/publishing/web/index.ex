@@ -10,7 +10,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
-  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
   @group_statuses Constants.group_statuses()
@@ -73,7 +72,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:dashboard_refresh_timer, nil)
       |> assign(:view_mode, "active")
       |> assign(:loading, false)
-      |> assign(:trashed_count, length(DBStorage.list_groups("trashed")))
+      |> assign(:trashed_count, length(Publishing.list_groups("trashed")))
 
     {:ok, socket}
   end
@@ -244,7 +243,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
         view_mode
       )
 
-    trashed_count = length(DBStorage.list_groups("trashed"))
+    trashed_count = length(Publishing.list_groups("trashed"))
 
     # Resubscribe to any new groups that may have been created
     Enum.each(groups, fn group ->
@@ -262,17 +261,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
 
   defp dashboard_snapshot(_locale, current_user, date_time_settings, view_mode \\ "active") do
     # Admin side reads from database only
-    db_groups = DBStorage.list_groups(view_mode)
+    db_groups = Publishing.list_groups(view_mode)
 
-    groups =
-      Enum.map(db_groups, fn g ->
-        %{
-          "name" => g.name,
-          "slug" => g.slug,
-          "mode" => g.mode,
-          "position" => g.position
-        }
-      end)
+    groups = db_groups
 
     insights =
       Enum.map(db_groups, &build_group_insight(&1, current_user, date_time_settings))
@@ -283,11 +274,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   defp build_group_insight(db_group, current_user, date_time_settings) do
+    group_slug = db_group["slug"]
+
     # Use ListingCache when available (sub-microsecond), fall back to DB
     posts =
-      case ListingCache.read(db_group.slug) do
+      case ListingCache.read(group_slug) do
         {:ok, cached_posts} -> cached_posts
-        {:error, _} -> DBStorage.list_posts_with_metadata(db_group.slug)
+        {:error, _} -> Publishing.list_posts(group_slug)
       end
 
     status_counts = Enum.frequencies_by(posts, &Map.get(&1[:metadata] || %{}, :status, "draft"))
@@ -304,15 +297,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
     global_primary = Publishing.get_primary_language()
 
     primary_lang_status =
-      DBStorage.count_primary_language_status_from_posts(posts, global_primary)
+      Publishing.count_primary_language_status(posts, global_primary)
 
     lang_migration_count =
-      primary_lang_status.needs_backfill + primary_lang_status.needs_migration
+      if primary_lang_status,
+        do: primary_lang_status.needs_backfill + primary_lang_status.needs_migration,
+        else: 0
 
     %{
-      name: db_group.name,
-      slug: db_group.slug,
-      mode: db_group.mode,
+      name: db_group["name"],
+      slug: group_slug,
+      mode: db_group["mode"],
       posts_count: length(posts),
       published_count: Map.get(status_counts, "published", 0),
       draft_count: Map.get(status_counts, "draft", 0),

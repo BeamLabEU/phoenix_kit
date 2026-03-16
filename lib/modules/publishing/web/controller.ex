@@ -144,12 +144,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   defp extract_group_slug({_, group_slug, _, _}), do: group_slug
   defp extract_group_slug(_), do: nil
 
-  defp group_trashed?(group_slug) do
-    alias PhoenixKit.Modules.Publishing.DBStorage
+  defp group_trashed?(nil), do: false
 
-    case DBStorage.get_group_by_slug(group_slug) do
-      nil -> false
-      group -> group.status == "trashed"
+  defp group_trashed?(group_slug) do
+    case Publishing.get_group(group_slug) do
+      {:ok, group} -> group["status"] == "trashed"
+      {:error, _} -> false
     end
   end
 

@@ -294,7 +294,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
             file_uuids
             |> Enum.map_join("; ", fn fid ->
               file_url = get_file_url(fid)
-              encoded_url = Jason.encode!(file_url || "")
+              encoded_url = Jason.encode!(file_url)
 
               "window.postsEditorInsertMedia && window.postsEditorInsertMedia(#{encoded_url}, '#{media_type}')"
             end)

@@ -207,4 +207,51 @@ defmodule PhoenixKit.Modules.Publishing.LanguageHelpers do
       nil
     end
   end
+
+  # ===========================================================================
+  # Post Language Building
+  # ===========================================================================
+
+  @doc """
+  Builds language data for a post's language switcher.
+  Returns a list of language maps with status, enabled flag, known flag, and metadata.
+  """
+  def build_post_languages(post, enabled_languages, primary_language \\ nil) do
+    primary_lang =
+      primary_language || post[:primary_language] || get_primary_language()
+
+    all_languages =
+      order_languages_for_display(
+        post.available_languages || [],
+        enabled_languages,
+        primary_lang
+      )
+
+    all_languages
+    |> Enum.map(&build_language_entry(&1, post, enabled_languages, primary_lang))
+    |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
+  end
+
+  @doc """
+  Builds a single language entry map for a post.
+  """
+  def build_language_entry(lang_code, post, enabled_languages, primary_lang) do
+    lang_info = get_language_info(lang_code)
+    available = post.available_languages || []
+    content_exists = lang_code in available
+    post_status = post[:metadata] && post.metadata.status
+
+    %{
+      code: lang_code,
+      display_code: get_display_code(lang_code, enabled_languages),
+      name: if(lang_info, do: lang_info.name, else: lang_code),
+      flag: if(lang_info, do: lang_info.flag, else: ""),
+      status: if(content_exists, do: post_status, else: nil),
+      exists: content_exists,
+      enabled: language_enabled?(lang_code, enabled_languages),
+      known: lang_info != nil,
+      is_primary: lang_code == primary_lang,
+      uuid: post[:uuid]
+    }
+  end
 end
