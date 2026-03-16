@@ -20,6 +20,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.SlugHelpers
   # ============================================================================
@@ -48,6 +49,7 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate generate_unique_slug(group_slug, title, preferred_slug), to: SlugHelpers
   defdelegate generate_unique_slug(group_slug, title, preferred_slug, opts), to: SlugHelpers
   defdelegate validate_url_slug(group_slug, url_slug, language, exclude), to: SlugHelpers
+  defdelegate clear_url_slug_from_post(group_slug, post_slug, url_slug), to: DBStorage
 
   # ============================================================================
   # Cache Delegates
@@ -95,6 +97,7 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate read_post(group_slug, identifier, language \\ nil, version \\ nil), to: Posts
   defdelegate read_post_by_uuid(post_uuid, language \\ nil, version \\ nil), to: Posts
   defdelegate update_post(group_slug, post, params, opts \\ %{}), to: Posts
+  defdelegate change_post_status(group_slug, post_uuid, new_status, opts \\ []), to: Posts
   defdelegate trash_post(group_slug, post_uuid), to: Posts
   defdelegate restore_post(group_slug, post_uuid), to: Posts
   defdelegate count_posts_on_date(group_slug, date), to: Posts

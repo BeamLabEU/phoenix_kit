@@ -9,8 +9,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.DBStorage
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
-  alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.StaleFixer
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
   alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
@@ -913,39 +913,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     scope = socket.assigns[:phoenix_kit_current_scope]
     group_slug = socket.assigns.group_slug
 
-    case Publishing.read_post_by_uuid(post_uuid) do
-      {:ok, post} ->
-        primary_language = post[:primary_language] || Publishing.get_primary_language()
-        is_primary_language = post.language == primary_language
-
-        case Publishing.update_post(group_slug, post, %{"status" => new_status}, %{
-               scope: scope,
-               is_primary_language: is_primary_language
-             }) do
-          {:ok, updated_post} ->
-            invalidate_post_cache(group_slug, updated_post)
-
-            PublishingPubSub.broadcast_post_status_changed(group_slug, updated_post)
-
-            {:noreply,
-             socket
-             |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
-             |> reload_current_view()}
-
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
-        end
+    case Publishing.change_post_status(group_slug, post_uuid, new_status, scope: scope) do
+      {:ok, _updated_post} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
+         |> reload_current_view()}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Post not found"))}
+        {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
     end
-  end
-
-  defp invalidate_post_cache(group_slug, post) do
-    identifier = post[:uuid] || post.slug
-
-    # Invalidate the render cache for this post
-    Renderer.invalidate_cache(group_slug, identifier, post.language)
   end
 
   @doc """
@@ -963,41 +940,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         _current_locale,
         primary_language \\ nil
       ) do
-    primary_lang =
-      primary_language || post[:primary_language] || Publishing.get_primary_language()
-
-    all_languages =
-      Publishing.order_languages_for_display(
-        post.available_languages || [],
-        enabled_languages,
-        primary_lang
-      )
-
-    all_languages
-    |> Enum.map(&build_language_entry(&1, post, enabled_languages, primary_lang))
-    |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
-  end
-
-  defp build_language_entry(lang_code, post, enabled_languages, primary_lang) do
-    lang_info = Publishing.get_language_info(lang_code)
-    available = post.available_languages || []
-    content_exists = lang_code in available
-
-    # Status comes from the post level (primary language), not per-translation
-    post_status = post[:metadata] && post.metadata.status
-
-    %{
-      code: lang_code,
-      display_code: Publishing.get_display_code(lang_code, enabled_languages),
-      name: if(lang_info, do: lang_info.name, else: lang_code),
-      flag: if(lang_info, do: lang_info.flag, else: ""),
-      status: if(content_exists, do: post_status, else: nil),
-      exists: content_exists,
-      enabled: Publishing.language_enabled?(lang_code, enabled_languages),
-      known: lang_info != nil,
-      is_primary: lang_code == primary_lang,
-      uuid: post[:uuid]
-    }
+    LanguageHelpers.build_post_languages(post, enabled_languages, primary_language)
   end
 
   defp primary_language_status_from_posts([]), do: nil

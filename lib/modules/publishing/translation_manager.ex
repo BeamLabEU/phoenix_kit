@@ -201,14 +201,9 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
   def delete_language(group_slug, post_uuid, language_code, version \\ nil) do
     with db_post when not is_nil(db_post) <- DBStorage.get_post_by_uuid(post_uuid, [:group]),
          db_version when not is_nil(db_version) <- Shared.resolve_db_version(db_post, version),
-         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language_code) do
-      # Don't delete the last active language
-      active =
-        DBStorage.list_contents(db_version.uuid)
-        |> Enum.reject(&(&1.status == "archived"))
-
-      if length(active) <= 1, do: throw({:error, :last_language})
-
+         content when not is_nil(content) <-
+           DBStorage.get_content(db_version.uuid, language_code),
+         :ok <- validate_not_last_language(db_version) do
       case DBStorage.update_content(content, %{status: "archived"}) do
         {:ok, _} ->
           broadcast_id = db_post.slug || db_post.uuid
@@ -221,14 +216,16 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
       end
     else
       nil -> {:error, :not_found}
+      {:error, _} = err -> err
     end
-  catch
-    {:error, reason} = err ->
-      Logger.warning(
-        "[Publishing] delete_language failed for #{group_slug}/#{post_uuid}/#{language_code}: #{inspect(reason)}"
-      )
+  end
 
-      err
+  defp validate_not_last_language(db_version) do
+    active =
+      DBStorage.list_contents(db_version.uuid)
+      |> Enum.reject(&(&1.status == "archived"))
+
+    if length(active) <= 1, do: {:error, :last_language}, else: :ok
   end
 
   @doc """

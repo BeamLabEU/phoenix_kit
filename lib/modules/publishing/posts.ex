@@ -177,6 +177,41 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
   end
 
   @doc """
+  Changes a post's status by UUID.
+
+  Reads the post, resolves primary language, updates status via `update_post`,
+  invalidates render cache, and broadcasts the change.
+
+  Returns `{:ok, updated_post}` or `{:error, reason}`.
+  """
+  @spec change_post_status(String.t(), String.t(), String.t(), keyword()) ::
+          {:ok, map()} | {:error, term()}
+  def change_post_status(group_slug, post_uuid, new_status, opts \\ []) do
+    case read_post_by_uuid(post_uuid) do
+      {:ok, post} ->
+        primary_language = post[:primary_language] || LanguageHelpers.get_primary_language()
+        is_primary_language = post.language == primary_language
+
+        case update_post(group_slug, post, %{"status" => new_status},
+               scope: opts[:scope],
+               is_primary_language: is_primary_language
+             ) do
+          {:ok, updated_post} ->
+            identifier = updated_post[:uuid] || updated_post.slug
+            Publishing.Renderer.invalidate_cache(group_slug, identifier, updated_post.language)
+            PublishingPubSub.broadcast_post_status_changed(group_slug, updated_post)
+            {:ok, updated_post}
+
+          {:error, _} = err ->
+            err
+        end
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  @doc """
   Restores a trashed post by UUID, setting its status back to "draft".
 
   Reconciles version/content statuses and regenerates the group cache.
@@ -297,10 +332,17 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
   end
 
   defp create_post_in_db(group_slug, opts) do
-    scope = Shared.fetch_option(opts, :scope)
-    group = DBStorage.get_group_by_slug(group_slug)
-    unless group, do: throw({:error, :group_not_found})
+    case DBStorage.get_group_by_slug(group_slug) do
+      nil ->
+        {:error, :group_not_found}
 
+      group ->
+        do_create_post_in_db(group_slug, group, opts)
+    end
+  end
+
+  defp do_create_post_in_db(group_slug, group, opts) do
+    scope = Shared.fetch_option(opts, :scope)
     mode = Publishing.get_group_mode(group_slug)
     primary_language = LanguageHelpers.get_primary_language()
     now = UtilsDate.utc_now()
@@ -412,10 +454,6 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
         end
       end
     end
-  catch
-    {:error, reason} ->
-      Logger.warning("[Publishing] create_post failed for #{group_slug}: #{inspect(reason)}")
-      {:error, reason}
   end
 
   defp read_post_from_db(group_slug, identifier, language, version) do
@@ -607,37 +645,42 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
       content = Map.get(params, "content", post[:content] || "")
       new_title = resolve_post_title(params, post, content)
 
-      # Title is required for primary language when publishing (drafts can be untitled)
-      if language == db_post.primary_language and new_status == "published" and
-           new_title in ["", Constants.default_title()] do
-        throw({:post_update_failed, :title_required})
-      end
-
-      # Capture old status from DB before updating (editor assigns may already reflect new status)
-      old_db_status = db_post.status
-
-      update_post_level_fields!(db_post, new_status, params, audit_meta)
-      upsert_post_content(version, language, new_title, content, new_status, params, post)
-      maybe_propagate_status(version, language, db_post, new_status, old_db_status)
-
-      if db_post.mode == "timestamp" do
-        DBStorage.read_post_by_datetime(
-          group_slug,
-          db_post.post_date,
-          db_post.post_time,
-          language,
-          version_number
-        )
-      else
-        DBStorage.read_post(group_slug, final_slug, language, version_number)
+      with :ok <- validate_title_for_publish(db_post, language, new_status, new_title),
+           old_db_status = db_post.status,
+           :ok <- update_post_level_fields(db_post, new_status, params, audit_meta),
+           :ok <-
+             upsert_post_content(version, language, new_title, content, new_status, params, post) do
+        maybe_propagate_status(version, language, db_post, new_status, old_db_status)
+        read_updated_post(db_post, group_slug, final_slug, language, version_number)
       end
     else
       {:error, :not_found}
     end
-  catch
-    {:post_update_failed, reason} ->
-      Logger.warning("[Publishing] update_post failed for #{group_slug}: #{inspect(reason)}")
-      {:error, reason}
+  end
+
+  @default_title Constants.default_title()
+
+  defp validate_title_for_publish(db_post, language, "published", title)
+       when title in ["", @default_title] do
+    if language == db_post.primary_language,
+      do: {:error, :title_required},
+      else: :ok
+  end
+
+  defp validate_title_for_publish(_db_post, _language, _status, _title), do: :ok
+
+  defp read_updated_post(db_post, group_slug, final_slug, language, version_number) do
+    if db_post.mode == "timestamp" do
+      DBStorage.read_post_by_datetime(
+        group_slug,
+        db_post.post_date,
+        db_post.post_time,
+        language,
+        version_number
+      )
+    else
+      DBStorage.read_post(group_slug, final_slug, language, version_number)
+    end
   end
 
   defp resolve_post_title(params, post, content) do
@@ -650,7 +693,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
       Constants.default_title()
   end
 
-  defp update_post_level_fields!(db_post, new_status, params, audit_meta) do
+  defp update_post_level_fields(db_post, new_status, params, audit_meta) do
     update_attrs =
       %{
         status: new_status,
@@ -661,7 +704,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
 
     case DBStorage.update_post(db_post, update_attrs) do
       {:ok, _} -> :ok
-      {:error, reason} -> throw({:post_update_failed, reason})
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -689,7 +732,7 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
            data: build_content_data(params, post, existing_data)
          }) do
       {:ok, _} -> :ok
-      {:error, reason} -> throw({:post_update_failed, reason})
+      {:error, reason} -> {:error, reason}
     end
   end
 
