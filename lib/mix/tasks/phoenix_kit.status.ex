@@ -60,8 +60,15 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   ]
 
   def run(argv) do
-    # Start the application to ensure repo is available
-    Mix.Task.run("app.start")
+    # Load configuration and compile without starting the full application.
+    # Using --no-start avoids port conflicts when the app is already running.
+    Mix.Task.run("app.start", ["--no-start"])
+
+    # Start only the dependencies needed for database queries
+    {:ok, _} = Application.ensure_all_started(:ssl)
+    {:ok, _} = Application.ensure_all_started(:postgrex)
+    {:ok, _} = Application.ensure_all_started(:ecto_sql)
+    {:ok, _} = Application.ensure_all_started(:phoenix_kit)
 
     {opts, _argv, _errors} = OptionParser.parse(argv, switches: @switches, aliases: @aliases)
 
@@ -498,13 +505,17 @@ defmodule Mix.Tasks.PhoenixKit.Status do
 
   defp ensure_repo_loaded?(_), do: false
 
-  # Ensure repo is properly started for database operations
-  # Since app.start is called in run/1, this is now much simpler
+  # Ensure repo is properly started for database operations.
+  # Since we use --no-start, the repo may not be running yet.
   defp ensure_repo_started(repo) do
     if repo_available?(repo) do
       :ok
     else
-      {:error, "Repository #{inspect(repo)} is not available"}
+      case repo.start_link([]) do
+        {:ok, _pid} -> :ok
+        {:error, {:already_started, _pid}} -> :ok
+        {:error, reason} -> {:error, "Failed to start #{inspect(repo)}: #{inspect(reason)}"}
+      end
     end
   end
 
