@@ -259,6 +259,8 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   end
 
   @doc "Trashes a post by setting status to 'trashed'."
+  # Uses Ecto.Changeset.change/2 instead of the full changeset to avoid
+  # slug validation errors on posts with nil/blank slugs.
   def trash_post(%PublishingPost{} = post) do
     post
     |> Ecto.Changeset.change(status: "trashed")
