@@ -1,3 +1,9 @@
+## 1.7.76 - 2026-03-16
+
+### Fixed
+- Fix `mix phoenix_kit.status` port conflict when app is already running (use `--no-start` to avoid booting the HTTP endpoint)
+- Add self-healing version comment detection — automatically corrects V83 comment bug where migrations ran but version stayed at V82
+
 ## 1.7.75 - 2026-03-16
 
 ### Added
