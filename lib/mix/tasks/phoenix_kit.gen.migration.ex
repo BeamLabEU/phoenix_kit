@@ -2,10 +2,10 @@ defmodule Mix.Tasks.PhoenixKit.Gen.Migration do
   use Mix.Task
 
   @moduledoc """
-  Generate PhoenixKit migration in parent application.
+  Generate a PhoenixKit versioned migration for the parent application.
 
-  This task generates a new migration file with PhoenixKit tables
-  that can be customized before running.
+  Scans existing migrations in `priv/repo/migrations/` to determine the current
+  PhoenixKit version, then generates a migration that upgrades to the latest version.
 
   ## Usage
 
@@ -13,40 +13,130 @@ defmodule Mix.Tasks.PhoenixKit.Gen.Migration do
 
   ## Options
 
-    * `--table-prefix` - Custom prefix for tables (default: "phoenix_kit")
+    * `--prefix` - Database schema prefix (default: "public")
 
   ## Examples
 
-      # Generate with default phoenix_kit_users prefix
+      # Generate upgrade migration with default prefix
       mix phoenix_kit.gen.migration
 
-      # Generate with custom prefix
-      mix phoenix_kit.gen.migration --table-prefix users
+      # Generate with custom schema prefix
+      mix phoenix_kit.gen.migration --prefix my_schema
 
   """
-  @shortdoc "Generate PhoenixKit migration"
+  alias PhoenixKit.Migrations.Postgres, as: PkMigrations
+
+  @shortdoc "Generate PhoenixKit versioned migration"
 
   @impl Mix.Task
   def run(args) do
     opts = parse_args(args)
-    table_prefix = opts[:table_prefix] || "phoenix_kit"
+    prefix = opts[:prefix] || "public"
 
+    from_version = detect_current_version()
+    to_version = PkMigrations.current_version()
+
+    if from_version >= to_version do
+      IO.puts("✅ Already at latest PhoenixKit migration version (v#{to_version}). Nothing to do.")
+    else
+      generate_migration(from_version, to_version, prefix)
+    end
+  end
+
+  defp parse_args(args) do
+    {opts, _, _} = OptionParser.parse(args, switches: [prefix: :string])
+    opts
+  end
+
+  # Scan existing migration files to find the highest PhoenixKit version applied.
+  # Looks for files matching `*_phoenix_kit_update_v*_to_v*.exs` or `*_create_phoenix_kit_tables.exs`.
+  defp detect_current_version do
+    migrations_path = "priv/repo/migrations"
+
+    if File.dir?(migrations_path) do
+      migrations_path
+      |> File.ls!()
+      |> Enum.filter(&String.ends_with?(&1, ".exs"))
+      |> Enum.flat_map(&extract_phoenix_kit_version/1)
+      |> Enum.max(fn -> 0 end)
+    else
+      0
+    end
+  end
+
+  # Extract the "to" version from migration filenames like:
+  # - `20260310_phoenix_kit_update_v78_to_v80.exs` → 80
+  # - `20260316_create_phoenix_kit_tables.exs`      → 0 (initial install)
+  defp extract_phoenix_kit_version(filename) do
+    cond do
+      # Pattern: phoenix_kit_update_vXX_to_vYY.exs
+      match = Regex.run(~r/phoenix_kit_update_v\d+_to_v(\d+)/, filename) ->
+        [_, version_str] = match
+        [String.to_integer(version_str)]
+
+      # Pattern: create_phoenix_kit_tables.exs (initial install = version 1)
+      String.contains?(filename, "create_phoenix_kit_tables") ->
+        [1]
+
+      true ->
+        []
+    end
+  end
+
+  defp generate_migration(from_version, to_version, prefix) do
     timestamp = generate_timestamp()
-    filename = "#{timestamp}_create_#{table_prefix}_tables.exs"
+    slug = "phoenix_kit_update_v#{from_version}_to_v#{to_version}"
+    filename = "#{timestamp}_#{slug}.exs"
     path = Path.join("priv/repo/migrations", filename)
 
     File.mkdir_p!("priv/repo/migrations")
 
-    migration_content = generate_migration_content(table_prefix)
-    File.write!(path, migration_content)
+    app_module = app_module_name()
+    content = migration_content(app_module, slug, from_version, to_version, prefix)
+    File.write!(path, content)
 
     IO.puts("✅ Generated migration: #{filename}")
+    IO.puts("   Upgrades PhoenixKit: v#{from_version} → v#{to_version}")
     IO.puts("Run: mix ecto.migrate")
   end
 
-  defp parse_args(args) do
-    {opts, _, _} = OptionParser.parse(args, switches: [table_prefix: :string])
-    opts
+  defp app_module_name do
+    app = Mix.Project.config()[:app]
+
+    app
+    |> to_string()
+    |> Macro.camelize()
+  end
+
+  defp migration_content(app_module, slug, from_version, to_version, prefix) do
+    module_name = Macro.camelize(slug)
+    create_schema = prefix != "public"
+
+    """
+    defmodule #{app_module}.Repo.Migrations.#{module_name} do
+      @moduledoc false
+      use Ecto.Migration
+
+      @disable_ddl_transaction true
+
+      def up do
+        # PhoenixKit Update Migration: V#{from_version} -> V#{to_version}
+        PhoenixKit.Migrations.up(
+          prefix: "#{prefix}",
+          version: #{to_version},
+          create_schema: #{create_schema}
+        )
+      end
+
+      def down do
+        # Rollback PhoenixKit to V#{from_version}
+        PhoenixKit.Migrations.down(
+          prefix: "#{prefix}",
+          version: #{from_version}
+        )
+      end
+    end
+    """
   end
 
   defp generate_timestamp do
@@ -57,55 +147,5 @@ defmodule Mix.Tasks.PhoenixKit.Gen.Migration do
       [year, month, day, hour, minute, second]
     )
     |> to_string()
-  end
-
-  defp generate_migration_content(table_prefix) do
-    module_name = Macro.camelize("create_#{table_prefix}_tables")
-    # For default phoenix_kit prefix, use phoenix_kit_users/phoenix_kit_users_tokens
-    # For custom prefixes, use prefix/prefix_tokens
-    {users_table, tokens_table} =
-      if table_prefix == "phoenix_kit" do
-        {"phoenix_kit_users", "phoenix_kit_users_tokens"}
-      else
-        {table_prefix, "#{table_prefix}_tokens"}
-      end
-
-    """
-    defmodule #{Mix.Phoenix.context_app()}.Repo.Migrations.#{module_name} do
-      use Ecto.Migration
-
-      def change do
-        execute "CREATE EXTENSION IF NOT EXISTS citext", ""
-
-        create table(:#{users_table}, primary_key: false) do
-          add :uuid, :binary_id, primary_key: true
-          add :email, :citext, null: false
-          add :hashed_password, :string, null: false
-          add :confirmed_at, :utc_datetime
-
-          timestamps(type: :utc_datetime)
-        end
-
-        create unique_index(:#{users_table}, [:email])
-
-        create table(:#{tokens_table}, primary_key: false) do
-          add :uuid, :binary_id, primary_key: true
-          add :user_uuid,
-            references(:#{users_table}, column: :uuid, type: :binary_id, on_delete: :delete_all),
-            null: false
-          add :token, :binary, null: false
-          add :context, :string, null: false
-          add :sent_to, :string
-          add :ip_address, :string
-          add :user_agent_hash, :string
-
-          timestamps(type: :utc_datetime, updated_at: false)
-        end
-
-        create index(:#{tokens_table}, [:user_uuid])
-        create unique_index(:#{tokens_table}, [:context, :token])
-      end
-    end
-    """
   end
 end
