@@ -23,6 +23,8 @@ defmodule PhoenixKit.Migrations.Postgres.V83 do
       ON #{prefix_str}phoenix_kit_publishing_groups (status)
       """)
     end
+
+    execute "COMMENT ON TABLE #{prefix}.phoenix_kit IS '83'"
   end
 
   def down(opts) do

@@ -5,6 +5,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
   Uses FormBuilder with disabled fields for the form section.
   """
 
+  # Extension point: declare a route at the same path BEFORE phoenix_kit_routes()
+  # in your router to override this view. See lib/modules/entities/README.md.
+
   use PhoenixKitWeb, :live_view
   on_mount PhoenixKit.Modules.Entities.Web.Hooks
 

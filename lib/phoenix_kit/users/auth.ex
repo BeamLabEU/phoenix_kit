@@ -430,6 +430,9 @@ defmodule PhoenixKit.Users.Auth do
       iex> register_user(%{email: "user@example.com"}, "192.168.1.1")
       {:ok, %User{}}
 
+      iex> register_user(%{email: "user@example.com", password: "pass", custom_fields: %{"source" => "landing_page"}})
+      {:ok, %User{}}
+
   """
   def register_user(attrs, ip_address \\ nil) do
     # Check rate limit before attempting registration
