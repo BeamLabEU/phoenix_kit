@@ -549,6 +549,35 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
+  Finds a cached post by mode — uses date/time lookup for timestamp mode, slug for others.
+  """
+  def find_post_by_mode(group_slug, post) do
+    mode = Map.get(post, :mode)
+
+    if mode in ["timestamp", :timestamp] do
+      date = post[:date]
+      time = post[:time]
+
+      if date && time do
+        date_str = if is_struct(date, Date), do: Date.to_iso8601(date), else: to_string(date)
+        time_str = format_time_for_cache(time)
+        find_post_by_path(group_slug, date_str, time_str)
+      else
+        {:error, :not_found}
+      end
+    else
+      find_post(group_slug, post.slug)
+    end
+  end
+
+  defp format_time_for_cache(%Time{} = time) do
+    time |> Time.to_string() |> String.slice(0, 5)
+  end
+
+  defp format_time_for_cache(time) when is_binary(time), do: String.slice(time, 0, 5)
+  defp format_time_for_cache(_), do: ""
+
+  @doc """
   Returns the :persistent_term key for a publishing group's cache.
   """
   @spec persistent_term_key(String.t()) :: tuple()
