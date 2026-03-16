@@ -730,9 +730,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
   defp load_db_groups do
     Publishing.list_groups()
-    |> Enum.map(fn g ->
-      %{"name" => g.name, "slug" => g.slug, "mode" => g.mode, "position" => g.position}
-    end)
   end
 
   defp redirect_if_missing(%{assigns: %{current_group: nil}} = socket) do
