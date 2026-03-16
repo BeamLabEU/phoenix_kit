@@ -122,9 +122,7 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
     result = add_language_to_db(group_slug, post_uuid, language_code, version)
 
     with {:ok, new_post} <- result do
-      if Shared.should_regenerate_cache?(new_post) do
-        ListingCache.regenerate(group_slug)
-      end
+      ListingCache.regenerate(group_slug)
 
       broadcast_id = new_post.slug || new_post.uuid
 
@@ -259,7 +257,8 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
 
     with db_post when not is_nil(db_post) <- db_post,
          db_version when not is_nil(db_version) <- DBStorage.get_version(db_post.uuid, version),
-         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language) do
+         content when not is_nil(content) <- DBStorage.get_content(db_version.uuid, language),
+         :ok <- validate_translation_status_change(db_post, db_version, language, status) do
       case DBStorage.update_content(content, %{status: status}) do
         {:ok, _} ->
           if status == "published", do: ListingCache.regenerate(group_slug)
@@ -270,11 +269,33 @@ defmodule PhoenixKit.Modules.Publishing.TranslationManager do
       end
     else
       nil -> {:error, :not_found}
+      {:error, _} = error -> error
     end
   end
 
   def set_translation_status(_group_slug, _post_identifier, _version, _language, _status) do
     {:error, :invalid_status}
+  end
+
+  # Prevents publishing a translation when the primary language content isn't published.
+  # This avoids the contradiction where set_translation_status allows publishing but
+  # fix_translation_status_consistency (stale fixer) silently reverts it.
+  defp validate_translation_status_change(_db_post, _db_version, _language, status)
+       when status != "published",
+       do: :ok
+
+  defp validate_translation_status_change(db_post, db_version, language, "published") do
+    if language == db_post.primary_language do
+      :ok
+    else
+      case DBStorage.get_content(db_version.uuid, db_post.primary_language) do
+        nil ->
+          {:error, :primary_not_published}
+
+        primary ->
+          if primary.status == "published", do: :ok, else: {:error, :primary_not_published}
+      end
+    end
   end
 
   @doc """
