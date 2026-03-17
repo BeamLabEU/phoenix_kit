@@ -1,3 +1,27 @@
+## 1.7.77 - 2026-03-17
+
+### Added
+- Add Open Graph and Twitter Card meta tags for public publishing pages (og:title, og:description, og:image, og:url, og:locale, canonical link, and Twitter Card tags)
+- Add `og:site_name` meta tag using project title
+- Add `resolve_language_key/2` helper to `LanguageHelpers` for base code to dialect code matching in language maps
+- Add Tailwind Typography prose overrides using daisyUI theme variables (oklch(--bc), oklch(--p), oklch(--b2), oklch(--b3)) for theme-aware markdown styling
+- Add automated scheduled jobs cleanup to prevent table bloat (deletes completed jobs older than 7 days)
+
+### Changed
+- Replace inline markdown CSS with centralized prose overrides in `app.css` using `@layer base` (removes 323 lines of duplication)
+- Update publishing preview template to show full public interface with working language switcher
+- Move `MarkdownContent` component to use Tailwind prose classes instead of custom inline styles
+- Extract duplicated `resolve_language_key/2` from `listing.ex` and `html.ex` to shared `LanguageHelpers` module
+
+### Fixed
+- Fix language map lookup when canonical URL uses base code (e.g., "en" → "en-US" matching)
+- Fix `absolute_url/2` to use stricter URL protocol checking ("http://" or "https://" instead of just "http")
+- Fix preview language links to conditionally include version parameter only when version is non-nil
+- Fix translation reload showing primary language content instead of translated content
+- Fix PubSub subscription mismatch for translation and version events on timestamp-mode posts (slug vs uuid topic mismatch)
+- Fix email template seeding failing on fresh install (wrap string fields in i18n maps)
+- Fix whitespace in slug format examples on publishing group pages
+
 ## 1.7.76 - 2026-03-16
 
 ### Fixed
