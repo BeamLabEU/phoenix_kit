@@ -540,10 +540,13 @@ disappears from the post entirely. A new translation can be added later.
 # For timestamp mode, use the post UUID
 {:ok, _} = Publishing.trash_post("news", post_uuid)
 
-# Clear a translation (hard-deletes the content row, refuses if last language)
+# Archive a translation (soft-delete — sets status to "archived", refuses if last language)
 :ok = Publishing.delete_language("docs", post_uuid, "es")
 :ok = Publishing.delete_language("docs", post_uuid, "es", 2)  # specific version
 {:error, :last_language} = Publishing.delete_language("docs", post_uuid, "en")
+
+# Hard-delete a translation (permanently removes the content row)
+:ok = Publishing.clear_translation("docs", post_uuid, "es")
 
 # Archive a version (refuses if live or last active version)
 :ok = Publishing.delete_version("docs", post_uuid, 1)
@@ -1490,6 +1493,10 @@ This ensures localized URLs work immediately after deployment without waiting fo
 - **Better Click-Through**: Users are more likely to click localized URLs in search results
 - **Proper Hreflang**: The `<link rel="alternate" hreflang="xx">` tags use language-specific URLs
 - **Canonical URLs**: Each translation has its own canonical URL with its localized slug
+
+## Future Refactoring Notes
+
+- **Rename translation functions**: `clear_translation` (hard delete) and `delete_language` (archive/soft delete) have counterintuitive names — "delete" sounds harder than "clear" but does less. Consider renaming to `hard_delete_translation` / `archive_translation` in a future cleanup pass.
 
 ## Getting Help
 

@@ -4,12 +4,15 @@ defmodule PhoenixKit.Users.RateLimiterTest do
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.RateLimiter.Backend
 
-  # Start the Hammer ETS backend before all tests
+  # Start the Hammer ETS backend before all tests (may already be running from test_helper)
   setup_all do
-    # Start the RateLimiter backend if not already started
-    case Backend.start_link([]) do
-      {:ok, pid} -> {:ok, %{backend_pid: pid}}
-      {:error, {:already_started, pid}} -> {:ok, %{backend_pid: pid}}
+    case :ets.whereis(Backend) do
+      :undefined ->
+        {:ok, pid} = Backend.start_link([])
+        {:ok, %{backend_pid: pid}}
+
+      _ref ->
+        {:ok, %{backend_pid: nil}}
     end
   end
 
