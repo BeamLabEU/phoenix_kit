@@ -32,7 +32,6 @@ defmodule PhoenixKitWeb.Live.Modules do
     external_modules = load_external_modules(module_configs)
     dep_warnings = ModuleRegistry.dependency_warnings()
     not_installed = ModuleRegistry.not_installed_packages()
-    not_installed_keys = not_installed |> Enum.map(& &1.key) |> MapSet.new()
 
     socket =
       socket
@@ -43,7 +42,6 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:external_modules, external_modules)
       |> assign(:dep_warnings, dep_warnings)
       |> assign(:not_installed_packages, not_installed)
-      |> assign(:not_installed_keys, not_installed_keys)
 
     {:ok, socket}
   end

@@ -4,7 +4,6 @@
   current_path={@conn.request_path}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
 >
-  <%!-- TODO: Add SEO meta tags (description, canonical) when layout system supports meta_tags slot --%>
   <article class="post-container max-w-4xl mx-auto px-6 py-8">
     <%!-- Breadcrumb Navigation --%>
     <div class="breadcrumbs text-sm mb-6">
@@ -12,7 +11,7 @@
         <%= for breadcrumb <- @breadcrumbs do %>
           <li>
             <%= if breadcrumb.url do %>
-              <a href={breadcrumb.url}>{breadcrumb.label}</a>
+              <.link navigate={breadcrumb.url}>{breadcrumb.label}</.link>
             <% else %>
               {breadcrumb.label}
             <% end %>
@@ -77,15 +76,15 @@
             >
               <%= for v <- @version_dropdown.versions do %>
                 <li>
-                  <a
-                    href={v.url}
+                  <.link
+                    navigate={v.url}
                     class={"flex items-center justify-between #{if v.is_current, do: "active"}"}
                   >
                     <span>v{v.version}</span>
                     <%= if v.is_live do %>
                       <span class="badge badge-success badge-xs h-auto">live</span>
                     <% end %>
-                  </a>
+                  </.link>
                 </li>
               <% end %>
             </ul>
@@ -237,11 +236,14 @@
     </div>
     <%!-- Post Footer --%>
     <footer class="mt-12 pt-6 border-t">
-      <a href={group_listing_path(@current_language, @group_slug)} class="btn btn-ghost btn-sm">
+      <.link
+        navigate={group_listing_path(@current_language, @group_slug)}
+        class="btn btn-ghost btn-sm"
+      >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to %{group}",
           group: String.capitalize(@group_slug)
         )}
-      </a>
+      </.link>
     </footer>
   </article>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

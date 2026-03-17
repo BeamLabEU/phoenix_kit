@@ -77,14 +77,6 @@
         }
       });
 
-      // Listen for title update event from LiveView
-      window.addEventListener("phx:update-title", function(e) {
-        const titleInput = document.getElementById("title-input");
-        if (titleInput && e.detail.title) {
-          titleInput.value = e.detail.title;
-        }
-      });
-
       // Listen for url_slug update event from LiveView (for translations)
       window.addEventListener("phx:update-url-slug", function(e) {
         const urlSlugInput = document.getElementById("url-slug-input");
@@ -159,14 +151,16 @@
         )}
       </button>
       <div class="flex items-center gap-2">
-        <button
-          type="button"
-          class="btn btn-outline btn-xs sm:btn-sm shadow-none"
-          phx-click="preview"
-        >
-          <.icon name="hero-eye" class="w-4 h-4 sm:mr-1" />
-          <span class="hidden sm:inline">{gettext("Preview")}</span>
-        </button>
+        <%= unless @is_new_post do %>
+          <button
+            type="button"
+            class="btn btn-outline btn-xs sm:btn-sm shadow-none"
+            phx-click="preview"
+          >
+            <.icon name="hero-eye" class="w-4 h-4 sm:mr-1" />
+            <span class="hidden sm:inline">{gettext("Preview")}</span>
+          </button>
+        <% end %>
         <%= if @form["status"] == "published" && @public_url do %>
           <a
             href={if @has_pending_changes, do: "#", else: @public_url}
@@ -543,19 +537,27 @@
                     <% end %>
                   </span>
                   <span class="font-medium">
-                    {@ai_translation_progress || 0} / {@ai_translation_total || 0}
+                    <%= if @ai_translation_total && @ai_translation_total > 0 do %>
+                      {@ai_translation_progress || 0} / {@ai_translation_total}
+                    <% else %>
+                      {gettext("Starting...")}
+                    <% end %>
                   </span>
                 </div>
-                <progress
-                  class={[
-                    "progress w-full",
-                    @ai_translation_status == :completed && "progress-success",
-                    @ai_translation_status != :completed && "progress-primary"
-                  ]}
-                  value={@ai_translation_progress || @ai_translation_total || 0}
-                  max={@ai_translation_total || 1}
-                >
-                </progress>
+                <%= if @ai_translation_total && @ai_translation_total > 0 do %>
+                  <progress
+                    class={[
+                      "progress w-full",
+                      @ai_translation_status == :completed && "progress-success",
+                      @ai_translation_status != :completed && "progress-primary"
+                    ]}
+                    value={@ai_translation_progress || 0}
+                    max={@ai_translation_total}
+                  >
+                  </progress>
+                <% else %>
+                  <progress class="progress progress-primary w-full"></progress>
+                <% end %>
               </div>
             <% end %>
 
@@ -692,86 +694,73 @@
           <div class="flex-1 space-y-4">
             <div class="card bg-base-100 shadow-xl border border-base-200">
               <div class="card-body space-y-4">
-                <%!-- Title field --%>
-                <div>
-                  <input
-                    type="text"
-                    name="title"
-                    id="title-input"
-                    value={@form["title"] || ""}
-                    maxlength="500"
-                    class={"input input-bordered w-full text-2xl font-semibold #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                    placeholder={gettext("Post title")}
-                    readonly={edit_disabled? or @viewing_older_version}
-                  />
-                  <p class="text-xs text-base-content/60 mt-1">
-                    <%= if @is_primary_language do %>
-                      {gettext("Auto-populated from the first heading. Edit to override.")}
-                    <% else %>
-                      {gettext("Leave empty to use the primary language title.")}
-                    <% end %>
-                  </p>
-                </div>
-                <%!-- Content header with save status --%>
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <h2 class="text-xl font-semibold text-base-content">{gettext("Content")}</h2>
-                  <div class="flex items-center gap-1.5">
-                    <%!-- Other viewers indicator --%>
-                    <%= if @other_viewers != [] do %>
-                      <div
-                        class="tooltip tooltip-bottom"
-                        data-tip={Enum.map_join(@other_viewers, ", ", & &1.user_email)}
-                      >
-                        <span class="badge badge-info badge-sm gap-1">
-                          <.icon name="hero-eye" class="w-3 h-3" />
-                          {ngettext(
-                            "1 other viewing",
-                            "%{count} others viewing",
-                            length(@other_viewers),
-                            count: length(@other_viewers)
-                          )}
-                        </span>
-                      </div>
-                    <% end %>
-                    <%= cond do %>
-                      <% @is_autosaving -> %>
-                        <span class="badge badge-info badge-sm gap-1">
-                          <span class="loading loading-spinner loading-xs"></span>
-                          {gettext("Saving...")}
-                        </span>
-                      <% @has_pending_changes -> %>
-                        <span class="badge badge-warning badge-sm h-auto">
-                          {gettext("Unsaved changes")}
-                        </span>
-                      <% @is_new_post -> %>
-                        <span class="badge badge-ghost badge-sm h-auto">{gettext("New")}</span>
-                      <% true -> %>
-                        <span class="badge badge-success badge-sm gap-1">
-                          <.icon name="hero-check" class="w-3 h-3" />
-                          {gettext("Saved")}
-                        </span>
-                    <% end %>
-                    <% save_disabled = edit_disabled? || @is_autosaving %>
-                    <button
-                      type="button"
-                      phx-click="save"
-                      class={[
-                        "btn btn-primary btn-xs shadow-none gap-1",
-                        save_disabled && "btn-disabled pointer-events-none opacity-60"
-                      ]}
-                      disabled={save_disabled}
+                <%!-- Save status and button --%>
+                <div class="flex flex-wrap items-center justify-end gap-1.5">
+                  <%!-- Other viewers indicator --%>
+                  <%= if @other_viewers != [] do %>
+                    <div
+                      class="tooltip tooltip-bottom"
+                      data-tip={Enum.map_join(@other_viewers, ", ", & &1.user_email)}
                     >
-                      <span class="hidden phx-click-loading:inline-flex items-center gap-1">
-                        <span class="loading loading-spinner loading-2xs"></span>
+                      <span class="badge badge-info badge-sm gap-1">
+                        <.icon name="hero-eye" class="w-3 h-3" />
+                        {ngettext(
+                          "1 other viewing",
+                          "%{count} others viewing",
+                          length(@other_viewers),
+                          count: length(@other_viewers)
+                        )}
+                      </span>
+                    </div>
+                  <% end %>
+                  <%= cond do %>
+                    <% @is_autosaving -> %>
+                      <span class="badge badge-info badge-sm gap-1">
+                        <span class="loading loading-spinner loading-xs"></span>
                         {gettext("Saving...")}
                       </span>
-                      <span class="inline-flex items-center gap-1 phx-click-loading:hidden">
-                        <.icon name="hero-arrow-down-tray" class="w-3 h-3" /> {gettext("Save now")}
+                    <% @has_pending_changes -> %>
+                      <span class="badge badge-warning badge-sm h-auto">
+                        {gettext("Unsaved changes")}
                       </span>
-                    </button>
-                  </div>
+                    <% @is_new_post -> %>
+                      <span class="badge badge-ghost badge-sm h-auto">{gettext("New")}</span>
+                    <% true -> %>
+                      <span class="badge badge-success badge-sm gap-1">
+                        <.icon name="hero-check" class="w-3 h-3" />
+                        {gettext("Saved")}
+                      </span>
+                  <% end %>
+                  <% save_disabled = edit_disabled? || @is_autosaving %>
+                  <button
+                    type="button"
+                    phx-click="save"
+                    class={[
+                      "btn btn-primary btn-xs shadow-none gap-1",
+                      save_disabled && "btn-disabled pointer-events-none opacity-60"
+                    ]}
+                    disabled={save_disabled}
+                  >
+                    <span class="hidden phx-click-loading:inline-flex items-center gap-1">
+                      <span class="loading loading-spinner loading-2xs"></span>
+                      {gettext("Saving...")}
+                    </span>
+                    <span class="inline-flex items-center gap-1 phx-click-loading:hidden">
+                      <.icon name="hero-arrow-down-tray" class="w-3 h-3" /> {gettext("Save now")}
+                    </span>
+                  </button>
                 </div>
-
+                <%!-- Title field --%>
+                <input
+                  type="text"
+                  name="title"
+                  id="title-input"
+                  value={@form["title"] || ""}
+                  maxlength="500"
+                  class={"input input-bordered w-full text-2xl font-semibold #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                  placeholder={gettext("Post title")}
+                  readonly={edit_disabled? or @viewing_older_version}
+                />
                 <%!-- Markdown Editor Component --%>
                 <.live_component
                   module={PhoenixKitWeb.Components.Core.MarkdownEditor}
@@ -810,7 +799,7 @@
                         value={@form["slug"]}
                         pattern="[a-z0-9]+(-[a-z0-9]+)*"
                         class={"input input-bordered w-full lowercase #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                        placeholder={gettext("auto-generated from first heading")}
+                        placeholder={gettext("auto-generated from title")}
                         title={
                           gettext(
                             "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."

@@ -174,7 +174,6 @@ defmodule PhoenixKit.Modules.Sync.Connection do
       :auto_sync_tables,
       :auto_sync_interval_minutes,
       :metadata,
-      :created_by,
       :created_by_uuid
     ])
     |> validate_required([:name, :direction, :site_url])

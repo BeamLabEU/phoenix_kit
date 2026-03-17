@@ -57,18 +57,12 @@
                   )}
                 </p>
                 <p class="text-xs text-success">
-                  ✓ {gettext("Valid examples")}: <code class="font-mono">blog</code>, <code class="font-mono">
-                    product-updates
-                  </code>,
+                  ✓ {gettext("Valid examples")}: <code class="font-mono">blog</code>, <code class="font-mono">product-updates</code>,
                   <code class="font-mono">news-2025</code>
                 </p>
                 <p class="text-xs text-error">
-                  ✗ {gettext("Invalid examples")}: <code class="font-mono">Blog</code>, <code class="font-mono">
-                    product_updates
-                  </code>, <code class="font-mono">-news</code>,
-                  <code class="font-mono">
-                    my blog
-                  </code>
+                  ✗ {gettext("Invalid examples")}: <code class="font-mono">Blog</code>, <code class="font-mono">product_updates</code>, <code class="font-mono">-news</code>,
+                  <code class="font-mono">my blog</code>
                 </p>
               </div>
               <% slug_value = @form[:slug].value || "" %>

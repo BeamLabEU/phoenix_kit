@@ -3,10 +3,20 @@ import Config
 # Configure test environment for PhoenixKit
 # This file is imported by config.exs when Mix.env() == :test
 
-# Configure test database (when PhoenixKit is used in parent applications)
-# Parent apps should configure their own test repo here
-# config :phoenix_kit,
-#   repo: MyApp.Repo
+# Configure test database - embedded test repo for library-level integration tests
+config :phoenix_kit, ecto_repos: [PhoenixKit.Test.Repo]
+
+config :phoenix_kit, PhoenixKit.Test.Repo,
+  username: System.get_env("PGUSER", "postgres"),
+  password: System.get_env("PGPASSWORD", "postgres"),
+  hostname: System.get_env("PGHOST", "localhost"),
+  database: "phoenix_kit_test#{System.get_env("MIX_TEST_PARTITION")}",
+  pool: Ecto.Adapters.SQL.Sandbox,
+  pool_size: System.schedulers_online() * 2,
+  priv: "test/support/postgres"
+
+# Wire repo for library code that calls PhoenixKit.Config.get(:repo)
+config :phoenix_kit, repo: PhoenixKit.Test.Repo
 
 # Configure test mailer - use Local adapter for test environment
 config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Test

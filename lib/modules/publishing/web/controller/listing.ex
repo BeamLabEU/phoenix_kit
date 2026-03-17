@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
 
   @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
@@ -182,8 +183,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
     lang_excerpts = post[:language_excerpts] || %{}
     metadata = post[:metadata] || %{}
 
-    title = Map.get(lang_titles, language, metadata[:title] || Constants.default_title())
-    excerpt = Map.get(lang_excerpts, language)
+    resolved_key = LanguageHelpers.resolve_language_key(language, Map.keys(lang_titles))
+
+    title = Map.get(lang_titles, resolved_key, metadata[:title] || Constants.default_title())
+    excerpt = Map.get(lang_excerpts, resolved_key)
 
     post
     |> Map.update(:metadata, %{title: title}, &Map.put(&1, :title, title))
