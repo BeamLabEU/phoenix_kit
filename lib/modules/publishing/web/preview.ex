@@ -138,7 +138,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
 
     Enum.map(translations, fn translation ->
       code = translation[:code] || translation.code
-      query = URI.encode_query(%{"lang" => code, "v" => version})
+      query_params = %{"lang" => code}
+      query_params = if version, do: Map.put(query_params, "v", version), else: query_params
+      query = URI.encode_query(query_params)
 
       %{
         code: code,

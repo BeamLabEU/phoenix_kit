@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
 
   @timestamp_modes Constants.timestamp_modes()
   alias PhoenixKit.Modules.Publishing.Web.Controller.Language
@@ -182,10 +183,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
     lang_excerpts = post[:language_excerpts] || %{}
     metadata = post[:metadata] || %{}
 
-    # Language map keys are full dialect codes (e.g., "en-US") but the
-    # canonical_language may be a base code (e.g., "en") when only one
-    # dialect is enabled. Try exact match first, then match by base code.
-    resolved_key = resolve_language_key(language, Map.keys(lang_titles))
+    resolved_key = LanguageHelpers.resolve_language_key(language, Map.keys(lang_titles))
 
     title = Map.get(lang_titles, resolved_key, metadata[:title] || Constants.default_title())
     excerpt = Map.get(lang_excerpts, resolved_key)
@@ -195,17 +193,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller.Listing do
     |> then(fn p ->
       if excerpt, do: Map.put(p, :content, excerpt), else: p
     end)
-  end
-
-  # Resolves a display language code to a key in the language map.
-  # Handles base code ("en") → dialect code ("en-US") matching.
-  defp resolve_language_key(language, available_keys) do
-    if language in available_keys do
-      language
-    else
-      base = DialectMapper.extract_base(language)
-      Enum.find(available_keys, language, fn key -> DialectMapper.extract_base(key) == base end)
-    end
   end
 
   # ============================================================================
