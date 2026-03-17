@@ -529,7 +529,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V83 - Add status to publishing groups ⚡ LATEST
+  ### V84 - Rename mailing tables to newsletters ⚡ LATEST
+  - Idempotently renames `phoenix_kit_mailing_*` tables to `phoenix_kit_newsletters_*`
+  - Fixes databases that ran the old V79 (which created `mailing_*` tables)
+  - Safe to run multiple times — uses IF EXISTS guards
+
+  ### V83 - Add status to publishing groups
   - Adds `status` column (varchar(20), default 'active') to `phoenix_kit_publishing_groups`
   - Supports soft-delete via "trashed" status
   - Adds index on `(status)` for filtering
@@ -645,7 +650,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 83
+  @current_version 84
   @default_prefix "public"
 
   @doc false
@@ -835,6 +840,70 @@ defmodule PhoenixKit.Migrations.Postgres do
       _ ->
         0
     end
+  end
+
+  @doc """
+  Heal version comment if schema artifacts exist for a higher version.
+
+  V83 had a bug where the COMMENT ON TABLE statement used an incorrect prefix,
+  leaving the comment at the previous version even though the migration ran
+  successfully. This function detects and corrects the mismatch.
+
+  Returns `{:healed, new_version}` if the comment was fixed, or `:ok` if
+  no healing was needed.
+  """
+  def heal_version_comment(reported_version, opts) do
+    escaped_prefix = Map.get(opts, :escaped_prefix, opts[:prefix] || "public")
+    prefix_str = if escaped_prefix != "public", do: "#{escaped_prefix}.", else: ""
+
+    case get_repo_with_fallback() do
+      nil ->
+        :ok
+
+      repo ->
+        healed =
+          version_checks()
+          |> Enum.filter(fn {v, _query} -> v > reported_version and v <= @current_version end)
+          |> Enum.sort_by(fn {v, _} -> v end)
+          |> Enum.reduce(reported_version, fn {v, check_query_fn}, acc ->
+            query = check_query_fn.(escaped_prefix, prefix_str)
+
+            case repo.query(query, [], log: false) do
+              {:ok, %{rows: [[true]]}} -> v
+              _ -> acc
+            end
+          end)
+
+        if healed > reported_version do
+          comment_query =
+            "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '#{healed}'"
+
+          repo.query(comment_query, [], log: false)
+          {:healed, healed}
+        else
+          :ok
+        end
+    end
+  rescue
+    _ -> :ok
+  end
+
+  # Schema artifact checks for versions that may have had comment bugs.
+  # Each entry is {version, fn(escaped_prefix, prefix_str) -> verification_query}.
+  defp version_checks do
+    [
+      {83,
+       fn escaped_prefix, _prefix_str ->
+         """
+         SELECT EXISTS (
+           SELECT FROM information_schema.columns
+           WHERE table_schema = '#{escaped_prefix}'
+           AND table_name = 'phoenix_kit_publishing_groups'
+           AND column_name = 'status'
+         )
+         """
+       end}
+    ]
   end
 
   defp change(range, direction, opts) do

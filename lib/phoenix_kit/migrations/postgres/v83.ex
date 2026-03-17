@@ -24,7 +24,7 @@ defmodule PhoenixKit.Migrations.Postgres.V83 do
       """)
     end
 
-    execute "COMMENT ON TABLE #{prefix}.phoenix_kit IS '83'"
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '83'"
   end
 
   def down(opts) do
@@ -39,6 +39,8 @@ defmodule PhoenixKit.Migrations.Postgres.V83 do
       DROP COLUMN IF EXISTS status
       """)
     end
+
+    execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '82'"
   end
 
   defp table_exists?(table, prefix) do

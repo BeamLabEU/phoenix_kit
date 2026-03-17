@@ -1,3 +1,24 @@
+## 1.7.76 - 2026-03-16
+
+### Fixed
+- Fix `mix phoenix_kit.status` port conflict when app is already running (use `--no-start` to avoid booting the HTTP endpoint)
+- Add self-healing version comment detection — automatically corrects V83 comment bug where migrations ran but version stayed at V82
+
+## 1.7.75 - 2026-03-16
+
+### Added
+- Add `custom_fields` support to `registration_changeset/3` for atomic user creation with custom metadata
+- Add entity data view extension documentation and route override pattern
+
+### Fixed
+- Fix mobile overflow issues in email module UI (queue, blocklist, metrics, template editor)
+- Fix early validation in template editor — errors only shown after first user interaction
+- Fix Send Test Email modal overflowing on mobile (max-w-4xl → max-w-2xl)
+- Fix V83 migration missing `down/1` version comment rollback
+- Fix V83 migration prefix_str inconsistency in version comment
+- Fix dialyzer `guard_fail` warnings from upstream publishing merge
+- Fix remaining doc warnings for delegated hidden functions
+
 ## 1.7.74 - 2026-03-16
 
 ### Fixed

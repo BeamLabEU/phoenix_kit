@@ -392,7 +392,6 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
     :ok
   end
 
-  @doc false
   def fix_stale_version(version) do
     if version.status not in @valid_version_statuses do
       Logger.info(
@@ -403,7 +402,6 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
     end
   end
 
-  @doc false
   def fix_stale_content(content) do
     attrs =
       %{}
@@ -599,7 +597,6 @@ defmodule PhoenixKit.Modules.Publishing.StaleFixer do
   # Note: individual translations CAN be "draft" while the version is "published" —
   # this is the normal state for untranslated languages. We only fix content that
   # claims to be "published" when it shouldn't be.
-  @doc false
   def reconcile_post_status(%PublishingPost{} = post) do
     # Re-read to get current state after individual fixes
     post = DBStorage.get_post_by_uuid(post.uuid) || post

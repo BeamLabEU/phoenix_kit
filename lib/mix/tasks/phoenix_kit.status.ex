@@ -60,8 +60,15 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   ]
 
   def run(argv) do
-    # Start the application to ensure repo is available
-    Mix.Task.run("app.start")
+    # Load configuration and compile without starting the full application.
+    # Using --no-start avoids port conflicts when the app is already running.
+    Mix.Task.run("app.start", ["--no-start"])
+
+    # Start only the dependencies needed for database queries
+    {:ok, _} = Application.ensure_all_started(:ssl)
+    {:ok, _} = Application.ensure_all_started(:postgrex)
+    {:ok, _} = Application.ensure_all_started(:ecto_sql)
+    {:ok, _} = Application.ensure_all_started(:phoenix_kit)
 
     {opts, _argv, _errors} = OptionParser.parse(argv, switches: @switches, aliases: @aliases)
 
@@ -106,7 +113,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
     end
   end
 
-  # Get installation status
+  # Get installation status, with self-healing for version comment bugs
   defp get_installation_status(prefix) do
     case Common.check_installation_status(prefix) do
       {:not_installed} ->
@@ -118,8 +125,33 @@ defmodule Mix.Tasks.PhoenixKit.Status do
         if version >= target_version do
           {:up_to_date, version}
         else
-          {:needs_update, version, target_version}
+          maybe_heal_and_check(version, target_version, prefix)
         end
+    end
+  end
+
+  # Attempt to heal version comment if migrations ran but comment was not updated
+  defp maybe_heal_and_check(version, target_version, prefix) do
+    opts = %{prefix: prefix, escaped_prefix: String.replace(prefix, "'", "\\'")}
+
+    case Postgres.heal_version_comment(version, opts) do
+      {:healed, healed_version} ->
+        IO.puts(
+          "#{IO.ANSI.yellow()}[healed] Version comment corrected from V#{pad_version(version)} to V#{pad_version(healed_version)}#{IO.ANSI.reset()}"
+        )
+
+        compare_versions(healed_version, target_version)
+
+      :ok ->
+        {:needs_update, version, target_version}
+    end
+  end
+
+  defp compare_versions(version, target_version) do
+    if version >= target_version do
+      {:up_to_date, version}
+    else
+      {:needs_update, version, target_version}
     end
   end
 
@@ -498,13 +530,17 @@ defmodule Mix.Tasks.PhoenixKit.Status do
 
   defp ensure_repo_loaded?(_), do: false
 
-  # Ensure repo is properly started for database operations
-  # Since app.start is called in run/1, this is now much simpler
+  # Ensure repo is properly started for database operations.
+  # Since we use --no-start, the repo may not be running yet.
   defp ensure_repo_started(repo) do
     if repo_available?(repo) do
       :ok
     else
-      {:error, "Repository #{inspect(repo)} is not available"}
+      case repo.start_link([]) do
+        {:ok, _pid} -> :ok
+        {:error, {:already_started, _pid}} -> :ok
+        {:error, reason} -> {:error, "Failed to start #{inspect(repo)}: #{inspect(reason)}"}
+      end
     end
   end
 

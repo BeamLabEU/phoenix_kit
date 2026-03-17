@@ -295,10 +295,8 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
   #   - "post-slug/en" → {"post-slug", nil, "en"}
   #   - "post-slug/v1/en" → {"post-slug", 1, "en"}
   #   - "group/post-slug/v2/am" → {"post-slug", 2, "am"}
-  @doc false
   def extract_slug_version_and_language(_group_slug, nil), do: {"", nil, nil}
 
-  @doc false
   def extract_slug_version_and_language(group_slug, identifier) do
     parts =
       identifier

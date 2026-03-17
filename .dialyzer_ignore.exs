@@ -1,5 +1,6 @@
 [
   # Mix functions are only available during Mix compilation context
+  {"lib/mix/tasks/phoenix_kit.gen.migration.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.doctor.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.install.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},

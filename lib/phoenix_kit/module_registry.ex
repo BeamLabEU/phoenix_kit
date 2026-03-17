@@ -430,7 +430,7 @@ defmodule PhoenixKit.ModuleRegistry do
   defp known_external_packages do
     [
       %{
-        module: PhoenixKit.Modules.Newsletters,
+        module: PhoenixKit.Newsletters,
         hex_package: "phoenix_kit_newsletters",
         name: "Newsletters",
         description:
