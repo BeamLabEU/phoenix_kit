@@ -1097,22 +1097,46 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   defp ensure_repo_loaded?(_), do: false
 
-  # Ensure repo is properly started for database operations
-  # Note: For Mix tasks, the application should already be started
+  # Ensure repo is properly started for database operations.
+  # In --no-start context, Repo process may not be running yet.
   defp ensure_repo_started(repo) do
-    # Try Mix.Ecto.ensure_repo if available
-    if Code.ensure_loaded?(Mix.Ecto) do
-      Mix.Ecto.ensure_repo(repo, [])
+    if Process.whereis(repo) != nil do
       :ok
     else
-      # Basic check if repo is available
-      if Code.ensure_loaded?(repo) && function_exported?(repo, :__adapter__, 0) do
-        :ok
-      else
-        {:error, "Repository #{inspect(repo)} is not available"}
-      end
+      start_repo_with_config(repo)
     end
   rescue
     error -> {:error, "Failed to start repo: #{inspect(error)}"}
+  end
+
+  defp start_repo_with_config(repo) do
+    # Try Mix.Ecto.ensure_repo first (handles config resolution)
+    if Code.ensure_loaded?(Mix.Ecto) do
+      Mix.Ecto.ensure_repo(repo, [])
+
+      # ensure_repo loads but doesn't start — start the process
+      if Process.whereis(repo) == nil do
+        do_start_repo(repo)
+      else
+        :ok
+      end
+    else
+      do_start_repo(repo)
+    end
+  end
+
+  defp do_start_repo(repo) do
+    # Get config from parent app's application env
+    app =
+      if Code.ensure_loaded?(Mix) and function_exported?(Mix.Project, :config, 0),
+        do: Mix.Project.config()[:app]
+
+    config = if app, do: Application.get_env(app, repo, []), else: []
+
+    case repo.start_link(config) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> :ok
+      {:error, reason} -> {:error, "Failed to start #{inspect(repo)}: #{inspect(reason)}"}
+    end
   end
 end
