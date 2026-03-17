@@ -527,33 +527,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         )
 
       has_changes = Forms.dirty?(socket_with_slug.assigns.post, new_form, socket.assigns.content)
-
       language = Helpers.editor_language(socket.assigns)
-      new_status = new_form["status"]
 
-      # Update both metadata.status and language_statuses for the current language
-      # This ensures the language switcher reflects the user's selection immediately
-      current_language_statuses = Map.get(socket.assigns.post, :language_statuses, %{})
-      updated_language_statuses = Map.put(current_language_statuses, language, new_status)
-
-      # Update post with current form values for accurate public URL
-      form_slug = new_form["slug"]
-      form_url_slug = new_form["url_slug"]
-
-      updated_post =
-        socket.assigns.post
-        |> Map.put(:metadata, Map.merge(socket.assigns.post.metadata, %{status: new_status}))
-        |> Map.put(:language_statuses, updated_language_statuses)
-        |> then(fn p ->
-          if form_slug && form_slug != "", do: Map.put(p, :slug, form_slug), else: p
-        end)
-        |> then(fn p ->
-          if form_url_slug && form_url_slug != "",
-            do: Map.put(p, :url_slug, form_url_slug),
-            else: p
-        end)
-
-      public_url = Helpers.build_public_url(updated_post, language)
+      {updated_post, public_url} =
+        update_post_from_form(socket.assigns.post, new_form, language)
 
       socket =
         socket_with_slug
@@ -1050,6 +1027,31 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_event("back_to_list", _params, socket) do
     handle_event("attempt_cancel", %{}, socket)
+  end
+
+  # Update post struct with current form values for accurate public URL and status display
+  defp update_post_from_form(post, form, language) do
+    new_status = form["status"]
+    current_language_statuses = Map.get(post, :language_statuses, %{})
+    updated_language_statuses = Map.put(current_language_statuses, language, new_status)
+
+    form_slug = form["slug"]
+    form_url_slug = form["url_slug"]
+
+    updated_post =
+      post
+      |> Map.put(:metadata, Map.merge(post.metadata, %{status: new_status}))
+      |> Map.put(:language_statuses, updated_language_statuses)
+      |> then(fn p ->
+        if form_slug && form_slug != "", do: Map.put(p, :slug, form_slug), else: p
+      end)
+      |> then(fn p ->
+        if form_url_slug && form_url_slug != "",
+          do: Map.put(p, :url_slug, form_url_slug),
+          else: p
+      end)
+
+    {updated_post, Helpers.build_public_url(updated_post, language)}
   end
 
   # ============================================================================
