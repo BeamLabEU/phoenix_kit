@@ -6,14 +6,18 @@
 - Add `resolve_language_key/2` helper to `LanguageHelpers` for base code to dialect code matching in language maps
 - Add Tailwind Typography prose overrides using daisyUI theme variables (oklch(--bc), oklch(--p), oklch(--b2), oklch(--b3)) for theme-aware markdown styling
 - Add automated scheduled jobs cleanup to prevent table bloat (deletes completed jobs older than 7 days)
+- Add `lastmod` (last modified) to sitemap entries for SEO — router-discovered routes use beam file mtime, static entries use current date
 
 ### Changed
 - Replace inline markdown CSS with centralized prose overrides in `app.css` using `@layer base` (removes 323 lines of duplication)
 - Update publishing preview template to show full public interface with working language switcher
 - Move `MarkdownContent` component to use Tailwind prose classes instead of custom inline styles
 - Extract duplicated `resolve_language_key/2` from `listing.ex` and `html.ex` to shared `LanguageHelpers` module
+- Extract `update_post_from_form/3` from publishing editor to reduce cyclomatic complexity (from >10 to <10)
+- Update Leaf content editor dependency from v0.1.0 to v0.2.0
 
 ### Fixed
+- Fix `mix phoenix_kit.status` showing V01 instead of actual migration version — properly start Repo with parent app config when using `--no-start`
 - Fix language map lookup when canonical URL uses base code (e.g., "en" → "en-US" matching)
 - Fix `absolute_url/2` to use stricter URL protocol checking ("http://" or "https://" instead of just "http")
 - Fix preview language links to conditionally include version parameter only when version is non-nil
