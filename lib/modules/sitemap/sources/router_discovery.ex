@@ -90,6 +90,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
     # Internal/functional pages - not for search engine indexing
     "/checkout",
     "/cart",
+    "/newsletters/unsubscribe",
     "/health",
     "/ready",
     # Infrastructure
