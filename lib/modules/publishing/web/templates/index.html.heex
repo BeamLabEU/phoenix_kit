@@ -10,7 +10,7 @@
         <%= for breadcrumb <- @breadcrumbs do %>
           <li>
             <%= if breadcrumb.url do %>
-              <a href={breadcrumb.url}>{breadcrumb.label}</a>
+              <.link navigate={breadcrumb.url}>{breadcrumb.label}</.link>
             <% else %>
               {breadcrumb.label}
             <% end %>
@@ -54,12 +54,12 @@
             <% end %>
             <div class="card-body">
               <h2 class="card-title text-xl">
-                <a
-                  href={build_post_url(@group["slug"], post, @current_language, date_counts)}
+                <.link
+                  navigate={build_post_url(@group["slug"], post, @current_language, date_counts)}
                   class="hover:text-primary"
                 >
                   {post.metadata.title}
-                </a>
+                </.link>
               </h2>
 
               <% excerpt =
@@ -86,12 +86,12 @@
                   <span class="text-xs text-base-content/60"></span>
                 <% end %>
 
-                <a
-                  href={build_post_url(@group["slug"], post, @current_language, date_counts)}
+                <.link
+                  navigate={build_post_url(@group["slug"], post, @current_language, date_counts)}
                   class="btn btn-sm btn-primary"
                 >
                   {gettext("Read More →")}
-                </a>
+                </.link>
               </div>
             </div>
           </article>
@@ -104,12 +104,12 @@
             <%= if page_num == @page do %>
               <button class="join-item btn btn-active">{page_num}</button>
             <% else %>
-              <a
-                href={group_listing_path(@current_language, @group["slug"], page: page_num)}
+              <.link
+                navigate={group_listing_path(@current_language, @group["slug"], page: page_num)}
                 class="join-item btn"
               >
                 {page_num}
-              </a>
+              </.link>
             <% end %>
           <% end %>
         </div>

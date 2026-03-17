@@ -8,7 +8,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
 
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
-  alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Slug
 
@@ -184,7 +183,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
   def assign_form_with_tracking(socket, form, opts \\ []) do
     {slug_manually_set, last_auto_slug} = resolve_slug_tracking(socket, form, opts)
     {url_slug_manually_set, last_auto_url_slug} = resolve_url_slug_tracking(socket, form, opts)
-    {title_manually_set, last_auto_title} = resolve_title_tracking(socket, form, opts)
 
     socket
     |> Phoenix.Component.assign(:form, form)
@@ -192,8 +190,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
     |> Phoenix.Component.assign(:slug_manually_set, slug_manually_set)
     |> Phoenix.Component.assign(:last_auto_url_slug, last_auto_url_slug)
     |> Phoenix.Component.assign(:url_slug_manually_set, url_slug_manually_set)
-    |> Phoenix.Component.assign(:last_auto_title, last_auto_title)
-    |> Phoenix.Component.assign(:title_manually_set, title_manually_set)
   end
 
   defp resolve_slug_tracking(socket, form, opts) do
@@ -237,110 +233,67 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
     {manually_set, last_auto}
   end
 
-  defp resolve_title_tracking(socket, form, opts) do
-    manually_set =
-      case Keyword.fetch(opts, :title_manually_set) do
-        {:ok, value} ->
-          value
-
-        :error ->
-          existing = Map.get(socket.assigns, :title_manually_set, false)
-          title = Map.get(form, "title", "")
-          last_auto = Map.get(socket.assigns, :last_auto_title, "")
-          existing || (title != "" and last_auto != "" and title != last_auto)
-      end
-
-    last_auto =
-      case Keyword.fetch(opts, :last_auto_title) do
-        {:ok, value} -> value
-        :error -> Map.get(socket.assigns, :last_auto_title, "")
-      end
-
-    {manually_set, last_auto}
-  end
-
   # ============================================================================
-  # Slug Auto-Generation
+  # Slug Generation from Title
   # ============================================================================
 
   @doc """
-  Updates slug from content if applicable.
+  Updates slug from title if applicable.
   Returns {socket, new_form, slug_events}.
   """
-  def maybe_update_slug_from_content(socket, content, opts \\ []) do
-    content = content || ""
+  def maybe_update_slug_from_title(socket, title, opts \\ []) do
+    title = title || ""
 
     cond do
-      not slug_update_applicable?(socket, content) ->
+      socket.assigns.group_mode != "slug" or String.trim(title) == "" ->
         no_slug_update(socket)
 
       Map.get(socket.assigns, :is_primary_language, true) ->
-        maybe_update_primary_slug(socket, content, opts)
+        maybe_update_primary_slug_from_title(socket, title, opts)
 
       true ->
-        maybe_update_translation_url_slug(socket, content, opts)
+        maybe_update_translation_url_slug_from_title(socket, title, opts)
     end
   end
 
-  defp slug_update_applicable?(socket, content) do
-    socket.assigns.group_mode == "slug" and String.trim(content) != ""
-  end
-
-  defp maybe_update_primary_slug(socket, content, opts) do
+  defp maybe_update_primary_slug_from_title(socket, title, opts) do
     force? = Keyword.get(opts, :force, false)
     slug_manually_set? = Map.get(socket.assigns, :slug_manually_set, false)
 
     if not force? and slug_manually_set? do
       no_slug_update(socket)
     else
-      update_slug_from_content(socket, content)
+      current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
+
+      case Publishing.generate_unique_slug(socket.assigns.group_slug, title, nil,
+             current_slug: current_slug
+           ) do
+        {:ok, ""} -> no_slug_update(socket)
+        {:ok, new_slug} -> apply_new_slug(socket, new_slug)
+        {:error, _reason} -> no_slug_update(socket)
+      end
     end
   end
 
-  defp maybe_update_translation_url_slug(socket, content, opts) do
+  defp maybe_update_translation_url_slug_from_title(socket, title, opts) do
     force? = Keyword.get(opts, :force, false)
     url_slug_manually_set? = Map.get(socket.assigns, :url_slug_manually_set, false)
 
     if not force? and url_slug_manually_set? do
       no_slug_update(socket)
     else
-      update_url_slug_from_content(socket, content)
+      new_url_slug = Slug.slugify(title)
+      current_url_slug = Map.get(socket.assigns.form, "url_slug", "")
+
+      if new_url_slug == "" do
+        no_slug_update(socket)
+      else
+        apply_new_url_slug(socket, new_url_slug, current_url_slug)
+      end
     end
   end
 
   defp no_slug_update(socket), do: {socket, socket.assigns.form, []}
-
-  defp update_slug_from_content(socket, content) do
-    title = Metadata.extract_title_from_content(content)
-    current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
-
-    case Publishing.generate_unique_slug(socket.assigns.group_slug, title, nil,
-           current_slug: current_slug
-         ) do
-      {:ok, ""} ->
-        no_slug_update(socket)
-
-      {:ok, new_slug} ->
-        apply_new_slug(socket, new_slug)
-
-      {:error, _reason} ->
-        no_slug_update(socket)
-    end
-  end
-
-  defp update_url_slug_from_content(socket, content) do
-    title = Metadata.extract_title_from_content(content)
-    current_url_slug = Map.get(socket.assigns.form, "url_slug", "")
-
-    # Generate a slug from the title
-    new_url_slug = Slug.slugify(title)
-
-    if new_url_slug == "" do
-      no_slug_update(socket)
-    else
-      apply_new_url_slug(socket, new_url_slug, current_url_slug)
-    end
-  end
 
   defp apply_new_slug(socket, new_slug) do
     current_slug = Map.get(socket.assigns.form, "slug", "")
@@ -387,97 +340,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Forms do
         |> Phoenix.Component.assign(:url_slug_manually_set, false)
 
       {socket, socket.assigns.form, []}
-    end
-  end
-
-  # ============================================================================
-  # Title Auto-Generation
-  # ============================================================================
-
-  @doc """
-  Updates the title from content if not manually set.
-  Returns {socket, form, events}.
-  """
-  def maybe_update_title_from_content(socket, content) do
-    content = content || ""
-    title_manually_set? = Map.get(socket.assigns, :title_manually_set, false)
-
-    if title_manually_set? do
-      {socket, socket.assigns.form, []}
-    else
-      extracted = Metadata.extract_title_from_content(content)
-      new_title = if extracted == Constants.default_title(), do: "", else: extracted
-      current_title = Map.get(socket.assigns.form, "title", "")
-
-      if new_title != "" and new_title != current_title do
-        form = Map.put(socket.assigns.form, "title", new_title)
-
-        socket =
-          socket
-          |> Phoenix.Component.assign(:last_auto_title, new_title)
-          |> Phoenix.Component.assign(:title_manually_set, false)
-
-        {socket, form, [{"update-title", %{title: new_title}}]}
-      else
-        socket =
-          if new_title != "" do
-            Phoenix.Component.assign(socket, :last_auto_title, new_title)
-          else
-            socket
-          end
-
-        {socket, socket.assigns.form, []}
-      end
-    end
-  end
-
-  @doc """
-  Preserve auto-generated title when browser sends empty value.
-  """
-  def preserve_auto_title(params, socket) do
-    browser_title = Map.get(params, "title", "")
-    last_auto = Map.get(socket.assigns, :last_auto_title, "")
-    manually_set = Map.get(socket.assigns, :title_manually_set, false)
-
-    if browser_title == "" and last_auto != "" and not manually_set do
-      Map.put(params, "title", last_auto)
-    else
-      params
-    end
-  end
-
-  @doc """
-  Detects whether the user manually set the title field.
-  Returns {form, title_manually_set}.
-  """
-  def detect_title_manual_set(params, form, socket) do
-    if Map.has_key?(params, "title") do
-      title_value = Map.get(form, "title", "")
-
-      if title_value != "" do
-        manually_set = title_value != Map.get(socket.assigns, :last_auto_title, "")
-        {form, manually_set}
-      else
-        # User cleared title — revert to auto from H1
-        revert_title_to_auto(form, socket)
-      end
-    else
-      {form, Map.get(socket.assigns, :title_manually_set, false)}
-    end
-  end
-
-  @doc """
-  Reverts the title to the auto-extracted H1 heading.
-  Returns {form, false}.
-  """
-  def revert_title_to_auto(form, socket) do
-    extracted = Metadata.extract_title_from_content(socket.assigns.content || "")
-    auto_title = if extracted == Constants.default_title(), do: "", else: extracted
-
-    if auto_title != "" do
-      {Map.put(form, "title", auto_title), false}
-    else
-      {form, false}
     end
   end
 

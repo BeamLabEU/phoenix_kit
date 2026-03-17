@@ -21,7 +21,7 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
   attr :id, :string, doc: "the optional id of flash container"
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
-  attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
+  attr :kind, :atom, values: [:info, :warning, :error], doc: "used for styling and flash lookup"
   attr :autoclose, :any, default: 5000, doc: "Auto-dismiss delay in ms, or false to disable"
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
@@ -45,9 +45,11 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
       <div class={[
         "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap relative",
         @kind == :info && "alert-info",
+        @kind == :warning && "alert-warning",
         @kind == :error && "alert-error"
       ]}>
         <.icon :if={@kind == :info} name="hero-information-circle" class="size-5 shrink-0" />
+        <.icon :if={@kind == :warning} name="hero-exclamation-triangle" class="size-5 shrink-0" />
         <.icon :if={@kind == :error} name="hero-exclamation-circle" class="size-5 shrink-0" />
         <div>
           <p :if={@title} class="font-semibold">{@title}</p>
@@ -64,6 +66,7 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
               class={[
                 "h-full",
                 @kind == :info && "bg-info-content/30",
+                @kind == :warning && "bg-warning-content/30",
                 @kind == :error && "bg-error-content/30"
               ]}
               style="width: 100%"
@@ -88,8 +91,9 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
   def flash_group(assigns) do
     ~H"""
     <div id={@id}>
-      <.flash kind={:info} title="Success!" flash={@flash} />
-      <.flash kind={:error} title="Error!" flash={@flash} autoclose={8000} />
+      <.flash kind={:info} title={gettext("Success!")} flash={@flash} />
+      <.flash kind={:warning} title={gettext("Note")} flash={@flash} />
+      <.flash kind={:error} title={gettext("Error!")} flash={@flash} autoclose={8000} />
     </div>
     """
   end

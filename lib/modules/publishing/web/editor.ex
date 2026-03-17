@@ -28,8 +28,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.Constants
-  alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -438,21 +436,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     is_published = form["status"] == "published"
 
-    # Seed auto-title from existing content for manual-set detection
-    extracted_title = Metadata.extract_title_from_content(post.content || "")
-    auto_title = if extracted_title == Constants.default_title(), do: "", else: extracted_title
-    form_title = Map.get(form, "title", "")
-    title_manually_set = form_title != "" and auto_title != "" and form_title != auto_title
-
     sock =
       socket
       |> assign(:group_mode, group_mode)
       |> assign(:post, %{post | group: group_slug})
       |> assign(:group_name, Publishing.group_name(group_slug) || group_slug)
-      |> Forms.assign_form_with_tracking(form,
-        last_auto_title: auto_title,
-        title_manually_set: title_manually_set
-      )
+      |> Forms.assign_form_with_tracking(form)
       |> assign(:content, post.content)
       |> assign(:available_languages, post.available_languages)
       |> assign(:all_enabled_languages, all_enabled_languages)
@@ -495,35 +484,49 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns.readonly? or socket.assigns.translation_locked? do
       {:noreply, socket}
     else
+      target = Map.get(params, "_target", [])
       params = params |> Map.drop(["_target"])
       params = Forms.preserve_auto_url_slug(params, socket)
-      params = Forms.preserve_auto_title(params, socket)
+
+      # When typing in the title field, the browser sends stale slug/url_slug values.
+      # Preserve the server's current slug to avoid overwriting the auto-generated value.
+      params =
+        if target == ["title"] do
+          params
+          |> Map.put("slug", socket.assigns.form["slug"] || "")
+          |> Map.put("url_slug", socket.assigns.form["url_slug"] || "")
+        else
+          params
+        end
 
       new_form =
         socket.assigns.form
         |> Map.merge(params)
         |> Forms.normalize_form()
 
+      # Only detect manual slug edits when the user is directly editing the slug field,
+      # not when slug arrives stale from the browser during title editing
       slug_manually_set =
-        if Map.has_key?(params, "slug") do
-          slug_value = Map.get(new_form, "slug", "")
-          slug_value != "" && slug_value != socket.assigns.last_auto_slug
-        else
-          socket.assigns.slug_manually_set
-        end
+        if target == ["slug"],
+          do: detect_slug_manual_set(params, new_form, socket),
+          else: socket.assigns.slug_manually_set
 
       url_slug_manually_set =
-        if Map.has_key?(params, "url_slug") do
-          url_slug_value = Map.get(new_form, "url_slug", "")
-          url_slug_value != "" && url_slug_value != socket.assigns.last_auto_url_slug
-        else
-          socket.assigns.url_slug_manually_set
-        end
+        if target == ["url_slug"],
+          do: detect_url_slug_manual_set(params, new_form, socket),
+          else: socket.assigns.url_slug_manually_set
 
-      {new_form, title_manually_set} =
-        Forms.detect_title_manual_set(params, new_form, socket)
+      # Generate slug from title in real-time
+      {socket_with_slug, new_form, slug_events} =
+        maybe_generate_slug_from_title(
+          socket,
+          params,
+          new_form,
+          slug_manually_set,
+          url_slug_manually_set
+        )
 
-      has_changes = Forms.dirty?(socket.assigns.post, new_form, socket.assigns.content)
+      has_changes = Forms.dirty?(socket_with_slug.assigns.post, new_form, socket.assigns.content)
 
       language = Helpers.editor_language(socket.assigns)
       new_status = new_form["status"]
@@ -553,16 +556,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       public_url = Helpers.build_public_url(updated_post, language)
 
       socket =
-        socket
+        socket_with_slug
         |> assign(:form, new_form)
         |> assign(:post, updated_post)
         |> assign(:slug_manually_set, slug_manually_set)
         |> assign(:url_slug_manually_set, url_slug_manually_set)
-        |> assign(:title_manually_set, title_manually_set)
         |> assign(:has_pending_changes, has_changes)
         |> assign(:public_url, public_url)
         |> clear_flash()
         |> push_event("changes-status", %{has_changes: has_changes})
+        |> Forms.push_slug_events(slug_events)
 
       socket = if has_changes, do: schedule_autosave(socket), else: socket
 
@@ -580,25 +583,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     if socket.assigns.readonly? or socket.assigns.translation_locked? do
       {:noreply, socket}
     else
-      {socket, new_form, slug_events} = Forms.maybe_update_slug_from_content(socket, content)
-
-      # Auto-update title from H1 if not manually set
-      socket = assign(socket, :form, new_form)
-      {socket, new_form, title_events} = Forms.maybe_update_title_from_content(socket, content)
-
-      has_changes = Forms.dirty?(socket.assigns.post, new_form, content)
+      has_changes = Forms.dirty?(socket.assigns.post, socket.assigns.form, content)
 
       socket =
         socket
         |> assign(:content, content)
-        |> assign(:form, new_form)
         |> assign(:has_pending_changes, has_changes)
         |> push_event("changes-status", %{has_changes: has_changes})
 
-      socket = Forms.push_slug_events(socket, slug_events ++ title_events)
       socket = if has_changes, do: schedule_autosave(socket), else: socket
 
-      Collaborative.broadcast_form_change(socket, :content, %{content: content, form: new_form})
+      Collaborative.broadcast_form_change(socket, :content, %{
+        content: content,
+        form: socket.assigns.form
+      })
 
       socket = Collaborative.touch_activity(socket)
 
@@ -606,12 +604,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  def handle_event("generate_slug_from_content", _params, socket) do
+  def handle_event("regenerate_slug", _params, socket) do
     if socket.assigns.group_mode == "slug" do
-      content = socket.assigns.content || ""
+      title = socket.assigns.form["title"] || ""
 
       {socket, new_form, slug_events} =
-        Forms.maybe_update_slug_from_content(socket, content, force: true)
+        Forms.maybe_update_slug_from_title(socket, title, force: true)
 
       has_changes = Forms.dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
@@ -955,7 +953,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("switch_language", %{"language" => new_language}, socket) do
     if socket.assigns[:is_new_post] do
       {:noreply,
-       put_flash(socket, :error, gettext("Please save the post first before switching languages"))}
+       put_flash(socket, :warning, gettext("Save the post to enable language switching"))}
     else
       do_switch_language(socket, new_language)
     end
@@ -1130,21 +1128,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_info({:editor_content_changed, %{content: content}}, socket) do
-    {socket, new_form, slug_events} = Forms.maybe_update_slug_from_content(socket, content)
-
-    # Auto-update title from H1 if not manually set
-    socket = assign(socket, :form, new_form)
-    {socket, new_form, title_events} = Forms.maybe_update_title_from_content(socket, content)
-
-    has_changes = Forms.dirty?(socket.assigns.post, new_form, content)
+    has_changes = Forms.dirty?(socket.assigns.post, socket.assigns.form, content)
 
     socket =
       socket
       |> assign(:content, content)
-      |> assign(:form, new_form)
       |> assign(:has_pending_changes, has_changes)
       |> push_event("changes-status", %{has_changes: has_changes})
-      |> Forms.push_slug_events(slug_events ++ title_events)
 
     socket = if has_changes, do: schedule_autosave(socket), else: socket
 
@@ -1330,7 +1320,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_info({:translation_created, group_slug, post_identifier, language}, socket) do
     if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
-      case re_read_post(socket) do
+      case re_read_post(socket, socket.assigns[:current_language]) do
         {:ok, updated_post} ->
           socket =
             socket
@@ -1489,20 +1479,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp reload_post_on_lock_acquired(socket) do
-    case re_read_post(socket) do
+    case re_read_post(socket, socket.assigns[:current_language]) do
       {:ok, post} ->
         form = Forms.post_form(post)
-        extracted_title = Metadata.extract_title_from_content(post.content || "")
-
-        auto_title =
-          if extracted_title == Constants.default_title(), do: "", else: extracted_title
 
         socket
         |> assign(:post, %{post | group: socket.assigns.group_slug})
-        |> Forms.assign_form_with_tracking(form,
-          last_auto_title: auto_title,
-          title_manually_set: false
-        )
+        |> Forms.assign_form_with_tracking(form)
         |> assign(:content, post.content)
         |> assign(:has_pending_changes, false)
         |> push_event("changes-status", %{has_changes: false})
@@ -1513,6 +1496,42 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         # Still start the lock expiration timer even if re-read fails,
         # since this user is now the owner
         Collaborative.maybe_start_lock_expiration_timer(socket)
+    end
+  end
+
+  defp detect_slug_manual_set(params, form, socket) do
+    if Map.has_key?(params, "slug") do
+      slug_value = Map.get(form, "slug", "")
+      slug_value != "" && slug_value != socket.assigns.last_auto_slug
+    else
+      socket.assigns.slug_manually_set
+    end
+  end
+
+  defp detect_url_slug_manual_set(params, form, socket) do
+    if Map.has_key?(params, "url_slug") do
+      url_slug_value = Map.get(form, "url_slug", "")
+      url_slug_value != "" && url_slug_value != socket.assigns.last_auto_url_slug
+    else
+      socket.assigns.url_slug_manually_set
+    end
+  end
+
+  defp maybe_generate_slug_from_title(
+         socket,
+         params,
+         form,
+         slug_manually_set,
+         url_slug_manually_set
+       ) do
+    if Map.has_key?(params, "title") do
+      socket
+      |> assign(:form, form)
+      |> assign(:slug_manually_set, slug_manually_set)
+      |> assign(:url_slug_manually_set, url_slug_manually_set)
+      |> Forms.maybe_update_slug_from_title(form["title"])
+    else
+      {socket, form, []}
     end
   end
 
@@ -1534,11 +1553,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     assign(socket, :autosave_timer, timer_ref)
   end
 
-  defp re_read_post(socket) do
+  defp re_read_post(socket, language) do
     case socket.assigns[:post] do
       nil -> {:error, :no_post}
       %{uuid: nil} -> {:error, :no_uuid}
-      post -> Publishing.read_post_by_uuid(post.uuid)
+      post -> Publishing.read_post_by_uuid(post.uuid, language)
     end
   end
 

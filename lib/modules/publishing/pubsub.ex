@@ -19,6 +19,21 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   @topic_groups "publishing:groups"
 
   # ============================================================================
+  # Post Identifier Resolution
+  # ============================================================================
+
+  @doc """
+  Returns the broadcast identifier for a post.
+
+  Uses slug when available, falls back to uuid. This identifier is used
+  for PubSub topic construction and must be consistent between broadcasters
+  (e.g. translation worker) and subscribers (e.g. editor).
+  """
+  def broadcast_id(post) do
+    post[:slug] || post[:uuid]
+  end
+
+  # ============================================================================
   # Group-Level Updates (group creation/deletion)
   # ============================================================================
 
