@@ -176,8 +176,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
       </button>
     <% else %>
       <%= if @lang[:url] do %>
-        <a
-          href={@lang[:url]}
+        <.link
+          navigate={@lang[:url]}
           class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
           title={language_title(@lang, @exists, @status, @show_status, @enabled, @known)}
         >
@@ -194,7 +194,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
             known={@known}
             is_primary={@is_primary}
           />
-        </a>
+        </.link>
       <% else %>
         <span
           class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
