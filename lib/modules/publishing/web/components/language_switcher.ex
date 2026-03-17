@@ -326,13 +326,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
       cond do
         # Disabled or unknown languages: grey styling but still clickable
         is_current and (!enabled or !known) ->
-          "bg-base-content/10 text-base-content/50 font-semibold cursor-pointer"
+          "bg-base-content/30 text-base-content/50 font-semibold cursor-pointer"
 
         (!enabled or !known) and exists ->
           "text-base-content/40 hover:bg-base-200/50 cursor-pointer"
 
         is_current ->
-          "bg-primary/10 text-primary font-semibold"
+          "bg-primary/30 text-primary font-semibold"
 
         !exists && show_add ->
           "text-success hover:bg-success/10 cursor-pointer"
