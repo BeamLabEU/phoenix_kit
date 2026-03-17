@@ -570,218 +570,220 @@ defmodule PhoenixKit.Modules.Emails.Templates do
 
   """
   def seed_system_templates do
-    system_templates = [
-      %{
-        name: "magic_link",
-        slug: "magic-link",
-        display_name: "Magic Link Authentication",
-        description: "Secure login link email for passwordless authentication",
-        subject: "Your secure login link",
-        html_body: magic_link_html_template(),
-        text_body: magic_link_text_template(),
-        category: "system",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "User's email address",
-          "magic_link_url" => "URL for magic link authentication"
+    # Wrap string fields in language maps for multilingual schema compatibility
+    system_templates =
+      wrap_i18n_fields([
+        %{
+          name: "magic_link",
+          slug: "magic-link",
+          display_name: "Magic Link Authentication",
+          description: "Secure login link email for passwordless authentication",
+          subject: "Your secure login link",
+          html_body: magic_link_html_template(),
+          text_body: magic_link_text_template(),
+          category: "system",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "User's email address",
+            "magic_link_url" => "URL for magic link authentication"
+          },
+          metadata: %{"source_module" => "users"}
         },
-        metadata: %{"source_module" => "users"}
-      },
-      %{
-        name: "register",
-        slug: "register",
-        display_name: "Account Confirmation",
-        description: "Email sent to confirm user registration",
-        subject: "Confirm your account",
-        html_body: register_html_template(),
-        text_body: register_text_template(),
-        category: "system",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "User's email address",
-          "confirmation_url" => "URL for account confirmation"
+        %{
+          name: "register",
+          slug: "register",
+          display_name: "Account Confirmation",
+          description: "Email sent to confirm user registration",
+          subject: "Confirm your account",
+          html_body: register_html_template(),
+          text_body: register_text_template(),
+          category: "system",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "User's email address",
+            "confirmation_url" => "URL for account confirmation"
+          },
+          metadata: %{"source_module" => "users"}
         },
-        metadata: %{"source_module" => "users"}
-      },
-      %{
-        name: "reset_password",
-        slug: "reset-password",
-        display_name: "Password Reset",
-        description: "Email sent for password reset requests",
-        subject: "Reset your password",
-        html_body: reset_password_html_template(),
-        text_body: reset_password_text_template(),
-        category: "system",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "User's email address",
-          "reset_url" => "URL for password reset"
+        %{
+          name: "reset_password",
+          slug: "reset-password",
+          display_name: "Password Reset",
+          description: "Email sent for password reset requests",
+          subject: "Reset your password",
+          html_body: reset_password_html_template(),
+          text_body: reset_password_text_template(),
+          category: "system",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "User's email address",
+            "reset_url" => "URL for password reset"
+          },
+          metadata: %{"source_module" => "users"}
         },
-        metadata: %{"source_module" => "users"}
-      },
-      %{
-        name: "test_email",
-        slug: "test-email",
-        display_name: "Test Email",
-        description: "Test email for verifying email tracking system",
-        subject: "Test Tracking Email - {{timestamp}}",
-        html_body: test_email_html_template(),
-        text_body: test_email_text_template(),
-        category: "system",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "recipient_email" => "Recipient's email address",
-          "timestamp" => "Current timestamp",
-          "test_link_url" => "URL for testing link tracking"
+        %{
+          name: "test_email",
+          slug: "test-email",
+          display_name: "Test Email",
+          description: "Test email for verifying email tracking system",
+          subject: "Test Tracking Email - {{timestamp}}",
+          html_body: test_email_html_template(),
+          text_body: test_email_text_template(),
+          category: "system",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "recipient_email" => "Recipient's email address",
+            "timestamp" => "Current timestamp",
+            "test_link_url" => "URL for testing link tracking"
+          },
+          metadata: %{"source_module" => "admin"}
         },
-        metadata: %{"source_module" => "admin"}
-      },
-      %{
-        name: "update_email",
-        slug: "update-email",
-        display_name: "Email Change Confirmation",
-        description: "Email sent to confirm email address changes",
-        subject: "Confirm your email change",
-        html_body: update_email_html_template(),
-        text_body: update_email_text_template(),
-        category: "system",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "User's email address",
-          "update_url" => "URL for email update confirmation"
+        %{
+          name: "update_email",
+          slug: "update-email",
+          display_name: "Email Change Confirmation",
+          description: "Email sent to confirm email address changes",
+          subject: "Confirm your email change",
+          html_body: update_email_html_template(),
+          text_body: update_email_text_template(),
+          category: "system",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "User's email address",
+            "update_url" => "URL for email update confirmation"
+          },
+          metadata: %{"source_module" => "users"}
         },
-        metadata: %{"source_module" => "users"}
-      },
-      %{
-        name: "billing_invoice",
-        slug: "billing-invoice",
-        display_name: "Billing Invoice",
-        description: "Invoice email sent to customers for payment",
-        subject: "Invoice {{invoice_number}} - {{company_name}}",
-        html_body: billing_invoice_html_template(),
-        text_body: billing_invoice_text_template(),
-        category: "transactional",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "Customer's email address",
-          "user_name" => "Customer's name",
-          "invoice_number" => "Invoice number",
-          "invoice_date" => "Invoice date",
-          "due_date" => "Payment due date",
-          "subtotal" => "Subtotal amount",
-          "tax_amount" => "Tax amount",
-          "total" => "Total amount",
-          "currency" => "Currency code",
-          "line_items_html" => "HTML table of line items",
-          "line_items_text" => "Text list of line items",
-          "company_name" => "Company name",
-          "company_address" => "Company address",
-          "company_vat" => "Company VAT number",
-          "bank_name" => "Bank name",
-          "bank_iban" => "Bank IBAN",
-          "bank_swift" => "Bank SWIFT/BIC",
-          "payment_terms" => "Payment terms",
-          "invoice_url" => "URL to view invoice online"
+        %{
+          name: "billing_invoice",
+          slug: "billing-invoice",
+          display_name: "Billing Invoice",
+          description: "Invoice email sent to customers for payment",
+          subject: "Invoice {{invoice_number}} - {{company_name}}",
+          html_body: billing_invoice_html_template(),
+          text_body: billing_invoice_text_template(),
+          category: "transactional",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "Customer's email address",
+            "user_name" => "Customer's name",
+            "invoice_number" => "Invoice number",
+            "invoice_date" => "Invoice date",
+            "due_date" => "Payment due date",
+            "subtotal" => "Subtotal amount",
+            "tax_amount" => "Tax amount",
+            "total" => "Total amount",
+            "currency" => "Currency code",
+            "line_items_html" => "HTML table of line items",
+            "line_items_text" => "Text list of line items",
+            "company_name" => "Company name",
+            "company_address" => "Company address",
+            "company_vat" => "Company VAT number",
+            "bank_name" => "Bank name",
+            "bank_iban" => "Bank IBAN",
+            "bank_swift" => "Bank SWIFT/BIC",
+            "payment_terms" => "Payment terms",
+            "invoice_url" => "URL to view invoice online"
+          },
+          metadata: %{"source_module" => "billing"}
         },
-        metadata: %{"source_module" => "billing"}
-      },
-      %{
-        name: "billing_receipt",
-        slug: "billing-receipt",
-        display_name: "Billing Receipt",
-        description: "Receipt email sent to customers after payment confirmation",
-        subject: "Receipt {{receipt_number}} - {{company_name}}",
-        html_body: billing_receipt_html_template(),
-        text_body: billing_receipt_text_template(),
-        category: "transactional",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "Customer's email address",
-          "user_name" => "Customer's name",
-          "receipt_number" => "Receipt number",
-          "invoice_number" => "Original invoice number",
-          "payment_date" => "Date of payment",
-          "subtotal" => "Subtotal amount",
-          "tax_amount" => "Tax amount",
-          "total" => "Total amount",
-          "paid_amount" => "Amount paid",
-          "currency" => "Currency code",
-          "line_items_html" => "HTML table of line items",
-          "line_items_text" => "Text list of line items",
-          "company_name" => "Company name",
-          "company_address" => "Company address",
-          "company_vat" => "Company VAT number",
-          "receipt_url" => "URL to view receipt online"
+        %{
+          name: "billing_receipt",
+          slug: "billing-receipt",
+          display_name: "Billing Receipt",
+          description: "Receipt email sent to customers after payment confirmation",
+          subject: "Receipt {{receipt_number}} - {{company_name}}",
+          html_body: billing_receipt_html_template(),
+          text_body: billing_receipt_text_template(),
+          category: "transactional",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "Customer's email address",
+            "user_name" => "Customer's name",
+            "receipt_number" => "Receipt number",
+            "invoice_number" => "Original invoice number",
+            "payment_date" => "Date of payment",
+            "subtotal" => "Subtotal amount",
+            "tax_amount" => "Tax amount",
+            "total" => "Total amount",
+            "paid_amount" => "Amount paid",
+            "currency" => "Currency code",
+            "line_items_html" => "HTML table of line items",
+            "line_items_text" => "Text list of line items",
+            "company_name" => "Company name",
+            "company_address" => "Company address",
+            "company_vat" => "Company VAT number",
+            "receipt_url" => "URL to view receipt online"
+          },
+          metadata: %{"source_module" => "billing"}
         },
-        metadata: %{"source_module" => "billing"}
-      },
-      %{
-        name: "billing_credit_note",
-        slug: "billing-credit-note",
-        display_name: "Billing Credit Note",
-        description: "Credit note email sent to customers when a refund is issued",
-        subject: "Credit Note {{credit_note_number}} - Refund Issued - {{company_name}}",
-        html_body: billing_credit_note_html_template(),
-        text_body: billing_credit_note_text_template(),
-        category: "transactional",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "Customer's email address",
-          "user_name" => "Customer's name",
-          "credit_note_number" => "Credit note number",
-          "invoice_number" => "Original invoice number",
-          "refund_date" => "Date of refund",
-          "refund_amount" => "Refund amount",
-          "refund_reason" => "Reason for refund",
-          "transaction_number" => "Transaction reference number",
-          "currency" => "Currency code",
-          "company_name" => "Company name",
-          "company_address" => "Company address",
-          "company_vat" => "Company VAT number",
-          "credit_note_url" => "URL to view credit note online"
+        %{
+          name: "billing_credit_note",
+          slug: "billing-credit-note",
+          display_name: "Billing Credit Note",
+          description: "Credit note email sent to customers when a refund is issued",
+          subject: "Credit Note {{credit_note_number}} - Refund Issued - {{company_name}}",
+          html_body: billing_credit_note_html_template(),
+          text_body: billing_credit_note_text_template(),
+          category: "transactional",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "Customer's email address",
+            "user_name" => "Customer's name",
+            "credit_note_number" => "Credit note number",
+            "invoice_number" => "Original invoice number",
+            "refund_date" => "Date of refund",
+            "refund_amount" => "Refund amount",
+            "refund_reason" => "Reason for refund",
+            "transaction_number" => "Transaction reference number",
+            "currency" => "Currency code",
+            "company_name" => "Company name",
+            "company_address" => "Company address",
+            "company_vat" => "Company VAT number",
+            "credit_note_url" => "URL to view credit note online"
+          },
+          metadata: %{"source_module" => "billing"}
         },
-        metadata: %{"source_module" => "billing"}
-      },
-      %{
-        name: "billing_payment_confirmation",
-        slug: "billing-payment-confirmation",
-        display_name: "Billing Payment Confirmation",
-        description: "Payment confirmation email sent to customers when a payment is received",
-        subject: "Payment Received - {{confirmation_number}} - {{company_name}}",
-        html_body: billing_payment_confirmation_html_template(),
-        text_body: billing_payment_confirmation_text_template(),
-        category: "transactional",
-        status: "active",
-        is_system: true,
-        variables: %{
-          "user_email" => "Customer's email address",
-          "user_name" => "Customer's name",
-          "confirmation_number" => "Payment confirmation number",
-          "invoice_number" => "Invoice number",
-          "payment_date" => "Date of payment",
-          "payment_amount" => "Payment amount",
-          "payment_method" => "Payment method",
-          "transaction_number" => "Transaction reference number",
-          "invoice_total" => "Invoice total",
-          "total_paid" => "Total paid so far",
-          "remaining_balance" => "Remaining balance",
-          "is_final_payment" => "Whether this is the final payment",
-          "currency" => "Currency code",
-          "company_name" => "Company name",
-          "company_address" => "Company address",
-          "payment_url" => "URL to view payment confirmation online"
-        },
-        metadata: %{"source_module" => "billing"}
-      }
-    ]
+        %{
+          name: "billing_payment_confirmation",
+          slug: "billing-payment-confirmation",
+          display_name: "Billing Payment Confirmation",
+          description: "Payment confirmation email sent to customers when a payment is received",
+          subject: "Payment Received - {{confirmation_number}} - {{company_name}}",
+          html_body: billing_payment_confirmation_html_template(),
+          text_body: billing_payment_confirmation_text_template(),
+          category: "transactional",
+          status: "active",
+          is_system: true,
+          variables: %{
+            "user_email" => "Customer's email address",
+            "user_name" => "Customer's name",
+            "confirmation_number" => "Payment confirmation number",
+            "invoice_number" => "Invoice number",
+            "payment_date" => "Date of payment",
+            "payment_amount" => "Payment amount",
+            "payment_method" => "Payment method",
+            "transaction_number" => "Transaction reference number",
+            "invoice_total" => "Invoice total",
+            "total_paid" => "Total paid so far",
+            "remaining_balance" => "Remaining balance",
+            "is_final_payment" => "Whether this is the final payment",
+            "currency" => "Currency code",
+            "company_name" => "Company name",
+            "company_address" => "Company address",
+            "payment_url" => "URL to view payment confirmation online"
+          },
+          metadata: %{"source_module" => "billing"}
+        }
+      ])
 
     results =
       Enum.map(system_templates, fn template_attrs ->
@@ -806,6 +808,21 @@ defmodule PhoenixKit.Modules.Emails.Templates do
   end
 
   # Private helper functions
+
+  # Wraps string fields in language maps for multilingual schema compatibility
+  defp wrap_i18n_fields(templates) do
+    Enum.map(templates, fn t ->
+      t
+      |> Map.update(:display_name, nil, &wrap_i18n/1)
+      |> Map.update(:description, nil, &wrap_i18n/1)
+      |> Map.update(:subject, nil, &wrap_i18n/1)
+      |> Map.update(:html_body, nil, &wrap_i18n/1)
+      |> Map.update(:text_body, nil, &wrap_i18n/1)
+    end)
+  end
+
+  defp wrap_i18n(v) when is_binary(v), do: %{"en" => v}
+  defp wrap_i18n(v), do: v
 
   defp apply_filters(query, opts) do
     Enum.reduce(opts, query, fn
