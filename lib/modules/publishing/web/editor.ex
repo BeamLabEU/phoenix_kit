@@ -955,7 +955,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   def handle_event("switch_language", %{"language" => new_language}, socket) do
     if socket.assigns[:is_new_post] do
       {:noreply,
-       put_flash(socket, :error, gettext("Please save the post first before switching languages"))}
+       put_flash(socket, :warning, gettext("Save the post to enable language switching"))}
     else
       do_switch_language(socket, new_language)
     end
