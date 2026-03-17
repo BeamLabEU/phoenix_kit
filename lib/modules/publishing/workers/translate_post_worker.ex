@@ -184,7 +184,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
        ) do
     group_slug = source_post.group
     total = length(target_languages)
-    broadcast_id = source_post.slug || source_post[:uuid]
+    broadcast_id = PublishingPubSub.broadcast_id(source_post)
 
     # Broadcast that translation has started
     PublishingPubSub.broadcast_translation_started(group_slug, broadcast_id, target_languages)

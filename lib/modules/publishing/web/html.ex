@@ -6,6 +6,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
   alias PhoenixKit.Modules.Publishing.Renderer
@@ -115,7 +116,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
       # language_slugs map from cache
       map_size(Map.get(post, :language_slugs, %{})) > 0 ->
-        Map.get(post.language_slugs, language, post.slug)
+        # Language map keys are full dialect codes (e.g., "en-US") but the
+        # language param may be a base code (e.g., "en") when only one
+        # dialect is enabled. Try exact match first, then match by base code.
+        resolved_key = resolve_language_key(language, Map.keys(post.language_slugs))
+        Map.get(post.language_slugs, resolved_key, post.slug)
 
       # metadata.url_slug
       is_map(Map.get(post, :metadata)) and Map.get(post.metadata, :url_slug) not in [nil, ""] ->
@@ -124,6 +129,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
       # Default to post slug
       true ->
         post.slug
+    end
+  end
+
+  # Resolves a display language code to a key in the language map.
+  # Handles base code ("en") → dialect code ("en-US") matching.
+  defp resolve_language_key(language, available_keys) do
+    if language in available_keys do
+      language
+    else
+      base = DialectMapper.extract_base(language)
+      Enum.find(available_keys, language, fn key -> DialectMapper.extract_base(key) == base end)
     end
   end
 

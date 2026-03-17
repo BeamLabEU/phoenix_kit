@@ -12,6 +12,33 @@
       <meta name="robots" content="noindex,nofollow" />
       <meta name="googlebot" content="noindex,nofollow" />
     <% end %>
+    <%= if og = assigns[:og] do %>
+      <meta property="og:type" content={og[:type] || "article"} />
+      <%= if og[:title] do %>
+        <meta property="og:title" content={og[:title]} />
+        <meta name="twitter:title" content={og[:title]} />
+      <% end %>
+      <%= if og[:description] do %>
+        <meta property="og:description" content={og[:description]} />
+        <meta name="description" content={og[:description]} />
+        <meta name="twitter:description" content={og[:description]} />
+      <% end %>
+      <%= if og[:image] do %>
+        <meta property="og:image" content={og[:image]} />
+        <meta name="twitter:image" content={og[:image]} />
+      <% end %>
+      <%= if og[:url] do %>
+        <meta property="og:url" content={og[:url]} />
+        <link rel="canonical" href={og[:url]} />
+      <% end %>
+      <%= if og[:locale] do %>
+        <meta property="og:locale" content={og[:locale]} />
+      <% end %>
+      <meta
+        name="twitter:card"
+        content={if og[:image], do: "summary_large_image", else: "summary"}
+      />
+    <% end %>
     <.live_title
       default={PhoenixKit.Settings.get_project_title()}
       suffix=" · Phoenix Framework"
