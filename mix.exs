@@ -31,11 +31,13 @@ defmodule PhoenixKit.MixProject do
 
   def cli do
     [
-      preferred_env: [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
-        "coveralls.html": :test
+        "coveralls.html": :test,
+        "test.setup": :test,
+        "test.reset": :test
       ],
 
       # Dialyzer configuration
@@ -194,6 +196,10 @@ defmodule PhoenixKit.MixProject do
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
+
+      # Test database management
+      "test.setup": ["ecto.create --quiet", "ecto.migrate --quiet"],
+      "test.reset": ["ecto.drop --quiet", "test.setup"],
 
       # Code quality
       quality: ["format", "credo --strict", "dialyzer"],

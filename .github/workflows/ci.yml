@@ -135,7 +135,10 @@ jobs:
       - name: Compile application
         run: mix compile
 
-      - name: Run tests (smoke tests only)
+      - name: Setup test database
+        run: mix test.setup
+
+      - name: Run tests
         run: mix test
         continue-on-error: true
 

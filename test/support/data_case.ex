@@ -18,21 +18,24 @@ defmodule PhoenixKit.DataCase do
 
   using do
     quote do
-      alias PhoenixKit.RepoHelper, as: Repo
+      @moduletag :integration
+
+      alias PhoenixKit.Test.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
       import PhoenixKit.DataCase
-
-      # Import helpers for testing schemas and data
     end
   end
 
-  setup _tags do
-    # Setup database sandbox if needed
-    # pid = Ecto.Adapters.SQL.Sandbox.start_owner!(PhoenixKit.RepoHelper.repo(), shared: not tags[:async])
-    # on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+  alias Ecto.Adapters.SQL.Sandbox
+  alias PhoenixKit.Test.Repo, as: TestRepo
+
+  setup tags do
+    pid = Sandbox.start_owner!(TestRepo, shared: not tags[:async])
+
+    on_exit(fn -> Sandbox.stop_owner(pid) end)
 
     :ok
   end
