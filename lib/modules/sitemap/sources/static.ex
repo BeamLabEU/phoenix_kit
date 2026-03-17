@@ -199,7 +199,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Static do
 
       UrlEntry.new(%{
         loc: url,
-        lastmod: nil,
+        lastmod: Date.utc_today(),
         changefreq: Map.get(config, "changefreq", "weekly"),
         priority: Map.get(config, "priority", 0.5),
         title: Map.get(config, "title", path),
@@ -224,7 +224,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Static do
 
       UrlEntry.new(%{
         loc: url,
-        lastmod: nil,
+        lastmod: Date.utc_today(),
         changefreq: Map.get(config, "changefreq", "weekly"),
         priority: Map.get(config, "priority", 0.5),
         title: Map.get(config, "title", path),
