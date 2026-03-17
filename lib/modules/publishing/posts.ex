@@ -16,7 +16,6 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
   alias PhoenixKit.Modules.Publishing.DBStorage
   alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.ListingCache
-  alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Shared
   alias PhoenixKit.Modules.Publishing.SlugHelpers
@@ -650,12 +649,15 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
       true ->
         {:error, :slug_already_exists}
 
-      {:error, %Ecto.Changeset{errors: errors}} ->
-        if Keyword.has_key?(errors, :slug),
+      {:error, %Ecto.Changeset{} = changeset} ->
+        Logger.warning("[Publishing] slug update changeset error: #{inspect(changeset.errors)}")
+
+        if Keyword.has_key?(changeset.errors, :slug),
           do: {:error, :slug_already_exists},
           else: {:error, :db_update_failed}
 
       {:error, reason} ->
+        Logger.warning("[Publishing] slug update failed: #{inspect(reason)}")
         {:error, reason}
     end
   end
@@ -709,12 +711,10 @@ defmodule PhoenixKit.Modules.Publishing.Posts do
     end
   end
 
-  defp resolve_post_title(params, post, content) do
-    extracted_title = Metadata.extract_title_from_content(content)
+  defp resolve_post_title(params, post, _content) do
     post_metadata = post[:metadata] || %{}
 
     Map.get(params, "title") ||
-      if(extracted_title != Constants.default_title(), do: extracted_title) ||
       post_metadata[:title] ||
       Constants.default_title()
   end

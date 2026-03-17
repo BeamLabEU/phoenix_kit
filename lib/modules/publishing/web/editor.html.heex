@@ -77,14 +77,6 @@
         }
       });
 
-      // Listen for title update event from LiveView
-      window.addEventListener("phx:update-title", function(e) {
-        const titleInput = document.getElementById("title-input");
-        if (titleInput && e.detail.title) {
-          titleInput.value = e.detail.title;
-        }
-      });
-
       // Listen for url_slug update event from LiveView (for translations)
       window.addEventListener("phx:update-url-slug", function(e) {
         const urlSlugInput = document.getElementById("url-slug-input");
@@ -708,7 +700,7 @@
                   />
                   <p class="text-xs text-base-content/60 mt-1">
                     <%= if @is_primary_language do %>
-                      {gettext("Auto-populated from the first heading. Edit to override.")}
+                      {gettext("Required. The slug will be generated from the title.")}
                     <% else %>
                       {gettext("Leave empty to use the primary language title.")}
                     <% end %>
@@ -812,7 +804,7 @@
                         value={@form["slug"]}
                         pattern="[a-z0-9]+(-[a-z0-9]+)*"
                         class={"input input-bordered w-full lowercase #{if edit_disabled? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                        placeholder={gettext("auto-generated from first heading")}
+                        placeholder={gettext("auto-generated from title")}
                         title={
                           gettext(
                             "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."

@@ -26,6 +26,39 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   Returns {:noreply, socket}.
   """
   def perform_save(socket) do
+    is_autosaving = Map.get(socket.assigns, :is_autosaving, false)
+    title = (socket.assigns.form["title"] || "") |> String.trim()
+    slug = (socket.assigns.form["slug"] || "") |> String.trim()
+
+    cond do
+      title == "" ->
+        if is_autosaving do
+          {:noreply, socket}
+        else
+          {:noreply,
+           Phoenix.LiveView.put_flash(socket, :warning, gettext("Title is required to save."))}
+        end
+
+      socket.assigns.group_mode == "slug" and slug == "" ->
+        if is_autosaving do
+          {:noreply, socket}
+        else
+          {:noreply,
+           Phoenix.LiveView.put_flash(
+             socket,
+             :warning,
+             gettext(
+               "Slug is required. Enter a title to auto-generate one, or type a slug manually."
+             )
+           )}
+        end
+
+      true ->
+        do_perform_save_with_params(socket)
+    end
+  end
+
+  defp do_perform_save_with_params(socket) do
     params =
       socket.assigns.form
       |> Map.take(["status", "published_at", "slug", "featured_image_uuid", "url_slug", "title"])
@@ -648,7 +681,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      Phoenix.LiveView.put_flash(
        socket,
        :error,
-       gettext("Title is required. Add a heading to your content or enter a title manually.")
+       gettext("Title is required.")
      )}
   end
 
@@ -656,6 +689,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
     post_id = socket.assigns[:post] && socket.assigns.post[:uuid]
     Logger.warning("[Publishing.Editor] Update failed for post #{post_id}: #{inspect(reason)}")
     {:noreply, Phoenix.LiveView.put_flash(socket, :error, gettext("Failed to save post"))}
+  end
+
+  defp slug_constraint_error?(changeset) do
+    Keyword.has_key?(changeset.errors, :slug) or
+      Enum.any?(changeset.errors, fn
+        {:group_uuid, {_, opts}} ->
+          Keyword.get(opts, :constraint_name) == "idx_publishing_posts_group_slug"
+
+        _ ->
+          false
+      end)
   end
 
   defp handle_post_creation_error(socket, :invalid_slug, _fallback_message) do
@@ -674,8 +718,24 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
      Phoenix.LiveView.put_flash(
        socket,
        :error,
-       gettext("A post with that slug already exists")
+       gettext(
+         "A post with that slug already exists. Please choose a different title or edit the slug manually."
+       )
      )}
+  end
+
+  defp handle_post_creation_error(socket, %Ecto.Changeset{} = changeset, fallback_message) do
+    if slug_constraint_error?(changeset) do
+      handle_post_creation_error(socket, :slug_already_exists, fallback_message)
+    else
+      group = socket.assigns[:group_slug]
+
+      Logger.warning(
+        "[Publishing.Editor] Post creation failed in #{group}: #{inspect(changeset.errors)}"
+      )
+
+      {:noreply, Phoenix.LiveView.put_flash(socket, :error, fallback_message)}
+    end
   end
 
   defp handle_post_creation_error(socket, reason, fallback_message) do
