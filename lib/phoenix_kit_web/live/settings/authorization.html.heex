@@ -274,10 +274,22 @@
                     name="settings[magic_link_registration_enabled]"
                     type="checkbox"
                     value="true"
-                    checked={@settings["magic_link_registration_enabled"] == "true"}
+                    checked={
+                      @settings["magic_link_registration_enabled"] == "true" and
+                        @settings["allow_registration"] == "true"
+                    }
+                    disabled={@settings["allow_registration"] != "true"}
                     class="checkbox checkbox-primary"
                   />
-                  <span class="label-text">Enable Magic Link for registration</span>
+                  <span class={[
+                    "label-text",
+                    @settings["allow_registration"] != "true" && "text-base-content/40"
+                  ]}>
+                    Enable Magic Link for registration
+                    <%= if @settings["allow_registration"] != "true" do %>
+                      <span class="text-xs italic">(registration disabled)</span>
+                    <% end %>
+                  </span>
                 </div>
               </div>
 

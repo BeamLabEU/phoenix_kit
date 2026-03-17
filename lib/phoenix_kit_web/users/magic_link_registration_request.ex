@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
   use PhoenixKitWeb, :live_view
 
   alias Phoenix.LiveView.JS
+  alias PhoenixKit.Settings
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
@@ -19,17 +20,29 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
         {:ok, socket}
 
       :cont ->
-        # Get project title from settings (with Config fallback)
-        project_title = PhoenixKit.Settings.get_project_title()
+        if Settings.get_boolean_setting("allow_registration", true) do
+          # Get project title from settings (with Config fallback)
+          project_title = PhoenixKit.Settings.get_project_title()
 
-        {:ok,
-         socket
-         |> assign(:page_title, "Register via Magic Link")
-         |> assign(:project_title, project_title)
-         |> assign(:email, "")
-         |> assign(:email_sent, false)
-         |> assign(:error_message, nil)
-         |> assign(:loading, false)}
+          {:ok,
+           socket
+           |> assign(:page_title, "Register via Magic Link")
+           |> assign(:project_title, project_title)
+           |> assign(:email, "")
+           |> assign(:email_sent, false)
+           |> assign(:error_message, nil)
+           |> assign(:loading, false)}
+        else
+          socket =
+            socket
+            |> put_flash(
+              :error,
+              "User registration is currently disabled. Please contact an administrator."
+            )
+            |> redirect(to: Routes.path("/users/log-in"))
+
+          {:ok, socket}
+        end
     end
   end
 
