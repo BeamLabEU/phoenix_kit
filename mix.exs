@@ -76,7 +76,7 @@ defmodule PhoenixKit.MixProject do
       {:phoenix, "~> 1.8.1"},
       {:phoenix_ecto, "~> 4.6"},
       {:phoenix_html, "~> 4.0"},
-      {:phoenix_live_view, "~> 1.1.12"},
+      {:phoenix_live_view, "~> 1.1"},
 
       # Web functionality
       {:gettext, "~> 1.0"},
@@ -103,7 +103,7 @@ defmodule PhoenixKit.MixProject do
       {:usage_rules, "~> 0.1", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4.6", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:floki, ">= 0.30.0", only: :test},
       {:hackney, "~> 1.9"},
 
@@ -144,7 +144,7 @@ defmodule PhoenixKit.MixProject do
       {:igniter, "~> 0.7"},
 
       # Language and country data
-      {:beamlab_countries, "~> 1.0.5"}
+      {:beamlab_countries, "~> 1"}
     ]
   end
 
