@@ -32,6 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     external_modules = load_external_modules(module_configs)
     dep_warnings = ModuleRegistry.dependency_warnings()
     not_installed = ModuleRegistry.not_installed_packages()
+    not_installed_keys = not_installed |> Enum.map(& &1.key) |> MapSet.new()
 
     socket =
       socket
@@ -42,6 +43,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:external_modules, external_modules)
       |> assign(:dep_warnings, dep_warnings)
       |> assign(:not_installed_packages, not_installed)
+      |> assign(:not_installed_keys, not_installed_keys)
 
     {:ok, socket}
   end
@@ -458,9 +460,23 @@ defmodule PhoenixKitWeb.Live.Modules do
         icon: (perm && perm[:icon]) || "hero-puzzle-piece",
         description: (perm && perm[:description]) || "External module",
         enabled: config[:enabled] || false,
-        version: if(function_exported?(mod, :version, 0), do: mod.version(), else: "0.0.0")
+        version: if(function_exported?(mod, :version, 0), do: mod.version(), else: "0.0.0"),
+        required_modules:
+          if(function_exported?(mod, :required_modules, 0), do: mod.required_modules(), else: []),
+        admin_links: extract_admin_links(mod)
       }
     end)
     |> Enum.sort_by(& &1.name)
+  end
+
+  defp extract_admin_links(mod) do
+    if Code.ensure_loaded?(mod) and function_exported?(mod, :admin_tabs, 0) do
+      mod.admin_tabs()
+      |> Enum.filter(fn tab -> tab.live_view != nil and tab.visible != false end)
+      |> Enum.take(3)
+      |> Enum.map(fn tab -> %{label: tab.label, path: "/admin/" <> tab.path, icon: tab.icon} end)
+    else
+      []
+    end
   end
 end
