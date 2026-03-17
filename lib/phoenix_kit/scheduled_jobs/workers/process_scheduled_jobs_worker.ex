@@ -89,6 +89,9 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
       end
     end
 
+    # Cleanup: Delete old completed jobs to prevent table bloat
+    ScheduledJobs.delete_old_jobs()
+
     :ok
   end
 end
