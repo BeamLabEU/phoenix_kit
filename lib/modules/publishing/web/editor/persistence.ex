@@ -770,8 +770,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   """
   def reload_translated_content(socket, flash_msg, flash_level) do
     group_slug = socket.assigns.group_slug
+    current_language = socket.assigns[:current_language]
 
-    case re_read_post(socket) do
+    case re_read_post(socket, current_language) do
       {:ok, updated_post} ->
         current_version = socket.assigns[:current_version]
         form = Forms.post_form_with_primary_status(group_slug, updated_post, current_version)
@@ -816,9 +817,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Persistence do
   """
   def reload_post(socket) do
     group_slug = socket.assigns.group_slug
+    current_language = socket.assigns[:current_language]
     current_version = socket.assigns[:current_version]
 
-    case re_read_post(socket) do
+    case re_read_post(socket, current_language) do
       {:ok, updated_post} ->
         form = Forms.post_form_with_primary_status(group_slug, updated_post, current_version)
 

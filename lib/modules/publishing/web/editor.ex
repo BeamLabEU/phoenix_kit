@@ -1479,7 +1479,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp reload_post_on_lock_acquired(socket) do
-    case re_read_post(socket) do
+    case re_read_post(socket, socket.assigns[:current_language]) do
       {:ok, post} ->
         form = Forms.post_form(post)
 
@@ -1553,11 +1553,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     assign(socket, :autosave_timer, timer_ref)
   end
 
-  defp re_read_post(socket) do
+  defp re_read_post(socket, language \\ nil) do
     case socket.assigns[:post] do
       nil -> {:error, :no_post}
       %{uuid: nil} -> {:error, :no_uuid}
-      post -> Publishing.read_post_by_uuid(post.uuid)
+      post -> Publishing.read_post_by_uuid(post.uuid, language)
     end
   end
 
