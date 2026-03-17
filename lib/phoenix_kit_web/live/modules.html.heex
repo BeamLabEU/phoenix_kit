@@ -211,50 +211,6 @@
         </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
       <% end %>
 
-      <%!-- Newsletters Module --%>
-      <%= if "newsletters" in @accessible_modules do %>
-        <% cfg = @module_configs["newsletters"] || %{} %>
-        <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-          title="Newsletters"
-          description="Email broadcasts and subscription management"
-          icon="📨"
-          enabled={cfg[:enabled]}
-          toggle_event="toggle_module"
-          toggle_key="newsletters"
-        >
-          <:status_badges>
-            <span class={[
-              "badge",
-              if(cfg[:enabled], do: "badge-success", else: "badge-neutral")
-            ]}>
-              {if cfg[:enabled], do: "Enabled", else: "Disabled"}
-            </span>
-            <%= unless mcfg(@module_configs, "emails", :enabled, false) do %>
-              <span class="badge badge-warning">Requires Emails</span>
-            <% end %>
-          </:status_badges>
-
-          <:action_buttons>
-            <%= if cfg[:enabled] do %>
-              <div class="flex gap-2">
-                <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/newsletters/broadcasts")}
-                  class="btn btn-outline btn-sm flex-1"
-                >
-                  <.icon name="hero-paper-airplane" class="w-4 h-4 mr-1" /> Broadcasts
-                </.link>
-                <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/newsletters/lists")}
-                  class="btn btn-outline btn-sm flex-1"
-                >
-                  <.icon name="hero-list-bullet" class="w-4 h-4 mr-1" /> Lists
-                </.link>
-              </div>
-            <% end %>
-          </:action_buttons>
-        </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
-      <% end %>
-
       <%!-- Languages Module --%>
       <%= if "languages" in @accessible_modules do %>
         <% cfg = @module_configs["languages"] || %{} %>
@@ -1412,11 +1368,34 @@
                 </span>
                 <span class="badge badge-outline">v{ext.version}</span>
                 <span class="badge badge-info badge-outline">External</span>
+                <%= for req_mod <- ext.required_modules do %>
+                  <%= unless mcfg(@module_configs, req_mod, :enabled, false) do %>
+                    <span class="badge badge-warning">
+                      Requires {String.capitalize(req_mod)}
+                    </span>
+                  <% end %>
+                <% end %>
               </div>
               <span class="text-xs text-base-content/50">
                 {if ext.enabled, do: "Module is active", else: "Enable to activate"}
               </span>
             </div>
+
+            <%= if ext.enabled and ext.admin_links != [] do %>
+              <div class="flex gap-2 mt-2">
+                <%= for link <- ext.admin_links do %>
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path(link.path)}
+                    class="btn btn-outline btn-sm flex-1"
+                  >
+                    <%= if link.icon do %>
+                      <.icon name={link.icon} class="w-4 h-4 mr-1" />
+                    <% end %>
+                    {link.label}
+                  </.link>
+                <% end %>
+              </div>
+            <% end %>
           </div>
         </div>
       <% end %>

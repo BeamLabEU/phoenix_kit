@@ -431,6 +431,7 @@ defmodule PhoenixKit.ModuleRegistry do
     [
       %{
         module: PhoenixKit.Newsletters,
+        key: "newsletters",
         hex_package: "phoenix_kit_newsletters",
         name: "Newsletters",
         description:
