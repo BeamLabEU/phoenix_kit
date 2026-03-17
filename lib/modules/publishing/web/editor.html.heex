@@ -537,19 +537,27 @@
                     <% end %>
                   </span>
                   <span class="font-medium">
-                    {@ai_translation_progress || 0} / {@ai_translation_total || 0}
+                    <%= if @ai_translation_total && @ai_translation_total > 0 do %>
+                      {@ai_translation_progress || 0} / {@ai_translation_total}
+                    <% else %>
+                      {gettext("Starting...")}
+                    <% end %>
                   </span>
                 </div>
-                <progress
-                  class={[
-                    "progress w-full",
-                    @ai_translation_status == :completed && "progress-success",
-                    @ai_translation_status != :completed && "progress-primary"
-                  ]}
-                  value={@ai_translation_progress || @ai_translation_total || 0}
-                  max={@ai_translation_total || 1}
-                >
-                </progress>
+                <%= if @ai_translation_total && @ai_translation_total > 0 do %>
+                  <progress
+                    class={[
+                      "progress w-full",
+                      @ai_translation_status == :completed && "progress-success",
+                      @ai_translation_status != :completed && "progress-primary"
+                    ]}
+                    value={@ai_translation_progress || 0}
+                    max={@ai_translation_total}
+                  >
+                  </progress>
+                <% else %>
+                  <progress class="progress progress-primary w-full"></progress>
+                <% end %>
               </div>
             <% end %>
 
