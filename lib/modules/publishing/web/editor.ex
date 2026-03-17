@@ -1320,7 +1320,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_info({:translation_created, group_slug, post_identifier, language}, socket) do
     if socket.assigns[:group_slug] == group_slug && post_matches?(socket, post_identifier) do
-      case re_read_post(socket) do
+      case re_read_post(socket, socket.assigns[:current_language]) do
         {:ok, updated_post} ->
           socket =
             socket
@@ -1553,7 +1553,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     assign(socket, :autosave_timer, timer_ref)
   end
 
-  defp re_read_post(socket, language \\ nil) do
+  defp re_read_post(socket, language) do
     case socket.assigns[:post] do
       nil -> {:error, :no_post}
       %{uuid: nil} -> {:error, :no_uuid}
