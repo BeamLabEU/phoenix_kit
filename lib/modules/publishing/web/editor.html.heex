@@ -159,14 +159,16 @@
         )}
       </button>
       <div class="flex items-center gap-2">
-        <button
-          type="button"
-          class="btn btn-outline btn-xs sm:btn-sm shadow-none"
-          phx-click="preview"
-        >
-          <.icon name="hero-eye" class="w-4 h-4 sm:mr-1" />
-          <span class="hidden sm:inline">{gettext("Preview")}</span>
-        </button>
+        <%= unless @is_new_post do %>
+          <button
+            type="button"
+            class="btn btn-outline btn-xs sm:btn-sm shadow-none"
+            phx-click="preview"
+          >
+            <.icon name="hero-eye" class="w-4 h-4 sm:mr-1" />
+            <span class="hidden sm:inline">{gettext("Preview")}</span>
+          </button>
+        <% end %>
         <%= if @form["status"] == "published" && @public_url do %>
           <a
             href={if @has_pending_changes, do: "#", else: @public_url}
