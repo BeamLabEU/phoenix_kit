@@ -506,6 +506,9 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           current: 0,
           tables_done: 0,
           records_fetched: 0,
+          records_skipped: 0,
+          records_errors: 0,
+          error_messages: [],
           table: nil,
           status: :running
         })
@@ -631,6 +634,9 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           current: 1,
           tables_done: 0,
           records_fetched: 0,
+          records_skipped: 0,
+          records_errors: 0,
+          error_messages: [],
           table: table,
           status: :running
         })
@@ -851,16 +857,20 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
   @impl true
   def handle_info({:sync_table_complete, _table, result, rest, index}, socket) do
-    records_fetched =
-      case result do
-        {:ok, %{imported: count}} -> count
-        _ -> 0
-      end
+    {records_fetched, records_skipped, records_errors, error_message} =
+      extract_sync_counts(result)
 
     progress =
       socket.assigns.sync_progress
       |> Map.update(:tables_done, 1, &(&1 + 1))
       |> Map.update(:records_fetched, records_fetched, &(&1 + records_fetched))
+      |> Map.update(:records_skipped, records_skipped, &(&1 + records_skipped))
+      |> Map.update(:records_errors, records_errors, &(&1 + records_errors))
+      |> then(fn p ->
+        if error_message,
+          do: Map.update(p, :error_messages, [error_message], &[error_message | &1]),
+          else: p
+      end)
 
     socket = assign(socket, :sync_progress, progress)
 
@@ -873,17 +883,19 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   @impl true
   def handle_info({:sync_table_complete, _table, result}, socket) do
     # Single table sync (from precise transfer)
-    records_fetched =
-      case result do
-        {:ok, %{imported: count}} -> count
-        _ -> 0
-      end
+    {records_fetched, records_skipped, records_errors, error_message} =
+      extract_sync_counts(result)
 
     progress =
       socket.assigns.sync_progress
       |> Map.put(:tables_done, 1)
       |> Map.put(:records_fetched, records_fetched)
+      |> Map.put(:records_skipped, records_skipped)
+      |> Map.put(:records_errors, records_errors)
       |> Map.put(:status, :completed)
+      |> then(fn p ->
+        if error_message, do: Map.put(p, :error_messages, [error_message]), else: p
+      end)
 
     socket =
       socket
@@ -931,6 +943,34 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
   def handle_info({:connection_status_changed, _connection_uuid, _status}, socket) do
     {:noreply, load_connections(socket, skip_async: true)}
+  end
+
+  defp extract_sync_counts(result) do
+    case result do
+      {:ok, %{imported: imported, skipped: skipped, errors: errors}} ->
+        {imported, skipped, errors, nil}
+
+      {:ok, %{imported: count}} ->
+        {count, 0, 0, nil}
+
+      {:error, :offline} ->
+        {0, 0, 0, "Sender is offline"}
+
+      {:error, :unauthorized} ->
+        {0, 0, 0, "Unauthorized - check connection token"}
+
+      {:error, :table_not_found} ->
+        {0, 0, 0, "Table not found on sender"}
+
+      {:error, reason} when is_binary(reason) ->
+        {0, 0, 0, reason}
+
+      {:error, reason} ->
+        {0, 0, 0, "Sync failed: #{inspect(reason)}"}
+
+      _ ->
+        {0, 0, 0, "Unknown error"}
+    end
   end
 
   # ===========================================
@@ -1688,8 +1728,13 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             <%!-- ========== BULK TRANSFER TAB ========== --%>
             <%= if @progress && Map.get(@progress, :status) == :completed do %>
               <div class="flex flex-col items-center justify-center py-12">
-                <div class="text-6xl mb-4">🎉</div>
-                <h3 class="text-2xl font-bold text-success mb-4">Sync Complete!</h3>
+                <%= if Map.get(@progress, :error_messages, []) != [] do %>
+                  <div class="text-6xl mb-4">⚠️</div>
+                  <h3 class="text-2xl font-bold text-warning mb-4">Sync Completed with Issues</h3>
+                <% else %>
+                  <div class="text-6xl mb-4">🎉</div>
+                  <h3 class="text-2xl font-bold text-success mb-4">Sync Complete!</h3>
+                <% end %>
                 <div class="stats shadow mb-6">
                   <div class="stat">
                     <div class="stat-title">Tables Synced</div>
@@ -1701,7 +1746,32 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                       {format_number(@progress.records_fetched)}
                     </div>
                   </div>
+                  <%= if Map.get(@progress, :records_skipped, 0) > 0 do %>
+                    <div class="stat">
+                      <div class="stat-title">Records Skipped</div>
+                      <div class="stat-value text-warning">
+                        {format_number(@progress.records_skipped)}
+                      </div>
+                    </div>
+                  <% end %>
+                  <%= if Map.get(@progress, :records_errors, 0) > 0 do %>
+                    <div class="stat">
+                      <div class="stat-title">Errors</div>
+                      <div class="stat-value text-error">
+                        {format_number(@progress.records_errors)}
+                      </div>
+                    </div>
+                  <% end %>
                 </div>
+                <%= if Map.get(@progress, :error_messages, []) != [] do %>
+                  <div class="alert alert-warning mb-4 max-w-md">
+                    <div>
+                      <%= for msg <- Enum.reverse(@progress.error_messages) do %>
+                        <p class="text-sm">{msg}</p>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
                 <button type="button" phx-click="cancel" class="btn btn-primary">
                   Done
                 </button>
@@ -1910,8 +1980,13 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             <%!-- ========== PRECISE TRANSFER TAB ========== --%>
             <%= if @progress && Map.get(@progress, :status) == :completed do %>
               <div class="flex flex-col items-center justify-center py-12">
-                <div class="text-6xl mb-4">🎉</div>
-                <h3 class="text-2xl font-bold text-success mb-4">Transfer Complete!</h3>
+                <%= if Map.get(@progress, :error_messages, []) != [] do %>
+                  <div class="text-6xl mb-4">⚠️</div>
+                  <h3 class="text-2xl font-bold text-warning mb-4">Transfer Completed with Issues</h3>
+                <% else %>
+                  <div class="text-6xl mb-4">🎉</div>
+                  <h3 class="text-2xl font-bold text-success mb-4">Transfer Complete!</h3>
+                <% end %>
                 <div class="stats shadow mb-6">
                   <div class="stat">
                     <div class="stat-title">Table</div>
@@ -1925,7 +2000,32 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                       {format_number(@progress.records_fetched || 0)}
                     </div>
                   </div>
+                  <%= if Map.get(@progress, :records_skipped, 0) > 0 do %>
+                    <div class="stat">
+                      <div class="stat-title">Records Skipped</div>
+                      <div class="stat-value text-warning">
+                        {format_number(@progress.records_skipped)}
+                      </div>
+                    </div>
+                  <% end %>
+                  <%= if Map.get(@progress, :records_errors, 0) > 0 do %>
+                    <div class="stat">
+                      <div class="stat-title">Errors</div>
+                      <div class="stat-value text-error">
+                        {format_number(@progress.records_errors)}
+                      </div>
+                    </div>
+                  <% end %>
                 </div>
+                <%= if Map.get(@progress, :error_messages, []) != [] do %>
+                  <div class="alert alert-warning mb-4 max-w-md">
+                    <div>
+                      <%= for msg <- Enum.reverse(@progress.error_messages) do %>
+                        <p class="text-sm">{msg}</p>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
                 <button type="button" phx-click="cancel" class="btn btn-primary">Done</button>
               </div>
             <% else %>

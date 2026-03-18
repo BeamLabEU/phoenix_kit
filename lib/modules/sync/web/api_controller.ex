@@ -1098,7 +1098,15 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   defp serialize_value(%Date{} = d), do: Date.to_iso8601(d)
   defp serialize_value(%Time{} = t), do: Time.to_iso8601(t)
   defp serialize_value(%Decimal{} = d), do: Decimal.to_string(d)
-  defp serialize_value(binary) when is_binary(binary), do: binary
+
+  defp serialize_value(binary) when is_binary(binary) do
+    if String.valid?(binary) do
+      binary
+    else
+      %{"__phoenix_kit_binary__" => Base.encode64(binary)}
+    end
+  end
+
   defp serialize_value(val), do: val
 
   defp validate_schema_params(params) do

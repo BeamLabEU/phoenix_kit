@@ -18,6 +18,9 @@
 - Fix Sync sender URL resolving to `localhost:4000` — now checks DB `site_url` setting before falling back to endpoint config
 - Fix `auth_token_hash` logged in full — truncate to first 8 characters in Sync connection logs
 - Fix double `get_our_site_url()` call per notification — pass resolved URL instead of recomputing
+- Fix Sync crash on non-UTF8 binary data — base64-encode raw binaries during serialization, decode on import
+- Fix Sync pull error responses silently ignored — add `Logger.error` to all failure paths (401, 404, HTTP errors, offline, invalid response)
+- Fix Sync completion UI not showing skipped/errored records — track and display per-table import counts with warning state
 
 ## 1.7.77 - 2026-03-17
 

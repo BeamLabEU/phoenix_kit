@@ -578,37 +578,44 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
         complete_pull_transfer(transfer, table_name, data, strategy)
 
       {:ok, %{"success" => false, "error" => error}} ->
+        Logger.error("Sync: Pull failed - remote error: #{error}")
         Transfers.fail_transfer(transfer, error)
         {:error, error}
 
-      _ ->
+      other ->
+        Logger.error("Sync: Pull failed - invalid response format: #{inspect(other)}")
         Transfers.fail_transfer(transfer, "Invalid response from remote site")
         {:error, :invalid_response}
     end
   end
 
   defp handle_pull_response({:ok, %{status: 401}}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - unauthorized (401)")
     Transfers.fail_transfer(transfer, "Unauthorized")
     {:error, :unauthorized}
   end
 
   defp handle_pull_response({:ok, %{status: 404}}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - table not found (404)")
     Transfers.fail_transfer(transfer, "Table not found")
     {:error, :table_not_found}
   end
 
   defp handle_pull_response({:ok, %{status: status}}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - HTTP error #{status}")
     Transfers.fail_transfer(transfer, "HTTP error #{status}")
     {:error, :unexpected_response}
   end
 
   defp handle_pull_response({:error, %{reason: reason}}, transfer, _table_name, _strategy)
        when reason in [:econnrefused, :timeout, :nxdomain] do
+    Logger.error("Sync: Pull failed - sender offline (#{reason})")
     Transfers.fail_transfer(transfer, "Sender offline")
     {:error, :offline}
   end
 
   defp handle_pull_response({:error, reason}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - #{inspect(reason)}")
     Transfers.fail_transfer(transfer, inspect(reason))
     {:error, reason}
   end
@@ -1146,7 +1153,10 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
         end
       end)
 
-    Logger.info("Sync: Import complete for #{table_name}", results)
+    Logger.info(
+      "Sync: Import complete for #{table_name} - imported: #{results.imported}, skipped: #{results.skipped}, errors: #{results.errors}"
+    )
+
     results
   end
 
@@ -1217,6 +1227,13 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   # Convert ISO8601 strings to DateTime/Date/Time structs for Postgrex
   defp prepare_value(value) when is_binary(value) do
     parse_datetime_string(value) || parse_date_string(value) || parse_time_string(value) || value
+  end
+
+  defp prepare_value(%{"__phoenix_kit_binary__" => encoded}) when is_binary(encoded) do
+    case Base.decode64(encoded) do
+      {:ok, binary} -> binary
+      :error -> encoded
+    end
   end
 
   defp prepare_value(value), do: value
