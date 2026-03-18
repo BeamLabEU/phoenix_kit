@@ -95,7 +95,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Index do
           <div class="text-center">
             <h1 class="text-4xl font-bold text-base-content mb-3">DB Sync</h1>
             <p class="text-lg text-base-content/70">
-              Sync data between PhoenixKit instances with permanent connections
+              Sync data between PhoenixKit instances
             </p>
           </div>
         </header>
@@ -120,7 +120,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Index do
               <div class="stat-figure text-primary">
                 <.icon name="hero-arrow-up-tray" class="w-8 h-8" />
               </div>
-              <div class="stat-title">Sender Connections</div>
+              <div class="stat-title">Outgoing</div>
               <div class="stat-value text-primary">{@stats.total_senders}</div>
               <div class="stat-desc">{@stats.active_senders} active</div>
             </div>
@@ -129,7 +129,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Index do
               <div class="stat-figure text-secondary">
                 <.icon name="hero-arrow-down-tray" class="w-8 h-8" />
               </div>
-              <div class="stat-title">Receiver Connections</div>
+              <div class="stat-title">Incoming</div>
               <div class="stat-value text-secondary">{@stats.total_receivers}</div>
               <div class="stat-desc">{@stats.active_receivers} active</div>
             </div>
@@ -161,8 +161,8 @@ defmodule PhoenixKit.Modules.Sync.Web.Index do
               </div>
               <h2 class="card-title text-2xl">Manage Connections</h2>
               <p class="text-base-content/70 mb-4">
-                Create sender connections to share your data with other sites.
-                Receiver connections are created automatically when remote sites connect.
+                Create connections to share your data with other sites.
+                Incoming connections are created automatically when remote sites connect.
               </p>
               <div class="card-actions">
                 <.link
@@ -215,7 +215,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Index do
                     <.icon name="hero-arrow-up-tray" class="w-5 h-5" /> As a Sender
                   </h4>
                   <ol class="list-decimal list-inside space-y-2 text-sm text-base-content/80">
-                    <li>Create a <strong>sender connection</strong> with a name</li>
+                    <li>Create a <strong>connection</strong> with a name</li>
                     <li>Enter the remote site's URL</li>
                     <li>The remote site is <strong>notified automatically</strong></li>
                     <li>They can now pull data from your tables</li>
@@ -227,7 +227,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Index do
                   </h4>
                   <ol class="list-decimal list-inside space-y-2 text-sm text-base-content/80">
                     <li>When another site creates a connection to you</li>
-                    <li>A <strong>receiver connection</strong> appears automatically</li>
+                    <li>A <strong>connection</strong> appears automatically on your end</li>
                     <li>Use it to sync data from their site</li>
                     <li>Choose conflict strategy when importing</li>
                   </ol>

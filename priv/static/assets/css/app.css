@@ -386,3 +386,245 @@
   --color-error: oklch(71.76% 0.221 22.18);
   --color-error-content: oklch(17.43% 0.037 22.18);
 }
+
+/* ============================================================================
+   Tailwind Typography Prose Overrides with DaisyUI Theme Integration
+   Extends prose classes to use daisyUI's theme-aware CSS custom properties.
+   ============================================================================ */
+
+@layer base {
+  /* Override prose colors to use daisyUI theme variables */
+  .prose {
+    color: oklch(var(--bc));
+    max-width: 65ch;
+  }
+
+  /* Headings */
+  .prose h1 {
+    color: oklch(var(--bc));
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  }
+
+  .prose h2 {
+    color: oklch(var(--bc));
+    font-size: 1.875rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .prose h3 {
+    color: oklch(var(--bc));
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .prose h4 {
+    color: oklch(var(--bc));
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .prose h5 {
+    color: oklch(var(--bc));
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .prose h6 {
+    color: oklch(var(--bc));
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Paragraphs */
+  .prose p {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  /* Text emphasis */
+  .prose strong {
+    color: oklch(var(--bc));
+    font-weight: 700;
+  }
+
+  .prose em {
+    color: oklch(var(--bc));
+    font-style: italic;
+  }
+
+  .prose del,
+  .prose s {
+    color: oklch(var(--bc) / 0.7);
+    text-decoration: line-through;
+  }
+
+  /* Horizontal rule */
+  .prose hr {
+    border-color: oklch(var(--bc) / 0.1);
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  /* Inline code */
+  .prose code {
+    color: oklch(var(--bc));
+    background-color: oklch(var(--b2));
+    padding: 0.2em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+  }
+
+  /* Code blocks */
+  .prose pre {
+    color: oklch(var(--bc));
+    background-color: oklch(var(--b3));
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .prose pre code {
+    background-color: transparent;
+    padding: 0;
+    color: inherit;
+  }
+
+  /* Links */
+  .prose a {
+    color: oklch(var(--p));
+    text-decoration: underline;
+  }
+
+  .prose a:hover {
+    color: oklch(var(--pf));
+  }
+
+  /* Blockquotes */
+  .prose blockquote {
+    color: oklch(var(--bc) / 0.7);
+    border-left-color: oklch(var(--p));
+    border-left-width: 4px;
+    border-left-style: solid;
+    padding-left: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-style: italic;
+  }
+
+  /* Tables */
+  .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .prose table th,
+  .prose table td {
+    border: 1px solid oklch(var(--bc) / 0.2);
+    padding: 0.5rem;
+    text-align: left;
+  }
+
+  .prose table th {
+    color: oklch(var(--bc));
+    background-color: oklch(var(--b2));
+    font-weight: 600;
+  }
+
+  .prose table td {
+    color: oklch(var(--bc));
+  }
+
+  /* Images */
+  .prose img {
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Lists */
+  .prose ul,
+  .prose ol {
+    color: oklch(var(--bc));
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+  }
+
+  .prose li {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Task lists (checkboxes) */
+  .prose input[type="checkbox"] {
+    margin-right: 0.5rem;
+    cursor: pointer;
+  }
+
+  .prose li:has(input[type="checkbox"]) {
+    list-style: none;
+    margin-left: -1.5rem;
+  }
+
+  /* Large prose variant */
+  .prose-lg {
+    font-size: 1.125rem;
+    line-height: 1.75;
+  }
+
+  .prose-lg h1 {
+    font-size: 2.5rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .prose-lg h2 {
+    font-size: 2rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .prose-lg h3 {
+    font-size: 1.75rem;
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Small prose variant */
+  .prose-sm {
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .prose-sm h1 {
+    font-size: 1.875rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .prose-sm h2 {
+    font-size: 1.5rem;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+}

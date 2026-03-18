@@ -76,6 +76,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage.Mapper do
       version_statuses: version_statuses,
       version_dates: version_dates,
       content: content.content,
+      content_updated_at: content.updated_at,
       metadata: build_metadata(post, version, content),
       primary_language: post.primary_language
     }

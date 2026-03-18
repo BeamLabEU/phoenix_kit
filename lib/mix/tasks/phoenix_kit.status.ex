@@ -532,11 +532,15 @@ defmodule Mix.Tasks.PhoenixKit.Status do
 
   # Ensure repo is properly started for database operations.
   # Since we use --no-start, the repo may not be running yet.
+  # We start repo with its application config so it gets the connection params.
   defp ensure_repo_started(repo) do
     if repo_available?(repo) do
       :ok
     else
-      case repo.start_link([]) do
+      parent_app = Mix.Project.config()[:app]
+      config = Application.get_env(parent_app, repo, [])
+
+      case repo.start_link(config) do
         {:ok, _pid} -> :ok
         {:error, {:already_started, _pid}} -> :ok
         {:error, reason} -> {:error, "Failed to start #{inspect(repo)}: #{inspect(reason)}"}
