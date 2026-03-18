@@ -1133,6 +1133,17 @@ defmodule PhoenixKit.Migrations.Postgres do
 
     config = if app, do: Application.get_env(app, repo, []), else: []
 
+    # Ensure required applications are started before starting repo
+    # These must be started for repo.start_link/1 to work:
+    # - :telemetry (for DBConnection metrics)
+    # - :db_connection (provides DBConnection.Watcher)
+    # - :ecto (provides Ecto.Repo.Registry)
+    # - :postgrex (provides Postgrex.SCRAM.LockedCache)
+    Application.ensure_all_started(:telemetry)
+    Application.ensure_all_started(:db_connection)
+    Application.ensure_all_started(:ecto)
+    Application.ensure_all_started(:postgrex)
+
     case repo.start_link(config) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> :ok
