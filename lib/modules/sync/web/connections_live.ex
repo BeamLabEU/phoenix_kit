@@ -972,27 +972,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
               "| remote_url=#{connection.site_url}"
           )
 
-          Task.start(fn ->
-            result = ConnectionNotifier.notify_remote_site(connection, token)
-
-            case result do
-              {:ok, r} ->
-                Logger.info(
-                  "[Sync.Connections] Remote notification complete " <>
-                    "| uuid=#{connection.uuid} " <>
-                    "| success=#{r.success} " <>
-                    "| status=#{r.status} " <>
-                    "| message=#{inspect(r.message)}"
-                )
-
-              {:error, reason} ->
-                Logger.error(
-                  "[Sync.Connections] Remote notification failed " <>
-                    "| uuid=#{connection.uuid} " <>
-                    "| error=#{inspect(reason)}"
-                )
-            end
-          end)
+          Task.start(fn -> log_remote_notification(connection, token) end)
         end
 
         socket =
@@ -2389,5 +2369,27 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
       not is_nil(local_count) and local_count == sender_count
     end)
+  end
+
+  defp log_remote_notification(connection, token) do
+    result = ConnectionNotifier.notify_remote_site(connection, token)
+
+    case result do
+      {:ok, r} ->
+        Logger.info(
+          "[Sync.Connections] Remote notification complete " <>
+            "| uuid=#{connection.uuid} " <>
+            "| success=#{r.success} " <>
+            "| status=#{r.status} " <>
+            "| message=#{inspect(r.message)}"
+        )
+
+      {:error, reason} ->
+        Logger.error(
+          "[Sync.Connections] Remote notification failed " <>
+            "| uuid=#{connection.uuid} " <>
+            "| error=#{inspect(reason)}"
+        )
+    end
   end
 end
