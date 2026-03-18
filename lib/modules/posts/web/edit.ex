@@ -21,6 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   alias Phoenix.Component
   alias PhoenixKit.Modules.Posts
+  import Leaf, only: [leaf_editor: 1]
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Roles
