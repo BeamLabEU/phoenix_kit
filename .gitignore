@@ -15,7 +15,6 @@
 /docs/
 /plans/
 /test_projects/
-/scripts/
 /scripts_backup/
 
 # Ignore .fetch files in case you like to edit your project deps locally.
