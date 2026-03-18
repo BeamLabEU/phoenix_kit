@@ -339,7 +339,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   defp absolute_url(_base, ""), do: nil
 
   defp absolute_url(base, url) when is_binary(url) do
-    if String.starts_with?(url, "http"), do: url, else: base <> url
+    if String.starts_with?(url, "http://") or String.starts_with?(url, "https://"),
+      do: url,
+      else: base <> url
   end
 
   defp absolute_url(_base, _url), do: nil
