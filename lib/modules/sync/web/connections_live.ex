@@ -941,13 +941,57 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     current_user = socket.assigns.phoenix_kit_current_scope.user
     params = Map.put(params, "created_by_uuid", current_user.uuid)
 
+    direction = params["direction"] || params[:direction]
+    site_url = params["site_url"] || params[:site_url]
+    conn_name = params["name"] || params[:name]
+
+    Logger.info(
+      "[Sync.Connections] Creating connection " <>
+        "| direction=#{direction} " <>
+        "| name=#{inspect(conn_name)} " <>
+        "| site_url=#{site_url} " <>
+        "| created_by=#{current_user.uuid}"
+    )
+
     case Connections.create_connection(params) do
       {:ok, connection, token} ->
+        Logger.info(
+          "[Sync.Connections] Connection created " <>
+            "| uuid=#{connection.uuid} " <>
+            "| direction=#{connection.direction} " <>
+            "| site_url=#{connection.site_url} " <>
+            "| status=#{connection.status} " <>
+            "| auth_token_hash=#{connection.auth_token_hash}"
+        )
+
         # Notify the remote site to register this connection (async)
         if connection.direction == "sender" do
+          Logger.info(
+            "[Sync.Connections] Notifying remote site (async) " <>
+              "| uuid=#{connection.uuid} " <>
+              "| remote_url=#{connection.site_url}"
+          )
+
           Task.start(fn ->
             result = ConnectionNotifier.notify_remote_site(connection, token)
-            Logger.info("Sync: Remote notification result: #{inspect(result)}")
+
+            case result do
+              {:ok, r} ->
+                Logger.info(
+                  "[Sync.Connections] Remote notification complete " <>
+                    "| uuid=#{connection.uuid} " <>
+                    "| success=#{r.success} " <>
+                    "| status=#{r.status} " <>
+                    "| message=#{inspect(r.message)}"
+                )
+
+              {:error, reason} ->
+                Logger.error(
+                  "[Sync.Connections] Remote notification failed " <>
+                    "| uuid=#{connection.uuid} " <>
+                    "| error=#{inspect(reason)}"
+                )
+            end
           end)
         end
 
@@ -960,6 +1004,13 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         {:noreply, push_patch(socket, to: path)}
 
       {:error, changeset} ->
+        Logger.error(
+          "[Sync.Connections] Failed to create connection " <>
+            "| direction=#{direction} " <>
+            "| site_url=#{site_url} " <>
+            "| errors=#{inspect(changeset.errors)}"
+        )
+
         {:noreply, assign(socket, :changeset, changeset)}
     end
   end
@@ -1076,10 +1127,10 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             phx-change="filter"
             name="direction"
           >
-            <option value="" selected={@direction_filter == nil}>All Directions</option>
-            <option value="sender" selected={@direction_filter == "sender"}>Senders Only</option>
+            <option value="" selected={@direction_filter == nil}>All Connections</option>
+            <option value="sender" selected={@direction_filter == "sender"}>Outgoing Only</option>
             <option value="receiver" selected={@direction_filter == "receiver"}>
-              Receivers Only
+              Incoming Only
             </option>
           </select>
         </div>
@@ -1088,12 +1139,12 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         </button>
       </div>
 
-      <%!-- Sender Connections --%>
+      <%!-- Outgoing Connections --%>
       <%= if @direction_filter != "receiver" do %>
         <div class="card bg-base-100 shadow">
           <div class="card-body">
             <h2 class="card-title">
-              <.icon name="hero-arrow-up-tray" class="w-5 h-5" /> Sender Connections
+              <.icon name="hero-arrow-up-tray" class="w-5 h-5" /> Outgoing
               <span class="badge badge-ghost">{length(@sender_connections)}</span>
             </h2>
             <p class="text-sm text-base-content/70 mb-4">
@@ -1102,7 +1153,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
             <%= if Enum.empty?(@sender_connections) do %>
               <p class="text-center text-base-content/50 py-4">
-                No sender connections configured
+                No outgoing connections configured
               </p>
             <% else %>
               <div class="overflow-x-auto">
@@ -1134,12 +1185,12 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         </div>
       <% end %>
 
-      <%!-- Receiver Connections --%>
+      <%!-- Incoming Connections --%>
       <%= if @direction_filter != "sender" do %>
         <div class="card bg-base-100 shadow">
           <div class="card-body">
             <h2 class="card-title">
-              <.icon name="hero-arrow-down-tray" class="w-5 h-5" /> Receiver Connections
+              <.icon name="hero-arrow-down-tray" class="w-5 h-5" /> Incoming
               <span class="badge badge-ghost">{length(@receiver_connections)}</span>
             </h2>
             <p class="text-sm text-base-content/70 mb-4">
@@ -1148,7 +1199,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
             <%= if Enum.empty?(@receiver_connections) do %>
               <p class="text-center text-base-content/50 py-4">
-                No receiver connections configured
+                No incoming connections configured
               </p>
             <% else %>
               <div class="overflow-x-auto">
@@ -1215,19 +1266,16 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         <.icon name="hero-eye" class="w-4 h-4 hidden sm:inline" />
         <span class="sm:hidden whitespace-nowrap">{gettext("View details")}</span>
       </button>
-      <%!-- Edit button only for senders (receivers get info from sender) --%>
-      <%= if @connection.direction == "sender" do %>
-        <button
-          type="button"
-          phx-click="edit_connection"
-          phx-value-uuid={@connection.uuid}
-          class="btn btn-ghost btn-xs tooltip tooltip-bottom"
-          data-tip={gettext("Edit")}
-        >
-          <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
-          <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
-        </button>
-      <% end %>
+      <button
+        type="button"
+        phx-click="edit_connection"
+        phx-value-uuid={@connection.uuid}
+        class="btn btn-ghost btn-xs tooltip tooltip-bottom"
+        data-tip={gettext("Edit")}
+      >
+        <.icon name="hero-pencil" class="w-4 h-4 hidden sm:inline" />
+        <span class="sm:hidden whitespace-nowrap">{gettext("Edit")}</span>
+      </button>
       <%!-- Delete/Sever connection button --%>
       <button
         type="button"
@@ -1330,7 +1378,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                 <p class="text-sm text-base-content/70">Allow remote site to pull data from here</p>
               </div>
               <p class="text-sm text-base-content/60 mt-1">
-                Receiver connections are created automatically when remote sites connect
+                Incoming connections are created automatically when remote sites connect
               </p>
             <% else %>
               <div class="bg-base-200 rounded-lg p-3">

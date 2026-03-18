@@ -33,6 +33,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Modules.Sync.Connections
   alias PhoenixKit.Modules.Sync.Transfers
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @default_timeout 30_000
@@ -91,26 +92,54 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     # Get connection fields (support both atom and string keys)
     site_url = Map.get(connection, :site_url) || Map.get(connection, "site_url")
     conn_name = Map.get(connection, :name) || Map.get(connection, "name")
+    conn_uuid = Map.get(connection, :uuid) || Map.get(connection, "uuid")
 
     # Build the API URL
     api_url = build_api_url(site_url)
 
+    # Resolve our URL for the request body
+    our_url = get_our_site_url()
+
     # Build request body
     body = build_request_body(conn_name, site_url, raw_token, password)
 
-    Logger.info("Sync: Notifying remote site about new connection", %{
-      remote_url: site_url,
-      api_url: api_url,
-      connection_name: conn_name
-    })
+    Logger.info(
+      "[Sync.Notifier] Creating outgoing connection " <>
+        "| connection_uuid=#{conn_uuid} " <>
+        "| name=#{inspect(conn_name)} " <>
+        "| remote_url=#{site_url} " <>
+        "| api_url=#{api_url} " <>
+        "| our_url=#{our_url} " <>
+        "| has_password=#{password != nil} " <>
+        "| timeout=#{timeout}ms"
+    )
 
     case make_http_request(api_url, body, timeout) do
       {:ok, response} ->
         result = parse_response(response)
+
+        Logger.info(
+          "[Sync.Notifier] Remote site responded " <>
+            "| connection_uuid=#{conn_uuid} " <>
+            "| http_status=#{response.status} " <>
+            "| success=#{result.success} " <>
+            "| result_status=#{result.status} " <>
+            "| remote_connection_uuid=#{result.remote_connection_uuid} " <>
+            "| message=#{inspect(result.message)}"
+        )
+
         update_connection_metadata(connection, result)
         {:ok, result}
 
       {:error, reason} ->
+        Logger.error(
+          "[Sync.Notifier] Failed to contact remote site " <>
+            "| connection_uuid=#{conn_uuid} " <>
+            "| remote_url=#{site_url} " <>
+            "| api_url=#{api_url} " <>
+            "| error=#{inspect(reason)}"
+        )
+
         result = %{
           success: false,
           status: :failed,
@@ -835,9 +864,43 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   end
 
   defp get_our_site_url do
+    case Settings.get_setting("site_url", nil) do
+      nil ->
+        url = get_our_site_url_fallback()
+
+        Logger.warning(
+          "[Sync.Notifier] site_url not set in Settings, using fallback " <>
+            "| resolved_url=#{url}"
+        )
+
+        url
+
+      "" ->
+        url = get_our_site_url_fallback()
+
+        Logger.warning(
+          "[Sync.Notifier] site_url is empty in Settings, using fallback " <>
+            "| resolved_url=#{url}"
+        )
+
+        url
+
+      url ->
+        Logger.debug("[Sync.Notifier] Using site_url from Settings | url=#{url}")
+        url
+    end
+  end
+
+  defp get_our_site_url_fallback do
     case Application.get_env(:phoenix_kit, :public_url) do
-      nil -> PhoenixKit.Config.get_dynamic_base_url()
-      url -> url
+      nil ->
+        url = PhoenixKit.Config.get_dynamic_base_url()
+        Logger.debug("[Sync.Notifier] Fallback: dynamic base URL | url=#{url}")
+        url
+
+      url ->
+        Logger.debug("[Sync.Notifier] Fallback: :public_url config | url=#{url}")
+        url
     end
   end
 
