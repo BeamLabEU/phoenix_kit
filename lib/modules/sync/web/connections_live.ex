@@ -2383,13 +2383,6 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
             "| status=#{r.status} " <>
             "| message=#{inspect(r.message)}"
         )
-
-      {:error, reason} ->
-        Logger.error(
-          "[Sync.Connections] Remote notification failed " <>
-            "| uuid=#{connection.uuid} " <>
-            "| error=#{inspect(reason)}"
-        )
     end
   end
 end

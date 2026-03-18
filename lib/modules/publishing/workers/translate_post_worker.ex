@@ -663,7 +663,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   @doc false
   # Skip languages that were already translated by a previous attempt of this job.
   # Checks content rows directly via DBStorage to avoid read_post's fallback behavior.
-  def skip_already_translated(target_languages, group_slug, post_uuid, version, job_inserted_at) do
+  def skip_already_translated(target_languages, _group_slug, post_uuid, version, job_inserted_at) do
     alias PhoenixKit.Modules.Publishing.DBStorage
 
     # Resolve the version UUID to check content rows directly
