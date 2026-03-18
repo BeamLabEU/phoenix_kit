@@ -101,7 +101,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     our_url = get_our_site_url()
 
     # Build request body
-    body = build_request_body(conn_name, site_url, raw_token, password)
+    body = build_request_body(conn_name, our_url, raw_token, password)
 
     Logger.info(
       "[Sync.Notifier] Creating outgoing connection " <>
@@ -846,10 +846,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     "/phoenix_kit"
   end
 
-  defp build_request_body(conn_name, _site_url, raw_token, password) do
-    # Get our site URL
-    our_url = get_our_site_url()
-
+  defp build_request_body(conn_name, our_url, raw_token, password) do
     body = %{
       "sender_url" => our_url,
       "connection_name" => conn_name,
