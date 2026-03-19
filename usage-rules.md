@@ -1,6 +1,6 @@
 # PhoenixKit Usage Rules
 
-PhoenixKit is a comprehensive SaaS starter kit for Phoenix applications that provides authentication, authorization, admin interfaces, and email tracking out of the box.
+PhoenixKit is a foundation for building your Elixir Phoenix apps — SaaS, social networks, ERP systems, marketplaces, internal tools, AI-powered apps, community platforms, and more. It provides authentication, authorization, admin interfaces, and email tracking out of the box.
 
 ## What PhoenixKit Provides
 

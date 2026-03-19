@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**PhoenixKit** - A starter kit for building modern web apps with Elixir/Phoenix/PostgreSQL. Library-first architecture, complete auth system with Magic Links, role-based access control (Owner/Admin/User), built-in admin dashboard, daisyUI 5 theme system, professional versioned migrations, layout integration with parent apps.
+**PhoenixKit** - A foundation for building your Elixir Phoenix apps — SaaS, social networks, ERP systems, marketplaces, internal tools, AI-powered apps, community platforms, and more. Library-first architecture with Elixir/Phoenix/PostgreSQL, complete auth system with Magic Links, role-based access control (Owner/Admin/User), built-in admin dashboard, daisyUI 5 theme system, professional versioned migrations, layout integration with parent apps.
 
 
 ## Development Workflow
