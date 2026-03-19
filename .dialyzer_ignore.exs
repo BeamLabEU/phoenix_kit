@@ -138,5 +138,11 @@
   # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
   # Dialyzer cannot resolve ExUnit private macros expanded at compile time
   {"test/support/conn_case.ex", :unknown_function},
-  {"test/support/data_case.ex", :unknown_function}
+  {"test/support/data_case.ex", :unknown_function},
+
+  # Sync connections_live - MapSet opaque type false positives in topo_sort/visit_node
+  # Same pattern as context_selector.ex - MapSet.t() opaque type through recursive functions
+  # Matches both standard Dialyxir format (call_without_opaque) and legacy format (opaque term)
+  ~r/lib\/modules\/sync\/web\/connections_live\.ex:.*call_without_opaque/,
+  ~r/lib\/modules\/sync\/web\/connections_live\.ex:.*opaque term/
 ]

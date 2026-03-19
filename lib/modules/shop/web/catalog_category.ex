@@ -15,6 +15,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
   alias PhoenixKit.Modules.Shop.Web.Helpers
   alias PhoenixKit.Settings
+  alias PhoenixKitWeb.AdminEditHelper
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -104,8 +105,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
             :category_icon_mode,
             Settings.get_setting_cached("shop_category_icon_mode", "none")
           )
-          |> assign(:admin_edit_url, Routes.path("/admin/shop/categories/#{category.uuid}/edit"))
-          |> assign(:admin_edit_label, "Edit Category")
+          |> AdminEditHelper.assign_admin_edit(
+            Routes.path("/admin/shop/categories/#{category.uuid}/edit"),
+            "Edit Category"
+          )
 
         {:ok, socket}
     end

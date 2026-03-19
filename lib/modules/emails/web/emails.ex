@@ -285,7 +285,10 @@ defmodule PhoenixKit.Modules.Emails.Web.Emails do
 
   @impl true
   def handle_info({:send_test_email, recipient}, socket) do
-    case PhoenixKit.Mailer.send_test_tracking_email(recipient) do
+    provider =
+      Application.get_env(:phoenix_kit, :email_provider, PhoenixKit.Email.DefaultProvider)
+
+    case provider.send_test_tracking_email(recipient, nil) do
       {:ok, _email} ->
         Logger.info("Test email sent successfully", %{
           recipient: recipient,

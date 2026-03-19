@@ -438,6 +438,15 @@ defmodule PhoenixKit.ModuleRegistry do
           "Email newsletter management with list subscriptions, broadcast campaigns, and delivery tracking.",
         icon: "📧",
         hex_url: "https://hex.pm/packages/phoenix_kit_newsletters"
+      },
+      %{
+        module: PhoenixKit.Modules.Emails,
+        key: "emails",
+        hex_package: "phoenix_kit_emails",
+        name: "Emails",
+        description: "Email tracking, analytics, templates, and AWS SES/SNS/SQS integration.",
+        icon: "📧",
+        hex_url: "https://hex.pm/packages/phoenix_kit_emails"
       }
     ]
   end
