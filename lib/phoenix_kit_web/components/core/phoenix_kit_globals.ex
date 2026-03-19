@@ -34,9 +34,13 @@ defmodule PhoenixKitWeb.Components.Core.PhoenixKitGlobals do
   attr :rest, :global
 
   def phoenix_kit_globals(assigns) do
+    prefix = PhoenixKit.Utils.Routes.url_prefix()
+
+    assigns = assign(assigns, :prefix, prefix)
+
     ~H"""
     <script>
-      window.PHOENIX_KIT_PREFIX = "{PhoenixKit.Utils.Routes.url_prefix()}";
+      window.PHOENIX_KIT_PREFIX = "<%= @prefix %>";
       try{["localStorage","sessionStorage"].forEach(function(s){var t=window[s];Object.keys(t).filter(function(k){return k.indexOf("phx")!==-1&&k.indexOf("phx:")!==0}).forEach(function(k){t.removeItem(k)})})}catch(e){}
       // Suppress topbar on initial WebSocket connect — the dead render already shows
       // all content, so the connect-phase topbar is just visual noise. LiveView fires
