@@ -110,7 +110,7 @@ defmodule PhoenixKit.MixProject do
       {:hackney, "~> 1.9"},
 
       # Content editor
-      {:leaf, "~> 0.2.2"},
+      {:leaf, "~> 0.2.4"},
 
       # Utilities
       {:jason, "~> 1.4"},
