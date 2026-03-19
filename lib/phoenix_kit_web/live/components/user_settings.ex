@@ -657,51 +657,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         <%!-- Profile Section --%>
         <%= if :profile in @sections do %>
           <div class="mb-8">
-            <%!-- Avatar Section --%>
-            <div class="flex items-center gap-6 mb-6">
-              <%= if get_in(@user.custom_fields, ["avatar_file_uuid"]) do %>
-                <% avatar_url =
-                  PhoenixKit.Modules.Storage.URLSigner.signed_url(
-                    get_in(@user.custom_fields, ["avatar_file_uuid"]),
-                    "thumbnail"
-                  ) %>
-                <img
-                  src={avatar_url}
-                  alt="Avatar"
-                  class="w-20 h-20 rounded-full object-cover border-2 border-primary"
-                />
-              <% else %>
-                <div class="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
-                  <span class="text-2xl font-bold text-primary">
-                    {String.upcase(String.at(@user.email, 0))}
-                  </span>
-                </div>
-              <% end %>
-              <div class="flex-1">
-                <.file_upload
-                  upload={@uploads.avatar}
-                  variant="button"
-                  label="Change Profile Picture"
-                />
-                <p class="text-xs text-base-content/60 mt-1">JPG, PNG, GIF up to 10MB</p>
-              </div>
-            </div>
-
-            <%!-- Avatar Messages --%>
-            <%= if @last_uploaded_avatar_uuid do %>
-              <div class="alert alert-success text-sm mb-4">
-                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
-                <span>Avatar uploaded successfully!</span>
-              </div>
-            <% end %>
-            <%= if @avatar_error_message do %>
-              <div class="alert alert-error text-sm mb-4">
-                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
-                <span>{@avatar_error_message}</span>
-              </div>
-            <% end %>
-
-            <%!-- Profile Form --%>
+            <%!-- Profile Form with Avatar --%>
             <.simple_form
               for={@profile_form}
               id={"#{@id}-profile-form"}
@@ -709,18 +665,62 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               phx-change="validate_profile"
               phx-target={@myself}
             >
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <.input
-                  field={@profile_form[:first_name]}
-                  type="text"
-                  label="First Name"
-                />
-                <.input
-                  field={@profile_form[:last_name]}
-                  type="text"
-                  label="Last Name"
-                />
+              <div class="flex gap-6">
+                <%!-- Avatar Column --%>
+                <div class="flex flex-col items-center gap-3">
+                  <%= if get_in(@user.custom_fields, ["avatar_file_uuid"]) do %>
+                    <% avatar_url =
+                      PhoenixKit.Modules.Storage.URLSigner.signed_url(
+                        get_in(@user.custom_fields, ["avatar_file_uuid"]),
+                        "thumbnail"
+                      ) %>
+                    <img
+                      src={avatar_url}
+                      alt="Avatar"
+                      class="w-16 h-16 rounded-full object-cover border-2 border-primary"
+                    />
+                  <% else %>
+                    <div class="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
+                      <span class="text-xl font-bold text-primary">
+                        {String.upcase(String.at(@user.email, 0))}
+                      </span>
+                    </div>
+                  <% end %>
+                  <.file_upload
+                    upload={@uploads.avatar}
+                    variant="button"
+                    label="Upload"
+                  />
+                </div>
+
+                <%!-- Name Fields Column --%>
+                <div class="flex-1 space-y-4">
+                  <.input
+                    field={@profile_form[:first_name]}
+                    type="text"
+                    label="First Name"
+                  />
+                  <.input
+                    field={@profile_form[:last_name]}
+                    type="text"
+                    label="Last Name"
+                  />
+                </div>
               </div>
+
+              <%!-- Avatar Messages --%>
+              <%= if @last_uploaded_avatar_uuid do %>
+                <div class="alert alert-success text-sm mb-4">
+                  <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                  <span>Avatar uploaded successfully!</span>
+                </div>
+              <% end %>
+              <%= if @avatar_error_message do %>
+                <div class="alert alert-error text-sm mb-4">
+                  <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                  <span>{@avatar_error_message}</span>
+                </div>
+              <% end %>
 
               <%!-- Custom Fields --%>
               <%= for field_def <- @custom_field_definitions do %>
