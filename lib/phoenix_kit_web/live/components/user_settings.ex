@@ -119,6 +119,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         CustomFields.list_user_accessible_field_definitions()
       end)
       |> assign_new(:last_uploaded_avatar_uuid, fn -> nil end)
+      |> assign_new(:show_email_form, fn -> false end)
+      |> assign_new(:show_password_form, fn -> false end)
       |> maybe_allow_upload()
 
     {:ok, socket}
@@ -448,6 +450,14 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     {:noreply, cancel_upload(socket, :avatar, ref)}
   end
 
+  def handle_event("toggle_email_form", _params, socket) do
+    {:noreply, assign(socket, :show_email_form, not socket.assigns.show_email_form)}
+  end
+
+  def handle_event("toggle_password_form", _params, socket) do
+    {:noreply, assign(socket, :show_password_form, not socket.assigns.show_password_form)}
+  end
+
   # Private helpers
 
   defp check_timezone_mismatch(socket, selected_timezone) do
@@ -763,9 +773,25 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         <%!-- Email Section --%>
         <%= if :email in @sections do %>
           <div class="mb-8">
-            <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
-              <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> Email Address
-            </h2>
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold flex items-center gap-2">
+                <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> Email Address
+              </h2>
+              <button
+                type="button"
+                phx-click="toggle_email_form"
+                phx-target={@myself}
+                class="btn btn-sm btn-outline"
+              >
+                <.icon
+                  name={if @show_email_form, do: "hero-x-mark", else: "hero-pencil"}
+                  class="w-4 h-4"
+                />
+                {if @show_email_form, do: "Cancel", else: "Change Email"}
+              </button>
+            </div>
+
+            <div class="text-sm text-base-content/60 mb-4">{@current_email}</div>
 
             <%= if @email_success_message do %>
               <div class="alert alert-success text-sm mb-4">
@@ -780,33 +806,35 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               </div>
             <% end %>
 
-            <.simple_form
-              for={@email_form}
-              id={"#{@id}-email-form"}
-              phx-submit="update_email"
-              phx-change="validate_email"
-              phx-target={@myself}
-            >
-              <.input
-                field={@email_form[:email]}
-                type="email"
-                label="New Email"
-                required
-              />
-              <.input
-                field={@email_form[:current_password]}
-                name="current_password"
-                type="password"
-                label="Current Password"
-                value={@email_form_current_password}
-                required
-              />
-              <:actions>
-                <.button phx-disable-with="Changing..." class="btn-primary">
-                  Change Email
-                </.button>
-              </:actions>
-            </.simple_form>
+            <%= if @show_email_form do %>
+              <.simple_form
+                for={@email_form}
+                id={"#{@id}-email-form"}
+                phx-submit="update_email"
+                phx-change="validate_email"
+                phx-target={@myself}
+              >
+                <.input
+                  field={@email_form[:email]}
+                  type="email"
+                  label="New Email"
+                  required
+                />
+                <.input
+                  field={@email_form[:current_password]}
+                  name="current_password"
+                  type="password"
+                  label="Current Password"
+                  value={@email_form_current_password}
+                  required
+                />
+                <:actions>
+                  <.button phx-disable-with="Changing..." class="btn-primary">
+                    Update Email
+                  </.button>
+                </:actions>
+              </.simple_form>
+            <% end %>
           </div>
 
           <div class="divider"></div>
@@ -815,9 +843,25 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         <%!-- Password Section --%>
         <%= if :password in @sections do %>
           <div class="mb-8">
-            <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
-              <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> Password
-            </h2>
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold flex items-center gap-2">
+                <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> Password
+              </h2>
+              <button
+                type="button"
+                phx-click="toggle_password_form"
+                phx-target={@myself}
+                class="btn btn-sm btn-outline"
+              >
+                <.icon
+                  name={if @show_password_form, do: "hero-x-mark", else: "hero-pencil"}
+                  class="w-4 h-4"
+                />
+                {if @show_password_form, do: "Cancel", else: "Change Password"}
+              </button>
+            </div>
+
+            <div class="text-sm text-base-content/60 mb-4">••••••••</div>
 
             <%= if @password_success_message do %>
               <div class="alert alert-success text-sm mb-4">
@@ -832,46 +876,48 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               </div>
             <% end %>
 
-            <.simple_form
-              for={@password_form}
-              id={"#{@id}-password-form"}
-              action={Routes.path("/users/log-in?_action=password_updated")}
-              method="post"
-              phx-change="validate_password"
-              phx-submit="update_password"
-              phx-trigger-action={@trigger_submit}
-              phx-target={@myself}
-            >
-              <input
-                name={@password_form[:email].name}
-                type="hidden"
-                value={@current_email}
-              />
-              <.input
-                field={@password_form[:password]}
-                type="password"
-                label="New Password"
-                required
-              />
-              <.input
-                field={@password_form[:password_confirmation]}
-                type="password"
-                label="Confirm New Password"
-              />
-              <.input
-                field={@password_form[:current_password]}
-                name="current_password"
-                type="password"
-                label="Current Password"
-                value={@current_password}
-                required
-              />
-              <:actions>
-                <.button phx-disable-with="Changing..." class="btn-primary">
-                  Change Password
-                </.button>
-              </:actions>
-            </.simple_form>
+            <%= if @show_password_form do %>
+              <.simple_form
+                for={@password_form}
+                id={"#{@id}-password-form"}
+                action={Routes.path("/users/log-in?_action=password_updated")}
+                method="post"
+                phx-change="validate_password"
+                phx-submit="update_password"
+                phx-trigger-action={@trigger_submit}
+                phx-target={@myself}
+              >
+                <input
+                  name={@password_form[:email].name}
+                  type="hidden"
+                  value={@current_email}
+                />
+                <.input
+                  field={@password_form[:password]}
+                  type="password"
+                  label="New Password"
+                  required
+                />
+                <.input
+                  field={@password_form[:password_confirmation]}
+                  type="password"
+                  label="Confirm New Password"
+                />
+                <.input
+                  field={@password_form[:current_password]}
+                  name="current_password"
+                  type="password"
+                  label="Current Password"
+                  value={@current_password}
+                  required
+                />
+                <:actions>
+                  <.button phx-disable-with="Changing..." class="btn-primary">
+                    Update Password
+                  </.button>
+                </:actions>
+              </.simple_form>
+            <% end %>
           </div>
 
           <div class="divider"></div>
