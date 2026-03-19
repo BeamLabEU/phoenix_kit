@@ -255,8 +255,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           socket
       end
 
+    # Custom fields are nested under profile_form[user][custom_fields]
+    custom_fields_data = get_in(params, ["profile_form", "user", "custom_fields"])
+
     merged_params =
-      case params["custom_fields"] do
+      case custom_fields_data do
         custom_fields when is_map(custom_fields) ->
           Map.put(user_params, "custom_fields", custom_fields)
 
@@ -286,8 +289,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     %{"user" => user_params} = params
     user = socket.assigns.user
 
+    # Custom fields are nested under profile_form[user][custom_fields]
+    custom_fields_data = get_in(params, ["profile_form", "user", "custom_fields"])
+
     merged_params =
-      case params["custom_fields"] do
+      case custom_fields_data do
         custom_fields when is_map(custom_fields) ->
           existing_avatar = get_in(user.custom_fields, ["avatar_file_uuid"])
 
@@ -656,7 +662,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
         <%!-- Profile Section --%>
         <%= if :profile in @sections do %>
-          <div class="mb-8">
+          <div>
             <%!-- Profile Form with Avatar --%>
             <.simple_form
               for={@profile_form}
@@ -667,7 +673,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
             >
               <div class="flex gap-4 items-start">
                 <%!-- Avatar Section --%>
-                <div class="flex gap-2">
+                <div class="flex flex-col items-center gap-2">
                   <%= if get_in(@user.custom_fields, ["avatar_file_uuid"]) do %>
                     <% avatar_url =
                       PhoenixKit.Modules.Storage.URLSigner.signed_url(
@@ -677,11 +683,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     <img
                       src={avatar_url}
                       alt="Avatar"
-                      class="w-24 h-24 rounded-lg object-cover border-2 border-primary"
+                      class="w-40 h-40 rounded-full object-cover border-2 border-primary"
                     />
                   <% else %>
-                    <div class="w-24 h-24 rounded-lg bg-primary/10 border-2 border-primary flex items-center justify-center">
-                      <span class="text-3xl font-bold text-primary">
+                    <div class="w-40 h-40 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
+                      <span class="text-5xl font-bold text-primary">
                         {String.upcase(String.at(@user.email, 0))}
                       </span>
                     </div>
@@ -694,7 +700,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 </div>
 
                 <%!-- Name Fields --%>
-                <div class="flex-1 space-y-3">
+                <div class="flex-1 grid grid-cols-2 gap-3">
                   <.input
                     field={@profile_form[:first_name]}
                     type="text"
@@ -705,24 +711,72 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     type="text"
                     label="Last Name"
                   />
+                  <div class="col-span-2">
+                    <.input
+                      field={@profile_form[:username]}
+                      type="text"
+                      label="Username"
+                    />
+                    <div class="divider mt-8 mb-2"></div>
+                  </div>
+                  <%= for field <- @custom_field_definitions do %>
+                    <% field_name = "profile_form[user][custom_fields][#{field["key"]}]" %>
+                    <% field_id = "profile_form_user_custom_fields_#{field["key"]}" %>
+                    <% field_value =
+                      get_in(@user.custom_fields, [field["key"]]) || field["default"] || "" %>
+                    <div class="col-span-2">
+                      <label class="label" for={field_id}>
+                        <span class="label-text">{field["label"]}</span>
+                      </label>
+                      <%= case field["type"] do %>
+                        <% "select" -> %>
+                          <select
+                            name={field_name}
+                            id={field_id}
+                            class="select select-bordered w-full"
+                          >
+                            <%= for {option, index} <- Enum.with_index(field["options"] || []) do %>
+                              <% {label, _value} =
+                                if is_binary(option),
+                                  do: {option, option},
+                                  else: {option["label"], option["value"]} %>
+                              <% index_str = to_string(index) %>
+                              <% field_value_str = to_string(field_value) %>
+                              <% is_selected = field_value_str == index_str %>
+                              <option value={index_str} selected={is_selected}>
+                                {label}
+                              </option>
+                            <% end %>
+                          </select>
+                        <% _ -> %>
+                          <input
+                            type="text"
+                            name={field_name}
+                            id={field_id}
+                            value={field_value}
+                            class="input input-bordered w-full"
+                          />
+                      <% end %>
+                    </div>
+                  <% end %>
                 </div>
               </div>
 
               <:actions>
-                <.button phx-disable-with="Updating..." class="btn-primary">
-                  Update Profile
-                </.button>
+                <div class="ml-auto">
+                  <.button phx-disable-with="Updating..." class="btn-primary">
+                    Update Profile
+                  </.button>
+                </div>
               </:actions>
             </.simple_form>
+            <div class="divider"></div>
           </div>
-
-          <%!-- Divider --%>
-          <div class="divider"></div>
         <% end %>
 
         <%!-- Email Section --%>
         <%= if :email in @sections do %>
-          <div class="mb-8">
+          <div>
             <div class="flex items-center justify-between">
               <h2 class="text-lg font-semibold flex items-center gap-2">
                 <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> Email Address
@@ -779,20 +833,22 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   required
                 />
                 <:actions>
-                  <.button phx-disable-with="Changing..." class="btn-primary">
-                    Update Email
-                  </.button>
+                  <div class="ml-auto">
+                    <.button phx-disable-with="Changing..." class="btn-primary">
+                      Update Email
+                    </.button>
+                  </div>
                 </:actions>
               </.simple_form>
             <% end %>
           </div>
-
-          <div class="divider"></div>
         <% end %>
+
+        <div class="divider"></div>
 
         <%!-- Password Section --%>
         <%= if :password in @sections do %>
-          <div class="mb-8">
+          <div>
             <div class="flex items-center justify-between">
               <h2 class="text-lg font-semibold flex items-center gap-2">
                 <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> Password
@@ -862,15 +918,15 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   required
                 />
                 <:actions>
-                  <.button phx-disable-with="Changing..." class="btn-primary">
-                    Update Password
-                  </.button>
+                  <div class="ml-auto">
+                    <.button phx-disable-with="Changing..." class="btn-primary">
+                      Update Password
+                    </.button>
+                  </div>
                 </:actions>
               </.simple_form>
             <% end %>
           </div>
-
-          <div class="divider"></div>
         <% end %>
 
         <%!-- OAuth Section --%>
