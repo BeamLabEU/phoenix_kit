@@ -17,8 +17,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
-  # Import publishing-specific components
-  import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
+  import PhoenixKitWeb.Components.LanguageSwitcher
 
   @impl true
   def mount(params, _session, socket) do

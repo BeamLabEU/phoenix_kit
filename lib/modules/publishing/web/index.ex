@@ -13,11 +13,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   alias PhoenixKit.Modules.Publishing.Web.Editor.Helpers
 
   @group_statuses Constants.group_statuses()
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
+
+  import PhoenixKitWeb.Components.LanguageSwitcher
 
   @impl true
   def mount(_params, _session, socket) do
@@ -404,4 +407,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
   end
 
   defp extract_endpoint_url(_), do: ""
+
+  defp build_language_pills(language_codes) when is_list(language_codes) do
+    Enum.map(language_codes, fn lang ->
+      info = LanguageHelpers.get_language_info(lang)
+
+      %{
+        code: lang,
+        short_code: String.upcase(lang),
+        name: if(info, do: info.name, else: lang),
+        exists: true
+      }
+    end)
+  end
 end

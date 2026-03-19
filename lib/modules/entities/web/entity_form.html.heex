@@ -62,10 +62,13 @@
             )}
           </h2>
 
-          <% translations = (@entity.settings || %{})["translations"] || %{} %>
-          <% is_secondary = @multilang_enabled && @current_lang != @primary_language %>
           <% lang_translations =
-            if is_secondary, do: translations[@current_lang] || %{}, else: %{} %>
+            if @multilang_enabled && @current_lang != @primary_language do
+              translations = (@entity.settings || %{})["translations"] || %{}
+              translations[@current_lang] || %{}
+            else
+              %{}
+            end %>
 
           <%!-- Language tabs --%>
           <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
@@ -77,187 +80,110 @@
                 )}
               </span>
             </div>
-
-            <% compact = length(@language_tabs) > 5 %>
-            <div
-              role="tablist"
-              class="inline-flex flex-wrap items-center gap-1 p-1 bg-base-200 rounded-box mb-4"
-            >
-              <%= if compact do %>
-                <%= for {tab, idx} <- Enum.with_index(@language_tabs) do %>
-                  <%= if idx > 0 do %>
-                    <span class="text-base-content/30 text-xs">|</span>
-                  <% end %>
-                  <button
-                    type="button"
-                    role="tab"
-                    phx-click={switch_lang_js(tab.code, @current_lang)}
-                    title={tab.name}
-                    class={[
-                      "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
-                      @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
-                    ]}
-                  >
-                    <%= if tab.flag do %>
-                      <span>{tab.flag}</span>
-                    <% end %>
-                    <span>{tab.short_code}</span>
-                    <%= if tab.is_primary do %>
-                      <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
-                    <% end %>
-                  </button>
-                <% end %>
-              <% else %>
-                <%= for tab <- @language_tabs do %>
-                  <%= if tab.is_primary do %>
-                    <button
-                      type="button"
-                      role="tab"
-                      phx-click={switch_lang_js(tab.code, @current_lang)}
-                      class={[
-                        "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all font-medium cursor-pointer",
-                        @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
-                      ]}
-                    >
-                      <%= if tab.flag do %>
-                        <span>{tab.flag}</span>
-                      <% end %>
-                      <span>{tab.name}</span>
-                      <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
-                    </button>
-                    <span class="w-px h-4 bg-base-content/20 self-center"></span>
-                  <% else %>
-                    <button
-                      type="button"
-                      role="tab"
-                      phx-click={switch_lang_js(tab.code, @current_lang)}
-                      class={[
-                        "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
-                        @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
-                      ]}
-                    >
-                      <%= if tab.flag do %>
-                        <span>{tab.flag}</span>
-                      <% end %>
-                      <span>{tab.name}</span>
-                    </button>
-                  <% end %>
-                <% end %>
-              <% end %>
-            </div>
           <% end %>
 
-          <%!-- Skeleton placeholders (shown instantly on tab click).
-               IMPORTANT: IDs MUST include @current_lang so morphdom treats them as new
-               elements on language switch. Static IDs would preserve JS-modified classes
-               across LiveView patches, causing skeletons to stick. --%>
-          <div
-            id={"translatable-skeletons-#{@current_lang}"}
-            data-translatable="skeletons"
-            class="hidden space-y-6"
-            aria-busy="true"
-            aria-label={gettext("Loading language content")}
-          >
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-36"></div>
-                <div class="skeleton h-12 w-full"></div>
-                <div class="skeleton h-3 w-48"></div>
-              </div>
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-36"></div>
-                <div class="skeleton h-12 w-full"></div>
-                <div class="skeleton h-3 w-48"></div>
-              </div>
-            </div>
-            <div class="space-y-2">
-              <div class="skeleton h-4 w-24"></div>
-              <div class="skeleton h-12 w-full"></div>
-              <div class="skeleton h-3 w-56"></div>
-            </div>
-            <div class="space-y-2">
-              <div class="skeleton h-4 w-40"></div>
-              <div class="skeleton h-24 w-full"></div>
-            </div>
-          </div>
+          <.multilang_tabs
+            multilang_enabled={@multilang_enabled}
+            language_tabs={@language_tabs}
+            current_lang={@current_lang}
+            show_header={false}
+            show_info={false}
+            class="mb-4"
+          />
 
-          <%!-- Translatable fields --%>
-          <div
-            id={"translatable-fields-#{@current_lang}"}
-            data-translatable="fields"
-            class="space-y-6"
+          <.multilang_fields_wrapper
+            multilang_enabled={@multilang_enabled}
+            current_lang={@current_lang}
+            skeleton_class="space-y-6"
+            fields_class="space-y-6"
           >
+            <:skeleton>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                  <div class="skeleton h-4 w-36"></div>
+                  <div class="skeleton h-12 w-full"></div>
+                  <div class="skeleton h-3 w-48"></div>
+                </div>
+                <div class="space-y-2">
+                  <div class="skeleton h-4 w-36"></div>
+                  <div class="skeleton h-12 w-full"></div>
+                  <div class="skeleton h-3 w-48"></div>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div class="skeleton h-4 w-24"></div>
+                <div class="skeleton h-12 w-full"></div>
+                <div class="skeleton h-3 w-56"></div>
+              </div>
+              <div class="space-y-2">
+                <div class="skeleton h-4 w-40"></div>
+                <div class="skeleton h-24 w-full"></div>
+              </div>
+            </:skeleton>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <%!-- Entity Name (Singular) --%>
-              <div>
-                <.label for="entity_display_name">
-                  {gettext("Entity Name (Singular)")}{unless is_secondary, do: " *"}
-                </.label>
-                <%= if is_secondary do %>
-                  <input
-                    id={"entity_display_name_#{@current_lang}"}
-                    type="text"
-                    name={"entities[translations][#{@current_lang}][display_name]"}
-                    value={lang_translations["display_name"]}
-                    placeholder={f[:display_name].value || gettext("Brand")}
-                    class="input input-bordered w-full"
-                    phx-debounce="300"
-                    disabled={@readonly?}
-                  />
-                <% else %>
-                  <.input
-                    field={f[:display_name]}
-                    type="text"
-                    placeholder={gettext("Brand")}
-                    phx-debounce="300"
-                    disabled={@readonly?}
-                  />
-                <% end %>
-                <.label class="label">
-                  <span class="label-text-alt">
-                    {gettext("Singular form (e.g., \"Brand\")")}
-                  </span>
-                </.label>
-              </div>
+              <.translatable_field
+                field_name="display_name"
+                form_prefix="entities"
+                changeset={@changeset}
+                schema_field={:display_name}
+                multilang_enabled={@multilang_enabled}
+                current_lang={@current_lang}
+                primary_language={@primary_language}
+                lang_data={lang_translations}
+                secondary_name={"entities[translations][#{@current_lang}][display_name]"}
+                lang_data_key="display_name"
+                label={gettext("Entity Name (Singular)")}
+                placeholder={gettext("Brand")}
+                required
+                disabled={@readonly?}
+                class="w-full"
+                hint={gettext("Singular form (e.g., \"Brand\")")}
+              />
 
               <%!-- Entity Name (Plural) --%>
-              <div>
-                <.label for="entity_display_name_plural">
-                  {gettext("Entity Name (Plural)")}{unless is_secondary, do: " *"}
-                </.label>
-                <%= if is_secondary do %>
-                  <input
-                    id={"entity_display_name_plural_#{@current_lang}"}
-                    type="text"
-                    name={"entities[translations][#{@current_lang}][display_name_plural]"}
-                    value={lang_translations["display_name_plural"]}
-                    placeholder={f[:display_name_plural].value || gettext("Brands")}
-                    class="input input-bordered w-full"
-                    phx-debounce="300"
-                    disabled={@readonly?}
-                  />
-                <% else %>
-                  <.input
-                    field={f[:display_name_plural]}
-                    type="text"
-                    placeholder={gettext("Brands")}
-                    phx-debounce="300"
-                    disabled={@readonly?}
-                  />
-                <% end %>
-                <.label class="label">
-                  <span class="label-text-alt">
-                    {gettext("Plural form (e.g., \"Brands\")")}
-                  </span>
-                </.label>
-              </div>
+              <.translatable_field
+                field_name="display_name_plural"
+                form_prefix="entities"
+                changeset={@changeset}
+                schema_field={:display_name_plural}
+                multilang_enabled={@multilang_enabled}
+                current_lang={@current_lang}
+                primary_language={@primary_language}
+                lang_data={lang_translations}
+                secondary_name={"entities[translations][#{@current_lang}][display_name_plural]"}
+                lang_data_key="display_name_plural"
+                label={gettext("Entity Name (Plural)")}
+                placeholder={gettext("Brands")}
+                required
+                disabled={@readonly?}
+                class="w-full"
+                hint={gettext("Plural form (e.g., \"Brands\")")}
+              />
             </div>
 
             <%!-- Slug (translatable) --%>
-            <div>
-              <.label for="entity_name">
-                {gettext("Slug")}{unless is_secondary, do: " *"}
-                <%= unless is_secondary do %>
+            <.translatable_field
+              field_name="name"
+              form_prefix="entities"
+              changeset={@changeset}
+              schema_field={:name}
+              multilang_enabled={@multilang_enabled}
+              current_lang={@current_lang}
+              primary_language={@primary_language}
+              lang_data={lang_translations}
+              secondary_name={"entities[translations][#{@current_lang}][name]"}
+              lang_data_key="name"
+              label={gettext("Slug")}
+              placeholder={gettext("brand")}
+              required
+              disabled={@readonly?}
+              class="w-full"
+              hint={gettext("snake_case identifier used in the system")}
+            >
+              <:label_extra>
+                <%= if !@multilang_enabled || @current_lang == @primary_language do %>
                   <button
                     type="button"
                     class="btn btn-ghost btn-xs ml-2"
@@ -268,62 +194,29 @@
                     <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
                   </button>
                 <% end %>
-              </.label>
-              <%= if is_secondary do %>
-                <input
-                  id={"entity_name_#{@current_lang}"}
-                  type="text"
-                  name={"entities[translations][#{@current_lang}][name]"}
-                  value={lang_translations["name"]}
-                  placeholder={f[:name].value || gettext("brand")}
-                  class="input input-bordered w-full"
-                  phx-debounce="300"
-                  disabled={@readonly?}
-                />
-              <% else %>
-                <.input
-                  field={f[:name]}
-                  type="text"
-                  placeholder={gettext("brand")}
-                  phx-debounce="300"
-                  disabled={@readonly?}
-                />
-              <% end %>
-              <.label class="label">
-                <span class="label-text-alt">
-                  {gettext("snake_case identifier used in the system")}
-                </span>
-              </.label>
-            </div>
+              </:label_extra>
+            </.translatable_field>
 
             <%!-- Description (translatable) --%>
-            <div>
-              <.label for="entity_description">{gettext("Description (Optional)")}</.label>
-              <%= if is_secondary do %>
-                <textarea
-                  id={"entity_description_#{@current_lang}"}
-                  name={"entities[translations][#{@current_lang}][description]"}
-                  placeholder={
-                    f[:description].value || gettext("Describe what this entity represents...")
-                  }
-                  class="textarea textarea-bordered w-full"
-                  rows="3"
-                  phx-debounce="300"
-                  disabled={@readonly?}
-                >{lang_translations["description"]}</textarea>
-              <% else %>
-                <textarea
-                  id="entity_description"
-                  name={f[:description].name}
-                  placeholder={gettext("Describe what this entity represents...")}
-                  class="textarea textarea-bordered w-full"
-                  rows="3"
-                  phx-debounce="300"
-                  disabled={@readonly?}
-                >{f[:description].value}</textarea>
-              <% end %>
-            </div>
-          </div>
+            <.translatable_field
+              field_name="description"
+              form_prefix="entities"
+              changeset={@changeset}
+              schema_field={:description}
+              multilang_enabled={@multilang_enabled}
+              current_lang={@current_lang}
+              primary_language={@primary_language}
+              lang_data={lang_translations}
+              secondary_name={"entities[translations][#{@current_lang}][description]"}
+              lang_data_key="description"
+              label={gettext("Description (Optional)")}
+              placeholder={gettext("Describe what this entity represents...")}
+              type="textarea"
+              rows={3}
+              disabled={@readonly?}
+              class="w-full"
+            />
+          </.multilang_fields_wrapper>
         </div>
       </div>
 
