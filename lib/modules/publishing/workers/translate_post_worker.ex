@@ -78,7 +78,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   alias PhoenixKit.Users.Auth.Scope
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: args}) do
+  def perform(%Oban.Job{args: args, attempt: attempt, inserted_at: inserted_at}) do
     group_slug = Map.fetch!(args, "group_slug")
     post_uuid = Map.fetch!(args, "post_uuid")
     version = Map.get(args, "version")
@@ -94,10 +94,20 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     target_languages = Map.get(args, "target_languages") || get_target_languages(source_language)
     user_uuid = Map.get(args, "user_uuid")
 
+    # On retry (attempt > 1), skip languages that were already translated
+    # by a previous attempt of this job (content updated after job was inserted).
+    target_languages =
+      if attempt > 1 do
+        skip_already_translated(target_languages, group_slug, post_uuid, version, inserted_at)
+      else
+        target_languages
+      end
+
     Logger.info(
       "[TranslatePostWorker] Starting translation of #{group_slug}/#{post_uuid} " <>
         "from #{source_language} to #{length(target_languages)} languages " <>
-        "(version: #{inspect(version)}, endpoint: #{inspect(endpoint_uuid)}, prompt: #{inspect(prompt_uuid)})"
+        "(version: #{inspect(version)}, endpoint: #{inspect(endpoint_uuid)}, prompt: #{inspect(prompt_uuid)}" <>
+        if(attempt > 1, do: ", attempt: #{attempt}", else: "") <> ")"
     )
 
     # Validate AI module is enabled and prompt is provided
@@ -171,7 +181,18 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   end
 
   @impl Oban.Worker
-  def timeout(_job), do: :timer.minutes(10)
+  def timeout(%Oban.Job{args: args}) do
+    # Scale timeout based on number of target languages.
+    # Each translation takes 20-60s, so allow ~90s per language as headroom.
+    target_count =
+      case Map.get(args, "target_languages") do
+        langs when is_list(langs) -> length(langs)
+        _ -> length(get_target_languages("__placeholder__"))
+      end
+
+    minutes = max(15, ceil(target_count * 1.5))
+    :timer.minutes(minutes)
+  end
 
   # Translate to all target languages sequentially
   defp translate_to_languages(
@@ -184,7 +205,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
        ) do
     group_slug = source_post.group
     total = length(target_languages)
-    broadcast_id = source_post.slug || source_post[:uuid]
+    broadcast_id = PublishingPubSub.broadcast_id(source_post)
 
     # Broadcast that translation has started
     PublishingPubSub.broadcast_translation_started(group_slug, broadcast_id, target_languages)
@@ -637,6 +658,59 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   defp get_target_languages(source_language) do
     LanguageHelpers.enabled_language_codes()
     |> Enum.reject(&(&1 == source_language))
+  end
+
+  @doc false
+  # Skip languages that were already translated by a previous attempt of this job.
+  # Checks content rows directly via DBStorage to avoid read_post's fallback behavior.
+  def skip_already_translated(target_languages, _group_slug, post_uuid, version, job_inserted_at) do
+    alias PhoenixKit.Modules.Publishing.DBStorage
+
+    # Resolve the version UUID to check content rows directly
+    version_uuid = resolve_version_uuid(post_uuid, version)
+
+    already_done =
+      if version_uuid do
+        Enum.filter(target_languages, fn lang ->
+          case DBStorage.get_content(version_uuid, lang) do
+            %{updated_at: updated_at} when not is_nil(updated_at) ->
+              DateTime.compare(updated_at, job_inserted_at) == :gt
+
+            _ ->
+              false
+          end
+        end)
+      else
+        []
+      end
+
+    remaining = target_languages -- already_done
+
+    if already_done != [] do
+      Logger.info(
+        "[TranslatePostWorker] Skipping #{length(already_done)} already-translated languages: #{Enum.join(already_done, ", ")}"
+      )
+    end
+
+    remaining
+  end
+
+  defp resolve_version_uuid(post_uuid, nil) do
+    alias PhoenixKit.Modules.Publishing.DBStorage
+
+    case DBStorage.get_latest_version(post_uuid) do
+      %{uuid: uuid} -> uuid
+      _ -> nil
+    end
+  end
+
+  defp resolve_version_uuid(post_uuid, version_number) do
+    alias PhoenixKit.Modules.Publishing.DBStorage
+
+    case DBStorage.get_version(post_uuid, version_number) do
+      %{uuid: uuid} -> uuid
+      _ -> nil
+    end
   end
 
   # Get default endpoint ID from settings

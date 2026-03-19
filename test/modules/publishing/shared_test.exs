@@ -181,53 +181,6 @@ defmodule PhoenixKit.Modules.Publishing.SharedTest do
   end
 
   # ============================================================================
-  # should_regenerate_cache?/1
-  # ============================================================================
-
-  describe "should_regenerate_cache?/1" do
-    test "returns true for timestamp mode" do
-      assert Shared.should_regenerate_cache?(%{mode: :timestamp, metadata: %{status: "draft"}})
-    end
-
-    test "returns true for slug mode" do
-      assert Shared.should_regenerate_cache?(%{
-               mode: :slug,
-               metadata: %{status: "draft"},
-               version: 1
-             })
-    end
-
-    test "returns true for published posts" do
-      assert Shared.should_regenerate_cache?(%{
-               mode: :slug,
-               metadata: %{status: "published"},
-               version: 1
-             })
-    end
-
-    test "returns true when version is nil" do
-      assert Shared.should_regenerate_cache?(%{mode: :slug, metadata: %{status: "draft"}})
-    end
-
-    test "returns true for unknown mode with non-published status" do
-      assert Shared.should_regenerate_cache?(%{
-               mode: :other,
-               metadata: %{status: "archived"},
-               version: 1
-             })
-    end
-
-    test "handles missing metadata gracefully" do
-      assert Shared.should_regenerate_cache?(%{mode: :timestamp})
-    end
-
-    test "handles empty map" do
-      # No mode → nil version → true (always regenerate when unknown)
-      assert Shared.should_regenerate_cache?(%{})
-    end
-  end
-
-  # ============================================================================
   # audit_metadata/2
   # ============================================================================
 

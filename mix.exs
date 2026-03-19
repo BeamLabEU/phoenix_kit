@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.76"
+  @version "1.7.78"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -31,11 +31,13 @@ defmodule PhoenixKit.MixProject do
 
   def cli do
     [
-      preferred_env: [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
-        "coveralls.html": :test
+        "coveralls.html": :test,
+        "test.setup": :test,
+        "test.reset": :test
       ],
 
       # Dialyzer configuration
@@ -76,7 +78,7 @@ defmodule PhoenixKit.MixProject do
       {:phoenix, "~> 1.8.1"},
       {:phoenix_ecto, "~> 4.6"},
       {:phoenix_html, "~> 4.0"},
-      {:phoenix_live_view, "~> 1.1.12"},
+      {:phoenix_live_view, "~> 1.1"},
 
       # Web functionality
       {:gettext, "~> 1.0"},
@@ -103,12 +105,12 @@ defmodule PhoenixKit.MixProject do
       {:usage_rules, "~> 0.1", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4.6", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:floki, ">= 0.30.0", only: :test},
       {:hackney, "~> 1.9"},
 
       # Content editor
-      {:leaf, "~> 0.1.0"},
+      {:leaf, "~> 0.2.2"},
 
       # Utilities
       {:jason, "~> 1.4"},
@@ -144,7 +146,7 @@ defmodule PhoenixKit.MixProject do
       {:igniter, "~> 0.7"},
 
       # Language and country data
-      {:beamlab_countries, "~> 1.0.5"}
+      {:beamlab_countries, "~> 1.0"}
     ]
   end
 
@@ -194,6 +196,10 @@ defmodule PhoenixKit.MixProject do
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
+
+      # Test database management
+      "test.setup": ["ecto.create --quiet", "ecto.migrate --quiet"],
+      "test.reset": ["ecto.drop --quiet", "test.setup"],
 
       # Code quality
       quality: ["format", "credo --strict", "dialyzer"],

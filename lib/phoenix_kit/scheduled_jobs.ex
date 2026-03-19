@@ -250,6 +250,43 @@ defmodule PhoenixKit.ScheduledJobs do
     |> repo().one()
   end
 
+  @doc """
+  Deletes old completed jobs to prevent table bloat.
+
+  ## Parameters
+
+  - `days` - Retention period in days (default: 7)
+  - `statuses` - List of statuses to delete (default: ["executed", "failed", "cancelled"])
+
+  ## Returns
+
+  - `{count, nil}` - Number of deleted records
+
+  ## Examples
+
+      iex> delete_old_jobs(7)
+      {1234, nil}
+
+      iex> delete_old_jobs(30, ["executed"])
+      {500, nil}
+  """
+  def delete_old_jobs(days \\ 7, statuses \\ ["executed", "failed", "cancelled"]) do
+    cutoff_date = DateTime.add(UtilsDate.utc_now(), -days * 24 * 3600, :second)
+
+    {count, _} =
+      from(j in ScheduledJob,
+        where: j.status in ^statuses,
+        where: j.updated_at < ^cutoff_date
+      )
+      |> repo().delete_all(log: false)
+
+    if count > 0 do
+      Logger.info("ScheduledJobs: Deleted #{count} old job(s) older than #{days} days")
+    end
+
+    {count, nil}
+  end
+
   ## Private Functions
 
   defp execute_job(%ScheduledJob{} = job) do

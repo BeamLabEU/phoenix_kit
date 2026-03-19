@@ -31,6 +31,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   alias PhoenixKit.Modules.Publishing.Web.Controller.Listing
   alias PhoenixKit.Modules.Publishing.Web.Controller.PostRendering
   alias PhoenixKit.Modules.Publishing.Web.Controller.Routing
+  alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Settings
 
   # ============================================================================
@@ -160,6 +161,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   defp handle_group_listing(conn, group_slug, language) do
     case Listing.render_group_listing(conn, group_slug, language, conn.params) do
       {:ok, assigns} ->
+        listing_url = PublishingHTML.group_listing_path(assigns.current_language, group_slug)
+
+        base_url =
+          "#{conn.scheme}://#{conn.host}#{if conn.port in [80, 443], do: "", else: ":#{conn.port}"}"
+
         conn
         |> assign(:page_title, assigns.page_title)
         |> assign(:group, assigns.group)
@@ -171,6 +177,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
         |> assign(:total_count, assigns.total_count)
         |> assign(:total_pages, assigns.total_pages)
         |> assign(:breadcrumbs, assigns.breadcrumbs)
+        |> assign(:og, %{
+          title: assigns.group["name"],
+          url: base_url <> listing_url,
+          locale: assigns.current_language,
+          type: "website"
+        })
         |> render(:index)
 
       {:redirect, url} ->
@@ -188,6 +200,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   defp handle_post(conn, group_slug, identifier, language) do
     case PostRendering.render_post(conn, group_slug, identifier, language) do
       {:ok, assigns} ->
+        canonical_url =
+          PublishingHTML.build_post_url(group_slug, assigns.post, assigns.current_language)
+
         conn
         |> assign(:page_title, assigns.page_title)
         |> assign(:group_slug, assigns.group_slug)
@@ -197,6 +212,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
         |> assign(:translations, assigns.translations)
         |> assign(:breadcrumbs, assigns.breadcrumbs)
         |> assign(:version_dropdown, assigns.version_dropdown)
+        |> assign(:og, build_og_data(conn, assigns.post, canonical_url, assigns.current_language))
         |> render(:show)
 
       {:redirect, url} ->
@@ -228,6 +244,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
         |> assign(:is_live_version, assigns.is_live_version)
         |> assign(:version, assigns.version)
         |> assign(:version_dropdown, assigns.version_dropdown)
+        |> assign(
+          :og,
+          build_og_data(conn, assigns.post, assigns.canonical_url, assigns.current_language)
+        )
         |> render(:show)
 
       {:error, reason} ->
@@ -238,6 +258,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   defp handle_date_only_url(conn, group_slug, date, language) do
     case PostRendering.handle_date_only_url(conn, group_slug, date, language) do
       {:ok, assigns} ->
+        canonical_url =
+          PublishingHTML.build_post_url(group_slug, assigns.post, assigns.current_language)
+
         conn
         |> assign(:page_title, assigns.page_title)
         |> assign(:group_slug, assigns.group_slug)
@@ -247,6 +270,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
         |> assign(:translations, assigns.translations)
         |> assign(:breadcrumbs, assigns.breadcrumbs)
         |> assign(:version_dropdown, assigns.version_dropdown)
+        |> assign(:og, build_og_data(conn, assigns.post, canonical_url, assigns.current_language))
         |> render(:show)
 
       {:redirect, url} ->
@@ -292,4 +316,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   defp set_gettext_locale(language) do
     Gettext.put_locale(PhoenixKitWeb.Gettext, language)
   end
+
+  defp build_og_data(conn, post, canonical_url, language) do
+    seo = Map.get(post.metadata, :seo) || Map.get(post, :seo) || %{}
+    description = seo["og_description"] || Map.get(post.metadata, :description)
+    image = seo["og_image"] || PublishingHTML.featured_image_url(post, "large")
+
+    base_url =
+      "#{conn.scheme}://#{conn.host}#{if conn.port in [80, 443], do: "", else: ":#{conn.port}"}"
+
+    %{
+      title: seo["og_title"] || post.metadata.title,
+      description: description,
+      image: absolute_url(base_url, image),
+      url: absolute_url(base_url, canonical_url),
+      locale: language,
+      type: "article"
+    }
+  end
+
+  defp absolute_url(_base, nil), do: nil
+  defp absolute_url(_base, ""), do: nil
+
+  defp absolute_url(base, url) when is_binary(url) do
+    if String.starts_with?(url, "http://") or String.starts_with?(url, "https://"),
+      do: url,
+      else: base <> url
+  end
+
+  defp absolute_url(_base, _url), do: nil
 end

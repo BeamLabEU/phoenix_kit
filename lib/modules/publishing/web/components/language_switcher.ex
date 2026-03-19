@@ -176,8 +176,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
       </button>
     <% else %>
       <%= if @lang[:url] do %>
-        <a
-          href={@lang[:url]}
+        <.link
+          navigate={@lang[:url]}
           class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
           title={language_title(@lang, @exists, @status, @show_status, @enabled, @known)}
         >
@@ -194,7 +194,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
             known={@known}
             is_primary={@is_primary}
           />
-        </a>
+        </.link>
       <% else %>
         <span
           class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
@@ -326,13 +326,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
       cond do
         # Disabled or unknown languages: grey styling but still clickable
         is_current and (!enabled or !known) ->
-          "bg-base-content/10 text-base-content/50 font-semibold cursor-pointer"
+          "bg-base-content/30 text-base-content/50 font-semibold cursor-pointer"
 
         (!enabled or !known) and exists ->
           "text-base-content/40 hover:bg-base-200/50 cursor-pointer"
 
         is_current ->
-          "bg-primary/10 text-primary font-semibold"
+          "bg-primary/30 text-primary font-semibold"
 
         !exists && show_add ->
           "text-success hover:bg-success/10 cursor-pointer"

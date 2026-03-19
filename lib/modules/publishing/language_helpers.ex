@@ -209,6 +209,29 @@ defmodule PhoenixKit.Modules.Publishing.LanguageHelpers do
   end
 
   # ===========================================================================
+  # Language Map Key Resolution
+  # ===========================================================================
+
+  @doc """
+  Resolves a display language code to a key in a language map.
+
+  Language maps (e.g., `language_titles`, `language_slugs`) use full dialect
+  codes as keys (e.g., `"en-US"`), but the display/canonical language may be
+  a base code (e.g., `"en"`) when only one dialect is enabled.
+
+  Tries exact match first, then falls back to base code matching.
+  """
+  @spec resolve_language_key(String.t(), [String.t()]) :: String.t()
+  def resolve_language_key(language, available_keys) do
+    if language in available_keys do
+      language
+    else
+      base = DialectMapper.extract_base(language)
+      Enum.find(available_keys, language, fn key -> DialectMapper.extract_base(key) == base end)
+    end
+  end
+
+  # ===========================================================================
   # Post Language Building
   # ===========================================================================
 

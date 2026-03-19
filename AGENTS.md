@@ -49,14 +49,63 @@ git status
 
 ### Testing & Code Quality
 
-PhoenixKit is a library module. Smoke tests + static analysis here; integration testing in parent apps.
+PhoenixKit has two levels of tests:
 
-- `mix test` - Smoke tests (module loading)
-- `mix format` - Format code
-- `mix credo --strict` - Static analysis
-- `mix dialyzer` - Type checking
-- `mix quality` - Run all quality checks
-- `mix quality.ci` - Run all quality checks for CI (strict formatting check)
+1. **Unit tests** (`test/phoenix_kit/`, `test/modules/`) — Pure logic, no DB required
+2. **Integration tests** (`test/integration/`, `test/modules/publishing/integration/`) — Real PostgreSQL via Ecto sandbox
+
+#### Test database setup
+
+```bash
+mix test.setup    # Create DB + run migrations (first time)
+mix test          # Run all tests (migrations run automatically via test_helper)
+mix test.reset    # Drop + recreate DB if needed
+```
+
+The test DB (`phoenix_kit_test`) uses an embedded `PhoenixKit.Test.Repo` in `test/support/test_repo.ex`. Migrations are in `test/support/postgres/migrations/`. No parent app required.
+
+**Without PostgreSQL:** If the test DB doesn't exist, integration tests are automatically excluded and unit tests still run. You'll see:
+```
+⚠  Test database "phoenix_kit_test" not found — integration tests will be excluded.
+   Run `mix test.setup` to create the test database.
+868 tests, 0 failures, 274 excluded
+```
+
+#### Test commands
+
+- `mix test` — Run all tests (unit + integration if DB available)
+- `mix test test/integration/` — Run only user integration tests
+- `mix test test/modules/publishing/integration/` — Run only publishing integration tests
+- `mix format` — Format code
+- `mix credo --strict` — Static analysis
+- `mix dialyzer` — Type checking
+- `mix quality` — Run all quality checks
+- `mix quality.ci` — Run all quality checks for CI (strict formatting check)
+
+#### Writing new integration tests
+
+Use `PhoenixKit.DataCase` for tests that need the database. Tests using `DataCase` are automatically tagged `:integration` and excluded when the DB is unavailable.
+
+```elixir
+defmodule PhoenixKit.Integration.MyTest do
+  use PhoenixKit.DataCase, async: true
+
+  test "example" do
+    {:ok, user} = PhoenixKit.Users.Auth.register_user(%{
+      email: "test@example.com",
+      password: "ValidPassword123!"
+    })
+    assert user.uuid
+  end
+end
+```
+
+#### Test infrastructure files
+
+- `test/support/test_repo.ex` — `PhoenixKit.Test.Repo` (Ecto repo for tests)
+- `test/support/data_case.ex` — `PhoenixKit.DataCase` (sandbox setup, `:integration` tag)
+- `test/support/postgres/migrations/` — Migration wrapper calling `PhoenixKit.Migrations.up()`
+- `config/test.exs` — DB config, sandbox pool, repo wiring
 
 ### Code Search
 
@@ -75,7 +124,7 @@ ast-grep --lang elixir --pattern 'def $FUNC($$$ARGS) do $$$BODY end' lib/
 
 ### CI/CD
 
-GitHub Actions on push to `main`, `dev`, `claude/**` and all PRs. Checks: formatting, credo, dialyzer, compilation (warnings as errors), dependency audit, smoke tests.
+GitHub Actions on push to `main`, `dev`, `claude/**` and all PRs. Checks: formatting, credo, dialyzer, compilation (warnings as errors), dependency audit, tests (with PostgreSQL).
 
 ### Commit Message Rules
 

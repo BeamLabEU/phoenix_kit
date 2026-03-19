@@ -259,6 +259,8 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   end
 
   @doc "Trashes a post by setting status to 'trashed'."
+  # Uses Ecto.Changeset.change/2 instead of the full changeset to avoid
+  # slug validation errors on posts with nil/blank slugs.
   def trash_post(%PublishingPost{} = post) do
     post
     |> Ecto.Changeset.change(status: "trashed")
@@ -400,15 +402,18 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   from getting the same number.
   """
   def next_version_number(post_uuid) do
-    result =
+    # Lock existing version rows to prevent concurrent inserts,
+    # then compute max in Elixir. FOR UPDATE cannot be combined
+    # with aggregate functions in PostgreSQL.
+    versions =
       from(v in PublishingVersion,
         where: v.post_uuid == ^post_uuid,
-        select: max(v.version_number),
+        select: v.version_number,
         lock: "FOR UPDATE"
       )
-      |> repo().one()
+      |> repo().all()
 
-    (result || 0) + 1
+    Enum.max(versions, fn -> 0 end) + 1
   end
 
   @doc """
@@ -446,7 +451,7 @@ defmodule PhoenixKit.Modules.Publishing.DBStorage do
   end
 
   defp copy_contents_to_version(source_version_uuid, target_version_uuid) do
-    now = DateTime.utc_now()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     rows =
       list_contents(source_version_uuid)

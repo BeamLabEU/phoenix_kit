@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Constants
+  alias PhoenixKit.Modules.Publishing.LanguageHelpers
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Storage
 
@@ -115,7 +116,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
 
       # language_slugs map from cache
       map_size(Map.get(post, :language_slugs, %{})) > 0 ->
-        Map.get(post.language_slugs, language, post.slug)
+        resolved_key =
+          LanguageHelpers.resolve_language_key(language, Map.keys(post.language_slugs))
+
+        Map.get(post.language_slugs, resolved_key, post.slug)
 
       # metadata.url_slug
       is_map(Map.get(post, :metadata)) and Map.get(post.metadata, :url_slug) not in [nil, ""] ->

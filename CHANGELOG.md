@@ -1,3 +1,55 @@
+## 1.7.78 - 2026-03-18
+
+### Added
+- Add Tailwind/daisyUI class injection for markdown rendering — replaces inline `<style>` block with classes injected during Earmark post-processing (works without `@tailwindcss/typography` plugin)
+- Add blank line preservation in markdown content — intentional double blank lines render as visible spacing
+- Add translation worker retry resilience — on retry, already-translated languages are skipped by checking content timestamps against job `inserted_at`
+- Add dynamic timeout scaling for translation worker (~1.5 min per language, minimum 15 minutes)
+- Add structured logging with consistent prefixes (`[Sync.Notifier]`, `[Sync.API]`, `[Sync.Connections]`) throughout Sync connection flow
+- Add connection event logging on both sender and receiver sides for debugging
+
+### Changed
+- Rename Sync "Sender/Receiver" terminology to "Outgoing/Incoming" across UI
+- Allow editing incoming Sync connections (previously restricted to outgoing only)
+- Remove "with permanent connections" from Sync index page subtitle
+- Bump markdown render cache version to v2 to invalidate stale cached HTML
+
+### Fixed
+- Fix Sync sender URL resolving to `localhost:4000` — now checks DB `site_url` setting before falling back to endpoint config
+- Fix `auth_token_hash` logged in full — truncate to first 8 characters in Sync connection logs
+- Fix double `get_our_site_url()` call per notification — pass resolved URL instead of recomputing
+- Fix Sync crash on non-UTF8 binary data — base64-encode raw binaries during serialization, decode on import
+- Fix Sync pull error responses silently ignored — add `Logger.error` to all failure paths (401, 404, HTTP errors, offline, invalid response)
+- Fix Sync completion UI not showing skipped/errored records — track and display per-table import counts with warning state
+
+## 1.7.77 - 2026-03-17
+
+### Added
+- Add Open Graph and Twitter Card meta tags for public publishing pages (og:title, og:description, og:image, og:url, og:locale, canonical link, and Twitter Card tags)
+- Add `og:site_name` meta tag using project title
+- Add `resolve_language_key/2` helper to `LanguageHelpers` for base code to dialect code matching in language maps
+- Add Tailwind Typography prose overrides using daisyUI theme variables (oklch(--bc), oklch(--p), oklch(--b2), oklch(--b3)) for theme-aware markdown styling
+- Add automated scheduled jobs cleanup to prevent table bloat (deletes completed jobs older than 7 days)
+- Add `lastmod` (last modified) to sitemap entries for SEO — router-discovered routes use beam file mtime, static entries use current date
+
+### Changed
+- Replace inline markdown CSS with centralized prose overrides in `app.css` using `@layer base` (removes 323 lines of duplication)
+- Update publishing preview template to show full public interface with working language switcher
+- Move `MarkdownContent` component to use Tailwind prose classes instead of custom inline styles
+- Extract duplicated `resolve_language_key/2` from `listing.ex` and `html.ex` to shared `LanguageHelpers` module
+- Extract `update_post_from_form/3` from publishing editor to reduce cyclomatic complexity (from >10 to <10)
+- Update Leaf content editor dependency from v0.1.0 to v0.2.0
+
+### Fixed
+- Fix `mix phoenix_kit.status` showing V01 instead of actual migration version — properly start Repo with parent app config when using `--no-start`
+- Fix language map lookup when canonical URL uses base code (e.g., "en" → "en-US" matching)
+- Fix `absolute_url/2` to use stricter URL protocol checking ("http://" or "https://" instead of just "http")
+- Fix preview language links to conditionally include version parameter only when version is non-nil
+- Fix translation reload showing primary language content instead of translated content
+- Fix PubSub subscription mismatch for translation and version events on timestamp-mode posts (slug vs uuid topic mismatch)
+- Fix email template seeding failing on fresh install (wrap string fields in i18n maps)
+- Fix whitespace in slug format examples on publishing group pages
+
 ## 1.7.76 - 2026-03-16
 
 ### Fixed

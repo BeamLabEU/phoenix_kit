@@ -184,9 +184,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   end
 
   defp subscribe_to_post_translations(socket) do
-    case socket.assigns[:post] && socket.assigns.post[:slug] do
-      post_slug when is_binary(post_slug) ->
-        PublishingPubSub.subscribe_to_post_translations(socket.assigns.group_slug, post_slug)
+    case PublishingPubSub.broadcast_id(socket.assigns[:post]) do
+      id when is_binary(id) ->
+        PublishingPubSub.subscribe_to_post_translations(socket.assigns.group_slug, id)
 
       _ ->
         :ok
@@ -194,9 +194,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor.Collaborative do
   end
 
   defp subscribe_to_post_versions(socket) do
-    case socket.assigns[:post] && socket.assigns.post[:slug] do
-      post_slug when is_binary(post_slug) ->
-        PublishingPubSub.subscribe_to_post_versions(socket.assigns.group_slug, post_slug)
+    case PublishingPubSub.broadcast_id(socket.assigns[:post]) do
+      id when is_binary(id) ->
+        PublishingPubSub.subscribe_to_post_versions(socket.assigns.group_slug, id)
 
       _ ->
         :ok

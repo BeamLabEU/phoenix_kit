@@ -322,7 +322,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
 
     UrlEntry.new(%{
       loc: url,
-      lastmod: nil,
+      lastmod: module_lastmod(route),
       changefreq: "weekly",
       priority: 0.5,
       title: title,
@@ -330,6 +330,43 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
       source: :router_discovery
     })
   end
+
+  # Approximate lastmod from the beam file modification time of the route's LiveView module.
+  # Falls back to the plug module if no LiveView metadata is found.
+  defp module_lastmod(route) do
+    module = extract_liveview_module(route) || route.plug
+    beam_file_mtime(module)
+  rescue
+    _ -> nil
+  end
+
+  defp extract_liveview_module(route) do
+    case route.metadata do
+      %{phoenix_live_view: {module, _, _, _}} when is_atom(module) -> module
+      %{phoenix_live_view: {module, _, _}} when is_atom(module) -> module
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp beam_file_mtime(module) when is_atom(module) do
+    case :code.which(module) do
+      beam_path when is_list(beam_path) ->
+        case File.stat(List.to_string(beam_path)) do
+          {:ok, %{mtime: mtime}} ->
+            NaiveDateTime.from_erl!(mtime) |> DateTime.from_naive!("Etc/UTC")
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp beam_file_mtime(_), do: nil
 
   defp build_url(path, nil) do
     base = Settings.get_setting("site_url", "")

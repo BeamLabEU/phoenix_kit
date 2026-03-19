@@ -313,6 +313,164 @@ defmodule PhoenixKit.Modules.Sync.SchemaInspector do
     end
   end
 
+  @doc """
+  Returns a map of table_name => list of referenced table names (FK dependencies).
+  Only includes tables in the public schema.
+  """
+  def get_all_foreign_keys(opts \\ []) do
+    schema = Keyword.get(opts, :schema, "public")
+
+    query = """
+    SELECT DISTINCT
+      t.relname AS table_name,
+      r.relname AS referenced_table
+    FROM pg_constraint c
+    JOIN pg_class t ON c.conrelid = t.oid
+    JOIN pg_class r ON c.confrelid = r.oid
+    JOIN pg_namespace n ON t.relnamespace = n.oid
+    WHERE c.contype = 'f'
+      AND n.nspname = $1
+    ORDER BY t.relname, r.relname
+    """
+
+    case RepoHelper.query(query, [schema]) do
+      {:ok, %{rows: rows}} ->
+        # Query uses DISTINCT so no dedup needed — just group by table
+        fk_map =
+          Enum.group_by(rows, fn [table, _] -> table end, fn [_, ref] -> ref end)
+
+        {:ok, fk_map}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Returns a content checksum for a table (MD5 hash of all rows cast to text).
+  Used to detect actual data differences beyond row count.
+
+  Skips checksumming for tables with more than `max_rows` rows (default: 10_000)
+  to avoid expensive full-table scans. Returns `{:ok, :too_large}` in that case.
+  """
+  @checksum_max_rows 10_000
+
+  def get_table_checksum(table_name, opts \\ []) do
+    schema = Keyword.get(opts, :schema, "public")
+    max_rows = Keyword.get(opts, :max_rows, @checksum_max_rows)
+
+    if valid_identifier?(table_name) and valid_identifier?(schema) do
+      do_table_checksum(schema, table_name, max_rows)
+    else
+      {:error, :invalid_identifier}
+    end
+  end
+
+  defp do_table_checksum(schema, table_name, max_rows) do
+    count_query = "SELECT COUNT(*) FROM \"#{schema}\".\"#{table_name}\""
+
+    case RepoHelper.query(count_query, []) do
+      {:ok, %{rows: [[0]]}} ->
+        {:ok, "empty"}
+
+      {:ok, %{rows: [[count]]}} when count > max_rows ->
+        {:ok, :too_large}
+
+      {:ok, %{rows: [[_count]]}} ->
+        compute_table_md5(schema, table_name)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp compute_table_md5(schema, table_name) do
+    query = """
+    SELECT md5(string_agg(t::text, '' ORDER BY t::text))
+    FROM "#{schema}"."#{table_name}" AS t
+    """
+
+    case RepoHelper.query(query, []) do
+      {:ok, %{rows: [[nil]]}} -> {:ok, "empty"}
+      {:ok, %{rows: [[checksum]]}} -> {:ok, checksum}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Returns FK column details for a table: list of %{column, referenced_table, referenced_column}.
+  """
+  def get_foreign_key_columns(table_name, opts \\ []) do
+    schema = Keyword.get(opts, :schema, "public")
+
+    query = """
+    SELECT
+      a.attname AS column_name,
+      r.relname AS referenced_table,
+      a2.attname AS referenced_column
+    FROM pg_constraint c
+    JOIN pg_class t ON c.conrelid = t.oid
+    JOIN pg_namespace n ON t.relnamespace = n.oid
+    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(c.conkey)
+    JOIN pg_class r ON c.confrelid = r.oid
+    JOIN pg_attribute a2 ON a2.attrelid = r.oid AND a2.attnum = ANY(c.confkey)
+    WHERE c.contype = 'f'
+      AND n.nspname = $1
+      AND t.relname = $2
+    """
+
+    case RepoHelper.query(query, [schema, table_name]) do
+      {:ok, %{rows: rows}} ->
+        fks =
+          Enum.map(rows, fn [col, ref_table, ref_col] ->
+            %{column: col, referenced_table: ref_table, referenced_column: ref_col}
+          end)
+
+        {:ok, fks}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Returns unique constraint columns for a table (excluding primary key).
+  Used to match records by unique fields (e.g., match users by email).
+  Returns list of lists (each inner list is a set of columns forming a unique constraint).
+  """
+  def get_unique_columns(table_name, opts \\ []) do
+    schema = Keyword.get(opts, :schema, "public")
+
+    query = """
+    SELECT
+      i.indexrelid,
+      a.attname
+    FROM pg_index i
+    JOIN pg_class t ON i.indrelid = t.oid
+    JOIN pg_namespace n ON t.relnamespace = n.oid
+    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(i.indkey)
+    WHERE i.indisunique = true
+      AND NOT i.indisprimary
+      AND n.nspname = $1
+      AND t.relname = $2
+    ORDER BY i.indexrelid, a.attnum
+    """
+
+    case RepoHelper.query(query, [schema, table_name]) do
+      {:ok, %{rows: rows}} ->
+        # Group columns by index
+        unique_sets =
+          rows
+          |> Enum.group_by(fn [idx_oid, _col] -> idx_oid end, fn [_idx_oid, col] -> col end)
+          |> Map.values()
+
+        {:ok, unique_sets}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   defp valid_identifier?(name) when is_binary(name) do
     # Only allow alphanumeric and underscores, must start with letter or underscore
     Regex.match?(~r/^[a-zA-Z_][a-zA-Z0-9_]*$/, name)
