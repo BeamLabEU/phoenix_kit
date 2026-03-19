@@ -656,7 +656,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     ~H"""
     <div class="card bg-base-100 shadow-xl max-w-4xl mx-auto">
       <div class="card-body">
-        <h1 class="card-title text-2xl mb-6">
+        <h1 class="card-title text-2xl">
           <.icon name="hero-user-circle" class="w-6 h-6" /> Account Settings
         </h1>
 
