@@ -671,9 +671,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               phx-change="validate_profile"
               phx-target={@myself}
             >
-              <div class="flex gap-4 items-start">
+              <div class="flex flex-col gap-6 lg:flex-row lg:gap-4 lg:items-start">
                 <%!-- Avatar Section --%>
-                <div class="flex flex-col items-center gap-2">
+                <div class="flex flex-col items-center gap-2 mx-auto lg:mx-0">
                   <%= if get_in(@user.custom_fields, ["avatar_file_uuid"]) do %>
                     <% avatar_url =
                       PhoenixKit.Modules.Storage.URLSigner.signed_url(
@@ -700,7 +700,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 </div>
 
                 <%!-- Name Fields --%>
-                <div class="flex-1 grid grid-cols-2 gap-3">
+                <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 w-full">
                   <.input
                     field={@profile_form[:first_name]}
                     type="text"
@@ -711,7 +711,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     type="text"
                     label="Last Name"
                   />
-                  <div class="col-span-2">
+                  <div class="col-span-1 lg:col-span-2">
                     <.input
                       field={@profile_form[:username]}
                       type="text"
@@ -724,7 +724,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     <% field_id = "profile_form_user_custom_fields_#{field["key"]}" %>
                     <% field_value =
                       get_in(@user.custom_fields, [field["key"]]) || field["default"] || "" %>
-                    <div class="col-span-2">
+                    <div class="col-span-1 lg:col-span-2">
                       <label class="label" for={field_id}>
                         <span class="label-text">{field["label"]}</span>
                       </label>
