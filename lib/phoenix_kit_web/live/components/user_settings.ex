@@ -665,9 +665,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               phx-change="validate_profile"
               phx-target={@myself}
             >
-              <div class="flex gap-6">
-                <%!-- Avatar Column --%>
-                <div class="flex flex-col items-center gap-3">
+              <div class="flex gap-4 items-start">
+                <%!-- Avatar Section --%>
+                <div class="flex gap-2">
                   <%= if get_in(@user.custom_fields, ["avatar_file_uuid"]) do %>
                     <% avatar_url =
                       PhoenixKit.Modules.Storage.URLSigner.signed_url(
@@ -677,11 +677,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     <img
                       src={avatar_url}
                       alt="Avatar"
-                      class="w-16 h-16 rounded-full object-cover border-2 border-primary"
+                      class="w-24 h-24 rounded-lg object-cover border-2 border-primary"
                     />
                   <% else %>
-                    <div class="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
-                      <span class="text-xl font-bold text-primary">
+                    <div class="w-24 h-24 rounded-lg bg-primary/10 border-2 border-primary flex items-center justify-center">
+                      <span class="text-3xl font-bold text-primary">
                         {String.upcase(String.at(@user.email, 0))}
                       </span>
                     </div>
@@ -693,8 +693,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   />
                 </div>
 
-                <%!-- Name Fields Column --%>
-                <div class="flex-1 space-y-4">
+                <%!-- Name Fields --%>
+                <div class="flex-1 space-y-3">
                   <.input
                     field={@profile_form[:first_name]}
                     type="text"
@@ -707,56 +707,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   />
                 </div>
               </div>
-
-              <%!-- Avatar Messages --%>
-              <%= if @last_uploaded_avatar_uuid do %>
-                <div class="alert alert-success text-sm mb-4">
-                  <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
-                  <span>Avatar uploaded successfully!</span>
-                </div>
-              <% end %>
-              <%= if @avatar_error_message do %>
-                <div class="alert alert-error text-sm mb-4">
-                  <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
-                  <span>{@avatar_error_message}</span>
-                </div>
-              <% end %>
-
-              <%!-- Custom Fields --%>
-              <%= for field_def <- @custom_field_definitions do %>
-                <%= case field_def["type"] do %>
-                  <% "text" -> %>
-                    <.input
-                      name={"custom_fields[#{field_def["key"]}]"}
-                      type="text"
-                      label={field_def["label"]}
-                      value={get_in(@user.custom_fields, [field_def["key"]]) || field_def["default"]}
-                      required={field_def["required"]}
-                    />
-                  <% "select" -> %>
-                    <.select
-                      name={"custom_fields[#{field_def["key"]}]"}
-                      label={field_def["label"]}
-                      options={Enum.map(field_def["options"], &{&1, &1})}
-                      value={get_in(@user.custom_fields, [field_def["key"]]) || field_def["default"]}
-                      required={field_def["required"]}
-                    />
-                  <% _ -> %>
-                    <.input
-                      name={"custom_fields[#{field_def["key"]}]"}
-                      type="text"
-                      label={field_def["label"]}
-                      value={get_in(@user.custom_fields, [field_def["key"]]) || field_def["default"]}
-                      required={field_def["required"]}
-                    />
-                <% end %>
-              <% end %>
-
-              <.select
-                field={@profile_form[:user_timezone]}
-                label="Timezone"
-                options={@timezone_options}
-              />
 
               <:actions>
                 <.button phx-disable-with="Updating..." class="btn-primary">
