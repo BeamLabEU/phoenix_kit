@@ -1,3 +1,27 @@
+## 1.7.78 - 2026-03-18
+
+### Added
+- Add Tailwind/daisyUI class injection for markdown rendering — replaces inline `<style>` block with classes injected during Earmark post-processing (works without `@tailwindcss/typography` plugin)
+- Add blank line preservation in markdown content — intentional double blank lines render as visible spacing
+- Add translation worker retry resilience — on retry, already-translated languages are skipped by checking content timestamps against job `inserted_at`
+- Add dynamic timeout scaling for translation worker (~1.5 min per language, minimum 15 minutes)
+- Add structured logging with consistent prefixes (`[Sync.Notifier]`, `[Sync.API]`, `[Sync.Connections]`) throughout Sync connection flow
+- Add connection event logging on both sender and receiver sides for debugging
+
+### Changed
+- Rename Sync "Sender/Receiver" terminology to "Outgoing/Incoming" across UI
+- Allow editing incoming Sync connections (previously restricted to outgoing only)
+- Remove "with permanent connections" from Sync index page subtitle
+- Bump markdown render cache version to v2 to invalidate stale cached HTML
+
+### Fixed
+- Fix Sync sender URL resolving to `localhost:4000` — now checks DB `site_url` setting before falling back to endpoint config
+- Fix `auth_token_hash` logged in full — truncate to first 8 characters in Sync connection logs
+- Fix double `get_our_site_url()` call per notification — pass resolved URL instead of recomputing
+- Fix Sync crash on non-UTF8 binary data — base64-encode raw binaries during serialization, decode on import
+- Fix Sync pull error responses silently ignored — add `Logger.error` to all failure paths (401, 404, HTTP errors, offline, invalid response)
+- Fix Sync completion UI not showing skipped/errored records — track and display per-table import counts with warning state
+
 ## 1.7.77 - 2026-03-17
 
 ### Added

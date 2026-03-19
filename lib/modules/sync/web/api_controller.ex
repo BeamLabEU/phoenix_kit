@@ -24,6 +24,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.Modules.Sync.Transfers
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -880,7 +881,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
           "[Sync.API] Incoming connection created " <>
             "| uuid=#{connection.uuid} " <>
             "| site_url=#{connection.site_url} " <>
-            "| auth_token_hash=#{connection.auth_token_hash} " <>
+            "| auth_token_hash=#{String.slice(connection.auth_token_hash || "", 0, 8)}… " <>
             "| status=#{connection.status}"
         )
 
@@ -995,12 +996,31 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
     ORDER BY t.table_name
     """
 
+    # Get FK dependency map
+    fk_map =
+      case SchemaInspector.get_all_foreign_keys() do
+        {:ok, map} -> map
+        _ -> %{}
+      end
+
     case SQL.query(repo, tables_query, []) do
       {:ok, %{rows: rows}} ->
-        # Get actual row counts for each table
         Enum.map(rows, fn [name, size_bytes] ->
           row_count = get_actual_row_count(repo, name)
-          %{"name" => name, "row_count" => row_count, "size_bytes" => size_bytes}
+
+          checksum =
+            case SchemaInspector.get_table_checksum(name) do
+              {:ok, cs} when is_binary(cs) -> cs
+              _ -> nil
+            end
+
+          %{
+            "name" => name,
+            "row_count" => row_count,
+            "size_bytes" => size_bytes,
+            "checksum" => checksum,
+            "depends_on" => Map.get(fk_map, name, [])
+          }
         end)
 
       {:error, _} ->
@@ -1098,7 +1118,15 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   defp serialize_value(%Date{} = d), do: Date.to_iso8601(d)
   defp serialize_value(%Time{} = t), do: Time.to_iso8601(t)
   defp serialize_value(%Decimal{} = d), do: Decimal.to_string(d)
-  defp serialize_value(binary) when is_binary(binary), do: binary
+
+  defp serialize_value(binary) when is_binary(binary) do
+    if String.valid?(binary) do
+      binary
+    else
+      %{"__phoenix_kit_binary__" => Base.encode64(binary)}
+    end
+  end
+
   defp serialize_value(val), do: val
 
   defp validate_schema_params(params) do
