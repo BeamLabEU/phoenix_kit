@@ -27,6 +27,8 @@ defmodule PhoenixKitWeb.Components.Core.PhoenixKitGlobals do
   """
   use Phoenix.Component
 
+  alias PhoenixKit.Utils.Routes
+
   @doc """
   Renders script tags that set PhoenixKit global variables and clear
   any cached transport fallback preferences.
@@ -34,7 +36,7 @@ defmodule PhoenixKitWeb.Components.Core.PhoenixKitGlobals do
   attr :rest, :global
 
   def phoenix_kit_globals(assigns) do
-    prefix = PhoenixKit.Utils.Routes.url_prefix()
+    prefix = Routes.url_prefix()
 
     assigns = assign(assigns, :prefix, prefix)
 
