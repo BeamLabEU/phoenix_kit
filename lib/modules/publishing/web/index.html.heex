@@ -164,14 +164,13 @@
                         </span>
                       </summary>
                       <%= if insight.languages != [] do %>
-                        <div class="flex flex-wrap gap-1.5 mt-1.5 pl-4">
-                          <%= for language <- insight.languages do %>
-                            <span class="badge badge-ghost badge-sm px-2 py-1">
-                              {language
-                              |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
-                              |> String.upcase()}
-                            </span>
-                          <% end %>
+                        <div class="pl-4">
+                          <.language_switcher
+                            languages={build_language_pills(insight.languages)}
+                            show_status={false}
+                            variant={:pills}
+                            size={:xs}
+                          />
                         </div>
                       <% else %>
                         <p class="text-xs text-base-content/50 mt-1 pl-4">{gettext("None")}</p>

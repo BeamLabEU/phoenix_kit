@@ -385,7 +385,7 @@
                       <%!-- Other translations (excluding primary) --%>
                       <%= if @post_view_mode == "trashed" do %>
                         <div class="opacity-60 pointer-events-none">
-                          <.publishing_language_switcher
+                          <.language_switcher
                             languages={other_languages}
                             show_status={true}
                             show_add={false}
@@ -393,7 +393,7 @@
                           />
                         </div>
                       <% else %>
-                        <.publishing_language_switcher
+                        <.language_switcher
                           languages={other_languages}
                           show_status={true}
                           show_add={true}

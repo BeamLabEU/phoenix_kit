@@ -9,13 +9,13 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
   require Logger
 
-  alias Phoenix.LiveView.JS
+  import PhoenixKitWeb.Components.MultilangForm
+
   alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Modules.Entities.FieldTypes
   alias PhoenixKit.Modules.Entities.Mirror.Exporter
   alias PhoenixKit.Modules.Entities.Mirror.Storage
-  alias PhoenixKit.Modules.Entities.Multilang
   alias PhoenixKit.Modules.Entities.Presence
   alias PhoenixKit.Modules.Entities.PresenceHelpers
   alias PhoenixKit.Settings
@@ -61,11 +61,6 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
 
     live_source = ensure_live_source(socket)
 
-    # Multilang state
-    multilang_enabled = Multilang.enabled?()
-    primary_language = if multilang_enabled, do: Multilang.primary_language(), else: nil
-    language_tabs = Multilang.build_language_tabs()
-
     socket =
       socket
       |> assign(:page_title, page_title)
@@ -90,11 +85,8 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
       |> assign(:delete_confirm_index, nil)
       |> assign(:has_unsaved_changes, false)
       |> assign(:mirror_path, Storage.root_path())
-      |> assign(:multilang_enabled, multilang_enabled)
-      |> assign(:primary_language, primary_language)
-      |> assign(:current_lang, primary_language)
-      |> assign(:language_tabs, language_tabs)
       |> assign(:sort_mode, Entities.get_sort_mode(entity))
+      |> mount_multilang()
 
     socket =
       if connected?(socket) do
@@ -183,25 +175,8 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
     end
   end
 
-  defp switch_lang_js(lang_code, current_lang) do
-    if lang_code == current_lang do
-      # Already on this tab — no-op to prevent skeleton ghosts
-      %JS{}
-    else
-      JS.push("switch_language", value: %{lang: lang_code})
-      |> JS.add_class("hidden", to: "[data-translatable=fields]")
-      |> JS.remove_class("hidden", to: "[data-translatable=skeletons]")
-    end
-  end
-
   def handle_event("switch_language", %{"lang" => lang_code}, socket) do
-    enabled_langs = Multilang.enabled_languages()
-
-    if lang_code in enabled_langs do
-      {:noreply, assign(socket, :current_lang, lang_code)}
-    else
-      {:noreply, socket}
-    end
+    {:noreply, handle_switch_language(socket, lang_code)}
   end
 
   @impl true
