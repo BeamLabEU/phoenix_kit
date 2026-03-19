@@ -187,7 +187,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
         </div>
 
         <%!-- Language Selector (only when multilang enabled) --%>
-        <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
+        <%= if @show_multilang_tabs do %>
           <div class="card bg-base-100 shadow-xl mb-6">
             <.multilang_tabs
               multilang_enabled={@multilang_enabled}

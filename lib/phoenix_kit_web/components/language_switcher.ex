@@ -188,11 +188,25 @@ defmodule PhoenixKitWeb.Components.LanguageSwitcher do
 
     last_idx = max(length(languages) - 1, 0)
 
+    # Precompute which indices get a divider after them, so we don't need
+    # Enum.at/2 lookups during rendering.
+    divider_indices =
+      if assigns.primary_divider do
+        languages
+        |> Enum.with_index()
+        |> Enum.filter(fn {lang, idx} -> show_divider?(true, lang, idx, last_idx) end)
+        |> Enum.map(fn {_lang, idx} -> idx end)
+        |> MapSet.new()
+      else
+        MapSet.new()
+      end
+
     assigns =
       assigns
       |> assign(:filtered_languages, languages)
       |> assign(:use_full_names, use_full_names)
       |> assign(:last_idx, last_idx)
+      |> assign(:divider_indices, divider_indices)
 
     ~H"""
     <div
@@ -202,11 +216,10 @@ defmodule PhoenixKitWeb.Components.LanguageSwitcher do
       class={switcher_container_class(@variant, @size, @class)}
     >
       <%= for {lang, idx} <- Enum.with_index(@filtered_languages) do %>
-        <% prev_lang = if idx > 0, do: Enum.at(@filtered_languages, idx - 1) %>
-        <% prev_had_divider =
-          prev_lang && show_divider?(@primary_divider, prev_lang, idx - 1, @last_idx) %>
         <span
-          :if={idx > 0 && !prev_had_divider && show_separator?(@variant, @use_full_names)}
+          :if={
+            idx > 0 && (idx - 1) not in @divider_indices && show_separator?(@variant, @use_full_names)
+          }
           class={["text-base-content/30", size_text_class(@size)]}
         >
           |
@@ -227,7 +240,7 @@ defmodule PhoenixKitWeb.Components.LanguageSwitcher do
           size={@size}
         />
         <span
-          :if={show_divider?(@primary_divider, lang, idx, @last_idx)}
+          :if={idx in @divider_indices}
           class="w-px h-4 bg-base-content/20 self-center"
         />
       <% end %>
@@ -578,8 +591,6 @@ defmodule PhoenixKitWeb.Components.LanguageSwitcher do
   defp show_separator?(:inline, _use_full_names), do: true
   defp show_separator?(:tabs, use_full_names), do: !use_full_names
   defp show_separator?(:pills, _use_full_names), do: false
-
-  defp show_divider?(false, _lang, _idx, _last_idx), do: false
 
   defp show_divider?(true, lang, idx, last_idx) do
     lang_primary?(lang) && idx < last_idx

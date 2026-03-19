@@ -101,17 +101,21 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   @doc """
   Adds multilang assigns to the socket. Call from `mount/3`.
 
-  Adds: `:multilang_enabled`, `:primary_language`, `:current_lang`, `:language_tabs`
+  Adds: `:multilang_enabled`, `:primary_language`, `:current_lang`, `:language_tabs`,
+  `:show_multilang_tabs`
   """
   def mount_multilang(socket) do
     multilang_enabled = multilang_enabled?()
     primary_language = if multilang_enabled, do: safe_primary_language(), else: nil
 
+    language_tabs = if(multilang_enabled, do: safe_build_language_tabs(), else: [])
+
     Phoenix.Component.assign(socket,
       multilang_enabled: multilang_enabled,
       primary_language: primary_language,
       current_lang: primary_language,
-      language_tabs: if(multilang_enabled, do: safe_build_language_tabs(), else: [])
+      language_tabs: language_tabs,
+      show_multilang_tabs: multilang_enabled and length(language_tabs) > 1
     )
   end
 
@@ -140,7 +144,8 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
       multilang_enabled: multilang_enabled,
       primary_language: primary_language,
       current_lang: current_lang,
-      language_tabs: language_tabs
+      language_tabs: language_tabs,
+      show_multilang_tabs: multilang_enabled and length(language_tabs) > 1
     )
   end
 
@@ -295,6 +300,21 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
     !assigns[:multilang_enabled] || assigns[:current_lang] == assigns[:primary_language]
   end
 
+  @doc """
+  Preserves primary-language DB field values when on a secondary language tab.
+
+  On secondary tabs, some fields (like title, slug) are absent from form params
+  because they're replaced by `lang_*` inputs. This function fills in the missing
+  values from the changeset so the DB columns keep their primary-language values.
+
+  `preserve_fields` is a map of `%{"field_name" => :schema_field}`.
+
+  No-ops when multilang is disabled or on the primary tab.
+  """
+  def preserve_primary_fields(params, changeset, assigns, preserve_fields) do
+    do_preserve_primary_fields(params, changeset, assigns, preserve_fields)
+  end
+
   @doc "Returns true when the Languages module is enabled with 2+ languages."
   def multilang_enabled? do
     Code.ensure_loaded?(Multilang) and Multilang.enabled?()
@@ -440,7 +460,7 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
     assigns = assign(assigns, :display, display)
 
     ~H"""
-    <div :if={@multilang_enabled && length(@language_tabs) > 1} class={@class}>
+    <div :if={@multilang_enabled && match?([_, _ | _], @language_tabs)} class={@class}>
       <div :if={@show_header} class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <.icon name="hero-language" class="w-5 h-5 text-primary" />

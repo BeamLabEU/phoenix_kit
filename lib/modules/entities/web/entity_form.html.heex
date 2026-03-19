@@ -71,7 +71,7 @@
             end %>
 
           <%!-- Language tabs --%>
-          <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
+          <%= if @show_multilang_tabs do %>
             <div class="alert alert-info py-2 text-xs mb-4">
               <.icon name="hero-information-circle" class="w-4 h-4" />
               <span>

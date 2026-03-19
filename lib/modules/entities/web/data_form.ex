@@ -20,6 +20,9 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Slug
 
+  # Fields that should keep their primary-language DB column value on secondary tabs.
+  @preserve_fields %{"title" => :title, "slug" => :slug, "status" => :status}
+
   @impl true
   def mount(%{"entity_slug" => entity_slug, "uuid" => uuid} = params, _session, socket) do
     # Set locale for LiveView process
@@ -353,7 +356,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       |> inject_db_field_into_data("slug", data_params, current_lang, socket.assigns)
 
     # On secondary language tabs, preserve primary-language fields that aren't in the form
-    data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
+    data_params =
+      preserve_primary_fields(
+        data_params,
+        socket.assigns.changeset,
+        socket.assigns,
+        @preserve_fields
+      )
 
     case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
       {:ok, validated_data} ->
@@ -431,7 +440,13 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
       |> inject_db_field_into_data("slug", data_params, current_lang, socket.assigns)
 
     # On secondary language tabs, preserve primary-language fields that aren't in the form
-    data_params = preserve_primary_fields(data_params, socket.assigns.changeset)
+    data_params =
+      preserve_primary_fields(
+        data_params,
+        socket.assigns.changeset,
+        socket.assigns,
+        @preserve_fields
+      )
 
     # Validate the form data against entity field definitions
     case FormBuilder.validate_data(socket.assigns.entity, form_data, current_lang) do
@@ -826,22 +841,6 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   end
 
   # Helper Functions
-
-  # When on a secondary language tab, preserve primary-language DB fields.
-  # Title on secondary tab goes to JSONB _title via inject_db_field_into_data;
-  # the DB title column must keep the primary language value.
-  @preserve_fields %{"title" => :title, "slug" => :slug, "status" => :status}
-
-  defp preserve_primary_fields(data_params, changeset) do
-    Enum.reduce(@preserve_fields, data_params, fn {str_key, atom_key}, acc ->
-      if Map.has_key?(acc, str_key) do
-        acc
-      else
-        value = Ecto.Changeset.get_field(changeset, atom_key)
-        if value, do: Map.put(acc, str_key, value), else: acc
-      end
-    end)
-  end
 
   defp do_generate_slug(socket) do
     changeset = socket.assigns.changeset

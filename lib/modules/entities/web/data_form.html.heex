@@ -68,7 +68,7 @@
         </button>
       </div>
 
-      <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
+      <%= if @show_multilang_tabs do %>
         <%!-- Multilang: unified card with language tabs wrapping all content --%>
         <% lang_data = get_lang_data(@changeset, @current_lang, @multilang_enabled) %>
         <div class="card bg-base-100 shadow-xl">
