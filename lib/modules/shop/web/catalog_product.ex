@@ -270,8 +270,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         :category_icon_mode,
         Settings.get_setting_cached("shop_category_icon_mode", "none")
       )
-      |> assign(:admin_edit_url, Routes.path("/admin/shop/products/#{product.uuid}/edit"))
-      |> assign(:admin_edit_label, "Edit Product")
+      |> AdminEditHelper.assign_admin_edit(
+        Routes.path("/admin/shop/products/#{product.uuid}/edit"),
+        "Edit Product"
+      )
 
     {:ok, socket}
   end

@@ -20,10 +20,21 @@
     </div>
     <%!-- Group Header --%>
     <header class="mb-8">
-      <h1 class="text-2xl sm:text-4xl font-bold mb-2">{@group["name"]}</h1>
-      <p class="text-base sm:text-lg text-base-content/70">
-        {ngettext("1 post", "%{count} posts", @total_count)}
-      </p>
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl sm:text-4xl font-bold mb-2">{@group["name"]}</h1>
+          <p class="text-base sm:text-lg text-base-content/70">
+            {ngettext("1 post", "%{count} posts", @total_count)}
+          </p>
+        </div>
+        <%!-- Admin Edit Button --%>
+        <%= if assigns[:admin_edit_url] do %>
+          <a href={@admin_edit_url} class="btn btn-sm btn-ghost gap-2">
+            <.icon name="hero-pencil-square" class="w-4 h-4" />
+            {@admin_edit_label || "Edit"}
+          </a>
+        <% end %>
+      </div>
       <%!-- Language Switcher --%>
       <%= if length(@translations) > 1 do %>
         <div class="mt-4">

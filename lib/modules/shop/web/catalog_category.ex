@@ -15,8 +15,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
   alias PhoenixKit.Modules.Shop.Web.Helpers
   alias PhoenixKit.Settings
-  alias PhoenixKitWeb.AdminEditHelper
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.AdminEditHelper
 
   @impl true
   def mount(%{"slug" => slug} = params, _session, socket) do
