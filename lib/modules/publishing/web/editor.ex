@@ -485,46 +485,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:noreply, socket}
     else
       target = Map.get(params, "_target", [])
-      params = params |> Map.drop(["_target"])
-      params = Forms.preserve_auto_url_slug(params, socket)
-
-      # When typing in the title field, the browser sends stale slug/url_slug values.
-      # Preserve the server's current slug to avoid overwriting the auto-generated value.
-      params =
-        if target == ["title"] do
-          params
-          |> Map.put("slug", socket.assigns.form["slug"] || "")
-          |> Map.put("url_slug", socket.assigns.form["url_slug"] || "")
-        else
-          params
-        end
+      params = prepare_meta_params(params, target, socket)
 
       new_form =
         socket.assigns.form
         |> Map.merge(params)
         |> Forms.normalize_form()
 
-      # Only detect manual slug edits when the user is directly editing the slug field,
-      # not when slug arrives stale from the browser during title editing
-      slug_manually_set =
-        if target == ["slug"],
-          do: detect_slug_manual_set(params, new_form, socket),
-          else: socket.assigns.slug_manually_set
-
-      url_slug_manually_set =
-        if target == ["url_slug"],
-          do: detect_url_slug_manual_set(params, new_form, socket),
-          else: socket.assigns.url_slug_manually_set
-
-      # Generate slug from title in real-time
       {socket_with_slug, new_form, slug_events} =
-        maybe_generate_slug_from_title(
-          socket,
-          params,
-          new_form,
-          slug_manually_set,
-          url_slug_manually_set
-        )
+        process_slug_updates(socket, params, target, new_form)
 
       has_changes = Forms.dirty?(socket_with_slug.assigns.post, new_form, socket.assigns.content)
       language = Helpers.editor_language(socket.assigns)
@@ -533,21 +502,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         update_post_from_form(socket.assigns.post, new_form, language)
 
       socket =
-        socket_with_slug
-        |> assign(:form, new_form)
-        |> assign(:post, updated_post)
-        |> assign(:slug_manually_set, slug_manually_set)
-        |> assign(:url_slug_manually_set, url_slug_manually_set)
-        |> assign(:has_pending_changes, has_changes)
-        |> assign(:public_url, public_url)
-        |> clear_flash()
-        |> push_event("changes-status", %{has_changes: has_changes})
-        |> Forms.push_slug_events(slug_events)
+        assign_meta_updates(
+          socket_with_slug,
+          new_form,
+          updated_post,
+          public_url,
+          has_changes,
+          slug_events
+        )
 
       socket = if has_changes, do: schedule_autosave(socket), else: socket
 
       Collaborative.broadcast_form_change(socket, :meta, new_form)
-
       socket = Collaborative.touch_activity(socket)
 
       {:noreply, socket}
@@ -1052,6 +1018,58 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       end)
 
     {updated_post, Helpers.build_public_url(updated_post, language)}
+  end
+
+  # ============================================================================
+  # Helper functions for update_meta to reduce complexity
+  # ============================================================================
+
+  defp prepare_meta_params(params, target, socket) do
+    params = Map.drop(params, ["_target"])
+    params = Forms.preserve_auto_url_slug(params, socket)
+
+    # When typing in the title field, the browser sends stale slug/url_slug values.
+    # Preserve the server's current slug to avoid overwriting the auto-generated value.
+    if target == ["title"] do
+      params
+      |> Map.put("slug", socket.assigns.form["slug"] || "")
+      |> Map.put("url_slug", socket.assigns.form["url_slug"] || "")
+    else
+      params
+    end
+  end
+
+  defp process_slug_updates(socket, params, target, new_form) do
+    slug_manually_set =
+      if target == ["slug"],
+        do: detect_slug_manual_set(params, new_form, socket),
+        else: socket.assigns.slug_manually_set
+
+    url_slug_manually_set =
+      if target == ["url_slug"],
+        do: detect_url_slug_manual_set(params, new_form, socket),
+        else: socket.assigns.url_slug_manually_set
+
+    maybe_generate_slug_from_title(
+      socket,
+      params,
+      new_form,
+      slug_manually_set,
+      url_slug_manually_set
+    )
+  end
+
+  defp assign_meta_updates(socket, new_form, updated_post, public_url, has_changes, slug_events) do
+    socket
+    |> assign(:form, new_form)
+    |> assign(:post, updated_post)
+    |> assign(:slug_manually_set, socket.assigns.slug_manually_set)
+    |> assign(:url_slug_manually_set, socket.assigns.url_slug_manually_set)
+    |> assign(:has_pending_changes, has_changes)
+    |> assign(:public_url, public_url)
+    |> clear_flash()
+    |> push_event("changes-status", %{has_changes: has_changes})
+    |> Forms.push_slug_events(slug_events)
   end
 
   # ============================================================================

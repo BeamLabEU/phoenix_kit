@@ -16,13 +16,46 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   alias PhoenixKit.Settings
 
   @cache_name :publishing_posts
-  @cache_version "v1"
+  @cache_version "v2"
 
   @global_cache_key "publishing_render_cache_enabled"
   @per_group_cache_prefix "publishing_render_cache_enabled_"
 
   @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video|EntityForm)\s+([^>]*?)\/>/s
   @component_block_regex ~r/<(Hero|CTA|Headline|Subheadline|Video|EntityForm)\s*([^>]*)>(.*?)<\/\1>/s
+
+  # Tailwind/daisyUI classes for post-processing Earmark HTML output.
+  # Code blocks (pre, code) are handled separately in style_code_blocks/1.
+  @pre_classes "bg-base-300 p-4 rounded-lg overflow-x-auto my-4"
+  @inline_code_classes "bg-base-200 px-1.5 py-0.5 rounded text-sm font-mono"
+
+  @tag_classes [
+    {"h1", "text-4xl font-bold mt-6 mb-4 pb-2 border-b border-base-content/10"},
+    {"h2", "text-3xl font-semibold mt-6 mb-3"},
+    {"h3", "text-2xl font-semibold mt-5 mb-2"},
+    {"h4", "text-xl font-semibold mt-4 mb-2"},
+    {"h5", "text-lg font-semibold mt-4 mb-2"},
+    {"h6", "text-base font-semibold mt-4 mb-2"},
+    {"p", "my-4 leading-relaxed"},
+    {"a", "link link-primary"},
+    {"blockquote", "border-l-4 border-primary pl-4 my-4 text-base-content/70 italic"},
+    {"table", "table w-full my-4"},
+    {"thead", "bg-base-200"},
+    {"th", "font-semibold text-left p-2"},
+    {"td", "border-t border-base-content/10 p-2"},
+    {"img", "max-w-full h-auto rounded-lg my-4"},
+    {"ul", "list-disc pl-8 my-4"},
+    {"ol", "list-decimal pl-8 my-4"},
+    {"li", "my-1"},
+    {"hr", "my-8 border-0 border-t-2 border-base-content/10"}
+  ]
+
+  # Build {regex_source, tag, classes} tuples at compile time.
+  # Regex structs can't be stored in module attributes, so we store the source
+  # strings and compile them once at runtime via a persistent cache.
+  @tag_patterns Enum.map(@tag_classes, fn {tag, classes} ->
+                  {"<#{Regex.escape(tag)}(?=[\\s>\\/])([^>]*)>", tag, classes}
+                end)
 
   @doc """
   Renders a post's markdown content to HTML.
@@ -158,7 +191,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
     end
   end
 
-  # Render markdown using Earmark
+  # Render markdown using Earmark, then inject Tailwind/daisyUI classes on each tag.
   defp render_earmark_markdown(content) do
     content = normalize_markdown(content)
 
@@ -168,14 +201,100 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
            gfm: true,
            escape: false
          }) do
-      {:ok, html, _warnings} -> html
-      {:error, _html, _errors} -> "<p>Error rendering markdown</p>"
+      {:ok, html, _warnings} -> add_tailwind_classes(html)
+      {:error, _html, _errors} -> ~s(<p class="text-error">Error rendering markdown</p>)
     end
   end
 
   defp normalize_markdown(content) when is_binary(content) do
+    content
     # Remove leading indentation before Markdown headings (e.g., "  ## Title")
-    Regex.replace(~r/^[ \t]+(?=#)/m, content, "")
+    |> then(&Regex.replace(~r/^[ \t]+(?=#)/m, &1, ""))
+    # Preserve intentional blank lines: convert runs of 2+ blank lines into
+    # visible spacing so the rendered output matches what the author typed.
+    # A single blank line remains a normal paragraph break (standard Markdown).
+    |> preserve_blank_lines()
+  end
+
+  # Converts sequences of 2+ consecutive blank lines into paragraph breaks
+  # with <br> spacers. Each extra blank line beyond the first becomes one <br>.
+  defp preserve_blank_lines(content) do
+    Regex.replace(~r/\n{3,}/, content, fn match ->
+      # Number of extra blank lines beyond the standard paragraph break
+      # \n\n = 1 blank line (normal paragraph break), \n\n\n = 2 blank lines, etc.
+      extra_lines = String.length(match) - 2
+      br_tags = String.duplicate("&nbsp;\n\n", extra_lines)
+      "\n\n#{br_tags}"
+    end)
+  end
+
+  # ============================================================================
+  # Tailwind Class Injection
+  # ============================================================================
+
+  # Adds Tailwind/daisyUI classes to rendered HTML tags so markdown content
+  # is styled without requiring a prose plugin or inline <style> blocks.
+  defp add_tailwind_classes(html) when is_binary(html) do
+    html
+    |> style_code_blocks()
+    |> style_html_tags()
+  end
+
+  # Handles <pre><code> blocks separately from inline <code> tags.
+  # Uses a marker to protect block code from getting inline code classes.
+  defp style_code_blocks(html) do
+    html
+    |> String.replace("<pre><code", "<!--pkcode-->")
+    |> then(fn h ->
+      Regex.replace(~r/<code([^>]*)>/, h, fn _, attrs ->
+        merge_class("code", attrs, @inline_code_classes)
+      end)
+    end)
+    |> String.replace(
+      "<!--pkcode-->",
+      ~s(<pre class="#{@pre_classes}"><code)
+    )
+  end
+
+  # Applies Tailwind classes to all mapped HTML tags.
+  defp style_html_tags(html) do
+    compiled = compiled_tag_patterns()
+
+    Enum.reduce(compiled, html, fn {regex, tag, classes}, acc ->
+      Regex.replace(regex, acc, fn _, attrs ->
+        merge_class(tag, attrs, classes)
+      end)
+    end)
+  end
+
+  # Compiles and caches tag regex patterns. Compiled once per process via
+  # the process dictionary to avoid recompiling on every render call.
+  defp compiled_tag_patterns do
+    case Process.get(:pk_tag_patterns) do
+      nil ->
+        patterns =
+          Enum.map(@tag_patterns, fn {source, tag, classes} ->
+            {Regex.compile!(source), tag, classes}
+          end)
+
+        Process.put(:pk_tag_patterns, patterns)
+        patterns
+
+      patterns ->
+        patterns
+    end
+  end
+
+  # Adds a class attribute or merges into an existing one.
+  defp merge_class(tag, attrs, new_classes) do
+    if String.contains?(attrs, ~s(class=")) do
+      new_attrs =
+        String.replace(attrs, ~r/class="([^"]*)"/, ~s(class="#{new_classes} \\1"))
+
+      "<#{tag}#{new_attrs}>"
+    else
+      "<#{tag} class=\"#{new_classes}\"#{attrs}>"
+    end
   end
 
   # Render mixed content: markdown with embedded XML components

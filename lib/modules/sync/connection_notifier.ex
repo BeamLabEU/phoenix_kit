@@ -32,7 +32,9 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
 
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.Modules.Sync.Transfers
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @default_timeout 30_000
@@ -91,26 +93,54 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     # Get connection fields (support both atom and string keys)
     site_url = Map.get(connection, :site_url) || Map.get(connection, "site_url")
     conn_name = Map.get(connection, :name) || Map.get(connection, "name")
+    conn_uuid = Map.get(connection, :uuid) || Map.get(connection, "uuid")
 
     # Build the API URL
     api_url = build_api_url(site_url)
 
-    # Build request body
-    body = build_request_body(conn_name, site_url, raw_token, password)
+    # Resolve our URL for the request body
+    our_url = get_our_site_url()
 
-    Logger.info("Sync: Notifying remote site about new connection", %{
-      remote_url: site_url,
-      api_url: api_url,
-      connection_name: conn_name
-    })
+    # Build request body
+    body = build_request_body(conn_name, our_url, raw_token, password)
+
+    Logger.info(
+      "[Sync.Notifier] Creating outgoing connection " <>
+        "| connection_uuid=#{conn_uuid} " <>
+        "| name=#{inspect(conn_name)} " <>
+        "| remote_url=#{site_url} " <>
+        "| api_url=#{api_url} " <>
+        "| our_url=#{our_url} " <>
+        "| has_password=#{password != nil} " <>
+        "| timeout=#{timeout}ms"
+    )
 
     case make_http_request(api_url, body, timeout) do
       {:ok, response} ->
         result = parse_response(response)
+
+        Logger.info(
+          "[Sync.Notifier] Remote site responded " <>
+            "| connection_uuid=#{conn_uuid} " <>
+            "| http_status=#{response.status} " <>
+            "| success=#{result.success} " <>
+            "| result_status=#{result.status} " <>
+            "| remote_connection_uuid=#{result.remote_connection_uuid} " <>
+            "| message=#{inspect(result.message)}"
+        )
+
         update_connection_metadata(connection, result)
         {:ok, result}
 
       {:error, reason} ->
+        Logger.error(
+          "[Sync.Notifier] Failed to contact remote site " <>
+            "| connection_uuid=#{conn_uuid} " <>
+            "| remote_url=#{site_url} " <>
+            "| api_url=#{api_url} " <>
+            "| error=#{inspect(reason)}"
+        )
+
         result = %{
           success: false,
           status: :failed,
@@ -451,7 +481,9 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       %{
         name: t["name"],
         row_count: t["row_count"] || 0,
-        size_bytes: t["size_bytes"] || 0
+        size_bytes: t["size_bytes"] || 0,
+        checksum: t["checksum"],
+        depends_on: t["depends_on"] || []
       }
     end)
   end
@@ -489,6 +521,29 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     end
   end
 
+  @doc """
+  Same as pull_table_data but accepts and returns a uuid_remap for FK remapping across tables.
+  Returns {:ok, import_result, updated_remap} or {:error, reason, unchanged_remap}.
+  """
+  def pull_table_data_with_remap(connection, table_name, uuid_remap, opts \\ []) do
+    case extract_connection_info(connection) do
+      {:ok, site_url, auth_token_hash} ->
+        connection_uuid = Map.get(connection, :uuid)
+
+        do_pull_table_data_with_remap(
+          site_url,
+          auth_token_hash,
+          connection_uuid,
+          table_name,
+          uuid_remap,
+          opts
+        )
+
+      {:error, reason} ->
+        {:error, reason, uuid_remap}
+    end
+  end
+
   defp do_pull_table_data(
          site_url,
          auth_token_hash,
@@ -521,6 +576,39 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     handle_pull_response(result, transfer, table_name, conflict_strategy)
   end
 
+  defp do_pull_table_data_with_remap(
+         site_url,
+         auth_token_hash,
+         connection_uuid,
+         table_name,
+         uuid_remap,
+         opts
+       ) do
+    timeout = Keyword.get(opts, :timeout, 60_000)
+    conflict_strategy = Keyword.get(opts, :conflict_strategy, "skip")
+
+    Logger.info("Sync: Pulling data for table #{table_name}", %{sender_url: site_url})
+
+    {:ok, transfer} =
+      create_pull_transfer(
+        connection_uuid,
+        table_name,
+        site_url,
+        conflict_strategy
+      )
+
+    api_url = build_pull_data_url(site_url)
+
+    body = %{
+      "auth_token_hash" => auth_token_hash,
+      "table_name" => table_name,
+      "conflict_strategy" => conflict_strategy
+    }
+
+    result = make_http_request(api_url, body, timeout)
+    handle_pull_response_with_remap(result, transfer, table_name, conflict_strategy, uuid_remap)
+  end
+
   defp create_pull_transfer(
          connection_uuid,
          table_name,
@@ -549,39 +637,77 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
         complete_pull_transfer(transfer, table_name, data, strategy)
 
       {:ok, %{"success" => false, "error" => error}} ->
+        Logger.error("Sync: Pull failed - remote error: #{error}")
         Transfers.fail_transfer(transfer, error)
         {:error, error}
 
-      _ ->
+      other ->
+        Logger.error("Sync: Pull failed - invalid response format: #{inspect(other)}")
         Transfers.fail_transfer(transfer, "Invalid response from remote site")
         {:error, :invalid_response}
     end
   end
 
   defp handle_pull_response({:ok, %{status: 401}}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - unauthorized (401)")
     Transfers.fail_transfer(transfer, "Unauthorized")
     {:error, :unauthorized}
   end
 
   defp handle_pull_response({:ok, %{status: 404}}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - table not found (404)")
     Transfers.fail_transfer(transfer, "Table not found")
     {:error, :table_not_found}
   end
 
   defp handle_pull_response({:ok, %{status: status}}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - HTTP error #{status}")
     Transfers.fail_transfer(transfer, "HTTP error #{status}")
     {:error, :unexpected_response}
   end
 
   defp handle_pull_response({:error, %{reason: reason}}, transfer, _table_name, _strategy)
        when reason in [:econnrefused, :timeout, :nxdomain] do
+    Logger.error("Sync: Pull failed - sender offline (#{reason})")
     Transfers.fail_transfer(transfer, "Sender offline")
     {:error, :offline}
   end
 
   defp handle_pull_response({:error, reason}, transfer, _table_name, _strategy) do
+    Logger.error("Sync: Pull failed - #{inspect(reason)}")
     Transfers.fail_transfer(transfer, inspect(reason))
     {:error, reason}
+  end
+
+  # Remap-aware versions that thread uuid_remap through
+  defp handle_pull_response_with_remap(
+         {:ok, %{status: 200, body: resp_body}},
+         transfer,
+         table_name,
+         strategy,
+         uuid_remap
+       ) do
+    case Jason.decode(resp_body) do
+      {:ok, %{"success" => true, "data" => data}} ->
+        complete_pull_transfer_with_remap(transfer, table_name, data, strategy, uuid_remap)
+
+      {:ok, %{"success" => false, "error" => error}} ->
+        Logger.error("Sync: Pull failed - remote error: #{error}")
+        Transfers.fail_transfer(transfer, error)
+        {:error, error, uuid_remap}
+
+      other ->
+        Logger.error("Sync: Pull failed - invalid response format: #{inspect(other)}")
+        Transfers.fail_transfer(transfer, "Invalid response from remote site")
+        {:error, :invalid_response, uuid_remap}
+    end
+  end
+
+  defp handle_pull_response_with_remap(result, transfer, table_name, strategy, uuid_remap) do
+    case handle_pull_response(result, transfer, table_name, strategy) do
+      {:ok, import_result} -> {:ok, import_result, uuid_remap}
+      {:error, reason} -> {:error, reason, uuid_remap}
+    end
   end
 
   defp complete_pull_transfer(transfer, table_name, data, conflict_strategy) do
@@ -595,6 +721,26 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     })
 
     {:ok, import_result}
+  end
+
+  defp complete_pull_transfer_with_remap(
+         transfer,
+         table_name,
+         data,
+         conflict_strategy,
+         uuid_remap
+       ) do
+    {import_result, updated_remap} =
+      import_table_data_with_remap(table_name, data, conflict_strategy, uuid_remap)
+
+    Transfers.complete_transfer(transfer, %{
+      records_transferred: length(data),
+      records_created: import_result.imported,
+      records_skipped: import_result.skipped,
+      records_failed: import_result.errors
+    })
+
+    {:ok, import_result, updated_remap}
   end
 
   @doc """
@@ -817,10 +963,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     "/phoenix_kit"
   end
 
-  defp build_request_body(conn_name, _site_url, raw_token, password) do
-    # Get our site URL
-    our_url = get_our_site_url()
-
+  defp build_request_body(conn_name, our_url, raw_token, password) do
     body = %{
       "sender_url" => our_url,
       "connection_name" => conn_name,
@@ -835,9 +978,43 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   end
 
   defp get_our_site_url do
+    case Settings.get_setting("site_url", nil) do
+      nil ->
+        url = get_our_site_url_fallback()
+
+        Logger.warning(
+          "[Sync.Notifier] site_url not set in Settings, using fallback " <>
+            "| resolved_url=#{url}"
+        )
+
+        url
+
+      "" ->
+        url = get_our_site_url_fallback()
+
+        Logger.warning(
+          "[Sync.Notifier] site_url is empty in Settings, using fallback " <>
+            "| resolved_url=#{url}"
+        )
+
+        url
+
+      url ->
+        Logger.debug("[Sync.Notifier] Using site_url from Settings | url=#{url}")
+        url
+    end
+  end
+
+  defp get_our_site_url_fallback do
     case Application.get_env(:phoenix_kit, :public_url) do
-      nil -> PhoenixKit.Config.get_dynamic_base_url()
-      url -> url
+      nil ->
+        url = PhoenixKit.Config.get_dynamic_base_url()
+        Logger.debug("[Sync.Notifier] Fallback: dynamic base URL | url=#{url}")
+        url
+
+      url ->
+        Logger.debug("[Sync.Notifier] Fallback: :public_url config | url=#{url}")
+        url
     end
   end
 
@@ -1071,9 +1248,9 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     Logger.info("Sync: Importing #{length(data)} records into #{table_name}")
 
     # Execute raw SQL insert for each record
-    # This is a simplified implementation - production would use batch inserts
     results =
-      Enum.reduce(data, %{imported: 0, skipped: 0, errors: 0}, fn record, acc ->
+      Enum.reduce(data, %{imported: 0, skipped: 0, errors: 0, error_sample: nil}, fn record,
+                                                                                     acc ->
         case insert_record(repo, table_name, record, conflict_strategy) do
           :ok ->
             %{acc | imported: acc.imported + 1}
@@ -1081,17 +1258,225 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           :skipped ->
             %{acc | skipped: acc.skipped + 1}
 
+          {:error, reason} ->
+            # Keep only first error as sample
+            acc = if is_nil(acc.error_sample), do: %{acc | error_sample: reason}, else: acc
+            %{acc | errors: acc.errors + 1}
+
           :error ->
             %{acc | errors: acc.errors + 1}
         end
       end)
 
-    Logger.info("Sync: Import complete for #{table_name}", results)
-    results
+    Logger.info(
+      "Sync: Import complete for #{table_name} - imported: #{results.imported}, skipped: #{results.skipped}, errors: #{results.errors}"
+    )
+
+    if results.errors > 0 && results.error_sample do
+      Logger.warning("Sync: Sample error for #{table_name}: #{results.error_sample}")
+    end
+
+    Map.drop(results, [:error_sample])
   end
 
   defp import_table_data(_table_name, _data, _strategy) do
     %{imported: 0, skipped: 0, errors: 0}
+  end
+
+  defp import_table_data_with_remap(table_name, data, conflict_strategy, uuid_remap)
+       when is_list(data) do
+    repo = PhoenixKit.RepoHelper.repo()
+    pk_col = PhoenixKit.RepoHelper.get_pk_column(table_name)
+
+    Logger.info("Sync: Importing #{length(data)} records into #{table_name} (with remap)")
+
+    # Get FK info for this table
+    fk_columns =
+      case SchemaInspector.get_foreign_key_columns(table_name) do
+        {:ok, fks} -> fks
+        _ -> []
+      end
+
+    # Get unique columns for this table (for matching existing records)
+    unique_sets =
+      case SchemaInspector.get_unique_columns(table_name) do
+        {:ok, sets} -> sets
+        _ -> []
+      end
+
+    import_ctx = %{
+      repo: repo,
+      table_name: table_name,
+      pk_col: pk_col,
+      fk_columns: fk_columns,
+      unique_sets: unique_sets,
+      conflict_strategy: conflict_strategy
+    }
+
+    {results, updated_remap} =
+      Enum.reduce(
+        data,
+        {%{imported: 0, skipped: 0, errors: 0, error_sample: nil}, uuid_remap},
+        fn record, {acc, remap} ->
+          import_single_record_with_remap(import_ctx, record, acc, remap)
+        end
+      )
+
+    Logger.info(
+      "Sync: Import complete for #{table_name} - imported: #{results.imported}, skipped: #{results.skipped}, errors: #{results.errors}"
+    )
+
+    if results.errors > 0 && results.error_sample do
+      Logger.warning("Sync: Sample error for #{table_name}: #{results.error_sample}")
+    end
+
+    remap_additions = map_size(updated_remap) - map_size(uuid_remap)
+
+    if remap_additions > 0 do
+      Logger.info("Sync: Added #{remap_additions} UUID remap(s) from #{table_name}")
+    end
+
+    {Map.drop(results, [:error_sample]), updated_remap}
+  end
+
+  defp import_table_data_with_remap(_table_name, _data, _strategy, uuid_remap) do
+    {%{imported: 0, skipped: 0, errors: 0}, uuid_remap}
+  end
+
+  defp import_single_record_with_remap(ctx, record, acc, remap) do
+    record_pk = get_record_field(record, ctx.pk_col)
+
+    {match_action, remap} =
+      match_existing_record(ctx.repo, ctx.table_name, ctx.pk_col, record, ctx.unique_sets, remap)
+
+    case match_action do
+      :skip_matched ->
+        Logger.debug("Sync: Skipped #{ctx.table_name} record #{record_pk} (matched existing)")
+        {%{acc | skipped: acc.skipped + 1}, remap}
+
+      :import ->
+        remapped_record = apply_fk_remap(record, ctx.fk_columns, remap)
+
+        case insert_record(ctx.repo, ctx.table_name, remapped_record, ctx.conflict_strategy) do
+          :ok ->
+            {%{acc | imported: acc.imported + 1}, remap}
+
+          :skipped ->
+            {%{acc | skipped: acc.skipped + 1}, remap}
+
+          {:error, reason} ->
+            acc = if is_nil(acc.error_sample), do: %{acc | error_sample: reason}, else: acc
+            {%{acc | errors: acc.errors + 1}, remap}
+
+          :error ->
+            {%{acc | errors: acc.errors + 1}, remap}
+        end
+    end
+  end
+
+  # Try to match a record by unique columns to an existing local record.
+  # If matched, adds a PK remap (sender_pk → local_pk) and returns :skip_matched.
+  # If no match, returns :import.
+  defp match_existing_record(repo, table_name, pk_col, record, unique_sets, remap) do
+    record_pk = get_record_field(record, pk_col)
+
+    # First check if this PK already exists locally
+    case check_pk_exists(repo, table_name, pk_col, record_pk) do
+      true ->
+        # PK exists — skip, the ON CONFLICT clause would handle it anyway but
+        # this avoids an unnecessary INSERT attempt
+        {:skip_matched, remap}
+
+      false ->
+        # PK doesn't exist — try to match by unique columns
+        case find_match_by_unique(repo, table_name, pk_col, record, unique_sets) do
+          {:ok, local_pk} ->
+            # Found a match! Record the remap and skip import
+            remap_key = {table_name, stringify_pk(record_pk)}
+            remap = Map.put(remap, remap_key, stringify_pk(local_pk))
+
+            Logger.info(
+              "Sync: Matched #{table_name} by unique columns: #{inspect(record_pk)} → #{inspect(local_pk)}"
+            )
+
+            {:skip_matched, remap}
+
+          :no_match ->
+            # No match — import as new record
+            {:import, remap}
+        end
+    end
+  end
+
+  defp stringify_pk(pk) when is_binary(pk), do: pk
+  defp stringify_pk(pk), do: inspect(pk)
+
+  defp check_pk_exists(repo, table_name, pk_col, pk_value) do
+    sql = ~s[SELECT 1 FROM "#{table_name}" WHERE "#{pk_col}" = $1 LIMIT 1]
+
+    case SQL.query(repo, sql, [prepare_value(pk_value)]) do
+      {:ok, %{num_rows: 1}} -> true
+      _ -> false
+    end
+  rescue
+    _ -> false
+  end
+
+  defp find_match_by_unique(_repo, _table_name, _pk_col, _record, []), do: :no_match
+
+  defp find_match_by_unique(repo, table_name, pk_col, record, [unique_cols | rest]) do
+    # Get values for this unique constraint's columns
+    col_values =
+      Enum.map(unique_cols, fn col ->
+        {col, get_record_field(record, col)}
+      end)
+
+    # Skip if any value is nil (can't match on nil)
+    if Enum.any?(col_values, fn {_col, val} -> is_nil(val) end) do
+      find_match_by_unique(repo, table_name, pk_col, record, rest)
+    else
+      where_clauses =
+        col_values
+        |> Enum.with_index(1)
+        |> Enum.map_join(" AND ", fn {{col, _val}, idx} -> ~s["#{col}" = $#{idx}] end)
+
+      values = Enum.map(col_values, fn {_col, val} -> prepare_value(val) end)
+
+      sql = ~s[SELECT "#{pk_col}" FROM "#{table_name}" WHERE #{where_clauses} LIMIT 1]
+
+      case SQL.query(repo, sql, values) do
+        {:ok, %{rows: [[local_pk]]}} -> {:ok, local_pk}
+        _ -> find_match_by_unique(repo, table_name, pk_col, record, rest)
+      end
+    end
+  rescue
+    _ -> find_match_by_unique(repo, table_name, pk_col, record, rest)
+  end
+
+  # Apply FK remaps to a record before inserting
+  defp apply_fk_remap(record, [], _remap), do: record
+
+  defp apply_fk_remap(record, fk_columns, remap) do
+    Enum.reduce(fk_columns, record, fn %{column: col, referenced_table: ref_table}, rec ->
+      fk_value = get_record_field(rec, col)
+
+      if fk_value && is_binary(fk_value) do
+        remap_key = {ref_table, fk_value}
+
+        case Map.get(remap, remap_key) do
+          nil ->
+            rec
+
+          local_value ->
+            # Replace the FK value with the local one — normalize to string key
+            rec = put_record_field(rec, col, local_value)
+            Logger.debug("Sync: Remapped #{col}: #{fk_value} → #{local_value}")
+            rec
+        end
+      else
+        rec
+      end
+    end)
   end
 
   defp insert_record(repo, table_name, record, conflict_strategy) when is_map(record) do
@@ -1100,11 +1485,13 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     # For append strategy, strip primary key to let DB auto-generate new ID
     record =
       if conflict_strategy == "append" do
-        Map.drop(record, [pk_col, String.to_atom(pk_col)])
+        drop_record_field(record, pk_col)
       else
         record
       end
 
+    # Normalize all keys to strings for consistent SQL generation
+    record = normalize_record_keys(record)
     columns = Map.keys(record)
     values = Map.values(record) |> Enum.map(&prepare_value/1)
 
@@ -1113,7 +1500,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
       |> Enum.with_index(1)
       |> Enum.map_join(", ", fn {_col, idx} -> "$#{idx}" end)
 
-    columns_str = Enum.join(columns, ", ")
+    columns_str = Enum.map_join(columns, ", ", &~s["#{&1}"])
 
     on_conflict =
       case conflict_strategy do
@@ -1121,7 +1508,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           "ON CONFLICT DO NOTHING"
 
         "overwrite" ->
-          "ON CONFLICT (#{pk_col}) DO UPDATE SET #{build_update_clause(columns, pk_col)}"
+          ~s[ON CONFLICT ("#{pk_col}") DO UPDATE SET #{build_update_clause(columns, pk_col)}]
 
         "merge" ->
           "ON CONFLICT DO NOTHING"
@@ -1133,17 +1520,24 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
           "ON CONFLICT DO NOTHING"
       end
 
-    sql = "INSERT INTO #{table_name} (#{columns_str}) VALUES (#{placeholders}) #{on_conflict}"
+    sql = ~s[INSERT INTO "#{table_name}" (#{columns_str}) VALUES (#{placeholders}) #{on_conflict}]
 
     case SQL.query(repo, sql, values) do
-      {:ok, %{num_rows: 1}} -> :ok
-      {:ok, %{num_rows: 0}} -> :skipped
-      {:error, _} -> :error
+      {:ok, %{num_rows: 1}} ->
+        :ok
+
+      {:ok, %{num_rows: 0}} ->
+        :skipped
+
+      {:error, %{postgres: %{code: code, message: msg}}} ->
+        {:error, "[#{code}] #{msg}"}
+
+      {:error, error} ->
+        {:error, inspect(error)}
     end
   rescue
     e ->
-      Logger.warning("Sync: Failed to insert record: #{Exception.message(e)}")
-      :error
+      {:error, Exception.message(e)}
   end
 
   defp insert_record(_repo, _table_name, _record, _strategy), do: :error
@@ -1151,7 +1545,7 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   defp build_update_clause(columns, pk_col) do
     columns
     |> Enum.reject(&(to_string(&1) == pk_col))
-    |> Enum.map_join(", ", fn col -> "#{col} = EXCLUDED.#{col}" end)
+    |> Enum.map_join(", ", fn col -> ~s["#{col}" = EXCLUDED."#{col}"] end)
   end
 
   # Convert ISO8601 strings to DateTime/Date/Time structs for Postgrex
@@ -1159,7 +1553,47 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
     parse_datetime_string(value) || parse_date_string(value) || parse_time_string(value) || value
   end
 
+  defp prepare_value(%{"__phoenix_kit_binary__" => encoded}) when is_binary(encoded) do
+    case Base.decode64(encoded) do
+      {:ok, binary} -> binary
+      :error -> encoded
+    end
+  end
+
   defp prepare_value(value), do: value
+
+  # Record field helpers — records may have string or atom keys depending on
+  # whether they came from JSON (string keys) or internal code (atom keys).
+  # These helpers safely access/set fields without creating atoms from untrusted data.
+  defp get_record_field(record, field) when is_binary(field) do
+    case Map.get(record, field) do
+      nil -> Map.get(record, String.to_existing_atom(field))
+      val -> val
+    end
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp put_record_field(record, field, value) when is_binary(field) do
+    record
+    |> Map.delete(field)
+    |> Map.reject(fn {k, _} -> is_atom(k) and Atom.to_string(k) == field end)
+    |> Map.put(field, value)
+  end
+
+  defp drop_record_field(record, field) when is_binary(field) do
+    record
+    |> Map.delete(field)
+    |> Map.reject(fn {k, _} -> is_atom(k) and Atom.to_string(k) == field end)
+  end
+
+  # Normalize all map keys to strings for consistent SQL column generation
+  defp normalize_record_keys(record) when is_map(record) do
+    Map.new(record, fn
+      {k, v} when is_atom(k) -> {Atom.to_string(k), v}
+      {k, v} -> {k, v}
+    end)
+  end
 
   # DateTime with timezone (e.g., "2025-12-15T18:56:59.387453Z")
   @datetime_regex ~r/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/

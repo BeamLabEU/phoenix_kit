@@ -24,6 +24,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.Modules.Sync.Transfers
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -46,16 +47,30 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   - 503 Service Unavailable - DB Sync module is disabled
   """
   def register_connection(conn, params) do
+    remote_ip = get_remote_ip(conn)
+
+    Logger.info(
+      "[Sync.API] register_connection called " <>
+        "| sender_url=#{params["sender_url"]} " <>
+        "| connection_name=#{inspect(params["connection_name"])} " <>
+        "| has_auth_token=#{params["auth_token"] != nil} " <>
+        "| has_password=#{params["password"] != nil} " <>
+        "| remote_ip=#{remote_ip}"
+    )
+
     with :ok <- check_module_enabled(),
          :ok <- check_incoming_allowed(),
          {:ok, validated_params} <- validate_params(params),
          :ok <- validate_password(params["password"]),
          {:ok, result} <- create_incoming_connection(validated_params, conn) do
-      Logger.info("Incoming connection registered", %{
-        sender_url: validated_params.sender_url,
-        connection_name: validated_params.connection_name,
-        status: result.status
-      })
+      Logger.info(
+        "[Sync.API] Connection registered successfully " <>
+          "| sender_url=#{validated_params.sender_url} " <>
+          "| connection_name=#{inspect(validated_params.connection_name)} " <>
+          "| connection_uuid=#{result.connection_uuid} " <>
+          "| status=#{result.status} " <>
+          "| remote_ip=#{remote_ip}"
+      )
 
       conn
       |> put_status(200)
@@ -67,37 +82,70 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       })
     else
       {:error, :module_disabled} ->
+        Logger.warning("[Sync.API] register_connection rejected: module disabled")
+
         conn
         |> put_status(503)
         |> json(%{success: false, error: "DB Sync module is disabled"})
 
       {:error, :incoming_denied} ->
+        Logger.warning(
+          "[Sync.API] register_connection rejected: incoming denied " <>
+            "| sender_url=#{params["sender_url"]} " <>
+            "| incoming_mode=#{Sync.get_incoming_mode()}"
+        )
+
         conn
         |> put_status(403)
         |> json(%{success: false, error: "Incoming connections are not allowed"})
 
       {:error, :missing_fields, fields} ->
+        Logger.warning(
+          "[Sync.API] register_connection rejected: missing fields " <>
+            "| fields=#{inspect(fields)} " <>
+            "| params_keys=#{inspect(Map.keys(params))}"
+        )
+
         conn
         |> put_status(400)
         |> json(%{success: false, error: "Missing required fields", fields: fields})
 
       {:error, :invalid_password} ->
+        Logger.warning(
+          "[Sync.API] register_connection rejected: invalid password " <>
+            "| sender_url=#{params["sender_url"]}"
+        )
+
         conn
         |> put_status(401)
         |> json(%{success: false, error: "Invalid password"})
 
       {:error, :password_required} ->
+        Logger.warning(
+          "[Sync.API] register_connection rejected: password required " <>
+            "| sender_url=#{params["sender_url"]}"
+        )
+
         conn
         |> put_status(401)
         |> json(%{success: false, error: "Password required for incoming connections"})
 
       {:error, :connection_exists} ->
+        Logger.warning(
+          "[Sync.API] register_connection rejected: already exists " <>
+            "| sender_url=#{params["sender_url"]}"
+        )
+
         conn
         |> put_status(409)
         |> json(%{success: false, error: "Connection already exists for this site"})
 
       {:error, reason} ->
-        Logger.error("Failed to register incoming connection", %{reason: inspect(reason)})
+        Logger.error(
+          "[Sync.API] register_connection failed " <>
+            "| sender_url=#{params["sender_url"]} " <>
+            "| error=#{inspect(reason)}"
+        )
 
         conn
         |> put_status(500)
@@ -783,6 +831,13 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
     existing = Connections.find_by_site_url(params.sender_url, "receiver")
 
     if existing do
+      Logger.info(
+        "[Sync.API] Incoming connection already exists " <>
+          "| sender_url=#{params.sender_url} " <>
+          "| existing_uuid=#{existing.uuid} " <>
+          "| existing_status=#{existing.status}"
+      )
+
       {:error, :connection_exists}
     else
       do_create_incoming_connection(params, conn)
@@ -793,6 +848,8 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
     # If we get here, the connection was approved (passed mode/password checks)
     # So it should be active - the sender already approved by creating their connection
     initial_status = "active"
+    remote_ip = get_remote_ip(conn)
+    user_agent = get_user_agent(conn)
 
     # Build connection attributes (use string keys to match form params)
     attrs = %{
@@ -805,13 +862,29 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
       "metadata" => %{
         "registered_via" => "api",
         "registered_at" => UtilsDate.utc_now() |> DateTime.to_iso8601(),
-        "remote_ip" => get_remote_ip(conn),
-        "user_agent" => get_user_agent(conn)
+        "remote_ip" => remote_ip,
+        "user_agent" => user_agent
       }
     }
 
+    Logger.info(
+      "[Sync.API] Creating incoming connection " <>
+        "| sender_url=#{params.sender_url} " <>
+        "| connection_name=#{inspect(params.connection_name)} " <>
+        "| initial_status=#{initial_status} " <>
+        "| remote_ip=#{remote_ip}"
+    )
+
     case Connections.create_connection(attrs) do
       {:ok, connection, _token} ->
+        Logger.info(
+          "[Sync.API] Incoming connection created " <>
+            "| uuid=#{connection.uuid} " <>
+            "| site_url=#{connection.site_url} " <>
+            "| auth_token_hash=#{String.slice(connection.auth_token_hash || "", 0, 8)}… " <>
+            "| status=#{connection.status}"
+        )
+
         # Broadcast to any listening LiveViews to refresh
         pubsub = PhoenixKit.Config.pubsub_server()
 
@@ -831,6 +904,12 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
          }}
 
       {:error, changeset} ->
+        Logger.error(
+          "[Sync.API] Failed to create incoming connection " <>
+            "| sender_url=#{params.sender_url} " <>
+            "| errors=#{inspect(changeset.errors)}"
+        )
+
         {:error, {:changeset_error, changeset}}
     end
   end
@@ -917,12 +996,31 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
     ORDER BY t.table_name
     """
 
+    # Get FK dependency map
+    fk_map =
+      case SchemaInspector.get_all_foreign_keys() do
+        {:ok, map} -> map
+        _ -> %{}
+      end
+
     case SQL.query(repo, tables_query, []) do
       {:ok, %{rows: rows}} ->
-        # Get actual row counts for each table
         Enum.map(rows, fn [name, size_bytes] ->
           row_count = get_actual_row_count(repo, name)
-          %{"name" => name, "row_count" => row_count, "size_bytes" => size_bytes}
+
+          checksum =
+            case SchemaInspector.get_table_checksum(name) do
+              {:ok, cs} when is_binary(cs) -> cs
+              _ -> nil
+            end
+
+          %{
+            "name" => name,
+            "row_count" => row_count,
+            "size_bytes" => size_bytes,
+            "checksum" => checksum,
+            "depends_on" => Map.get(fk_map, name, [])
+          }
         end)
 
       {:error, _} ->
@@ -1020,7 +1118,15 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   defp serialize_value(%Date{} = d), do: Date.to_iso8601(d)
   defp serialize_value(%Time{} = t), do: Time.to_iso8601(t)
   defp serialize_value(%Decimal{} = d), do: Decimal.to_string(d)
-  defp serialize_value(binary) when is_binary(binary), do: binary
+
+  defp serialize_value(binary) when is_binary(binary) do
+    if String.valid?(binary) do
+      binary
+    else
+      %{"__phoenix_kit_binary__" => Base.encode64(binary)}
+    end
+  end
+
   defp serialize_value(val), do: val
 
   defp validate_schema_params(params) do
