@@ -24,6 +24,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   alias Ecto.Adapters.SQL
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.Modules.Sync.Transfers
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -995,12 +996,31 @@ defmodule PhoenixKit.Modules.Sync.Web.ApiController do
     ORDER BY t.table_name
     """
 
+    # Get FK dependency map
+    fk_map =
+      case SchemaInspector.get_all_foreign_keys() do
+        {:ok, map} -> map
+        _ -> %{}
+      end
+
     case SQL.query(repo, tables_query, []) do
       {:ok, %{rows: rows}} ->
-        # Get actual row counts for each table
         Enum.map(rows, fn [name, size_bytes] ->
           row_count = get_actual_row_count(repo, name)
-          %{"name" => name, "row_count" => row_count, "size_bytes" => size_bytes}
+
+          checksum =
+            case SchemaInspector.get_table_checksum(name) do
+              {:ok, cs} when is_binary(cs) -> cs
+              _ -> nil
+            end
+
+          %{
+            "name" => name,
+            "row_count" => row_count,
+            "size_bytes" => size_bytes,
+            "checksum" => checksum,
+            "depends_on" => Map.get(fk_map, name, [])
+          }
         end)
 
       {:error, _} ->

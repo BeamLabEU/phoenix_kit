@@ -138,6 +138,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     |> assign(:selected_connection, connection)
     |> assign(:sync_tables, [])
     |> assign(:sync_local_counts, %{})
+    |> assign(:sync_local_checksums, %{})
     |> assign(:sync_loading, true)
     |> assign(:sync_error, nil)
     |> assign(:selected_sync_tables, MapSet.new())
@@ -435,12 +436,18 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
   def handle_event("toggle_table", %{"table" => table_name}, socket) do
     selected = socket.assigns.selected_sync_tables
+    tables = socket.assigns.sync_tables
 
     selected =
       if MapSet.member?(selected, table_name) do
         MapSet.delete(selected, table_name)
       else
-        MapSet.put(selected, table_name)
+        # Auto-include FK dependencies (recursively)
+        deps = get_table_dependencies(table_name, tables)
+
+        Enum.reduce([table_name | deps], selected, fn t, acc ->
+          MapSet.put(acc, t)
+        end)
       end
 
     {:noreply, assign(socket, :selected_sync_tables, selected)}
@@ -472,18 +479,31 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   end
 
   def handle_event("select_different_tables", _params, socket) do
-    # Select tables that either don't exist locally or have different counts
+    # Select tables that either don't exist locally or have different data
+    local_counts = socket.assigns.sync_local_counts
+    local_checksums = socket.assigns.sync_local_checksums
+
     different_tables =
       socket.assigns.sync_tables
       |> Enum.filter(fn table ->
-        name = table.name || table["name"]
-        sender_count = table.row_count || table["row_count"] || 0
-        local_count = Map.get(socket.assigns.sync_local_counts, name)
+        name = get_table_field(table, :name)
+        local_count = Map.get(local_counts, name)
 
-        # Select if: no local table, or counts differ
-        is_nil(local_count) or local_count != sender_count
+        if is_nil(local_count) do
+          true
+        else
+          local_cs = Map.get(local_checksums, name)
+          sender_cs = get_table_field(table, :checksum)
+
+          if sender_cs && local_cs do
+            sender_cs != local_cs
+          else
+            sender_count = get_table_field(table, :row_count) || 0
+            local_count != sender_count
+          end
+        end
       end)
-      |> Enum.map(fn t -> t.name || t["name"] end)
+      |> Enum.map(&get_table_field(&1, :name))
 
     {:noreply, assign(socket, :selected_sync_tables, MapSet.new(different_tables))}
   end
@@ -493,7 +513,12 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   end
 
   def handle_event("execute_sync", _params, socket) do
-    selected_tables = socket.assigns.selected_sync_tables |> MapSet.to_list()
+    tables = socket.assigns.sync_tables
+
+    selected_tables =
+      socket.assigns.selected_sync_tables
+      |> MapSet.to_list()
+      |> sort_by_dependencies(tables)
 
     if Enum.empty?(selected_tables) do
       {:noreply, put_flash(socket, :error, "Please select at least one table")}
@@ -508,7 +533,10 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           records_fetched: 0,
           records_skipped: 0,
           records_errors: 0,
-          error_messages: [],
+          table_results: [],
+          current_pass_results: [],
+          retry_pass: 0,
+          uuid_remap: %{},
           table: nil,
           status: :running
         })
@@ -636,7 +664,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           records_fetched: 0,
           records_skipped: 0,
           records_errors: 0,
-          error_messages: [],
+          table_results: [],
           table: table,
           status: :running
         })
@@ -671,11 +699,10 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     socket =
       case result do
         {:ok, tables} ->
-          # Get local counts for comparison
-          local_counts =
-            tables
-            |> Enum.map(fn t ->
-              name = t.name || t["name"]
+          # Get local counts and checksums for comparison
+          {local_counts, local_checksums} =
+            Enum.reduce(tables, {%{}, %{}}, fn t, {counts, checksums} ->
+              name = get_table_field(t, :name)
 
               count =
                 case SchemaInspector.get_local_count(name) do
@@ -683,13 +710,19 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                   {:error, _} -> nil
                 end
 
-              {name, count}
+              checksum =
+                case SchemaInspector.get_table_checksum(name) do
+                  {:ok, cs} -> cs
+                  _ -> nil
+                end
+
+              {Map.put(counts, name, count), Map.put(checksums, name, checksum)}
             end)
-            |> Enum.into(%{})
 
           socket
           |> assign(:sync_tables, tables)
           |> assign(:sync_local_counts, local_counts)
+          |> assign(:sync_local_checksums, local_checksums)
           |> assign(:sync_loading, false)
           |> assign(:sync_error, nil)
 
@@ -823,15 +856,58 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
   @impl true
   def handle_info({:do_pull_table, [], _index}, socket) do
-    # All tables done
-    progress = Map.put(socket.assigns.sync_progress, :status, :completed)
+    progress = socket.assigns.sync_progress
+    table_results = Map.get(progress, :table_results, [])
+    retry_pass = Map.get(progress, :retry_pass, 0)
+    max_retries = 3
 
-    socket =
-      socket
-      |> assign(:sync_in_progress, false)
-      |> assign(:sync_progress, progress)
+    # Find tables that had errors
+    failed_tables = for tr <- table_results, tr.errors > 0, do: tr.table
 
-    {:noreply, socket}
+    if failed_tables != [] && retry_pass < max_retries do
+      # Check if last pass made any progress (imported anything)
+      pass_results = Map.get(progress, :current_pass_results, [])
+
+      made_progress =
+        retry_pass == 0 ||
+          Enum.any?(pass_results, fn tr -> tr.imported > 0 end)
+
+      if made_progress do
+        # Retry failed tables
+        progress =
+          progress
+          |> Map.put(:retry_pass, retry_pass + 1)
+          |> Map.put(:current_pass_results, [])
+          |> Map.put(:current, 0)
+          |> Map.put(:total, length(failed_tables))
+          |> Map.put(:table, nil)
+          |> Map.put(:status, :retrying)
+
+        socket = assign(socket, :sync_progress, progress)
+        send(self(), {:do_pull_table, failed_tables, 0})
+        {:noreply, socket}
+      else
+        # No progress on last retry — stop
+        progress = Map.put(progress, :status, :completed)
+
+        socket =
+          socket
+          |> assign(:sync_in_progress, false)
+          |> assign(:sync_progress, progress)
+
+        {:noreply, socket}
+      end
+    else
+      # No errors or max retries reached
+      progress = Map.put(progress, :status, :completed)
+
+      socket =
+        socket
+        |> assign(:sync_in_progress, false)
+        |> assign(:sync_progress, progress)
+
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -839,6 +915,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     liveview_pid = self()
     connection = socket.assigns.selected_connection
     strategy = socket.assigns.conflict_strategy
+    uuid_remap = Map.get(socket.assigns.sync_progress, :uuid_remap, %{})
 
     progress =
       socket.assigns.sync_progress
@@ -848,54 +925,50 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     socket = assign(socket, :sync_progress, progress)
 
     Task.start(fn ->
-      result = ConnectionNotifier.pull_table_data(connection, table, conflict_strategy: strategy)
-      send(liveview_pid, {:sync_table_complete, table, result, rest, index + 1})
+      case ConnectionNotifier.pull_table_data_with_remap(
+             connection,
+             table,
+             uuid_remap,
+             conflict_strategy: strategy
+           ) do
+        {:ok, import_result, updated_remap} ->
+          send(
+            liveview_pid,
+            {:sync_table_complete, table, {:ok, import_result}, rest, index + 1, updated_remap}
+          )
+
+        {:error, reason, unchanged_remap} ->
+          send(
+            liveview_pid,
+            {:sync_table_complete, table, {:error, reason}, rest, index + 1, unchanged_remap}
+          )
+      end
     end)
 
     {:noreply, socket}
   end
 
   @impl true
-  def handle_info({:sync_table_complete, _table, result, rest, index}, socket) do
-    {records_fetched, records_skipped, records_errors, error_message} =
-      extract_sync_counts(result)
-
-    progress =
-      socket.assigns.sync_progress
-      |> Map.update(:tables_done, 1, &(&1 + 1))
-      |> Map.update(:records_fetched, records_fetched, &(&1 + records_fetched))
-      |> Map.update(:records_skipped, records_skipped, &(&1 + records_skipped))
-      |> Map.update(:records_errors, records_errors, &(&1 + records_errors))
-      |> then(fn p ->
-        if error_message,
-          do: Map.update(p, :error_messages, [error_message], &[error_message | &1]),
-          else: p
-      end)
-
+  def handle_info({:sync_table_complete, table, result, rest, index, updated_remap}, socket) do
+    progress = Map.put(socket.assigns.sync_progress, :uuid_remap, updated_remap)
     socket = assign(socket, :sync_progress, progress)
-
-    # Continue with next table
+    socket = process_table_sync_result(socket, table, result)
     send(self(), {:do_pull_table, rest, index})
-
     {:noreply, socket}
   end
 
   @impl true
-  def handle_info({:sync_table_complete, _table, result}, socket) do
-    # Single table sync (from precise transfer)
-    {records_fetched, records_skipped, records_errors, error_message} =
-      extract_sync_counts(result)
+  def handle_info({:sync_table_complete, table, result, rest, index}, socket) do
+    socket = process_table_sync_result(socket, table, result)
+    send(self(), {:do_pull_table, rest, index})
+    {:noreply, socket}
+  end
 
-    progress =
-      socket.assigns.sync_progress
-      |> Map.put(:tables_done, 1)
-      |> Map.put(:records_fetched, records_fetched)
-      |> Map.put(:records_skipped, records_skipped)
-      |> Map.put(:records_errors, records_errors)
-      |> Map.put(:status, :completed)
-      |> then(fn p ->
-        if error_message, do: Map.put(p, :error_messages, [error_message]), else: p
-      end)
+  @impl true
+  def handle_info({:sync_table_complete, table, result}, socket) do
+    # Single table sync (from precise transfer)
+    socket = process_table_sync_result(socket, table, result)
+    progress = Map.put(socket.assigns.sync_progress, :status, :completed)
 
     socket =
       socket
@@ -970,6 +1043,156 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
 
       _ ->
         {0, 0, 0, "Unknown error"}
+    end
+  end
+
+  # Process a single table's sync result: extract counts, merge with retries, update progress
+  defp process_table_sync_result(socket, table, result) do
+    {records_fetched, records_skipped, records_errors, error_message} =
+      extract_sync_counts(result)
+
+    table_result = %{
+      table: table,
+      imported: records_fetched,
+      skipped: records_skipped,
+      errors: records_errors,
+      error_message: error_message
+    }
+
+    progress = socket.assigns.sync_progress
+    retry_pass = Map.get(progress, :retry_pass, 0)
+    existing_results = Map.get(progress, :table_results, [])
+
+    table_results =
+      if retry_pass > 0 do
+        # Find previous result for this table and merge counts
+        case Enum.split_with(existing_results, &(&1.table == table)) do
+          {[prev], other_results} ->
+            merged = %{
+              table: table,
+              imported: prev.imported + records_fetched,
+              skipped: prev.skipped + records_skipped,
+              errors: records_errors,
+              error_message: error_message,
+              retried: true
+            }
+
+            other_results ++ [merged]
+
+          _ ->
+            existing_results ++ [table_result]
+        end
+      else
+        existing_results ++ [table_result]
+      end
+
+    # Recalculate totals from table_results
+    totals =
+      Enum.reduce(table_results, %{fetched: 0, skipped: 0, errors: 0}, fn tr, acc ->
+        %{
+          fetched: acc.fetched + tr.imported,
+          skipped: acc.skipped + tr.skipped,
+          errors: acc.errors + tr.errors
+        }
+      end)
+
+    # tables_done reflects unique tables completed, not current pass count
+    unique_tables_done =
+      table_results
+      |> Enum.map(& &1.table)
+      |> Enum.uniq()
+      |> length()
+
+    progress =
+      progress
+      |> Map.put(:tables_done, unique_tables_done)
+      |> Map.put(:records_fetched, totals.fetched)
+      |> Map.put(:records_skipped, totals.skipped)
+      |> Map.put(:records_errors, totals.errors)
+      |> Map.put(:table_results, table_results)
+      |> Map.update(:current_pass_results, [table_result], &(&1 ++ [table_result]))
+
+    assign(socket, :sync_progress, progress)
+  end
+
+  # Get all FK dependencies for a table (recursive)
+  defp get_table_dependencies(table_name, tables) do
+    get_table_dependencies(table_name, tables, MapSet.new())
+    |> MapSet.to_list()
+  end
+
+  defp get_table_dependencies(table_name, tables, visited) do
+    if MapSet.member?(visited, table_name) do
+      visited
+    else
+      deps = get_direct_dependencies(table_name, tables)
+
+      Enum.reduce(deps, visited, fn dep, acc ->
+        acc
+        |> MapSet.put(dep)
+        |> then(&get_table_dependencies(dep, tables, &1))
+      end)
+    end
+  end
+
+  defp get_direct_dependencies(table_name, tables) do
+    case Enum.find(tables, fn t -> get_table_field(t, :name) == table_name end) do
+      nil -> []
+      table -> get_table_field(table, :depends_on) || []
+    end
+  end
+
+  # Sort tables so dependencies come first (topological sort)
+  defp sort_by_dependencies(table_names, tables) do
+    # Build a dependency graph for selected tables only
+    selected_set = MapSet.new(table_names)
+
+    graph =
+      Enum.reduce(table_names, %{}, fn name, acc ->
+        deps =
+          get_direct_dependencies(name, tables)
+          |> Enum.filter(&MapSet.member?(selected_set, &1))
+
+        Map.put(acc, name, deps)
+      end)
+
+    topo_sort(graph)
+  end
+
+  defp topo_sort(graph) do
+    topo_sort(graph, Map.keys(graph), [], MapSet.new())
+  end
+
+  defp topo_sort(_graph, [], sorted, _visited), do: sorted
+
+  defp topo_sort(graph, [node | rest], sorted, visited) do
+    if MapSet.member?(visited, node) do
+      topo_sort(graph, rest, sorted, visited)
+    else
+      {sorted, visited} = visit_node(graph, node, sorted, visited, MapSet.new())
+      topo_sort(graph, rest, sorted, visited)
+    end
+  end
+
+  defp visit_node(graph, node, sorted, visited, path) do
+    if MapSet.member?(visited, node) do
+      {sorted, visited}
+    else
+      deps = Map.get(graph, node, [])
+
+      # Guard against cycles
+      if MapSet.member?(path, node) do
+        {sorted ++ [node], MapSet.put(visited, node)}
+      else
+        path = MapSet.put(path, node)
+
+        {sorted, visited} =
+          Enum.reduce(deps, {sorted, visited}, fn dep, {s, v} ->
+            visit_node(graph, dep, s, v, path)
+          end)
+
+        {sorted ++ [node], MapSet.put(visited, node)}
+      end
     end
   end
 
@@ -1110,6 +1333,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
               connection={@selected_connection}
               tables={@sync_tables}
               local_counts={@sync_local_counts}
+              local_checksums={@sync_local_checksums}
               loading={@sync_loading}
               error={@sync_error}
               selected_tables={@selected_sync_tables}
@@ -1727,51 +1951,84 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           <%= if @active_tab == :bulk do %>
             <%!-- ========== BULK TRANSFER TAB ========== --%>
             <%= if @progress && Map.get(@progress, :status) == :completed do %>
+              <% has_errors = Map.get(@progress, :records_errors, 0) > 0 %>
               <div class="flex flex-col items-center justify-center py-12">
-                <%= if Map.get(@progress, :error_messages, []) != [] do %>
+                <%= if has_errors do %>
                   <div class="text-6xl mb-4">⚠️</div>
-                  <h3 class="text-2xl font-bold text-warning mb-4">Sync Completed with Issues</h3>
+                  <h3 class="text-2xl font-bold text-warning mb-4">Sync Completed with Errors</h3>
                 <% else %>
                   <div class="text-6xl mb-4">🎉</div>
                   <h3 class="text-2xl font-bold text-success mb-4">Sync Complete!</h3>
                 <% end %>
-                <div class="stats shadow mb-6">
-                  <div class="stat">
-                    <div class="stat-title">Tables Synced</div>
-                    <div class="stat-value text-primary">{@progress.tables_done}</div>
-                  </div>
-                  <div class="stat">
-                    <div class="stat-title">Records Imported</div>
-                    <div class="stat-value text-success">
-                      {format_number(@progress.records_fetched)}
-                    </div>
-                  </div>
-                  <%= if Map.get(@progress, :records_skipped, 0) > 0 do %>
-                    <div class="stat">
-                      <div class="stat-title">Records Skipped</div>
-                      <div class="stat-value text-warning">
-                        {format_number(@progress.records_skipped)}
-                      </div>
-                    </div>
-                  <% end %>
-                  <%= if Map.get(@progress, :records_errors, 0) > 0 do %>
-                    <div class="stat">
-                      <div class="stat-title">Errors</div>
-                      <div class="stat-value text-error">
-                        {format_number(@progress.records_errors)}
-                      </div>
-                    </div>
-                  <% end %>
-                </div>
-                <%= if Map.get(@progress, :error_messages, []) != [] do %>
-                  <div class="alert alert-warning mb-4 max-w-md">
-                    <div>
-                      <%= for msg <- Enum.reverse(@progress.error_messages) do %>
-                        <p class="text-sm">{msg}</p>
-                      <% end %>
-                    </div>
-                  </div>
+
+                <%= if Map.get(@progress, :retry_pass, 0) > 0 do %>
+                  <p class="text-sm text-base-content/60 mb-4">
+                    Auto-retried {Map.get(@progress, :retry_pass, 0)} time(s) to resolve dependencies
+                  </p>
                 <% end %>
+
+                <%!-- Per-table results --%>
+                <div class="w-full max-w-lg mb-6">
+                  <table class="table table-sm w-full">
+                    <thead>
+                      <tr>
+                        <th>Table</th>
+                        <th class="text-right">Imported</th>
+                        <th class="text-right">Skipped</th>
+                        <th class="text-right">Errors</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <%= for tr <- Map.get(@progress, :table_results, []) do %>
+                        <tr>
+                          <td class="font-mono text-xs">
+                            {tr.table}
+                            {if Map.get(tr, :retried), do: " ↻"}
+                          </td>
+                          <td class="text-right">
+                            <span class={
+                              if tr.imported > 0, do: "text-success font-semibold", else: ""
+                            }>
+                              {tr.imported}
+                            </span>
+                          </td>
+                          <td class="text-right">
+                            <span class={if tr.skipped > 0, do: "text-warning", else: ""}>
+                              {tr.skipped}
+                            </span>
+                          </td>
+                          <td class="text-right">
+                            <%= if tr.errors > 0 do %>
+                              <span
+                                class="text-error font-semibold tooltip tooltip-left"
+                                data-tip={tr.error_message}
+                              >
+                                {tr.errors}
+                              </span>
+                            <% else %>
+                              0
+                            <% end %>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                    <tfoot>
+                      <tr class="font-semibold">
+                        <td>Total</td>
+                        <td class="text-right text-success">
+                          {format_number(@progress.records_fetched)}
+                        </td>
+                        <td class="text-right text-warning">
+                          {format_number(Map.get(@progress, :records_skipped, 0))}
+                        </td>
+                        <td class="text-right text-error">
+                          {format_number(Map.get(@progress, :records_errors, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
                 <button type="button" phx-click="cancel" class="btn btn-primary">
                   Done
                 </button>
@@ -1782,7 +2039,11 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                   <span class="loading loading-spinner loading-lg text-primary"></span>
                   <%= if @progress do %>
                     <p class="mt-4 font-semibold">
-                      Syncing {@progress.current}/{@progress.total}
+                      <%= if Map.get(@progress, :status) == :retrying do %>
+                        Retry pass {Map.get(@progress, :retry_pass, 1)} — {@progress.current}/{@progress.total}
+                      <% else %>
+                        Syncing {@progress.current}/{@progress.total}
+                      <% end %>
                     </p>
                     <p class="text-base-content/70">
                       <%= if @progress.table do %>
@@ -1880,14 +2141,17 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                           <th class="text-right">Sender</th>
                           <th class="text-right">Local</th>
                           <th class="text-right">Size</th>
+                          <th class="text-center">Checksum</th>
                           <th class="text-center">Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         <%= for table <- @tables do %>
-                          <% table_name = table.name || table["name"] %>
+                          <% table_name = get_table_field(table, :name) %>
                           <% is_selected = MapSet.member?(@selected_tables, table_name) %>
                           <% local_count = Map.get(@local_counts, table_name) %>
+                          <% local_checksum = Map.get(@local_checksums, table_name) %>
+                          <% sender_checksum = Map.get(table, :checksum) || Map.get(table, "checksum") %>
                           <tr class={if is_selected, do: "bg-primary/10"}>
                             <td>
                               <button
@@ -1915,20 +2179,48 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                             <td class="text-right text-base-content/70">
                               {format_bytes(table.size_bytes || 0)}
                             </td>
+                            <td class="text-center font-mono text-xs text-base-content/50">
+                              <% short_sender = format_checksum(sender_checksum) %>
+                              <% short_local = format_checksum(local_checksum) %>
+                              <% cs_match = checksums_match?(sender_checksum, local_checksum) %>
+                              <span class={if cs_match, do: "text-success", else: "text-warning"}>
+                                {short_sender}
+                              </span>
+                              /
+                              <span class={if cs_match, do: "text-success", else: "text-warning"}>
+                                {short_local}
+                              </span>
+                            </td>
                             <td class="text-center">
+                              <% sender_count = table.row_count || 0 %>
+                              <% data_matches =
+                                cond do
+                                  checksums_match?(sender_checksum, local_checksum) ->
+                                    true
+
+                                  checksums_comparable?(sender_checksum, local_checksum) ->
+                                    false
+
+                                  true ->
+                                    local_count == sender_count
+                                end %>
                               <%= cond do %>
                                 <% local_count == nil -> %>
                                   <span class="badge badge-info badge-sm gap-1">
                                     <.icon name="hero-plus-circle-mini" class="w-3 h-3" /> New
                                   </span>
-                                <% local_count == (table.row_count || 0) -> %>
+                                <% data_matches -> %>
                                   <span class="badge badge-success badge-sm gap-1">
                                     <.icon name="hero-check-circle-mini" class="w-3 h-3" /> Match
                                   </span>
                                 <% true -> %>
                                   <span class="badge badge-warning badge-sm gap-1">
                                     <.icon name="hero-exclamation-triangle-mini" class="w-3 h-3" />
-                                    {abs((table.row_count || 0) - local_count)} diff
+                                    <%= if local_count != sender_count do %>
+                                      {abs(sender_count - local_count)} diff
+                                    <% else %>
+                                      Modified
+                                    <% end %>
                                   </span>
                               <% end %>
                             </td>
@@ -1948,12 +2240,12 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                       />
                       <.table_summary_stat
                         label="Different"
-                        count={count_different_tables(@tables, @local_counts)}
+                        count={count_different_tables(@tables, @local_counts, @local_checksums)}
                         color="warning"
                       />
                       <.table_summary_stat
                         label="Match"
-                        count={count_same_tables(@tables, @local_counts)}
+                        count={count_same_tables(@tables, @local_counts, @local_checksums)}
                         color="success"
                       />
                     </div>
@@ -1979,53 +2271,75 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
           <% else %>
             <%!-- ========== PRECISE TRANSFER TAB ========== --%>
             <%= if @progress && Map.get(@progress, :status) == :completed do %>
+              <% has_errors = Map.get(@progress, :records_errors, 0) > 0 %>
               <div class="flex flex-col items-center justify-center py-12">
-                <%= if Map.get(@progress, :error_messages, []) != [] do %>
+                <%= if has_errors do %>
                   <div class="text-6xl mb-4">⚠️</div>
-                  <h3 class="text-2xl font-bold text-warning mb-4">Transfer Completed with Issues</h3>
+                  <h3 class="text-2xl font-bold text-warning mb-4">Transfer Completed with Errors</h3>
                 <% else %>
                   <div class="text-6xl mb-4">🎉</div>
                   <h3 class="text-2xl font-bold text-success mb-4">Transfer Complete!</h3>
                 <% end %>
-                <div class="stats shadow mb-6">
-                  <div class="stat">
-                    <div class="stat-title">Table</div>
-                    <div class="stat-value text-primary font-mono text-lg">
-                      {@progress[:table] || @selected_detail_table || "1 table"}
-                    </div>
-                  </div>
-                  <div class="stat">
-                    <div class="stat-title">Records Imported</div>
-                    <div class="stat-value text-success">
-                      {format_number(@progress.records_fetched || 0)}
-                    </div>
-                  </div>
-                  <%= if Map.get(@progress, :records_skipped, 0) > 0 do %>
-                    <div class="stat">
-                      <div class="stat-title">Records Skipped</div>
-                      <div class="stat-value text-warning">
-                        {format_number(@progress.records_skipped)}
-                      </div>
-                    </div>
-                  <% end %>
-                  <%= if Map.get(@progress, :records_errors, 0) > 0 do %>
-                    <div class="stat">
-                      <div class="stat-title">Errors</div>
-                      <div class="stat-value text-error">
-                        {format_number(@progress.records_errors)}
-                      </div>
-                    </div>
-                  <% end %>
-                </div>
-                <%= if Map.get(@progress, :error_messages, []) != [] do %>
-                  <div class="alert alert-warning mb-4 max-w-md">
-                    <div>
-                      <%= for msg <- Enum.reverse(@progress.error_messages) do %>
-                        <p class="text-sm">{msg}</p>
+
+                <%!-- Per-table results --%>
+                <div class="w-full max-w-lg mb-6">
+                  <table class="table table-sm w-full">
+                    <thead>
+                      <tr>
+                        <th>Table</th>
+                        <th class="text-right">Imported</th>
+                        <th class="text-right">Skipped</th>
+                        <th class="text-right">Errors</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <%= for tr <- Map.get(@progress, :table_results, []) do %>
+                        <tr>
+                          <td class="font-mono text-xs">{tr.table}</td>
+                          <td class="text-right">
+                            <span class={
+                              if tr.imported > 0, do: "text-success font-semibold", else: ""
+                            }>
+                              {tr.imported}
+                            </span>
+                          </td>
+                          <td class="text-right">
+                            <span class={if tr.skipped > 0, do: "text-warning", else: ""}>
+                              {tr.skipped}
+                            </span>
+                          </td>
+                          <td class="text-right">
+                            <%= if tr.errors > 0 do %>
+                              <span
+                                class="text-error font-semibold tooltip tooltip-left"
+                                data-tip={tr.error_message}
+                              >
+                                {tr.errors}
+                              </span>
+                            <% else %>
+                              0
+                            <% end %>
+                          </td>
+                        </tr>
                       <% end %>
-                    </div>
-                  </div>
-                <% end %>
+                    </tbody>
+                    <tfoot>
+                      <tr class="font-semibold">
+                        <td>Total</td>
+                        <td class="text-right text-success">
+                          {format_number(@progress.records_fetched || 0)}
+                        </td>
+                        <td class="text-right text-warning">
+                          {format_number(Map.get(@progress, :records_skipped, 0))}
+                        </td>
+                        <td class="text-right text-error">
+                          {format_number(Map.get(@progress, :records_errors, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
                 <button type="button" phx-click="cancel" class="btn btn-primary">Done</button>
               </div>
             <% else %>
@@ -2037,7 +2351,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
                   <select class="select select-bordered w-full max-w-md" name="table">
                     <option value="">-- Select a table --</option>
                     <%= for table <- @tables do %>
-                      <% table_name = if is_map(table), do: table.name || table["name"], else: table %>
+                      <% table_name = if is_map(table), do: get_table_field(table, :name), else: table %>
                       <% sender_count =
                         if is_map(table), do: table.row_count || table["row_count"] || 0, else: 0 %>
                       <option value={table_name} selected={@selected_detail_table == table_name}>
@@ -2444,32 +2758,66 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   # Count tables that don't exist locally
   defp count_new_tables(tables, local_counts) do
     Enum.count(tables, fn table ->
-      name = table.name || table["name"]
+      name = get_table_field(table, :name)
       not Map.has_key?(local_counts, name)
     end)
   end
 
-  # Count tables with different counts
-  defp count_different_tables(tables, local_counts) do
+  # Count tables with different data (by checksum, fallback to count)
+  defp count_different_tables(tables, local_counts, local_checksums) do
     Enum.count(tables, fn table ->
-      name = table.name || table["name"]
+      name = get_table_field(table, :name)
       local_count = Map.get(local_counts, name)
-      sender_count = table.row_count || table["row_count"] || 0
 
-      not is_nil(local_count) and local_count != sender_count
+      if is_nil(local_count) do
+        false
+      else
+        not table_data_matches?(table, local_count, local_checksums)
+      end
     end)
   end
 
-  # Count tables that match (same count)
-  defp count_same_tables(tables, local_counts) do
+  # Count tables that match (by checksum, fallback to count)
+  defp count_same_tables(tables, local_counts, local_checksums) do
     Enum.count(tables, fn table ->
-      name = table.name || table["name"]
+      name = get_table_field(table, :name)
       local_count = Map.get(local_counts, name)
-      sender_count = table.row_count || table["row_count"] || 0
 
-      not is_nil(local_count) and local_count == sender_count
+      if is_nil(local_count) do
+        false
+      else
+        table_data_matches?(table, local_count, local_checksums)
+      end
     end)
   end
+
+  defp table_data_matches?(table, local_count, local_checksums) do
+    name = get_table_field(table, :name)
+    local_cs = Map.get(local_checksums, name)
+    sender_cs = get_table_field(table, :checksum)
+
+    cond do
+      checksums_match?(sender_cs, local_cs) -> true
+      checksums_comparable?(sender_cs, local_cs) -> false
+      true -> local_count == (get_table_field(table, :row_count) || 0)
+    end
+  end
+
+  # Safely get a field from a table map (handles both atom and string keys)
+  defp get_table_field(table, field) when is_atom(field) do
+    Map.get(table, field) || Map.get(table, Atom.to_string(field))
+  end
+
+  # Checksum display/comparison helpers — checksums can be strings, :too_large, or nil
+  defp format_checksum(nil), do: "—"
+  defp format_checksum(:too_large), do: "large"
+  defp format_checksum(cs) when is_binary(cs), do: String.slice(cs, 0, 6)
+  defp format_checksum(_), do: "—"
+
+  defp checksums_match?(s, l) when is_binary(s) and is_binary(l), do: s == l
+  defp checksums_match?(_, _), do: false
+
+  defp checksums_comparable?(s, l), do: is_binary(s) and is_binary(l)
 
   defp log_remote_notification(connection, token) do
     result = ConnectionNotifier.notify_remote_site(connection, token)
