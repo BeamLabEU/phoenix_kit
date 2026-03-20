@@ -1,3 +1,20 @@
+## 1.7.79 - 2026-03-20
+
+### Fixed
+- Fix UserSettings regressions from PR #436 redesign:
+  - Restore timezone selector (timezone select, mismatch warning, browser detection)
+  - Restore Apple OAuth provider icon (`hero-device-phone-mobile`)
+  - Restore OAuth-only password warning for users without passwords
+  - Restore provider email display in connected accounts list
+  - Fix custom field `select` using index-based values instead of actual option values (data compatibility break)
+  - Restore all custom field input types (`textarea`, `number`, `email`, `url`, `date`) — were collapsed to plain text
+  - Restore `required` attribute on custom field inputs
+  - Restore unique `id` attributes on password/email form hidden inputs
+  - Restore profile/avatar success and error messages in template
+  - Fix `shadow-xl` → `shadow-sm` for card styling consistency
+  - Fix divider placement — move out of username field, add "Additional Information" heading for custom fields
+  - Extract `extract_custom_fields/1` and `merge_custom_fields/3` helpers to DRY duplicated logic
+
 ## 1.7.78 - 2026-03-18
 
 ### Added
