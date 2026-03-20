@@ -255,17 +255,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           socket
       end
 
-    # Custom fields are nested under profile_form[user][custom_fields]
-    custom_fields_data = get_in(params, ["profile_form", "user", "custom_fields"])
-
-    merged_params =
-      case custom_fields_data do
-        custom_fields when is_map(custom_fields) ->
-          Map.put(user_params, "custom_fields", custom_fields)
-
-        _ ->
-          user_params
-      end
+    merged_params = merge_custom_fields(params, user_params)
 
     profile_form =
       socket.assigns.user
@@ -289,8 +279,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     %{"user" => user_params} = params
     user = socket.assigns.user
 
-    # Custom fields are nested under profile_form[user][custom_fields]
-    custom_fields_data = get_in(params, ["profile_form", "user", "custom_fields"])
+    custom_fields_data = extract_custom_fields(params)
 
     merged_params =
       case custom_fields_data do
@@ -555,6 +544,20 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     has_password or oauth_count > 1
   end
 
+  defp extract_custom_fields(params) do
+    get_in(params, ["profile_form", "user", "custom_fields"])
+  end
+
+  defp merge_custom_fields(params, user_params) do
+    case extract_custom_fields(params) do
+      custom_fields when is_map(custom_fields) ->
+        Map.put(user_params, "custom_fields", custom_fields)
+
+      _ ->
+        user_params
+    end
+  end
+
   defp format_provider_name("google"), do: "Google"
   defp format_provider_name("apple"), do: "Apple"
   defp format_provider_name("github"), do: "GitHub"
@@ -654,7 +657,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
-    <div class="card bg-base-100 shadow-xl max-w-4xl mx-auto">
+    <div class="card bg-base-100 shadow-sm max-w-4xl mx-auto">
       <div class="card-body">
         <h1 class="card-title text-2xl">
           <.icon name="hero-user-circle" class="w-6 h-6" /> Account Settings
@@ -663,6 +666,28 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         <%!-- Profile Section --%>
         <%= if :profile in @sections do %>
           <div>
+            <%!-- Success Message --%>
+            <%= if @profile_success_message do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@profile_success_message}</span>
+              </div>
+            <% end %>
+
+            <%!-- Avatar Upload Messages --%>
+            <%= if @last_uploaded_avatar_uuid do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>Avatar uploaded successfully!</span>
+              </div>
+            <% end %>
+            <%= if @avatar_error_message do %>
+              <div class="alert alert-error text-sm mb-4">
+                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@avatar_error_message}</span>
+              </div>
+            <% end %>
+
             <%!-- Profile Form with Avatar --%>
             <.simple_form
               for={@profile_form}
@@ -717,49 +742,116 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       type="text"
                       label="Username"
                     />
-                    <div class="divider mt-8 mb-2"></div>
                   </div>
-                  <%= for field <- @custom_field_definitions do %>
-                    <% field_name = "profile_form[user][custom_fields][#{field["key"]}]" %>
-                    <% field_id = "profile_form_user_custom_fields_#{field["key"]}" %>
-                    <% field_value =
-                      get_in(@user.custom_fields, [field["key"]]) || field["default"] || "" %>
+
+                  <%!-- Custom Fields --%>
+                  <%= if length(@custom_field_definitions) > 0 do %>
                     <div class="col-span-1 lg:col-span-2">
-                      <label class="label" for={field_id}>
-                        <span class="label-text">{field["label"]}</span>
-                      </label>
-                      <%= case field["type"] do %>
-                        <% "select" -> %>
-                          <select
-                            name={field_name}
-                            id={field_id}
-                            class="select select-bordered w-full"
-                          >
-                            <%= for {option, index} <- Enum.with_index(field["options"] || []) do %>
-                              <% {label, _value} =
-                                if is_binary(option),
-                                  do: {option, option},
-                                  else: {option["label"], option["value"]} %>
-                              <% index_str = to_string(index) %>
-                              <% field_value_str = to_string(field_value) %>
-                              <% is_selected = field_value_str == index_str %>
-                              <option value={index_str} selected={is_selected}>
-                                {label}
-                              </option>
-                            <% end %>
-                          </select>
-                        <% _ -> %>
-                          <input
-                            type="text"
-                            name={field_name}
-                            id={field_id}
-                            value={field_value}
-                            class="input input-bordered w-full"
-                          />
-                      <% end %>
+                      <div class="divider text-sm text-base-content/60">Additional Information</div>
                     </div>
+
+                    <%= for field <- @custom_field_definitions do %>
+                      <% field_name = "profile_form[user][custom_fields][#{field["key"]}]" %>
+                      <% field_value =
+                        get_in(@user.custom_fields, [field["key"]]) || field["default"] || "" %>
+                      <div class="col-span-1 lg:col-span-2">
+                        <%= case field["type"] do %>
+                          <% "select" -> %>
+                            <.select
+                              name={field_name}
+                              label={field["label"]}
+                              options={
+                                Enum.map(field["options"] || [], fn opt ->
+                                  if is_binary(opt),
+                                    do: {opt, opt},
+                                    else: {opt["label"], opt["value"]}
+                                end)
+                              }
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "textarea" -> %>
+                            <.textarea
+                              name={field_name}
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "number" -> %>
+                            <.input
+                              name={field_name}
+                              type="number"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "email" -> %>
+                            <.input
+                              name={field_name}
+                              type="email"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "url" -> %>
+                            <.input
+                              name={field_name}
+                              type="url"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "date" -> %>
+                            <.input
+                              name={field_name}
+                              type="date"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% _ -> %>
+                            <.input
+                              name={field_name}
+                              type="text"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                        <% end %>
+                      </div>
+                    <% end %>
                   <% end %>
                 </div>
+              </div>
+
+              <%!-- Timezone Section --%>
+              <div id={"#{@id}-timezone-detector"}>
+                <.select
+                  field={@profile_form[:user_timezone]}
+                  label="Personal Timezone"
+                  options={@timezone_options}
+                />
+
+                <%= if assigns[:timezone_mismatch_warning] do %>
+                  <div class="alert alert-warning text-sm mt-2">
+                    <.icon
+                      name="hero-exclamation-triangle"
+                      class="stroke-current shrink-0 h-4 w-4"
+                    />
+                    <div>
+                      <div class="font-semibold">Timezone Mismatch Detected</div>
+                      <div class="text-xs">
+                        {@timezone_mismatch_warning}
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%= if assigns[:browser_timezone_name] do %>
+                  <div class="text-xs text-base-content/60 mt-1">
+                    Browser detected: {@browser_timezone_name} ({@browser_timezone_offset})
+                  </div>
+                <% end %>
               </div>
 
               <:actions>
@@ -827,6 +919,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <.input
                   field={@email_form[:current_password]}
                   name="current_password"
+                  id={"#{@id}-current-password-for-email"}
                   type="password"
                   label="Current Password"
                   value={@email_form_current_password}
@@ -896,6 +989,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <input
                   name={@password_form[:email].name}
                   type="hidden"
+                  id={"#{@id}-hidden-user-email"}
                   value={@current_email}
                 />
                 <.input
@@ -914,6 +1008,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   name="current_password"
                   type="password"
                   label="Current Password"
+                  id={"#{@id}-current-password-for-password"}
                   value={@current_password}
                   required
                 />
@@ -931,6 +1026,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
         <%!-- OAuth Section --%>
         <%= if :oauth in @sections and @oauth_available do %>
+          <div class="divider"></div>
           <div>
             <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
               <.icon name="hero-link" class="w-5 h-5 text-primary" /> Connected Accounts
@@ -958,12 +1054,19 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       <%= case provider.provider do %>
                         <% "google" -> %>
                           <.icon name="hero-globe-alt" class="w-5 h-5" />
+                        <% "apple" -> %>
+                          <.icon name="hero-device-phone-mobile" class="w-5 h-5" />
                         <% "github" -> %>
                           <.icon name="hero-code-bracket" class="w-5 h-5" />
                         <% _ -> %>
                           <.icon name="hero-link" class="w-5 h-5" />
                       <% end %>
-                      <span class="font-medium">{format_provider_name(provider.provider)}</span>
+                      <div>
+                        <span class="font-medium">{format_provider_name(provider.provider)}</span>
+                        <div class="text-xs text-base-content/60">
+                          {provider.provider_email || @current_email}
+                        </div>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -971,7 +1074,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       phx-target={@myself}
                       phx-value-provider={provider.provider}
                       class="btn btn-sm btn-outline btn-error"
-                      data-confirm="Disconnect this account?"
+                      data-confirm="Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
                     >
                       Disconnect
                     </button>
@@ -995,6 +1098,19 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     Connect {format_provider_name(provider)}
                   </button>
                 <% end %>
+              </div>
+            <% end %>
+
+            <%!-- Password Warning for OAuth-only Users --%>
+            <%= if length(@oauth_providers) > 0 and @user.hashed_password == nil do %>
+              <div class="alert alert-warning text-sm mt-4">
+                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                <div>
+                  <div class="font-semibold">No Password Set</div>
+                  <div class="text-xs">
+                    You signed up using OAuth. Consider setting a password above as a backup sign-in method.
+                  </div>
+                </div>
               </div>
             <% end %>
           </div>
