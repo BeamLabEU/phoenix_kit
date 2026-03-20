@@ -1476,9 +1476,17 @@ defmodule PhoenixKit.Users.Auth do
 
   defp infer_field_type(value) when is_binary(value) do
     cond do
-      String.match?(value, ~r/^https?:\/\//) -> "url"
-      String.match?(value, ~r/^[^\s]+@[^\s]+\.[^\s]+$/) -> "email"
-      true -> "text"
+      String.match?(value, ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ->
+        "uuid"
+
+      String.match?(value, ~r/^https?:\/\//) ->
+        "url"
+
+      String.match?(value, ~r/^[^\s]+@[^\s]+\.[^\s]+$/) ->
+        "email"
+
+      true ->
+        "text"
     end
   end
 
