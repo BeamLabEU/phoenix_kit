@@ -75,6 +75,11 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
   attr :policy_version, :string, default: "1.0", doc: "Policy version for consent tracking"
   attr :cookie_policy_url, :string, default: "/legal/cookie-policy"
   attr :privacy_policy_url, :string, default: "/legal/privacy-policy"
+
+  attr :legal_links, :list,
+    default: [],
+    doc: "Dynamic list of %{title, url} for published legal pages"
+
   attr :google_consent_mode, :boolean, default: false, doc: "Enable Google Consent Mode v2"
   attr :class, :string, default: ""
 
@@ -173,7 +178,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
         }
 
         .pk-glass {
-          background: oklch(var(--b1) / 0.95);
+          background: oklch(var(--b1) / 0.98);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
           border: 1px solid var(--pk-border);
@@ -254,18 +259,33 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                 <h3 class="font-semibold text-base-content text-sm sm:text-base">
                   {gettext("We value your privacy")}
                 </h3>
-                <p class="text-base-content/70 text-xs sm:text-sm mt-0.5 leading-relaxed max-w-xl">
+                <p class="text-base-content/80 text-xs sm:text-sm mt-0.5 leading-relaxed max-w-xl">
                   {gettext(
                     "We use cookies to enhance your browsing experience and analyze our traffic."
                   )}
                   {" "}
-                  <a
-                    href={@cookie_policy_url}
-                    class="link link-primary text-xs sm:text-sm"
-                    target="_blank"
-                  >
-                    {gettext("Cookie Policy")}
-                  </a>
+                  <%= if @legal_links == [] do %>
+                    <a
+                      href={@cookie_policy_url}
+                      class="link link-primary text-xs sm:text-sm"
+                      target="_blank"
+                    >
+                      {gettext("Cookie Policy")}
+                    </a>
+                  <% else %>
+                    <%= for {link, index} <- Enum.with_index(@legal_links) do %>
+                      <%= if index > 0 do %>
+                        <span class="mx-1">•</span>
+                      <% end %>
+                      <a
+                        href={link.url}
+                        class="link link-primary text-xs sm:text-sm"
+                        target="_blank"
+                      >
+                        {link.title}
+                      </a>
+                    <% end %>
+                  <% end %>
                 </p>
               </div>
             </div>
@@ -308,7 +328,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
       >
         <%!-- Backdrop --%>
         <div
-          class="pk-modal-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm"
+          class="pk-modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm"
           onclick="window.PhoenixKitConsent?.closePreferences()"
         >
         </div>
@@ -356,7 +376,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
               <%= for category <- @categories do %>
                 <div class={[
                   "pk-category-card rounded-xl p-4",
-                  "bg-base-200/50 border border-base-300/30"
+                  "bg-base-200/80 border border-base-300/30"
                 ]}>
                   <div class="flex items-start justify-between gap-3">
                     <div class="flex items-start gap-3 flex-1 min-w-0">
@@ -374,7 +394,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                             </span>
                           <% end %>
                         </div>
-                        <p class="text-xs text-base-content/60 mt-1 leading-relaxed">
+                        <p class="text-xs text-base-content/70 mt-1 leading-relaxed">
                           {category.description}
                         </p>
                       </div>
@@ -411,22 +431,37 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
             <div class="px-6 py-4 border-t border-base-300/50 bg-base-200/30">
               <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <%!-- Policy Links --%>
-                <div class="flex items-center gap-3 text-xs text-base-content/60">
-                  <a
-                    href={@privacy_policy_url}
-                    class="link hover:text-primary transition-colors"
-                    target="_blank"
-                  >
-                    {gettext("Privacy Policy")}
-                  </a>
-                  <span class="text-base-300">•</span>
-                  <a
-                    href={@cookie_policy_url}
-                    class="link hover:text-primary transition-colors"
-                    target="_blank"
-                  >
-                    {gettext("Cookie Policy")}
-                  </a>
+                <div class="flex items-center gap-3 text-xs text-base-content/70">
+                  <%= if @legal_links == [] do %>
+                    <a
+                      href={@privacy_policy_url}
+                      class="link hover:text-primary transition-colors"
+                      target="_blank"
+                    >
+                      {gettext("Privacy Policy")}
+                    </a>
+                    <span class="text-base-300">•</span>
+                    <a
+                      href={@cookie_policy_url}
+                      class="link hover:text-primary transition-colors"
+                      target="_blank"
+                    >
+                      {gettext("Cookie Policy")}
+                    </a>
+                  <% else %>
+                    <%= for {link, index} <- Enum.with_index(@legal_links) do %>
+                      <%= if index > 0 do %>
+                        <span class="text-base-300">•</span>
+                      <% end %>
+                      <a
+                        href={link.url}
+                        class="link hover:text-primary transition-colors"
+                        target="_blank"
+                      >
+                        {link.title}
+                      </a>
+                    <% end %>
+                  <% end %>
                 </div>
 
                 <%!-- Action Buttons --%>

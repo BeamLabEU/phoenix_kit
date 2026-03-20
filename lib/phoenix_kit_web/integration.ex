@@ -101,7 +101,6 @@ defmodule PhoenixKitWeb.Integration do
   alias PhoenixKitWeb
   alias PhoenixKitWeb.Routes.BlogRoutes
   alias PhoenixKitWeb.Routes.CustomerServiceRoutes
-  alias PhoenixKitWeb.Routes.EmailsRoutes
   alias PhoenixKitWeb.Routes.PublishingRoutes
   alias PhoenixKitWeb.Routes.ReferralsRoutes
   alias PhoenixKitWeb.Routes.ShopRoutes
@@ -426,9 +425,6 @@ defmodule PhoenixKitWeb.Integration do
     # so plugin LiveViews don't need to wrap with LayoutWrapper themselves
     plugin_admin_routes = compile_plugin_admin_routes(__CALLER__.module)
 
-    # Get external route module AST outside quote to avoid require/alias inside quote
-    emails_admin = safe_route_call(EmailsRoutes, :admin_routes, [])
-
     {tickets_admin, publishing_admin, referrals_admin} =
       if suffix == :_locale do
         {
@@ -751,7 +747,6 @@ defmodule PhoenixKitWeb.Integration do
             as: :ai_prompt_edit
 
           # Routes from external route modules
-          unquote(emails_admin)
           unquote(tickets_admin)
           unquote(publishing_admin)
           unquote(referrals_admin)
@@ -1342,7 +1337,6 @@ defmodule PhoenixKitWeb.Integration do
 
     # Call route generators BEFORE quote block (aliases work in this context)
     # Uses safe_route_call/3 so modules can be safely extracted to separate packages
-    emails_routes = safe_route_call(EmailsRoutes, :generate, [url_prefix])
     publishing_routes = safe_route_call(PublishingRoutes, :generate, [url_prefix])
     customer_service_routes = safe_route_call(CustomerServiceRoutes, :generate, [url_prefix])
     blog_routes = safe_route_call(BlogRoutes, :generate, [url_prefix])
@@ -1365,7 +1359,6 @@ defmodule PhoenixKitWeb.Integration do
       unquote_splicing(module_public_routes)
 
       # Generate module routes from separate files (improves compilation time)
-      unquote(emails_routes)
       unquote(publishing_routes)
       unquote(customer_service_routes)
 

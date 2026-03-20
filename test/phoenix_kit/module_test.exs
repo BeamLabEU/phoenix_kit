@@ -9,7 +9,6 @@ defmodule PhoenixKit.ModuleTest do
     PhoenixKit.Modules.Comments,
     PhoenixKit.Modules.Connections,
     PhoenixKit.Modules.DB,
-    PhoenixKit.Modules.Emails,
     PhoenixKit.Modules.Entities,
     PhoenixKit.Modules.Languages,
     PhoenixKit.Modules.Legal,

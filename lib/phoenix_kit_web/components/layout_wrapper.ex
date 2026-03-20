@@ -700,6 +700,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             policy_version={config.policy_version}
             cookie_policy_url={config.cookie_policy_url}
             privacy_policy_url={config.privacy_policy_url}
+            legal_links={config.legal_links}
             google_consent_mode={config.google_consent_mode}
           />
         <% end %>
