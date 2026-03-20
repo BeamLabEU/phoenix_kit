@@ -45,7 +45,7 @@ defmodule PhoenixKit.Users.CustomFields do
 
   @setting_key "custom_user_fields_definitions"
 
-  @supported_types ~w(text textarea number boolean date email url select radio checkbox)
+  @supported_types ~w(text textarea number boolean date email url uuid select radio checkbox)
 
   # Field Definition Management
 
@@ -527,6 +527,17 @@ defmodule PhoenixKit.Users.CustomFields do
        do: :ok
 
   defp validate_type(%{"type" => "boolean"}, _value), do: {:error, "Must be true or false"}
+
+  defp validate_type(%{"type" => "uuid"} = _field_def, value) do
+    if String.match?(
+         to_string(value),
+         ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+       ) do
+      :ok
+    else
+      {:error, "Invalid UUID format"}
+    end
+  end
 
   defp validate_type(%{"type" => "date"} = _field_def, value) do
     case Date.from_iso8601(to_string(value)) do
