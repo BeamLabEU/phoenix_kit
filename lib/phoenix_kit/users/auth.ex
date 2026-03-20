@@ -1457,10 +1457,12 @@ defmodule PhoenixKit.Users.Auth do
           |> String.split()
           |> Enum.map_join(" ", &String.capitalize/1)
 
+        value = Map.get(custom_fields, key)
+
         CustomFields.add_field_definition(%{
           "key" => key,
           "label" => label,
-          "type" => "text",
+          "type" => infer_field_type(value),
           "enabled" => true,
           "user_accessible" => false,
           "position" => pos
@@ -1468,6 +1470,19 @@ defmodule PhoenixKit.Users.Auth do
       end)
     end
   end
+
+  defp infer_field_type(value) when is_boolean(value), do: "boolean"
+  defp infer_field_type(value) when is_number(value), do: "number"
+
+  defp infer_field_type(value) when is_binary(value) do
+    cond do
+      String.match?(value, ~r/^https?:\/\//) -> "url"
+      String.match?(value, ~r/^[^\s]+@[^\s]+\.[^\s]+$/) -> "email"
+      true -> "text"
+    end
+  end
+
+  defp infer_field_type(_), do: "text"
 
   @doc """
   Updates both schema and custom fields in a single call.
