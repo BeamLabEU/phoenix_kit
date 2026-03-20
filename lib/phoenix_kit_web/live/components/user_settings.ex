@@ -245,6 +245,23 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     %{"user" => user_params} = params
 
     socket =
+      if params["_target"] == ["avatar"] do
+        entries = socket.assigns.uploads.avatar.entries
+
+        if entries != [] do
+          send_update_after(
+            __MODULE__,
+            %{id: socket.assigns.id, action: :check_avatar_uploads_complete},
+            500
+          )
+        end
+
+        socket
+      else
+        socket
+      end
+
+    socket =
       case {params["browser_timezone_name"], params["browser_timezone_offset"]} do
         {name, offset} when is_binary(name) and is_binary(offset) ->
           socket
@@ -292,25 +309,17 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     # Custom fields are nested under profile_form[user][custom_fields]
     custom_fields_data = get_in(params, ["profile_form", "user", "custom_fields"])
 
+    existing_custom_fields = user.custom_fields || %{}
+
     merged_params =
       case custom_fields_data do
         custom_fields when is_map(custom_fields) ->
-          existing_avatar = get_in(user.custom_fields, ["avatar_file_uuid"])
-
-          updated_custom_fields =
-            if existing_avatar do
-              Map.put(custom_fields, "avatar_file_uuid", existing_avatar)
-            else
-              custom_fields
-            end
-
+          updated_custom_fields = Map.merge(existing_custom_fields, custom_fields)
           Map.put(user_params, "custom_fields", updated_custom_fields)
 
         _ ->
-          existing_avatar = get_in(user.custom_fields, ["avatar_file_uuid"])
-
-          if existing_avatar do
-            Map.put(user_params, "custom_fields", %{"avatar_file_uuid" => existing_avatar})
+          if map_size(existing_custom_fields) > 0 do
+            Map.put(user_params, "custom_fields", existing_custom_fields)
           else
             user_params
           end
@@ -433,23 +442,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
       {:noreply, socket}
     end
-  end
-
-  def handle_event("validate", %{"_target" => ["avatar"]}, socket) do
-    entries = socket.assigns.uploads.avatar.entries
-    Logger.info("avatar validate event: entries=#{length(entries)}")
-
-    if entries != [] do
-      Logger.info("avatar validate: scheduling check_uploads_complete")
-
-      send_update_after(
-        __MODULE__,
-        %{id: socket.assigns.id, action: :check_avatar_uploads_complete},
-        500
-      )
-    end
-
-    {:noreply, socket}
   end
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
