@@ -1,3 +1,19 @@
+## 1.7.80 - 2026-03-20
+
+### Added
+- Add `uuid` type to custom fields system
+- Add auto-registration of custom field definitions on save with type inference
+
+### Changed
+- Extract Sync module to standalone `phoenix_kit_sync` package
+- Move custom fields domain logic to `CustomFields` module, deduplicate UUID regex, add error logging
+- Fix permissions table style — replace manual zebra striping with daisyUI `table-zebra`, use primary-colored header
+
+### Fixed
+- Fix avatar upload handling and `custom_fields` preservation in UserSettings
+- Fix admin page and user dashboard styles
+- Fix plugin reference name in module system guide
+
 ## 1.7.79 - 2026-03-20
 
 ### Fixed
