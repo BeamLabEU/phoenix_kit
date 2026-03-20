@@ -419,7 +419,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Shop,
       PhoenixKit.Modules.Sitemap,
       PhoenixKit.Modules.Storage,
-      PhoenixKit.Modules.Sync,
       PhoenixKit.Modules.CustomerService,
       PhoenixKit.Jobs
     ]
@@ -438,6 +437,16 @@ defmodule PhoenixKit.ModuleRegistry do
           "Email newsletter management with list subscriptions, broadcast campaigns, and delivery tracking.",
         icon: "📧",
         hex_url: "https://hex.pm/packages/phoenix_kit_newsletters"
+      },
+      %{
+        module: PhoenixKitSync,
+        key: "sync",
+        hex_package: "phoenix_kit_sync",
+        name: "Sync",
+        description:
+          "Peer-to-peer data synchronization between PhoenixKit instances with token-based connections and transfer tracking.",
+        icon: "🔄",
+        hex_url: "https://hex.pm/packages/phoenix_kit_sync"
       }
     ]
   end

@@ -53,7 +53,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert "emails" in keys
       assert "entities" in keys
       assert "ai" in keys
-      assert length(keys) == 20
+      assert length(keys) == 19
     end
 
     test "does not include core keys" do
@@ -70,8 +70,8 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert MapSet.new(all) == MapSet.new(expected)
     end
 
-    test "has 25 built-in keys" do
-      assert length(Permissions.all_module_keys()) == 25
+    test "has 24 built-in keys" do
+      assert length(Permissions.all_module_keys()) == 24
     end
   end
 
@@ -284,7 +284,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert Permissions.valid_module_key?("billing")
     end
 
-    test "returns true for all 25 built-in keys" do
+    test "returns true for all 24 built-in keys" do
       for key <- Permissions.core_section_keys() ++ Permissions.feature_module_keys() do
         assert Permissions.valid_module_key?(key), "Expected #{key} to be valid"
       end

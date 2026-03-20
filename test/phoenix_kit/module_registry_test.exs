@@ -3,7 +3,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
 
   alias PhoenixKit.ModuleRegistry
 
-  # The registry is started in test_helper.exs with all 21 internal modules loaded.
+  # The registry is started in test_helper.exs with all 20 internal modules loaded.
 
   describe "all_modules/0" do
     test "returns a non-empty list" do
@@ -12,9 +12,9 @@ defmodule PhoenixKit.ModuleRegistryTest do
       assert modules != []
     end
 
-    test "contains all 21 internal modules" do
+    test "contains all 20 internal modules" do
       modules = ModuleRegistry.all_modules()
-      assert length(modules) >= 21
+      assert length(modules) >= 20
     end
 
     test "all entries are atoms" do
@@ -144,7 +144,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a list of permission metadata maps" do
       metadata = ModuleRegistry.all_permission_metadata()
       assert is_list(metadata)
-      assert length(metadata) >= 20
+      assert length(metadata) >= 19
 
       for meta <- metadata do
         assert is_map(meta)
@@ -166,10 +166,10 @@ defmodule PhoenixKit.ModuleRegistryTest do
   end
 
   describe "all_feature_keys/0" do
-    test "returns sorted list of 20 feature keys" do
+    test "returns sorted list of 19 feature keys" do
       keys = ModuleRegistry.all_feature_keys()
       assert is_list(keys)
-      assert length(keys) == 20
+      assert length(keys) == 19
       assert keys == Enum.sort(keys)
     end
 
@@ -196,7 +196,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a map of key => {module, :enabled?}" do
       checks = ModuleRegistry.feature_enabled_checks()
       assert is_map(checks)
-      assert map_size(checks) >= 20
+      assert map_size(checks) >= 19
 
       for {key, {mod, fun}} <- checks do
         assert is_binary(key)

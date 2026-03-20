@@ -973,7 +973,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     {"emails", "/admin/emails"},
     {"ai", "/admin/ai"},
     {"jobs", "/admin/jobs"},
-    {"sync", "/admin/sync"},
     {"db", "/admin/db"},
     {"publishing", "/admin/publishing"},
     # Settings sub-pages (lower priority landing pages)
@@ -982,8 +981,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     {"sitemap", "/admin/settings/sitemap"},
     {"maintenance", "/admin/settings/maintenance"},
     {"legal", "/admin/settings/legal"},
-    {"referrals", "/admin/settings/referral-codes"},
-    {"connections", "/admin/sync/connections"}
+    {"referrals", "/admin/settings/referral-codes"}
   ]
 
   # Find the best admin page the user has access to, falling back to "/"
