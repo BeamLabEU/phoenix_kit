@@ -45,7 +45,6 @@ config :phoenix_kit, Oban,
     scheduled_jobs: 1,
     sitemap: 5,
     sqs_polling: 1,
-    sync: 5,
     shop_imports: 2
   ],
   plugins: [

@@ -123,8 +123,6 @@ This will automatically:
 
 ✅ Posts Module (for User Generated Content/UGC)
 
-✅ Sync Module (to sync dev / testing / staging / production) environments
-
 ✅ Sitemap Module
 
 ✅ AI Module
@@ -464,11 +462,11 @@ PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 
 PhoenixKit includes a granular permission system that controls which roles can access which admin sections and feature modules.
 
-**25 permission keys**: 5 core sections (dashboard, users, media, settings, modules) + 20 feature modules
+**24 permission keys**: 5 core sections (dashboard, users, media, settings, modules) + 19 feature modules
 
 **Access rules**:
 - **Owner** bypasses all checks (full access always)
-- **Admin** seeded with all 25 keys by default
+- **Admin** seeded with all 24 keys by default
 - **Custom roles** start with no permissions, assigned via matrix UI or API
 
 ```elixir
@@ -510,7 +508,6 @@ PhoenixKit.Modules.Entities.enable_system()
 PhoenixKit.Modules.Posts.enable_system()
 PhoenixKit.Emails.enable_system()
 PhoenixKit.Billing.enable_system()
-PhoenixKit.Modules.Sync.enable_system()
 
 # Disable when no longer needed
 PhoenixKit.Modules.AI.disable_system()
@@ -555,9 +552,6 @@ PhoenixKit.Modules.AI.disable_system()
 - `{prefix}/admin/settings/media` - Storage buckets and image dimensions
 - `{prefix}/admin/settings/sitemap` - Sitemap generation settings
 - `{prefix}/admin/settings/seo` - SEO configuration
-
-**Data Sync:**
-- `{prefix}/admin/db-sync` - Peer-to-peer database synchronization
 
 ## Architecture
 

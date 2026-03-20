@@ -22,7 +22,6 @@ defmodule PhoenixKit.ModuleTest do
     PhoenixKit.Modules.Shop,
     PhoenixKit.Modules.Sitemap,
     PhoenixKit.Modules.Storage,
-    PhoenixKit.Modules.Sync,
     PhoenixKit.Modules.CustomerService,
     PhoenixKit.Jobs
   ]
