@@ -38,6 +38,7 @@ defmodule PhoenixKit.Modules.Legal do
   alias PhoenixKit.Modules.Legal.PageType
   alias PhoenixKit.Modules.Legal.TemplateGenerator
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Routes
 
   @enabled_key "legal_enabled"
   @module_name "legal"
@@ -557,19 +558,18 @@ defmodule PhoenixKit.Modules.Legal do
   """
   @spec get_consent_widget_config() :: map()
   def get_consent_widget_config do
-    prefix = PhoenixKit.Config.get_url_prefix()
     legal_links = get_published_legal_links()
 
     cookie_policy_url =
       case Enum.find(legal_links, &String.ends_with?(&1.url, "/cookie-policy")) do
         %{url: url} -> url
-        nil -> "#{prefix}/legal/cookie-policy"
+        nil -> Routes.path("/legal/cookie-policy")
       end
 
     privacy_policy_url =
       case Enum.find(legal_links, &String.ends_with?(&1.url, "/privacy-policy")) do
         %{url: url} -> url
-        nil -> "#{prefix}/legal/privacy-policy"
+        nil -> Routes.path("/legal/privacy-policy")
       end
 
     %{
@@ -583,7 +583,8 @@ defmodule PhoenixKit.Modules.Legal do
       frameworks: get_selected_frameworks(),
       cookie_policy_url: cookie_policy_url,
       privacy_policy_url: privacy_policy_url,
-      legal_links: legal_links
+      legal_links: legal_links,
+      legal_index_url: Routes.path("/legal")
     }
   end
 
@@ -595,11 +596,9 @@ defmodule PhoenixKit.Modules.Legal do
   """
   @spec get_published_legal_links() :: list(%{title: String.t(), url: String.t()})
   def get_published_legal_links do
-    prefix = PhoenixKit.Config.get_url_prefix()
-
     list_generated_pages()
     |> Enum.filter(&(&1.status == "published"))
-    |> Enum.map(&%{title: &1.title, url: "#{prefix}/legal/#{&1.slug}"})
+    |> Enum.map(&%{title: &1.title, url: Routes.path("/legal/#{&1.slug}")})
   end
 
   @doc """

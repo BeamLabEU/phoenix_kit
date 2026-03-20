@@ -80,6 +80,8 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
     default: [],
     doc: "Dynamic list of %{title, url} for published legal pages"
 
+  attr :legal_index_url, :string, default: "/legal", doc: "URL to legal pages index"
+
   attr :google_consent_mode, :boolean, default: false, doc: "Enable Google Consent Mode v2"
   attr :class, :string, default: ""
 
@@ -195,25 +197,6 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
           transform: translateY(-2px);
           box-shadow: 0 4px 12px oklch(var(--bc) / 0.1);
         }
-
-        .pk-toggle-track {
-          background: var(--pk-border);
-          transition: background-color 0.2s ease;
-        }
-
-        .pk-toggle-track.active {
-          background: var(--pk-primary);
-        }
-
-        .pk-toggle-thumb {
-          background: var(--pk-bg);
-          box-shadow: 0 1px 3px oklch(var(--bc) / 0.2);
-          transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        input:checked + .pk-toggle-track .pk-toggle-thumb {
-          transform: translateX(20px);
-        }
       </style>
 
       <%!-- Floating Icon (only for opt-in frameworks) --%>
@@ -264,28 +247,12 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                     "We use cookies to enhance your browsing experience and analyze our traffic."
                   )}
                   {" "}
-                  <%= if @legal_links == [] do %>
-                    <a
-                      href={@cookie_policy_url}
-                      class="link link-primary text-xs sm:text-sm"
-                      target="_blank"
-                    >
-                      {gettext("Cookie Policy")}
-                    </a>
-                  <% else %>
-                    <%= for {link, index} <- Enum.with_index(@legal_links) do %>
-                      <%= if index > 0 do %>
-                        <span class="mx-1">•</span>
-                      <% end %>
-                      <a
-                        href={link.url}
-                        class="link link-primary text-xs sm:text-sm"
-                        target="_blank"
-                      >
-                        {link.title}
-                      </a>
-                    <% end %>
-                  <% end %>
+                  <a
+                    href={@legal_index_url}
+                    class="link link-primary text-xs sm:text-sm"
+                  >
+                    {gettext("Legal")}
+                  </a>
                 </p>
               </div>
             </div>
@@ -328,7 +295,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
       >
         <%!-- Backdrop --%>
         <div
-          class="pk-modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm"
+          class="pk-modal-backdrop absolute inset-0 bg-base-100/70 backdrop-blur-sm"
           onclick="window.PhoenixKitConsent?.closePreferences()"
         >
         </div>
@@ -401,27 +368,14 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                     </div>
 
                     <%!-- Custom Toggle --%>
-                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        id={"pk-consent-#{category.id}"}
-                        class="sr-only peer"
-                        checked={Map.get(category, :always_enabled, false)}
-                        disabled={Map.get(category, :always_enabled, false)}
-                        data-category={category.id}
-                      />
-                      <div class={[
-                        "pk-toggle-track relative w-11 h-6 rounded-full",
-                        "bg-base-300 peer-checked:bg-primary",
-                        "peer-disabled:opacity-60 peer-disabled:cursor-not-allowed",
-                        "after:content-[''] after:absolute after:top-0.5 after:left-0.5",
-                        "after:bg-white after:rounded-full after:h-5 after:w-5",
-                        "after:shadow-sm after:transition-transform after:duration-200",
-                        "peer-checked:after:translate-x-5",
-                        "peer-focus:ring-2 peer-focus:ring-primary/30"
-                      ]}>
-                      </div>
-                    </label>
+                    <input
+                      type="checkbox"
+                      id={"pk-consent-#{category.id}"}
+                      class="toggle toggle-primary"
+                      checked={Map.get(category, :always_enabled, false)}
+                      disabled={Map.get(category, :always_enabled, false)}
+                      data-category={category.id}
+                    />
                   </div>
                 </div>
               <% end %>
@@ -432,36 +386,12 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
               <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <%!-- Policy Links --%>
                 <div class="flex items-center gap-3 text-xs text-base-content/70">
-                  <%= if @legal_links == [] do %>
-                    <a
-                      href={@privacy_policy_url}
-                      class="link hover:text-primary transition-colors"
-                      target="_blank"
-                    >
-                      {gettext("Privacy Policy")}
-                    </a>
-                    <span class="text-base-300">•</span>
-                    <a
-                      href={@cookie_policy_url}
-                      class="link hover:text-primary transition-colors"
-                      target="_blank"
-                    >
-                      {gettext("Cookie Policy")}
-                    </a>
-                  <% else %>
-                    <%= for {link, index} <- Enum.with_index(@legal_links) do %>
-                      <%= if index > 0 do %>
-                        <span class="text-base-300">•</span>
-                      <% end %>
-                      <a
-                        href={link.url}
-                        class="link hover:text-primary transition-colors"
-                        target="_blank"
-                      >
-                        {link.title}
-                      </a>
-                    <% end %>
-                  <% end %>
+                  <a
+                    href={@legal_index_url}
+                    class="link hover:text-primary transition-colors"
+                  >
+                    {gettext("Legal")}
+                  </a>
                 </div>
 
                 <%!-- Action Buttons --%>
