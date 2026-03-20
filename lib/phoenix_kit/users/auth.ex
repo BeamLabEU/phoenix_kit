@@ -1423,6 +1423,8 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def update_user_custom_fields(%User{} = user, custom_fields) when is_map(custom_fields) do
+    ensure_field_definitions_exist(custom_fields)
+
     case user
          |> User.custom_fields_changeset(%{custom_fields: custom_fields})
          |> Repo.update() do
@@ -1433,6 +1435,37 @@ defmodule PhoenixKit.Users.Auth do
 
       {:error, changeset} ->
         {:error, changeset}
+    end
+  end
+
+  defp ensure_field_definitions_exist(custom_fields) when is_map(custom_fields) do
+    definitions = CustomFields.list_field_definitions()
+    existing_keys = definitions |> Enum.map(& &1["key"]) |> MapSet.new()
+    new_keys = custom_fields |> Map.keys() |> Enum.reject(&MapSet.member?(existing_keys, &1))
+
+    unless new_keys == [] do
+      next_position =
+        case definitions do
+          [] -> 1
+          defs -> (Enum.max_by(defs, &(&1["position"] || 0))["position"] || 0) + 1
+        end
+
+      Enum.each(Enum.with_index(new_keys, next_position), fn {key, pos} ->
+        label =
+          key
+          |> String.replace("_", " ")
+          |> String.split()
+          |> Enum.map_join(" ", &String.capitalize/1)
+
+        CustomFields.add_field_definition(%{
+          "key" => key,
+          "label" => label,
+          "type" => "text",
+          "enabled" => true,
+          "user_accessible" => false,
+          "position" => pos
+        })
+      end)
     end
   end
 
