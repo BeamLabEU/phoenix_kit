@@ -296,23 +296,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     %{"user" => user_params} = params
     user = socket.assigns.user
 
-    custom_fields_data = extract_custom_fields(params)
-
-    existing_custom_fields = user.custom_fields || %{}
-
-    merged_params =
-      case custom_fields_data do
-        custom_fields when is_map(custom_fields) ->
-          updated_custom_fields = Map.merge(existing_custom_fields, custom_fields)
-          Map.put(user_params, "custom_fields", updated_custom_fields)
-
-        _ ->
-          if map_size(existing_custom_fields) > 0 do
-            Map.put(user_params, "custom_fields", existing_custom_fields)
-          else
-            user_params
-          end
-      end
+    merged_params = merge_custom_fields_for_save(params, user_params, user)
 
     case Auth.update_user_profile(user, merged_params) do
       {:ok, updated_user} ->
@@ -544,6 +528,24 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     case extract_custom_fields(params) do
       custom_fields when is_map(custom_fields) ->
         Map.put(user_params, "custom_fields", custom_fields)
+
+      _ ->
+        user_params
+    end
+  end
+
+  # Merges form custom fields on top of all existing user custom fields for persistence.
+  # Ensures fields not present in the form (e.g. avatar_file_uuid, programmatic fields)
+  # are preserved when saving.
+  defp merge_custom_fields_for_save(params, user_params, user) do
+    existing = user.custom_fields || %{}
+
+    case extract_custom_fields(params) do
+      form_fields when is_map(form_fields) ->
+        Map.put(user_params, "custom_fields", Map.merge(existing, form_fields))
+
+      _ when map_size(existing) > 0 ->
+        Map.put(user_params, "custom_fields", existing)
 
       _ ->
         user_params
