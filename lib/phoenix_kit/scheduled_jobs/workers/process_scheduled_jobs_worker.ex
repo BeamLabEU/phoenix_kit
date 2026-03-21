@@ -64,8 +64,18 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
       )
     end
 
-    # Catch-up: Publish any posts that are "scheduled" with past scheduled_at
-    # This handles orphaned posts without scheduled jobs (e.g., server was down, job failed)
+    catchup_scheduled_posts()
+    catchup_scheduled_broadcasts()
+
+    # Cleanup: Delete old completed jobs to prevent table bloat
+    ScheduledJobs.delete_old_jobs()
+
+    :ok
+  end
+
+  # Catch-up: Publish any posts that are "scheduled" with past scheduled_at
+  # This handles orphaned posts without scheduled jobs (e.g., server was down, job failed)
+  defp catchup_scheduled_posts do
     if Code.ensure_loaded?(PhoenixKitPosts) and
          function_exported?(PhoenixKitPosts, :process_scheduled_posts, 0) do
       {:ok, catchup_count} = PhoenixKitPosts.process_scheduled_posts()
@@ -74,8 +84,10 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
         Logger.info("ProcessScheduledJobsWorker: Published #{catchup_count} catch-up post(s)")
       end
     end
+  end
 
-    # Catch-up: Send any broadcasts that are "scheduled" with past scheduled_at
+  # Catch-up: Send any broadcasts that are "scheduled" with past scheduled_at
+  defp catchup_scheduled_broadcasts do
     newsletters_mod = PhoenixKit.ModuleRegistry.get_by_key("newsletters")
 
     if newsletters_mod && Code.ensure_loaded?(newsletters_mod) &&
@@ -90,10 +102,5 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
         )
       end
     end
-
-    # Cleanup: Delete old completed jobs to prevent table bloat
-    ScheduledJobs.delete_old_jobs()
-
-    :ok
   end
 end
