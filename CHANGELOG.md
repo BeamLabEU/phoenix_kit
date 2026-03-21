@@ -1,3 +1,10 @@
+## 1.7.81 - 2026-03-21
+
+### Changed
+- Extract Posts module to standalone `phoenix_kit_posts` package
+- Update Comments module to conditionally load Posts handler via `Code.ensure_loaded?/1`
+- Update scheduled jobs worker with extracted catch-up helpers for optional Posts dispatch
+
 ## 1.7.80 - 2026-03-20
 
 ### Added
