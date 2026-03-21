@@ -8,7 +8,7 @@ config :phoenix_kit,
   parent_module: PhoenixKit,
   url_prefix: "/phoenix_kit",
   comment_resource_handlers: %{
-    "post" => PhoenixKit.Modules.Posts
+    "post" => PhoenixKitPosts
   }
 
 # Configure password requirements (optional - these are the defaults)

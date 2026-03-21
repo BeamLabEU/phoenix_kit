@@ -46,7 +46,8 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Posts do
   require Logger
 
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Posts
+  # PhoenixKitPosts is an optional external package
+  # All calls are guarded with Code.ensure_loaded?/1
   alias PhoenixKit.Modules.Sitemap.RouteResolver
   alias PhoenixKit.Modules.Sitemap.UrlEntry
   alias PhoenixKit.Settings
@@ -59,9 +60,8 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Posts do
 
   @impl true
   def enabled? do
-    # Only check if posts module is enabled
-    # Route checks moved to do_collect() for caching optimization
-    posts_module_enabled?()
+    # Only enabled if PhoenixKitPosts package is installed and posts module is enabled
+    Code.ensure_loaded?(PhoenixKitPosts) and posts_module_enabled?()
   rescue
     _ -> false
   end
@@ -172,13 +172,17 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Posts do
   end
 
   defp collect_posts(base_url, language, is_default) do
-    posts = Posts.list_public_posts(preload: [])
+    if Code.ensure_loaded?(PhoenixKitPosts) do
+      posts = PhoenixKitPosts.list_public_posts(preload: [])
 
-    posts
-    |> Enum.reject(&excluded?/1)
-    |> Enum.map(fn post ->
-      build_post_entry(post, base_url, language, is_default)
-    end)
+      posts
+      |> Enum.reject(&excluded?/1)
+      |> Enum.map(fn post ->
+        build_post_entry(post, base_url, language, is_default)
+      end)
+    else
+      []
+    end
   rescue
     error ->
       Logger.warning("Failed to collect posts: #{inspect(error)}")

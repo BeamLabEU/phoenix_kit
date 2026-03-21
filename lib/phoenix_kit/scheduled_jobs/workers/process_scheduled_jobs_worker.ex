@@ -39,7 +39,6 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
   require Logger
 
-  alias PhoenixKit.Modules.Posts
   alias PhoenixKit.ScheduledJobs
 
   @impl Oban.Worker
@@ -67,10 +66,13 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
     # Catch-up: Publish any posts that are "scheduled" with past scheduled_at
     # This handles orphaned posts without scheduled jobs (e.g., server was down, job failed)
-    {:ok, catchup_count} = Posts.process_scheduled_posts()
+    if Code.ensure_loaded?(PhoenixKitPosts) and
+         function_exported?(PhoenixKitPosts, :process_scheduled_posts, 0) do
+      {:ok, catchup_count} = PhoenixKitPosts.process_scheduled_posts()
 
-    if catchup_count > 0 do
-      Logger.info("ProcessScheduledJobsWorker: Published #{catchup_count} catch-up post(s)")
+      if catchup_count > 0 do
+        Logger.info("ProcessScheduledJobsWorker: Published #{catchup_count} catch-up post(s)")
+      end
     end
 
     # Catch-up: Send any broadcasts that are "scheduled" with past scheduled_at

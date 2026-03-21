@@ -15,7 +15,6 @@ defmodule PhoenixKit.ModuleTest do
     PhoenixKit.Modules.Legal,
     PhoenixKit.Modules.Maintenance,
     PhoenixKit.Modules.Pages,
-    PhoenixKit.Modules.Posts,
     PhoenixKit.Modules.Publishing,
     PhoenixKit.Modules.Referrals,
     PhoenixKit.Modules.SEO,

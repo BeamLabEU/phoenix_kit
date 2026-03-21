@@ -422,16 +422,6 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/organization", Live.Settings.Organization, :index
         live "/admin/modules", Live.Modules, :index
 
-        # Posts module routes
-        live "/admin/posts", Live.Modules.Posts.Posts, :index
-        live "/admin/posts/new", Live.Modules.Posts.Edit, :new
-        live "/admin/posts/groups", Live.Modules.Posts.Groups, :index
-        live "/admin/posts/groups/new", Live.Modules.Posts.GroupEdit, :new
-        live "/admin/posts/groups/:id/edit", Live.Modules.Posts.GroupEdit, :edit
-        live "/admin/posts/:id", Live.Modules.Posts.Details, :show
-        live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
-        live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
-
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
         live "/admin/settings/languages/backend", Live.Modules.Languages, :backend

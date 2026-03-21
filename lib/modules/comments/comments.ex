@@ -16,7 +16,7 @@ defmodule PhoenixKit.Modules.Comments do
   when comments are created or deleted. Configure in your app:
 
       config :phoenix_kit, :comment_resource_handlers, %{
-        "post" => PhoenixKit.Modules.Posts
+        "post" => PhoenixKitPosts
       }
 
   Handler modules should implement `on_comment_created/3` and `on_comment_deleted/3`.
@@ -453,7 +453,14 @@ defmodule PhoenixKit.Modules.Comments do
   end
 
   defp default_resource_handlers do
-    %{"post" => PhoenixKit.Modules.Posts}
+    handlers = %{}
+
+    handlers =
+      if Code.ensure_loaded?(PhoenixKitPosts),
+        do: Map.put(handlers, "post", PhoenixKitPosts),
+        else: handlers
+
+    handlers
   end
 
   defp resolve_for_type(resource_type, resource_uuids) do
