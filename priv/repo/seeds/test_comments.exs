@@ -1,7 +1,7 @@
 import Ecto.Query
 
 alias PhoenixKit.Modules.Comments
-alias PhoenixKit.Modules.Posts.Post
+alias PhoenixKitPosts.Post
 alias PhoenixKit.RepoHelper
 alias PhoenixKit.Users.Auth.User
 
