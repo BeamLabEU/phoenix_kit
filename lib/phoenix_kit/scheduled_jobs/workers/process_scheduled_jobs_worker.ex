@@ -78,7 +78,7 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
   defp catchup_scheduled_posts do
     if Code.ensure_loaded?(PhoenixKitPosts) and
          function_exported?(PhoenixKitPosts, :process_scheduled_posts, 0) do
-      {:ok, catchup_count} = PhoenixKitPosts.process_scheduled_posts()
+      {:ok, catchup_count} = apply(PhoenixKitPosts, :process_scheduled_posts, [])
 
       if catchup_count > 0 do
         Logger.info("ProcessScheduledJobsWorker: Published #{catchup_count} catch-up post(s)")

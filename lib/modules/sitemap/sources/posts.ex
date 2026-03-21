@@ -173,7 +173,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Posts do
 
   defp collect_posts(base_url, language, is_default) do
     if Code.ensure_loaded?(PhoenixKitPosts) do
-      posts = PhoenixKitPosts.list_public_posts(preload: [])
+      posts = apply(PhoenixKitPosts, :list_public_posts, [[preload: []]])
 
       posts
       |> Enum.reject(&excluded?/1)
