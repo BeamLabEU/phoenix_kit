@@ -1255,73 +1255,111 @@
       <% end %>
       <%!-- External Modules (auto-discovered) --%>
       <%= for ext <- @external_modules, ext.key in @accessible_modules do %>
-        <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
-            <div class="flex items-center">
-              <div class="text-3xl px-3 mr-4">
-                <%= if String.starts_with?(ext.icon, "hero-") do %>
-                  <.icon name={ext.icon} class="w-8 h-8" />
-                <% else %>
-                  {ext.icon}
-                <% end %>
-              </div>
-              <div class="flex-1">
-                <h3 class="card-title text-xl">{ext.name}</h3>
-                <p class="text-base-content/70">{ext.description}</p>
-              </div>
-              <div class="flex flex-col items-end gap-1">
-                <input
-                  type="checkbox"
-                  class="toggle toggle-primary"
-                  checked={ext.enabled}
-                  phx-click="toggle_module"
-                  phx-value-key={ext.key}
-                />
-              </div>
-            </div>
-
-            <div class="divider my-2"></div>
-
-            <div class="flex items-center justify-between flex-wrap gap-2">
-              <div class="flex flex-wrap gap-1">
-                <span class={[
-                  "badge",
-                  if(ext.enabled, do: "badge-success", else: "badge-neutral")
-                ]}>
-                  {if ext.enabled, do: "Enabled", else: "Disabled"}
+        <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+          title={ext.name}
+          description={ext.description}
+          icon={ext.icon}
+          enabled={ext.enabled}
+          toggle_event="toggle_module"
+          toggle_key={ext.key}
+        >
+          <:status_badges>
+            <span class={[
+              "badge",
+              if(ext.enabled, do: "badge-success", else: "badge-neutral")
+            ]}>
+              {if ext.enabled, do: "Enabled", else: "Disabled"}
+            </span>
+            <span class="badge badge-outline">v{ext.version}</span>
+            <span class="badge badge-info badge-outline">External</span>
+            <%= for req_mod <- ext.required_modules do %>
+              <%= unless mcfg(@module_configs, req_mod, :enabled, false) do %>
+                <span class="badge badge-warning">
+                  Requires {String.capitalize(req_mod)}
                 </span>
-                <span class="badge badge-outline">v{ext.version}</span>
-                <span class="badge badge-info badge-outline">External</span>
-                <%= for req_mod <- ext.required_modules do %>
-                  <%= unless mcfg(@module_configs, req_mod, :enabled, false) do %>
-                    <span class="badge badge-warning">
-                      Requires {String.capitalize(req_mod)}
-                    </span>
-                  <% end %>
-                <% end %>
-              </div>
-              <span class="text-xs text-base-content/50">
-                {if ext.enabled, do: "Module is active", else: "Enable to activate"}
-              </span>
-            </div>
+              <% end %>
+            <% end %>
+            <%!-- Module-specific badges from config --%>
+            <%= if ext.enabled do %>
+              <%= if Map.has_key?(ext.config, :save_body) do %>
+                <span class="badge badge-outline whitespace-nowrap">
+                  {if ext.config[:save_body], do: "Body Saved", else: "Headers Only"}
+                </span>
+              <% end %>
+            <% end %>
+          </:status_badges>
 
-            <%= if ext.enabled and ext.admin_links != [] do %>
-              <div class="flex gap-2 mt-2">
-                <%= for link <- ext.admin_links do %>
+          <:action_buttons>
+            <div class="flex flex-col items-stretch space-y-2">
+              <%= if ext.enabled do %>
+                <%= if ext.settings_path do %>
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path(link.path)}
-                    class="btn btn-outline btn-sm flex-1"
+                    navigate={PhoenixKit.Utils.Routes.path(ext.settings_path)}
+                    class="btn btn-primary btn-sm"
                   >
-                    <%= if link.icon do %>
-                      <.icon name={link.icon} class="w-4 h-4 mr-1" />
-                    <% end %>
-                    {link.label}
+                    <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
                   </.link>
                 <% end %>
-              </div>
-            <% end %>
-          </div>
-        </div>
+                <%= if ext.admin_links != [] do %>
+                  <div class="flex gap-2">
+                    <%= for link <- ext.admin_links do %>
+                      <.link
+                        navigate={PhoenixKit.Utils.Routes.path(link.path)}
+                        class="btn btn-outline btn-sm flex-1"
+                      >
+                        <%= if link.icon do %>
+                          <.icon name={link.icon} class="w-4 h-4 mr-1" />
+                        <% end %>
+                        {link.label}
+                      </.link>
+                    <% end %>
+                  </div>
+                <% end %>
+              <% else %>
+                <%= if ext.settings_path do %>
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path(ext.settings_path)}
+                    class="btn btn-outline btn-sm"
+                  >
+                    <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+                  </.link>
+                <% end %>
+              <% end %>
+            </div>
+          </:action_buttons>
+
+          <:stats>
+            <%!-- Render stats from config if available --%>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <%= if Map.has_key?(ext.config, :ses_events) do %>
+                <div>
+                  <span class="text-base-content/70">SES Events:</span>
+                  <span class="font-medium">
+                    {if ext.config[:ses_events], do: "On", else: "Off"}
+                  </span>
+                </div>
+              <% end %>
+              <%= if Map.has_key?(ext.config, :retention_days) do %>
+                <div>
+                  <span class="text-base-content/70">Retention:</span>
+                  <span class="font-medium">{ext.config[:retention_days]} days</span>
+                </div>
+              <% end %>
+              <%= if Map.has_key?(ext.config, :sampling_rate) do %>
+                <div>
+                  <span class="text-base-content/70">Sampling:</span>
+                  <span class="font-medium">{ext.config[:sampling_rate]}%</span>
+                </div>
+              <% end %>
+              <%= if Map.has_key?(ext.config, :compress_after_days) do %>
+                <div>
+                  <span class="text-base-content/70">Compress:</span>
+                  <span class="font-medium">{ext.config[:compress_after_days]} days</span>
+                </div>
+              <% end %>
+            </div>
+          </:stats>
+        </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
       <% end %>
     </div>
 
