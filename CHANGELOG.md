@@ -1,3 +1,43 @@
+## 1.7.81 - 2026-03-21
+
+### Changed
+- Extract Posts module to standalone `phoenix_kit_posts` package
+- Update Comments module to conditionally load Posts handler via `Code.ensure_loaded?/1`
+- Update scheduled jobs worker with extracted catch-up helpers for optional Posts dispatch
+
+## 1.7.80 - 2026-03-20
+
+### Added
+- Add `uuid` type to custom fields system
+- Add auto-registration of custom field definitions on save with type inference
+
+### Changed
+- Extract Sync module to standalone `phoenix_kit_sync` package
+- Move custom fields domain logic to `CustomFields` module, deduplicate UUID regex, add error logging
+- Fix permissions table style — replace manual zebra striping with daisyUI `table-zebra`, use primary-colored header
+
+### Fixed
+- Fix avatar upload handling and `custom_fields` preservation in UserSettings
+- Fix admin page and user dashboard styles
+- Fix plugin reference name in module system guide
+
+## 1.7.79 - 2026-03-20
+
+### Fixed
+- Fix UserSettings regressions from PR #436 redesign:
+  - Restore timezone selector (timezone select, mismatch warning, browser detection)
+  - Restore Apple OAuth provider icon (`hero-device-phone-mobile`)
+  - Restore OAuth-only password warning for users without passwords
+  - Restore provider email display in connected accounts list
+  - Fix custom field `select` using index-based values instead of actual option values (data compatibility break)
+  - Restore all custom field input types (`textarea`, `number`, `email`, `url`, `date`) — were collapsed to plain text
+  - Restore `required` attribute on custom field inputs
+  - Restore unique `id` attributes on password/email form hidden inputs
+  - Restore profile/avatar success and error messages in template
+  - Fix `shadow-xl` → `shadow-sm` for card styling consistency
+  - Fix divider placement — move out of username field, add "Additional Information" heading for custom fields
+  - Extract `extract_custom_fields/1` and `merge_custom_fields/3` helpers to DRY duplicated logic
+
 ## 1.7.78 - 2026-03-18
 
 ### Added

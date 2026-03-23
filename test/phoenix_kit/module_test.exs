@@ -14,14 +14,12 @@ defmodule PhoenixKit.ModuleTest do
     PhoenixKit.Modules.Legal,
     PhoenixKit.Modules.Maintenance,
     PhoenixKit.Modules.Pages,
-    PhoenixKit.Modules.Posts,
     PhoenixKit.Modules.Publishing,
     PhoenixKit.Modules.Referrals,
     PhoenixKit.Modules.SEO,
     PhoenixKit.Modules.Shop,
     PhoenixKit.Modules.Sitemap,
     PhoenixKit.Modules.Storage,
-    PhoenixKit.Modules.Sync,
     PhoenixKit.Modules.CustomerService,
     PhoenixKit.Jobs
   ]

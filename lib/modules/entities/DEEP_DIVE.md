@@ -1917,7 +1917,7 @@ Note: `create/1` auto-fills `created_by_uuid` with the first admin user if not p
 ## Credits
 
 **Built with**: Elixir, Phoenix, Phoenix LiveView, PostgreSQL, Ecto, DaisyUI, Tailwind CSS
-**Part of**: PhoenixKit - Phoenix Starter Kit with Authentication & Admin
+**Part of**: PhoenixKit — A Foundation for Building Your Elixir Phoenix Apps
 
 ---
 

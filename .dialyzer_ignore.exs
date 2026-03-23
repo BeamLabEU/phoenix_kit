@@ -98,6 +98,10 @@
   # but compile_module_admin_routes only passes :admin_tabs and :settings_tabs currently
   {"lib/phoenix_kit_web/integration.ex", :pattern_match},
 
+  # External optional modules guarded by Code.ensure_loaded? at runtime
+  {"lib/modules/sitemap/sources/posts.ex", :unknown_function},
+  {"lib/phoenix_kit/scheduled_jobs/workers/process_scheduled_jobs_worker.ex", :unknown_function},
+
   # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
   # Dialyzer cannot resolve ExUnit private macros expanded at compile time
   {"test/support/conn_case.ex", :unknown_function},

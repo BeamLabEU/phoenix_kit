@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Import publishing-specific components
-  import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
+  import PhoenixKitWeb.Components.LanguageSwitcher
   import PhoenixKit.Modules.Publishing.Web.Components.VersionSwitcher
 
   require Logger

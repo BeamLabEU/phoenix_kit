@@ -74,7 +74,6 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
     "^/api",
     "^/phoenix_kit",
     "^/dev",
-    "^/sync",
     "^/test",
     "^/dashboard",
     ":[a-z_]+",

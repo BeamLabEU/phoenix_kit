@@ -491,7 +491,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       entities: safe_module_enabled?(PhoenixKit.Modules.Entities),
       publishing: safe_module_enabled?(PhoenixKit.Modules.Publishing),
       shop: safe_module_enabled?(PhoenixKit.Modules.Shop),
-      posts: safe_module_enabled?(PhoenixKit.Modules.Posts)
+      posts: Code.ensure_loaded?(PhoenixKitPosts) and safe_module_enabled?(PhoenixKitPosts)
     }
   end
 

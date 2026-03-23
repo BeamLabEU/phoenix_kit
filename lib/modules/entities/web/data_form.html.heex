@@ -68,151 +68,48 @@
         </button>
       </div>
 
-      <%= if @multilang_enabled && length(@language_tabs) > 1 do %>
+      <%= if @show_multilang_tabs do %>
         <%!-- Multilang: unified card with language tabs wrapping all content --%>
+        <% lang_data = get_lang_data(@changeset, @current_lang, @multilang_enabled) %>
         <div class="card bg-base-100 shadow-xl">
-          <%!-- Language tab bar --%>
-          <div class="card-body pb-0">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2">
-                <.icon name="hero-language" class="w-5 h-5 text-primary" />
-                <h2 class="card-title text-lg m-0">{gettext("Content Language")}</h2>
-              </div>
-              <% primary_tab =
-                Enum.find(@language_tabs, fn t -> t.is_primary end) %>
-              <%= if primary_tab do %>
-                <div class="flex items-center gap-1.5 text-xs text-base-content/60">
-                  <.icon name="hero-star-solid" class="w-3.5 h-3.5 text-primary" />
-                  {gettext("Primary: %{lang}", lang: primary_tab.name)}
+          <.multilang_tabs
+            multilang_enabled={@multilang_enabled}
+            language_tabs={@language_tabs}
+            current_lang={@current_lang}
+          />
+
+          <.multilang_fields_wrapper
+            multilang_enabled={@multilang_enabled}
+            current_lang={@current_lang}
+          >
+            <:skeleton>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                  <div class="skeleton h-4 w-24"></div>
+                  <div class="skeleton h-12 w-full"></div>
                 </div>
-              <% end %>
-            </div>
-
-            <div class="alert alert-info py-2 text-xs mb-4">
-              <.icon name="hero-information-circle" class="w-4 h-4" />
-              <span>
-                {gettext(
-                  "Use the language tabs below to translate this record's content. The primary language (marked with a star) is required. Other languages are optional — any empty fields will fall back to the primary language value."
-                )}
-              </span>
-            </div>
-
-            <% compact = length(@language_tabs) > 5 %>
-            <div
-              role="tablist"
-              class="inline-flex flex-wrap items-center gap-1 p-1 bg-base-200 rounded-box mb-4"
-            >
-              <%= if compact do %>
-                <%= for {tab, idx} <- Enum.with_index(@language_tabs) do %>
-                  <%= if idx > 0 do %>
-                    <span class="text-base-content/30 text-xs">|</span>
-                  <% end %>
-                  <button
-                    type="button"
-                    role="tab"
-                    phx-click={switch_lang_js(tab.code, @current_lang)}
-                    title={tab.name}
-                    class={[
-                      "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
-                      @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
-                    ]}
-                  >
-                    <%= if tab.flag do %>
-                      <span>{tab.flag}</span>
-                    <% end %>
-                    <span>{tab.short_code}</span>
-                    <%= if tab.is_primary do %>
-                      <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
-                    <% end %>
-                  </button>
-                <% end %>
-              <% else %>
-                <%= for tab <- @language_tabs do %>
-                  <%= if tab.is_primary do %>
-                    <button
-                      type="button"
-                      role="tab"
-                      phx-click={switch_lang_js(tab.code, @current_lang)}
-                      class={[
-                        "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all font-medium cursor-pointer",
-                        @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
-                      ]}
-                    >
-                      <%= if tab.flag do %>
-                        <span>{tab.flag}</span>
-                      <% end %>
-                      <span>{tab.name}</span>
-                      <.icon name="hero-star-solid" class="w-3 h-3 text-primary" />
-                    </button>
-                    <span class="w-px h-4 bg-base-content/20 self-center"></span>
-                  <% else %>
-                    <button
-                      type="button"
-                      role="tab"
-                      phx-click={switch_lang_js(tab.code, @current_lang)}
-                      class={[
-                        "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm transition-all cursor-pointer",
-                        @current_lang == tab.code && "bg-base-100 font-semibold shadow-sm"
-                      ]}
-                    >
-                      <%= if tab.flag do %>
-                        <span>{tab.flag}</span>
-                      <% end %>
-                      <span>{tab.name}</span>
-                    </button>
-                  <% end %>
-                <% end %>
-              <% end %>
-            </div>
-          </div>
-
-          <%!-- Skeleton placeholders (shown instantly on tab click).
-               IMPORTANT: IDs MUST include @current_lang so morphdom treats them as new
-               elements on language switch. Static IDs would preserve JS-modified classes
-               across LiveView patches, causing skeletons to stick. --%>
-          <div
-            id={"translatable-skeletons-#{@current_lang}"}
-            data-translatable="skeletons"
-            class="hidden card-body pt-4"
-            aria-busy="true"
-            aria-label={gettext("Loading language content")}
-          >
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-24"></div>
-                <div class="skeleton h-12 w-full"></div>
+                <div class="space-y-2">
+                  <div class="skeleton h-4 w-32"></div>
+                  <div class="skeleton h-12 w-full"></div>
+                  <div class="skeleton h-3 w-48"></div>
+                </div>
               </div>
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-32"></div>
-                <div class="skeleton h-12 w-full"></div>
-                <div class="skeleton h-3 w-48"></div>
+              <div class="divider my-2"></div>
+              <div class="space-y-4">
+                <div class="space-y-2">
+                  <div class="skeleton h-4 w-24"></div>
+                  <div class="skeleton h-12 w-full"></div>
+                </div>
+                <div class="space-y-2">
+                  <div class="skeleton h-4 w-40"></div>
+                  <div class="skeleton h-24 w-full"></div>
+                </div>
               </div>
-            </div>
-            <div class="divider my-2"></div>
-            <div class="space-y-4">
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-24"></div>
-                <div class="skeleton h-12 w-full"></div>
-              </div>
-              <div class="space-y-2">
-                <div class="skeleton h-4 w-40"></div>
-                <div class="skeleton h-24 w-full"></div>
-              </div>
-            </div>
-          </div>
+            </:skeleton>
 
-          <div
-            id={"translatable-fields-#{@current_lang}"}
-            data-translatable="fields"
-          >
             <div class="divider mx-6 my-0"></div>
 
             <%!-- Tab content: Title & Slug (translatable) --%>
-            <% lang_data =
-              Multilang.get_raw_language_data(
-                Ecto.Changeset.get_field(@changeset, :data),
-                @current_lang
-              ) %>
             <div class="card-body pt-4 pb-4">
               <h3 class="text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-3">
                 <.icon name="hero-information-circle" class="w-4 h-4 inline -mt-0.5" />
@@ -220,110 +117,52 @@
               </h3>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <%!-- Title --%>
-                <div>
-                  <%= if @current_lang == @primary_language do %>
-                    <.label for="phoenix_kit_entity_data_title">
-                      {gettext("Title")} *
-                    </.label>
-                    <input
-                      type="text"
-                      name="phoenix_kit_entity_data[title]"
-                      id="phoenix_kit_entity_data_title"
-                      value={Ecto.Changeset.get_field(@changeset, :title) || ""}
-                      placeholder={gettext("Enter a title for this record")}
-                      class="input input-bordered w-full"
-                      phx-debounce="300"
-                      required
-                      disabled={@readonly?}
-                    />
-                  <% else %>
-                    <.label for={"phoenix_kit_entity_data_title_#{@current_lang}"}>
-                      {gettext("Title")}
-                    </.label>
-                    <input
-                      type="text"
-                      name="phoenix_kit_entity_data[lang_title]"
-                      id={"phoenix_kit_entity_data_title_#{@current_lang}"}
-                      value={lang_data["_title"]}
-                      placeholder={
-                        Ecto.Changeset.get_field(@changeset, :title) ||
-                          gettext("Enter a title for this record")
-                      }
-                      class="input input-bordered w-full"
-                      phx-debounce="300"
-                      disabled={@readonly?}
-                    />
-                  <% end %>
-                </div>
+                <.translatable_field
+                  field_name="title"
+                  form_prefix="phoenix_kit_entity_data"
+                  changeset={@changeset}
+                  schema_field={:title}
+                  multilang_enabled={@multilang_enabled}
+                  current_lang={@current_lang}
+                  primary_language={@primary_language}
+                  lang_data={lang_data}
+                  label={gettext("Title")}
+                  placeholder={gettext("Enter a title for this record")}
+                  required
+                  disabled={@readonly?}
+                  class="w-full"
+                />
 
-                <%!-- Slug (translatable) --%>
-                <div>
-                  <%= if @current_lang == @primary_language do %>
-                    <.label for="phoenix_kit_entity_data_slug">
-                      {gettext("Slug (URL-friendly identifier)")}
-                      <button
-                        type="button"
-                        class="btn btn-ghost btn-xs ml-2"
-                        phx-click="generate_slug"
-                        title={gettext("Generate from title")}
-                        disabled={@readonly?}
-                      >
-                        <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
-                      </button>
-                    </.label>
-                    <input
-                      type="text"
-                      name="phoenix_kit_entity_data[slug]"
-                      id="phoenix_kit_entity_data_slug"
-                      value={Ecto.Changeset.get_field(@changeset, :slug) || ""}
-                      placeholder={gettext("auto-generated-slug")}
-                      class="input input-bordered w-full"
-                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                      title={gettext("Use lowercase letters, numbers, and hyphens only.")}
-                      phx-debounce="300"
+                <.translatable_field
+                  field_name="slug"
+                  form_prefix="phoenix_kit_entity_data"
+                  changeset={@changeset}
+                  schema_field={:slug}
+                  multilang_enabled={@multilang_enabled}
+                  current_lang={@current_lang}
+                  primary_language={@primary_language}
+                  lang_data={lang_data}
+                  label={gettext("Slug (URL-friendly identifier)")}
+                  placeholder={gettext("auto-generated-slug")}
+                  disabled={@readonly?}
+                  class="w-full"
+                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                  title={gettext("Use lowercase letters, numbers, and hyphens only.")}
+                  hint={gettext("Leave empty to auto-generate from title")}
+                  secondary_hint={gettext("Leave empty to use the primary language slug")}
+                >
+                  <:label_extra>
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-xs ml-2"
+                      phx-click="generate_slug"
+                      title={gettext("Generate from title")}
                       disabled={@readonly?}
-                    />
-                    <.label class="label">
-                      <span class="label-text-alt">
-                        {gettext("Leave empty to auto-generate from title")}
-                      </span>
-                    </.label>
-                  <% else %>
-                    <.label for={"phoenix_kit_entity_data_slug_#{@current_lang}"}>
-                      {gettext("Slug (URL-friendly identifier)")}
-                      <button
-                        type="button"
-                        class="btn btn-ghost btn-xs ml-2"
-                        phx-click="generate_slug"
-                        title={gettext("Generate from title")}
-                        disabled={@readonly?}
-                      >
-                        <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
-                      </button>
-                    </.label>
-                    <input
-                      type="text"
-                      name="phoenix_kit_entity_data[lang_slug]"
-                      id={"phoenix_kit_entity_data_slug_#{@current_lang}"}
-                      value={lang_data["_slug"]}
-                      placeholder={
-                        Ecto.Changeset.get_field(@changeset, :slug) ||
-                          gettext("auto-generated-slug")
-                      }
-                      class="input input-bordered w-full"
-                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                      title={gettext("Use lowercase letters, numbers, and hyphens only.")}
-                      phx-debounce="300"
-                      disabled={@readonly?}
-                    />
-                    <.label class="label">
-                      <span class="label-text-alt">
-                        {gettext("Leave empty to use the primary language slug")}
-                      </span>
-                    </.label>
-                  <% end %>
-                </div>
+                    >
+                      <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                    </button>
+                  </:label_extra>
+                </.translatable_field>
               </div>
             </div>
 
@@ -345,7 +184,7 @@
                 )}
               </div>
             <% end %>
-          </div>
+          </.multilang_fields_wrapper>
         </div>
 
         <%!-- Record Settings (non-translatable, separate card) --%>
@@ -395,11 +234,6 @@
                   <% end %>
                   {@entity.display_name}
                 </div>
-                <input
-                  type="hidden"
-                  name="phoenix_kit_entity_data[entity_uuid]"
-                  value={@entity.uuid}
-                />
                 <input
                   type="hidden"
                   name="phoenix_kit_entity_data[entity_uuid]"
@@ -506,11 +340,6 @@
                   <% end %>
                   {@entity.display_name}
                 </div>
-                <input
-                  type="hidden"
-                  name="phoenix_kit_entity_data[entity_uuid]"
-                  value={@entity.uuid}
-                />
                 <input
                   type="hidden"
                   name="phoenix_kit_entity_data[entity_uuid]"

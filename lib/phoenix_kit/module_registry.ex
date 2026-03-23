@@ -406,19 +406,18 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Comments,
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
+      PhoenixKit.Modules.Emails,
       PhoenixKit.Modules.Entities,
       PhoenixKit.Modules.Languages,
       PhoenixKit.Modules.Legal,
       PhoenixKit.Modules.Maintenance,
       PhoenixKit.Modules.Pages,
-      PhoenixKit.Modules.Posts,
       PhoenixKit.Modules.Publishing,
       PhoenixKit.Modules.Referrals,
       PhoenixKit.Modules.SEO,
       PhoenixKit.Modules.Shop,
       PhoenixKit.Modules.Sitemap,
       PhoenixKit.Modules.Storage,
-      PhoenixKit.Modules.Sync,
       PhoenixKit.Modules.CustomerService,
       PhoenixKit.Jobs
     ]
@@ -439,13 +438,24 @@ defmodule PhoenixKit.ModuleRegistry do
         hex_url: "https://hex.pm/packages/phoenix_kit_newsletters"
       },
       %{
-        module: PhoenixKit.Modules.Emails,
-        key: "emails",
-        hex_package: "phoenix_kit_emails",
-        name: "Emails",
-        description: "Email tracking, analytics, templates, and AWS SES/SNS/SQS integration.",
-        icon: "📧",
-        hex_url: "https://hex.pm/packages/phoenix_kit_emails"
+        module: PhoenixKitSync,
+        key: "sync",
+        hex_package: "phoenix_kit_sync",
+        name: "Sync",
+        description:
+          "Peer-to-peer data synchronization between PhoenixKit instances with token-based connections and transfer tracking.",
+        icon: "🔄",
+        hex_url: "https://hex.pm/packages/phoenix_kit_sync"
+      },
+      %{
+        module: PhoenixKitPosts,
+        key: "posts",
+        hex_package: "phoenix_kit_posts",
+        name: "Posts",
+        description:
+          "Blog posts, tags, groups, likes, media attachments, and scheduled publishing.",
+        icon: "📝",
+        hex_url: "https://hex.pm/packages/phoenix_kit_posts"
       }
     ]
   end

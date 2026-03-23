@@ -70,6 +70,28 @@
               >{@form[:description].value || ""}</textarea>
             </div>
 
+            <%!-- System Prompt --%>
+            <div>
+              <label class="block text-sm font-medium mb-2">
+                System Prompt <span class="text-base-content/60 font-normal ml-2">Optional</span>
+              </label>
+              <textarea
+                name="prompt[system_prompt]"
+                class={"textarea textarea-bordered w-full font-mono text-sm #{if @form.errors[:system_prompt], do: "textarea-error"}"}
+                rows="4"
+                placeholder="Optional system instructions for the AI model...
+
+Example:
+You are a professional {{Role}} who always responds in {{Language}}."
+              >{@form[:system_prompt].value || ""}</textarea>
+              <p class="text-sm text-base-content/60 mt-1">
+                Sent as the system message before the user prompt. Supports {"{{variables}}"} too.
+              </p>
+              <%= if @form.errors[:system_prompt] do %>
+                <p class="text-error text-sm mt-1">{elem(@form.errors[:system_prompt], 0)}</p>
+              <% end %>
+            </div>
+
             <%!-- Content --%>
             <div>
               <label class="block text-sm font-medium mb-2">
