@@ -493,7 +493,10 @@ defmodule PhoenixKitWeb.Live.Modules do
   defp extract_admin_links(mod) do
     if Code.ensure_loaded?(mod) and function_exported?(mod, :admin_tabs, 0) do
       mod.admin_tabs()
-      |> Enum.filter(fn tab -> tab.live_view != nil and tab.visible != false end)
+      |> Enum.filter(fn tab ->
+        tab.live_view != nil and tab.visible != false and tab.parent != nil
+      end)
+      |> Enum.uniq_by(fn tab -> tab.path end)
       |> Enum.take(3)
       |> Enum.map(fn tab -> %{label: tab.label, path: "/admin/" <> tab.path, icon: tab.icon} end)
     else
