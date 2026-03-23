@@ -2,7 +2,7 @@
 <div
   id="media-selector-modal-backdrop"
   class={[
-    "fixed inset-0 z-50 overflow-y-auto bg-base-300/80 backdrop-blur-sm transition-opacity",
+    "fixed inset-0 z-[10001] overflow-y-auto bg-base-300/80 backdrop-blur-sm transition-opacity",
     if(@show, do: "opacity-100 pointer-events-auto", else: "opacity-0 pointer-events-none")
   ]}
   phx-click="close_modal"
