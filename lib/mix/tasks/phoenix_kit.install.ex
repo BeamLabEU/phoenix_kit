@@ -172,11 +172,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             # Second pass: Configuration exists, safe to start app and complete installation
             Process.put(:phoenix_kit_config_status, :ok)
 
-            # Simple database check - must succeed to continue
-            DbConnectionCheck.check!()
-
             # Run standard igniter process
             result = super(argv)
+
+            # Simple database check - must succeed to continue
+            DbConnectionCheck.check!()
 
             # After igniter is done, handle interactive migration
             MigrationStrategy.handle_interactive_migration_after_config(elem(opts, 1))

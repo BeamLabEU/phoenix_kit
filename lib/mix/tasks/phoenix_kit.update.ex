@@ -203,9 +203,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
 
-              # Simple database check - must succeed to continue
-              DbConnectionCheck.check!()
-
               # Cap the Ecto pool to 2 connections so we don't saturate PgBouncer
               # when the production app is already running.
               #
@@ -225,6 +222,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               Application.put_env(:phoenix_kit, :update_mode, true)
 
               Mix.Task.run("app.start")
+
+              # Simple database check - must succeed to continue
+              DbConnectionCheck.check!()
+
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))
 
