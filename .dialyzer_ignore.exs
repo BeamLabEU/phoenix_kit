@@ -12,23 +12,8 @@
   {"lib/phoenix_kit/install/migration_strategy.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.status.ex", :unknown_function},
   {"lib/phoenix_kit/migrations/postgres.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit/email_export.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit/email_stats.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit/email_test_webhook.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit/email_verify_config.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit/entities/export.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit/entities/import.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.email.debug_sqs.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.email.process_dlq.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.email.send_test.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.configure_aws_ses.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.process_dlq.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.process_sqs_queue.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.sync_email_status.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.seed_templates.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :unknown_function},
 
   # Mix.Task behaviour callbacks (expected in Mix tasks)
@@ -36,7 +21,6 @@
   # Adding @impl Mix.Task does not fix this warning
   {"lib/mix/tasks/phoenix_kit.doctor.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.gen.migration.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.seed_templates.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.install.ex", :callback_info_missing, 2},
   {"lib/mix/tasks/phoenix_kit.update.ex", :callback_info_missing, 3},
   {"lib/mix/tasks/phoenix_kit.gen.admin_page.ex", :callback_info_missing},
@@ -44,36 +28,15 @@
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.assets.rebuild.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.status.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit/email_export.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit/email_stats.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit/email_test_webhook.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit/email_verify_config.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit/entities/export.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit/entities/import.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.email.debug_sqs.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.email.process_dlq.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.email.send_test.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.configure_aws_ses.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.process_dlq.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.process_sqs_queue.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.sync_email_status.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :callback_info_missing, 1},
-
-  # False positive pattern match warnings (runtime behavior differs from static analysis)
-  {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
 
   # Publishing module defensive fallbacks and settings_call dynamic dispatch
   {"lib/modules/publishing/publishing.ex", :guard_fail},
   {"lib/modules/publishing/publishing.ex", :pattern_match_cov},
   {"lib/modules/publishing/publishing.ex", :pattern_match},
   {"lib/modules/publishing/shared.ex", :guard_fail},
-  # ExAws library type definition issues (false positives from incomplete type specs)
-  ~r/lib\/modules\/emails\/archiver\.ex:.*pattern_match/,
-  ~r/lib\/modules\/emails\/archiver\.ex:.*unused_fun/,
-
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
@@ -142,5 +105,11 @@
   # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
   # Dialyzer cannot resolve ExUnit private macros expanded at compile time
   {"test/support/conn_case.ex", :unknown_function},
-  {"test/support/data_case.ex", :unknown_function}
+  {"test/support/data_case.ex", :unknown_function},
+
+  # Sync connections_live - MapSet opaque type false positives in topo_sort/visit_node
+  # Same pattern as context_selector.ex - MapSet.t() opaque type through recursive functions
+  # Matches both standard Dialyxir format (call_without_opaque) and legacy format (opaque term)
+  ~r/lib\/modules\/sync\/web\/connections_live\.ex:.*call_without_opaque/,
+  ~r/lib\/modules\/sync\/web\/connections_live\.ex:.*opaque term/
 ]

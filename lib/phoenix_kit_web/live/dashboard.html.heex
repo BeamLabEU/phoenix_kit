@@ -93,7 +93,7 @@
         </div>
       </.link>
 
-      <%= if PhoenixKit.Modules.Emails.enabled?() do %>
+      <%= if Code.ensure_loaded?(PhoenixKit.Modules.Emails) and apply(PhoenixKit.Modules.Emails, :enabled?, []) do %>
         <.link
           navigate={PhoenixKit.Utils.Routes.path("/admin/emails")}
           class="card bg-purple-500 text-white hover:shadow-lg transition-all"

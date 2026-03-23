@@ -38,6 +38,7 @@ defmodule PhoenixKit.Modules.Legal do
   alias PhoenixKit.Modules.Legal.PageType
   alias PhoenixKit.Modules.Legal.TemplateGenerator
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Routes
 
   @enabled_key "legal_enabled"
   @module_name "legal"
@@ -551,12 +552,25 @@ defmodule PhoenixKit.Modules.Legal do
   - google_consent_mode: boolean
   - hide_for_authenticated: boolean
   - frameworks: list of framework IDs
-  - cookie_policy_url: string
-  - privacy_policy_url: string
+  - cookie_policy_url: string (backward compat, derived from published pages)
+  - privacy_policy_url: string (backward compat, derived from published pages)
+  - legal_links: list of %{title: string, url: string} for all published legal pages
   """
   @spec get_consent_widget_config() :: map()
   def get_consent_widget_config do
-    prefix = PhoenixKit.Config.get_url_prefix()
+    legal_links = get_published_legal_links()
+
+    cookie_policy_url =
+      case Enum.find(legal_links, &String.ends_with?(&1.url, "/cookie-policy")) do
+        %{url: url} -> url
+        nil -> Routes.path("/legal/cookie-policy")
+      end
+
+    privacy_policy_url =
+      case Enum.find(legal_links, &String.ends_with?(&1.url, "/privacy-policy")) do
+        %{url: url} -> url
+        nil -> Routes.path("/legal/privacy-policy")
+      end
 
     %{
       enabled: consent_widget_enabled?(),
@@ -567,9 +581,24 @@ defmodule PhoenixKit.Modules.Legal do
       policy_version: get_auto_policy_version(),
       google_consent_mode: google_consent_mode_enabled?(),
       frameworks: get_selected_frameworks(),
-      cookie_policy_url: "#{prefix}/legal/cookie-policy",
-      privacy_policy_url: "#{prefix}/legal/privacy-policy"
+      cookie_policy_url: cookie_policy_url,
+      privacy_policy_url: privacy_policy_url,
+      legal_links: legal_links,
+      legal_index_url: Routes.path("/legal")
     }
+  end
+
+  @doc """
+  Returns a list of all published legal pages as link maps.
+
+  Each map has `:title` and `:url` keys. Used by the cookie consent widget
+  to render dynamic links to all published legal pages.
+  """
+  @spec get_published_legal_links() :: list(%{title: String.t(), url: String.t()})
+  def get_published_legal_links do
+    list_generated_pages()
+    |> Enum.filter(&(&1.status == "published"))
+    |> Enum.map(&%{title: &1.title, url: Routes.path("/legal/#{&1.slug}")})
   end
 
   @doc """

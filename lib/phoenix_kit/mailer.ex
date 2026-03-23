@@ -24,16 +24,13 @@ defmodule PhoenixKit.Mailer do
 
   import Swoosh.Email
 
-  alias PhoenixKit.Modules.Emails
-  alias PhoenixKit.Modules.Emails.Interceptor
-  alias PhoenixKit.Modules.Emails.Template
-  alias PhoenixKit.Modules.Emails.Templates
-  alias PhoenixKit.Modules.Emails.Utils, as: EmailUtils
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Utils.Date, as: UtilsDate
-  alias PhoenixKit.Utils.Routes
 
   require Logger
+
+  defp email_provider do
+    Application.get_env(:phoenix_kit, :email_provider, PhoenixKit.Email.DefaultProvider)
+  end
 
   @doc """
   Gets the mailer module to use for sending emails.
@@ -114,7 +111,7 @@ defmodule PhoenixKit.Mailer do
   def send_from_template(template_name, recipient, variables \\ %{}, opts \\ [])
       when is_binary(template_name) do
     # Get the template from database
-    case Templates.get_active_template_by_name(template_name) do
+    case email_provider().get_active_template_by_name(template_name) do
       nil ->
         {:error, :template_not_found}
 
@@ -123,7 +120,7 @@ defmodule PhoenixKit.Mailer do
         if template.status == "active" do
           # Render template with variables in the requested locale
           locale = Keyword.get(opts, :locale, "en")
-          rendered = Templates.render_template(template, variables, locale)
+          rendered = email_provider().render_template(template, variables, locale)
 
           # Build email
           email =
@@ -143,10 +140,10 @@ defmodule PhoenixKit.Mailer do
             end
 
           # Track template usage
-          Templates.track_usage(template)
+          email_provider().track_usage(template)
 
           # Extract source_module from template metadata
-          source_module = Template.get_source_module(template)
+          source_module = email_provider().get_source_module(template)
 
           # Prepare delivery options with category and source_module from template
           delivery_opts =
@@ -177,7 +174,7 @@ defmodule PhoenixKit.Mailer do
   """
   def deliver_email(email, opts \\ []) do
     # Intercept email for tracking before sending
-    tracked_email = Interceptor.intercept_before_send(email, opts)
+    tracked_email = email_provider().intercept_before_send(email, opts)
 
     mailer = get_mailer()
 
@@ -200,7 +197,7 @@ defmodule PhoenixKit.Mailer do
       end
 
     # Handle post-send tracking updates
-    handle_delivery_result(tracked_email, result, opts)
+    email_provider().handle_after_send(tracked_email, result)
 
     result
   end
@@ -219,10 +216,14 @@ defmodule PhoenixKit.Mailer do
     # If using AWS SES, override with runtime settings from DB
     runtime_config =
       if config[:adapter] == Swoosh.Adapters.AmazonSES do
-        config
-        |> Keyword.put(:region, Emails.get_aws_region())
-        |> Keyword.put(:access_key, Emails.get_aws_access_key())
-        |> Keyword.put(:secret, Emails.get_aws_secret_key())
+        if email_provider().aws_configured?() do
+          config
+          |> Keyword.put(:region, email_provider().get_aws_region())
+          |> Keyword.put(:access_key, email_provider().get_aws_access_key())
+          |> Keyword.put(:secret, email_provider().get_aws_secret_key())
+        else
+          config
+        end
       else
         config
       end
@@ -251,18 +252,18 @@ defmodule PhoenixKit.Mailer do
 
     # Try to get template from database, fallback to hardcoded
     {subject, html_body, text_body} =
-      case Templates.get_active_template_by_name("magic_link") do
+      case email_provider().get_active_template_by_name("magic_link") do
         nil ->
-          # Fallback to hardcoded templates
+          # Fallback to text-only
           {
             "Your secure login link",
-            magic_link_html_body(user, magic_link_url),
+            nil,
             magic_link_text_body(user, magic_link_url)
           }
 
         template ->
           # Use database template with variable substitution
-          rendered = Templates.render_template(template, template_variables)
+          rendered = email_provider().render_template(template, template_variables)
           {rendered.subject, rendered.html_body, rendered.text_body}
       end
 
@@ -275,10 +276,10 @@ defmodule PhoenixKit.Mailer do
       |> text_body(text_body)
 
     # Track template usage if using database template
-    case Templates.get_active_template_by_name("magic_link") do
+    case email_provider().get_active_template_by_name("magic_link") do
       # No template to track
       nil -> :ok
-      template -> Templates.track_usage(template)
+      template -> email_provider().track_usage(template)
     end
 
     deliver_email(email,
@@ -291,119 +292,12 @@ defmodule PhoenixKit.Mailer do
     )
   end
 
-  # HTML version of the magic link email
-  defp magic_link_html_body(%User{} = user, magic_link_url) do
-    """
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Your Secure Login Link</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
-        .button:hover { background-color: #2563eb; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; }
-        .warning { background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Secure Login Link</h1>
-        </div>
-
-        <p>Hi #{user.email},</p>
-
-        <p>Click the button below to securely log in to your account:</p>
-
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="#{magic_link_url}" class="button">Log In Securely</a>
-        </p>
-
-        <div class="warning">
-          <strong>⚠️ Important:</strong> This link will expire in 15 minutes and can only be used once.
-        </div>
-
-        <p>If you didn't request this login link, you can safely ignore this email.</p>
-
-        <p>For your security, never share this link with anyone.</p>
-
-        <div class="footer">
-          <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
-          <p><a href="#{magic_link_url}">#{magic_link_url}</a></p>
-        </div>
-      </div>
-
-    </body>
-    </html>
-    """
-  end
-
   # Text version of the magic link email
-  defp magic_link_text_body(%User{} = user, magic_link_url) do
+  defp magic_link_text_body(_user, magic_link_url) do
     """
-    Secure Login Link
-
-    Hi #{user.email},
-
-    Click the link below to securely log in to your account:
-
-    #{magic_link_url}
-
-    ⚠️ Important: This link will expire in 15 minutes and can only be used once.
-
-    If you didn't request this login link, you can safely ignore this email.
-
-    For your security, never share this link with anyone.
+    Your login link: #{magic_link_url}
+    This link expires in 15 minutes.
     """
-  end
-
-  # Handle delivery result for email tracking updates
-  defp handle_delivery_result(email, result, opts) do
-    # Only process if email tracking is enabled
-    if Emails.enabled?() do
-      case extract_log_uuid_from_email(email) do
-        nil ->
-          # No log UUID found, skip tracking
-          :ok
-
-        log_uuid ->
-          case Emails.get_log(log_uuid) do
-            nil -> :ok
-            log -> update_log_after_delivery(log, result, opts)
-          end
-      end
-    end
-  rescue
-    # Don't fail email delivery if tracking update fails
-    error ->
-      Logger.error("Failed to update email tracking after delivery: #{inspect(error)}")
-      :ok
-  end
-
-  # Extract log UUID from email headers
-  defp extract_log_uuid_from_email(email) do
-    case get_in(email.headers, ["X-PhoenixKit-Log-Id"]) do
-      nil -> nil
-      log_uuid when is_binary(log_uuid) -> log_uuid
-    end
-  end
-
-  # Update email log based on delivery result
-  defp update_log_after_delivery(log, {:ok, response}, _opts) do
-    Interceptor.update_after_send(log, response)
-  end
-
-  defp update_log_after_delivery(log, {:error, error}, _opts) do
-    Interceptor.update_after_failure(log, error)
-  end
-
-  defp update_log_after_delivery(_log, _result, _opts) do
-    # Unknown result format, skip update
-    :ok
   end
 
   # Detect current email provider from configuration
@@ -421,219 +315,17 @@ defmodule PhoenixKit.Mailer do
   defp detect_builtin_provider do
     config = PhoenixKit.Config.get(PhoenixKit.Mailer, [])
     adapter = Keyword.get(config, :adapter)
-    EmailUtils.adapter_to_provider_name(adapter, "phoenix_kit_builtin")
+    email_provider().adapter_to_provider_name(adapter, "phoenix_kit_builtin")
   end
 
   # Detect provider for parent application mailer
   defp detect_parent_app_provider(mailer) when is_atom(mailer) do
     config = PhoenixKit.Config.get_parent_app_config(mailer, [])
     adapter = Keyword.get(config, :adapter)
-    EmailUtils.adapter_to_provider_name(adapter, "parent_app_mailer")
+    email_provider().adapter_to_provider_name(adapter, "parent_app_mailer")
   end
 
   defp detect_parent_app_provider(_mailer), do: "unknown"
-
-  @doc """
-  Send a test tracking email to verify email delivery and tracking functionality.
-
-  Uses the 'test_email' template from the database if available,
-  falls back to hardcoded template if not found.
-
-  This function sends a test email with test links
-  to verify that the email tracking system is working correctly.
-
-  ## Parameters
-
-  - `recipient_email` - The email address to send the test email to
-  - `user_uuid` - Optional user UUID to associate with the test email (default: nil)
-
-  ## Returns
-
-  - `{:ok, %Swoosh.Email{}}` - Email sent successfully
-  - `{:error, reason}` - Email failed to send
-
-  ## Examples
-
-      iex> PhoenixKit.Mailer.send_test_tracking_email("admin@example.com")
-      {:ok, %Swoosh.Email{}}
-
-      iex> PhoenixKit.Mailer.send_test_tracking_email("admin@example.com", "019...")
-      {:ok, %Swoosh.Email{}}
-
-  """
-  def send_test_tracking_email(recipient_email, user_uuid \\ nil)
-      when is_binary(recipient_email) do
-    timestamp = UtilsDate.utc_now() |> DateTime.to_string()
-    test_link_url = Routes.url("/admin/emails")
-
-    # Variables for template substitution
-    template_variables = %{
-      "recipient_email" => recipient_email,
-      "timestamp" => timestamp,
-      "test_link_url" => test_link_url
-    }
-
-    # Try to get template from database, fallback to hardcoded
-    {subject, html_body, text_body} =
-      case Templates.get_active_template_by_name("test_email") do
-        nil ->
-          # Fallback to hardcoded templates
-          {
-            "Test Tracking Email - #{timestamp}",
-            test_email_html_body(recipient_email, timestamp),
-            test_email_text_body(recipient_email, timestamp)
-          }
-
-        template ->
-          # Use database template with variable substitution
-          rendered = Templates.render_template(template, template_variables)
-          {rendered.subject, rendered.html_body, rendered.text_body}
-      end
-
-    email =
-      new()
-      |> to(recipient_email)
-      |> from({get_from_name(), get_from_email()})
-      |> subject(subject)
-      |> html_body(html_body)
-      |> text_body(text_body)
-
-    # Track template usage if using database template
-    case Templates.get_active_template_by_name("test_email") do
-      # No template to track
-      nil -> :ok
-      template -> Templates.track_usage(template)
-    end
-
-    deliver_email(email,
-      user_uuid: user_uuid,
-      template_name: "test_email",
-      campaign_id: "test",
-      category: "system",
-      source_module: "admin",
-      provider: detect_provider()
-    )
-  end
-
-  # HTML version of the test tracking email
-  defp test_email_html_body(recipient_email, timestamp) do
-    test_link_url = Routes.url("/admin/emails")
-
-    """
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Test Tracking Email</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f8f9fa; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { padding: 30px; }
-        .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin: 10px 5px; }
-        .button:hover { background-color: #2563eb; }
-        .info-box { background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 16px; margin: 20px 0; }
-        .success-box { background-color: #f0fdf4; border: 1px solid #22c55e; border-radius: 6px; padding: 16px; margin: 20px 0; }
-        .footer { background-color: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px; font-size: 14px; color: #6b7280; }
-        .test-links { margin: 20px 0; }
-        .test-links a { margin-right: 15px; }
-        .tracking-info { font-family: monospace; background: #f3f4f6; padding: 10px; border-radius: 4px; margin: 10px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>📧 Test Tracking Email</h1>
-          <p>Email Tracking System Verification</p>
-        </div>
-
-        <div class="content">
-          <div class="success-box">
-            <strong>✅ Success!</strong> This test email was sent successfully through the PhoenixKit email tracking system.
-          </div>
-
-          <p>Hello,</p>
-
-          <p>This is a test email to verify that your email tracking system is working correctly. If you received this email, it means:</p>
-
-          <ul>
-            <li>✅ Email delivery is working</li>
-            <li>✅ AWS SES configuration is correct (if using SES)</li>
-            <li>✅ Email tracking is enabled and logging</li>
-            <li>✅ Configuration set is properly configured</li>
-          </ul>
-
-          <div class="info-box">
-            <strong>📊 Tracking Information:</strong>
-            <div class="tracking-info">
-              Recipient: #{recipient_email}<br>
-              Sent at: #{timestamp}<br>
-              Campaign: test<br>
-              Template: test_email
-            </div>
-          </div>
-
-          <div class="test-links">
-            <p><strong>Test these tracking features:</strong></p>
-            <a href="#{test_link_url}?test=link1" class="button">Test Link 1</a>
-            <a href="#{test_link_url}?test=link2" class="button">Test Link 2</a>
-            <a href="#{test_link_url}?test=link3" class="button">Test Link 3</a>
-          </div>
-
-          <p>Click any of the buttons above to test link tracking. Then check your emails in the admin panel to see the tracking data.</p>
-
-        </div>
-
-        <div class="footer">
-          <p>This is an automated test email from PhoenixKit Email Tracking System.</p>
-          <p>Check your admin panel at: <a href="#{test_link_url}">#{test_link_url}</a></p>
-        </div>
-      </div>
-    </body>
-    </html>
-    """
-  end
-
-  # Text version of the test tracking email
-  defp test_email_text_body(recipient_email, timestamp) do
-    test_link_url = Routes.url("/admin/emails")
-
-    """
-    TEST TRACKING EMAIL - EMAIL SYSTEM VERIFICATION
-
-    Success! This test email was sent successfully through the PhoenixKit email tracking system.
-
-    Hello,
-
-    This is a test email to verify that your email tracking system is working correctly. If you received this email, it means:
-
-    ✅ Email delivery is working
-    ✅ AWS SES configuration is correct (if using SES)
-    ✅ Email tracking is enabled and logging
-    ✅ Configuration set is properly configured
-
-    TRACKING INFORMATION:
-    ---------------------
-    Recipient: #{recipient_email}
-    Sent at: #{timestamp}
-    Campaign: test
-    Template: test_email
-
-    TEST LINKS:
-    -----------
-    Test these tracking features by visiting:
-
-    Test Link 1: #{test_link_url}?test=link1
-    Test Link 2: #{test_link_url}?test=link2
-    Test Link 3: #{test_link_url}?test=link3
-
-    Click any of the links above to test link tracking. Then check your emails in the admin panel to see the tracking data.
-
-    ---
-    This is an automated test email from PhoenixKit Email Tracking System.
-    Check your admin panel at: #{test_link_url}
-    """
-  end
 
   # Get the from email address from configuration or use a default
   # Priority: Settings Database > Config file > Default

@@ -44,8 +44,6 @@ defmodule PhoenixKit.Migrations.Postgres.V31 do
   """
   use Ecto.Migration
 
-  alias PhoenixKit.Modules.Emails.Templates
-
   @doc """
   Run the V31 migration to add the billing system.
   """
@@ -768,16 +766,22 @@ defmodule PhoenixKit.Migrations.Postgres.V31 do
 
   # Seed billing email templates (billing_invoice and billing_receipt) if they don't exist
   defp seed_billing_invoice_template do
-    case Code.ensure_loaded(Templates) do
+    templates_mod = PhoenixKit.Modules.Emails.Templates
+
+    case Code.ensure_loaded(templates_mod) do
       {:module, _} ->
         try do
           # Check if billing templates already exist
-          invoice_exists = Templates.get_template_by_name("billing_invoice") != nil
-          receipt_exists = Templates.get_template_by_name("billing_receipt") != nil
+          # Module loaded dynamically — apply/3 required to avoid compile-time warnings
+          # credo:disable-for-next-line Credo.Check.Refactor.Apply
+          invoice_exists = apply(templates_mod, :get_template_by_name, ["billing_invoice"]) != nil
+          # credo:disable-for-next-line Credo.Check.Refactor.Apply
+          receipt_exists = apply(templates_mod, :get_template_by_name, ["billing_receipt"]) != nil
 
           # If any template is missing, run seed to create all missing system templates
           unless invoice_exists and receipt_exists do
-            Templates.seed_system_templates()
+            # credo:disable-for-next-line Credo.Check.Refactor.Apply
+            apply(templates_mod, :seed_system_templates, [])
           end
 
           :ok

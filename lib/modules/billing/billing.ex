@@ -54,7 +54,6 @@ defmodule PhoenixKit.Modules.Billing do
   alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Billing.Providers
   alias PhoenixKit.Modules.Billing.Transaction
-  alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
@@ -1476,7 +1475,7 @@ defmodule PhoenixKit.Modules.Billing do
         user = invoice.user
         variables = build_invoice_email_variables(invoice, user, opts)
 
-        Templates.send_email(
+        PhoenixKit.Mailer.send_from_template(
           "billing_invoice",
           email,
           variables,
@@ -1571,7 +1570,7 @@ defmodule PhoenixKit.Modules.Billing do
         user = invoice.user
         variables = build_receipt_email_variables(invoice, user, opts)
 
-        Templates.send_email(
+        PhoenixKit.Mailer.send_from_template(
           "billing_receipt",
           email,
           variables,
@@ -1680,7 +1679,7 @@ defmodule PhoenixKit.Modules.Billing do
         user = invoice.user
         variables = build_credit_note_email_variables(invoice, transaction, user, opts)
 
-        Templates.send_email(
+        PhoenixKit.Mailer.send_from_template(
           "billing_credit_note",
           email,
           variables,
@@ -1813,7 +1812,7 @@ defmodule PhoenixKit.Modules.Billing do
         user = invoice.user
         variables = build_payment_confirmation_email_variables(invoice, transaction, user, opts)
 
-        Templates.send_email(
+        PhoenixKit.Mailer.send_from_template(
           "billing_payment_confirmation",
           email,
           variables,

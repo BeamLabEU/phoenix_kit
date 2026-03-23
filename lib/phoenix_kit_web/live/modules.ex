@@ -446,31 +446,57 @@ defmodule PhoenixKitWeb.Live.Modules do
     |> Enum.filter(fn mod ->
       Code.ensure_loaded?(mod) and function_exported?(mod, :module_key, 0)
     end)
-    |> Enum.map(fn mod ->
-      key = mod.module_key()
-      config = module_configs[key] || %{}
-      perm = if function_exported?(mod, :permission_metadata, 0), do: mod.permission_metadata()
-
-      %{
-        module: mod,
-        key: key,
-        name: mod.module_name(),
-        icon: (perm && perm[:icon]) || "hero-puzzle-piece",
-        description: (perm && perm[:description]) || "External module",
-        enabled: config[:enabled] || false,
-        version: if(function_exported?(mod, :version, 0), do: mod.version(), else: "0.0.0"),
-        required_modules:
-          if(function_exported?(mod, :required_modules, 0), do: mod.required_modules(), else: []),
-        admin_links: extract_admin_links(mod)
-      }
-    end)
+    |> Enum.map(&build_external_module_data(&1, module_configs))
     |> Enum.sort_by(& &1.name)
+  end
+
+  defp build_external_module_data(mod, module_configs) do
+    key = mod.module_key()
+    config = module_configs[key] || %{}
+    perm = if function_exported?(mod, :permission_metadata, 0), do: mod.permission_metadata()
+
+    %{
+      module: mod,
+      key: key,
+      name: mod.module_name(),
+      icon: (perm && perm[:icon]) || "hero-puzzle-piece",
+      description: (perm && perm[:description]) || "External module",
+      enabled: config[:enabled] || false,
+      config: safe_get_config(mod),
+      version: if(function_exported?(mod, :version, 0), do: mod.version(), else: "0.0.0"),
+      required_modules:
+        if(function_exported?(mod, :required_modules, 0), do: mod.required_modules(), else: []),
+      admin_links: extract_admin_links(mod),
+      settings_path: extract_settings_path(mod)
+    }
+  end
+
+  defp safe_get_config(mod) do
+    if function_exported?(mod, :get_config, 0), do: mod.get_config(), else: %{}
+  rescue
+    _ -> %{}
+  end
+
+  defp extract_settings_path(mod) do
+    if Code.ensure_loaded?(mod) and function_exported?(mod, :settings_tabs, 0) do
+      case mod.settings_tabs() do
+        [first | _] -> "/admin/settings/" <> first.path
+        _ -> nil
+      end
+    else
+      nil
+    end
+  rescue
+    _ -> nil
   end
 
   defp extract_admin_links(mod) do
     if Code.ensure_loaded?(mod) and function_exported?(mod, :admin_tabs, 0) do
       mod.admin_tabs()
-      |> Enum.filter(fn tab -> tab.live_view != nil and tab.visible != false end)
+      |> Enum.filter(fn tab ->
+        tab.live_view != nil and tab.visible != false and tab.parent != nil
+      end)
+      |> Enum.uniq_by(fn tab -> tab.path end)
       |> Enum.take(3)
       |> Enum.map(fn tab -> %{label: tab.label, path: "/admin/" <> tab.path, icon: tab.icon} end)
     else
