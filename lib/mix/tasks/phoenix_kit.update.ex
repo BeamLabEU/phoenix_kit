@@ -223,8 +223,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
               Mix.Task.run("app.start")
 
-              # Simple database check - must succeed to continue
-              DbConnectionCheck.check!()
+              # Verify database is reachable before running update
+              DbConnectionCheck.ensure_connected!()
 
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))

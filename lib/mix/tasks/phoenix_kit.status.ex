@@ -42,7 +42,6 @@ defmodule Mix.Tasks.PhoenixKit.Status do
 
   alias PhoenixKit.Config
   alias PhoenixKit.Install.Common
-  alias PhoenixKit.Install.DbConnectionCheck
   alias PhoenixKit.Migrations.Postgres
 
   @impl Mix.Task
@@ -70,18 +69,6 @@ defmodule Mix.Tasks.PhoenixKit.Status do
     {:ok, _} = Application.ensure_all_started(:postgrex)
     {:ok, _} = Application.ensure_all_started(:ecto_sql)
     {:ok, _} = Application.ensure_all_started(:phoenix_kit)
-
-    # Ensure repo is started before DB check
-    case get_repo_with_fallback() do
-      nil ->
-        :ok
-
-      repo ->
-        ensure_repo_started(repo)
-    end
-
-    # Simple database check - must succeed to continue
-    DbConnectionCheck.check!()
 
     {opts, _argv, _errors} = OptionParser.parse(argv, switches: @switches, aliases: @aliases)
 
