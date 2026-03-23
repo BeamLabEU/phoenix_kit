@@ -4,6 +4,8 @@ defmodule PhoenixKit.Install.DbConnectionCheck do
   """
   alias PhoenixKit.Config
 
+  @dialyzer {:nowarn_function, check!: 0}
+
   @doc """
   Check if database is reachable. Returns true if connected, false otherwise.
   """
@@ -20,6 +22,7 @@ defmodule PhoenixKit.Install.DbConnectionCheck do
   @doc """
   Check DB connection and exit with error if not connected.
   """
+  @spec check!() :: no_return()
   def check! do
     unless check?() do
       Mix.shell().error("""
