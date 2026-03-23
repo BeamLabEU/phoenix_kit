@@ -260,11 +260,21 @@ defmodule PhoenixKit.Modules.AI do
         parent: :admin_ai
       },
       %Tab{
+        id: :admin_ai_playground,
+        label: "Playground",
+        icon: "hero-beaker",
+        path: "ai/playground",
+        priority: 553,
+        level: :admin,
+        permission: "ai",
+        parent: :admin_ai
+      },
+      %Tab{
         id: :admin_ai_usage,
         label: "Usage",
         icon: "hero-chart-bar",
         path: "ai/usage",
-        priority: 553,
+        priority: 554,
         level: :admin,
         permission: "ai",
         parent: :admin_ai
@@ -780,12 +790,21 @@ defmodule PhoenixKit.Modules.AI do
   def ask_with_prompt(endpoint_uuid, prompt_uuid, variables \\ %{}, opts \\ []) do
     with {:ok, prompt} <- resolve_prompt(prompt_uuid),
          {:ok, _} <- validate_prompt(prompt),
-         {:ok, rendered} <- Prompt.render(prompt, variables) do
+         {:ok, rendered} <- Prompt.render(prompt, variables),
+         {:ok, system_prompt} <- Prompt.render_system_prompt(prompt, variables) do
       # Pass prompt info to ask for request logging
       opts_with_prompt =
         opts
         |> Keyword.put(:prompt_uuid, prompt.uuid)
         |> Keyword.put(:prompt_name, prompt.name)
+
+      # Include system prompt if the prompt template defines one
+      opts_with_prompt =
+        if system_prompt do
+          Keyword.put_new(opts_with_prompt, :system, system_prompt)
+        else
+          opts_with_prompt
+        end
 
       case ask(endpoint_uuid, rendered, opts_with_prompt) do
         {:ok, response} ->

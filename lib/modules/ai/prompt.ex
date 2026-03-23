@@ -77,6 +77,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
              :name,
              :slug,
              :description,
+             :system_prompt,
              :content,
              :variables,
              :enabled,
@@ -95,6 +96,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
     field :description, :string
 
     # Content
+    field :system_prompt, :string
     field :content, :string
     field :variables, {:array, :string}, default: []
 
@@ -121,6 +123,7 @@ defmodule PhoenixKit.Modules.AI.Prompt do
       :name,
       :slug,
       :description,
+      :system_prompt,
       :content,
       :variables,
       :enabled,
@@ -205,6 +208,38 @@ defmodule PhoenixKit.Modules.AI.Prompt do
 
   def render(%__MODULE__{content: content}, _variables) do
     {:ok, content}
+  end
+
+  @doc """
+  Renders the system prompt by replacing variables with provided values.
+
+  Returns `{:ok, rendered}` if system_prompt is set, or `{:ok, nil}` if not.
+
+  ## Examples
+
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{system_prompt: "You are a {{Role}}"}
+      iex> PhoenixKit.Modules.AI.Prompt.render_system_prompt(prompt, %{"Role" => "translator"})
+      {:ok, "You are a translator"}
+
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{system_prompt: nil}
+      iex> PhoenixKit.Modules.AI.Prompt.render_system_prompt(prompt, %{})
+      {:ok, nil}
+  """
+  def render_system_prompt(%__MODULE__{system_prompt: nil}, _variables), do: {:ok, nil}
+  def render_system_prompt(%__MODULE__{system_prompt: ""}, _variables), do: {:ok, nil}
+
+  def render_system_prompt(%__MODULE__{system_prompt: system_prompt}, variables)
+      when is_map(variables) do
+    result =
+      Regex.replace(@variable_regex, system_prompt, fn full_match, var_name ->
+        get_variable_value(variables, var_name, full_match)
+      end)
+
+    {:ok, result}
+  end
+
+  def render_system_prompt(%__MODULE__{system_prompt: system_prompt}, _variables) do
+    {:ok, system_prompt}
   end
 
   @doc """
@@ -457,10 +492,13 @@ defmodule PhoenixKit.Modules.AI.Prompt do
   end
 
   defp auto_extract_variables(changeset) do
-    content = get_field(changeset, :content)
+    system_prompt = get_field(changeset, :system_prompt) || ""
+    content = get_field(changeset, :content) || ""
 
-    if content do
-      variables = extract_variables(content)
+    combined = system_prompt <> "\n" <> content
+
+    if String.trim(combined) != "" do
+      variables = extract_variables(combined)
       put_change(changeset, :variables, variables)
     else
       changeset
