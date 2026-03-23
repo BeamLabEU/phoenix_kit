@@ -947,6 +947,8 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp external_plugin_view?(view) do
     case Module.split(view) do
       ["PhoenixKitWeb" | _] -> false
+      # Extracted packages keep PhoenixKit.Modules.*.Web namespace — treat as external
+      ["PhoenixKit", "Modules", _, "Web" | _] -> true
       ["PhoenixKit" | _] -> false
       _ -> true
     end
