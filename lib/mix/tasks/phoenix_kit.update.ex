@@ -88,6 +88,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       BasicConfiguration,
       Common,
       CssIntegration,
+      DbConnectionCheck,
       IgniterHelpers,
       ObanConfig,
       RateLimiterConfig
@@ -201,6 +202,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               # Second pass (automatic or manual): Configuration exists, safe to start app
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
+
+              # Simple database check - must succeed to continue
+              DbConnectionCheck.check!()
 
               # Cap the Ecto pool to 2 connections so we don't saturate PgBouncer
               # when the production app is already running.

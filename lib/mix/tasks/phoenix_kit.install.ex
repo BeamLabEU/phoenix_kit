@@ -52,6 +52,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       BasicConfiguration,
       BrowserPipelineIntegration,
       CssIntegration,
+      DbConnectionCheck,
       DemoFiles,
       EndpointIntegration,
       LayoutConfig,
@@ -170,6 +171,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           {:ok, _} ->
             # Second pass: Configuration exists, safe to start app and complete installation
             Process.put(:phoenix_kit_config_status, :ok)
+
+            # Simple database check - must succeed to continue
+            DbConnectionCheck.check!()
 
             # Run standard igniter process
             result = super(argv)
