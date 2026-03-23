@@ -529,7 +529,11 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V84 - Rename mailing tables to newsletters ⚡ LATEST
+  ### V85 - Add system_prompt to AI prompts ⚡ LATEST
+  - Adds `system_prompt` (text) column to `phoenix_kit_ai_prompts`
+  - Allows storing system-level instructions separately from user prompt content
+
+  ### V84 - Rename mailing tables to newsletters
   - Idempotently renames `phoenix_kit_mailing_*` tables to `phoenix_kit_newsletters_*`
   - Fixes databases that ran the old V79 (which created `mailing_*` tables)
   - Safe to run multiple times — uses IF EXISTS guards
@@ -650,7 +654,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 84
+  @current_version 85
   @default_prefix "public"
 
   @doc false

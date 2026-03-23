@@ -49,6 +49,12 @@
             <.icon name="hero-document-text" class="w-4 h-4 mr-2" /> Prompts
           </.link>
           <.link
+            navigate={PhoenixKit.Utils.Routes.ai_path() <> "/playground"}
+            class="tab"
+          >
+            <.icon name="hero-beaker" class="w-4 h-4 mr-2" /> Playground
+          </.link>
+          <.link
             navigate={PhoenixKit.Utils.Routes.ai_path() <> "/usage"}
             class={"tab #{if @active_tab == "usage", do: "tab-active"}"}
           >

@@ -684,6 +684,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
             as: :ai_prompt_edit
 
+          live "/admin/ai/playground", PhoenixKit.Modules.AI.Web.Playground, :index,
+            as: :ai_playground
+
           # Routes from external route modules
           unquote(emails_admin)
           unquote(tickets_admin)
