@@ -52,8 +52,7 @@ defmodule PhoenixKitWeb.Components.AuthPageWrapper do
       page_title={@page_title}
     >
       {raw(@bg_style_tag)}
-      <%!-- z-10: above footer (z-auto/0) but below sticky header (z-50) in parent layouts --%>
-      <div class="auth-bg fixed inset-x-0 top-16 bottom-0 z-10 flex items-center justify-center px-4 py-8 overflow-auto">
+      <div class="auth-bg min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 -mx-[calc(50vw-50%)] w-[100vw] -my-8">
         <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
           <div class="card-body">
             <%= if @auth_logo_url != "" do %>
