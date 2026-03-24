@@ -992,35 +992,17 @@
           </:action_buttons>
 
           <:stats>
-            <%!-- Render stats from config if available --%>
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <%= if Map.has_key?(ext.config, :ses_events) do %>
-                <div>
-                  <span class="text-base-content/70">SES Events:</span>
-                  <span class="font-medium">
-                    {if ext.config[:ses_events], do: "On", else: "Off"}
-                  </span>
-                </div>
-              <% end %>
-              <%= if Map.has_key?(ext.config, :retention_days) do %>
-                <div>
-                  <span class="text-base-content/70">Retention:</span>
-                  <span class="font-medium">{ext.config[:retention_days]} days</span>
-                </div>
-              <% end %>
-              <%= if Map.has_key?(ext.config, :sampling_rate) do %>
-                <div>
-                  <span class="text-base-content/70">Sampling:</span>
-                  <span class="font-medium">{ext.config[:sampling_rate]}%</span>
-                </div>
-              <% end %>
-              <%= if Map.has_key?(ext.config, :compress_after_days) do %>
-                <div>
-                  <span class="text-base-content/70">Compress:</span>
-                  <span class="font-medium">{ext.config[:compress_after_days]} days</span>
-                </div>
-              <% end %>
-            </div>
+            <%!-- Render stats from module_stats callback if available --%>
+            <%= if function_exported?(ext.module, :module_stats, 0) do %>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <%= for stat <- ext.module.module_stats() do %>
+                  <div>
+                    <span class="text-base-content/70">{stat.label}:</span>
+                    <span class="font-medium">{stat.value}</span>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
           </:stats>
         </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
       <% end %>
