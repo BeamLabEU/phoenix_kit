@@ -1163,6 +1163,9 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
     topo_sort(graph, Map.keys(graph), [], MapSet.new())
   end
 
+  @dialyzer {:no_opaque,
+             [topo_sort: 4, visit_node: 5, get_table_dependencies: 2, get_table_dependencies: 3]}
+
   defp topo_sort(_graph, [], sorted, _visited), do: sorted
 
   defp topo_sort(graph, [node | rest], sorted, visited) do
