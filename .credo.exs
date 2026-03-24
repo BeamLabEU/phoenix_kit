@@ -43,12 +43,16 @@
              # External optional modules — can't be aliased because they may not be installed
              "PhoenixKitEntities",
              "PhoenixKitAI",
-             "PhoenixKitPosts"
+             "PhoenixKitPosts",
+             # Internal modules used behind Code.ensure_loaded? guards
+             "Igniter"
            ],
            excluded_lastnames: [
              # Extracted utility modules used with full paths for clarity
              "Multilang",
-             "HtmlSanitizer"
+             "HtmlSanitizer",
+             # Used behind Code.ensure_loaded? in module enable/disable
+             "Registry"
            ]
          ]},
         {Credo.Check.Design.TagTODO, [priority: :low]},
