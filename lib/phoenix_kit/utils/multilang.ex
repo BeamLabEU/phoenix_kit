@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Entities.Multilang do
+defmodule PhoenixKit.Utils.Multilang do
   @moduledoc """
   Multi-language data transformation helpers for entity data JSONB.
 

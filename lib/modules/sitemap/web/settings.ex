@@ -488,8 +488,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   # Check which parent modules are actually enabled (not just sitemap toggles)
   defp get_module_enabled_status do
     %{
-      entities: safe_module_enabled?(PhoenixKit.Modules.Entities),
-      publishing: safe_module_enabled?(PhoenixKit.Modules.Publishing),
+      entities:
+        Code.ensure_loaded?(PhoenixKitEntities) and safe_module_enabled?(PhoenixKitEntities),
+      publishing: safe_module_available_and_enabled?(PhoenixKit.Modules.Publishing),
       shop: safe_module_enabled?(PhoenixKit.Modules.Shop),
       posts: Code.ensure_loaded?(PhoenixKitPosts) and safe_module_enabled?(PhoenixKitPosts)
     }
@@ -499,6 +500,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     module.enabled?()
   rescue
     _ -> false
+  end
+
+  defp safe_module_available_and_enabled?(module) do
+    Code.ensure_loaded?(module) and safe_module_enabled?(module)
   end
 
   defp get_sitemap_version(config) do

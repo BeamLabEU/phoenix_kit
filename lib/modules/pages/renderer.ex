@@ -6,11 +6,12 @@ defmodule PhoenixKit.Modules.Pages.Renderer do
   Cache keys include content hashes for automatic invalidation.
   """
 
+  @compile {:no_warn_undefined, [{PhoenixKitEntities.Components.EntityForm, :render, 1}]}
+
   require Logger
 
   alias Phoenix.HTML.Safe
   alias PhoenixKit.Modules.Pages.PageBuilder
-  alias PhoenixKit.Modules.Shared.Components.EntityForm
   alias PhoenixKit.Modules.Shared.Components.Image
   alias PhoenixKit.Modules.Shared.Components.Video
   alias PhoenixKit.Settings
@@ -343,7 +344,7 @@ defmodule PhoenixKit.Modules.Pages.Renderer do
       children: []
     }
 
-    EntityForm.render(assigns)
+    PhoenixKitEntities.Components.EntityForm.render(assigns)
     |> Safe.to_iodata()
     |> IO.iodata_to_binary()
   rescue

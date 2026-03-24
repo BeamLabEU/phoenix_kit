@@ -48,11 +48,6 @@ defmodule PhoenixKit.Supervisor do
          name: :settings, sync_init: true, warmer: &PhoenixKit.Settings.warm_cache_data/0},
         id: :settings_cache
       ),
-      # Cache rendered blog posts (HTML) to avoid re-rendering markdown on every request
-      Supervisor.child_spec(
-        {PhoenixKit.Cache, name: :publishing_posts, ttl: :timer.hours(6)},
-        id: :publishing_posts_cache
-      ),
       # Dashboard tab registry for user dashboard navigation.
       # Starts after settings_cache so module enabled? checks hit cache rather than DB.
       PhoenixKit.Dashboard.Registry,

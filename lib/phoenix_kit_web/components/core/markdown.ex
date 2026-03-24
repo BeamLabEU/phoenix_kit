@@ -33,7 +33,7 @@ defmodule PhoenixKitWeb.Components.Core.Markdown do
   import Phoenix.HTML, only: [raw: 1]
   import PhoenixKitWeb.Components.Core.MarkdownContent, only: [markdown_content: 1]
 
-  alias PhoenixKit.Modules.Entities.HtmlSanitizer
+  alias PhoenixKit.Utils.HtmlSanitizer
 
   @doc """
   Renders markdown content with styling and optional XSS protection.

@@ -12,8 +12,6 @@
   {"lib/phoenix_kit/install/migration_strategy.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.status.ex", :unknown_function},
   {"lib/phoenix_kit/migrations/postgres.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit/entities/export.ex", :unknown_function},
-  {"lib/mix/tasks/phoenix_kit/entities/import.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :unknown_function},
 
   # Mix.Task behaviour callbacks (expected in Mix tasks)
@@ -28,15 +26,9 @@
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.assets.rebuild.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.status.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit/entities/export.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit/entities/import.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :callback_info_missing, 1},
 
-  # Publishing module defensive fallbacks and settings_call dynamic dispatch
-  {"lib/modules/publishing/publishing.ex", :guard_fail},
-  {"lib/modules/publishing/publishing.ex", :pattern_match_cov},
-  {"lib/modules/publishing/publishing.ex", :pattern_match},
-  {"lib/modules/publishing/shared.ex", :guard_fail},
+  # Publishing module (extracted) — dynamic dispatch through publishing_module() helper
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
@@ -49,11 +41,7 @@
   ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*no_return/,
   ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*call/,
 
-  # Publishing Editor submodules - with-chain type inference false positives
-  ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/editor\/.*\.ex:.*pattern_match_cov/,
-
-  # Pages module - same type inference false positives as Publishing (copied codebase)
+  # Pages module - type inference false positives
   ~r/lib\/modules\/pages\/listing_cache\.ex:.*pattern_match/,
   ~r/lib\/modules\/pages\/storage\/.*\.ex:.*pattern_match/,
   ~r/lib\/modules\/pages\/storage\/.*\.ex:.*call/,
@@ -92,7 +80,6 @@
   # Entity form - defensive catch-all clauses for mb_to_bytes and parse_accept_list
   # Dialyzer proves previous clauses cover all actual call-site types but
   # catch-alls are kept intentionally for safety with dynamic form params
-  {"lib/modules/entities/web/entity_form.ex", :pattern_match_cov},
 
   # tab_callback_context/1 has a :user_dashboard_tabs clause for future use
   # but compile_module_admin_routes only passes :admin_tabs and :settings_tabs currently
@@ -100,6 +87,11 @@
 
   # External optional modules guarded by Code.ensure_loaded? at runtime
   {"lib/modules/sitemap/sources/posts.ex", :unknown_function},
+  {"lib/modules/sitemap/sources/publishing.ex", :unknown_function},
+  {"lib/modules/pages/renderer.ex", :unknown_function},
+  {"lib/modules/pages/page_builder/renderer.ex", :unknown_function},
+  {"lib/phoenix_kit/dashboard/registry.ex", :unknown_function},
+  {"lib/phoenix_kit/install/css_integration.ex", :unknown_function},
   {"lib/phoenix_kit/scheduled_jobs/workers/process_scheduled_jobs_worker.ex", :unknown_function},
 
   # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test

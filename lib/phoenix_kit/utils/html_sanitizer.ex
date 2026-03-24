@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.Entities.HtmlSanitizer do
+defmodule PhoenixKit.Utils.HtmlSanitizer do
   @moduledoc """
   HTML sanitization for rich text content in entities.
 
@@ -25,10 +25,10 @@ defmodule PhoenixKit.Modules.Entities.HtmlSanitizer do
 
   ## Usage
 
-      iex> PhoenixKit.Modules.Entities.HtmlSanitizer.sanitize("<p>Hello</p><script>alert('xss')</script>")
+      iex> PhoenixKit.Utils.HtmlSanitizer.sanitize("<p>Hello</p><script>alert('xss')</script>")
       "<p>Hello</p>"
 
-      iex> PhoenixKit.Modules.Entities.HtmlSanitizer.sanitize("<a href=\"javascript:alert('xss')\">Click</a>")
+      iex> PhoenixKit.Utils.HtmlSanitizer.sanitize("<a href=\"javascript:alert('xss')\">Click</a>")
       "<a>Click</a>"
   """
 
@@ -58,7 +58,7 @@ defmodule PhoenixKit.Modules.Entities.HtmlSanitizer do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Entities.HtmlSanitizer.sanitize("<p onclick=\"alert('xss')\">Hello</p>")
+      iex> PhoenixKit.Utils.HtmlSanitizer.sanitize("<p onclick=\"alert('xss')\">Hello</p>")
       "<p>Hello</p>"
   """
   def sanitize(nil), do: nil
@@ -88,7 +88,7 @@ defmodule PhoenixKit.Modules.Entities.HtmlSanitizer do
 
       iex> fields = [%{"type" => "rich_text", "key" => "content"}]
       iex> data = %{"content" => "<script>alert('xss')</script><p>Hello</p>"}
-      iex> PhoenixKit.Modules.Entities.HtmlSanitizer.sanitize_rich_text_fields(fields, data)
+      iex> PhoenixKit.Utils.HtmlSanitizer.sanitize_rich_text_fields(fields, data)
       %{"content" => "<p>Hello</p>"}
   """
   def sanitize_rich_text_fields(fields_definition, data)

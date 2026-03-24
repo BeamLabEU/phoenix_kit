@@ -39,12 +39,20 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
   @behaviour PhoenixKit.Modules.Sitemap.Sources.Source
 
+  @compile {:no_warn_undefined,
+            [
+              {PhoenixKit.Modules.Publishing, :enabled?, 0},
+              {PhoenixKit.Modules.Publishing, :list_groups, 0},
+              {PhoenixKit.Modules.Publishing, :list_posts, 2}
+            ]}
+
   require Logger
 
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Sitemap.UrlEntry
+
+  @publishing_mod PhoenixKit.Modules.Publishing
 
   @default_locale Config.default_locale()
 
@@ -67,7 +75,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       language = Keyword.get(opts, :language)
       is_default = Keyword.get(opts, :is_default_language, true)
 
-      groups = Publishing.list_groups()
+      groups = @publishing_mod.list_groups()
       included_groups = Enum.reject(groups, &group_excluded?/1)
 
       sub_maps =
@@ -99,7 +107,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
   @impl true
   def enabled? do
-    Publishing.enabled?()
+    Code.ensure_loaded?(@publishing_mod) and
+      function_exported?(@publishing_mod, :enabled?, 0) and
+      @publishing_mod.enabled?()
   rescue
     _ -> false
   end
@@ -111,7 +121,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       language = Keyword.get(opts, :language)
       is_default = Keyword.get(opts, :is_default_language, true)
 
-      groups = Publishing.list_groups()
+      groups = @publishing_mod.list_groups()
 
       # Filter out groups with sitemap_exclude setting
       included_groups = Enum.reject(groups, &group_excluded?/1)
@@ -179,7 +189,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     slug = group["slug"]
     post_language = language || get_default_language()
 
-    Publishing.list_posts(slug, post_language)
+    @publishing_mod.list_posts(slug, post_language)
     |> Enum.filter(&published?/1)
     |> Enum.reject(&excluded?/1)
     |> Enum.any?(fn post -> has_translation?(post, language) end)
@@ -193,7 +203,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     post_language = language || get_default_language()
 
     posts =
-      Publishing.list_posts(slug, post_language)
+      @publishing_mod.list_posts(slug, post_language)
       |> Enum.filter(&published?/1)
       |> Enum.reject(&excluded?/1)
       |> Enum.filter(fn post -> has_translation?(post, language) end)
@@ -388,7 +398,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
   defp latest_post_date(group_slug, language) do
     post_language = language || get_default_language()
 
-    Publishing.list_posts(group_slug, post_language)
+    @publishing_mod.list_posts(group_slug, post_language)
     |> Enum.filter(&published?/1)
     |> Enum.reject(&excluded?/1)
     |> Enum.map(&get_post_lastmod/1)

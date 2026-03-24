@@ -50,9 +50,6 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert is_list(keys)
       assert "billing" in keys
       assert "shop" in keys
-      assert "entities" in keys
-      assert "ai" in keys
-      assert length(keys) == 17
     end
 
     test "does not include core keys" do
@@ -69,8 +66,8 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert MapSet.new(all) == MapSet.new(expected)
     end
 
-    test "has 22 built-in keys" do
-      assert length(Permissions.all_module_keys()) == 22
+    test "has 19 built-in keys" do
+      assert length(Permissions.all_module_keys()) == 19
     end
   end
 
@@ -104,7 +101,6 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert Permissions.module_label("dashboard") == "Dashboard"
       assert Permissions.module_label("users") == "Users"
       assert Permissions.module_label("shop") == "E-Commerce"
-      assert Permissions.module_label("ai") == "AI"
       assert Permissions.module_label("db") == "DB"
     end
 
@@ -123,7 +119,6 @@ defmodule PhoenixKit.Users.PermissionsTest do
     test "returns correct icons for built-in keys" do
       assert Permissions.module_icon("dashboard") == "hero-home"
       assert Permissions.module_icon("users") == "hero-users"
-      assert Permissions.module_icon("ai") == "hero-sparkles"
     end
 
     test "returns default icon for unknown keys" do
@@ -283,7 +278,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert Permissions.valid_module_key?("billing")
     end
 
-    test "returns true for all 24 built-in keys" do
+    test "returns true for all 19 built-in keys" do
       for key <- Permissions.core_section_keys() ++ Permissions.feature_module_keys() do
         assert Permissions.valid_module_key?(key), "Expected #{key} to be valid"
       end

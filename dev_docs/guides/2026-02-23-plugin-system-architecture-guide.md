@@ -11,7 +11,7 @@ PhoenixKit modules can be independently installable as separate hex packages. Th
 
 ### PhoenixKit.Module Behaviour
 
-All 21 internal modules implement `use PhoenixKit.Module`, which provides:
+All internal modules implement `use PhoenixKit.Module`, which provides:
 
 **Required callbacks:**
 - `module_key/0` — unique string identifier (e.g., `"tickets"`)
@@ -33,14 +33,14 @@ All 21 internal modules implement `use PhoenixKit.Module`, which provides:
 ### PhoenixKit.ModuleRegistry
 
 GenServer using `:persistent_term` for zero-cost reads. Loads modules from two sources:
-1. **Internal modules** — hardcoded list in `internal_modules/0` (the ONE place that enumerates all 21 bundled modules)
+1. **Internal modules** — hardcoded list in `internal_modules/0` (the ONE place that enumerates all bundled modules)
 2. **External modules** — auto-discovered from beam files via `PhoenixKit.ModuleDiscovery`, with `Application.get_env(:phoenix_kit, :modules, [])` as fallback
 
 Provides aggregated queries: `all_admin_tabs/0`, `all_settings_tabs/0`, `all_permission_metadata/0`, `feature_enabled_checks/0`, `get_by_key/1`, etc.
 
 ### Core Files Refactored
 
-Seven core files that previously hardcoded references to all 21 modules now use the registry:
+Seven core files that previously hardcoded references to all modules now use the registry:
 
 | File | What Changed |
 |------|-------------|

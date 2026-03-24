@@ -5,8 +5,7 @@ defmodule PhoenixKit.Modules.Shared.Components.Page do
   use Phoenix.Component
 
   # Page delegates child rendering to the caller's PageBuilder.Renderer.
-  # Default to Publishing's renderer for backward compatibility.
-  @default_renderer PhoenixKit.Modules.Publishing.PageBuilder.Renderer
+  @default_renderer PhoenixKit.Modules.Pages.PageBuilder.Renderer
 
   attr :children, :list, default: []
   attr :attributes, :map, default: %{}

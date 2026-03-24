@@ -52,7 +52,7 @@ git status
 PhoenixKit has two levels of tests:
 
 1. **Unit tests** (`test/phoenix_kit/`, `test/modules/`) — Pure logic, no DB required
-2. **Integration tests** (`test/integration/`, `test/modules/publishing/integration/`) — Real PostgreSQL via Ecto sandbox
+2. **Integration tests** (`test/integration/`) — Real PostgreSQL via Ecto sandbox
 
 #### Test database setup
 

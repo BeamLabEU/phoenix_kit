@@ -401,17 +401,14 @@ defmodule PhoenixKit.ModuleRegistry do
   # remove it from this list and add it to :modules config instead.
   defp internal_modules do
     [
-      PhoenixKit.Modules.AI,
       PhoenixKit.Modules.Billing,
       PhoenixKit.Modules.Comments,
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
-      PhoenixKit.Modules.Entities,
       PhoenixKit.Modules.Languages,
       PhoenixKit.Modules.Legal,
       PhoenixKit.Modules.Maintenance,
       PhoenixKit.Modules.Pages,
-      PhoenixKit.Modules.Publishing,
       PhoenixKit.Modules.Referrals,
       PhoenixKit.Modules.SEO,
       PhoenixKit.Modules.Shop,
@@ -465,6 +462,36 @@ defmodule PhoenixKit.ModuleRegistry do
           "Email tracking, templates, SQS integration, blocklist, and delivery analytics.",
         icon: "📨",
         hex_url: "https://hex.pm/packages/phoenix_kit_emails"
+      },
+      %{
+        module: PhoenixKit.Modules.Publishing,
+        key: "publishing",
+        hex_package: "phoenix_kit_publishing",
+        name: "Publishing",
+        description:
+          "Content publishing with groups, multilingual support, versioning, and collaborative editing.",
+        icon: "📰",
+        hex_url: "https://hex.pm/packages/phoenix_kit_publishing"
+      },
+      %{
+        module: PhoenixKitEntities,
+        key: "entities",
+        hex_package: "phoenix_kit_entities",
+        name: "Entities",
+        description:
+          "Custom data entities with fields, forms, multilingual support, and data navigation.",
+        icon: "🧩",
+        hex_url: "https://hex.pm/packages/phoenix_kit_entities"
+      },
+      %{
+        module: PhoenixKitAI,
+        key: "ai",
+        hex_package: "phoenix_kit_ai",
+        name: "AI",
+        description:
+          "AI endpoint management, prompt templates, completions via OpenRouter, and usage tracking.",
+        icon: "🤖",
+        hex_url: "https://hex.pm/packages/phoenix_kit_ai"
       }
     ]
   end
