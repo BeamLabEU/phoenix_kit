@@ -75,6 +75,13 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
   attr :policy_version, :string, default: "1.0", doc: "Policy version for consent tracking"
   attr :cookie_policy_url, :string, default: "/legal/cookie-policy"
   attr :privacy_policy_url, :string, default: "/legal/privacy-policy"
+
+  attr :legal_links, :list,
+    default: [],
+    doc: "Dynamic list of %{title, url} for published legal pages"
+
+  attr :legal_index_url, :string, default: "/legal", doc: "URL to legal pages index"
+
   attr :google_consent_mode, :boolean, default: false, doc: "Enable Google Consent Mode v2"
   attr :class, :string, default: ""
 
@@ -173,7 +180,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
         }
 
         .pk-glass {
-          background: oklch(var(--b1) / 0.95);
+          background: oklch(var(--b1) / 0.98);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
           border: 1px solid var(--pk-border);
@@ -189,25 +196,6 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
         .pk-category-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 4px 12px oklch(var(--bc) / 0.1);
-        }
-
-        .pk-toggle-track {
-          background: var(--pk-border);
-          transition: background-color 0.2s ease;
-        }
-
-        .pk-toggle-track.active {
-          background: var(--pk-primary);
-        }
-
-        .pk-toggle-thumb {
-          background: var(--pk-bg);
-          box-shadow: 0 1px 3px oklch(var(--bc) / 0.2);
-          transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        input:checked + .pk-toggle-track .pk-toggle-thumb {
-          transform: translateX(20px);
         }
       </style>
 
@@ -254,17 +242,16 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                 <h3 class="font-semibold text-base-content text-sm sm:text-base">
                   {gettext("We value your privacy")}
                 </h3>
-                <p class="text-base-content/70 text-xs sm:text-sm mt-0.5 leading-relaxed max-w-xl">
+                <p class="text-base-content/80 text-xs sm:text-sm mt-0.5 leading-relaxed max-w-xl">
                   {gettext(
                     "We use cookies to enhance your browsing experience and analyze our traffic."
                   )}
                   {" "}
                   <a
-                    href={@cookie_policy_url}
+                    href={@legal_index_url}
                     class="link link-primary text-xs sm:text-sm"
-                    target="_blank"
                   >
-                    {gettext("Cookie Policy")}
+                    {gettext("Legal")}
                   </a>
                 </p>
               </div>
@@ -308,7 +295,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
       >
         <%!-- Backdrop --%>
         <div
-          class="pk-modal-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm"
+          class="pk-modal-backdrop absolute inset-0 bg-base-100/70 backdrop-blur-sm"
           onclick="window.PhoenixKitConsent?.closePreferences()"
         >
         </div>
@@ -328,7 +315,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                   <h2 class="font-semibold text-lg text-base-content">
                     {gettext("Privacy Preferences")}
                   </h2>
-                  <p class="text-xs text-base-content/60">
+                  <p class="text-xs text-base-content/70">
                     {gettext("Manage your cookie settings")}
                   </p>
                 </div>
@@ -356,7 +343,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
               <%= for category <- @categories do %>
                 <div class={[
                   "pk-category-card rounded-xl p-4",
-                  "bg-base-200/50 border border-base-300/30"
+                  "bg-base-200/80 border border-base-300/30"
                 ]}>
                   <div class="flex items-start justify-between gap-3">
                     <div class="flex items-start gap-3 flex-1 min-w-0">
@@ -374,34 +361,21 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                             </span>
                           <% end %>
                         </div>
-                        <p class="text-xs text-base-content/60 mt-1 leading-relaxed">
+                        <p class="text-xs text-base-content/70 mt-1 leading-relaxed">
                           {category.description}
                         </p>
                       </div>
                     </div>
 
-                    <%!-- Custom Toggle --%>
-                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        id={"pk-consent-#{category.id}"}
-                        class="sr-only peer"
-                        checked={Map.get(category, :always_enabled, false)}
-                        disabled={Map.get(category, :always_enabled, false)}
-                        data-category={category.id}
-                      />
-                      <div class={[
-                        "pk-toggle-track relative w-11 h-6 rounded-full",
-                        "bg-base-300 peer-checked:bg-primary",
-                        "peer-disabled:opacity-60 peer-disabled:cursor-not-allowed",
-                        "after:content-[''] after:absolute after:top-0.5 after:left-0.5",
-                        "after:bg-white after:rounded-full after:h-5 after:w-5",
-                        "after:shadow-sm after:transition-transform after:duration-200",
-                        "peer-checked:after:translate-x-5",
-                        "peer-focus:ring-2 peer-focus:ring-primary/30"
-                      ]}>
-                      </div>
-                    </label>
+                    <%!-- Toggle --%>
+                    <input
+                      type="checkbox"
+                      id={"pk-consent-#{category.id}"}
+                      class="toggle toggle-primary"
+                      checked={Map.get(category, :always_enabled, false)}
+                      disabled={Map.get(category, :always_enabled, false)}
+                      data-category={category.id}
+                    />
                   </div>
                 </div>
               <% end %>
@@ -411,21 +385,12 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
             <div class="px-6 py-4 border-t border-base-300/50 bg-base-200/30">
               <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <%!-- Policy Links --%>
-                <div class="flex items-center gap-3 text-xs text-base-content/60">
+                <div class="flex items-center gap-3 text-xs text-base-content/70">
                   <a
-                    href={@privacy_policy_url}
+                    href={@legal_index_url}
                     class="link hover:text-primary transition-colors"
-                    target="_blank"
                   >
-                    {gettext("Privacy Policy")}
-                  </a>
-                  <span class="text-base-300">•</span>
-                  <a
-                    href={@cookie_policy_url}
-                    class="link hover:text-primary transition-colors"
-                    target="_blank"
-                  >
-                    {gettext("Cookie Policy")}
+                    {gettext("Legal")}
                   </a>
                 </div>
 
