@@ -1,3 +1,17 @@
+## 1.7.82 - 2026-03-24
+
+### Added
+- Add V86 migration: Document Creator tables (headers_footers, templates, documents)
+- Add V87 migration: Catalogue tables (manufacturers, suppliers, catalogues, categories, items)
+
+### Changed
+- Guard EntityForm render call with `Code.ensure_loaded?` check in Pages renderer
+- Make module registry and permissions tests count-independent after module extractions
+- Document `ensure_compiled` vs `ensure_loaded?` choice in integration route collection
+
+### Fixed
+- Fix V86/V87 migrations to use `uuid_generate_v7()` instead of `gen_random_uuid()`
+
 ## 1.7.81 - 2026-03-21
 
 ### Changed
