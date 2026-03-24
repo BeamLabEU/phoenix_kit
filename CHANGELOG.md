@@ -3,14 +3,36 @@
 ### Added
 - Add V86 migration: Document Creator tables (headers_footers, templates, documents)
 - Add V87 migration: Catalogue tables (manufacturers, suppliers, catalogues, categories, items)
+- Add `system_prompt` field to AI prompts and AI Playground page
+- Add database connection check to install and update tasks
+- Add AdminEditHelper for universal admin edit links in public views
+- Add email provider behaviour, refactor Mailer and UserNotifier
+- Add lastmod to sitemap group listings and homepage
+- Enrich external module cards with config stats, settings link, and `module_card` component
 
 ### Changed
+- Extract Emails module from core to standalone `phoenix_kit_emails` package
+- Extract Publishing module to standalone `phoenix_kit_publishing` package
+- Extract Entities module to standalone `phoenix_kit_entities` package
+- Extract AI module to standalone `phoenix_kit_ai` package
+- Remove hardcoded Emails block from Modules page — now rendered as external package
+- Guard all Publishing references behind `Code.ensure_loaded?` for external module support
 - Guard EntityForm render call with `Code.ensure_loaded?` check in Pages renderer
+- Suppress warnings for optional external modules with `@compile :no_warn_undefined`
+- Exclude external module namespaces from Credo alias usage check
 - Make module registry and permissions tests count-independent after module extractions
 - Document `ensure_compiled` vs `ensure_loaded?` choice in integration route collection
+- Update Leaf dependency to v0.2.5
 
 ### Fixed
 - Fix V86/V87 migrations to use `uuid_generate_v7()` instead of `gen_random_uuid()`
+- Fix post-merge issues from Emails extraction
+- Fix `extract_admin_links`: skip parent tabs, deduplicate paths
+- Fix `external_plugin_view?` to recognize `PhoenixKit.Modules.*.Web` as external packages
+- Fix DbConnectionCheck: correct spec, naming, and remove hard exit from status task
+- Fix media selector modal z-index to appear above all overlays
+- Fix `module_card` to render `hero-*` icons properly
+- Fix cookie consent: dynamic legal links, theme-aware backdrop, daisyUI toggle
 
 ## 1.7.81 - 2026-03-21
 
