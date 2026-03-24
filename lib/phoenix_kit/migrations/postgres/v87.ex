@@ -22,7 +22,7 @@ defmodule PhoenixKit.Migrations.Postgres.V87 do
                            primary_key: false,
                            prefix: prefix
                          ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("gen_random_uuid()"))
+      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:name, :string, null: false, size: 255)
       add(:description, :text)
       add(:website, :string, size: 500)
@@ -42,7 +42,7 @@ defmodule PhoenixKit.Migrations.Postgres.V87 do
                            primary_key: false,
                            prefix: prefix
                          ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("gen_random_uuid()"))
+      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:name, :string, null: false, size: 255)
       add(:description, :text)
       add(:website, :string, size: 500)
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Migrations.Postgres.V87 do
                            primary_key: false,
                            prefix: prefix
                          ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("gen_random_uuid()"))
+      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
 
       add(
         :manufacturer_uuid,
@@ -101,7 +101,7 @@ defmodule PhoenixKit.Migrations.Postgres.V87 do
                            primary_key: false,
                            prefix: prefix
                          ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("gen_random_uuid()"))
+      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:name, :string, null: false, size: 255)
       add(:description, :text)
       add(:status, :string, default: "active", size: 20)
@@ -117,7 +117,7 @@ defmodule PhoenixKit.Migrations.Postgres.V87 do
                            primary_key: false,
                            prefix: prefix
                          ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("gen_random_uuid()"))
+      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:name, :string, null: false, size: 255)
       add(:description, :text)
       add(:position, :integer, default: 0)
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Migrations.Postgres.V87 do
                            primary_key: false,
                            prefix: prefix
                          ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("gen_random_uuid()"))
+      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:name, :string, null: false, size: 255)
       add(:description, :text)
       add(:sku, :string, size: 100)

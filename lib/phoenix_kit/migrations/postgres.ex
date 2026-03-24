@@ -529,7 +529,20 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V85 - Add system_prompt to AI prompts ⚡ LATEST
+  ### V87 - Add Catalogue tables ⚡ LATEST
+  - Creates `phoenix_kit_cat_manufacturers` — manufacturer directory
+  - Creates `phoenix_kit_cat_suppliers` — supplier directory
+  - Creates `phoenix_kit_cat_manufacturer_suppliers` — many-to-many join with unique constraint
+  - Creates `phoenix_kit_cat_catalogues` — top-level catalogue groupings
+  - Creates `phoenix_kit_cat_categories` — subdivisions within a catalogue (with position ordering)
+  - Creates `phoenix_kit_cat_items` — individual products/materials with SKU, price, unit
+
+  ### V86 - Add Document Creator tables
+  - Creates `phoenix_kit_doc_headers_footers` — reusable header/footer designs
+  - Creates `phoenix_kit_doc_templates` — document templates with GrapesJS editor content
+  - Creates `phoenix_kit_doc_documents` — documents created from templates with baked header/footer
+
+  ### V85 - Add system_prompt to AI prompts
   - Adds `system_prompt` (text) column to `phoenix_kit_ai_prompts`
   - Allows storing system-level instructions separately from user prompt content
 
