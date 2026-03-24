@@ -624,31 +624,6 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/shop/test", PhoenixKit.Modules.Shop.Web.TestShop, :index, as: :shop_test
 
-          # AI module routes
-          live "/admin/ai", PhoenixKit.Modules.AI.Web.Endpoints, :index, as: :ai_index
-
-          live "/admin/ai/endpoints", PhoenixKit.Modules.AI.Web.Endpoints, :endpoints,
-            as: :ai_endpoints
-
-          live "/admin/ai/usage", PhoenixKit.Modules.AI.Web.Endpoints, :usage, as: :ai_usage
-
-          live "/admin/ai/endpoints/new", PhoenixKit.Modules.AI.Web.EndpointForm, :new,
-            as: :ai_endpoint_new
-
-          live "/admin/ai/endpoints/:id/edit", PhoenixKit.Modules.AI.Web.EndpointForm, :edit,
-            as: :ai_endpoint_edit
-
-          live "/admin/ai/prompts", PhoenixKit.Modules.AI.Web.Prompts, :index, as: :ai_prompts
-
-          live "/admin/ai/prompts/new", PhoenixKit.Modules.AI.Web.PromptForm, :new,
-            as: :ai_prompt_new
-
-          live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
-            as: :ai_prompt_edit
-
-          live "/admin/ai/playground", PhoenixKit.Modules.AI.Web.Playground, :index,
-            as: :ai_playground
-
           # Routes from external route modules
           unquote(tickets_admin)
           unquote(referrals_admin)

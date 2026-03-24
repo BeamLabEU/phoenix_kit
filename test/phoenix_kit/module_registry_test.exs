@@ -3,7 +3,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
 
   alias PhoenixKit.ModuleRegistry
 
-  # The registry is started in test_helper.exs with all 16 internal modules loaded.
+  # The registry is started in test_helper.exs with all 15 internal modules loaded.
 
   describe "all_modules/0" do
     test "returns a non-empty list" do
@@ -12,9 +12,9 @@ defmodule PhoenixKit.ModuleRegistryTest do
       assert modules != []
     end
 
-    test "contains all 16 internal modules" do
+    test "contains all 15 internal modules" do
       modules = ModuleRegistry.all_modules()
-      assert length(modules) >= 16
+      assert length(modules) >= 15
     end
 
     test "all entries are atoms" do
@@ -25,7 +25,6 @@ defmodule PhoenixKit.ModuleRegistryTest do
 
     test "contains known internal modules" do
       modules = ModuleRegistry.all_modules()
-      assert PhoenixKit.Modules.AI in modules
       assert PhoenixKit.Modules.CustomerService in modules
       assert PhoenixKit.Modules.Billing in modules
       assert PhoenixKit.Jobs in modules
@@ -95,7 +94,6 @@ defmodule PhoenixKit.ModuleRegistryTest do
 
   describe "get_by_key/1" do
     test "finds module by key string" do
-      assert ModuleRegistry.get_by_key("ai") == PhoenixKit.Modules.AI
       assert ModuleRegistry.get_by_key("customer_service") == PhoenixKit.Modules.CustomerService
       assert ModuleRegistry.get_by_key("billing") == PhoenixKit.Modules.Billing
     end
@@ -142,7 +140,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a list of permission metadata maps" do
       metadata = ModuleRegistry.all_permission_metadata()
       assert is_list(metadata)
-      assert length(metadata) >= 15
+      assert length(metadata) >= 14
 
       for meta <- metadata do
         assert is_map(meta)
@@ -157,22 +155,20 @@ defmodule PhoenixKit.ModuleRegistryTest do
       keys = Enum.map(ModuleRegistry.all_permission_metadata(), & &1.key)
       assert "customer_service" in keys
       assert "billing" in keys
-      assert "ai" in keys
       assert "shop" in keys
     end
   end
 
   describe "all_feature_keys/0" do
-    test "returns sorted list of 15 feature keys" do
+    test "returns sorted list of 14 feature keys" do
       keys = ModuleRegistry.all_feature_keys()
       assert is_list(keys)
-      assert length(keys) == 15
+      assert length(keys) == 14
       assert keys == Enum.sort(keys)
     end
 
     test "contains expected keys" do
       keys = ModuleRegistry.all_feature_keys()
-      assert "ai" in keys
       assert "billing" in keys
       assert "shop" in keys
       assert "customer_service" in keys
@@ -193,7 +189,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a map of key => {module, :enabled?}" do
       checks = ModuleRegistry.feature_enabled_checks()
       assert is_map(checks)
-      assert map_size(checks) >= 15
+      assert map_size(checks) >= 14
 
       for {key, {mod, fun}} <- checks do
         assert is_binary(key)
@@ -205,7 +201,6 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "maps known keys to correct modules" do
       checks = ModuleRegistry.feature_enabled_checks()
       assert checks["customer_service"] == {PhoenixKit.Modules.CustomerService, :enabled?}
-      assert checks["ai"] == {PhoenixKit.Modules.AI, :enabled?}
       assert checks["billing"] == {PhoenixKit.Modules.Billing, :enabled?}
     end
   end
@@ -215,7 +210,6 @@ defmodule PhoenixKit.ModuleRegistryTest do
       labels = ModuleRegistry.permission_labels()
       assert is_map(labels)
       assert labels["customer_service"] == "Customer Service"
-      assert labels["ai"] == "AI"
       assert labels["shop"] == "E-Commerce"
     end
   end

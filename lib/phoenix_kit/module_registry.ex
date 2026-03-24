@@ -401,7 +401,6 @@ defmodule PhoenixKit.ModuleRegistry do
   # remove it from this list and add it to :modules config instead.
   defp internal_modules do
     [
-      PhoenixKit.Modules.AI,
       PhoenixKit.Modules.Billing,
       PhoenixKit.Modules.Comments,
       PhoenixKit.Modules.Connections,
@@ -483,6 +482,16 @@ defmodule PhoenixKit.ModuleRegistry do
           "Custom data entities with fields, forms, multilingual support, and data navigation.",
         icon: "🧩",
         hex_url: "https://hex.pm/packages/phoenix_kit_entities"
+      },
+      %{
+        module: PhoenixKitAI,
+        key: "ai",
+        hex_package: "phoenix_kit_ai",
+        name: "AI",
+        description:
+          "AI endpoint management, prompt templates, completions via OpenRouter, and usage tracking.",
+        icon: "🤖",
+        hex_url: "https://hex.pm/packages/phoenix_kit_ai"
       }
     ]
   end
