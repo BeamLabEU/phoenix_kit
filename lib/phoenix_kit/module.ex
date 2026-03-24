@@ -109,6 +109,21 @@ defmodule PhoenixKit.Module do
   @callback migration_module() :: module() | nil
   @callback required_modules() :: [String.t()]
 
+  @doc """
+  Returns the OTP app name for Tailwind CSS source scanning.
+
+  The installer uses this to generate the correct `@source` directive in the
+  parent app's `app.css`. It automatically resolves the right path based on
+  whether the dep is installed from Hex (`deps/`) or as a path dep.
+
+  ## Example
+
+      def css_sources, do: [:phoenix_kit_publishing]
+
+  Headless modules (no templates) can skip this callback — the default is `[]`.
+  """
+  @callback css_sources() :: [String.t()]
+
   @optional_callbacks [
     get_config: 0,
     permission_metadata: 0,
@@ -119,7 +134,8 @@ defmodule PhoenixKit.Module do
     route_module: 0,
     version: 0,
     migration_module: 0,
-    required_modules: 0
+    required_modules: 0,
+    css_sources: 0
   ]
 
   defmacro __using__(_opts) do
@@ -162,6 +178,9 @@ defmodule PhoenixKit.Module do
       @impl PhoenixKit.Module
       def required_modules, do: []
 
+      @impl PhoenixKit.Module
+      def css_sources, do: []
+
       defoverridable get_config: 0,
                      permission_metadata: 0,
                      admin_tabs: 0,
@@ -171,7 +190,8 @@ defmodule PhoenixKit.Module do
                      route_module: 0,
                      version: 0,
                      migration_module: 0,
-                     required_modules: 0
+                     required_modules: 0,
+                     css_sources: 0
     end
   end
 end

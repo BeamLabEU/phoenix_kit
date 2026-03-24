@@ -15,6 +15,7 @@ defmodule PhoenixKit.Install.CssIntegration do
   @phoenix_kit_integration """
   #{@phoenix_kit_css_marker}
   @source "../../deps/phoenix_kit";
+  @source "../../../phoenix_kit";
   """
 
   @doc """
@@ -82,8 +83,8 @@ defmodule PhoenixKit.Install.CssIntegration do
 
     source =
       if existing.phoenix_kit_source do
-        # No changes needed - PhoenixKit source already integrated
-        source
+        # PhoenixKit source exists, but check for missing plugin module sources
+        add_missing_integration_parts(source, existing)
       else
         # No PhoenixKit integration exists, add it
         add_complete_integration(source, existing)
@@ -134,9 +135,16 @@ defmodule PhoenixKit.Install.CssIntegration do
       if existing.phoenix_kit_source do
         missing_parts
       else
-        [@phoenix_kit_css_marker, "@source \"../../deps/phoenix_kit\";"] ++
+        [@phoenix_kit_css_marker, "@source \"../../deps/phoenix_kit\";", "@source \"../../../phoenix_kit\";"] ++
           missing_parts
       end
+
+    # Always check for missing plugin module sources, even when phoenix_kit source exists
+    missing_plugin_lines =
+      plugin_module_source_lines()
+      |> Enum.reject(&String.contains?(content, &1))
+
+    missing_parts = missing_parts ++ missing_plugin_lines
 
     missing_parts =
       if existing.daisyui_plugin do
@@ -147,11 +155,8 @@ defmodule PhoenixKit.Install.CssIntegration do
 
     if missing_parts != [] do
       updated_content = insert_missing_parts(content, missing_parts, existing)
-
-      # Use Rewrite.Source.update instead of map update syntax
       Rewrite.Source.update(source, :content, updated_content)
     else
-      # No changes needed
       source
     end
   end
@@ -198,11 +203,85 @@ defmodule PhoenixKit.Install.CssIntegration do
   defp insert_after_existing_sources(lines) do
     {pre_sources, post_sources} = find_source_insertion_point(lines)
 
-    phoenix_kit_lines = [
-      "@source \"../../deps/phoenix_kit\";"
-    ]
+    phoenix_kit_lines =
+      [
+        "@source \"../../deps/phoenix_kit\";",
+        "@source \"../../../phoenix_kit\";"
+      ] ++ plugin_module_source_lines()
 
     pre_sources ++ phoenix_kit_lines ++ post_sources
+  end
+
+  # Discover CSS source paths from PhoenixKit plugin modules.
+  #
+  # Each module implementing `PhoenixKit.Module` can declare `css_sources/0`
+  # returning paths relative to the parent app's project root. This function
+  # collects all such paths and converts them to @source directives relative
+  # to assets/css/ (where app.css lives).
+  #
+  # This is self-contained: third-party modules just implement the callback,
+  # no changes to phoenix_kit needed.
+  defp plugin_module_source_lines do
+    deps = Mix.Project.config()[:deps] || []
+
+    # Ensure all dep applications are loaded so module discovery can scan their beams
+    for {app, _, _} <- Mix.Dep.cached() do
+      Application.ensure_loaded(app)
+    end
+
+    PhoenixKit.ModuleDiscovery.discover_external_modules()
+    |> Enum.flat_map(fn mod ->
+      if function_exported?(mod, :css_sources, 0) do
+        mod.css_sources()
+      else
+        []
+      end
+    end)
+    |> Enum.uniq()
+    |> Enum.flat_map(fn app_name ->
+      # Resolve the correct path based on how the dep is installed.
+      # Path deps don't appear in deps/ so we use the declared path.
+      # Hex deps appear in deps/<name>.
+      case find_dep_path(app_name, deps) do
+        {:path, path} ->
+          # Path dep: use declared path, prepend ../../ for assets/css/ relativity
+          ["@source \"../../#{path}\";"]
+
+        :hex ->
+          # Hex dep: lives in deps/
+          ["@source \"../../deps/#{app_name}\";"]
+
+        :not_found ->
+          # Fallback: try deps/ path
+          ["@source \"../../deps/#{app_name}\";"]
+      end
+    end)
+  rescue
+    _ -> []
+  end
+
+  defp find_dep_path(app_name, deps) do
+    dep =
+      Enum.find(deps, fn
+        {name, opts} when is_list(opts) -> name == app_name
+        {name, _version} -> name == app_name
+        {name, _version, opts} when is_list(opts) -> name == app_name
+        _ -> false
+      end)
+
+    case dep do
+      {_, opts} when is_list(opts) ->
+        if path = Keyword.get(opts, :path), do: {:path, path}, else: :hex
+
+      {_, _version, opts} when is_list(opts) ->
+        if path = Keyword.get(opts, :path), do: {:path, path}, else: :hex
+
+      {_, _version} ->
+        :hex
+
+      _ ->
+        :not_found
+    end
   end
 
   # Find the right place to insert PhoenixKit @source directive
@@ -325,8 +404,11 @@ defmodule PhoenixKit.Install.CssIntegration do
     ```css
     @import "tailwindcss";
     @source "../../deps/phoenix_kit";
+    @source "../../../phoenix_kit";
     @plugin "daisyui";
     ```
+
+    If you use phoenix_kit_* plugin modules, also add @source lines for each.
 
     Common locations: assets/css/app.css, priv/static/assets/app.css
     """
