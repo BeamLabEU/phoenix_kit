@@ -5,7 +5,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   Route: {prefix}/admin/settings/legal
 
   Sections:
-  1. Module enable/disable (with Publishing dependency check)
+  1. Module enable/disable (with optional Publishing dependency check)
   2. Compliance framework selection
   3. Company information form
   4. DPO contact form
@@ -16,7 +16,6 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Legal
-  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -284,21 +283,27 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   defp update_google_consent_mode(_), do: Legal.disable_google_consent_mode()
 
   defp publishing_module_languages do
-    if Publishing.enabled?(), do: Publishing.enabled_language_codes(), else: ["en"]
-  rescue
-    e ->
-      require Logger
-      Logger.warning("Failed to get enabled languages: #{inspect(e)}")
+    mod = PhoenixKit.Modules.Publishing
+
+    if Code.ensure_loaded?(mod) and function_exported?(mod, :enabled?, 0) and mod.enabled?() do
+      mod.enabled_language_codes()
+    else
       ["en"]
+    end
+  rescue
+    _ -> ["en"]
   end
 
   defp default_language do
-    if Publishing.enabled?(), do: Publishing.get_primary_language(), else: "en"
-  rescue
-    e ->
-      require Logger
-      Logger.warning("Failed to get primary language: #{inspect(e)}")
+    mod = PhoenixKit.Modules.Publishing
+
+    if Code.ensure_loaded?(mod) and function_exported?(mod, :enabled?, 0) and mod.enabled?() do
+      mod.get_primary_language()
+    else
       "en"
+    end
+  rescue
+    _ -> "en"
   end
 
   # Helper to get edit URL for a legal page

@@ -135,7 +135,11 @@ defmodule PhoenixKit.Install.CssIntegration do
       if existing.phoenix_kit_source do
         missing_parts
       else
-        [@phoenix_kit_css_marker, "@source \"../../deps/phoenix_kit\";", "@source \"../../../phoenix_kit\";"] ++
+        [
+          @phoenix_kit_css_marker,
+          "@source \"../../deps/phoenix_kit\";",
+          "@source \"../../../phoenix_kit\";"
+        ] ++
           missing_parts
       end
 

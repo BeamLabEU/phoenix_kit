@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.Legal do
   - Compliance framework selection (GDPR, CCPA, etc.)
   - Company information management
   - Legal page generation (Privacy Policy, Terms, Cookie Policy)
-  - Integration with Publishing module for page storage
+  - Integration with Publishing module for page storage (optional, via phoenix_kit_publishing)
 
   ## Phase 2: Cookie Consent Widget (prepared infrastructure)
   - Cookie consent banner
@@ -14,7 +14,7 @@ defmodule PhoenixKit.Modules.Legal do
   - Google Consent Mode v2 integration
 
   ## Dependencies
-  - Publishing module must be enabled before Legal module
+  - Publishing module (phoenix_kit_publishing) must be installed and enabled
 
   ## Usage
 

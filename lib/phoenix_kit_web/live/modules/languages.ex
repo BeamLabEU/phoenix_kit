@@ -8,8 +8,6 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -409,13 +407,20 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     |> Enum.sort_by(fn {country, _} -> country end)
   end
 
-  # Regenerate listing caches for all publishing groups when language settings change
+  # Regenerate listing caches for all publishing groups when language settings change.
+  # Publishing may be an external package — only call if available.
   defp regenerate_all_group_caches do
-    if Publishing.enabled?() do
-      Publishing.list_groups()
-      |> Enum.each(fn group ->
-        ListingCache.regenerate(group["slug"])
-      end)
+    publishing = PhoenixKit.Modules.Publishing
+    cache = PhoenixKit.Modules.Publishing.ListingCache
+
+    if Code.ensure_loaded?(publishing) and function_exported?(publishing, :enabled?, 0) and
+         publishing.enabled?() do
+      if Code.ensure_loaded?(cache) and function_exported?(cache, :regenerate, 1) do
+        publishing.list_groups()
+        |> Enum.each(fn group -> cache.regenerate(group["slug"]) end)
+      end
     end
+  rescue
+    _ -> :ok
   end
 end

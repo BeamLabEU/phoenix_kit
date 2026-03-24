@@ -99,9 +99,7 @@ defmodule PhoenixKitWeb.Integration do
 
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb
-  alias PhoenixKitWeb.Routes.BlogRoutes
   alias PhoenixKitWeb.Routes.CustomerServiceRoutes
-  alias PhoenixKitWeb.Routes.PublishingRoutes
   alias PhoenixKitWeb.Routes.ReferralsRoutes
   alias PhoenixKitWeb.Routes.ShopRoutes
 
@@ -191,6 +189,10 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_user
         plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_scope
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_require_admin
+      end
+
+      pipeline :phoenix_kit_optional_scope do
+        plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_scope
       end
 
       # Define API pipeline for JSON endpoints
@@ -378,17 +380,15 @@ defmodule PhoenixKitWeb.Integration do
     # so plugin LiveViews don't need to wrap with LayoutWrapper themselves
     plugin_admin_routes = compile_plugin_admin_routes(__CALLER__.module)
 
-    {tickets_admin, publishing_admin, referrals_admin} =
+    {tickets_admin, referrals_admin} =
       if suffix == :_locale do
         {
           safe_route_call(CustomerServiceRoutes, :admin_locale_routes, []),
-          safe_route_call(PublishingRoutes, :admin_locale_routes, []),
           safe_route_call(ReferralsRoutes, :admin_locale_routes, [])
         }
       else
         {
           safe_route_call(CustomerServiceRoutes, :admin_routes, []),
-          safe_route_call(PublishingRoutes, :admin_routes, []),
           safe_route_call(ReferralsRoutes, :admin_routes, [])
         }
       end
@@ -685,7 +685,6 @@ defmodule PhoenixKitWeb.Integration do
 
           # Routes from external route modules
           unquote(tickets_admin)
-          unquote(publishing_admin)
           unquote(referrals_admin)
 
           # Custom admin routes from :admin_dashboard_tabs config
@@ -1122,8 +1121,35 @@ defmodule PhoenixKitWeb.Integration do
   def compile_external_admin_routes(suffix) do
     fun = if suffix == :_locale, do: :admin_locale_routes, else: :admin_routes
 
-    PhoenixKit.Config.get(:route_modules, [])
+    all_route_modules()
     |> Enum.flat_map(&collect_admin_routes(&1, fun))
+  end
+
+  # Collect route modules from config + auto-discovered external PhoenixKit modules
+  defp all_route_modules do
+    config_modules = PhoenixKit.Config.get(:route_modules, [])
+
+    discovered_route_modules =
+      PhoenixKit.ModuleDiscovery.discover_external_modules()
+      |> Enum.flat_map(fn mod ->
+        case Code.ensure_compiled(mod) do
+          {:module, _} ->
+            if function_exported?(mod, :route_module, 0) do
+              case mod.route_module() do
+                nil -> []
+                route_mod -> [route_mod]
+              end
+            else
+              []
+            end
+
+          _ ->
+            []
+        end
+      end)
+
+    (config_modules ++ discovered_route_modules)
+    |> Enum.uniq()
   end
 
   defp collect_admin_routes(mod, fun) do
@@ -1145,7 +1171,7 @@ defmodule PhoenixKitWeb.Integration do
   # Each module should implement public_routes/1 (receives url_prefix).
   @doc false
   def compile_external_public_routes(url_prefix) do
-    PhoenixKit.Config.get(:route_modules, [])
+    all_route_modules()
     |> Enum.flat_map(&collect_public_routes(&1, url_prefix))
   end
 
@@ -1274,9 +1300,7 @@ defmodule PhoenixKitWeb.Integration do
 
     # Call route generators BEFORE quote block (aliases work in this context)
     # Uses safe_route_call/3 so modules can be safely extracted to separate packages
-    publishing_routes = safe_route_call(PublishingRoutes, :generate, [url_prefix])
     customer_service_routes = safe_route_call(CustomerServiceRoutes, :generate, [url_prefix])
-    blog_routes = safe_route_call(BlogRoutes, :generate, [url_prefix])
 
     # External route modules with public/non-admin routes
     external_public_routes = compile_external_public_routes(url_prefix)
@@ -1296,7 +1320,6 @@ defmodule PhoenixKitWeb.Integration do
       unquote_splicing(module_public_routes)
 
       # Generate module routes from separate files (improves compilation time)
-      unquote(publishing_routes)
       unquote(customer_service_routes)
 
       # Generate localized routes
@@ -1304,9 +1327,6 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
-
-      # Generate blog routes (after other routes to prevent conflicts)
-      unquote(blog_routes)
 
       # External route modules with public routes
       unquote_splicing(external_public_routes)

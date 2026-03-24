@@ -411,7 +411,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Legal,
       PhoenixKit.Modules.Maintenance,
       PhoenixKit.Modules.Pages,
-      PhoenixKit.Modules.Publishing,
       PhoenixKit.Modules.Referrals,
       PhoenixKit.Modules.SEO,
       PhoenixKit.Modules.Shop,
@@ -465,6 +464,16 @@ defmodule PhoenixKit.ModuleRegistry do
           "Email tracking, templates, SQS integration, blocklist, and delivery analytics.",
         icon: "📨",
         hex_url: "https://hex.pm/packages/phoenix_kit_emails"
+      },
+      %{
+        module: PhoenixKit.Modules.Publishing,
+        key: "publishing",
+        hex_package: "phoenix_kit_publishing",
+        name: "Publishing",
+        description:
+          "Content publishing with groups, multilingual support, versioning, and collaborative editing.",
+        icon: "📰",
+        hex_url: "https://hex.pm/packages/phoenix_kit_publishing"
       }
     ]
   end
