@@ -21,20 +21,6 @@ This folder contains comprehensive guides to help developers work with PhoenixKi
 
 ### Core Guides
 
-#### [Entities Guide](entities-guide.md)
-
-**Dynamic content types without database migrations.** Learn how to:
-- Create custom entities (contact forms, products, etc.) programmatically
-- Use 12+ field types (text, email, select, file upload, etc.)
-- Manage entity data with CRUD operations
-- Embed public forms on your website
-- Configure security options (honeypot, rate limiting, etc.)
-
-**Use this guide when:**
-- Building contact forms, surveys, or lead capture
-- Creating dynamic content types without migrations
-- Implementing public-facing forms with security
-
 #### [Custom Admin Pages](custom-admin-pages.md)
 
 **Add custom pages to the PhoenixKit admin sidebar.** Learn how to:
@@ -174,7 +160,6 @@ Future guides to add:
 ## Completed Guides
 
 - ✅ **Integration Guide** - Core installation and configuration
-- ✅ **Entities Guide** - Dynamic content types system
 - ✅ **Custom Admin Pages** - Admin sidebar integration
 - ✅ **Making Pages Live** - Real-time updates and collaborative editing
 - ✅ **OAuth & Magic Link Setup** - Authentication providers

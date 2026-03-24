@@ -280,7 +280,6 @@ config :phoenix_kit, PhoenixKit.Users.RateLimiter,
 
 ## Further Reading
 
-- **[Entities Guide](entities-guide.md)** - Dynamic content types without migrations
 - **[Custom Admin Pages](custom-admin-pages.md)** - Add pages to the admin sidebar
 - **[Admin Dashboard Reference](dashboard/ADMIN_README.md)** - Admin navigation and tabs system
 - **[Dashboard Components](dashboard/README.md)** - Tabs, subtabs, badges, and more
