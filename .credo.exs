@@ -35,7 +35,22 @@
         ## Design Checks
         #
         {Credo.Check.Design.AliasUsage,
-         [priority: :low, if_nested_deeper_than: 2, if_called_more_often_than: 0]},
+         [
+           priority: :low,
+           if_nested_deeper_than: 2,
+           if_called_more_often_than: 0,
+           excluded_namespaces: [
+             # External optional modules — can't be aliased because they may not be installed
+             "PhoenixKitEntities",
+             "PhoenixKitAI",
+             "PhoenixKitPosts"
+           ],
+           excluded_lastnames: [
+             # Extracted utility modules used with full paths for clarity
+             "Multilang",
+             "HtmlSanitizer"
+           ]
+         ]},
         {Credo.Check.Design.TagTODO, [priority: :low]},
         {Credo.Check.Design.TagFIXME, []},
 
