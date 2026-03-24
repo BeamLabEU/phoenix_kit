@@ -1066,7 +1066,13 @@ defmodule PhoenixKitWeb.Integration do
     |> Enum.flat_map(&collect_admin_routes(&1, fun))
   end
 
-  # Collect route modules from config + auto-discovered external PhoenixKit modules
+  # Collect route modules from config + auto-discovered external PhoenixKit modules.
+  #
+  # Uses Code.ensure_compiled/1 (not Code.ensure_loaded?/1) because this runs
+  # at compile time inside macros. ensure_compiled waits for the module to finish
+  # compiling if it's currently being compiled, avoiding false negatives during
+  # parallel compilation. ensure_loaded? only checks if the module is already
+  # loaded and would miss modules still being compiled.
   defp all_route_modules do
     config_modules = PhoenixKit.Config.get(:route_modules, [])
 

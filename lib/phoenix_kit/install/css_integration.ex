@@ -8,6 +8,8 @@ defmodule PhoenixKit.Install.CssIntegration do
   - Ensure idempotent operations (safe to run multiple times)
   - Provide fallback instructions if automatic integration fails
   """
+
+  require Logger
   use PhoenixKit.Install.IgniterCompat
 
   @phoenix_kit_css_marker "/* PhoenixKit Integration - DO NOT REMOVE */"
@@ -261,7 +263,9 @@ defmodule PhoenixKit.Install.CssIntegration do
       end
     end)
   rescue
-    _ -> []
+    error ->
+      Logger.debug("CSS source discovery failed for external modules: #{inspect(error)}")
+      []
   end
 
   defp find_dep_path(app_name, deps) do

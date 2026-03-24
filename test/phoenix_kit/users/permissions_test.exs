@@ -66,8 +66,10 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert MapSet.new(all) == MapSet.new(expected)
     end
 
-    test "has 19 built-in keys" do
-      assert length(Permissions.all_module_keys()) == 19
+    test "has expected built-in keys count" do
+      core_count = length(Permissions.core_section_keys())
+      feature_count = length(Permissions.feature_module_keys())
+      assert length(Permissions.all_module_keys()) == core_count + feature_count
     end
   end
 

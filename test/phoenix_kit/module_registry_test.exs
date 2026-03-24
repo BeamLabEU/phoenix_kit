@@ -3,7 +3,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
 
   alias PhoenixKit.ModuleRegistry
 
-  # The registry is started in test_helper.exs with all 15 internal modules loaded.
+  # The registry is started in test_helper.exs with all internal modules loaded.
 
   describe "all_modules/0" do
     test "returns a non-empty list" do
@@ -12,9 +12,32 @@ defmodule PhoenixKit.ModuleRegistryTest do
       assert modules != []
     end
 
-    test "contains all 15 internal modules" do
+    test "contains all known internal modules" do
       modules = ModuleRegistry.all_modules()
-      assert length(modules) >= 15
+
+      # Verify known modules are present rather than asserting a hardcoded count,
+      # so this test doesn't break when modules are extracted or added.
+      expected = [
+        PhoenixKit.Modules.Billing,
+        PhoenixKit.Modules.Comments,
+        PhoenixKit.Modules.Connections,
+        PhoenixKit.Modules.DB,
+        PhoenixKit.Modules.Languages,
+        PhoenixKit.Modules.Legal,
+        PhoenixKit.Modules.Maintenance,
+        PhoenixKit.Modules.Pages,
+        PhoenixKit.Modules.Referrals,
+        PhoenixKit.Modules.SEO,
+        PhoenixKit.Modules.Shop,
+        PhoenixKit.Modules.Sitemap,
+        PhoenixKit.Modules.Storage,
+        PhoenixKit.Modules.CustomerService,
+        PhoenixKit.Jobs
+      ]
+
+      for mod <- expected do
+        assert mod in modules, "#{inspect(mod)} should be in ModuleRegistry"
+      end
     end
 
     test "all entries are atoms" do
