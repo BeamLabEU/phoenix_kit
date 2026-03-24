@@ -30,4 +30,10 @@ defmodule PhoenixKit.Email.Provider do
   # Test email (only supported by emails package)
   @callback send_test_tracking_email(String.t(), String.t() | nil) ::
               {:ok, Swoosh.Email.t()} | {:error, any()}
+
+  @doc "Returns the configured email provider module, defaulting to DefaultProvider."
+  @spec current() :: module()
+  def current do
+    Application.get_env(:phoenix_kit, :email_provider, PhoenixKit.Email.DefaultProvider)
+  end
 end

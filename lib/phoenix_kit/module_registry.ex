@@ -406,7 +406,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Comments,
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
-      PhoenixKit.Modules.Emails,
       PhoenixKit.Modules.Entities,
       PhoenixKit.Modules.Languages,
       PhoenixKit.Modules.Legal,
@@ -456,6 +455,16 @@ defmodule PhoenixKit.ModuleRegistry do
           "Blog posts, tags, groups, likes, media attachments, and scheduled publishing.",
         icon: "📝",
         hex_url: "https://hex.pm/packages/phoenix_kit_posts"
+      },
+      %{
+        module: PhoenixKit.Modules.Emails,
+        key: "emails",
+        hex_package: "phoenix_kit_emails",
+        name: "Emails",
+        description:
+          "Email tracking, templates, SQS integration, blocklist, and delivery analytics.",
+        icon: "📨",
+        hex_url: "https://hex.pm/packages/phoenix_kit_emails"
       }
     ]
   end

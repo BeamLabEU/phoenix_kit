@@ -24,13 +24,10 @@ defmodule PhoenixKit.Mailer do
 
   import Swoosh.Email
 
+  alias PhoenixKit.Email.Provider
   alias PhoenixKit.Users.Auth.User
 
   require Logger
-
-  defp email_provider do
-    Application.get_env(:phoenix_kit, :email_provider, PhoenixKit.Email.DefaultProvider)
-  end
 
   @doc """
   Gets the mailer module to use for sending emails.
@@ -111,7 +108,7 @@ defmodule PhoenixKit.Mailer do
   def send_from_template(template_name, recipient, variables \\ %{}, opts \\ [])
       when is_binary(template_name) do
     # Get the template from database
-    case email_provider().get_active_template_by_name(template_name) do
+    case Provider.current().get_active_template_by_name(template_name) do
       nil ->
         {:error, :template_not_found}
 
@@ -120,7 +117,7 @@ defmodule PhoenixKit.Mailer do
         if template.status == "active" do
           # Render template with variables in the requested locale
           locale = Keyword.get(opts, :locale, "en")
-          rendered = email_provider().render_template(template, variables, locale)
+          rendered = Provider.current().render_template(template, variables, locale)
 
           # Build email
           email =
@@ -140,10 +137,10 @@ defmodule PhoenixKit.Mailer do
             end
 
           # Track template usage
-          email_provider().track_usage(template)
+          Provider.current().track_usage(template)
 
           # Extract source_module from template metadata
-          source_module = email_provider().get_source_module(template)
+          source_module = Provider.current().get_source_module(template)
 
           # Prepare delivery options with category and source_module from template
           delivery_opts =
@@ -174,7 +171,7 @@ defmodule PhoenixKit.Mailer do
   """
   def deliver_email(email, opts \\ []) do
     # Intercept email for tracking before sending
-    tracked_email = email_provider().intercept_before_send(email, opts)
+    tracked_email = Provider.current().intercept_before_send(email, opts)
 
     mailer = get_mailer()
 
@@ -197,7 +194,7 @@ defmodule PhoenixKit.Mailer do
       end
 
     # Handle post-send tracking updates
-    email_provider().handle_after_send(tracked_email, result)
+    Provider.current().handle_after_send(tracked_email, result)
 
     result
   end
@@ -216,11 +213,11 @@ defmodule PhoenixKit.Mailer do
     # If using AWS SES, override with runtime settings from DB
     runtime_config =
       if config[:adapter] == Swoosh.Adapters.AmazonSES do
-        if email_provider().aws_configured?() do
+        if Provider.current().aws_configured?() do
           config
-          |> Keyword.put(:region, email_provider().get_aws_region())
-          |> Keyword.put(:access_key, email_provider().get_aws_access_key())
-          |> Keyword.put(:secret, email_provider().get_aws_secret_key())
+          |> Keyword.put(:region, Provider.current().get_aws_region())
+          |> Keyword.put(:access_key, Provider.current().get_aws_access_key())
+          |> Keyword.put(:secret, Provider.current().get_aws_secret_key())
         else
           config
         end
@@ -250,21 +247,20 @@ defmodule PhoenixKit.Mailer do
       "magic_link_url" => magic_link_url
     }
 
-    # Try to get template from database, fallback to hardcoded
-    {subject, html_body, text_body} =
-      case email_provider().get_active_template_by_name("magic_link") do
+    # Try to get template from database, fallback to text-only
+    {subject, html_body, text_body, db_template} =
+      case Provider.current().get_active_template_by_name("magic_link") do
         nil ->
-          # Fallback to text-only
           {
             "Your secure login link",
             nil,
-            magic_link_text_body(user, magic_link_url)
+            magic_link_text_body(user, magic_link_url),
+            nil
           }
 
         template ->
-          # Use database template with variable substitution
-          rendered = email_provider().render_template(template, template_variables)
-          {rendered.subject, rendered.html_body, rendered.text_body}
+          rendered = Provider.current().render_template(template, template_variables)
+          {rendered.subject, rendered.html_body, rendered.text_body, template}
       end
 
     email =
@@ -276,11 +272,7 @@ defmodule PhoenixKit.Mailer do
       |> text_body(text_body)
 
     # Track template usage if using database template
-    case email_provider().get_active_template_by_name("magic_link") do
-      # No template to track
-      nil -> :ok
-      template -> email_provider().track_usage(template)
-    end
+    if db_template, do: Provider.current().track_usage(db_template)
 
     deliver_email(email,
       user_uuid: user.uuid,
@@ -315,14 +307,14 @@ defmodule PhoenixKit.Mailer do
   defp detect_builtin_provider do
     config = PhoenixKit.Config.get(PhoenixKit.Mailer, [])
     adapter = Keyword.get(config, :adapter)
-    email_provider().adapter_to_provider_name(adapter, "phoenix_kit_builtin")
+    Provider.current().adapter_to_provider_name(adapter, "phoenix_kit_builtin")
   end
 
   # Detect provider for parent application mailer
   defp detect_parent_app_provider(mailer) when is_atom(mailer) do
     config = PhoenixKit.Config.get_parent_app_config(mailer, [])
     adapter = Keyword.get(config, :adapter)
-    email_provider().adapter_to_provider_name(adapter, "parent_app_mailer")
+    Provider.current().adapter_to_provider_name(adapter, "parent_app_mailer")
   end
 
   defp detect_parent_app_provider(_mailer), do: "unknown"

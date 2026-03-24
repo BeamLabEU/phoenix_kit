@@ -26,11 +26,8 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   """
   import Swoosh.Email
 
+  alias PhoenixKit.Email.Provider
   alias PhoenixKit.Mailer
-
-  defp email_provider do
-    Application.get_env(:phoenix_kit, :email_provider, PhoenixKit.Email.DefaultProvider)
-  end
 
   # Delivers the email using the appropriate mailer.
   # Uses the configured parent application mailer if available,
@@ -106,11 +103,10 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       "confirmation_url" => url
     }
 
-    # Try to get template from database, fallback to hardcoded
-    {subject, html_body, text_body} =
-      case email_provider().get_active_template_by_name("register") do
+    # Try to get template from database, fallback to text-only
+    {subject, html_body, text_body, db_template} =
+      case Provider.current().get_active_template_by_name("register") do
         nil ->
-          # Fallback to text-only
           fallback_text = """
           Hi #{user.email},
 
@@ -121,20 +117,14 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
           If you didn't create an account with us, please ignore this.
           """
 
-          {"Confirm your account", nil, fallback_text}
+          {"Confirm your account", nil, fallback_text, nil}
 
         template ->
-          # Use database template with variable substitution
-          rendered = email_provider().render_template(template, template_variables)
-          {rendered.subject, rendered.html_body, rendered.text_body}
+          rendered = Provider.current().render_template(template, template_variables)
+          {rendered.subject, rendered.html_body, rendered.text_body, template}
       end
 
-    # Track template usage if using database template
-    case email_provider().get_active_template_by_name("register") do
-      # No template to track
-      nil -> :ok
-      template -> email_provider().track_usage(template)
-    end
+    if db_template, do: Provider.current().track_usage(db_template)
 
     deliver(user.email, subject, text_body, html_body)
   end
@@ -152,11 +142,10 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       "reset_url" => url
     }
 
-    # Try to get template from database, fallback to hardcoded
-    {subject, html_body, text_body} =
-      case email_provider().get_active_template_by_name("reset_password") do
+    # Try to get template from database, fallback to text-only
+    {subject, html_body, text_body, db_template} =
+      case Provider.current().get_active_template_by_name("reset_password") do
         nil ->
-          # Fallback to text-only
           fallback_text = """
           Hi #{user.email},
 
@@ -167,20 +156,14 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
           If you didn't request this change, please ignore this.
           """
 
-          {"Reset your password", nil, fallback_text}
+          {"Reset your password", nil, fallback_text, nil}
 
         template ->
-          # Use database template with variable substitution
-          rendered = email_provider().render_template(template, template_variables)
-          {rendered.subject, rendered.html_body, rendered.text_body}
+          rendered = Provider.current().render_template(template, template_variables)
+          {rendered.subject, rendered.html_body, rendered.text_body, template}
       end
 
-    # Track template usage if using database template
-    case email_provider().get_active_template_by_name("reset_password") do
-      # No template to track
-      nil -> :ok
-      template -> email_provider().track_usage(template)
-    end
+    if db_template, do: Provider.current().track_usage(db_template)
 
     deliver(user.email, subject, text_body, html_body)
   end
@@ -198,11 +181,10 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       "update_url" => url
     }
 
-    # Try to get template from database, fallback to hardcoded
-    {subject, html_body, text_body} =
-      case email_provider().get_active_template_by_name("update_email") do
+    # Try to get template from database, fallback to text-only
+    {subject, html_body, text_body, db_template} =
+      case Provider.current().get_active_template_by_name("update_email") do
         nil ->
-          # Fallback to text-only
           fallback_text = """
           Hi #{user.email},
 
@@ -213,20 +195,14 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
           If you didn't request this change, please ignore this.
           """
 
-          {"Confirm your email change", nil, fallback_text}
+          {"Confirm your email change", nil, fallback_text, nil}
 
         template ->
-          # Use database template with variable substitution
-          rendered = email_provider().render_template(template, template_variables)
-          {rendered.subject, rendered.html_body, rendered.text_body}
+          rendered = Provider.current().render_template(template, template_variables)
+          {rendered.subject, rendered.html_body, rendered.text_body, template}
       end
 
-    # Track template usage if using database template
-    case email_provider().get_active_template_by_name("update_email") do
-      # No template to track
-      nil -> :ok
-      template -> email_provider().track_usage(template)
-    end
+    if db_template, do: Provider.current().track_usage(db_template)
 
     deliver(user.email, subject, text_body, html_body)
   end
@@ -251,11 +227,10 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       "registration_url" => url
     }
 
-    # Try to get template from database, fallback to hardcoded
-    {subject, html_body, text_body} =
-      case email_provider().get_active_template_by_name("magic_link_registration") do
+    # Try to get template from database, fallback to text-only
+    {subject, html_body, text_body, db_template} =
+      case Provider.current().get_active_template_by_name("magic_link_registration") do
         nil ->
-          # Fallback to text-only
           fallback_text = """
           Hi #{email},
 
@@ -268,20 +243,14 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
           If you didn't request this registration, please ignore this email.
           """
 
-          {"Complete Your Registration", nil, fallback_text}
+          {"Complete Your Registration", nil, fallback_text, nil}
 
         template ->
-          # Use database template with variable substitution
-          rendered = email_provider().render_template(template, template_variables)
-          {rendered.subject, rendered.html_body, rendered.text_body}
+          rendered = Provider.current().render_template(template, template_variables)
+          {rendered.subject, rendered.html_body, rendered.text_body, template}
       end
 
-    # Track template usage if using database template
-    case email_provider().get_active_template_by_name("magic_link_registration") do
-      # No template to track
-      nil -> :ok
-      template -> email_provider().track_usage(template)
-    end
+    if db_template, do: Provider.current().track_usage(db_template)
 
     deliver(email, subject, text_body, html_body)
   end
