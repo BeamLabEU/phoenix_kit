@@ -406,7 +406,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Comments,
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
-      PhoenixKit.Modules.Entities,
       PhoenixKit.Modules.Languages,
       PhoenixKit.Modules.Legal,
       PhoenixKit.Modules.Maintenance,
@@ -474,6 +473,16 @@ defmodule PhoenixKit.ModuleRegistry do
           "Content publishing with groups, multilingual support, versioning, and collaborative editing.",
         icon: "📰",
         hex_url: "https://hex.pm/packages/phoenix_kit_publishing"
+      },
+      %{
+        module: PhoenixKitEntities,
+        key: "entities",
+        hex_package: "phoenix_kit_entities",
+        name: "Entities",
+        description:
+          "Custom data entities with fields, forms, multilingual support, and data navigation.",
+        icon: "🧩",
+        hex_url: "https://hex.pm/packages/phoenix_kit_entities"
       }
     ]
   end

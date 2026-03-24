@@ -179,7 +179,6 @@ defmodule PhoenixKit.MixProject do
         "guides/auth-header-integration.md",
         "guides/draggable-list-component.md",
         "guides/README.md",
-        "guides/entities-guide.md",
         "guides/custom-admin-pages.md",
         "lib/phoenix_kit/dashboard/ADMIN_README.md"
       ],

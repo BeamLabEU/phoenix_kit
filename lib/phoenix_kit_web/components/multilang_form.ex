@@ -92,7 +92,8 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   import PhoenixKitWeb.Components.LanguageSwitcher, only: [language_switcher: 1]
 
   alias Phoenix.LiveView.JS
-  alias PhoenixKit.Modules.Entities.Multilang
+  # PhoenixKit.Utils.Multilang is in an external package — referenced by full name
+  # with Code.ensure_loaded?/rescue guards throughout this module.
 
   # ═══════════════════════════════════════════════════════════════════
   # Mount & Event Helpers
@@ -248,7 +249,7 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
         # No value submitted — preserve existing from JSONB data
         existing_data = safe_get_changeset_data(assigns.changeset)
 
-        case Multilang.get_raw_language_data(existing_data, current_lang) do
+        case PhoenixKit.Utils.Multilang.get_raw_language_data(existing_data, current_lang) do
           %{^data_key => existing} -> Map.put(form_data, data_key, existing)
           _ -> form_data
         end
@@ -265,7 +266,7 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   `validated_data` for the given `lang_code`.
 
   Handles three cases:
-  - Multilang enabled: uses `Multilang.put_language_data/3`
+  - Multilang enabled: uses `PhoenixKit.Utils.Multilang.put_language_data/3`
   - Multilang disabled but data has multilang structure: preserves translations
   - Flat data, no multilang: passes through as-is
 
@@ -284,7 +285,7 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   """
   def get_lang_data(changeset, current_lang, multilang_enabled) do
     if multilang_enabled && changeset do
-      Multilang.get_raw_language_data(
+      PhoenixKit.Utils.Multilang.get_raw_language_data(
         Ecto.Changeset.get_field(changeset, :data),
         current_lang
       )
@@ -317,25 +318,25 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
 
   @doc "Returns true when the Languages module is enabled with 2+ languages."
   def multilang_enabled? do
-    Code.ensure_loaded?(Multilang) and Multilang.enabled?()
+    Code.ensure_loaded?(PhoenixKit.Utils.Multilang) and PhoenixKit.Utils.Multilang.enabled?()
   rescue
     _ -> false
   end
 
   defp safe_primary_language do
-    Multilang.primary_language()
+    PhoenixKit.Utils.Multilang.primary_language()
   rescue
     _ -> "en-US"
   end
 
   defp safe_enabled_languages do
-    Multilang.enabled_languages()
+    PhoenixKit.Utils.Multilang.enabled_languages()
   rescue
     _ -> []
   end
 
   defp safe_build_language_tabs do
-    Multilang.build_language_tabs()
+    PhoenixKit.Utils.Multilang.build_language_tabs()
   rescue
     _ -> []
   end
@@ -376,10 +377,10 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
 
     cond do
       assigns[:multilang_enabled] == true ->
-        Multilang.put_language_data(existing_data, lang_code, validated_data)
+        PhoenixKit.Utils.Multilang.put_language_data(existing_data, lang_code, validated_data)
 
-      Multilang.multilang_data?(existing_data) ->
-        Multilang.put_language_data(existing_data, lang_code, validated_data)
+      PhoenixKit.Utils.Multilang.multilang_data?(existing_data) ->
+        PhoenixKit.Utils.Multilang.put_language_data(existing_data, lang_code, validated_data)
 
       true ->
         validated_data
@@ -435,7 +436,7 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   ## Attributes
 
     * `multilang_enabled` — boolean, whether multilang is active
-    * `language_tabs` — list of tab maps from `Multilang.build_language_tabs/0`
+    * `language_tabs` — list of tab maps from `PhoenixKit.Utils.Multilang.build_language_tabs/0`
     * `current_lang` — the currently selected language code
     * `compact` — force compact mode (short codes). Default: nil (auto)
     * `show_header` — show the "Content Language" header. Default: true

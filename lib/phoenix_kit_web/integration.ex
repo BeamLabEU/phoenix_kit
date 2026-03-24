@@ -566,40 +566,6 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/comments", PhoenixKit.Modules.Comments.Web.Settings, :settings,
             as: :comments_settings
 
-          # Entities module routes
-          live "/admin/entities", PhoenixKit.Modules.Entities.Web.Entities, :index, as: :entities
-
-          live "/admin/entities/new", PhoenixKit.Modules.Entities.Web.EntityForm, :new,
-            as: :entities_new
-
-          live "/admin/entities/:id/edit", PhoenixKit.Modules.Entities.Web.EntityForm, :edit,
-            as: :entities_edit
-
-          live "/admin/entities/:entity_slug/data",
-               PhoenixKit.Modules.Entities.Web.DataNavigator,
-               :entity,
-               as: :entities_data_entity
-
-          live "/admin/entities/:entity_slug/data/new",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :new,
-               as: :entities_data_new
-
-          live "/admin/entities/:entity_slug/data/:uuid",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :show,
-               as: :entities_data_show
-
-          live "/admin/entities/:entity_slug/data/:uuid/edit",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :edit,
-               as: :entities_data_edit
-
-          live "/admin/settings/entities",
-               PhoenixKit.Modules.Entities.Web.EntitiesSettings,
-               :index,
-               as: :entities_settings
-
           # Shop admin routes
           live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
 

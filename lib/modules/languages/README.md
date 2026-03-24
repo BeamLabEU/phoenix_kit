@@ -178,7 +178,7 @@ The Entities module uses Languages for **multi-language content storage**. When 
 
 ### How It Works
 
-1. `PhoenixKit.Modules.Entities.Multilang.enabled?/0` checks if Languages has 2+ enabled languages
+1. `PhoenixKit.Utils.Multilang.enabled?/0` checks if Languages has 2+ enabled languages
 2. `Multilang.primary_language/0` reads `Languages.get_default_language()`
 3. `Multilang.enabled_languages/0` reads `Languages.get_enabled_language_codes()`
 4. Entity data JSONB is structured by language code (e.g., `"en-US"`, `"es-ES"`)
@@ -192,7 +192,7 @@ PhoenixKit.Modules.Languages.add_language("es-ES")
 PhoenixKit.Modules.Languages.add_language("fr-FR")
 
 # 2. Multilang is now active — use the convenience API
-alias PhoenixKit.Modules.Entities.EntityData
+alias PhoenixKitEntities.EntityData
 
 record = EntityData.get(uuid)
 EntityData.set_translation(record, "es-ES", %{"name" => "Producto"})

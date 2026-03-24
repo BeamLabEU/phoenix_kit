@@ -45,8 +45,10 @@ defmodule PhoenixKit.Modules.Pages.PageBuilder.Renderer do
   defp resolve_component(:image), do: {:ok, PhoenixKit.Modules.Shared.Components.Image}
   defp resolve_component(:video), do: {:ok, PhoenixKit.Modules.Shared.Components.Video}
 
-  defp resolve_component(:entityform),
-    do: {:ok, PhoenixKit.Modules.Shared.Components.EntityForm}
+  defp resolve_component(:entityform) do
+    mod = PhoenixKitEntities.Components.EntityForm
+    if Code.ensure_loaded?(mod), do: {:ok, mod}, else: {:error, :not_found}
+  end
 
   defp resolve_component(_), do: {:error, :not_found}
 
