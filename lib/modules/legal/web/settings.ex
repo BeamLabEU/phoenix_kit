@@ -15,6 +15,13 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  @compile {:no_warn_undefined,
+            [
+              {PhoenixKit.Modules.Publishing, :enabled?, 0},
+              {PhoenixKit.Modules.Publishing, :enabled_language_codes, 0},
+              {PhoenixKit.Modules.Publishing, :get_primary_language, 0}
+            ]}
+
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes

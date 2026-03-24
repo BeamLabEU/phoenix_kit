@@ -33,6 +33,20 @@ defmodule PhoenixKit.Modules.Legal do
 
   use PhoenixKit.Module
 
+  @compile {:no_warn_undefined,
+            [
+              {PhoenixKit.Modules.Publishing, :enabled?, 0},
+              {PhoenixKit.Modules.Publishing, :get_primary_language, 0},
+              {PhoenixKit.Modules.Publishing, :get_group, 1},
+              {PhoenixKit.Modules.Publishing, :add_group, 2},
+              {PhoenixKit.Modules.Publishing, :list_posts, 1},
+              {PhoenixKit.Modules.Publishing, :read_post, 2},
+              {PhoenixKit.Modules.Publishing, :read_post, 4},
+              {PhoenixKit.Modules.Publishing, :create_post, 2},
+              {PhoenixKit.Modules.Publishing, :update_post, 4},
+              {PhoenixKit.Modules.Publishing, :add_language_to_post, 4}
+            ]}
+
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Legal.LegalFramework
   alias PhoenixKit.Modules.Legal.PageType

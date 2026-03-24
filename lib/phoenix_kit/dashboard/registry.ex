@@ -60,6 +60,12 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   use GenServer
 
+  @compile {:no_warn_undefined,
+            [
+              {PhoenixKitEntities, :invalidate_entities_cache, 0},
+              {PhoenixKitEntities.Events, :subscribe_to_entities, 0}
+            ]}
+
   require Logger
 
   alias PhoenixKit.Dashboard.{AdminTabs, Badge, Group, Tab}

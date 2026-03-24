@@ -39,6 +39,13 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
   @behaviour PhoenixKit.Modules.Sitemap.Sources.Source
 
+  @compile {:no_warn_undefined,
+            [
+              {PhoenixKit.Modules.Publishing, :enabled?, 0},
+              {PhoenixKit.Modules.Publishing, :list_groups, 0},
+              {PhoenixKit.Modules.Publishing, :list_posts, 2}
+            ]}
+
   require Logger
 
   alias PhoenixKit.Config

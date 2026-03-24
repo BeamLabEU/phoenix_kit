@@ -6,6 +6,13 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   """
   use PhoenixKitWeb, :live_view
 
+  @compile {:no_warn_undefined,
+            [
+              {PhoenixKit.Modules.Publishing, :enabled?, 0},
+              {PhoenixKit.Modules.Publishing, :list_groups, 0},
+              {PhoenixKit.Modules.Publishing.ListingCache, :regenerate, 1}
+            ]}
+
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings

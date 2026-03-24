@@ -6,6 +6,8 @@ defmodule PhoenixKit.Modules.Pages.Renderer do
   Cache keys include content hashes for automatic invalidation.
   """
 
+  @compile {:no_warn_undefined, [{PhoenixKitEntities.Components.EntityForm, :render, 1}]}
+
   require Logger
 
   alias Phoenix.HTML.Safe
