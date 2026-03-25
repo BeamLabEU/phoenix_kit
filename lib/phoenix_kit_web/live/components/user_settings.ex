@@ -20,8 +20,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
   ## Optional assigns
 
-    * `sections` — list of sections to display: `:profile`, `:email`, `:password`, `:oauth`
-      (default: all four)
+    * `sections` — list of sections to display: `:identity`, `:custom_fields`, `:email`, `:password`, `:oauth`
+      (default: all five). `:profile` is accepted as a legacy alias that expands to `[:identity, :custom_fields]`
     * `email_confirm_url_fn` — `(token -> url)` for email confirmation links
       (default: `&Routes.url("/dashboard/settings/confirm-email/\#{&1}")`)
     * `return_to` — where OAuth redirect returns to (default: `"/dashboard/settings"`)
@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Utils.Routes
 
-  @default_sections [:profile, :email, :password, :oauth]
+  @default_sections [:identity, :custom_fields, :email, :password, :oauth]
 
   @impl true
   def update(%{action: :check_avatar_uploads_complete}, socket) do
@@ -72,6 +72,13 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   def update(assigns, socket) do
     user = assigns[:user] || socket.assigns[:user]
     sections = assigns[:sections] || socket.assigns[:sections] || @default_sections
+
+    # Expand legacy :profile into fine-grained sections for backward compatibility
+    sections =
+      Enum.flat_map(sections, fn
+        :profile -> [:identity, :custom_fields]
+        other -> [other]
+      end)
 
     email_confirm_url_fn =
       assigns[:email_confirm_url_fn] || socket.assigns[:email_confirm_url_fn] ||
@@ -653,8 +660,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     ~H"""
     <div class="card bg-base-100 shadow-sm max-w-4xl mx-auto">
       <div class="card-body">
-        <%!-- Profile Section --%>
-        <%= if :profile in @sections do %>
+        <%!-- Identity Section (avatar, name, username, timezone) --%>
+        <%= if :identity in @sections do %>
           <div>
             <%!-- Success Message --%>
             <%= if @profile_success_message do %>
@@ -678,7 +685,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               </div>
             <% end %>
 
-            <%!-- Profile Form with Avatar --%>
+            <%!-- Identity Form with Avatar --%>
             <.simple_form
               for={@profile_form}
               id={"#{@id}-profile-form"}
@@ -733,84 +740,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       label="Username"
                     />
                   </div>
-
-                  <%!-- Custom Fields --%>
-                  <%= if length(@custom_field_definitions) > 0 do %>
-                    <div class="col-span-1 lg:col-span-2">
-                      <div class="divider text-sm text-base-content/60">Additional Information</div>
-                    </div>
-
-                    <%= for field <- @custom_field_definitions do %>
-                      <% field_name = "profile_form[user][custom_fields][#{field["key"]}]" %>
-                      <% field_value =
-                        get_in(@user.custom_fields, [field["key"]]) || field["default"] || "" %>
-                      <div class="col-span-1 lg:col-span-2">
-                        <%= case field["type"] do %>
-                          <% "select" -> %>
-                            <.select
-                              name={field_name}
-                              label={field["label"]}
-                              options={
-                                Enum.map(field["options"] || [], fn opt ->
-                                  if is_binary(opt),
-                                    do: {opt, opt},
-                                    else: {opt["label"], opt["value"]}
-                                end)
-                              }
-                              value={field_value}
-                              required={field["required"]}
-                            />
-                          <% "textarea" -> %>
-                            <.textarea
-                              name={field_name}
-                              label={field["label"]}
-                              value={field_value}
-                              required={field["required"]}
-                            />
-                          <% "number" -> %>
-                            <.input
-                              name={field_name}
-                              type="number"
-                              label={field["label"]}
-                              value={field_value}
-                              required={field["required"]}
-                            />
-                          <% "email" -> %>
-                            <.input
-                              name={field_name}
-                              type="email"
-                              label={field["label"]}
-                              value={field_value}
-                              required={field["required"]}
-                            />
-                          <% "url" -> %>
-                            <.input
-                              name={field_name}
-                              type="url"
-                              label={field["label"]}
-                              value={field_value}
-                              required={field["required"]}
-                            />
-                          <% "date" -> %>
-                            <.input
-                              name={field_name}
-                              type="date"
-                              label={field["label"]}
-                              value={field_value}
-                              required={field["required"]}
-                            />
-                          <% _ -> %>
-                            <.input
-                              name={field_name}
-                              type="text"
-                              label={field["label"]}
-                              value={field_value}
-                              required={field["required"]}
-                            />
-                        <% end %>
-                      </div>
-                    <% end %>
-                  <% end %>
                 </div>
               </div>
 
@@ -852,7 +781,112 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 </div>
               </:actions>
             </.simple_form>
-            <div class="divider"></div>
+            <%= if Enum.any?([:custom_fields, :email, :password, :oauth], & &1 in @sections) do %>
+              <div class="divider"></div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Custom Fields Section --%>
+        <%= if :custom_fields in @sections and length(@custom_field_definitions) > 0 do %>
+          <div>
+            <.simple_form
+              for={@profile_form}
+              id={"#{@id}-custom-fields-form"}
+              phx-submit="update_profile"
+              phx-change="validate_profile"
+              phx-target={@myself}
+            >
+              <%= if :identity in @sections do %>
+                <div class="divider text-sm text-base-content/60">Additional Information</div>
+              <% else %>
+                <h2 class="text-lg font-semibold mb-2">Additional Information</h2>
+              <% end %>
+
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <%= for field <- @custom_field_definitions do %>
+                  <% field_name = "profile_form[user][custom_fields][#{field["key"]}]" %>
+                  <% field_value =
+                    get_in(@user.custom_fields, [field["key"]]) || field["default"] || "" %>
+                  <div class="col-span-1 lg:col-span-2">
+                    <%= case field["type"] do %>
+                      <% "select" -> %>
+                        <.select
+                          name={field_name}
+                          label={field["label"]}
+                          options={
+                            Enum.map(field["options"] || [], fn opt ->
+                              if is_binary(opt),
+                                do: {opt, opt},
+                                else: {opt["label"], opt["value"]}
+                            end)
+                          }
+                          value={field_value}
+                          required={field["required"]}
+                        />
+                      <% "textarea" -> %>
+                        <.textarea
+                          name={field_name}
+                          label={field["label"]}
+                          value={field_value}
+                          required={field["required"]}
+                        />
+                      <% "number" -> %>
+                        <.input
+                          name={field_name}
+                          type="number"
+                          label={field["label"]}
+                          value={field_value}
+                          required={field["required"]}
+                        />
+                      <% "email" -> %>
+                        <.input
+                          name={field_name}
+                          type="email"
+                          label={field["label"]}
+                          value={field_value}
+                          required={field["required"]}
+                        />
+                      <% "url" -> %>
+                        <.input
+                          name={field_name}
+                          type="url"
+                          label={field["label"]}
+                          value={field_value}
+                          required={field["required"]}
+                        />
+                      <% "date" -> %>
+                        <.input
+                          name={field_name}
+                          type="date"
+                          label={field["label"]}
+                          value={field_value}
+                          required={field["required"]}
+                        />
+                      <% _ -> %>
+                        <.input
+                          name={field_name}
+                          type="text"
+                          label={field["label"]}
+                          value={field_value}
+                          required={field["required"]}
+                        />
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+
+              <:actions>
+                <div class="ml-auto">
+                  <.button phx-disable-with="Updating..." class="btn-primary">
+                    Update Custom Fields
+                  </.button>
+                </div>
+              </:actions>
+            </.simple_form>
+            <%= if Enum.any?([:email, :password, :oauth], & &1 in @sections) do %>
+              <div class="divider"></div>
+            <% end %>
           </div>
         <% end %>
 
@@ -927,7 +961,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           </div>
         <% end %>
 
-        <div class="divider"></div>
+        <%= if :email in @sections and Enum.any?([:password, :oauth], & &1 in @sections) do %>
+          <div class="divider"></div>
+        <% end %>
 
         <%!-- Password Section --%>
         <%= if :password in @sections do %>
