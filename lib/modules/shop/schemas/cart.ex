@@ -21,7 +21,6 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Users.Auth.User
@@ -47,11 +46,8 @@ defmodule PhoenixKit.Modules.Shop.Cart do
 
     field :shipping_country, :string
 
-    # Payment
-    belongs_to :payment_option, PaymentOption,
-      foreign_key: :payment_option_uuid,
-      references: :uuid,
-      type: UUIDv7
+    # Payment option from billing package (cross-package reference)
+    field :payment_option_uuid, UUIDv7
 
     # Totals (cached)
     field :subtotal, :decimal, default: Decimal.new("0")

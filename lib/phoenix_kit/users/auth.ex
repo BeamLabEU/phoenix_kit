@@ -2308,8 +2308,12 @@ defmodule PhoenixKit.Users.Auth do
 
   # Delete billing profiles for a user (uses user_uuid for safety)
   defp delete_user_billing_profiles(user_uuid) do
-    from(bp in PhoenixKit.Modules.Billing.BillingProfile, where: bp.user_uuid == ^user_uuid)
-    |> Repo.repo().delete_all()
+    if Code.ensure_loaded?(PhoenixKit.Modules.Billing) do
+      billing_profile_schema = PhoenixKit.Modules.Billing.BillingProfile
+
+      from(bp in billing_profile_schema, where: bp.user_uuid == ^user_uuid)
+      |> Repo.repo().delete_all()
+    end
   end
 
   # Delete shop carts for a user (uses user_uuid for safety)

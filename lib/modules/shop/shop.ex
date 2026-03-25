@@ -1421,7 +1421,7 @@ defmodule PhoenixKit.Modules.Shop do
     base_query =
       Cart
       |> where([c], c.status == "active")
-      |> preload([:items, :shipping_method, :payment_option])
+      |> preload([:items, :shipping_method])
 
     cond do
       not is_nil(user_uuid) ->
@@ -1470,7 +1470,7 @@ defmodule PhoenixKit.Modules.Shop do
     if UUIDUtils.valid?(uuid) do
       Cart
       |> where([c], c.uuid == ^uuid)
-      |> preload([:items, :shipping_method, :payment_option])
+      |> preload([:items, :shipping_method])
       |> repo().one()
     else
       nil

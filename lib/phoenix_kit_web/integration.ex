@@ -317,23 +317,6 @@ defmodule PhoenixKitWeb.Integration do
             :xsl_index_stylesheet
       end
 
-      # Billing webhook routes - uses PhoenixKit.Modules.Billing namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:phoenix_kit_api]
-
-        post "/webhooks/billing/stripe",
-             PhoenixKit.Modules.Billing.Web.WebhookController,
-             :stripe
-
-        post "/webhooks/billing/paypal",
-             PhoenixKit.Modules.Billing.Web.WebhookController,
-             :paypal
-
-        post "/webhooks/billing/razorpay",
-             PhoenixKit.Modules.Billing.Web.WebhookController,
-             :razorpay
-      end
-
       # Shop public routes are generated via generate_shop_public_routes/1 helper
       # This supports locale-prefixed URLs (/:locale/shop/...) with language switching
       # Shop user dashboard routes are now in phoenix_kit_authenticated_routes/1.
@@ -513,104 +496,6 @@ defmodule PhoenixKitWeb.Integration do
                PhoenixKit.Modules.Sitemap.Web.Settings,
                :index,
                as: :sitemap_settings
-
-          # Billing admin routes
-          live "/admin/billing", PhoenixKit.Modules.Billing.Web.Index, :index, as: :billing_index
-
-          live "/admin/billing/orders", PhoenixKit.Modules.Billing.Web.Orders, :index,
-            as: :billing_orders
-
-          live "/admin/billing/orders/new", PhoenixKit.Modules.Billing.Web.OrderForm, :new,
-            as: :billing_order_new
-
-          live "/admin/billing/orders/:id", PhoenixKit.Modules.Billing.Web.OrderDetail, :show,
-            as: :billing_order_detail
-
-          live "/admin/billing/orders/:id/edit", PhoenixKit.Modules.Billing.Web.OrderForm, :edit,
-            as: :billing_order_edit
-
-          live "/admin/billing/invoices", PhoenixKit.Modules.Billing.Web.Invoices, :index,
-            as: :billing_invoices
-
-          live "/admin/billing/invoices/:id", PhoenixKit.Modules.Billing.Web.InvoiceDetail, :show,
-            as: :billing_invoice_detail
-
-          live "/admin/billing/invoices/:id/print",
-               PhoenixKit.Modules.Billing.Web.InvoicePrint,
-               :print,
-               as: :billing_invoice_print
-
-          live "/admin/billing/invoices/:id/receipt",
-               PhoenixKit.Modules.Billing.Web.ReceiptPrint,
-               :receipt,
-               as: :billing_receipt_print
-
-          live "/admin/billing/invoices/:id/credit-note/:transaction_uuid",
-               PhoenixKit.Modules.Billing.Web.CreditNotePrint,
-               :credit_note,
-               as: :billing_credit_note
-
-          live "/admin/billing/invoices/:id/payment/:transaction_uuid",
-               PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint,
-               :payment_confirmation,
-               as: :billing_payment_confirmation
-
-          live "/admin/billing/transactions", PhoenixKit.Modules.Billing.Web.Transactions, :index,
-            as: :billing_transactions
-
-          live "/admin/billing/subscriptions",
-               PhoenixKit.Modules.Billing.Web.Subscriptions,
-               :index,
-               as: :billing_subscriptions
-
-          live "/admin/billing/subscriptions/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionForm,
-               :new,
-               as: :billing_subscription_new
-
-          live "/admin/billing/subscriptions/:id",
-               PhoenixKit.Modules.Billing.Web.SubscriptionDetail,
-               :show,
-               as: :billing_subscription_detail
-
-          live "/admin/billing/subscription-types",
-               PhoenixKit.Modules.Billing.Web.SubscriptionTypes,
-               :index,
-               as: :billing_subscription_types
-
-          live "/admin/billing/subscription-types/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
-               :new,
-               as: :billing_subscription_type_new
-
-          live "/admin/billing/subscription-types/:id/edit",
-               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
-               :edit,
-               as: :billing_subscription_type_edit
-
-          live "/admin/billing/profiles", PhoenixKit.Modules.Billing.Web.BillingProfiles, :index,
-            as: :billing_profiles
-
-          live "/admin/billing/profiles/new",
-               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
-               :new,
-               as: :billing_profile_new
-
-          live "/admin/billing/profiles/:id/edit",
-               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
-               :edit,
-               as: :billing_profile_edit
-
-          live "/admin/billing/currencies", PhoenixKit.Modules.Billing.Web.Currencies, :index,
-            as: :billing_currencies
-
-          live "/admin/settings/billing", PhoenixKit.Modules.Billing.Web.Settings, :settings,
-            as: :billing_settings
-
-          live "/admin/settings/billing/providers",
-               PhoenixKit.Modules.Billing.Web.ProviderSettings,
-               :index,
-               as: :billing_provider_settings
 
           # DB Explorer routes
           live "/admin/db", PhoenixKit.Modules.DB.Web.Index, :index, as: :db_index
@@ -818,21 +703,6 @@ defmodule PhoenixKitWeb.Integration do
       live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
         as: :shop_user_order_details
 
-      live "/dashboard/billing-profiles",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
-           :index,
-           as: :user_billing_profiles
-
-      live "/dashboard/billing-profiles/new",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :new,
-           as: :user_billing_profile_new
-
-      live "/dashboard/billing-profiles/:id/edit",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :edit,
-           as: :user_billing_profile_edit
-
       # Tickets user pages
       live "/dashboard/customer-service/tickets",
            PhoenixKit.Modules.CustomerService.Web.UserList,
@@ -859,21 +729,6 @@ defmodule PhoenixKitWeb.Integration do
 
       live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
         as: :shop_user_order_details_locale
-
-      live "/dashboard/billing-profiles",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
-           :index,
-           as: :user_billing_profiles_locale
-
-      live "/dashboard/billing-profiles/new",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :new,
-           as: :user_billing_profile_new_locale
-
-      live "/dashboard/billing-profiles/:id/edit",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :edit,
-           as: :user_billing_profile_edit_locale
 
       # Tickets user pages (locale variants)
       live "/dashboard/customer-service/tickets",
