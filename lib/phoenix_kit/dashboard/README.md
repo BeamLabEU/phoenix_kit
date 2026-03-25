@@ -26,7 +26,7 @@ The easiest way to add dashboard pages is using the Mix generator:
 mix phoenix_kit.gen.user.dashboard "Example"
 
 # With custom category
-mix phoenix_kit.gen.user.dashboard "Example" --category="Category"
+mix phoenix_kit.gen.user.dashboard "Example" --category="Farm Management"
 
 # With custom icon
 mix phoenix_kit.gen.user.dashboard "Example" --icon="hero-chart-bar"

@@ -6,7 +6,6 @@ defmodule <%= @web_module_prefix %>.PhoenixKit.Dashboard.<%= @page_name %> do
   use <%= @web_module_prefix %>, :live_view
 
   import PhoenixKitWeb.LayoutHelpers, only: [dashboard_assigns: 1]
-  import PhoenixKitWeb.Components.Core.UserDashboardHeader, only: [user_dashboard_header: 1]
 
   @impl true
   def mount(_params, _session, socket) do

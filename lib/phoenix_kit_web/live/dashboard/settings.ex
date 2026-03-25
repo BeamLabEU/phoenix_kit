@@ -52,7 +52,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
       <div class="max-w-7xl px-4 sm:px-6 lg:px-8">
         <.user_dashboard_header
           title={@page_title}
-          subtitle="Manage your account settings and preferences"
+          subtitle={gettext("Manage your account settings and preferences")}
         />
 
         <.live_component

@@ -13,7 +13,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
   ## Options
 
   - `--url` - The URL path for the tab (optional, derived from title if not provided)
-  - `--category` - The category name (optional, defaults to "Category")
+  - `--category` - The category name (optional, defaults to "General")
   - `--icon` - Heroicon name for the tab (optional, defaults to "hero-document")
   - `--description` - Brief description for the tab (optional)
   - `--category-icon` - Heroicon name for the category (optional, defaults to "hero-folder"). Only used when creating a new category.
@@ -24,7 +24,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
       mix phoenix_kit.gen.user.dashboard "Example"
 
       # With custom category
-      mix phoenix_kit.gen.user.dashboard "Example" --category="Category"
+      mix phoenix_kit.gen.user.dashboard "Example" --category="Farm Management"
 
       # With custom icon
       mix phoenix_kit.gen.user.dashboard "Example" --icon="hero-chart-bar"
@@ -97,7 +97,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
       Options:
 
         --url           - The URL path for the tab (optional, derived from title)
-        --category      - The category name (optional, defaults to "Category")
+        --category      - The category name (optional, defaults to "General")
         --icon          - Heroicon name for the tab (optional, defaults to "hero-document")
         --description   - Brief description for the tab (optional)
         --category-icon - Heroicon name for the category (optional, defaults to "hero-folder")
@@ -108,7 +108,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
           mix phoenix_kit.gen.user.dashboard "Example"
 
           # With custom category
-          mix phoenix_kit.gen.user.dashboard "Example" --category="Category"
+          mix phoenix_kit.gen.user.dashboard "Example" --category="Farm Management"
 
           # With custom icon
           mix phoenix_kit.gen.user.dashboard "Example" --icon="hero-chart-bar"
@@ -138,7 +138,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
       [tab_title] ->
         # Derive URL from tab title if not provided
         url = Keyword.get(opts, :url, slugify(tab_title))
-        category = Keyword.get(opts, :category, "Category")
+        category = Keyword.get(opts, :category, "General")
 
         {:ok, {tab_title, category, url}}
 
