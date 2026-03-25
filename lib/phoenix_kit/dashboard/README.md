@@ -19,23 +19,25 @@ A comprehensive, extensible navigation system for the PhoenixKit user dashboard 
 
 ### Using the Mix Generator (Recommended)
 
-The easiest way to add tabs is using the Mix generator:
+The easiest way to add dashboard pages is using the Mix generator:
 
 ```bash
-# Add a History tab to Farm Management category
-mix phoenix_kit.gen.dashboard_tab "Farm Management" "History" \
-  --url="/dashboard/history" \
-  --icon="hero-chart-bar" \
-  --category-icon="hero-cube"
+# Simple - uses all defaults (creates LiveView + tab config)
+mix phoenix_kit.gen.user.dashboard "Example"
 
-# Add a Settings tab to Account category
-mix phoenix_kit.gen.dashboard_tab "Account" "Settings" \
-  --url="/dashboard/settings" \
-  --icon="hero-cog-6-tooth" \
-  --description="Manage your account settings"
+# With custom category
+mix phoenix_kit.gen.user.dashboard "Example" --category="Category"
+
+# With custom icon
+mix phoenix_kit.gen.user.dashboard "Example" --icon="hero-chart-bar"
+
+# Full control
+mix phoenix_kit.gen.user.dashboard "Example" --url="/custom/path" --icon="hero-user"
 ```
 
-This will automatically add the tab configuration to your `config/config.exs`.
+This will automatically:
+1. Create a LiveView file for the dashboard page
+2. Add the tab configuration to your `config/config.exs`
 
 ### Configure Categories in config.exs
 

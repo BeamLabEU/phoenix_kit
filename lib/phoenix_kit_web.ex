@@ -145,6 +145,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Modal
       import PhoenixKitWeb.Components.Core.MediaThumbnail
       import PhoenixKitWeb.Components.Core.AdminPageHeader
+      import PhoenixKitWeb.Components.Core.UserDashboardHeader
       import PhoenixKitWeb.Components.Core.DevNotice
       import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
     end

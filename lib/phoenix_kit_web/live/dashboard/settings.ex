@@ -49,10 +49,9 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
   def render(assigns) do
     ~H"""
     <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-      <div class="p-6">
-        <.admin_page_header
-          back={Routes.path("/dashboard")}
-          title="Settings"
+      <div class="max-w-7xl px-4 sm:px-6 lg:px-8">
+        <.user_dashboard_header
+          title={@page_title}
           subtitle="Manage your account settings and preferences"
         />
 
