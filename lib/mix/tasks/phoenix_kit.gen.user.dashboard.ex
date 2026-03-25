@@ -142,7 +142,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
 
         {:ok, {tab_title, category, url}}
 
-      args when length(args) < 1 ->
+      [] ->
         {:error, "not enough arguments. Expected: <tab_title>"}
 
       _ ->
