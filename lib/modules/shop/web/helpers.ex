@@ -21,12 +21,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Helpers do
   @doc "Format a price value with currency. Returns \"-\" for nil price."
   def format_price(nil, _currency), do: "-"
 
-  def format_price(price, %Currency{} = currency) do
-    Currency.format_amount(price, currency)
-  end
-
   def format_price(price, nil) do
     "$#{Decimal.round(price, 2)}"
+  end
+
+  def format_price(price, currency) do
+    Currency.format_amount(price, currency)
   end
 
   # ---------------------------------------------------------------------------

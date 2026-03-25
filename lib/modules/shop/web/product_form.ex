@@ -1798,23 +1798,23 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   defp format_price(nil, _currency), do: "—"
   defp format_price("", _currency), do: "—"
 
-  defp format_price(price, %Currency{} = currency) when is_binary(price) do
+  defp format_price(price, currency) when is_binary(price) do
     case Decimal.parse(price) do
       {decimal, _} -> Currency.format_amount(decimal, currency)
       :error -> Currency.format_amount(Decimal.new("0"), currency)
     end
   end
 
-  defp format_price(price, %Currency{} = currency) do
-    Currency.format_amount(price, currency)
-  end
-
   defp format_price(price, nil) do
     "$#{Decimal.round(price, 2)}"
   end
 
+  defp format_price(price, currency) do
+    Currency.format_amount(price, currency)
+  end
+
   # Get currency symbol for display
-  defp currency_symbol(%Currency{symbol: symbol}), do: symbol
+  defp currency_symbol(%{symbol: symbol}), do: symbol
   defp currency_symbol(_), do: "$"
 
   # Get modifier override from product metadata

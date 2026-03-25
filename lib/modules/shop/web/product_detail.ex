@@ -694,12 +694,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   defp format_price(nil, _currency), do: "—"
 
-  defp format_price(price, %Currency{} = currency) do
-    Currency.format_amount(price, currency)
-  end
-
   defp format_price(price, nil) do
     "$#{Decimal.round(price, 2)}"
+  end
+
+  defp format_price(price, currency) do
+    Currency.format_amount(price, currency)
   end
 
   # Get signed URL for Storage image (skip URLs - they are legacy Shopify images)
@@ -822,7 +822,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     "#{Decimal.round(value, 0)}%"
   end
 
-  defp format_modifier(value, _type, %Currency{} = currency) do
+  defp format_modifier(value, _type, currency) do
     Currency.format_amount(value, currency)
   end
 

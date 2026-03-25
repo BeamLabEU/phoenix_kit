@@ -236,12 +236,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Carts do
 
   defp format_price(nil, _currency), do: "-"
 
-  defp format_price(amount, %Currency{} = currency) do
-    Currency.format_amount(amount, currency)
-  end
-
   defp format_price(amount, nil) do
     "$#{Decimal.round(amount, 2)}"
+  end
+
+  defp format_price(amount, currency) do
+    Currency.format_amount(amount, currency)
   end
 
   defp format_weight(grams) when grams >= 1000, do: "#{Float.round(grams / 1000, 1)} kg"

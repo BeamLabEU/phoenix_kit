@@ -90,12 +90,12 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrderDetails do
 
   defp format_price(nil, _currency), do: "-"
 
-  defp format_price(amount, %Currency{} = currency) do
-    Currency.format_amount(amount, currency)
-  end
-
   defp format_price(amount, nil) do
     "$#{Decimal.round(amount, 2)}"
+  end
+
+  defp format_price(amount, currency) do
+    Currency.format_amount(amount, currency)
   end
 
   defp format_price_string(nil), do: "-"

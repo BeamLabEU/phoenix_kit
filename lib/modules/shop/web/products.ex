@@ -827,13 +827,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   defp format_price(nil, _currency), do: "—"
 
-  defp format_price(price, %Currency{} = currency) do
-    Currency.format_amount(price, currency)
-  end
-
   defp format_price(price, nil) do
     # Fallback if no currency configured
     "$#{Decimal.round(price, 2)}"
+  end
+
+  defp format_price(price, currency) do
+    Currency.format_amount(price, currency)
   end
 
   # Get product thumbnail - prefers Storage images over legacy URLs

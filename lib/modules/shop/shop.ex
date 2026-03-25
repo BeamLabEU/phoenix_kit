@@ -36,7 +36,6 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.Currency
-  alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop.Cart
@@ -1850,7 +1849,7 @@ defmodule PhoenixKit.Modules.Shop do
   @doc """
   Sets payment option for cart.
   """
-  def set_cart_payment_option(%Cart{} = cart, %PaymentOption{} = option) do
+  def set_cart_payment_option(%Cart{} = cart, option) when is_map(option) do
     result =
       cart
       |> Cart.payment_changeset(%{

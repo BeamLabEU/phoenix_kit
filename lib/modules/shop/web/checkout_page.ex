@@ -10,11 +10,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.Web.Components.ShopLayouts
+  alias PhoenixKit.Utils.CountryData
 
   import PhoenixKit.Modules.Shop.Web.Helpers,
     only: [
@@ -180,21 +180,21 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   defp payment_option_needs_billing?(nil, _is_guest, _profiles), do: true
 
   defp payment_option_needs_billing?(
-         %PaymentOption{requires_billing_profile: true},
+         %{requires_billing_profile: true},
          _is_guest,
          _profiles
        ),
        do: true
 
   defp payment_option_needs_billing?(
-         %PaymentOption{requires_billing_profile: false},
+         %{requires_billing_profile: false},
          true,
          _profiles
        ),
        do: true
 
   defp payment_option_needs_billing?(
-         %PaymentOption{requires_billing_profile: false},
+         %{requires_billing_profile: false},
          false,
          _profiles
        ),
