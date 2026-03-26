@@ -9,8 +9,12 @@
   <div class="container mx-auto px-4 py-6 space-y-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin/settings")}
-      title="SEO Settings"
-      subtitle="Configure environment-wide search optimization defaults and metadata directives from a single place."
+      title={gettext("SEO Settings")}
+      subtitle={
+        gettext(
+          "Configure environment-wide search optimization defaults and metadata directives from a single place."
+        )
+      }
     />
 
     <div class="flex justify-center">
@@ -19,20 +23,22 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-sm uppercase tracking-wide text-primary font-semibold">
-                Robots Directive
+                {gettext("Robots Directive")}
               </p>
-              <h2 class="text-2xl font-bold">Noindex &middot; Nofollow</h2>
+              <h2 class="text-2xl font-bold">{gettext("Noindex · Nofollow")}</h2>
               <p class="text-base text-base-content/70">
-                Adds
+                {gettext("Adds")}
                 <code class="font-mono text-sm bg-base-200 rounded px-1.5 py-0.5">
                   &lt;meta name="robots" content="noindex,nofollow"&gt;
                 </code>
-                to every PhoenixKit layout, blocking crawlers from indexing or following links.
+                {gettext(
+                  "to every PhoenixKit layout, blocking crawlers from indexing or following links."
+                )}
               </p>
             </div>
             <label class="flex items-center gap-2 cursor-pointer">
               <span class="text-sm font-semibold text-base-content/70">
-                {if @no_index_enabled, do: "Enabled", else: "Disabled"}
+                {if @no_index_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
               </span>
               <input
                 type="checkbox"
@@ -56,9 +62,13 @@
             />
             <div class="text-sm leading-relaxed">
               <%= if @no_index_enabled do %>
-                Search engines are instructed to skip this environment. Remove this before launch.
+                {gettext(
+                  "Search engines are instructed to skip this environment. Remove this before launch."
+                )}
               <% else %>
-                Crawlers are allowed to index the site. Enable the toggle to hide staging deployments.
+                {gettext(
+                  "Crawlers are allowed to index the site. Enable the toggle to hide staging deployments."
+                )}
               <% end %>
             </div>
           </div>

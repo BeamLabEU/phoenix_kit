@@ -138,5 +138,9 @@
   # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
   # Dialyzer cannot resolve ExUnit private macros expanded at compile time
   {"test/support/conn_case.ex", :unknown_function},
-  {"test/support/data_case.ex", :unknown_function}
+  {"test/support/data_case.ex", :unknown_function},
+
+  # Extracted module references — conditionally loaded via Code.ensure_loaded?
+  # These modules live in separate packages (phoenix_kit_ecommerce, phoenix_kit_billing)
+  {"lib/phoenix_kit_web/integration.ex", :unknown_function}
 ]

@@ -1,4 +1,5 @@
 defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Shop}
   @moduledoc """
   Shop source for sitemap generation.
 

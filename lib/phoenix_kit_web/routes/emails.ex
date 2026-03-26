@@ -40,6 +40,45 @@ defmodule PhoenixKitWeb.Routes.EmailsRoutes do
   end
 
   @doc """
+  Returns quoted admin LiveView route declarations for the shared admin live_session (localized).
+  Uses _localized aliases to avoid conflicts with non-localized routes in the same router.
+  """
+  def admin_locale_routes do
+    quote do
+      live "/admin/settings/emails", PhoenixKit.Modules.Emails.Web.Settings, :index,
+        as: :emails_settings_localized
+
+      live "/admin/emails/dashboard", PhoenixKit.Modules.Emails.Web.Metrics, :index,
+        as: :emails_metrics_localized
+
+      live "/admin/emails", PhoenixKit.Modules.Emails.Web.Emails, :index,
+        as: :emails_index_localized
+
+      live "/admin/emails/email/:id", PhoenixKit.Modules.Emails.Web.Details, :show,
+        as: :emails_details_localized
+
+      live "/admin/emails/queue", PhoenixKit.Modules.Emails.Web.Queue, :index,
+        as: :emails_queue_localized
+
+      live "/admin/emails/blocklist", PhoenixKit.Modules.Emails.Web.Blocklist, :index,
+        as: :emails_blocklist_localized
+
+      live "/admin/emails/templates", PhoenixKit.Modules.Emails.Web.Templates, :index,
+        as: :emails_templates_localized
+
+      live "/admin/emails/templates/new",
+           PhoenixKit.Modules.Emails.Web.TemplateEditor,
+           :new,
+           as: :emails_template_new_localized
+
+      live "/admin/emails/templates/:id/edit",
+           PhoenixKit.Modules.Emails.Web.TemplateEditor,
+           :edit,
+           as: :emails_template_edit_localized
+    end
+  end
+
+  @doc """
   Returns quoted admin LiveView route declarations for inclusion in the shared admin live_session.
   """
   def admin_routes do

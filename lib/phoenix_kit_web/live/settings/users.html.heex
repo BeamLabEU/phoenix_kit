@@ -9,8 +9,8 @@
   <div class="container flex flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin/settings")}
-      title="User Settings"
-      subtitle="Manage user registration, defaults, and custom fields"
+      title={gettext("User Settings")}
+      subtitle={gettext("Manage user registration, defaults, and custom fields")}
     />
 
     <%!-- Settings Form --%>
@@ -18,7 +18,7 @@
       <%!-- User Configuration Settings Card --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title text-xl mb-6">User Configuration</h2>
+          <h2 class="card-title text-xl mb-6">{gettext("User Configuration")}</h2>
 
           <.form
             :let={_form}
@@ -66,7 +66,9 @@
             <%!-- Registration Control Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Registration Settings</span>
+                <span class="label-text text-base font-medium">
+                  {gettext("Registration Settings")}
+                </span>
               </label>
               <div class="flex items-center gap-3 mb-3">
                 <input
@@ -81,7 +83,7 @@
                   checked={@settings["allow_registration"] == "true"}
                   class="checkbox checkbox-primary"
                 />
-                <span class="label-text">Anyone can register</span>
+                <span class="label-text">{gettext("Anyone can register")}</span>
               </div>
               <div class="flex items-center gap-3 mb-3">
                 <input
@@ -96,7 +98,7 @@
                   checked={@settings["track_registration_geolocation"] == "true"}
                   class="checkbox checkbox-primary"
                 />
-                <span class="label-text">Track user registration location</span>
+                <span class="label-text">{gettext("Track user registration location")}</span>
               </div>
               <div class="flex items-center gap-3">
                 <input
@@ -111,34 +113,50 @@
                   checked={@settings["registration_show_username"] == "true"}
                   class="checkbox checkbox-primary"
                 />
-                <span class="label-text">Show username field on registration</span>
+                <span class="label-text">{gettext("Show username field on registration")}</span>
               </div>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["allow_registration"] != @saved_settings["allow_registration"] or @settings["track_registration_geolocation"] != @saved_settings["track_registration_geolocation"] do %>
                     <span class="text-warning">
-                      Registration: {if @settings["allow_registration"] == "true",
-                        do: "Enabled",
-                        else: "Disabled"} |
-                      Geolocation: {if @settings["track_registration_geolocation"] == "true",
-                        do: "Enabled",
-                        else: "Disabled"}
+                      {gettext("Registration:")} {if @settings["allow_registration"] == "true",
+                        do: gettext("Enabled"),
+                        else: gettext("Disabled")} | {gettext("Geolocation:")} {if @settings[
+                                                                                     "track_registration_geolocation"
+                                                                                   ] == "true",
+                                                                                   do:
+                                                                                     gettext(
+                                                                                       "Enabled"
+                                                                                     ),
+                                                                                   else:
+                                                                                     gettext(
+                                                                                       "Disabled"
+                                                                                     )}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {if @saved_settings["allow_registration"] == "true",
-                        do: "Enabled",
-                        else: "Disabled"} | {if @saved_settings["track_registration_geolocation"] ==
-                                                  "true",
-                                                do: "Enabled",
-                                                else: "Disabled"}
+                      | {gettext("Saved:")} {if @saved_settings["allow_registration"] == "true",
+                        do: gettext("Enabled"),
+                        else: gettext("Disabled")} | {if @saved_settings[
+                                                           "track_registration_geolocation"
+                                                         ] ==
+                                                           "true",
+                                                         do: gettext("Enabled"),
+                                                         else: gettext("Disabled")}
                     </span>
                   <% else %>
-                    Registration: {if @settings["allow_registration"] == "true",
-                      do: "Enabled",
-                      else: "Disabled"} |
-                    Geolocation: {if @settings["track_registration_geolocation"] == "true",
-                      do: "Enabled",
-                      else: "Disabled"}
+                    {gettext("Registration:")} {if @settings["allow_registration"] == "true",
+                      do: gettext("Enabled"),
+                      else: gettext("Disabled")} | {gettext("Geolocation:")} {if @settings[
+                                                                                   "track_registration_geolocation"
+                                                                                 ] == "true",
+                                                                                 do:
+                                                                                   gettext(
+                                                                                     "Enabled"
+                                                                                   ),
+                                                                                 else:
+                                                                                   gettext(
+                                                                                     "Disabled"
+                                                                                   )}
                   <% end %>
                 </span>
               </div>
@@ -149,11 +167,15 @@
                   <.icon name="hero-information-circle" class="w-5 h-5" />
                   <div>
                     <div class="font-semibold">
-                      Privacy Notice: IP Geolocation Data
+                      {gettext("Privacy Notice: IP Geolocation Data")}
                     </div>
                     <div class="text-xs">
-                      When enabled, registration IP addresses and approximate location data (country, region, city) will be collected for analytics.
-                      Uses free APIs: IP-API.com (45 requests/minute) with ipapi.co (1000 requests/day) fallback. Defaults to OFF for privacy.
+                      {gettext(
+                        "When enabled, registration IP addresses and approximate location data (country, region, city) will be collected for analytics."
+                      )}
+                      {gettext(
+                        "Uses free APIs: IP-API.com (45 requests/minute) with ipapi.co (1000 requests/day) fallback. Defaults to OFF for privacy."
+                      )}
                     </div>
                   </div>
                 </div>
@@ -163,9 +185,11 @@
             <%!-- New User Default Role Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">New User Default Role</span>
+                <span class="label-text text-base font-medium">
+                  {gettext("New User Default Role")}
+                </span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  Role assigned to new user registrations
+                  {gettext("Role assigned to new user registrations")}
                 </span>
               </label>
               <select
@@ -182,19 +206,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["new_user_default_role"] != @saved_settings["new_user_default_role"] do %>
                     <span class="text-warning">
-                      Selected: {get_option_label(
+                      {gettext("Selected:")} {get_option_label(
                         @settings["new_user_default_role"],
                         @setting_options["new_user_default_role"]
                       )}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {get_option_label(
+                      | {gettext("Saved:")} {get_option_label(
                         @saved_settings["new_user_default_role"],
                         @setting_options["new_user_default_role"]
                       )}
                     </span>
                   <% else %>
-                    Saved: {get_option_label(
+                    {gettext("Saved:")} {get_option_label(
                       @settings["new_user_default_role"],
                       @setting_options["new_user_default_role"]
                     )}
@@ -208,11 +232,13 @@
                   <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
                   <div>
                     <div class="font-semibold">
-                      Security Notice: Medium Risk
+                      {gettext("Security Notice: Medium Risk")}
                     </div>
                     <div class="text-xs">
-                      All new users will receive administrative privileges and access to the admin panel.
-                      Consider "User" for most installations to maintain security.
+                      {gettext(
+                        "All new users will receive administrative privileges and access to the admin panel."
+                      )}
+                      {gettext("Consider \"User\" for most installations to maintain security.")}
                     </div>
                   </div>
                 </div>
@@ -222,9 +248,11 @@
             <%!-- New User Default Status Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">New User Default Status</span>
+                <span class="label-text text-base font-medium">
+                  {gettext("New User Default Status")}
+                </span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  Active status for new user registrations
+                  {gettext("Active status for new user registrations")}
                 </span>
               </label>
               <select
@@ -241,19 +269,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["new_user_default_status"] != @saved_settings["new_user_default_status"] do %>
                     <span class="text-warning">
-                      Selected: {get_option_label(
+                      {gettext("Selected:")} {get_option_label(
                         @settings["new_user_default_status"],
                         @setting_options["new_user_default_status"]
                       )}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {get_option_label(
+                      | {gettext("Saved:")} {get_option_label(
                         @saved_settings["new_user_default_status"],
                         @setting_options["new_user_default_status"]
                       )}
                     </span>
                   <% else %>
-                    Saved: {get_option_label(
+                    {gettext("Saved:")} {get_option_label(
                       @settings["new_user_default_status"],
                       @setting_options["new_user_default_status"]
                     )}
@@ -267,11 +295,15 @@
                   <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
                   <div>
                     <div class="font-semibold">
-                      Security Notice: Inactive Default
+                      {gettext("Security Notice: Inactive Default")}
                     </div>
                     <div class="text-xs">
-                      New users will be created as inactive and will not be able to log in until an admin activates their account.
-                      The first user (Owner) will always be active regardless of this setting.
+                      {gettext(
+                        "New users will be created as inactive and will not be able to log in until an admin activates their account."
+                      )}
+                      {gettext(
+                        "The first user (Owner) will always be active regardless of this setting."
+                      )}
                     </div>
                   </div>
                 </div>
@@ -279,14 +311,16 @@
             </div>
 
             <%!-- Divider for Custom Fields --%>
-            <div class="divider text-base-content/60 mt-6">Custom User Fields</div>
+            <div class="divider text-base-content/60 mt-6">{gettext("Custom User Fields")}</div>
 
             <%!-- Custom Fields Section --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Manage Custom Fields</span>
+                <span class="label-text text-base font-medium">
+                  {gettext("Manage Custom Fields")}
+                </span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  Define additional profile fields for users
+                  {gettext("Define additional profile fields for users")}
                 </span>
               </label>
 
@@ -294,13 +328,15 @@
                 <%!-- Empty State --%>
                 <div class="text-center py-8 border border-dashed border-base-300 rounded-lg">
                   <div class="text-4xl mb-4 opacity-50">📋</div>
-                  <p class="text-base-content/60 mb-4">No custom fields defined yet</p>
+                  <p class="text-base-content/60 mb-4">
+                    {gettext("No custom fields defined yet")}
+                  </p>
                   <button
                     type="button"
                     class="btn btn-primary btn-sm"
                     phx-click="show_add_field_form"
                   >
-                    <.icon name="hero-plus" class="w-4 h-4" /> Add First Field
+                    <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add First Field")}
                   </button>
                 </div>
               <% else %>
@@ -308,12 +344,18 @@
                 <.table_default variant="zebra" size="sm">
                   <.table_default_header>
                     <.table_default_row>
-                      <.table_default_header_cell>Field</.table_default_header_cell>
-                      <.table_default_header_cell>Type</.table_default_header_cell>
-                      <.table_default_header_cell>Required</.table_default_header_cell>
-                      <.table_default_header_cell>Status</.table_default_header_cell>
-                      <.table_default_header_cell>User Access</.table_default_header_cell>
-                      <.table_default_header_cell>Actions</.table_default_header_cell>
+                      <.table_default_header_cell>{gettext("Field")}</.table_default_header_cell>
+                      <.table_default_header_cell>{gettext("Type")}</.table_default_header_cell>
+                      <.table_default_header_cell>
+                        {gettext("Required")}
+                      </.table_default_header_cell>
+                      <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+                      <.table_default_header_cell>
+                        {gettext("User Access")}
+                      </.table_default_header_cell>
+                      <.table_default_header_cell>
+                        {gettext("Actions")}
+                      </.table_default_header_cell>
                     </.table_default_row>
                   </.table_default_header>
 
@@ -323,7 +365,8 @@
                         <.table_default_cell>
                           <div class="font-semibold">{field["label"]}</div>
                           <div class="text-xs text-base-content/60">
-                            Key: <code class="bg-base-300 px-1 rounded">{field["key"]}</code>
+                            {gettext("Key:")}
+                            <code class="bg-base-300 px-1 rounded">{field["key"]}</code>
                           </div>
                         </.table_default_cell>
                         <.table_default_cell>
@@ -331,23 +374,27 @@
                         </.table_default_cell>
                         <.table_default_cell>
                           <%= if field["required"] do %>
-                            <span class="badge badge-sm badge-warning">Yes</span>
+                            <span class="badge badge-sm badge-warning">{gettext("Yes")}</span>
                           <% else %>
-                            <span class="badge badge-sm badge-ghost">No</span>
+                            <span class="badge badge-sm badge-ghost">{gettext("No")}</span>
                           <% end %>
                         </.table_default_cell>
                         <.table_default_cell>
                           <%= if field["enabled"] do %>
-                            <span class="badge badge-sm badge-success">Enabled</span>
+                            <span class="badge badge-sm badge-success">{gettext("Enabled")}</span>
                           <% else %>
-                            <span class="badge badge-sm badge-ghost">Disabled</span>
+                            <span class="badge badge-sm badge-ghost">{gettext("Disabled")}</span>
                           <% end %>
                         </.table_default_cell>
                         <.table_default_cell>
                           <%= if Map.get(field, "user_accessible", true) do %>
-                            <span class="badge badge-sm badge-success">User Editable</span>
+                            <span class="badge badge-sm badge-success">
+                              {gettext("User Editable")}
+                            </span>
                           <% else %>
-                            <span class="badge badge-sm badge-warning">Admin Only</span>
+                            <span class="badge badge-sm badge-warning">
+                              {gettext("Admin Only")}
+                            </span>
                           <% end %>
                         </.table_default_cell>
                         <.table_default_cell>
@@ -408,7 +455,7 @@
                   class="btn btn-outline btn-sm mt-2"
                   phx-click="show_add_field_form"
                 >
-                  <.icon name="hero-plus" class="w-4 h-4" /> Add Custom Field
+                  <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add Custom Field")}
                 </button>
               <% end %>
             </div>
@@ -424,9 +471,9 @@
                 disabled={@saving}
               >
                 <%= if @saving do %>
-                  Saving...
+                  {gettext("Saving...")}
                 <% else %>
-                  Save User Settings
+                  {gettext("Save User Settings")}
                 <% end %>
               </button>
             </div>
@@ -437,14 +484,16 @@
             <div class="modal modal-open">
               <div class="modal-box max-w-2xl">
                 <h3 class="font-bold text-lg mb-4">
-                  {if @editing_field, do: "Edit Custom Field", else: "Add Custom Field"}
+                  {if @editing_field,
+                    do: gettext("Edit Custom Field"),
+                    else: gettext("Add Custom Field")}
                 </h3>
 
                 <.form :let={_f} for={%{}} phx-submit="save_field" class="space-y-4">
                   <%!-- Field Key --%>
                   <div class="form-control">
                     <label class="label">
-                      <span class="label-text">Field Key *</span>
+                      <span class="label-text">{gettext("Field Key")} *</span>
                     </label>
                     <input
                       type="text"
@@ -457,7 +506,7 @@
                     />
                     <div class="label">
                       <span class="label-text-alt">
-                        Lowercase letters, numbers, underscores only
+                        {gettext("Lowercase letters, numbers, underscores only")}
                       </span>
                     </div>
                   </div>
@@ -465,14 +514,14 @@
                   <%!-- Field Label --%>
                   <div class="form-control">
                     <label class="label">
-                      <span class="label-text">Label *</span>
+                      <span class="label-text">{gettext("Label")} *</span>
                     </label>
                     <input
                       type="text"
                       name="field[label]"
                       value={if @editing_field, do: @editing_field["label"], else: ""}
                       class="input input-bordered"
-                      placeholder="Phone Number"
+                      placeholder={gettext("Phone Number")}
                       required
                     />
                   </div>
@@ -480,7 +529,7 @@
                   <%!-- Field Type --%>
                   <div class="form-control">
                     <label class="label">
-                      <span class="label-text">Type *</span>
+                      <span class="label-text">{gettext("Type")} *</span>
                     </label>
                     <select
                       name="field[type]"
@@ -509,7 +558,7 @@
                         checked={@editing_field && @editing_field["required"]}
                         class="checkbox checkbox-primary"
                       />
-                      <span class="label-text">Required field</span>
+                      <span class="label-text">{gettext("Required field")}</span>
                     </label>
                   </div>
 
@@ -532,11 +581,13 @@
                         }
                         class="checkbox checkbox-primary"
                       />
-                      <span class="label-text">User can edit this field</span>
+                      <span class="label-text">{gettext("User can edit this field")}</span>
                     </label>
                     <div class="label">
                       <span class="label-text-alt">
-                        When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it.
+                        {gettext(
+                          "When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it."
+                        )}
                       </span>
                     </div>
                   </div>
@@ -545,9 +596,9 @@
                   <%= if @field_form_type in ~w(select radio checkbox) do %>
                     <div class="form-control">
                       <label class="label">
-                        <span class="label-text">Options *</span>
+                        <span class="label-text">{gettext("Options")} *</span>
                         <span class="label-text-alt">
-                          {length(@field_form_options)} option(s)
+                          {length(@field_form_options)} {gettext("option(s)")}
                         </span>
                       </label>
 
@@ -577,7 +628,7 @@
                           type="text"
                           value={@new_option_value}
                           class="input input-bordered input-sm flex-1"
-                          placeholder="Enter option value"
+                          placeholder={gettext("Enter option value")}
                           phx-keyup="update_new_option"
                           id="new_option_input"
                         />
@@ -586,20 +637,22 @@
                           class="btn btn-sm btn-outline"
                           phx-click="add_field_option"
                         >
-                          <.icon name="hero-plus" class="w-4 h-4" /> Add
+                          <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add")}
                         </button>
                       </div>
 
                       <div class="label">
                         <span class="label-text-alt">
-                          Type an option and press Enter or click Add
+                          {gettext("Type an option and press Enter or click Add")}
                         </span>
                       </div>
 
                       <%= if @field_form_options == [] do %>
                         <div class="text-sm text-warning mt-1">
                           <.icon name="hero-exclamation-triangle" class="w-4 h-4 inline" />
-                          At least one option is required for {String.capitalize(@field_form_type)} fields
+                          {gettext("At least one option is required for %{type} fields",
+                            type: String.capitalize(@field_form_type)
+                          )}
                         </div>
                       <% end %>
                     </div>
@@ -608,10 +661,10 @@
                   <%!-- Modal Actions --%>
                   <div class="modal-action">
                     <button type="submit" class="btn btn-primary">
-                      {if @editing_field, do: "Update Field", else: "Add Field"}
+                      {if @editing_field, do: gettext("Update Field"), else: gettext("Add Field")}
                     </button>
                     <button type="button" class="btn" phx-click="hide_field_form">
-                      Cancel
+                      {gettext("Cancel")}
                     </button>
                   </div>
                 </.form>

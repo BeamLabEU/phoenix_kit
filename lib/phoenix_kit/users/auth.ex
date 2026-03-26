@@ -1,4 +1,6 @@
 defmodule PhoenixKit.Users.Auth do
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Shop.Cart}
+
   @moduledoc """
   The Auth context for user authentication and management.
 

@@ -9,15 +9,15 @@
   <div class="container flex flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin")}
-      title="Settings"
-      subtitle="Configure system preferences and options"
+      title={gettext("Settings")}
+      subtitle={gettext("Configure system preferences and options")}
     />
 
     <%!-- Settings Form --%>
     <div class="max-w-2xl mx-auto">
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title text-xl mb-6">System Configuration</h2>
+          <h2 class="card-title text-xl mb-6">{gettext("System Configuration")}</h2>
 
           <.form
             :let={_form}
@@ -53,9 +53,9 @@
             <%!-- Project Title Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Project Title</span>
+                <span class="label-text text-base font-medium">{gettext("Project Title")}</span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  Application name display
+                  {gettext("Application name display")}
                 </span>
               </label>
               <input
@@ -63,20 +63,20 @@
                 type="text"
                 value={@settings["project_title"]}
                 class="input input-bordered w-full focus:input-primary"
-                placeholder="Enter project title"
+                placeholder={gettext("Enter project title")}
                 phx-debounce="500"
               />
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["project_title"] != @saved_settings["project_title"] do %>
                     <span class="text-warning">
-                      Selected: {@settings["project_title"]}
+                      {gettext("Selected:")} {@settings["project_title"]}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {@saved_settings["project_title"]}
+                      | {gettext("Saved:")} {@saved_settings["project_title"]}
                     </span>
                   <% else %>
-                    Saved: {@settings["project_title"]}
+                    {gettext("Saved:")} {@settings["project_title"]}
                   <% end %>
                 </span>
               </div>
@@ -85,7 +85,9 @@
             <%!-- Site Address URL Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Site Address (URL)</span>
+                <span class="label-text text-base font-medium">
+                  {gettext("Site Address (URL)")}
+                </span>
               </label>
               <input
                 name="settings[site_url]"
@@ -99,19 +101,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["site_url"] != @saved_settings["site_url"] do %>
                     <span class="text-warning">
-                      Selected: {if @settings["site_url"] != "",
+                      {gettext("Selected:")} {if @settings["site_url"] != "",
                         do: @settings["site_url"],
-                        else: "(empty)"}
+                        else: gettext("(empty)")}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {if @saved_settings["site_url"] != "",
+                      | {gettext("Saved:")} {if @saved_settings["site_url"] != "",
                         do: @saved_settings["site_url"],
-                        else: "(empty)"}
+                        else: gettext("(empty)")}
                     </span>
                   <% else %>
-                    Saved: {if @settings["site_url"] != "",
+                    {gettext("Saved:")} {if @settings["site_url"] != "",
                       do: @settings["site_url"],
-                      else: "(empty)"}
+                      else: gettext("(empty)")}
                   <% end %>
                 </span>
               </div>
@@ -120,9 +122,9 @@
             <%!-- Week Start Day Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Week Start On</span>
+                <span class="label-text text-base font-medium">{gettext("Week Start On")}</span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  First day of the week
+                  {gettext("First day of the week")}
                 </span>
               </label>
               <select
@@ -139,19 +141,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["week_start_day"] != @saved_settings["week_start_day"] do %>
                     <span class="text-warning">
-                      Selected: {get_option_label(
+                      {gettext("Selected:")} {get_option_label(
                         @settings["week_start_day"],
                         @setting_options["week_start_day"]
                       )}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {get_option_label(
+                      | {gettext("Saved:")} {get_option_label(
                         @saved_settings["week_start_day"],
                         @setting_options["week_start_day"]
                       )}
                     </span>
                   <% else %>
-                    Saved: {get_option_label(
+                    {gettext("Saved:")} {get_option_label(
                       @settings["week_start_day"],
                       @setting_options["week_start_day"]
                     )}
@@ -163,9 +165,9 @@
             <%!-- Time Zone Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Time Zone</span>
+                <span class="label-text text-base font-medium">{gettext("Time Zone")}</span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  System default timezone
+                  {gettext("System default timezone")}
                 </span>
               </label>
               <select
@@ -182,13 +184,22 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["time_zone"] != @saved_settings["time_zone"] do %>
                     <span class="text-warning">
-                      Selected: {get_timezone_label(@settings["time_zone"], @setting_options)}
+                      {gettext("Selected:")} {get_timezone_label(
+                        @settings["time_zone"],
+                        @setting_options
+                      )}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {get_timezone_label(@saved_settings["time_zone"], @setting_options)}
+                      | {gettext("Saved:")} {get_timezone_label(
+                        @saved_settings["time_zone"],
+                        @setting_options
+                      )}
                     </span>
                   <% else %>
-                    Saved: {get_timezone_label(@settings["time_zone"], @setting_options)}
+                    {gettext("Saved:")} {get_timezone_label(
+                      @settings["time_zone"],
+                      @setting_options
+                    )}
                   <% end %>
                 </span>
               </div>
@@ -197,9 +208,9 @@
             <%!-- Date Format Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Date Format</span>
+                <span class="label-text text-base font-medium">{gettext("Date Format")}</span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  How dates are displayed
+                  {gettext("How dates are displayed")}
                 </span>
               </label>
               <select
@@ -216,19 +227,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["date_format"] != @saved_settings["date_format"] do %>
                     <span class="text-warning">
-                      Selected: {get_option_label(
+                      {gettext("Selected:")} {get_option_label(
                         @settings["date_format"],
                         @setting_options["date_format"]
                       )}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {get_option_label(
+                      | {gettext("Saved:")} {get_option_label(
                         @saved_settings["date_format"],
                         @setting_options["date_format"]
                       )}
                     </span>
                   <% else %>
-                    Saved: {get_option_label(
+                    {gettext("Saved:")} {get_option_label(
                       @settings["date_format"],
                       @setting_options["date_format"]
                     )}
@@ -240,9 +251,9 @@
             <%!-- Time Format Setting --%>
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">Time Format</span>
+                <span class="label-text text-base font-medium">{gettext("Time Format")}</span>
                 <span class="label-text-alt text-sm text-base-content/60">
-                  How times are displayed
+                  {gettext("How times are displayed")}
                 </span>
               </label>
               <select
@@ -259,19 +270,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["time_format"] != @saved_settings["time_format"] do %>
                     <span class="text-warning">
-                      Selected: {get_option_label(
+                      {gettext("Selected:")} {get_option_label(
                         @settings["time_format"],
                         @setting_options["time_format"]
                       )}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {get_option_label(
+                      | {gettext("Saved:")} {get_option_label(
                         @saved_settings["time_format"],
                         @setting_options["time_format"]
                       )}
                     </span>
                   <% else %>
-                    Saved: {get_option_label(
+                    {gettext("Saved:")} {get_option_label(
                       @settings["time_format"],
                       @setting_options["time_format"]
                     )}
@@ -291,9 +302,9 @@
                 disabled={@saving}
               >
                 <%= if @saving do %>
-                  Saving...
+                  {gettext("Saving...")}
                 <% else %>
-                  Save All Settings
+                  {gettext("Save All Settings")}
                 <% end %>
               </button>
 
@@ -302,35 +313,63 @@
                 class="btn btn-outline"
                 phx-click="reset_to_defaults"
               >
-                <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4 mr-2" /> Reset
+                <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4 mr-2" /> {gettext(
+                  "Reset"
+                )}
               </button>
             </div>
           </.form>
 
           <%!-- Information Panel --%>
-          <div class="divider">Information</div>
+          <div class="divider">{gettext("Information")}</div>
 
           <div class="bg-base-200 rounded-lg p-4 mt-6">
             <div class="flex items-start gap-3">
               <div class="text-2xl">💡</div>
               <div class="flex-1">
-                <h3 class="font-semibold text-base-content mb-2">About System Settings</h3>
+                <h3 class="font-semibold text-base-content mb-2">
+                  {gettext("About System Settings")}
+                </h3>
                 <ul class="text-sm text-base-content/70 space-y-1">
-                  <li>• Make changes to dropdowns and click "Save All Settings" to apply</li>
-                  <li>• Changes show "Selected" vs "Saved" values until you click Save</li>
                   <li>
-                    • User settings (registration, defaults, custom fields) are managed separately
+                    {gettext(
+                      "• Make changes to dropdowns and click \"Save All Settings\" to apply"
+                    )}
                   </li>
                   <li>
-                    • Week start day controls which day begins the week (useful for calendar features)
+                    {gettext(
+                      "• Changes show \"Selected\" vs \"Saved\" values until you click Save"
+                    )}
                   </li>
-                  <li>• Time zone affects date/time display throughout the system</li>
                   <li>
-                    • Date formats control how dates appear (e.g. Users dashboard "Registered" field)
+                    {gettext(
+                      "• User settings (registration, defaults, custom fields) are managed separately"
+                    )}
                   </li>
-                  <li>• Time formats control 12-hour vs 24-hour time display</li>
-                  <li>• Settings are applied system-wide and use Timex for robust formatting</li>
-                  <li>• Currently supports 6 date formats including "September 2, 2025" style</li>
+                  <li>
+                    {gettext(
+                      "• Week start day controls which day begins the week (useful for calendar features)"
+                    )}
+                  </li>
+                  <li>
+                    {gettext("• Time zone affects date/time display throughout the system")}
+                  </li>
+                  <li>
+                    {gettext(
+                      "• Date formats control how dates appear (e.g. Users dashboard \"Registered\" field)"
+                    )}
+                  </li>
+                  <li>{gettext("• Time formats control 12-hour vs 24-hour time display")}</li>
+                  <li>
+                    {gettext(
+                      "• Settings are applied system-wide and use Timex for robust formatting"
+                    )}
+                  </li>
+                  <li>
+                    {gettext(
+                      "• Currently supports 6 date formats including \"September 2, 2025\" style"
+                    )}
+                  </li>
                 </ul>
               </div>
             </div>

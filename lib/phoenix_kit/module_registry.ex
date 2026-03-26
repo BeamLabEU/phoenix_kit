@@ -415,7 +415,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Publishing,
       PhoenixKit.Modules.Referrals,
       PhoenixKit.Modules.SEO,
-      PhoenixKit.Modules.Shop,
       PhoenixKit.Modules.Sitemap,
       PhoenixKit.Modules.Storage,
       PhoenixKit.Modules.Sync,

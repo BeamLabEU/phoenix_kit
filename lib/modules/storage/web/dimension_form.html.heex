@@ -10,7 +10,7 @@
     <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")}>
       <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
       <p class="text-sm text-base-content/60 mt-0.5">
-        Configure dimension presets for automatic file variant generation
+        {gettext("Configure dimension presets for automatic file variant generation")}
       </p>
     </.admin_page_header>
 
@@ -21,8 +21,10 @@
           <%!-- Basic Information --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text font-semibold">Dimension Name *</span>
-              <span class="label-text-alt">Unique name for this dimension preset</span>
+              <span class="label-text font-semibold">{gettext("Dimension Name")} *</span>
+              <span class="label-text-alt">
+                {gettext("Unique name for this dimension preset")}
+              </span>
             </label>
             <input
               type="text"
@@ -30,7 +32,7 @@
               phx-debounce="blur"
               value={get_field_value(@changeset, :name)}
               class={"input input-bordered #{input_class(@changeset, :name)}"}
-              placeholder="e.g., thumbnail, medium, 720p"
+              placeholder={gettext("e.g., thumbnail, medium, 720p")}
               required
             />
             {render_error(@changeset, :name)}
@@ -40,7 +42,9 @@
           <div class="form-control">
             <label class="label cursor-pointer">
               <span class="label-text font-semibold">
-                <.icon name="hero-photo" class="w-4 h-4 inline mr-2" /> Maintain Aspect Ratio
+                <.icon name="hero-photo" class="w-4 h-4 inline mr-2" /> {gettext(
+                  "Maintain Aspect Ratio"
+                )}
               </span>
               <%!-- Hidden input sends "false" by default, checkbox overrides with "true" --%>
               <input type="hidden" name="dimension[maintain_aspect_ratio]" value="false" />
@@ -54,9 +58,11 @@
             </label>
             <p class="text-sm text-base-content/60 mt-1">
               <%= if get_field_value(@changeset, :maintain_aspect_ratio) != false do %>
-                When enabled: Only width is used, height is calculated automatically
+                {gettext("When enabled: Only width is used, height is calculated automatically")}
               <% else %>
-                When disabled: Both width and height are used for fixed dimensions (crops/thumbnails)
+                {gettext(
+                  "When disabled: Both width and height are used for fixed dimensions (crops/thumbnails)"
+                )}
               <% end %>
             </p>
           </div>
@@ -66,16 +72,16 @@
               <label class="label">
                 <span class="label-text font-semibold">
                   <%= if get_field_value(@changeset, :maintain_aspect_ratio) != false do %>
-                    Target Width (px) *
+                    {gettext("Target Width (px)")} *
                   <% else %>
-                    Width (px) *
+                    {gettext("Width (px)")} *
                   <% end %>
                 </span>
                 <span class="label-text-alt">
                   <%= if get_field_value(@changeset, :maintain_aspect_ratio) != false do %>
-                    Target width for responsive sizing
+                    {gettext("Target width for responsive sizing")}
                   <% else %>
-                    Width in pixels
+                    {gettext("Width in pixels")}
                   <% end %>
                 </span>
               </label>
@@ -95,8 +101,8 @@
             <%= if get_field_value(@changeset, :maintain_aspect_ratio) == false do %>
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text font-semibold">Height (px) *</span>
-                  <span class="label-text-alt">Required for fixed dimensions</span>
+                  <span class="label-text font-semibold">{gettext("Height (px)")} *</span>
+                  <span class="label-text-alt">{gettext("Required for fixed dimensions")}</span>
                 </label>
                 <input
                   type="number"
@@ -119,16 +125,16 @@
               <label class="label">
                 <span class="label-text font-semibold">
                   <%= if @dimension_type == "video" do %>
-                    Quality (CRF)
+                    {gettext("Quality (CRF)")}
                   <% else %>
-                    Quality
+                    {gettext("Quality")}
                   <% end %>
                 </span>
                 <span class="label-text-alt">
                   <%= if @dimension_type == "video" do %>
-                    Compression quality (0-51, lower = higher quality)
+                    {gettext("Compression quality (0-51, lower = higher quality)")}
                   <% else %>
-                    Compression quality (1-100)
+                    {gettext("Compression quality (1-100)")}
                   <% end %>
                 </span>
               </label>
@@ -146,9 +152,9 @@
               <label class="label">
                 <span class="label-text-alt">
                   <%= if @dimension_type == "video" do %>
-                    Videos use CRF 0-51 (lower = higher quality, 18-28 recommended)
+                    {gettext("Videos use CRF 0-51 (lower = higher quality, 18-28 recommended)")}
                   <% else %>
-                    Images use 1-100 (higher = better quality, 80-90 recommended)
+                    {gettext("Images use 1-100 (higher = better quality, 80-90 recommended)")}
                   <% end %>
                 </span>
               </label>
@@ -158,12 +164,12 @@
               <label class="label">
                 <span class="label-text font-semibold">
                   <%= if @dimension_type == "video" do %>
-                    Codec Override
+                    {gettext("Codec Override")}
                   <% else %>
-                    Format Override
+                    {gettext("Format Override")}
                   <% end %>
                 </span>
-                <span class="label-text-alt">Leave empty to preserve original</span>
+                <span class="label-text-alt">{gettext("Leave empty to preserve original")}</span>
               </label>
               <%!-- Get format value safely --%>
               <% format_value = get_field_value(@changeset, :format) %>
@@ -172,7 +178,7 @@
                 name="dimension[format]"
                 class={"select select-bordered #{input_class(@changeset, :format)}"}
               >
-                <option value="">Preserve original</option>
+                <option value="">{gettext("Preserve original")}</option>
                 <%= if @dimension_type != "video" do %>
                   <option value="jpg" selected={format_value == "jpg"}>
                     JPEG
@@ -207,7 +213,7 @@
               navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")}
               class="btn btn-outline"
             >
-              Cancel
+              {gettext("Cancel")}
             </.link>
             <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
               <.icon name="hero-check" class="w-4 h-4 mr-1" />
@@ -222,16 +228,24 @@
     <div class="alert mt-6">
       <.icon name="hero-light-bulb" class="w-5 h-5" />
       <div>
-        <h3 class="font-bold">Dimension Configuration Guide</h3>
+        <h3 class="font-bold">{gettext("Dimension Configuration Guide")}</h3>
         <p class="text-sm">
-          <strong>Maintain Aspect Ratio (Default ON):</strong>
-          When enabled, only the width is used and height is calculated automatically to preserve the image's aspect ratio. Perfect for responsive images.<br />
-          <strong>Fixed Dimensions (When Aspect Ratio OFF):</strong>
-          Both width and height are used for exact dimensions. Images are center-cropped to fit. Great for thumbnails and square previews.<br />
-          <strong>Quality Settings:</strong>
-          Images use 1-100 (compression quality), Videos use CRF 0-51 (constant rate factor)<br />
-          <strong>Format Override:</strong>
-          Use to convert files to a specific format, or leave empty to preserve original
+          <strong>{gettext("Maintain Aspect Ratio (Default ON):")}</strong>
+          {gettext(
+            "When enabled, only the width is used and height is calculated automatically to preserve the image's aspect ratio. Perfect for responsive images."
+          )}<br />
+          <strong>{gettext("Fixed Dimensions (When Aspect Ratio OFF):")}</strong>
+          {gettext(
+            "Both width and height are used for exact dimensions. Images are center-cropped to fit. Great for thumbnails and square previews."
+          )}<br />
+          <strong>{gettext("Quality Settings:")}</strong>
+          {gettext(
+            "Images use 1-100 (compression quality), Videos use CRF 0-51 (constant rate factor)"
+          )}<br />
+          <strong>{gettext("Format Override:")}</strong>
+          {gettext(
+            "Use to convert files to a specific format, or leave empty to preserve original"
+          )}
         </p>
       </div>
     </div>

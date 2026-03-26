@@ -1,4 +1,5 @@
 defmodule PhoenixKit.Utils.CountryData do
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Billing.IbanData}
   @moduledoc """
   Wrapper for BeamLabCountries with country data utility functions.
 
