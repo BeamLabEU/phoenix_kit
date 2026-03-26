@@ -17,6 +17,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
   - `--icon` - Heroicon name for the tab (optional, defaults to "hero-document")
   - `--description` - Brief description for the tab (optional)
   - `--category-icon` - Heroicon name for the category (optional, defaults to "hero-folder"). Only used when creating a new category.
+  - `--index` - Generate as main dashboard index (skips config, for overriding /dashboard)
 
   ## Examples
 
@@ -31,6 +32,9 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
 
       # Full control
       mix phoenix_kit.gen.user.dashboard "Example" --url="/custom/path" --icon="hero-user"
+
+      # Generate as main dashboard index (overrides /dashboard)
+      mix phoenix_kit.gen.user.dashboard "Dashboard" --url="/dashboard" --index --description="Welcome"
 
   """
 
@@ -51,7 +55,8 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
         category: :string,
         icon: :string,
         description: :string,
-        category_icon: :string
+        category_icon: :string,
+        index: :boolean
       ],
       aliases: [u: :url, c: :category, i: :icon, d: :description, ci: :category_icon]
     }
@@ -67,7 +72,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
       {:ok, {tab_title, category, url}} ->
         igniter
         |> create_live_view(tab_title, url, opts)
-        |> add_dashboard_tab(category, tab_title, url, opts)
+        |> maybe_add_dashboard_tab(category, tab_title, url, opts)
 
       {:error, message} ->
         Igniter.add_notice(igniter, """
@@ -101,6 +106,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
         --icon          - Heroicon name for the tab (optional, defaults to "hero-document")
         --description   - Brief description for the tab (optional)
         --category-icon - Heroicon name for the category (optional, defaults to "hero-folder")
+        --index         - Generate as main dashboard index (skips config, for overriding /dashboard)
 
       Examples:
 
@@ -116,10 +122,13 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
           # Full control
           mix phoenix_kit.gen.user.dashboard "Example" --url="/custom/path" --icon="hero-user"
 
+          # Generate as main dashboard index (overrides /dashboard)
+          mix phoenix_kit.gen.user.dashboard "Dashboard" --url="/dashboard" --index --description="Welcome"
+
       Notes:
 
         - Creates a LiveView file for the dashboard page
-        - Adds tab configuration to config/config.exs under :user_dashboard_categories
+        - Adds tab configuration to config/config.exs under :user_dashboard_categories (unless --index)
         - After adding the route, run: mix compile --force
       """)
 
@@ -218,6 +227,17 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
     end
   end
 
+  defp maybe_add_dashboard_tab(igniter, category, tab_title, url, opts) do
+    is_index = Keyword.get(opts, :index, false)
+
+    if is_index do
+      # Skip adding to config for index pages
+      print_index_success_message(igniter, tab_title, url)
+    else
+      add_dashboard_tab(igniter, category, tab_title, url, opts)
+    end
+  end
+
   defp update_dashboard_categories_config(
          igniter,
          category,
@@ -247,7 +267,6 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
   end
 
   defp print_success_message(igniter, category, tab_title, url) do
-    app_name = IgniterHelpers.get_parent_app_name(igniter)
     web_module = IgniterHelpers.get_parent_app_module_web(igniter)
 
     web_module_string =
@@ -259,20 +278,14 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
     live_view_module = "#{web_module_string}.PhoenixKit.Dashboard.#{page_name}"
 
     Igniter.add_notice(igniter, """
-    ✅ Dashboard page generated successfully!
+    ✅ Dashboard page generated!
 
-    Page Created: #{live_view_module}
+    Page: #{live_view_module}
     Tab: #{tab_title}
     Category: #{category}
     URL: #{url}
 
-    What was done:
-    1. ✓ Created LiveView file at #{build_live_view_file_path(app_name, page_name)}
-    2. ✓ Added tab to user dashboard configuration in config/config.exs
-
-    📝 Next Steps:
-
-    1. Add the route to your router (inside a dashboard live_session):
+    📝 Add route:
 
          scope "/" do
            pipe_through :browser
@@ -286,11 +299,45 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard do
            end
          end
 
-    2. Force recompile: mix compile --force
+    Then: mix compile --force && restart server
+    """)
+  end
 
-    3. Restart your server to see the new tab in the dashboard sidebar.
+  defp print_index_success_message(igniter, tab_title, url) do
+    web_module = IgniterHelpers.get_parent_app_module_web(igniter)
 
-    The tab will appear under the "#{category}" category in the user dashboard.
+    web_module_string =
+      web_module
+      |> to_string()
+      |> String.replace_prefix("Elixir.", "")
+
+    page_name = camelize(tab_title)
+    live_view_module = "#{web_module_string}.PhoenixKit.Dashboard.#{page_name}"
+
+    Igniter.add_notice(igniter, """
+    ✅ Dashboard index page generated!
+
+    Page: #{live_view_module}
+    URL: #{url}
+
+    📝 Add route BEFORE phoenix_kit_routes():
+
+         scope "/" do
+           pipe_through :browser
+
+           live_session :user_dashboard,
+             on_mount: [
+               {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+               {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+             ] do
+             live "#{url}", #{live_view_module}, :index
+           end
+         end
+
+         import PhoenixKitWeb.Integration
+         phoenix_kit_routes()
+
+    Then: mix compile --force && restart server
     """)
   end
 
