@@ -559,13 +559,6 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
 
-          # Comments module routes
-          live "/admin/comments", PhoenixKit.Modules.Comments.Web.Index, :index,
-            as: :comments_index
-
-          live "/admin/settings/comments", PhoenixKit.Modules.Comments.Web.Settings, :settings,
-            as: :comments_settings
-
           # Shop admin routes
           live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
 

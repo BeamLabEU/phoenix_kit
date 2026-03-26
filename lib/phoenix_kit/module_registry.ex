@@ -402,7 +402,6 @@ defmodule PhoenixKit.ModuleRegistry do
   defp internal_modules do
     [
       PhoenixKit.Modules.Billing,
-      PhoenixKit.Modules.Comments,
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
       PhoenixKit.Modules.Languages,
