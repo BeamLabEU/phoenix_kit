@@ -132,8 +132,9 @@ defmodule PhoenixKit.Modules.Languages do
     %Language{code: "ko", name: "Korean", is_default: false, is_enabled: true},
     %Language{code: "ru", name: "Russian", is_default: false, is_enabled: true},
     %Language{code: "nl", name: "Dutch", is_default: false, is_enabled: true},
-    %Language{code: "zh-CN", name: "Chinese (Mandarin)", is_default: false, is_enabled: true},
-    %Language{code: "ar", name: "Arabic", is_default: false, is_enabled: true}
+    %Language{code: "zh", name: "Chinese", is_default: false, is_enabled: true},
+    %Language{code: "ar", name: "Arabic", is_default: false, is_enabled: true},
+    %Language{code: "et", name: "Estonian", is_default: false, is_enabled: true}
   ]
 
   ## --- System Management Functions ---
@@ -514,7 +515,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_default_language_codes()
-      ["en-US", "es-ES", "fr-FR", "de-DE", "pt-BR", "it", "nl", "ru", "ja", "ko", "zh-CN", "ar"]
+      ["en-US", "es-ES", "fr-FR", "de-DE", "pt-BR", "it", "nl", "ru", "ja", "ko", "zh", "ar", "et"]
   """
   def get_default_language_codes do
     @top_10_languages
