@@ -278,18 +278,18 @@ defmodule PhoenixKit.Migrations.Postgres.V88 do
 
     # Restore old indexes
     execute("""
-    CREATE INDEX IF NOT EXISTS idx_publishing_posts_scheduled
+    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_scheduled
     ON #{p}phoenix_kit_publishing_posts (scheduled_at)
     WHERE status = 'scheduled'
     """)
 
     execute("""
-    CREATE INDEX IF NOT EXISTS idx_publishing_posts_group_status
+    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_group_status
     ON #{p}phoenix_kit_publishing_posts (group_uuid, status)
     """)
 
     execute("""
-    CREATE INDEX IF NOT EXISTS idx_publishing_posts_group_published_at
+    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_group_published_at
     ON #{p}phoenix_kit_publishing_posts (group_uuid, published_at DESC)
     """)
 
@@ -451,28 +451,64 @@ defmodule PhoenixKit.Migrations.Postgres.V88 do
           AND NOT v.data ? 'tags';
 
         -- Merge content.data fields into version.data (from best content row)
-        WITH best_content AS (
-          SELECT DISTINCT ON (c.version_uuid)
-            c.version_uuid,
-            c.data
-          FROM #{p}phoenix_kit_publishing_contents c
-          JOIN #{p}phoenix_kit_publishing_versions v ON v.uuid = c.version_uuid
-          JOIN #{p}phoenix_kit_publishing_posts p ON p.uuid = v.post_uuid
-          WHERE c.data != '{}'::jsonb
-          ORDER BY c.version_uuid,
-            CASE WHEN c.language = COALESCE(p.primary_language, 'en') THEN 0 ELSE 1 END,
-            c.language ASC
-        )
-        UPDATE #{p}phoenix_kit_publishing_versions v
-        SET data = v.data || jsonb_build_object(
-          'featured_image_uuid', bc.data->'featured_image_uuid',
-          'description', bc.data->'description',
-          'seo_title', bc.data->'seo_title',
-          'excerpt', bc.data->'excerpt'
-        )
-        FROM best_content bc
-        WHERE v.uuid = bc.version_uuid
-          AND NOT v.data ? 'featured_image_uuid';
+        -- Uses primary_language to pick the best content per version if the column
+        -- still exists; falls back to 'en' on partial re-run after column was dropped
+        IF EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_schema = '#{schema}'
+            AND table_name = 'phoenix_kit_publishing_posts'
+            AND column_name = 'primary_language'
+        ) THEN
+          EXECUTE '
+            WITH best_content AS (
+              SELECT DISTINCT ON (c.version_uuid)
+                c.version_uuid,
+                c.data
+              FROM #{p}phoenix_kit_publishing_contents c
+              JOIN #{p}phoenix_kit_publishing_versions v ON v.uuid = c.version_uuid
+              JOIN #{p}phoenix_kit_publishing_posts p ON p.uuid = v.post_uuid
+              WHERE c.data != ''{}''::jsonb
+              ORDER BY c.version_uuid,
+                CASE WHEN c.language = COALESCE(p.primary_language, ''en'') THEN 0 ELSE 1 END,
+                c.language ASC
+            )
+            UPDATE #{p}phoenix_kit_publishing_versions v
+            SET data = v.data || jsonb_build_object(
+              ''featured_image_uuid'', bc.data->''featured_image_uuid'',
+              ''description'', bc.data->''description'',
+              ''seo_title'', bc.data->''seo_title'',
+              ''excerpt'', bc.data->''excerpt''
+            )
+            FROM best_content bc
+            WHERE v.uuid = bc.version_uuid
+              AND NOT v.data ? ''featured_image_uuid''
+          ';
+        ELSE
+          -- primary_language already dropped (partial re-run), fall back to ''en''
+          EXECUTE '
+            WITH best_content AS (
+              SELECT DISTINCT ON (c.version_uuid)
+                c.version_uuid,
+                c.data
+              FROM #{p}phoenix_kit_publishing_contents c
+              JOIN #{p}phoenix_kit_publishing_versions v ON v.uuid = c.version_uuid
+              WHERE c.data != ''{}''::jsonb
+              ORDER BY c.version_uuid,
+                CASE WHEN c.language = ''en'' THEN 0 ELSE 1 END,
+                c.language ASC
+            )
+            UPDATE #{p}phoenix_kit_publishing_versions v
+            SET data = v.data || jsonb_build_object(
+              ''featured_image_uuid'', bc.data->''featured_image_uuid'',
+              ''description'', bc.data->''description'',
+              ''seo_title'', bc.data->''seo_title'',
+              ''excerpt'', bc.data->''excerpt''
+            )
+            FROM best_content bc
+            WHERE v.uuid = bc.version_uuid
+              AND NOT v.data ? ''featured_image_uuid''
+          ';
+        END IF;
 
       END IF;
     END $$;
