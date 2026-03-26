@@ -101,19 +101,19 @@ defmodule PhoenixKit.Migrations.Postgres.V88 do
     # ── New indexes ────────────────────────────────────────────────
 
     execute("""
-    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_active_version
+    CREATE INDEX IF NOT EXISTS idx_publishing_posts_active_version
     ON #{p}phoenix_kit_publishing_posts (active_version_uuid)
     WHERE active_version_uuid IS NOT NULL
     """)
 
     execute("""
-    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_trashed_at
+    CREATE INDEX IF NOT EXISTS idx_publishing_posts_trashed_at
     ON #{p}phoenix_kit_publishing_posts (trashed_at)
     WHERE trashed_at IS NULL
     """)
 
     execute("""
-    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_versions_published_at
+    CREATE INDEX IF NOT EXISTS idx_publishing_versions_published_at
     ON #{p}phoenix_kit_publishing_versions (published_at DESC)
     WHERE published_at IS NOT NULL
     """)
@@ -138,9 +138,9 @@ defmodule PhoenixKit.Migrations.Postgres.V88 do
 
     # ── Drop obsolete indexes ──────────────────────────────────────
 
-    execute("DROP INDEX IF EXISTS #{p}idx_publishing_posts_scheduled")
-    execute("DROP INDEX IF EXISTS #{p}idx_publishing_posts_group_status")
-    execute("DROP INDEX IF EXISTS #{p}idx_publishing_posts_group_published_at")
+    execute("DROP INDEX IF EXISTS idx_publishing_posts_scheduled")
+    execute("DROP INDEX IF EXISTS idx_publishing_posts_group_status")
+    execute("DROP INDEX IF EXISTS idx_publishing_posts_group_published_at")
 
     execute("COMMENT ON TABLE #{p}phoenix_kit IS '88'")
   end
@@ -272,24 +272,24 @@ defmodule PhoenixKit.Migrations.Postgres.V88 do
     """)
 
     # Drop new indexes
-    execute("DROP INDEX IF EXISTS #{p}idx_publishing_posts_active_version")
-    execute("DROP INDEX IF EXISTS #{p}idx_publishing_posts_trashed_at")
-    execute("DROP INDEX IF EXISTS #{p}idx_publishing_versions_published_at")
+    execute("DROP INDEX IF EXISTS idx_publishing_posts_active_version")
+    execute("DROP INDEX IF EXISTS idx_publishing_posts_trashed_at")
+    execute("DROP INDEX IF EXISTS idx_publishing_versions_published_at")
 
     # Restore old indexes
     execute("""
-    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_scheduled
+    CREATE INDEX IF NOT EXISTS idx_publishing_posts_scheduled
     ON #{p}phoenix_kit_publishing_posts (scheduled_at)
     WHERE status = 'scheduled'
     """)
 
     execute("""
-    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_group_status
+    CREATE INDEX IF NOT EXISTS idx_publishing_posts_group_status
     ON #{p}phoenix_kit_publishing_posts (group_uuid, status)
     """)
 
     execute("""
-    CREATE INDEX IF NOT EXISTS #{p}idx_publishing_posts_group_published_at
+    CREATE INDEX IF NOT EXISTS idx_publishing_posts_group_published_at
     ON #{p}phoenix_kit_publishing_posts (group_uuid, published_at DESC)
     """)
 
