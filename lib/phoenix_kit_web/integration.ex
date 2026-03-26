@@ -107,10 +107,7 @@ defmodule PhoenixKitWeb.Integration do
 
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb
-  alias PhoenixKitWeb.Routes.BlogRoutes
   alias PhoenixKitWeb.Routes.CustomerServiceRoutes
-  alias PhoenixKitWeb.Routes.EmailsRoutes
-  alias PhoenixKitWeb.Routes.PublishingRoutes
   alias PhoenixKitWeb.Routes.ReferralsRoutes
 
   @doc """
@@ -214,6 +211,10 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_require_admin
       end
 
+      pipeline :phoenix_kit_optional_scope do
+        plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_scope
+      end
+
       # Define API pipeline for JSON endpoints
       pipeline :phoenix_kit_api do
         plug :accepts, ["json"]
@@ -265,53 +266,6 @@ defmodule PhoenixKitWeb.Integration do
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
       end
-
-      # Sync API routes (JSON API - accepts JSON from remote PhoenixKit sites)
-      scope unquote(url_prefix) do
-        pipe_through [:phoenix_kit_api]
-
-        post "/sync/api/register-connection",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :register_connection
-
-        post "/sync/api/delete-connection",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :delete_connection
-
-        post "/sync/api/verify-connection",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :verify_connection
-
-        post "/sync/api/update-status",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :update_status
-
-        post "/sync/api/get-connection-status",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :get_connection_status
-
-        post "/sync/api/list-tables",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :list_tables
-
-        post "/sync/api/pull-data",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :pull_data
-
-        post "/sync/api/table-schema",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :table_schema
-
-        post "/sync/api/table-records",
-             PhoenixKit.Modules.Sync.Web.ApiController,
-             :table_records
-
-        get "/sync/api/status", PhoenixKit.Modules.Sync.Web.ApiController, :status
-      end
-
-      # Sync WebSocket - forward to plug for websocket upgrade handling
-      # Uses url_prefix to be consistent with API routes
-      forward "#{unquote(url_prefix)}/sync/websocket", PhoenixKit.Modules.Sync.Web.SocketPlug
 
       # Note: Email export routes moved to generate_emails_routes/1 (separate scope)
 
@@ -432,25 +386,15 @@ defmodule PhoenixKitWeb.Integration do
     # so plugin LiveViews don't need to wrap with LayoutWrapper themselves
     plugin_admin_routes = compile_plugin_admin_routes(__CALLER__.module)
 
-    # Get external route module AST outside quote to avoid require/alias inside quote
-    emails_admin =
-      if suffix == :_locale do
-        safe_route_call(EmailsRoutes, :admin_locale_routes, [])
-      else
-        safe_route_call(EmailsRoutes, :admin_routes, [])
-      end
-
-    {tickets_admin, publishing_admin, referrals_admin} =
+    {tickets_admin, referrals_admin} =
       if suffix == :_locale do
         {
           safe_route_call(CustomerServiceRoutes, :admin_locale_routes, []),
-          safe_route_call(PublishingRoutes, :admin_locale_routes, []),
           safe_route_call(ReferralsRoutes, :admin_locale_routes, [])
         }
       else
         {
           safe_route_call(CustomerServiceRoutes, :admin_routes, []),
-          safe_route_call(PublishingRoutes, :admin_routes, []),
           safe_route_call(ReferralsRoutes, :admin_routes, [])
         }
       end
@@ -487,16 +431,6 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/authorization", Live.Settings.Authorization, :index
         live "/admin/settings/organization", Live.Settings.Organization, :index
         live "/admin/modules", Live.Modules, :index
-
-        # Posts module routes
-        live "/admin/posts", Live.Modules.Posts.Posts, :index
-        live "/admin/posts/new", Live.Modules.Posts.Edit, :new
-        live "/admin/posts/groups", Live.Modules.Posts.Groups, :index
-        live "/admin/posts/groups/new", Live.Modules.Posts.GroupEdit, :new
-        live "/admin/posts/groups/:id/edit", Live.Modules.Posts.GroupEdit, :edit
-        live "/admin/posts/:id", Live.Modules.Posts.Details, :show
-        live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
-        live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
 
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
@@ -541,85 +475,11 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
 
-          # Comments module routes
-          live "/admin/comments", PhoenixKit.Modules.Comments.Web.Index, :index,
-            as: :comments_index
-
-          live "/admin/settings/comments", PhoenixKit.Modules.Comments.Web.Settings, :settings,
-            as: :comments_settings
-
-          # Sync module routes
-          live "/admin/sync", PhoenixKit.Modules.Sync.Web.Index, :index, as: :sync_index
-
-          live "/admin/sync/connections", PhoenixKit.Modules.Sync.Web.ConnectionsLive, :index,
-            as: :sync_connections
-
-          live "/admin/sync/history", PhoenixKit.Modules.Sync.Web.History, :index,
-            as: :sync_history
-
-          # Entities module routes
-          live "/admin/entities", PhoenixKit.Modules.Entities.Web.Entities, :index, as: :entities
-
-          live "/admin/entities/new", PhoenixKit.Modules.Entities.Web.EntityForm, :new,
-            as: :entities_new
-
-          live "/admin/entities/:id/edit", PhoenixKit.Modules.Entities.Web.EntityForm, :edit,
-            as: :entities_edit
-
-          live "/admin/entities/:entity_slug/data",
-               PhoenixKit.Modules.Entities.Web.DataNavigator,
-               :entity,
-               as: :entities_data_entity
-
-          live "/admin/entities/:entity_slug/data/new",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :new,
-               as: :entities_data_new
-
-          live "/admin/entities/:entity_slug/data/:uuid",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :show,
-               as: :entities_data_show
-
-          live "/admin/entities/:entity_slug/data/:uuid/edit",
-               PhoenixKit.Modules.Entities.Web.DataForm,
-               :edit,
-               as: :entities_data_edit
-
-          live "/admin/settings/entities",
-               PhoenixKit.Modules.Entities.Web.EntitiesSettings,
-               :index,
-               as: :entities_settings
-
           # Shop admin routes (only when phoenix_kit_ecommerce is installed)
           unquote(shop_admin)
 
-          # AI module routes
-          live "/admin/ai", PhoenixKit.Modules.AI.Web.Endpoints, :index, as: :ai_index
-
-          live "/admin/ai/endpoints", PhoenixKit.Modules.AI.Web.Endpoints, :endpoints,
-            as: :ai_endpoints
-
-          live "/admin/ai/usage", PhoenixKit.Modules.AI.Web.Endpoints, :usage, as: :ai_usage
-
-          live "/admin/ai/endpoints/new", PhoenixKit.Modules.AI.Web.EndpointForm, :new,
-            as: :ai_endpoint_new
-
-          live "/admin/ai/endpoints/:id/edit", PhoenixKit.Modules.AI.Web.EndpointForm, :edit,
-            as: :ai_endpoint_edit
-
-          live "/admin/ai/prompts", PhoenixKit.Modules.AI.Web.Prompts, :index, as: :ai_prompts
-
-          live "/admin/ai/prompts/new", PhoenixKit.Modules.AI.Web.PromptForm, :new,
-            as: :ai_prompt_new
-
-          live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
-            as: :ai_prompt_edit
-
           # Routes from external route modules
-          unquote(emails_admin)
           unquote(tickets_admin)
-          unquote(publishing_admin)
           unquote(referrals_admin)
 
           # Custom admin routes from :admin_dashboard_tabs config
@@ -1047,8 +907,41 @@ defmodule PhoenixKitWeb.Integration do
   def compile_external_admin_routes(suffix) do
     fun = if suffix == :_locale, do: :admin_locale_routes, else: :admin_routes
 
-    PhoenixKit.Config.get(:route_modules, [])
+    all_route_modules()
     |> Enum.flat_map(&collect_admin_routes(&1, fun))
+  end
+
+  # Collect route modules from config + auto-discovered external PhoenixKit modules.
+  #
+  # Uses Code.ensure_compiled/1 (not Code.ensure_loaded?/1) because this runs
+  # at compile time inside macros. ensure_compiled waits for the module to finish
+  # compiling if it's currently being compiled, avoiding false negatives during
+  # parallel compilation. ensure_loaded? only checks if the module is already
+  # loaded and would miss modules still being compiled.
+  defp all_route_modules do
+    config_modules = PhoenixKit.Config.get(:route_modules, [])
+
+    discovered_route_modules =
+      PhoenixKit.ModuleDiscovery.discover_external_modules()
+      |> Enum.flat_map(fn mod ->
+        case Code.ensure_compiled(mod) do
+          {:module, _} ->
+            if function_exported?(mod, :route_module, 0) do
+              case mod.route_module() do
+                nil -> []
+                route_mod -> [route_mod]
+              end
+            else
+              []
+            end
+
+          _ ->
+            []
+        end
+      end)
+
+    (config_modules ++ discovered_route_modules)
+    |> Enum.uniq()
   end
 
   defp collect_admin_routes(mod, fun) do
@@ -1070,7 +963,7 @@ defmodule PhoenixKitWeb.Integration do
   # Each module should implement public_routes/1 (receives url_prefix).
   @doc false
   def compile_external_public_routes(url_prefix) do
-    PhoenixKit.Config.get(:route_modules, [])
+    all_route_modules()
     |> Enum.flat_map(&collect_public_routes(&1, url_prefix))
   end
 
@@ -1211,10 +1104,7 @@ defmodule PhoenixKitWeb.Integration do
 
     # Call route generators BEFORE quote block (aliases work in this context)
     # Uses safe_route_call/3 so modules can be safely extracted to separate packages
-    emails_routes = safe_route_call(EmailsRoutes, :generate, [url_prefix])
-    publishing_routes = safe_route_call(PublishingRoutes, :generate, [url_prefix])
     customer_service_routes = safe_route_call(CustomerServiceRoutes, :generate, [url_prefix])
-    blog_routes = safe_route_call(BlogRoutes, :generate, [url_prefix])
 
     # External route modules with public/non-admin routes
     external_public_routes = compile_external_public_routes(url_prefix)
@@ -1234,8 +1124,6 @@ defmodule PhoenixKitWeb.Integration do
       unquote_splicing(module_public_routes)
 
       # Generate module routes from separate files (improves compilation time)
-      unquote(emails_routes)
-      unquote(publishing_routes)
       unquote(customer_service_routes)
 
       # Generate localized routes
@@ -1244,48 +1132,11 @@ defmodule PhoenixKitWeb.Integration do
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
 
-      # Generate blog routes (after other routes to prevent conflicts)
-      unquote(blog_routes)
-
       # External route modules with public routes
       unquote_splicing(external_public_routes)
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())
-    end
-  end
-
-  @doc """
-  **DEPRECATED**: This macro is no longer needed.
-
-  The Sync WebSocket is now automatically handled via the router when you
-  use `phoenix_kit_routes()`. The websocket endpoint is available at
-  `{url_prefix}/sync/websocket` without any additional configuration.
-
-  You can safely remove this macro from your endpoint.ex if you have it.
-
-  ## Legacy Usage (deprecated)
-
-  Previously, this macro was required in endpoint.ex:
-
-      defmodule MyAppWeb.Endpoint do
-        use Phoenix.Endpoint, otp_app: :my_app
-        import PhoenixKitWeb.Integration
-
-        # No longer needed - remove this line
-        # phoenix_kit_socket()
-      end
-
-  ## Implementation Note
-
-  WebSocket handling is now done via `forward` in the router, which makes
-  the setup fully self-contained within PhoenixKit. No endpoint modifications
-  are required.
-  """
-  @deprecated "Sync websocket is now handled automatically via phoenix_kit_routes()"
-  defmacro phoenix_kit_socket do
-    quote do
-      plug PhoenixKit.Modules.Sync.Web.SocketPlug
     end
   end
 

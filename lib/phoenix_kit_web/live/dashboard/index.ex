@@ -9,7 +9,6 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
     socket =
       socket
       |> assign(:page_title, gettext("Dashboard"))
-      |> assign(:project_title, PhoenixKit.Settings.get_project_title())
 
     {:ok, socket}
   end
@@ -18,16 +17,20 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
   def render(assigns) do
     ~H"""
     <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-      <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div class="max-w-2xl mx-auto">
-          <h2 class="text-4xl font-bold text-base-content mb-4">
-            {gettext("Welcome to your Dashboard")}
-          </h2>
-          <p class="text-lg text-base-content/70">
-            {gettext(
-              "Your personal dashboard is ready. Explore your account settings and manage your profile from here."
-            )}
-          </p>
+      <div class="max-w-7xl px-4 sm:px-6 lg:px-8">
+        <.user_dashboard_header
+          title={@page_title}
+          subtitle={gettext("Welcome to your personal dashboard")}
+        />
+
+        <div class="bg-base-100 shadow-sm rounded-lg p-6">
+          <div class="prose prose-sm dark:prose-invert max-w-none">
+            <p class="text-base-content/70">
+              {gettext(
+                "Your personal dashboard is ready. Explore your account settings and manage your profile from here."
+              )}
+            </p>
+          </div>
         </div>
       </div>
     </PhoenixKitWeb.Layouts.dashboard>

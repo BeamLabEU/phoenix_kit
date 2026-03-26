@@ -24,8 +24,6 @@ defmodule PhoenixKit.Migrations.Postgres.V15 do
   """
   use Ecto.Migration
 
-  alias Mix.Tasks.PhoenixKit.SeedTemplates
-
   @doc """
   Run the V15 migration to add email templates system.
   """
@@ -130,10 +128,13 @@ defmodule PhoenixKit.Migrations.Postgres.V15 do
 
   # Private function to seed system email templates
   defp seed_system_templates do
-    case Code.ensure_loaded(SeedTemplates) do
+    seed_mod = Mix.Tasks.PhoenixKit.SeedTemplates
+
+    case Code.ensure_loaded(seed_mod) do
       {:module, _} ->
         try do
-          SeedTemplates.run(["--quiet"])
+          # credo:disable-for-next-line Credo.Check.Refactor.Apply
+          apply(seed_mod, :run, [["--quiet"]])
         rescue
           error ->
             # Log the error but don't fail the migration

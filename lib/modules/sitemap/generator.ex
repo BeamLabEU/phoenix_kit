@@ -432,7 +432,6 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery,
       PhoenixKit.Modules.Sitemap.Sources.Static,
       PhoenixKit.Modules.Sitemap.Sources.Publishing,
-      PhoenixKit.Modules.Sitemap.Sources.Entities,
       PhoenixKit.Modules.Sitemap.Sources.Posts,
       PhoenixKit.Modules.Sitemap.Sources.Shop
     ]

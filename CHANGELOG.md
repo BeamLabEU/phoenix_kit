@@ -1,3 +1,79 @@
+## 1.7.82 - 2026-03-24
+
+### Added
+- Add V86 migration: Document Creator tables (headers_footers, templates, documents)
+- Add V87 migration: Catalogue tables (manufacturers, suppliers, catalogues, categories, items)
+- Add `system_prompt` field to AI prompts and AI Playground page
+- Add database connection check to install and update tasks
+- Add AdminEditHelper for universal admin edit links in public views
+- Add email provider behaviour, refactor Mailer and UserNotifier
+- Add lastmod to sitemap group listings and homepage
+- Enrich external module cards with config stats, settings link, and `module_card` component
+
+### Changed
+- Extract Emails module from core to standalone `phoenix_kit_emails` package
+- Extract Publishing module to standalone `phoenix_kit_publishing` package
+- Extract Entities module to standalone `phoenix_kit_entities` package
+- Extract AI module to standalone `phoenix_kit_ai` package
+- Remove hardcoded Emails block from Modules page — now rendered as external package
+- Guard all Publishing references behind `Code.ensure_loaded?` for external module support
+- Guard EntityForm render call with `Code.ensure_loaded?` check in Pages renderer
+- Suppress warnings for optional external modules with `@compile :no_warn_undefined`
+- Exclude external module namespaces from Credo alias usage check
+- Make module registry and permissions tests count-independent after module extractions
+- Document `ensure_compiled` vs `ensure_loaded?` choice in integration route collection
+- Update Leaf dependency to v0.2.5
+
+### Fixed
+- Fix V86/V87 migrations to use `uuid_generate_v7()` instead of `gen_random_uuid()`
+- Fix post-merge issues from Emails extraction
+- Fix `extract_admin_links`: skip parent tabs, deduplicate paths
+- Fix `external_plugin_view?` to recognize `PhoenixKit.Modules.*.Web` as external packages
+- Fix DbConnectionCheck: correct spec, naming, and remove hard exit from status task
+- Fix media selector modal z-index to appear above all overlays
+- Fix `module_card` to render `hero-*` icons properly
+- Fix cookie consent: dynamic legal links, theme-aware backdrop, daisyUI toggle
+
+## 1.7.81 - 2026-03-21
+
+### Changed
+- Extract Posts module to standalone `phoenix_kit_posts` package
+- Update Comments module to conditionally load Posts handler via `Code.ensure_loaded?/1`
+- Update scheduled jobs worker with extracted catch-up helpers for optional Posts dispatch
+
+## 1.7.80 - 2026-03-20
+
+### Added
+- Add `uuid` type to custom fields system
+- Add auto-registration of custom field definitions on save with type inference
+
+### Changed
+- Extract Sync module to standalone `phoenix_kit_sync` package
+- Move custom fields domain logic to `CustomFields` module, deduplicate UUID regex, add error logging
+- Fix permissions table style — replace manual zebra striping with daisyUI `table-zebra`, use primary-colored header
+
+### Fixed
+- Fix avatar upload handling and `custom_fields` preservation in UserSettings
+- Fix admin page and user dashboard styles
+- Fix plugin reference name in module system guide
+
+## 1.7.79 - 2026-03-20
+
+### Fixed
+- Fix UserSettings regressions from PR #436 redesign:
+  - Restore timezone selector (timezone select, mismatch warning, browser detection)
+  - Restore Apple OAuth provider icon (`hero-device-phone-mobile`)
+  - Restore OAuth-only password warning for users without passwords
+  - Restore provider email display in connected accounts list
+  - Fix custom field `select` using index-based values instead of actual option values (data compatibility break)
+  - Restore all custom field input types (`textarea`, `number`, `email`, `url`, `date`) — were collapsed to plain text
+  - Restore `required` attribute on custom field inputs
+  - Restore unique `id` attributes on password/email form hidden inputs
+  - Restore profile/avatar success and error messages in template
+  - Fix `shadow-xl` → `shadow-sm` for card styling consistency
+  - Fix divider placement — move out of username field, add "Additional Information" heading for custom fields
+  - Extract `extract_custom_fields/1` and `merge_custom_fields/3` helpers to DRY duplicated logic
+
 ## 1.7.78 - 2026-03-18
 
 ### Added

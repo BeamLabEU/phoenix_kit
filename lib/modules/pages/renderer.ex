@@ -6,11 +6,12 @@ defmodule PhoenixKit.Modules.Pages.Renderer do
   Cache keys include content hashes for automatic invalidation.
   """
 
+  @compile {:no_warn_undefined, [{PhoenixKitEntities.Components.EntityForm, :render, 1}]}
+
   require Logger
 
   alias Phoenix.HTML.Safe
   alias PhoenixKit.Modules.Pages.PageBuilder
-  alias PhoenixKit.Modules.Shared.Components.EntityForm
   alias PhoenixKit.Modules.Shared.Components.Image
   alias PhoenixKit.Modules.Shared.Components.Video
   alias PhoenixKit.Settings
@@ -343,9 +344,15 @@ defmodule PhoenixKit.Modules.Pages.Renderer do
       children: []
     }
 
-    EntityForm.render(assigns)
-    |> Safe.to_iodata()
-    |> IO.iodata_to_binary()
+    entity_form = PhoenixKitEntities.Components.EntityForm
+
+    if Code.ensure_loaded?(entity_form) and function_exported?(entity_form, :render, 1) do
+      entity_form.render(assigns)
+      |> Safe.to_iodata()
+      |> IO.iodata_to_binary()
+    else
+      "<div class='error'>Entity form component not available (phoenix_kit_entities not installed)</div>"
+    end
   rescue
     error ->
       Logger.warning("Error rendering EntityForm component: #{inspect(error)}")

@@ -4,7 +4,7 @@ defmodule PhoenixKit.Install.ObanConfig do
 
   This module provides functionality to:
   - Configure Oban for background job processing
-  - Set up required queues (default, emails, file_processing)
+  - Set up required queues (default, file_processing)
   - Add Oban.Plugins.Pruner for job cleanup
   - Add Oban to application supervisor tree
   - Ensure configuration exists during updates
@@ -15,8 +15,6 @@ defmodule PhoenixKit.Install.ObanConfig do
   @dialyzer {:nowarn_function, update_existing_oban_config: 3}
   @dialyzer {:nowarn_function, ensure_posts_queue: 2}
   @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
-  @dialyzer {:nowarn_function, ensure_sqs_polling_queue: 2}
-  @dialyzer {:nowarn_function, ensure_sync_queue: 2}
   @dialyzer {:nowarn_function, ensure_shop_imports_queue: 2}
   @dialyzer {:nowarn_function, ensure_newsletters_delivery_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
@@ -33,7 +31,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   This function ensures that Oban is properly configured for PhoenixKit's
   background job processing, including:
   1. Repo configuration (auto-detected from PhoenixKit config)
-  2. Required queues for file processing and email handling
+  2. Required queues for file processing
   3. Pruner plugin for automatic job cleanup
 
   ## Parameters
@@ -111,25 +109,20 @@ defmodule PhoenixKit.Install.ObanConfig do
     oban_config = """
 
     # Configure Oban for PhoenixKit background jobs
-    # Required for file processing (storage system), email handling, posts, sitemap, and DB sync
+    # Required for file processing (storage system), posts, and sitemap
     config :#{app_name}, Oban,
       repo: #{repo_module},
       queues: [
         default: 10,           # General purpose queue
-        emails: 50,            # Email processing
         file_processing: 20,   # File variant generation (storage system)
         posts: 10,             # Posts scheduled publishing
-        scheduled_jobs: 1,     # Scheduled jobs cron (1-day retention)
+        scheduled_jobs: 1,     # Scheduled jobs cron
         sitemap: 5,            # Sitemap generation
-        sqs_polling: 1,        # SQS polling for email events (only one concurrent job)
-        sync: 5,            # Sync data import
         newsletters_delivery: 10  # Newsletters broadcast deliveries
       ],
       plugins: [
-        # Main pruner: 30 days for most queues
-        {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30, queue: [:default, :emails, :file_processing, :posts, :sitemap, :sqs_polling, :sync]},
-        # Dedicated pruner: 1 day only for scheduled_jobs (cron runs every minute)
-        {Oban.Plugins.Pruner, max_age: 60 * 60 * 24, queue: [:scheduled_jobs]},
+        # Pruner: delete completed/discarded jobs after 30 days
+        {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
         {Oban.Plugins.Cron,
          crontab: [
            {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
@@ -170,7 +163,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Update existing Oban configuration to add posts/sitemap/sqs_polling/sync queues and cron plugin
+  # Update existing Oban configuration to add posts/sitemap queues and cron plugin
   defp update_existing_oban_config(source, content, app_name) do
     Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
 
@@ -178,8 +171,6 @@ defmodule PhoenixKit.Install.ObanConfig do
       content
       |> ensure_posts_queue(app_name)
       |> ensure_sitemap_queue(app_name)
-      |> ensure_sqs_polling_queue(app_name)
-      |> ensure_sync_queue(app_name)
       |> ensure_shop_imports_queue(app_name)
       |> ensure_newsletters_delivery_queue(app_name)
       |> ensure_cron_plugin(app_name)
@@ -282,96 +273,6 @@ defmodule PhoenixKit.Install.ObanConfig do
           )
 
           Mix.shell().error("     Please manually add: sitemap: 5")
-          content
-      end
-    end
-  end
-
-  # Ensure sqs_polling queue exists in the queues list
-  defp ensure_sqs_polling_queue(content, app_name) do
-    # Check if sqs_polling queue already exists
-    if Regex.match?(~r/sqs_polling:\s*\d+/, content) do
-      Mix.shell().info("  ℹ️  SQS polling queue already configured")
-      content
-    else
-      Mix.shell().info("  ➕ Adding sqs_polling queue to Oban configuration...")
-
-      # Find the ACTIVE queues configuration (not commented out)
-      case Regex.run(
-             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
-             content,
-             capture: :all
-           ) do
-        [full_match, before_queues, queues_content, after_queues] ->
-          Mix.shell().info("  ✓ Found queues block, adding sqs_polling queue")
-
-          # Remove trailing whitespace and check for comma
-          trimmed_content = String.trim_trailing(queues_content)
-          has_trailing_comma = String.ends_with?(trimmed_content, ",")
-
-          # Add sqs_polling queue with proper formatting (no comments to avoid syntax issues)
-          new_queue_entry =
-            if has_trailing_comma do
-              "\n    sqs_polling: 1"
-            else
-              ",\n    sqs_polling: 1"
-            end
-
-          updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
-
-          String.replace(content, full_match, updated_queues, global: false)
-
-        nil ->
-          Mix.shell().error(
-            "  ⚠️  Could not parse queues block for :#{app_name} - skipping sqs_polling queue update"
-          )
-
-          Mix.shell().error("     Please manually add: sqs_polling: 1")
-          content
-      end
-    end
-  end
-
-  # Ensure sync queue exists in the queues list
-  defp ensure_sync_queue(content, app_name) do
-    # Check if sync queue already exists
-    if Regex.match?(~r/sync:\s*\d+/, content) do
-      Mix.shell().info("  ℹ️  sync queue already configured")
-      content
-    else
-      Mix.shell().info("  ➕ Adding sync queue to Oban configuration...")
-
-      # Find the ACTIVE queues configuration (not commented out)
-      case Regex.run(
-             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
-             content,
-             capture: :all
-           ) do
-        [full_match, before_queues, queues_content, after_queues] ->
-          Mix.shell().info("  ✓ Found queues block, adding sync queue")
-
-          # Remove trailing whitespace and check for comma
-          trimmed_content = String.trim_trailing(queues_content)
-          has_trailing_comma = String.ends_with?(trimmed_content, ",")
-
-          # Add sync queue with proper formatting (no comments to avoid syntax issues)
-          new_queue_entry =
-            if has_trailing_comma do
-              "\n    sync: 5"
-            else
-              ",\n    sync: 5"
-            end
-
-          updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
-
-          String.replace(content, full_match, updated_queues, global: false)
-
-        nil ->
-          Mix.shell().error(
-            "  ⚠️  Could not parse queues block for :#{app_name} - skipping sync queue update"
-          )
-
-          Mix.shell().error("     Please manually add: sync: 5")
           content
       end
     end
@@ -712,7 +613,7 @@ defmodule PhoenixKit.Install.ObanConfig do
       Igniter.add_notice(
         igniter,
         """
-        ⚙️  Oban configured for background jobs (file processing, emails, sitemap, sqs_polling)
+        ⚙️  Oban configured for background jobs (file processing, sitemap, newsletters)
            If queues were added/updated, restart your server to apply changes.
         """
         |> String.trim()
@@ -812,20 +713,15 @@ defmodule PhoenixKit.Install.ObanConfig do
         repo: #{repo_module},
         queues: [
           default: 10,
-          emails: 50,
           file_processing: 20,
           posts: 10,
-          scheduled_jobs: 1,     # Scheduled jobs cron (1-day retention)
+          scheduled_jobs: 1,
           sitemap: 5,
-          sqs_polling: 1,
-          sync: 5,
           newsletters_delivery: 10
         ],
         plugins: [
-          # Main pruner: 30 days for most queues
-          {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30, queue: [:default, :emails, :file_processing, :posts, :sitemap, :sqs_polling, :sync]},
-          # Dedicated pruner: 1 day only for scheduled_jobs (cron runs every minute)
-          {Oban.Plugins.Pruner, max_age: 60 * 60 * 24, queue: [:scheduled_jobs]},
+          # Pruner: delete completed/discarded jobs after 30 days
+          {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
           {Oban.Plugins.Cron,
            crontab: [
              {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
@@ -839,9 +735,8 @@ defmodule PhoenixKit.Install.ObanConfig do
     IMPORTANT: Restart your server after making these changes.
 
     Without this configuration, the storage system cannot process uploaded files,
-    scheduled posts will not be published automatically, sitemap generation
-    will not work asynchronously, SQS polling for email events will not function,
-    and DB Sync imports will not work.
+    scheduled posts will not be published automatically, and sitemap generation
+    will not work asynchronously.
     """
 
     Igniter.add_notice(igniter, notice)

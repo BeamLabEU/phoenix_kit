@@ -1,16 +1,16 @@
-# PhoenixKit - The Elixir Phoenix Starter Kit for SaaS apps
+# PhoenixKit — A Foundation for Building Your Elixir Phoenix Apps
 
 [![Hex Version](https://img.shields.io/hexpm/v/phoenix_kit)](https://hex.pm/packages/phoenix_kit)
 [![CI](https://github.com/BeamLabEU/phoenix_kit/workflows/CI/badge.svg)](https://github.com/BeamLabEU/phoenix_kit/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/BeamLabEU/phoenix_kit/branch/main/graph/badge.svg)](https://codecov.io/gh/BeamLabEU/phoenix_kit)
 
-We are actively building PhoenixKit, a comprehensive SaaS starter kit for the Elixir/Phoenix ecosystem. Our goal is to eliminate the need to reinvent the wheel every time we all start a new SaaS project.
+We are actively building PhoenixKit, a foundation for building your Elixir Phoenix apps — SaaS, social networks, ERP systems, marketplaces, internal tools, AI-powered apps, community platforms, and more. Our goal is to eliminate the need to reinvent the wheel every time you start a new project.
 
 **🚧 Early Access - We Need Your Feedback!**
 
 PhoenixKit is under heavy development and we're looking for early adopters to test, provide feedback, and help shape the future of this toolkit. If you're building with Phoenix and want to skip the boilerplate setup, we'd love to have you try it out and share your experience.
 
-With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps much faster and focus on your unique business logic instead of reimplementing common SaaS patterns.
+With PhoenixKit, you will be able to create Elixir/Phoenix apps much faster and focus on your unique business logic instead of reimplementing common patterns.
 
 ## 📖 Documentation
 
@@ -122,8 +122,6 @@ This will automatically:
      ✅ Timezone support
 
 ✅ Posts Module (for User Generated Content/UGC)
-
-✅ Sync Module (to sync dev / testing / staging / production) environments
 
 ✅ Sitemap Module
 
@@ -464,11 +462,11 @@ PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 
 PhoenixKit includes a granular permission system that controls which roles can access which admin sections and feature modules.
 
-**25 permission keys**: 5 core sections (dashboard, users, media, settings, modules) + 20 feature modules
+**24 permission keys**: 5 core sections (dashboard, users, media, settings, modules) + 19 feature modules
 
 **Access rules**:
 - **Owner** bypasses all checks (full access always)
-- **Admin** seeded with all 25 keys by default
+- **Admin** seeded with all 24 keys by default
 - **Custom roles** start with no permissions, assigned via matrix UI or API
 
 ```elixir
@@ -510,7 +508,6 @@ PhoenixKit.Modules.Entities.enable_system()
 PhoenixKit.Modules.Posts.enable_system()
 PhoenixKit.Emails.enable_system()
 PhoenixKit.Billing.enable_system()
-PhoenixKit.Modules.Sync.enable_system()
 
 # Disable when no longer needed
 PhoenixKit.Modules.AI.disable_system()
@@ -555,9 +552,6 @@ PhoenixKit.Modules.AI.disable_system()
 - `{prefix}/admin/settings/media` - Storage buckets and image dimensions
 - `{prefix}/admin/settings/sitemap` - Sitemap generation settings
 - `{prefix}/admin/settings/seo` - SEO configuration
-
-**Data Sync:**
-- `{prefix}/admin/db-sync` - Peer-to-peer database synchronization
 
 ## Architecture
 

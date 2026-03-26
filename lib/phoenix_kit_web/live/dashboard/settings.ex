@@ -49,14 +49,11 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
   def render(assigns) do
     ~H"""
     <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-      <div class="max-w-6xl mx-auto">
-        <%!-- Development Mode Notice --%>
-        <.dev_mailbox_notice class="mb-6 flex w-full sm:w-fit" />
-
-        <div class="mb-8">
-          <h1 class="text-3xl font-bold text-base-content mb-2">Settings</h1>
-          <p class="text-base-content/70">Manage your account settings and preferences</p>
-        </div>
+      <div class="max-w-7xl px-4 sm:px-6 lg:px-8">
+        <.user_dashboard_header
+          title={@page_title}
+          subtitle={gettext("Manage your account settings and preferences")}
+        />
 
         <.live_component
           module={PhoenixKitWeb.Live.Components.UserSettings}

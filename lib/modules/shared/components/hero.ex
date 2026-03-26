@@ -21,8 +21,7 @@ defmodule PhoenixKit.Modules.Shared.Components.Hero do
   use Phoenix.Component
 
   # Hero delegates child rendering to the caller's PageBuilder.Renderer.
-  # Default to Publishing's renderer for backward compatibility.
-  @default_renderer PhoenixKit.Modules.Publishing.PageBuilder.Renderer
+  @default_renderer PhoenixKit.Modules.Pages.PageBuilder.Renderer
 
   attr :variant, :string, default: "centered"
   attr :children, :list, default: []

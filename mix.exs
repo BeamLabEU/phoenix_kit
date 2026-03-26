@@ -1,8 +1,8 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.78"
-  @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
+  @version "1.7.82"
+  @description "A foundation for building Elixir Phoenix apps — SaaS, social networks, ERP systems, marketplaces, and more"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
   def project do
@@ -110,7 +110,7 @@ defmodule PhoenixKit.MixProject do
       {:hackney, "~> 1.9"},
 
       # Content editor
-      {:leaf, "~> 0.2.2"},
+      {:leaf, "~> 0.2.6"},
 
       # Utilities
       {:jason, "~> 1.4"},
@@ -179,7 +179,6 @@ defmodule PhoenixKit.MixProject do
         "guides/auth-header-integration.md",
         "guides/draggable-list-component.md",
         "guides/README.md",
-        "guides/entities-guide.md",
         "guides/custom-admin-pages.md",
         "lib/phoenix_kit/dashboard/ADMIN_README.md"
       ],

@@ -4,25 +4,16 @@ defmodule PhoenixKit.ModuleTest do
   alias PhoenixKit.ModuleRegistry
 
   @all_internal_modules [
-    PhoenixKit.Modules.AI,
-    PhoenixKit.Modules.Billing,
-    PhoenixKit.Modules.Comments,
     PhoenixKit.Modules.Connections,
     PhoenixKit.Modules.DB,
-    PhoenixKit.Modules.Emails,
-    PhoenixKit.Modules.Entities,
     PhoenixKit.Modules.Languages,
     PhoenixKit.Modules.Legal,
     PhoenixKit.Modules.Maintenance,
     PhoenixKit.Modules.Pages,
-    PhoenixKit.Modules.Posts,
-    PhoenixKit.Modules.Publishing,
     PhoenixKit.Modules.Referrals,
     PhoenixKit.Modules.SEO,
-    PhoenixKit.Modules.Shop,
     PhoenixKit.Modules.Sitemap,
     PhoenixKit.Modules.Storage,
-    PhoenixKit.Modules.Sync,
     PhoenixKit.Modules.CustomerService,
     PhoenixKit.Jobs
   ]
@@ -34,7 +25,7 @@ defmodule PhoenixKit.ModuleTest do
     :ok
   end
 
-  describe "all 20 modules implement PhoenixKit.Module behaviour" do
+  describe "all internal modules implement PhoenixKit.Module behaviour" do
     test "all modules are loadable" do
       for mod <- @all_internal_modules do
         assert Code.ensure_loaded?(mod), "#{inspect(mod)} should be loadable"

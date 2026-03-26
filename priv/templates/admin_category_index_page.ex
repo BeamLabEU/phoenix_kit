@@ -1,4 +1,4 @@
-defmodule <%= @web_module_prefix %>.PhoenixKit.Live.Admin.<%= @category %>.Index do
+defmodule <%= @web_module_prefix %>.PhoenixKit.Admin.<%= @category %>.Index do
   @moduledoc """
   Index page for the <%= @category %> admin category.
   """
@@ -23,7 +23,7 @@ defmodule <%= @web_module_prefix %>.PhoenixKit.Live.Admin.<%= @category %>.Index
   def render(assigns) do
     ~H"""
     <div class="min-h-screen bg-base-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         <.flash_messages flash={@flash} />
 
         <div class="bg-base-100 shadow-sm rounded-lg p-6">

@@ -1425,6 +1425,8 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def update_user_custom_fields(%User{} = user, custom_fields) when is_map(custom_fields) do
+    CustomFields.ensure_definitions_exist(custom_fields)
+
     case user
          |> User.custom_fields_changeset(%{custom_fields: custom_fields})
          |> Repo.update() do

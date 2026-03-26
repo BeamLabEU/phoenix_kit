@@ -52,6 +52,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       BasicConfiguration,
       BrowserPipelineIntegration,
       CssIntegration,
+      DbConnectionCheck,
       DemoFiles,
       EndpointIntegration,
       LayoutConfig,
@@ -173,6 +174,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
             # Run standard igniter process
             result = super(argv)
+
+            # Verify database is reachable before running migrations
+            DbConnectionCheck.ensure_connected!()
 
             # After igniter is done, handle interactive migration
             MigrationStrategy.handle_interactive_migration_after_config(elem(opts, 1))

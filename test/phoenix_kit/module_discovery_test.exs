@@ -18,7 +18,6 @@ defmodule PhoenixKit.ModuleDiscoveryTest do
     test "does not include internal PhoenixKit modules" do
       modules = ModuleDiscovery.discover_external_modules()
 
-      refute PhoenixKit.Modules.AI in modules
       refute PhoenixKit.Modules.CustomerService in modules
       refute PhoenixKit.Modules.Billing in modules
       refute PhoenixKit.Jobs in modules

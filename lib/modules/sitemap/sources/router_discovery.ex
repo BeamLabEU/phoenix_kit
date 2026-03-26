@@ -74,7 +74,6 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
     "^/api",
     "^/phoenix_kit",
     "^/dev",
-    "^/sync",
     "^/test",
     "^/dashboard",
     ":[a-z_]+",
@@ -248,7 +247,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
   end
 
   defp module_enabled?(mod, fun) do
-    function_exported?(mod, fun, 0) and apply(mod, fun, [])
+    Code.ensure_loaded?(mod) and function_exported?(mod, fun, 0) and apply(mod, fun, [])
+  rescue
+    _ -> false
   end
 
   defp get_route?(route) do

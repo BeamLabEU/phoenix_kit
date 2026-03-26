@@ -60,11 +60,16 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   use GenServer
 
+  @compile {:no_warn_undefined,
+            [
+              {PhoenixKitEntities, :invalidate_entities_cache, 0},
+              {PhoenixKitEntities.Events, :subscribe_to_entities, 0}
+            ]}
+
   require Logger
 
   alias PhoenixKit.Dashboard.{AdminTabs, Badge, Group, Tab}
   alias PhoenixKit.ModuleRegistry
-  alias PhoenixKit.Modules.Entities
   alias PhoenixKit.PubSubHelper
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Utils.Routes
@@ -640,9 +645,9 @@ defmodule PhoenixKit.Dashboard.Registry do
   @impl true
   def handle_info({event, _entity_uuid}, state)
       when event in [:entity_created, :entity_updated, :entity_deleted] do
-    if Code.ensure_loaded?(Entities) and
-         function_exported?(Entities, :invalidate_entities_cache, 0) do
-      Entities.invalidate_entities_cache()
+    if Code.ensure_loaded?(PhoenixKitEntities) and
+         function_exported?(PhoenixKitEntities, :invalidate_entities_cache, 0) do
+      PhoenixKitEntities.invalidate_entities_cache()
     end
 
     broadcast_refresh()
@@ -989,7 +994,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   # Subscribe to entity definition lifecycle events for sidebar cache invalidation.
   # Guarded since the Entities module is optional.
   defp subscribe_to_entity_events do
-    events_mod = PhoenixKit.Modules.Entities.Events
+    events_mod = PhoenixKitEntities.Events
 
     if Code.ensure_loaded?(events_mod) and
          function_exported?(events_mod, :subscribe_to_entities, 0) do
