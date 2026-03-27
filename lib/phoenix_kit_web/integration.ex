@@ -6,7 +6,9 @@ defmodule PhoenixKitWeb.Integration do
               PhoenixKit.Modules.Shop.Web.Routes,
               PhoenixKit.Modules.Shop.Web.Plugs.ShopSession,
               PhoenixKit.Modules.Shop.Web.UserOrders,
-              PhoenixKit.Modules.Shop.Web.UserOrderDetails
+              PhoenixKit.Modules.Shop.Web.UserOrderDetails,
+              PhoenixKitWeb.Live.Modules.Legal.Settings,
+              PhoenixKitWeb.Controllers.ConsentConfigController
             ]}
   @moduledoc """
   Integration helpers for adding PhoenixKit to Phoenix applications.
@@ -261,7 +263,9 @@ defmodule PhoenixKitWeb.Integration do
         get "/api/files/:file_uuid/info", FileController, :info
 
         # Cookie consent widget config (public API for JS auto-injection)
-        get "/api/consent-config", Controllers.ConsentConfigController, :config
+        if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do
+          get "/api/consent-config", Controllers.ConsentConfigController, :config
+        end
 
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
@@ -435,7 +439,11 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
         live "/admin/settings/languages/backend", Live.Modules.Languages, :backend
-        live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
+
+        if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do
+          live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
+        end
+
         live "/admin/settings/maintenance", Live.Modules.Maintenance.Settings, :index
         live "/admin/settings/seo", Live.Settings.SEO, :index
         live "/admin/settings/media", Live.Modules.Storage.Settings, :index
@@ -550,8 +558,32 @@ defmodule PhoenixKitWeb.Integration do
         end
       end
 
+    billing_user_routes =
+      if Code.ensure_loaded?(PhoenixKit.Modules.Billing.Web.UserBillingProfiles) do
+        quote do
+          live "/dashboard/billing-profiles",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+               :index,
+               as: :billing_user_profiles
+
+          live "/dashboard/billing-profiles/new",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :new,
+               as: :billing_user_profile_new
+
+          live "/dashboard/billing-profiles/:uuid/edit",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :edit,
+               as: :billing_user_profile_edit
+        end
+      else
+        quote do
+        end
+      end
+
     quote do
       unquote(shop_user_routes)
+      unquote(billing_user_routes)
 
       # Tickets user pages
       live "/dashboard/customer-service/tickets",
@@ -586,8 +618,32 @@ defmodule PhoenixKitWeb.Integration do
         end
       end
 
+    billing_user_locale_routes =
+      if Code.ensure_loaded?(PhoenixKit.Modules.Billing.Web.UserBillingProfiles) do
+        quote do
+          live "/dashboard/billing-profiles",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+               :index,
+               as: :billing_user_profiles_locale
+
+          live "/dashboard/billing-profiles/new",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :new,
+               as: :billing_user_profile_new_locale
+
+          live "/dashboard/billing-profiles/:uuid/edit",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :edit,
+               as: :billing_user_profile_edit_locale
+        end
+      else
+        quote do
+        end
+      end
+
     quote do
       unquote(shop_user_locale_routes)
+      unquote(billing_user_locale_routes)
 
       # Tickets user pages (locale variants)
       live "/dashboard/customer-service/tickets",
