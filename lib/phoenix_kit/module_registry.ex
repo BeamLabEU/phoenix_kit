@@ -401,7 +401,6 @@ defmodule PhoenixKit.ModuleRegistry do
   # remove it from this list and add it to :modules config instead.
   defp internal_modules do
     [
-      PhoenixKit.Modules.Billing,
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
       PhoenixKit.Modules.Languages,
@@ -410,7 +409,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Pages,
       PhoenixKit.Modules.Referrals,
       PhoenixKit.Modules.SEO,
-      PhoenixKit.Modules.Shop,
       PhoenixKit.Modules.Sitemap,
       PhoenixKit.Modules.Storage,
       PhoenixKit.Modules.CustomerService,

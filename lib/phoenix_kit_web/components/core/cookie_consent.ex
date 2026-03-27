@@ -315,7 +315,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                   <h2 class="font-semibold text-lg text-base-content">
                     {gettext("Privacy Preferences")}
                   </h2>
-                  <p class="text-xs text-base-content/60">
+                  <p class="text-xs text-base-content/70">
                     {gettext("Manage your cookie settings")}
                   </p>
                 </div>
@@ -367,7 +367,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                       </div>
                     </div>
 
-                    <%!-- Custom Toggle --%>
+                    <%!-- Toggle --%>
                     <input
                       type="checkbox"
                       id={"pk-consent-#{category.id}"}

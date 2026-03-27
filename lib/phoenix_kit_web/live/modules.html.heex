@@ -78,7 +78,7 @@
           title="Referral Codes"
           description="Manage referral codes for user registration and monitoring"
           icon="🎫"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="referrals"
         >
@@ -142,7 +142,7 @@
           title="Languages"
           description="Manage language module and translations"
           icon="🌐"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="languages"
         >
@@ -202,7 +202,7 @@
           title="Comments"
           description="Threaded comments with likes, moderation, and reactions across all content types"
           icon="💬"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="comments"
         >
@@ -213,7 +213,7 @@
             ]}>
               {if cfg[:enabled], do: "Enabled", else: "Disabled"}
             </span>
-            <%= if cfg[:enabled] and cfg[:pending_comments] > 0 do %>
+            <%= if cfg[:enabled] && cfg[:pending_comments] > 0 do %>
               <span class="badge badge-warning ml-2 whitespace-nowrap">
                 {cfg[:pending_comments]} pending
               </span>
@@ -273,7 +273,7 @@
           title="Customer Service"
           description="Customer support ticketing system with internal notes and status tracking"
           icon="🎫"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="customer_service"
         >
@@ -284,7 +284,7 @@
             ]}>
               {if cfg[:enabled], do: "Enabled", else: "Disabled"}
             </span>
-            <%= if cfg[:enabled] and cfg[:open_tickets] > 0 do %>
+            <%= if cfg[:enabled] && cfg[:open_tickets] > 0 do %>
               <span class="badge badge-warning ml-2 whitespace-nowrap">
                 {cfg[:open_tickets]} open
               </span>
@@ -343,7 +343,7 @@
           title="Connections"
           description="Social relationships with one-way follows and mutual connections"
           icon="🤝"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="connections"
         >
@@ -449,7 +449,7 @@
           title="Sitemap"
           description="Generate XML sitemaps for search engines with styled browser display"
           icon="🗺️"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="sitemap"
         >
@@ -460,7 +460,7 @@
             ]}>
               {if cfg[:enabled], do: "Enabled", else: "Disabled"}
             </span>
-            <%= if cfg[:enabled] and cfg[:schedule_enabled] do %>
+            <%= if cfg[:enabled] && cfg[:schedule_enabled] do %>
               <span class="badge badge-outline ml-2 whitespace-nowrap">
                 Auto-regenerate
               </span>
@@ -519,7 +519,7 @@
           title="Billing"
           description="Orders, invoices, billing profiles and multi-currency support"
           icon="💰"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="billing"
         >
@@ -668,7 +668,7 @@
           title="DB"
           description="Explore database tables and their contents"
           icon="🗃️"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="db"
           stats_title="Current Stats"
@@ -737,7 +737,7 @@
           title="Jobs"
           description="View-only dashboard for background job status and history"
           icon="⚙️"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="jobs"
         >
@@ -748,7 +748,7 @@
             ]}>
               {if cfg[:enabled], do: "Enabled", else: "Disabled"}
             </span>
-            <%= if cfg[:enabled] and cfg[:stats].executing > 0 do %>
+            <%= if cfg[:enabled] && cfg[:stats].executing > 0 do %>
               <span class="badge badge-outline badge-warning ml-2 whitespace-nowrap">
                 {cfg[:stats].executing} running
               </span>
@@ -802,7 +802,7 @@
           title="Legal"
           description="GDPR/CCPA compliance with consent tracking, cookie banners, and legal page generation"
           icon="⚖️"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="legal"
         >
@@ -813,7 +813,7 @@
             ]}>
               {if cfg[:enabled], do: "Enabled", else: "Disabled"}
             </span>
-            <%= if cfg[:enabled] and cfg[:publishing_enabled] do %>
+            <%= if cfg[:enabled] && cfg[:publishing_enabled] do %>
               <span class="badge badge-info ml-2">Publishing Ready</span>
             <% end %>
           </:status_badges>
@@ -850,11 +850,11 @@
           title="E-Commerce"
           description="Physical and digital products with cart and checkout"
           icon="🛒"
-          enabled={cfg[:enabled]}
+          enabled={cfg[:enabled] || false}
           toggle_event="toggle_module"
           toggle_key="shop"
-          toggle_disabled={not billing_cfg[:enabled]}
-          toggle_hint={if not billing_cfg[:enabled], do: "Billing Required"}
+          toggle_disabled={!billing_cfg[:enabled]}
+          toggle_hint={if !billing_cfg[:enabled], do: "Billing Required"}
         >
           <:status_badges>
             <span class={[
@@ -863,7 +863,7 @@
             ]}>
               {if cfg[:enabled], do: "Enabled", else: "Disabled"}
             </span>
-            <%= if not cfg[:enabled] and billing_cfg[:enabled] do %>
+            <%= if !cfg[:enabled] && billing_cfg[:enabled] do %>
               <span class="badge badge-info ml-2">Billing Ready</span>
             <% end %>
           </:status_badges>

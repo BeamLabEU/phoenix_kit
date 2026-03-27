@@ -99,9 +99,11 @@
   {"test/support/conn_case.ex", :unknown_function},
   {"test/support/data_case.ex", :unknown_function},
 
-  # Sync connections_live - MapSet opaque type false positives in topo_sort/visit_node
-  # Same pattern as context_selector.ex - MapSet.t() opaque type through recursive functions
-  # Matches both standard Dialyxir format (call_without_opaque) and legacy format (opaque term)
-  ~r/lib\/modules\/sync\/web\/connections_live\.ex:.*call_without_opaque/,
-  ~r/lib\/modules\/sync\/web\/connections_live\.ex:.*opaque term/
+  # Extracted module references — conditionally loaded via Code.ensure_loaded?
+  # These modules live in separate packages (phoenix_kit_ecommerce, phoenix_kit_billing)
+  {"lib/phoenix_kit_web/integration.ex", :unknown_function},
+  {"lib/phoenix_kit/utils/country_data.ex", :unknown_function},
+  {"lib/phoenix_kit_web/users/auth.ex", :unknown_function},
+  {"lib/modules/sitemap/sources/shop.ex", :unknown_function},
+  {"lib/phoenix_kit/users/auth.ex", :unknown_function}
 ]

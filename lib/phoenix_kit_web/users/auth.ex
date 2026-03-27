@@ -1,4 +1,5 @@
 defmodule PhoenixKitWeb.Users.Auth do
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Shop}
   @moduledoc """
   Authentication and authorization plugs for PhoenixKit user management.
 
@@ -42,7 +43,6 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Maintenance
-  alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
   alias PhoenixKit.Users.Permissions
@@ -106,16 +106,21 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp maybe_merge_guest_cart(conn, user) do
-    shop_session_id =
-      conn.cookies["shop_session_id"] || get_session(conn, :shop_session_id)
+    if Code.ensure_loaded?(PhoenixKit.Modules.Shop) do
+      shop_session_id =
+        conn.cookies["shop_session_id"] || get_session(conn, :shop_session_id)
 
-    if shop_session_id do
-      try do
-        Shop.merge_guest_cart(shop_session_id, user)
-      rescue
-        _ -> :ok
+      if shop_session_id do
+        try do
+          # credo:disable-for-next-line Credo.Check.Design.AliasUsage
+          PhoenixKit.Modules.Shop.merge_guest_cart(shop_session_id, user)
+        rescue
+          _ -> :ok
+        end
       end
     end
+
+    conn
   end
 
   defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do

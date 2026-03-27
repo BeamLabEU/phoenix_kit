@@ -569,6 +569,7 @@ defmodule PhoenixKit.Modules.Legal do
   - cookie_policy_url: string (backward compat, derived from published pages)
   - privacy_policy_url: string (backward compat, derived from published pages)
   - legal_links: list of %{title: string, url: string} for all published legal pages
+  - legal_index_url: string
   """
   @spec get_consent_widget_config() :: map()
   def get_consent_widget_config do

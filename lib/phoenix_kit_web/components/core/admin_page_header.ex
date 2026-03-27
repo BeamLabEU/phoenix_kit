@@ -46,7 +46,7 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
       </.admin_page_header>
 
       <%!-- Rich title content --%>
-      <.admin_page_header back={Routes.path("/admin/billing")}>
+      <.admin_page_header back={Routes.path("/admin/orders")}>
         <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">Invoice #123</h1>
         <p class="text-sm text-base-content/60 mt-0.5">Created 2 days ago</p>
       </.admin_page_header>
