@@ -313,7 +313,7 @@
         '.pk-banner{animation:pk-slide-up 0.4s cubic-bezier(0.16,1,0.3,1) forwards}' +
         '.pk-modal-backdrop{animation:pk-fade-in 0.2s ease forwards}' +
         '.pk-modal-content{animation:pk-slide-up 0.3s cubic-bezier(0.16,1,0.3,1) forwards}' +
-        '.pk-glass{background:oklch(var(--b1)/0.95);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid var(--pk-border);box-shadow:var(--pk-shadow)}' +
+        '.pk-glass{background:oklch(var(--b1)/0.98);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border:1px solid var(--pk-border);box-shadow:var(--pk-shadow)}' +
         '.pk-category-card{transition:all 0.2s ease;background:var(--pk-bg-alt);border:1px solid var(--pk-border)}' +
         '.pk-category-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px oklch(var(--bc)/0.1)}' +
         '.pk-toggle-track{background:var(--pk-border);transition:background 0.2s}' +
@@ -361,7 +361,7 @@
 
       // Modal - using theme colors
       '<div id="pk-consent-modal" style="position:fixed;inset:0;z-index:100;display:none" role="dialog" aria-modal="true" aria-label="Cookie preferences">' +
-        '<div class="pk-modal-backdrop" onclick="window.PhoenixKitConsent.closePreferences()" style="position:absolute;inset:0;background:oklch(var(--bc)/0.4);backdrop-filter:blur(4px)"></div>' +
+        '<div class="pk-modal-backdrop" onclick="window.PhoenixKitConsent.closePreferences()" style="position:absolute;inset:0;background:oklch(var(--b1)/0.7);backdrop-filter:blur(4px)"></div>' +
         '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;pointer-events:none">' +
           '<div class="pk-modal-content pk-glass" style="width:100%;max-width:28rem;max-height:85vh;overflow:hidden;border-radius:1rem;pointer-events:auto">' +
             // Modal Header

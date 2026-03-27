@@ -392,6 +392,15 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
                   >
                     {gettext("Legal")}
                   </a>
+                  <span :for={link <- @legal_links}>
+                    <span class="text-base-content/30">|</span>
+                    <a
+                      href={link.url}
+                      class="link hover:text-primary transition-colors ml-3"
+                    >
+                      {link.title}
+                    </a>
+                  </span>
                 </div>
 
                 <%!-- Action Buttons --%>
