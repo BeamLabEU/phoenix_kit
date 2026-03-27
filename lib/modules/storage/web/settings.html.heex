@@ -13,9 +13,7 @@
     <div>
       <h3 class="font-bold">{gettext("Core System Module")}</h3>
       <p class="text-sm">
-        {gettext(
-          "Storage is a core system module that is always enabled and cannot be disabled."
-        )}
+        {gettext("Storage is a core system module that is always enabled and cannot be disabled.")}
         {gettext("It provides essential file management functionality across PhoenixKit.")}
       </p>
     </div>
@@ -358,9 +356,7 @@
             <p class="text-xs text-base-content/70 mt-1">
               {gettext("Enter number of copies")} (1-{@max_redundancy}).
               <%= if @max_redundancy == 1 do %>
-                {gettext(
-                  "Only 1 active bucket available. Add more buckets to enable redundancy."
-                )}
+                {gettext("Only 1 active bucket available. Add more buckets to enable redundancy.")}
               <% else %>
                 {gettext("Maximum %{count} copies based on %{buckets} active bucket(s).",
                   count: @max_redundancy,
