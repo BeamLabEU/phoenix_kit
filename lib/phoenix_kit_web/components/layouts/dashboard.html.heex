@@ -155,8 +155,10 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
     <%!-- PhoenixKit Cookie Consent Widget Setup --%>
     <.phoenix_kit_globals />
     <%!-- PhoenixKit Cookie Consent Widget Script --%>
-    <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
-    </script>
+    <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do %>
+      <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
+      </script>
+    <% end %>
   </head>
   <body class="bg-base-100 antialiased">
     <div class="min-h-screen bg-base-100">

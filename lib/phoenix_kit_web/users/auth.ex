@@ -1,5 +1,6 @@
 defmodule PhoenixKitWeb.Users.Auth do
-  @compile {:no_warn_undefined, PhoenixKit.Modules.Shop}
+  @compile {:no_warn_undefined,
+            [PhoenixKit.Modules.Shop, PhoenixKitWeb.Live.Modules.Legal.Settings]}
   @moduledoc """
   Authentication and authorization plugs for PhoenixKit user management.
 
@@ -1124,7 +1125,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Settings.Organization => "settings",
     PhoenixKitWeb.Live.Settings.SEO => "seo",
     PhoenixKitWeb.Live.Modules.Languages => "languages",
-    PhoenixKitWeb.Live.Modules.Legal.Settings => "legal",
     PhoenixKitWeb.Live.Modules.Maintenance.Settings => "maintenance",
     PhoenixKitWeb.Live.Modules.Storage.Settings => "media",
     PhoenixKitWeb.Live.Modules.Storage.BucketForm => "media",
