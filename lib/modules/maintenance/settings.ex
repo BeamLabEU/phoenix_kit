@@ -110,14 +110,6 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
   """
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-      flash={@flash}
-      phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-      page_title="{@project_title} - Maintenance Mode Settings"
-      current_path={@current_path}
-      project_title={@project_title}
-      current_locale={@current_locale}
-    >
       <div class="container mx-auto px-4 py-6">
         <%!-- Header Section --%>
         <header class="w-full relative mb-6">
@@ -275,7 +267,6 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
           </div>
         </div>
       </div>
-    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
   end
 end
