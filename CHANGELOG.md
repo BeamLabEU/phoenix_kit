@@ -1,3 +1,30 @@
+## 1.7.83 - 2026-03-27
+
+### Added
+- Add V88 migration: Publishing schema V2 restructure
+- Add user dashboard generator with LiveView templates and standardize layout
+- Add `--index` flag to user dashboard generator for overriding default dashboard
+- Add Estonian to backend languages, fix Chinese code zh-CN → zh
+- Add CountryData to core utils for billing extraction
+- Add sitemap scheduler startup recovery
+
+### Changed
+- Extract Comments module into external `phoenix_kit_comments` package
+- Remove Shop module from core (extracted to `phoenix_kit_ecommerce` package)
+- Remove Billing module from core (extracted to `phoenix_kit_billing` package)
+- Replace hardcoded external module stats with generic `module_stats` callback
+- Remove hardcoded module cards for extracted packages
+- Rename and simplify admin page generator
+- Update Leaf dependency to v0.2.6
+
+### Fixed
+- Fix V88 migration: index prefix and partial re-run safety
+- Fix orphan files query to use `publishing_versions` table
+- Fix post-review issues from PR #453: Shop.Cart guard, consent attrs, language naming
+- Fix shop modules: remove billing struct patterns and fix nil clause ordering
+- Fix double navbar on comments admin pages
+- Fix auth page background breaking footer and page layout
+
 ## 1.7.82 - 2026-03-24
 
 ### Added
