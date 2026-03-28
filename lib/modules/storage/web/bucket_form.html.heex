@@ -1,364 +1,375 @@
-<div class="container mx-auto px-4 py-8 max-w-4xl">
-  <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings/media")}>
-    <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
-    <p class="text-sm text-base-content/60 mt-0.5">
-      {gettext("Configure storage provider settings and access credentials")}
-    </p>
-  </.admin_page_header>
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <.admin_page_header back={PhoenixKit.Utils.Routes.path("/admin/settings/media")}>
+      <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content">{@page_title}</h1>
+      <p class="text-sm text-base-content/60 mt-0.5">
+        {gettext("Configure storage provider settings and access credentials")}
+      </p>
+    </.admin_page_header>
 
-  <%!-- Form Section --%>
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
-      <.form for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
-        <%!-- Basic Information --%>
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">{gettext("Bucket Name")} *</span>
-            <span class="label-text-alt">
-              {gettext("Display name for this storage location")}
-            </span>
-          </label>
-          <input
-            type="text"
-            name="bucket[name]"
-            value={Ecto.Changeset.get_field(@changeset, :name)}
-            class={"input input-bordered #{input_class(@changeset, :name)}"}
-            placeholder={gettext("e.g., Production S3, Local SSD, Backup B2")}
-            required
-          />
-        </div>
-
-        <%= if @mode == :new do %>
-          <%!-- Provider Selection (only in new mode) --%>
+    <%!-- Form Section --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <.form for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
+          <%!-- Basic Information --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text font-semibold">{gettext("Storage Provider")} *</span>
-              <span class="label-text-alt">{gettext("Type of storage service")}</span>
-            </label>
-            <select
-              name="bucket[provider]"
-              class={"select select-bordered #{input_class(@changeset, :provider)}"}
-              required
-            >
-              <option value="">{gettext("Select provider...")}</option>
-              <option
-                value="local"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}
-              >
-                {gettext("Local Filesystem")}
-              </option>
-              <option
-                value="s3"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}
-              >
-                AWS S3
-              </option>
-              <option
-                value="b2"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}
-              >
-                Backblaze B2
-              </option>
-              <option
-                value="r2"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}
-              >
-                Cloudflare R2
-              </option>
-            </select>
-          </div>
-        <% else %>
-          <%!-- Provider Display (read-only in edit mode) --%>
-          <input type="hidden" name="bucket[provider]" value={@current_provider} />
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">{gettext("Storage Provider")}</span>
-              <span class="label-text-alt">{gettext("Cannot be changed after creation")}</span>
-            </label>
-            <div class="p-3 bg-base-200 rounded-lg">
-              <span class="badge badge-lg badge-ghost">
-                <%= case @current_provider do %>
-                  <% "local" -> %>
-                    {gettext("Local Filesystem")}
-                  <% "s3" -> %>
-                    AWS S3
-                  <% "b2" -> %>
-                    Backblaze B2
-                  <% "r2" -> %>
-                    Cloudflare R2
-                  <% _ -> %>
-                    {String.upcase(@current_provider || "Unknown")}
-                <% end %>
-              </span>
-            </div>
-          </div>
-        <% end %>
-
-        <%!-- Local Provider Settings --%>
-        <%= if @current_provider == "local" do %>
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">{gettext("Storage Path")} *</span>
+              <span class="label-text font-semibold">{gettext("Bucket Name")} *</span>
               <span class="label-text-alt">
-                {gettext("Directory path for local file storage")}
+                {gettext("Display name for this storage location")}
               </span>
             </label>
             <input
               type="text"
-              name="bucket[endpoint]"
-              value={Ecto.Changeset.get_field(@changeset, :endpoint)}
-              class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
-              placeholder="/path/to/storage"
+              name="bucket[name]"
+              value={Ecto.Changeset.get_field(@changeset, :name)}
+              class={"input input-bordered #{input_class(@changeset, :name)}"}
+              placeholder={gettext("e.g., Production S3, Local SSD, Backup B2")}
               required
             />
-            <label class="label">
-              <span class="label-text-alt">
-                {gettext("Absolute path to directory where files will be stored")}
-              </span>
-            </label>
-          </div>
-        <% end %>
-
-        <%!-- Cloud Provider Settings --%>
-        <%= if @current_provider in ["s3", "b2", "r2"] do %>
-          <div class="divider">{gettext("Cloud Provider Configuration")}</div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Region")}</span>
-                <span class="label-text-alt">{gettext("AWS region or equivalent")}</span>
-              </label>
-              <input
-                type="text"
-                name="bucket[region]"
-                value={Ecto.Changeset.get_field(@changeset, :region)}
-                class={"input input-bordered #{input_class(@changeset, :region)}"}
-                placeholder="e.g., us-east-1"
-              />
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Bucket Name")} *</span>
-                <span class="label-text-alt">{gettext("Cloud storage bucket name")}</span>
-              </label>
-              <input
-                type="text"
-                name="bucket[bucket_name]"
-                value={Ecto.Changeset.get_field(@changeset, :bucket_name)}
-                class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
-                placeholder="e.g., my-app-files"
-                required={@current_provider in ["b2", "r2"]}
-              />
-            </div>
           </div>
 
-          <%= if @current_provider in ["b2", "r2"] do %>
+          <%= if @mode == :new do %>
+            <%!-- Provider Selection (only in new mode) --%>
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">{gettext("Endpoint")} *</span>
-                <span class="label-text-alt">{gettext("S3-compatible endpoint URL")}</span>
+                <span class="label-text font-semibold">{gettext("Storage Provider")} *</span>
+                <span class="label-text-alt">{gettext("Type of storage service")}</span>
+              </label>
+              <select
+                name="bucket[provider]"
+                class={"select select-bordered #{input_class(@changeset, :provider)}"}
+                required
+              >
+                <option value="">{gettext("Select provider...")}</option>
+                <option
+                  value="local"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}
+                >
+                  {gettext("Local Filesystem")}
+                </option>
+                <option
+                  value="s3"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}
+                >
+                  AWS S3
+                </option>
+                <option
+                  value="b2"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}
+                >
+                  Backblaze B2
+                </option>
+                <option
+                  value="r2"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}
+                >
+                  Cloudflare R2
+                </option>
+              </select>
+            </div>
+          <% else %>
+            <%!-- Provider Display (read-only in edit mode) --%>
+            <input type="hidden" name="bucket[provider]" value={@current_provider} />
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">{gettext("Storage Provider")}</span>
+                <span class="label-text-alt">{gettext("Cannot be changed after creation")}</span>
+              </label>
+              <div class="p-3 bg-base-200 rounded-lg">
+                <span class="badge badge-lg badge-ghost">
+                  <%= case @current_provider do %>
+                    <% "local" -> %>
+                      {gettext("Local Filesystem")}
+                    <% "s3" -> %>
+                      AWS S3
+                    <% "b2" -> %>
+                      Backblaze B2
+                    <% "r2" -> %>
+                      Cloudflare R2
+                    <% _ -> %>
+                      {String.upcase(@current_provider || "Unknown")}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Local Provider Settings --%>
+          <%= if @current_provider == "local" do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">{gettext("Storage Path")} *</span>
+                <span class="label-text-alt">
+                  {gettext("Directory path for local file storage")}
+                </span>
               </label>
               <input
                 type="text"
                 name="bucket[endpoint]"
                 value={Ecto.Changeset.get_field(@changeset, :endpoint)}
                 class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
-                placeholder="e.g., s3.us-west-002.backblazeb2.com"
-                required={@current_provider in ["b2", "r2"]}
+                placeholder="/path/to/storage"
+                required
               />
-            </div>
-          <% end %>
-
-          <%!-- Access Credentials --%>
-          <div class="divider">{gettext("Access Credentials")}</div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">{gettext("Access Key ID")} *</span>
-                <span class="label-text-alt">{gettext("AWS access key or API key")}</span>
-              </label>
-              <input
-                type="text"
-                name="bucket[access_key_id]"
-                value={Ecto.Changeset.get_field(@changeset, :access_key_id)}
-                class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
-                placeholder="AKIA..."
-                required={@current_provider in ["b2", "r2"]}
-              />
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Secret Access Key")} *</span>
-                <span class="label-text-alt">{gettext("AWS secret key or API secret")}</span>
-              </label>
-              <input
-                type="password"
-                name="bucket[secret_access_key]"
-                value={Ecto.Changeset.get_field(@changeset, :secret_access_key)}
-                class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
-                placeholder="•••••••••••••••••••••••••••••••••"
-                required={@current_provider in ["b2", "r2"]}
-              />
-            </div>
-          </div>
-        <% end %>
-
-        <%!-- Additional Settings (shown for all providers) --%>
-        <div class="divider">{gettext("Additional Settings")}</div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <%= if @current_provider in ["s3", "b2", "r2"] do %>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("CDN URL")}</span>
-                <span class="label-text-alt">{gettext("CDN endpoint for file serving")}</span>
-              </label>
-              <input
-                type="url"
-                name="bucket[cdn_url]"
-                value={Ecto.Changeset.get_field(@changeset, :cdn_url)}
-                class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
-                placeholder="https://cdn.example.com"
-              />
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Access Type")}</span>
-                <span class="label-text-alt">{gettext("How files are served")}</span>
-              </label>
-              <select
-                name="bucket[access_type]"
-                class="select select-bordered w-full"
-              >
-                <option
-                  value="public"
-                  selected={Ecto.Changeset.get_field(@changeset, :access_type) == "public"}
-                >
-                  {gettext("Public (redirect to bucket URL)")}
-                </option>
-                <option
-                  value="private"
-                  selected={Ecto.Changeset.get_field(@changeset, :access_type) == "private"}
-                >
-                  {gettext("Private (proxy through server)")}
-                </option>
-              </select>
-              <label class="label">
-                <span class="label-text-alt text-base-content/60">
-                  {gettext(
-                    "Public: faster, uses CDN. Private: slower, works with ACL-protected buckets."
-                  )}
+                <span class="label-text-alt">
+                  {gettext("Absolute path to directory where files will be stored")}
                 </span>
               </label>
             </div>
           <% end %>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">{gettext("Priority")}</span>
-              <span class="label-text-alt">{gettext("Selection priority")}</span>
-            </label>
-            <input
-              type="number"
-              name="bucket[priority]"
-              value={Ecto.Changeset.get_field(@changeset, :priority)}
-              class={"input input-bordered #{input_class(@changeset, :priority)}"}
-              placeholder="0"
-              min="0"
-            />
-            <label class="label">
-              <span class="label-text-alt">
-                {gettext("0 = random/emptiest, 1+ = specific priority")}
-              </span>
-            </label>
+          <%!-- Cloud Provider Settings --%>
+          <%= if @current_provider in ["s3", "b2", "r2"] do %>
+            <div class="divider">{gettext("Cloud Provider Configuration")}</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Region")}</span>
+                  <span class="label-text-alt">{gettext("AWS region or equivalent")}</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[region]"
+                  value={Ecto.Changeset.get_field(@changeset, :region)}
+                  class={"input input-bordered #{input_class(@changeset, :region)}"}
+                  placeholder="e.g., us-east-1"
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Bucket Name")} *</span>
+                  <span class="label-text-alt">{gettext("Cloud storage bucket name")}</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[bucket_name]"
+                  value={Ecto.Changeset.get_field(@changeset, :bucket_name)}
+                  class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
+                  placeholder="e.g., my-app-files"
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
+            </div>
+
+            <%= if @current_provider in ["b2", "r2"] do %>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Endpoint")} *</span>
+                  <span class="label-text-alt">{gettext("S3-compatible endpoint URL")}</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[endpoint]"
+                  value={Ecto.Changeset.get_field(@changeset, :endpoint)}
+                  class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
+                  placeholder="e.g., s3.us-west-002.backblazeb2.com"
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
+            <% end %>
+
+            <%!-- Access Credentials --%>
+            <div class="divider">{gettext("Access Credentials")}</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Access Key ID")} *</span>
+                  <span class="label-text-alt">{gettext("AWS access key or API key")}</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[access_key_id]"
+                  value={Ecto.Changeset.get_field(@changeset, :access_key_id)}
+                  class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
+                  placeholder="AKIA..."
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Secret Access Key")} *</span>
+                  <span class="label-text-alt">{gettext("AWS secret key or API secret")}</span>
+                </label>
+                <input
+                  type="password"
+                  name="bucket[secret_access_key]"
+                  value={Ecto.Changeset.get_field(@changeset, :secret_access_key)}
+                  class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
+                  placeholder="•••••••••••••••••••••••••••••••••"
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Additional Settings (shown for all providers) --%>
+          <div class="divider">{gettext("Additional Settings")}</div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <%= if @current_provider in ["s3", "b2", "r2"] do %>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("CDN URL")}</span>
+                  <span class="label-text-alt">{gettext("CDN endpoint for file serving")}</span>
+                </label>
+                <input
+                  type="url"
+                  name="bucket[cdn_url]"
+                  value={Ecto.Changeset.get_field(@changeset, :cdn_url)}
+                  class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
+                  placeholder="https://cdn.example.com"
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Access Type")}</span>
+                  <span class="label-text-alt">{gettext("How files are served")}</span>
+                </label>
+                <select
+                  name="bucket[access_type]"
+                  class="select select-bordered w-full"
+                >
+                  <option
+                    value="public"
+                    selected={Ecto.Changeset.get_field(@changeset, :access_type) == "public"}
+                  >
+                    {gettext("Public (redirect to bucket URL)")}
+                  </option>
+                  <option
+                    value="private"
+                    selected={Ecto.Changeset.get_field(@changeset, :access_type) == "private"}
+                  >
+                    {gettext("Private (proxy through server)")}
+                  </option>
+                </select>
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    {gettext(
+                      "Public: faster, uses CDN. Private: slower, works with ACL-protected buckets."
+                    )}
+                  </span>
+                </label>
+              </div>
+            <% end %>
           </div>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">{gettext("Status")}</span>
-              <span class="label-text-alt">{gettext("Enable/disable bucket")}</span>
-            </label>
-            <div class="flex items-center gap-2">
-              <input type="hidden" name="bucket[enabled]" value="false" />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">{gettext("Priority")}</span>
+                <span class="label-text-alt">{gettext("Selection priority")}</span>
+              </label>
               <input
-                type="checkbox"
-                name="bucket[enabled]"
-                value="true"
-                checked={Ecto.Changeset.get_field(@changeset, :enabled)}
-                class="checkbox checkbox-primary"
+                type="number"
+                name="bucket[priority]"
+                value={Ecto.Changeset.get_field(@changeset, :priority)}
+                class={"input input-bordered #{input_class(@changeset, :priority)}"}
+                placeholder="0"
+                min="0"
               />
-              <span class="label-text">{gettext("Enable this bucket")}</span>
+              <label class="label">
+                <span class="label-text-alt">
+                  {gettext("0 = random/emptiest, 1+ = specific priority")}
+                </span>
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">{gettext("Status")}</span>
+                <span class="label-text-alt">{gettext("Enable/disable bucket")}</span>
+              </label>
+              <div class="flex items-center gap-2">
+                <input type="hidden" name="bucket[enabled]" value="false" />
+                <input
+                  type="checkbox"
+                  name="bucket[enabled]"
+                  value="true"
+                  checked={Ecto.Changeset.get_field(@changeset, :enabled)}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">{gettext("Enable this bucket")}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <%!-- Form Actions --%>
-        <div class="flex justify-end gap-2 pt-4">
-          <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
-            <.icon name="hero-check" class="w-4 h-4 mr-1" /> {gettext("Apply")}
-          </button>
-          <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media")}
-            class="btn btn-outline"
-          >
-            {gettext("Cancel")}
-          </.link>
-        </div>
-      </.form>
+          <%!-- Form Actions --%>
+          <div class="flex justify-end gap-2 pt-4">
+            <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
+              <.icon name="hero-check" class="w-4 h-4 mr-1" /> {gettext("Apply")}
+            </button>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media")}
+              class="btn btn-outline"
+            >
+              {gettext("Cancel")}
+            </.link>
+          </div>
+        </.form>
+      </div>
     </div>
-  </div>
 
-  <%!-- Help Section --%>
-  <div class="alert mt-6">
-    <.icon name="hero-light-bulb" class="w-5 h-5" />
-    <div>
-      <h3 class="font-bold">{gettext("Storage Provider Configuration")}</h3>
-      <p class="text-sm">
-        <strong>{gettext("Local Filesystem:")}</strong> {gettext(
-          "No additional configuration needed"
-        )}<br />
-        <strong>AWS S3:</strong> {gettext("Requires region, bucket name, and access credentials")}<br />
-        <strong>Backblaze B2:</strong> {gettext("Requires endpoint and access credentials")}<br />
-        <strong>Cloudflare R2:</strong> {gettext("Requires account ID and access credentials")}
-      </p>
-    </div>
-  </div>
-</div>
-
-<%!-- Create Path Confirmation Modal --%>
-<%= if @show_create_path_modal do %>
-  <div class="modal modal-open">
-    <div class="modal-box">
-      <h3 class="font-bold text-lg">{gettext("Create Storage Path")}</h3>
-      <p class="py-4">
-        {gettext("The storage path")}
-        <code class="badge badge-ghost">{@missing_path}</code> {gettext("does not exist.")}
-      </p>
-      <p class="mb-6">
-        {gettext("Would you like to create it now?")}
-      </p>
-      <div class="modal-action">
-        <button
-          phx-click="cancel_create_path"
-          class="btn btn-ghost"
-        >
-          {gettext("Cancel")}
-        </button>
-        <button
-          phx-click="confirm_create_path"
-          phx-value-path={@missing_path}
-          class="btn btn-primary"
-        >
-          <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Path")}
-        </button>
+    <%!-- Help Section --%>
+    <div class="alert mt-6">
+      <.icon name="hero-light-bulb" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">{gettext("Storage Provider Configuration")}</h3>
+        <p class="text-sm">
+          <strong>{gettext("Local Filesystem:")}</strong> {gettext(
+            "No additional configuration needed"
+          )}<br />
+          <strong>AWS S3:</strong> {gettext(
+            "Requires region, bucket name, and access credentials"
+          )}<br />
+          <strong>Backblaze B2:</strong> {gettext("Requires endpoint and access credentials")}<br />
+          <strong>Cloudflare R2:</strong> {gettext("Requires account ID and access credentials")}
+        </p>
       </div>
     </div>
   </div>
-<% end %>
+
+  <%!-- Create Path Confirmation Modal --%>
+  <%= if @show_create_path_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">{gettext("Create Storage Path")}</h3>
+        <p class="py-4">
+          {gettext("The storage path")}
+          <code class="badge badge-ghost">{@missing_path}</code> {gettext("does not exist.")}
+        </p>
+        <p class="mb-6">
+          {gettext("Would you like to create it now?")}
+        </p>
+        <div class="modal-action">
+          <button
+            phx-click="cancel_create_path"
+            class="btn btn-ghost"
+          >
+            {gettext("Cancel")}
+          </button>
+          <button
+            phx-click="confirm_create_path"
+            phx-value-path={@missing_path}
+            class="btn btn-primary"
+          >
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Path")}
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
