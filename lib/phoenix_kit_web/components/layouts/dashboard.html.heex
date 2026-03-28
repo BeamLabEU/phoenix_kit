@@ -417,5 +417,22 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
         });
       })();
     </script>
+
+    <%!-- Cookie Consent Widget --%>
+    <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) and
+           PhoenixKit.Modules.Legal.consent_widget_enabled?() do %>
+      <% config = PhoenixKit.Modules.Legal.get_consent_widget_config() %>
+      <PhoenixKit.Modules.Legal.CookieConsent.cookie_consent
+        frameworks={config.frameworks}
+        consent_mode={config.consent_mode}
+        icon_position={config.icon_position}
+        policy_version={config.policy_version}
+        cookie_policy_url={config.cookie_policy_url}
+        privacy_policy_url={config.privacy_policy_url}
+        google_consent_mode={config.google_consent_mode}
+        legal_links={config.legal_links}
+        legal_index_url={config.legal_index_url}
+      />
+    <% end %>
   </body>
 </html>
