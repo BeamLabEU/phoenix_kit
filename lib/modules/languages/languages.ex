@@ -120,8 +120,8 @@ defmodule PhoenixKit.Modules.Languages do
     ]
   }
 
-  # Top 10 most common languages for permanent display in admin
-  @top_10_languages [
+  # Default languages for permanent display in admin
+  @default_languages [
     %Language{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true},
     %Language{code: "es-ES", name: "Spanish (Spain)", is_default: false, is_enabled: true},
     %Language{code: "fr-FR", name: "French (France)", is_default: false, is_enabled: true},
@@ -425,9 +425,9 @@ defmodule PhoenixKit.Modules.Languages do
   Gets the appropriate language list for frontend display.
 
   Returns the configured languages if the module is enabled.
-  Otherwise, returns the permanent top 12 most common languages for display.
+  Otherwise, returns the default languages for display.
 
-  This allows the frontend to always show a language list, reverting to the top 12 when
+  This allows the frontend to always show a language list, reverting to defaults when
   the module is disabled.
 
   ## Examples
@@ -445,8 +445,8 @@ defmodule PhoenixKit.Modules.Languages do
       # Show configured languages when enabled (even if just 1)
       get_languages()
     else
-      # Show top 12 default languages when disabled
-      @top_10_languages
+      # Show default languages when disabled
+      @default_languages
     end
   end
 
@@ -507,7 +507,7 @@ defmodule PhoenixKit.Modules.Languages do
   end
 
   @doc """
-  Gets the 12 default popular languages for admin panel display.
+  Gets the default popular languages for admin panel display.
 
   Returns a list of the most commonly used language codes that should
   be available in the admin panel language selector.
@@ -518,7 +518,7 @@ defmodule PhoenixKit.Modules.Languages do
       ["en-US", "es-ES", "fr-FR", "de-DE", "pt-BR", "it", "nl", "ru", "ja", "ko", "zh", "ar", "et"]
   """
   def get_default_language_codes do
-    @top_10_languages
+    @default_languages
     |> Enum.map(& &1.code)
   end
 

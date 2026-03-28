@@ -2322,8 +2322,10 @@ defmodule PhoenixKit.Users.Auth do
 
   # Delete shop carts for a user (uses user_uuid for safety)
   defp delete_user_shop_carts(user_uuid) do
-    from(c in PhoenixKit.Modules.Shop.Cart, where: c.user_uuid == ^user_uuid)
-    |> Repo.repo().delete_all()
+    if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Cart) do
+      from(c in PhoenixKit.Modules.Shop.Cart, where: c.user_uuid == ^user_uuid)
+      |> Repo.repo().delete_all()
+    end
   end
 
   # Delete admin notes for a user (uses user_uuid for safety)

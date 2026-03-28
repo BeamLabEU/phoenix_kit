@@ -937,9 +937,10 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp handle_module_refresh(_msg, socket), do: {:cont, socket}
 
   # Auto-apply admin layout for external plugin LiveViews.
-  # Core views (PhoenixKitWeb.* and PhoenixKit.Modules.*) handle layout
-  # via LayoutWrapper in their templates. External plugin views need it applied
-  # at the session level so plugin authors don't need to wrap anything.
+  # Core views (PhoenixKitWeb.* and PhoenixKit.Modules.* bundled in :phoenix_kit)
+  # handle layout via LayoutWrapper in their templates. External plugin views
+  # (from extracted packages like :phoenix_kit_ecommerce, or parent app views)
+  # need it applied at the session level so plugin authors don't need to wrap anything.
   defp maybe_apply_plugin_layout(socket) do
     view = socket.view
 
@@ -952,11 +953,27 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp external_plugin_view?(view) do
     case Module.split(view) do
-      ["PhoenixKitWeb" | _] -> false
-      # Extracted packages keep PhoenixKit.Modules.*.Web namespace — treat as external
-      ["PhoenixKit", "Modules", _, "Web" | _] -> true
-      ["PhoenixKit" | _] -> false
-      _ -> true
+      ["PhoenixKitWeb" | _] ->
+        false
+
+      ["PhoenixKit", "Modules", _, "Web" | _] ->
+        # Only treat as external if the module comes from a separate package.
+        # Core modules bundled in :phoenix_kit handle their own layout via
+        # LayoutWrapper.app_layout in their templates.
+        not core_phoenix_kit_module?(view)
+
+      ["PhoenixKit" | _] ->
+        false
+
+      _ ->
+        true
+    end
+  end
+
+  defp core_phoenix_kit_module?(view) do
+    case :application.get_application(view) do
+      {:ok, :phoenix_kit} -> true
+      _ -> false
     end
   end
 

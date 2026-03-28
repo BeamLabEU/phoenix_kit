@@ -238,8 +238,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
     case Settings.update_boolean_setting("sitemap_schedule_enabled", !current) do
       {:ok, _} ->
-        unless current == false do
+        if current do
           SchedulerWorker.cancel_scheduled()
+        else
+          SchedulerWorker.schedule()
         end
 
         config = Sitemap.get_config()

@@ -128,7 +128,7 @@ GitHub Actions on push to `main`, `dev`, `claude/**` and all PRs. Checks: format
 
 ### Commit Message Rules
 
-Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`. **NEVER mention Claude or AI assistance** in commit messages.
+Start with action verbs: `Add`, `Update`, `Fix`, `Remove`, `Merge`.
 
 ### Version Management
 
@@ -146,7 +146,7 @@ Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix t
 
 ### PR Reviews
 
-PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GPT_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
+PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
 
 ### Publishing commands
 

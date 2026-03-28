@@ -52,7 +52,6 @@ generate_commit() {
     - Start with action verb: Add, Update, Fix, Remove, Merge
     - Be specific about what changed
     - Keep it under 50 characters
-    - Don't mention AI/Claude/assistance
 
     Git diff:
     $git_diff
