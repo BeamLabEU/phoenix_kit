@@ -9,7 +9,6 @@ defmodule PhoenixKitWeb.AssetsController do
   use PhoenixKitWeb, :controller
 
   @valid_assets %{
-    "phoenix_kit_consent.js" => {"application/javascript", "phoenix_kit_consent.js"},
     "phoenix_kit_daisyui5.js" => {"application/javascript", "phoenix_kit_daisyui5.js"},
     "phoenix_kit_daisyui5.css" => {"text/css", "phoenix_kit_daisyui5.css"}
   }
@@ -18,7 +17,6 @@ defmodule PhoenixKitWeb.AssetsController do
   Serves PhoenixKit's static JS/CSS files.
 
   Available assets:
-  - phoenix_kit_consent.js - Cookie consent widget script
   - phoenix_kit_daisyui5.js - DaisyUI 5 theme controller
   - phoenix_kit_daisyui5.css - DaisyUI 5 styles
   """

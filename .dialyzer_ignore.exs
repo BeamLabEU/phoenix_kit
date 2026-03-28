@@ -32,14 +32,9 @@
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
-  # Legal module - dynamic dispatch to Publishing module
-  # Dialyzer can't infer types through publishing_module() helper
-  ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match/,
-
-  # ConsentLog schema - changeset type spec with empty struct
-  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*invalid_contract/,
-  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*no_return/,
-  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*call/,
+  # Legal module (extracted to phoenix_kit_legal) — conditional component calls
+  {"lib/phoenix_kit_web/components/layout_wrapper.ex", :unknown_function},
+  {"lib/phoenix_kit_web/components/layouts/root.html.heex", :unknown_function},
 
   # Pages module - type inference false positives
   ~r/lib\/modules\/pages\/listing_cache\.ex:.*pattern_match/,

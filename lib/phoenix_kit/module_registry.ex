@@ -404,7 +404,6 @@ defmodule PhoenixKit.ModuleRegistry do
       PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
       PhoenixKit.Modules.Languages,
-      PhoenixKit.Modules.Legal,
       PhoenixKit.Modules.Maintenance,
       PhoenixKit.Modules.Pages,
       PhoenixKit.Modules.Referrals,
