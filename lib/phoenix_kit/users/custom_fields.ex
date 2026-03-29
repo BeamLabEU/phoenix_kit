@@ -401,6 +401,18 @@ defmodule PhoenixKit.Users.CustomFields do
 
   # Private Helpers
 
+  defp parse_position(nil), do: 0
+  defp parse_position(pos) when is_integer(pos), do: pos
+
+  defp parse_position(pos) when is_binary(pos) do
+    case Integer.parse(pos) do
+      {n, _} -> n
+      :error -> 0
+    end
+  end
+
+  defp parse_position(_), do: 0
+
   defp parse_definitions(json_string) do
     case Jason.decode(json_string) do
       {:ok, definitions} when is_list(definitions) -> definitions
@@ -519,7 +531,7 @@ defmodule PhoenixKit.Users.CustomFields do
     if new_keys != [] do
       next_position =
         definitions
-        |> Enum.map(&(&1["position"] || 0))
+        |> Enum.map(&parse_position(&1["position"]))
         |> Enum.max(fn -> 0 end)
         |> Kernel.+(1)
 

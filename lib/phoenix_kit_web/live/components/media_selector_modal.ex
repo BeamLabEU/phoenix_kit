@@ -62,6 +62,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       socket
       |> assign(assigns)
       |> assign(:has_buckets, has_buckets)
+      |> assign_new(:user_uuid, fn -> nil end)
       |> assign_new(:file_type_filter, fn -> :all end)
       |> assign_new(:search_query, fn -> "" end)
       |> assign_new(:current_page, fn -> 1 end)
@@ -345,6 +346,13 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     search = socket.assigns.search_query
 
     query = from(f in File, order_by: [desc: f.inserted_at])
+
+    query =
+      if socket.assigns[:user_uuid] do
+        where(query, [f], f.user_uuid == ^socket.assigns.user_uuid)
+      else
+        query
+      end
 
     query =
       case filter do

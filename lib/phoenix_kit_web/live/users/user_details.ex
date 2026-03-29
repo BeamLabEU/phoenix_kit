@@ -10,8 +10,9 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  @compile {:no_warn_undefined, PhoenixKitUserConnections}
+
   alias PhoenixKit.Admin.Events
-  alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.AdminNote
   alias PhoenixKit.Users.Auth
@@ -37,20 +38,20 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
         custom_field_definitions = CustomFields.list_field_definitions()
 
-        # Load connections stats if module is enabled
-        connections_enabled = Connections.enabled?()
-
-        connections_stats =
-          if connections_enabled do
-            %{
-              followers: Connections.followers_count(user),
-              following: Connections.following_count(user),
-              connections: Connections.connections_count(user),
-              pending: Connections.pending_requests_count(user),
-              blocked: length(Connections.list_blocked(user))
-            }
+        # Load connections stats if module is available and enabled
+        {connections_enabled, connections_stats} =
+          if Code.ensure_loaded?(PhoenixKitUserConnections) and
+               PhoenixKitUserConnections.enabled?() do
+            {true,
+             %{
+               followers: PhoenixKitUserConnections.followers_count(user),
+               following: PhoenixKitUserConnections.following_count(user),
+               connections: PhoenixKitUserConnections.connections_count(user),
+               pending: PhoenixKitUserConnections.pending_requests_count(user),
+               blocked: length(PhoenixKitUserConnections.list_blocked(user))
+             }}
           else
-            nil
+            {false, nil}
           end
 
         # Load admin notes
