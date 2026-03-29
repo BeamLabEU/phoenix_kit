@@ -35,7 +35,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
   require Logger
 
-  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
