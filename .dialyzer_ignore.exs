@@ -32,6 +32,9 @@
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
+  # Connections module (extracted to phoenix_kit_user_connections) — conditional calls via Code.ensure_loaded?
+  {"lib/phoenix_kit_web/live/users/user_details.ex", :unknown_function},
+
   # Legal module (extracted to phoenix_kit_legal) — conditional component calls
   {"lib/phoenix_kit_web/components/layout_wrapper.ex", :unknown_function},
   {"lib/phoenix_kit_web/components/layouts/root.html.heex", :unknown_function},
