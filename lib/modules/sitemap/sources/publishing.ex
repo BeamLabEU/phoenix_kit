@@ -158,7 +158,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
       UrlEntry.new(%{
         loc: url,
-        lastmod: latest_post_date(slug, language),
+        lastmod: nil,
         changefreq: "daily",
         priority: 0.7,
         title: name,
@@ -382,20 +382,6 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       %{slug: slug} when is_binary(slug) -> format_slug(slug)
       _ -> "Post"
     end
-  end
-
-  # Latest lastmod among published posts in a group (for group listing pages)
-  defp latest_post_date(group_slug, language) do
-    post_language = language || get_default_language()
-
-    Publishing.list_posts(group_slug, post_language)
-    |> Enum.filter(&published?/1)
-    |> Enum.reject(&excluded?/1)
-    |> Enum.map(&get_post_lastmod/1)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.max(Date, fn -> nil end)
-  rescue
-    _ -> nil
   end
 
   defp get_post_lastmod(post) do
