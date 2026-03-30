@@ -28,6 +28,10 @@ defmodule PhoenixKit.Modules.Referrals.Web.Settings do
     {:ok, socket}
   end
 
+  def handle_params(_params, uri, socket) do
+    {:noreply, assign(socket, :url_path, URI.parse(uri).path)}
+  end
+
   def handle_event("toggle_referral_codes_required", _params, socket) do
     # Since we're sending "toggle", we just flip the current state
     new_required = !socket.assigns.referral_codes_required

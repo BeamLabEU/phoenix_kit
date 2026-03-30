@@ -1,3 +1,15 @@
+## 1.7.86 - 2026-03-30
+
+### Changed
+- Update Shop module references from `PhoenixKit.Modules.Shop` to `PhoenixKitEcommerce` namespace
+- Update Billing module references from `PhoenixKit.Modules.Billing` to `PhoenixKitBilling` namespace
+- Restore LayoutWrapper in core module templates (not auto-applied to bundled modules)
+- Document `extra_applications` requirement for external module auto-discovery
+
+### Fixed
+- Fix missing `url_path` assign in referrals LiveViews causing runtime crash after LayoutWrapper restoration
+- Fix media selector modal mobile responsiveness (header overflow, button sizing, padding)
+
 ## 1.7.85 - 2026-03-30
 
 ### Added

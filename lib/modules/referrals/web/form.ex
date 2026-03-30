@@ -34,6 +34,10 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     {:ok, socket}
   end
 
+  def handle_params(_params, uri, socket) do
+    {:noreply, assign(socket, :url_path, URI.parse(uri).path)}
+  end
+
   def handle_event("validate_code", params, socket) do
     # Extract referrals params (matches form name from changeset)
     code_params = Map.get(params, "referrals", %{})
