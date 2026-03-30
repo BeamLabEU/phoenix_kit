@@ -170,6 +170,18 @@ Built-in Dashboard Features
 
 ## Guidelines
 
+### External Module Auto-Discovery
+
+When extracting modules to standalone packages, the package's `mix.exs` **must** include `:phoenix_kit` in `extra_applications`:
+
+```elixir
+def application do
+  [extra_applications: [:logger, :phoenix_kit]]
+end
+```
+
+Without this, `PhoenixKit.ModuleDiscovery` won't find the module and routes will return 404. See `phoenix_kit_hello_world` for the template.
+
 ### PhoenixKit Layout Guidelines
 
 PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
