@@ -1,5 +1,5 @@
 defmodule PhoenixKit.Utils.CountryData do
-  @compile {:no_warn_undefined, PhoenixKit.Modules.Billing.IbanData}
+  @compile {:no_warn_undefined, PhoenixKitBilling.IbanData}
   @moduledoc """
   Wrapper for BeamLabCountries with country data utility functions.
 
@@ -31,8 +31,8 @@ defmodule PhoenixKit.Utils.CountryData do
       # "123 Business Street\\nTallinn 10115\\nEstonia"
   """
 
-  alias PhoenixKit.Modules.Billing.IbanData
   alias PhoenixKit.Settings
+  alias PhoenixKitBilling.IbanData
 
   @doc """
   Get all countries sorted by name.

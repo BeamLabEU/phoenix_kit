@@ -1,6 +1,5 @@
 defmodule PhoenixKitWeb.Users.Auth do
-  @compile {:no_warn_undefined,
-            [PhoenixKit.Modules.Shop, PhoenixKitWeb.Live.Modules.Legal.Settings]}
+  @compile {:no_warn_undefined, [PhoenixKitEcommerce, PhoenixKitWeb.Live.Modules.Legal.Settings]}
   @moduledoc """
   Authentication and authorization plugs for PhoenixKit user management.
 
@@ -107,14 +106,14 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp maybe_merge_guest_cart(conn, user) do
-    if Code.ensure_loaded?(PhoenixKit.Modules.Shop) do
+    if Code.ensure_loaded?(PhoenixKitEcommerce) do
       shop_session_id =
         conn.cookies["shop_session_id"] || get_session(conn, :shop_session_id)
 
       if shop_session_id do
         try do
           # credo:disable-for-next-line Credo.Check.Design.AliasUsage
-          PhoenixKit.Modules.Shop.merge_guest_cart(shop_session_id, user)
+          PhoenixKitEcommerce.merge_guest_cart(shop_session_id, user)
         rescue
           _ -> :ok
         end
