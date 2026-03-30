@@ -9,7 +9,7 @@
   phx-target={@myself}
 >
   <%!-- Modal Container --%>
-  <div class="min-h-screen px-4 py-6 flex items-center justify-center">
+  <div class="min-h-screen px-2 py-2 sm:px-4 sm:py-6 flex items-center justify-center">
     <%!-- Modal Content (click inside shouldn't close) --%>
     <div
       class="bg-base-100 rounded-lg shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col"
@@ -17,48 +17,58 @@
       phx-target={@myself}
     >
       <%!-- Header with Actions --%>
-      <header class="border-b border-base-200 px-6 py-4">
-        <div class="flex justify-between items-center">
-          <div>
-            <h2 class="text-2xl font-bold text-base-content">
-              Select Media
-            </h2>
-            <p class="text-base-content/70 text-sm mt-1">
-              <%= if @mode == :single do %>
-                Click on an image to select it
-              <% else %>
-                Select one or more images
-              <% end %>
-              <%= if MapSet.size(@selected_uuids) > 0 do %>
-                <span class="badge badge-primary ml-2">
-                  {MapSet.size(@selected_uuids)} selected
-                </span>
-              <% end %>
-            </p>
-          </div>
-          <div class="flex gap-2">
+      <header class="border-b border-base-200 px-3 py-3 sm:px-6 sm:py-4">
+        <div class="flex flex-col gap-3">
+          <div class="flex justify-between items-start">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-bold text-base-content">
+                Select Media
+              </h2>
+              <p class="text-base-content/70 text-sm mt-1">
+                <%= if @mode == :single do %>
+                  Click on an image to select it
+                <% else %>
+                  Select one or more images
+                <% end %>
+                <%= if MapSet.size(@selected_uuids) > 0 do %>
+                  <span class="badge badge-primary ml-2">
+                    {MapSet.size(@selected_uuids)} selected
+                  </span>
+                <% end %>
+              </p>
+            </div>
             <button
               type="button"
               phx-click="close_modal"
               phx-target={@myself}
-              class="btn btn-outline btn-sm"
+              class="btn btn-ghost btn-sm btn-square"
             >
-              <.icon name="hero-x-mark" class="w-4 h-4 mr-1" /> Cancel
+              <.icon name="hero-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+          <div class="flex gap-2 sm:justify-end">
+            <button
+              type="button"
+              phx-click="close_modal"
+              phx-target={@myself}
+              class="btn btn-outline btn-sm flex-1 sm:flex-none"
+            >
+              Cancel
             </button>
             <button
               type="button"
               phx-click="confirm_selection"
               phx-target={@myself}
-              class="btn btn-primary btn-sm"
+              class="btn btn-primary btn-sm flex-1 sm:flex-none"
               disabled={MapSet.size(@selected_uuids) == 0}
             >
-              <.icon name="hero-check" class="w-4 h-4 mr-1" /> Confirm Selection
+              <.icon name="hero-check" class="w-4 h-4" /> Confirm
             </button>
           </div>
         </div>
       </header>
       <%!-- Scrollable Content Area --%>
-      <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <div class="flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4 space-y-4">
         <%!-- No Buckets Warning --%>
         <%= if !@has_buckets do %>
           <div class="alert alert-warning">
@@ -91,7 +101,7 @@
                 <%!-- Drag and Drop Zone --%>
                 <div
                   class={[
-                    "border-2 border-dashed border-base-300 rounded-lg p-6 text-center transition-colors",
+                    "border-2 border-dashed border-base-300 rounded-lg p-3 sm:p-6 text-center transition-colors",
                     "cursor-pointer hover:border-primary hover:bg-primary/5"
                   ]}
                   phx-drop-target={@uploads.media_files.ref}
