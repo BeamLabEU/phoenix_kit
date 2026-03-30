@@ -233,3 +233,15 @@ url = Routes.url("/users/confirm/#{token}")
 
 Features: versioned migrations, database tables prefix support, idempotent operations, PostgreSQL validation, production mailer templates.
 
+### External module route discovery
+
+Routes from external PhoenixKit modules (e.g., `phoenix_kit_entities`) are auto-discovered at compile time via `ModuleDiscovery` beam scanning. The host router automatically recompiles when module deps are added or removed — the `phoenix_kit_routes()` macro injects `__mix_recompile__?/0` into the host router with a hash of the discovered module set.
+
+No manual config is needed. If auto-discovery fails, register route modules explicitly as a fallback:
+
+```elixir
+# config/config.exs
+config :phoenix_kit,
+  route_modules: [PhoenixKitEntities.Routes]
+```
+
