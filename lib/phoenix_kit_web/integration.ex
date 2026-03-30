@@ -559,20 +559,20 @@ defmodule PhoenixKitWeb.Integration do
       end
 
     billing_user_routes =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Billing.Web.UserBillingProfiles) do
+      if Code.ensure_loaded?(PhoenixKitBilling.Web.UserBillingProfiles) do
         quote do
           live "/dashboard/billing-profiles",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+               PhoenixKitBilling.Web.UserBillingProfiles,
                :index,
                as: :billing_user_profiles
 
           live "/dashboard/billing-profiles/new",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               PhoenixKitBilling.Web.UserBillingProfileForm,
                :new,
                as: :billing_user_profile_new
 
           live "/dashboard/billing-profiles/:uuid/edit",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               PhoenixKitBilling.Web.UserBillingProfileForm,
                :edit,
                as: :billing_user_profile_edit
         end
@@ -619,20 +619,20 @@ defmodule PhoenixKitWeb.Integration do
       end
 
     billing_user_locale_routes =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Billing.Web.UserBillingProfiles) do
+      if Code.ensure_loaded?(PhoenixKitBilling.Web.UserBillingProfiles) do
         quote do
           live "/dashboard/billing-profiles",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+               PhoenixKitBilling.Web.UserBillingProfiles,
                :index,
                as: :billing_user_profiles_locale
 
           live "/dashboard/billing-profiles/new",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               PhoenixKitBilling.Web.UserBillingProfileForm,
                :new,
                as: :billing_user_profile_new_locale
 
           live "/dashboard/billing-profiles/:uuid/edit",
-               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               PhoenixKitBilling.Web.UserBillingProfileForm,
                :edit,
                as: :billing_user_profile_edit_locale
         end
