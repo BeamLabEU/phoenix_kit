@@ -1149,7 +1149,20 @@ defmodule PhoenixKitWeb.Integration do
     # Auto-discovered public routes from external PhoenixKit modules
     module_public_routes = compile_module_public_routes(url_prefix)
 
+    # Snapshot discovered modules so the host router auto-recompiles when deps change
+    current_hash = PhoenixKit.ModuleDiscovery.module_hash()
+    mix_lock_path = Path.expand("mix.lock")
+
     quote do
+      # Recompile router when deps change (mix.lock is updated by mix deps.get)
+      @external_resource unquote(mix_lock_path)
+
+      # Precise check: only actually recompile if the set of PhoenixKit modules changed
+      @doc false
+      def __mix_recompile__? do
+        unquote(current_hash) != PhoenixKit.ModuleDiscovery.module_hash()
+      end
+
       # Generate pipeline definitions
       unquote(generate_pipelines())
 
